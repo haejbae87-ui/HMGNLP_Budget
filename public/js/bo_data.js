@@ -33,7 +33,7 @@ const BO_PERSONAS = {
   // ※ HMC 내 일반예산·R&D예산은 계정 소유권 기반으로 완전 격리
   //   → isolationGroup이 다른 페르소나끼리는 서로의 계획/집행/조직 데이터 접근 불가
   hmc_total_general: {
-    id: 'P101', name: '신승남', dept: '피플육성팀', pos: '매니저',
+    id: 'P101', name: '신O남', dept: '피플육성팀', pos: '매니저',
     role: 'total_general', roleLabel: '일반예산 총괄',
     roleClass: 'role-total', roleTag: '[총]',
     budgetGroup: 'general', tenantId: 'HMC',
@@ -44,7 +44,7 @@ const BO_PERSONAS = {
     accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
   hmc_hq_general: {
-    id: 'P102', name: '이채현', dept: 'HMG경영연구원', pos: '매니저',
+    id: 'P102', name: '이O현', dept: 'HMG경영연구원', pos: '매니저',
     role: 'hq_general', roleLabel: '일반예산 본부',
     roleClass: 'role-hq', roleTag: '[본]',
     budgetGroup: 'general', tenantId: 'HMC',
@@ -57,7 +57,7 @@ const BO_PERSONAS = {
     accessMenus: ['dashboard', 'allocation', 'my-operations', 'reports']
   },
   hmc_total_rnd: {
-    id: 'P103', name: '류해령', dept: '연구개발성장지원팀', pos: '책임',
+    id: 'P103', name: '류O령', dept: '연구개발성장지원팀', pos: '책임',
     role: 'total_rnd', roleLabel: 'R&D예산 총괄',
     roleClass: 'role-rnd', roleTag: '[R&D총]',
     budgetGroup: 'rnd', tenantId: 'HMC',
@@ -68,7 +68,7 @@ const BO_PERSONAS = {
     accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
   hmc_center_rnd: {
-    id: 'P104', name: '이상하', dept: '모빌리티기술센터', pos: '책임',
+    id: 'P104', name: '이O하', dept: '모빌리티기술센터', pos: '책임',
     role: 'center_rnd', roleLabel: 'R&D예산 센터',
     roleClass: 'role-center', roleTag: '[R&D센터]',
     budgetGroup: 'rnd', tenantId: 'HMC',
@@ -83,7 +83,7 @@ const BO_PERSONAS = {
 
   // ── [기아 KIA] ────────────────────────────────────────────────────────────
   kia_total_general: {
-    id: 'P201', name: '고범현', dept: 'HRD솔루션팀', pos: '매니저',
+    id: 'P201', name: '고O현', dept: 'HRD솔루션팀', pos: '매니저',
     role: 'total_general', roleLabel: '일반예산 총괄',
     roleClass: 'role-total', roleTag: '[총]',
     budgetGroup: 'general', tenantId: 'KIA',
@@ -93,7 +93,7 @@ const BO_PERSONAS = {
     accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
   kia_hq_general: {
-    id: 'P202', name: '장성범', dept: 'Autoland교육팀', pos: '책임',
+    id: 'P202', name: '장O범', dept: 'Autoland교육팀', pos: '책임',
     role: 'hq_general', roleLabel: '일반예산 본부',
     roleClass: 'role-hq', roleTag: '[본]',
     budgetGroup: 'general', tenantId: 'KIA',
@@ -107,7 +107,7 @@ const BO_PERSONAS = {
 
   // ── [현대오토에버 HAE] ────────────────────────────────────────────────────
   hae_total: {
-    id: 'P301', name: '안슬기', dept: '인재성장문화팀', pos: '책임',
+    id: 'P301', name: '안O기', dept: '인재성장문화팀', pos: '책임',
     role: 'total_general', roleLabel: '예산 총괄',
     roleClass: 'role-total', roleTag: '[총]',
     budgetGroup: 'general', tenantId: 'HAE',
@@ -119,7 +119,7 @@ const BO_PERSONAS = {
     accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
   hae_dept: {
-    id: 'P302', name: '김하늘', dept: 'PM서비스팀', pos: '책임',
+    id: 'P302', name: '김O늘', dept: 'PM서비스팀', pos: '책임',
     role: 'hq_general', roleLabel: '솔루션사업부 담당자',
     roleClass: 'role-hq', roleTag: '[본]',
     budgetGroup: 'general', tenantId: 'HAE',
@@ -134,7 +134,7 @@ const BO_PERSONAS = {
 
   // ── [프론트/학습자 — LXP 전용] ───────────────────────────────────────────
   hmc_team_mgr: {
-    id: 'P401', name: '조인성', dept: '역량혁신팀', pos: '책임',
+    id: 'P401', name: '조O성', dept: '역량혁신팀', pos: '책임',
     role: 'team_general', roleLabel: '팀 담당자 (LXP)',
     roleClass: 'role-team', roleTag: '[팀]',
     budgetGroup: 'general', tenantId: 'HMC',
@@ -142,7 +142,7 @@ const BO_PERSONAS = {
     accessMenus: ['dashboard', 'plan-mgmt', 'allocation']
   },
   hmc_learner: {
-    id: 'P402', name: '이상봉', dept: '내구기술팀', pos: '책임',
+    id: 'P402', name: '이O봉', dept: '내구기술팀', pos: '책임',
     role: 'learner', roleLabel: '일반 학습자 (LXP)',
     roleClass: 'role-team', roleTag: '[학습자]',
     budgetGroup: 'general', tenantId: 'HMC',

@@ -4,7 +4,7 @@
 const PERSONAS = {
   // ── 현대자동차 (HMC) ──────────────────────────────────────────────────────
   hmc_team_mgr: {
-    id: 'P401', name: '조인성', dept: '역량혁신팀', pos: '책임',
+    id: 'P401', name: '조O성', dept: '역량혁신팀', pos: '책임',
     type: 'HMC_TeamMgr', typeLabel: 'HMC 팀담당자·실무자',
     company: '현대자동차', tenantId: 'HMC',
     role: 'team_general',
@@ -18,7 +18,7 @@ const PERSONAS = {
     ]
   },
   hmc_learner: {
-    id: 'P402', name: '이상봉', dept: '내구기술팀', pos: '책임',
+    id: 'P402', name: '이O봉', dept: '내구기술팀', pos: '책임',
     type: 'HMC_Learner', typeLabel: 'HMC 학습자·연구원',
     company: '현대자동차', tenantId: 'HMC',
     role: 'learner',
@@ -34,7 +34,7 @@ const PERSONAS = {
 
   // ── 기아 (KIA) ────────────────────────────────────────────────────────────
   kia_learner: {
-    id: 'P203', name: '강동우', dept: '개인정보보호팀', pos: '책임',
+    id: 'P203', name: '강O우', dept: '개인정보보호팀', pos: '책임',
     type: 'KIA_Learner', typeLabel: 'KIA 학습자',
     company: '기아', tenantId: 'KIA',
     role: 'learner',
@@ -49,7 +49,7 @@ const PERSONAS = {
 
   // ── 현대오토에버 (HAE) ────────────────────────────────────────────────────
   hae_learner: {
-    id: 'P303', name: '남영우', dept: 'PM서비스팀', pos: '책임',
+    id: 'P303', name: '남O우', dept: 'PM서비스팀', pos: '책임',
     type: 'HAE_Learner', typeLabel: 'HAE 학습자 (솔루션사업부)',
     company: '현대오토에버', tenantId: 'HAE',
     role: 'learner',

@@ -12,7 +12,7 @@ function renderGNB() {
   const LXP_GROUPS = [
     { label: 'HMC', color: '#002C5F', keys: ['hmc_team_mgr', 'hmc_learner'] },
     { label: 'KIA', color: '#059669', keys: ['kia_learner'] },
-    { label: 'HAE', color: '#7C3AED', keys: ['hae_learner'] },
+    { label: 'HAE', color: '#7C3AED', keys: ['hae_learner', 'hae_learner2'] },
   ];
 
   const switcherGroups = LXP_GROUPS.map(g => {

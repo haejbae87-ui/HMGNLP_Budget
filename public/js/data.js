@@ -63,7 +63,24 @@ const PERSONAS = {
       { id: 'b_hae02', name: 'PM서비스팀 자격증계정', account: '자격증', balance: 2000000, used: 0 }
     ]
   },
+
+  hae_learner2: {
+    id: 'P304', name: '이O준', dept: 'L&D플랫폼팀', pos: '책임',
+    type: 'HAE_Learner', typeLabel: 'HAE 학습자 (L&D플랫폼팀)',
+    company: '현대오토에버', tenantId: 'HAE',
+    role: 'learner',
+    allowedAccounts: ['HAE-OPS', 'HAE-PART', 'HAE-CERT', 'COMMON-FREE'],
+    isolationGroup: 'HAE-ALL',
+    process: 'plan-apply-result',   // 고정 프로세스만 허용
+    desc: 'L&D플랫폼팀 학습자. 플랫폼 운영·기획 관련 교육 및 개인직무 사외학습 프로세스 수행. 운영·참가·자격증 전 계정 활용 가능.',
+    budgets: [
+      { id: 'b_hae03', name: 'L&D플랫폼팀 운영계정', account: '운영', balance: 6000000, used: 1200000 },
+      { id: 'b_hae04', name: 'L&D플랫폼팀 참가계정', account: '참가', balance: 3000000, used: 400000 },
+      { id: 'b_hae05', name: 'L&D플랫폼팀 자격증계정', account: '자격증', balance: 1500000, used: 0 }
+    ]
+  },
 };
+
 
 const MOCK_HISTORY = [
   { id: 'H001', title: 'AWS 클라우드 아키텍처 전문가 과정', type: '사외교육', category: 'edu_offline', date: '2026-02-10', endDate: '2026-02-12', hours: 24, amount: 1500000, status: '완료', budget: '참가' },

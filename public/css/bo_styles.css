@@ -210,6 +210,7 @@ body {
 .role-rnd      { background: #D97706; color: #fff; }
 .role-center   { background: #7C3AED; color: #fff; }
 .role-platform { background: #F59E0B; color: #fff; }
+.role-tenant   { background: #D97706; color: #fff; }
 
 /* ── Misc ── */
 .bo-page-title { font-size: 22px; font-weight: 900; color: var(--brand); letter-spacing: -0.5px; }

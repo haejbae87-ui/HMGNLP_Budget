@@ -130,7 +130,7 @@ const BO_PERSONAS = {
     allowedAccounts: ['KIA-OPS', 'KIA-PART'],
     isolationGroup: 'KIA-GENERAL',
     accessMenus: ['dashboard', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
-  }
+  },
   kia_hq_general: {
     id: 'P202', name: '장O범', dept: 'Autoland교육팀', pos: '책임',
     role: 'budget_op_manager', roleLabel: '예산 운영 (Autoland)',
@@ -164,7 +164,7 @@ const BO_PERSONAS = {
     allowedAccounts: ['HAE-OPS', 'HAE-PART', 'HAE-CERT'],
     isolationGroup: 'HAE-ALL',
     accessMenus: ['dashboard', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
-  }
+  },
   hae_dept: {
     id: 'P302', name: '김O늘', dept: 'PM서비스팀', pos: '책임',
     role: 'budget_op_manager', roleLabel: '예산 운영 (솔루션사업부)',

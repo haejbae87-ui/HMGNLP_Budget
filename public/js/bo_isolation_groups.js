@@ -540,3 +540,32 @@ function _igRemoveOpManager(groupId, opKey) {
   }
   renderIsolationGroups();
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// renderMyIsolationGroups: 예산 총괄 전용 진입점
+//   역할: 내 격리 그룹 어lambda> 운영 담당자 관리 (테넌트 총괄 기능 제외)
+// ══════════════════════════════════════════════════════════════════════════════
+function renderMyIsolationGroups() {
+  const persona = boCurrentPersona;
+  const el = document.getElementById('bo-content');
+  const personaKey = Object.keys(BO_PERSONAS).find(k => BO_PERSONAS[k] === persona) || '';
+
+  const canAccess = persona.role === 'budget_global_admin' ||
+                    persona.dualRole === 'budget_global_admin';
+
+  if (!canAccess) {
+    el.innerHTML = '<div style="padding:60px;text-align:center;color:#9CA3AF">이 페이지에 대한 접근 권한이 없습니다.</div>';
+    return;
+  }
+
+  el.innerHTML = `
+<div class="bo-fade">
+  <div style="margin-bottom:20px">
+    <h1 class="bo-page-title">🔒 내 격리 그룹 관리</h1>
+    <p class="bo-page-sub">내가 총괄하는 격리 그룹의 운영 담당자를 등록하고, 가상조직 노드에 배정합니다.</p>
+  </div>
+  ${_renderBudgetAdminSection(persona, personaKey)}
+</div>`;
+
+  if (_igAddOpModal) el.innerHTML += _renderAddOpManagerModal(persona, personaKey);
+}

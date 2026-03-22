@@ -70,7 +70,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC'],
     allowedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC'],
     isolationGroup: 'HMC-GENERAL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
   hmc_hq_general: {
     id: 'P102', name: '이O현', dept: 'HMG경영연구원', pos: '매니저',
@@ -95,7 +95,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HMC-RND'],
     allowedAccounts: ['HMC-RND'],
     isolationGroup: 'HMC-RND',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
   hmc_center_rnd: {
     id: 'P104', name: '이O하', dept: '모빌리티기술센터', pos: '책임',
@@ -123,7 +123,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['KIA-OPS', 'KIA-PART'],
     allowedAccounts: ['KIA-OPS', 'KIA-PART'],
     isolationGroup: 'KIA-GENERAL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
   kia_hq_general: {
     id: 'P202', name: '장O범', dept: 'Autoland교육팀', pos: '책임',
@@ -152,7 +152,7 @@ const BO_PERSONAS = {
     allowedAccounts: ['HAE-OPS', 'HAE-PART', 'HAE-CERT'],
     isolationGroup: 'HAE-ALL',
     canAssignOwnership: true,
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
   hae_dept: {
     id: 'P302', name: '김O늘', dept: 'PM서비스팀', pos: '책임',
@@ -180,7 +180,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['ROTEM-OPS', 'ROTEM-PART'],
     allowedAccounts: ['ROTEM-OPS', 'ROTEM-PART'],
     isolationGroup: 'ROTEM-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
   // ── [현대엔지니어링 HEC] ─────────────────────────────────
@@ -194,7 +194,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HEC-OPS', 'HEC-PART'],
     allowedAccounts: ['HEC-OPS', 'HEC-PART'],
     isolationGroup: 'HEC-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
   // ── [현대제슠 HSC] ──────────────────────────────────────
@@ -208,7 +208,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HSC-OPS', 'HSC-PART'],
     allowedAccounts: ['HSC-OPS', 'HSC-PART'],
     isolationGroup: 'HSC-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
   // ── [현대트랜시스 HTS] ─────────────────────────────────
@@ -222,7 +222,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HTS-OPS', 'HTS-PART'],
     allowedAccounts: ['HTS-OPS', 'HTS-PART'],
     isolationGroup: 'HTS-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
   // ── [현대글로비스 GLOVIS] ──────────────────────────────
@@ -236,7 +236,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['GLOVIS-OPS', 'GLOVIS-PART'],
     allowedAccounts: ['GLOVIS-OPS', 'GLOVIS-PART'],
     isolationGroup: 'GLOVIS-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
   // ── [현대차증권 HIS] ───────────────────────────────────
@@ -250,7 +250,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HIS-OPS', 'HIS-PART'],
     allowedAccounts: ['HIS-OPS', 'HIS-PART'],
     isolationGroup: 'HIS-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
   // ── [현대케피코 KEFICO] ────────────────────────────────
@@ -264,7 +264,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['KEFICO-OPS', 'KEFICO-PART'],
     allowedAccounts: ['KEFICO-OPS', 'KEFICO-PART'],
     isolationGroup: 'KEFICO-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
   // ── [현대ISC HISC] ──────────────────────────────────────
@@ -278,7 +278,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HISC-OPS', 'HISC-PART'],
     allowedAccounts: ['HISC-OPS', 'HISC-PART'],
     isolationGroup: 'HISC-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
   // ── [프론트/학습자 — LXP 전용] ───────────────────────────────────────────

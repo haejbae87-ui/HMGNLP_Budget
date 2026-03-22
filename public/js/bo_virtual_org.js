@@ -332,16 +332,37 @@ function voOpenEditGroup(groupIdx) {
 function _voPopulateManagerDropdown(selectedKey) {
   const sel = document.getElementById('vo-group-manager-key');
   if (!sel) return;
-  const candidates = Object.entries(BO_PERSONAS)
-    .filter(([k,p]) => p.tenantId === boCurrentPersona.tenantId);
-  sel.innerHTML = '<option value="">— 담당자 미지정 —</option>';
-  candidates.forEach(([k,p]) => {
+  const persona = boCurrentPersona;
+  const personaKey = Object.keys(BO_PERSONAS).find(k => BO_PERSONAS[k] === persona) || '';
+
+  // 현재 예산 총괄의 격리 그룹에서 등록된 운영 담당자만 추출
+  const myGroup = typeof ISOLATION_GROUPS !== 'undefined'
+    ? ISOLATION_GROUPS.find(g => g.tenantId === persona.tenantId && g.globalAdminKey === personaKey)
+    : null;
+  const opManagerKeys = myGroup ? myGroup.opManagerKeys : [];
+
+  sel.innerHTML = "<option value=''>\u2014 \ub2f4\ub2f9\uc790 \ubbf8\uc9c0\uc815 \u2014</option>";
+
+  if (opManagerKeys.length === 0) {
+    // 안내 옵션
     const opt = document.createElement('option');
-    opt.value = k;
-    opt.textContent = `${p.name} (${p.dept} · ${p.roleLabel})`;
-    if (k === selectedKey) opt.selected = true;
+    opt.value = '';
+    opt.disabled = true;
+    opt.textContent = '\u203b \uaca9\ub9ac \uadf8\ub8f9 \uad00\ub9ac\uc5d0\uc11c \uc6b4\uc601 \ub2f4\ub2f9\uc790\ub97c \uba3c\uc800 \ub4f1\ub85d\ud574\uc8fc\uc138\uc694';
     sel.appendChild(opt);
-  });
+    sel.style.borderColor = '#FCA5A5';
+  } else {
+    sel.style.borderColor = '#E5E7EB';
+    opManagerKeys.forEach(k => {
+      const p = BO_PERSONAS[k];
+      if (!p) return;
+      const opt = document.createElement('option');
+      opt.value = k;
+      opt.textContent = p.name + ' (' + p.dept + ' \u00b7 ' + (p.scope || p.pos) + ')';
+      if (k === selectedKey) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
 }
 
 function voConfirmCreateGroup() {

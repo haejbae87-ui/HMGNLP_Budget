@@ -1,4 +1,4 @@
-﻿// ─── BACK-OFFICE DATA LAYER ──────────────────────────────────────────────────
+// ─── BACK-OFFICE DATA LAYER ──────────────────────────────────────────────────
 
 // ─── 사전 정의된 학습유형 (Learning Types) ──────────────────────────────────
 const LEARNING_TYPES = [
@@ -70,7 +70,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC'],
     allowedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC'],
     isolationGroup: 'HMC-GENERAL',
-    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
   hmc_hq_general: {
     id: 'P102', name: '이O현', dept: 'HMG경영연구원', pos: '매니저',
@@ -95,7 +95,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HMC-RND'],
     allowedAccounts: ['HMC-RND'],
     isolationGroup: 'HMC-RND',
-    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
   hmc_center_rnd: {
     id: 'P104', name: '이O하', dept: '모빌리티기술센터', pos: '책임',

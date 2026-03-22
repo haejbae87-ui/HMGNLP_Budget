@@ -20,6 +20,7 @@ const TENANT_ADMIN_MENUS = [
 // 예산 총괄 메뉴 (Budget Global Admin)
 const BUDGET_ADMIN_MENUS = [
   { id: 'dashboard',        icon: '📊', label: '대시보드',              section: null },
+  { id: 'isolation-groups', icon: '🛡️',  label: '갰리 그룹 관리',        section: '그룹 설정' },
   { id: 'budget-account',   icon: '💳', label: '예산 계정 관리',          section: '예산·설정' },
   { id: 'virtual-org',      icon: '🏢', label: '가상조직 템플릿 관리',   section: null },
   { id: 'form-builder',     icon: '📝', label: '교육 양식 & 학습유형',    section: null },

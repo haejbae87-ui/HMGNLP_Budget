@@ -73,8 +73,6 @@ function _getPendingCounts() {
 
 function _getMenus(persona) {
   if (persona.role === 'platform_admin')      return PLATFORM_MENUS;
-  if (persona.role === 'tenant_global_admin' && persona.dualRole === 'budget_global_admin')
-                                              return TENANT_DUAL_MENUS;  // 겸임
   if (persona.role === 'tenant_global_admin') return TENANT_ADMIN_MENUS;
   if (persona.role === 'budget_global_admin') return BUDGET_ADMIN_MENUS;
   if (persona.role === 'budget_op_manager')   return BUDGET_OP_MENUS;
@@ -147,16 +145,16 @@ function renderBoHeader() {
   const TENANT_GROUPS = [
     { label: 'SYSTEM',  tenantId: null,    color: '#92400E', bg: '#FEF3C7', keys: ['platform_admin'] },
     { label: 'HMC',     tenantId: 'HMC',   color: '#002C5F', bg: '#EFF6FF', keys: ['hmc_tenant_admin','hmc_total_general','hmc_hq_general','hmc_total_rnd','hmc_center_rnd'] },
-    { label: 'KIA',     tenantId: 'KIA',   color: '#059669', bg: '#F0FDF4', keys: ['kia_total_general','kia_hq_general'] },
-    { label: 'HAE',     tenantId: 'HAE',   color: '#7C3AED', bg: '#F5F3FF', keys: ['hae_total','hae_dept'] },
-    { label: '\ub85c\ud15c',   tenantId: 'ROTEM', color: '#B45309', bg: '#FFFBEB', keys: ['rotem_total'] },
-    { label: '\uc5d4\uc9c0',   tenantId: 'HEC',   color: '#0369A1', bg: '#F0F9FF', keys: ['hec_total'] },
-    { label: '\uc81c\ucca0',   tenantId: 'HSC',   color: '#BE123C', bg: '#FFF1F2', keys: ['hsc_total'] },
-    { label: '\ud2b8\ub79c\uc2dc', tenantId: 'HTS',color: '#6D28D9', bg: '#F5F3FF', keys: ['hts_total'] },
-    { label: '\uae00\ub85c\ube44\uc2a4', tenantId: 'GLOVIS', color: '#0E7490', bg: '#ECFEFF', keys: ['glovis_total'] },
-    { label: '\ucc28\uc99d\uad8c',tenantId: 'HIS',  color: '#9D174D', bg: '#FDF2F8', keys: ['his_total'] },
-    { label: '\ucf00\ud53c\ucf54',tenantId:'KEFICO',color: '#1D4ED8', bg: '#EFF6FF', keys: ['kefico_total'] },
-    { label: 'ISC',     tenantId: 'HISC',  color: '#374151', bg: '#F9FAFB', keys: ['hisc_total'] },
+    { label: 'KIA',     tenantId: 'KIA',   color: '#059669', bg: '#F0FDF4', keys: ['kia_tenant_admin','kia_total_general','kia_hq_general'] },
+    { label: 'HAE',     tenantId: 'HAE',   color: '#7C3AED', bg: '#F5F3FF', keys: ['hae_tenant_admin','hae_total','hae_dept'] },
+    { label: '로템',   tenantId: 'ROTEM', color: '#B45309', bg: '#FFFBEB', keys: ['rotem_tenant_admin','rotem_total'] },
+    { label: '엔지',   tenantId: 'HEC',   color: '#0369A1', bg: '#F0F9FF', keys: ['hec_tenant_admin','hec_total'] },
+    { label: '제철',   tenantId: 'HSC',   color: '#BE123C', bg: '#FFF1F2', keys: ['hsc_tenant_admin','hsc_total'] },
+    { label: '트랜시', tenantId: 'HTS',color: '#6D28D9', bg: '#F5F3FF', keys: ['hts_tenant_admin','hts_total'] },
+    { label: '글로비스', tenantId: 'GLOVIS', color: '#0E7490', bg: '#ECFEFF', keys: ['glovis_tenant_admin','glovis_total'] },
+    { label: '차증권', tenantId: 'HIS',  color: '#9D174D', bg: '#FDF2F8', keys: ['his_tenant_admin','his_total'] },
+    { label: '케피코', tenantId: 'KEFICO', color: '#1D4ED8', bg: '#EFF6FF', keys: ['kefico_tenant_admin','kefico_total'] },
+    { label: 'ISC',     tenantId: 'HISC',  color: '#374151', bg: '#F9FAFB', keys: ['hisc_tenant_admin','hisc_total'] },
   ];
 
   const currentKey = Object.keys(BO_PERSONAS).find(k => BO_PERSONAS[k] === persona) || '';

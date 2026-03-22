@@ -113,18 +113,24 @@ const BO_PERSONAS = {
 
   // ── [기아 KIA] ────────────────────────────────────────────────────────────
   // 고O현: KIA 테넌트 총괄 겸 일반예산 총괄 (단일 격리 그룹 소규모 테넌트)
+  kia_tenant_admin: {
+    id: 'P200', name: '고O현', dept: 'HRD솔루션팀', pos: '매니저',
+    role: 'tenant_global_admin', roleLabel: 'KIA 테넌트 총괄',
+    roleClass: 'role-tenant', roleTag: '[테넌트]',
+    budgetGroup: 'general', tenantId: 'KIA',
+    accessMenus: ['dashboard', 'isolation-groups', 'reports', 'manual']
+  },
   kia_total_general: {
     id: 'P201', name: '고O현', dept: 'HRD솔루션팀', pos: '매니저',
-    role: 'tenant_global_admin', roleLabel: 'KIA 테넌트 총괄 (겸임)',
-    roleClass: 'role-tenant', roleTag: '[테넌트]',
-    dualRole: 'budget_global_admin',   // 겸임: 예산 총괄도 수행
+    role: 'budget_global_admin', roleLabel: '예산 총괄 (KIA 일반)',
+    roleClass: 'role-total', roleTag: '[총괄]',
     budgetGroup: 'general', tenantId: 'KIA',
     isolationGroupId: 'IG-KIA-GEN',
     ownedAccounts: ['KIA-OPS', 'KIA-PART'],
     allowedAccounts: ['KIA-OPS', 'KIA-PART'],
     isolationGroup: 'KIA-GENERAL',
-    accessMenus: ['dashboard', 'isolation-groups', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
-  },
+    accessMenus: ['dashboard', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+  }
   kia_hq_general: {
     id: 'P202', name: '장O범', dept: 'Autoland교육팀', pos: '책임',
     role: 'budget_op_manager', roleLabel: '예산 운영 (Autoland)',
@@ -141,19 +147,24 @@ const BO_PERSONAS = {
 
   // ── [현대오토에버 HAE] ────────────────────────────────────────────────────
   // 안O기: HAE 테넌트 총괄 겸 전사 예산 총괄 (단일 격리 그룹 소규모 테넌트)
+  hae_tenant_admin: {
+    id: 'P300', name: '안O기', dept: '인재성장문화팀', pos: '책임',
+    role: 'tenant_global_admin', roleLabel: 'HAE 테넌트 총괄',
+    roleClass: 'role-tenant', roleTag: '[테넌트]',
+    budgetGroup: 'general', tenantId: 'HAE',
+    accessMenus: ['dashboard', 'isolation-groups', 'reports', 'manual']
+  },
   hae_total: {
     id: 'P301', name: '안O기', dept: '인재성장문화팀', pos: '책임',
-    role: 'tenant_global_admin', roleLabel: 'HAE 테넌트 총괄 (겸임)',
-    roleClass: 'role-tenant', roleTag: '[테넌트]',
-    dualRole: 'budget_global_admin',   // 겸임: 예산 총괄도 수행
+    role: 'budget_global_admin', roleLabel: '예산 총괄 (HAE)',
+    roleClass: 'role-total', roleTag: '[총괄]',
     budgetGroup: 'general', tenantId: 'HAE',
     isolationGroupId: 'IG-HAE-ALL',
     ownedAccounts: ['HAE-OPS', 'HAE-PART', 'HAE-CERT'],
     allowedAccounts: ['HAE-OPS', 'HAE-PART', 'HAE-CERT'],
     isolationGroup: 'HAE-ALL',
-    canAssignOwnership: true,
-    accessMenus: ['dashboard', 'isolation-groups', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
-  },
+    accessMenus: ['dashboard', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+  }
   hae_dept: {
     id: 'P302', name: '김O늘', dept: 'PM서비스팀', pos: '책임',
     role: 'budget_op_manager', roleLabel: '예산 운영 (솔루션사업부)',
@@ -170,115 +181,163 @@ const BO_PERSONAS = {
 
 
   // ── [현대로템 ROTEM] ──────────────────────────────────────
+  rotem_tenant_admin: {
+    id: 'P400', name: '담O은', dept: '교육문화팀', pos: '매니저',
+    role: 'tenant_global_admin', roleLabel: 'ROTEM 테넌트 총괄',
+    roleClass: 'role-tenant', roleTag: '[테넌트]',
+    budgetGroup: 'general', tenantId: 'ROTEM',
+    accessMenus: ['dashboard', 'isolation-groups', 'reports', 'manual']
+  },
   rotem_total: {
     id: 'P401', name: '담O은', dept: '교육문화팀', pos: '매니저',
-    role: 'tenant_global_admin', roleLabel: '테넌트/예산 총괄',
-    roleClass: 'role-tenant', roleTag: '[테넌트]',
-    dualRole: 'budget_global_admin',
+    role: 'budget_global_admin', roleLabel: '예산 총괄 (ROTEM)',
+    roleClass: 'role-total', roleTag: '[총괄]',
     budgetGroup: 'general', tenantId: 'ROTEM',
     isolationGroupId: 'IG-ROTEM-ALL',
     ownedAccounts: ['ROTEM-OPS', 'ROTEM-PART'],
     allowedAccounts: ['ROTEM-OPS', 'ROTEM-PART'],
     isolationGroup: 'ROTEM-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
   // ── [현대엔지니어링 HEC] ─────────────────────────────────
+  hec_tenant_admin: {
+    id: 'P500', name: '김O찬', dept: '인사전략팀', pos: '체임매니저',
+    role: 'tenant_global_admin', roleLabel: 'HEC 테넌트 총괄',
+    roleClass: 'role-tenant', roleTag: '[테넌트]',
+    budgetGroup: 'general', tenantId: 'HEC',
+    accessMenus: ['dashboard', 'isolation-groups', 'reports', 'manual']
+  },
   hec_total: {
     id: 'P501', name: '김O찬', dept: '인사전략팀', pos: '체임매니저',
-    role: 'tenant_global_admin', roleLabel: '테넌트/예산 총괄',
-    roleClass: 'role-tenant', roleTag: '[테넌트]',
-    dualRole: 'budget_global_admin',
+    role: 'budget_global_admin', roleLabel: '예산 총괄 (HEC)',
+    roleClass: 'role-total', roleTag: '[총괄]',
     budgetGroup: 'general', tenantId: 'HEC',
     isolationGroupId: 'IG-HEC-ALL',
     ownedAccounts: ['HEC-OPS', 'HEC-PART'],
     allowedAccounts: ['HEC-OPS', 'HEC-PART'],
     isolationGroup: 'HEC-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
   // ── [현대제슠 HSC] ──────────────────────────────────────
+  hsc_tenant_admin: {
+    id: 'P600', name: '정O안', dept: '성장디자인팀', pos: '매니저',
+    role: 'tenant_global_admin', roleLabel: 'HSC 테넌트 총괄',
+    roleClass: 'role-tenant', roleTag: '[테넌트]',
+    budgetGroup: 'general', tenantId: 'HSC',
+    accessMenus: ['dashboard', 'isolation-groups', 'reports', 'manual']
+  },
   hsc_total: {
     id: 'P601', name: '정O안', dept: '성장디자인팀', pos: '매니저',
-    role: 'tenant_global_admin', roleLabel: '테넌트/예산 총괄',
-    roleClass: 'role-tenant', roleTag: '[테넌트]',
-    dualRole: 'budget_global_admin',
+    role: 'budget_global_admin', roleLabel: '예산 총괄 (HSC)',
+    roleClass: 'role-total', roleTag: '[총괄]',
     budgetGroup: 'general', tenantId: 'HSC',
     isolationGroupId: 'IG-HSC-ALL',
     ownedAccounts: ['HSC-OPS', 'HSC-PART'],
     allowedAccounts: ['HSC-OPS', 'HSC-PART'],
     isolationGroup: 'HSC-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
   // ── [현대트랜시스 HTS] ─────────────────────────────────
+  hts_tenant_admin: {
+    id: 'P700', name: '임O빈', dept: '조직개발팀', pos: '매니저',
+    role: 'tenant_global_admin', roleLabel: 'HTS 테넌트 총괄',
+    roleClass: 'role-tenant', roleTag: '[테넌트]',
+    budgetGroup: 'general', tenantId: 'HTS',
+    accessMenus: ['dashboard', 'isolation-groups', 'reports', 'manual']
+  },
   hts_total: {
     id: 'P701', name: '임O빈', dept: '조직개발팀', pos: '매니저',
-    role: 'tenant_global_admin', roleLabel: '테넌트/예산 총괄',
-    roleClass: 'role-tenant', roleTag: '[테넌트]',
-    dualRole: 'budget_global_admin',
+    role: 'budget_global_admin', roleLabel: '예산 총괄 (HTS)',
+    roleClass: 'role-total', roleTag: '[총괄]',
     budgetGroup: 'general', tenantId: 'HTS',
     isolationGroupId: 'IG-HTS-ALL',
     ownedAccounts: ['HTS-OPS', 'HTS-PART'],
     allowedAccounts: ['HTS-OPS', 'HTS-PART'],
     isolationGroup: 'HTS-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
   // ── [현대글로비스 GLOVIS] ──────────────────────────────
+  glovis_tenant_admin: {
+    id: 'P800', name: '임O래', dept: '교육문화팀', pos: '매니저',
+    role: 'tenant_global_admin', roleLabel: 'GLOVIS 테넌트 총괄',
+    roleClass: 'role-tenant', roleTag: '[테넌트]',
+    budgetGroup: 'general', tenantId: 'GLOVIS',
+    accessMenus: ['dashboard', 'isolation-groups', 'reports', 'manual']
+  },
   glovis_total: {
     id: 'P801', name: '임O래', dept: '교육문화팀', pos: '매니저',
-    role: 'tenant_global_admin', roleLabel: '테넌트/예산 총괄',
-    roleClass: 'role-tenant', roleTag: '[테넌트]',
-    dualRole: 'budget_global_admin',
+    role: 'budget_global_admin', roleLabel: '예산 총괄 (GLOVIS)',
+    roleClass: 'role-total', roleTag: '[총괄]',
     budgetGroup: 'general', tenantId: 'GLOVIS',
     isolationGroupId: 'IG-GLOVIS-ALL',
     ownedAccounts: ['GLOVIS-OPS', 'GLOVIS-PART'],
     allowedAccounts: ['GLOVIS-OPS', 'GLOVIS-PART'],
     isolationGroup: 'GLOVIS-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
   // ── [현대차증권 HIS] ───────────────────────────────────
+  his_tenant_admin: {
+    id: 'P900', name: '김O형', dept: 'TM팀', pos: '체임매니저',
+    role: 'tenant_global_admin', roleLabel: 'HIS 테넌트 총괄',
+    roleClass: 'role-tenant', roleTag: '[테넌트]',
+    budgetGroup: 'general', tenantId: 'HIS',
+    accessMenus: ['dashboard', 'isolation-groups', 'reports', 'manual']
+  },
   his_total: {
     id: 'P901', name: '김O형', dept: 'TM팀', pos: '체임매니저',
-    role: 'tenant_global_admin', roleLabel: '테넌트/예산 총괄',
-    roleClass: 'role-tenant', roleTag: '[테넌트]',
-    dualRole: 'budget_global_admin',
+    role: 'budget_global_admin', roleLabel: '예산 총괄 (HIS)',
+    roleClass: 'role-total', roleTag: '[총괄]',
     budgetGroup: 'general', tenantId: 'HIS',
     isolationGroupId: 'IG-HIS-ALL',
     ownedAccounts: ['HIS-OPS', 'HIS-PART'],
     allowedAccounts: ['HIS-OPS', 'HIS-PART'],
     isolationGroup: 'HIS-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
   // ── [현대케피코 KEFICO] ────────────────────────────────
+  kefico_tenant_admin: {
+    id: 'P1000', name: '이O영', dept: '인사팀', pos: '체임매니저',
+    role: 'tenant_global_admin', roleLabel: 'KEFICO 테넌트 총괄',
+    roleClass: 'role-tenant', roleTag: '[테넌트]',
+    budgetGroup: 'general', tenantId: 'KEFICO',
+    accessMenus: ['dashboard', 'isolation-groups', 'reports', 'manual']
+  },
   kefico_total: {
     id: 'P1001', name: '이O영', dept: '인사팀', pos: '체임매니저',
-    role: 'tenant_global_admin', roleLabel: '테넌트/예산 총괄',
-    roleClass: 'role-tenant', roleTag: '[테넌트]',
-    dualRole: 'budget_global_admin',
+    role: 'budget_global_admin', roleLabel: '예산 총괄 (KEFICO)',
+    roleClass: 'role-total', roleTag: '[총괄]',
     budgetGroup: 'general', tenantId: 'KEFICO',
     isolationGroupId: 'IG-KEFICO-ALL',
     ownedAccounts: ['KEFICO-OPS', 'KEFICO-PART'],
     allowedAccounts: ['KEFICO-OPS', 'KEFICO-PART'],
     isolationGroup: 'KEFICO-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
   // ── [현대ISC HISC] ──────────────────────────────────────
+  hisc_tenant_admin: {
+    id: 'P1100', name: '오O성', dept: '인사지원팀', pos: '매니저',
+    role: 'tenant_global_admin', roleLabel: 'HISC 테넌트 총괄',
+    roleClass: 'role-tenant', roleTag: '[테넌트]',
+    budgetGroup: 'general', tenantId: 'HISC',
+    accessMenus: ['dashboard', 'isolation-groups', 'reports', 'manual']
+  },
   hisc_total: {
     id: 'P1101', name: '오O성', dept: '인사지원팀', pos: '매니저',
-    role: 'tenant_global_admin', roleLabel: '테넌트/예산 총괄',
-    roleClass: 'role-tenant', roleTag: '[테넌트]',
-    dualRole: 'budget_global_admin',
+    role: 'budget_global_admin', roleLabel: '예산 총괄 (HISC)',
+    roleClass: 'role-total', roleTag: '[총괄]',
     budgetGroup: 'general', tenantId: 'HISC',
     isolationGroupId: 'IG-HISC-ALL',
     ownedAccounts: ['HISC-OPS', 'HISC-PART'],
     allowedAccounts: ['HISC-OPS', 'HISC-PART'],
     isolationGroup: 'HISC-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'my-isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
   // ── [프론트/학습자 — LXP 전용] ───────────────────────────────────────────

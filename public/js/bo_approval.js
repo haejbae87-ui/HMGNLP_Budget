@@ -143,3 +143,118 @@ function myOpsCancel(id) {
     if(a){a.status='cancelled';renderMyOperations();}
   }
 }
+
+// ─── 📊 조직 예산 현황 (예산 운영 담당자 전용) ──────────────────────────────
+function renderOrgBudget() {
+  const el = document.getElementById('bo-content');
+  const persona = boCurrentPersona;
+  const personaKey = Object.keys(BO_PERSONAS).find(k => BO_PERSONAS[k] === persona) || '';
+
+  // 담당 격리 그룹 찾기
+  const myGroup = typeof ISOLATION_GROUPS !== 'undefined'
+    ? ISOLATION_GROUPS.find(g => g.opManagerKeys.includes(personaKey)) : null;
+  const globalAdmin = myGroup ? BO_PERSONAS[myGroup.globalAdminKey] : null;
+
+  // 담당 가상조직 노드 찾기
+  const myVorgId = persona.managedVorgId;
+  const allTemplates = typeof VIRTUAL_ORG_TEMPLATES !== 'undefined' ? VIRTUAL_ORG_TEMPLATES : [];
+  let myNode = null;
+  let myTemplate = null;
+  for (const tpl of allTemplates) {
+    if (tpl.tenantId !== persona.tenantId) continue;
+    const nodes = [...(tpl.tree?.hqs || []), ...(tpl.tree?.centers || [])];
+    const found = nodes.find(n => n.id === myVorgId);
+    if (found) { myNode = found; myTemplate = tpl; break; }
+  }
+
+  const fmt = v => (v||0).toLocaleString('ko-KR');
+  const pct = (used, total) => total > 0 ? Math.round(used/total*100) : 0;
+
+  const nodeCard = myNode ? (() => {
+    const b = myNode.budget;
+    const total   = b.total || 0;
+    const deducted= b.deducted || 0;
+    const holding = b.holding || 0;
+    const avail   = total - deducted - holding;
+    const usePct  = pct(deducted + holding, total);
+    const teams   = myNode.teams || [];
+
+    return `
+    <div class="bo-card" style="padding:22px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+        <span style="font-size:20px">🏢</span>
+        <div>
+          <div style="font-weight:900;font-size:16px">${myNode.name}</div>
+          <div style="font-size:11px;color:#6B7280">담당 가상조직 노드 · ${myTemplate?.name || ''}</div>
+        </div>
+      </div>
+      <!-- 집계 현황 -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+        ${[
+          { l:'총 배정예산', v:total,    c:'#374151',   bg:'#F9FAFB' },
+          { l:'가점유(홀딩)', v:holding, c:'#D97706',   bg:'#FFFBEB' },
+          { l:'실집행 완료', v:deducted, c:'#059669',   bg:'#F0FDF4' },
+          { l:'가용 잔액',   v:avail,    c:'#1D4ED8',   bg:'#EFF6FF' },
+        ].map(s=>`
+        <div style="padding:14px;border-radius:10px;background:${s.bg};border:1px solid ${s.c}20;text-align:center">
+          <div style="font-size:10px;font-weight:700;color:#9CA3AF;margin-bottom:4px">${s.l}</div>
+          <div style="font-size:17px;font-weight:900;color:${s.c}">${fmt(s.v)}<span style="font-size:11px">원</span></div>
+        </div>`).join('')}
+      </div>
+      <!-- 소진율 바 -->
+      <div style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;margin-bottom:4px">
+          <span style="color:#6B7280">예산 소진율</span>
+          <span style="color:${usePct>80?'#EF4444':usePct>60?'#D97706':'#059669'};font-weight:900">${usePct}%</span>
+        </div>
+        <div style="height:8px;border-radius:6px;background:#E5E7EB;overflow:hidden">
+          <div style="height:100%;border-radius:6px;background:${usePct>80?'#EF4444':usePct>60?'#F59E0B':'#10B981'};width:${usePct}%;transition:width .4s"></div>
+        </div>
+      </div>
+      <!-- 팀별 현황 -->
+      ${teams.length > 0 ? `
+      <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;margin-bottom:8px">팀별 예산 현황</div>
+      <div style="display:grid;gap:6px">
+        ${teams.map(t => {
+          const tb = t.budget;
+          const tat = tb.allocated||0;
+          const tdd = tb.deducted||0;
+          const thd = tb.holding||0;
+          const tp  = pct(tdd+thd, tat);
+          return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:#F9FAFB;border:1px solid #F3F4F6">
+            <div style="font-weight:700;font-size:12px;color:#374151;min-width:80px">${t.name}</div>
+            <div style="flex:1;height:6px;border-radius:4px;background:#E5E7EB;overflow:hidden">
+              <div style="height:100%;background:${tp>80?'#EF4444':tp>60?'#F59E0B':'#10B981'};width:${tp}%"></div>
+            </div>
+            <div style="font-size:11px;font-weight:900;color:${tp>80?'#EF4444':'#374151'};min-width:30px;text-align:right">${tp}%</div>
+            <div style="font-size:11px;color:#9CA3AF;min-width:80px;text-align:right">잔액 ${fmt(tat-tdd-thd)}원</div>
+          </div>`;
+        }).join('')}
+      </div>` : ''}
+    </div>`;
+  })() : `<div style="padding:40px;text-align:center;background:#FEF2F2;border-radius:14px;color:#991B1B">
+    <div style="font-size:32px">⚠️</div>
+    <div style="font-weight:700;margin-top:8px">담당 가상조직 노드가 설정되지 않았습니다.</div>
+    <div style="font-size:12px;margin-top:4px;color:#B91C1C">예산 총괄 담당자에게 가상조직 노드 배정을 요청하세요.</div>
+  </div>`;
+
+  el.innerHTML = `
+<div class="bo-fade">
+  <div style="margin-bottom:24px">
+    <h1 class="bo-page-title">💰 조직 예산 현황</h1>
+    <p class="bo-page-sub">내가 담당하는 가상조직의 실시간 예산 소진율과 잔액을 확인합니다</p>
+  </div>
+
+  <!-- 격리 그룹 소속 정보 -->
+  ${myGroup ? `
+  <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:#F5F3FF;border-radius:12px;border:1px solid #DDD6FE;margin-bottom:20px">
+    <span style="font-size:16px">🛡️</span>
+    <div>
+      <div style="font-size:11px;font-weight:900;color:#7C3AED">소속 격리 그룹: ${myGroup.name}</div>
+      <div style="font-size:11px;color:#6B7280">예산 총괄: ${globalAdmin?.name||''} (${globalAdmin?.dept||''})</div>
+    </div>
+  </div>` : ''}
+
+  ${nodeCard}
+</div>`;
+}

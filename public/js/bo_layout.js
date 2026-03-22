@@ -9,21 +9,57 @@ const PLATFORM_MENUS = [
   { id: 'manual',            icon: '📖', label: '서비스 매뉴얼',          section: null },
 ];
 
-// Tenant Admin 메뉴 (회사 총괄 / 계정 총괄)
-const TENANT_MENUS = [
+// Tenant Admin 메뉴 (테넌트 총괄 전용)
+const TENANT_ADMIN_MENUS = [
   { id: 'dashboard',        icon: '📊', label: '대시보드',              section: null },
-  { id: 'budget-account',   icon: '💳', label: '예산 계정 관리',          section: '예산·설정', requiredRole: ['total_general','total_rnd'] },
-  { id: 'virtual-org',      icon: '🏢', label: '가상조직 템플릿 관리',   section: null, requiredRole: ['total_general','total_rnd'] },
-  { id: 'form-builder',     icon: '📝', label: '교육 양식 & 학습유형',    section: null, requiredRole: ['total_general','total_rnd'] },
-  { id: 'calc-grounds',       icon: '📐', label: '세부산출근거 관리',         section: null, requiredRole: ['total_general','total_rnd'] },
-  { id: 'approval-routing',   icon: '📊', label: '계정별 결재라인 설정',      section: null, requiredRole: ['total_general','total_rnd'] },
-  { id: 'service-policy',     icon: '🔧', label: '서비스 정책 관리',          section: null, requiredRole: ['total_general','total_rnd'] },
+  { id: 'isolation-groups', icon: '🛡️',  label: '격리 그룹 관리',        section: '테넌트 관리' },
+  { id: 'reports',          icon: '📈', label: '전사 통계 리포트',        section: '분석' },
+  { id: 'manual',           icon: '📖', label: '서비스 매뉴얼',          section: null },
+];
+
+// 예산 총괄 메뉴 (Budget Global Admin)
+const BUDGET_ADMIN_MENUS = [
+  { id: 'dashboard',        icon: '📊', label: '대시보드',              section: null },
+  { id: 'budget-account',   icon: '💳', label: '예산 계정 관리',          section: '예산·설정' },
+  { id: 'virtual-org',      icon: '🏢', label: '가상조직 템플릿 관리',   section: null },
+  { id: 'form-builder',     icon: '📝', label: '교육 양식 & 학습유형',    section: null },
+  { id: 'calc-grounds',     icon: '📐', label: '세부산출근거 관리',       section: null },
+  { id: 'approval-routing', icon: '📊', label: '계정별 결재라인 설정',    section: null },
+  { id: 'service-policy',   icon: '🔧', label: '서비스 정책 관리',        section: null },
   { id: 'plan-mgmt',        icon: '📋', label: '교육계획 관리',           section: '운영 메뉴' },
   { id: 'allocation',       icon: '💰', label: '예산 배정 및 관리',       section: null },
-  { id: 'my-operations',    icon: '📥', label: '나의 운영 업무',           section: null },
-  { id: 'reports',          icon: '📈', label: '통계 및 리포트',          section: '분석', requiredRole: ['total_general','total_rnd','hq_general','center_rnd'] },
-  { id: 'manual',            icon: '📖', label: '서비스 매뉴얼',            section: null },
+  { id: 'my-operations',   icon: '📥', label: '나의 운영 업무',           section: null },
+  { id: 'reports',          icon: '📈', label: '통계 및 리포트',          section: '분석' },
+  { id: 'manual',           icon: '📖', label: '서비스 매뉴얼',           section: null },
 ];
+
+// 예산 운영 메뉴 (Budget Operation Manager)
+const BUDGET_OP_MENUS = [
+  { id: 'dashboard',        icon: '📊', label: '대시보드',              section: null },
+  { id: 'my-operations',   icon: '📥', label: '나의 운영 업무',           section: '운영 업무' },
+  { id: 'org-budget',       icon: '💰', label: '조직 예산 현황',          section: null },
+  { id: 'reports',          icon: '📈', label: '통계 및 리포트',          section: '분석' },
+];
+
+// 겸임용 통합 메뉴 (Tenant Admin + Budget Admin 겸임)
+const TENANT_DUAL_MENUS = [
+  { id: 'dashboard',        icon: '📊', label: '대시보드',              section: null },
+  { id: 'isolation-groups', icon: '🛡️',  label: '격리 그룹 관리',        section: '테넌트 관리' },
+  { id: 'budget-account',   icon: '💳', label: '예산 계정 관리',          section: '예산·설정' },
+  { id: 'virtual-org',      icon: '🏢', label: '가상조직 템플릿 관리',   section: null },
+  { id: 'form-builder',     icon: '📝', label: '교육 양식 & 학습유형',    section: null },
+  { id: 'calc-grounds',     icon: '📐', label: '세부산출근거 관리',       section: null },
+  { id: 'approval-routing', icon: '📊', label: '계정별 결재라인 설정',    section: null },
+  { id: 'service-policy',   icon: '🔧', label: '서비스 정책 관리',        section: null },
+  { id: 'plan-mgmt',        icon: '📋', label: '교육계획 관리',           section: '운영 메뉴' },
+  { id: 'allocation',       icon: '💰', label: '예산 배정 및 관리',       section: null },
+  { id: 'my-operations',   icon: '📥', label: '나의 운영 업무',           section: null },
+  { id: 'reports',          icon: '📈', label: '통계 및 리포트',          section: '분석' },
+  { id: 'manual',           icon: '📖', label: '서비스 매뉴얼',           section: null },
+];
+
+// 레거시 호환용 (platform_admin 이외 기존 flow 지원)
+const TENANT_MENUS = BUDGET_ADMIN_MENUS;
 
 // PENDING_COUNTS는 동적으로 계산 (renderBoSidebar에서 호출)
 function _getPendingCounts() {
@@ -33,7 +69,13 @@ function _getPendingCounts() {
 }
 
 function _getMenus(persona) {
-  return persona.role === 'platform_admin' ? PLATFORM_MENUS : TENANT_MENUS;
+  if (persona.role === 'platform_admin')      return PLATFORM_MENUS;
+  if (persona.role === 'tenant_global_admin' && persona.dualRole === 'budget_global_admin')
+                                              return TENANT_DUAL_MENUS;  // 겸임
+  if (persona.role === 'tenant_global_admin') return TENANT_ADMIN_MENUS;
+  if (persona.role === 'budget_global_admin') return BUDGET_ADMIN_MENUS;
+  if (persona.role === 'budget_op_manager')   return BUDGET_OP_MENUS;
+  return TENANT_MENUS; // 레거시 fallback
 }
 
 function renderBoLayout() { renderBoSidebar(); renderBoHeader(); }
@@ -101,7 +143,7 @@ function renderBoHeader() {
   // 테넌트별 그룹 구성
   const TENANT_GROUPS = [
     { label: 'SYSTEM', tenantId: null,  color: '#F59E0B', keys: ['platform_admin'] },
-    { label: 'HMC',    tenantId: 'HMC', color: '#002C5F', keys: ['hmc_total_general','hmc_hq_general','hmc_total_rnd','hmc_center_rnd'] },
+    { label: 'HMC',    tenantId: 'HMC', color: '#002C5F', keys: ['hmc_tenant_admin','hmc_total_general','hmc_hq_general','hmc_total_rnd','hmc_center_rnd'] },
     { label: 'KIA',    tenantId: 'KIA', color: '#059669', keys: ['kia_total_general','kia_hq_general'] },
     { label: 'HAE',    tenantId: 'HAE', color: '#7C3AED', keys: ['hae_total','hae_dept'] },
   ];
@@ -166,6 +208,8 @@ function boNavigate(menuId) {
   if (menuId === 'plan-mgmt')        renderBoPlanMgmt();
   if (menuId === 'allocation')       renderBoAllocation();
   if (menuId === 'my-operations')    renderMyOperations();
+  if (menuId === 'org-budget')       renderOrgBudget();
+  if (menuId === 'isolation-groups') renderIsolationGroups();
   if (menuId === 'reports')          renderBoReports();
   if (menuId === 'manual')           renderBoManual();
 }

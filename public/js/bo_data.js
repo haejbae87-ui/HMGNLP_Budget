@@ -48,36 +48,50 @@ const BO_PERSONAS = {
   // ── [현대자동차 HMC] ──────────────────────────────────────────────────────
   // ※ HMC 내 일반예산·R&D예산은 계정 소유권 기반으로 완전 격리
   //   → isolationGroup이 다른 페르소나끼리는 서로의 계획/집행/조직 데이터 접근 불가
+  // ── HMC 테넌트 총괄 ────────────────────────────────────────────────────────
+  hmc_tenant_admin: {
+    id: 'P100', name: '최O영', dept: '역량혁신팀', pos: '매니저',
+    role: 'tenant_global_admin', roleLabel: 'HMC 테넌트 총괄',
+    roleClass: 'role-tenant', roleTag: '[테넌트]',
+    budgetGroup: null, tenantId: 'HMC',
+    // 테넌트 총괄: 격리 그룹 생성/관리 + 총괄 권한 부여만. 예산 실무 접근 없음
+    ownedAccounts: [],
+    allowedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC', 'HMC-RND'],
+    isolationGroup: 'HMC-ALL',
+    accessMenus: ['dashboard', 'isolation-groups', 'reports', 'manual']
+  },
+  // ── HMC 일반예산 그룹 ────────────────────────────────────────────────────────
   hmc_total_general: {
     id: 'P101', name: '신O남', dept: '피플육성팀', pos: '매니저',
-    role: 'total_general', roleLabel: '일반예산 총괄',
-    roleClass: 'role-total', roleTag: '[총]',
+    role: 'budget_global_admin', roleLabel: '예산 총괄 (일반그룹)',
+    roleClass: 'role-total', roleTag: '[총괄]',
     budgetGroup: 'general', tenantId: 'HMC',
-    // 계정 소유권: 일반예산 3개 계정 전속 오너
+    isolationGroupId: 'IG-HMC-GEN',
     ownedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC'],
-    allowedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC'],  // R&D 계정 접근 불가
+    allowedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC'],
     isolationGroup: 'HMC-GENERAL',
     accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
   hmc_hq_general: {
     id: 'P102', name: '이O현', dept: 'HMG경영연구원', pos: '매니저',
-    role: 'hq_general', roleLabel: '일반예산 본부',
-    roleClass: 'role-hq', roleTag: '[본]',
+    role: 'budget_op_manager', roleLabel: '예산 운영 (일반본부)',
+    roleClass: 'role-hq', roleTag: '[운영]',
     budgetGroup: 'general', tenantId: 'HMC',
+    isolationGroupId: 'IG-HMC-GEN',
     scope: 'HMG경영연구원',
-    managedVorgId: 'HQ01', managerPersonaKey: 'hmc_hq_general', cooperators: [],          // 관할 가상조직 ID
-    // 일반예산 총괄로부터 위임받은 범위만 접근
+    managedVorgId: 'HQ01', managerPersonaKey: 'hmc_hq_general', cooperators: [],
     ownedAccounts: [],
     allowedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC'],
     isolationGroup: 'HMC-GENERAL',
-    accessMenus: ['dashboard', 'allocation', 'my-operations', 'reports']
+    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'reports']
   },
+  // ── HMC R&D예산 그룹 ────────────────────────────────────────────────────────
   hmc_total_rnd: {
     id: 'P103', name: '류O령', dept: '연구개발성장지원팀', pos: '책임',
-    role: 'total_rnd', roleLabel: 'R&D예산 총괄',
-    roleClass: 'role-rnd', roleTag: '[R&D총]',
+    role: 'budget_global_admin', roleLabel: '예산 총괄 (R&D그룹)',
+    roleClass: 'role-rnd', roleTag: '[총괄]',
     budgetGroup: 'rnd', tenantId: 'HMC',
-    // 계정 소유권: R&D 통합계정 전속 오너 (일반예산 데이터 접근 불가)
+    isolationGroupId: 'IG-HMC-RND',
     ownedAccounts: ['HMC-RND'],
     allowedAccounts: ['HMC-RND'],
     isolationGroup: 'HMC-RND',
@@ -85,67 +99,73 @@ const BO_PERSONAS = {
   },
   hmc_center_rnd: {
     id: 'P104', name: '이O하', dept: '모빌리티기술센터', pos: '책임',
-    role: 'center_rnd', roleLabel: 'R&D예산 센터',
-    roleClass: 'role-center', roleTag: '[R&D센터]',
+    role: 'budget_op_manager', roleLabel: '예산 운영 (R&D센터)',
+    roleClass: 'role-center', roleTag: '[운영]',
     budgetGroup: 'rnd', tenantId: 'HMC',
+    isolationGroupId: 'IG-HMC-RND',
     scope: '모빌리티기술센터',
-    managedVorgId: 'C01', managerPersonaKey: 'hmc_center_rnd', cooperators: [],           // 관할 가상조직(센터) ID
-    // R&D 총괄로부터 위임받은 센터 범위만
+    managedVorgId: 'C01', managerPersonaKey: 'hmc_center_rnd', cooperators: [],
     ownedAccounts: [],
     allowedAccounts: ['HMC-RND'],
     isolationGroup: 'HMC-RND',
-    accessMenus: ['dashboard', 'allocation', 'my-operations', 'reports']
+    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'reports']
   },
 
   // ── [기아 KIA] ────────────────────────────────────────────────────────────
+  // 고O현: KIA 테넌트 총괄 겸 일반예산 총괄 (단일 격리 그룹 소규모 테넌트)
   kia_total_general: {
     id: 'P201', name: '고O현', dept: 'HRD솔루션팀', pos: '매니저',
-    role: 'total_general', roleLabel: '일반예산 총괄',
-    roleClass: 'role-total', roleTag: '[총]',
+    role: 'tenant_global_admin', roleLabel: 'KIA 테넌트 총괄 (겸임)',
+    roleClass: 'role-tenant', roleTag: '[테넌트]',
+    dualRole: 'budget_global_admin',   // 겸임: 예산 총괄도 수행
     budgetGroup: 'general', tenantId: 'KIA',
+    isolationGroupId: 'IG-KIA-GEN',
     ownedAccounts: ['KIA-OPS', 'KIA-PART'],
     allowedAccounts: ['KIA-OPS', 'KIA-PART'],
     isolationGroup: 'KIA-GENERAL',
-    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
   kia_hq_general: {
     id: 'P202', name: '장O범', dept: 'Autoland교육팀', pos: '책임',
-    role: 'hq_general', roleLabel: '일반예산 본부',
-    roleClass: 'role-hq', roleTag: '[본]',
+    role: 'budget_op_manager', roleLabel: '예산 운영 (Autoland)',
+    roleClass: 'role-hq', roleTag: '[운영]',
     budgetGroup: 'general', tenantId: 'KIA',
+    isolationGroupId: 'IG-KIA-GEN',
     scope: 'Autoland사업부',
-    managedVorgId: 'KIAHQ01', managerPersonaKey: 'kia_hq_general', cooperators: [],       // 관할 가상조직 ID
+    managedVorgId: 'KIAHQ01', managerPersonaKey: 'kia_hq_general', cooperators: [],
     ownedAccounts: [],
     allowedAccounts: ['KIA-OPS', 'KIA-PART'],
     isolationGroup: 'KIA-GENERAL',
-    accessMenus: ['dashboard', 'allocation', 'my-operations', 'reports']
+    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'reports']
   },
 
   // ── [현대오토에버 HAE] ────────────────────────────────────────────────────
+  // 안O기: HAE 테넌트 총괄 겸 전사 예산 총괄 (단일 격리 그룹 소규모 테넌트)
   hae_total: {
     id: 'P301', name: '안O기', dept: '인재성장문화팀', pos: '책임',
-    role: 'total_general', roleLabel: '예산 총괄',
-    roleClass: 'role-total', roleTag: '[총]',
+    role: 'tenant_global_admin', roleLabel: 'HAE 테넌트 총괄 (겸임)',
+    roleClass: 'role-tenant', roleTag: '[테넌트]',
+    dualRole: 'budget_global_admin',   // 겸임: 예산 총괄도 수행
     budgetGroup: 'general', tenantId: 'HAE',
-    // 전체 마스터 관리 + 계정별 담당자 권한 매핑 권한
+    isolationGroupId: 'IG-HAE-ALL',
     ownedAccounts: ['HAE-OPS', 'HAE-PART', 'HAE-CERT'],
     allowedAccounts: ['HAE-OPS', 'HAE-PART', 'HAE-CERT'],
     isolationGroup: 'HAE-ALL',
-    canAssignOwnership: true,   // 계정 소유권 위임 가능
-    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    canAssignOwnership: true,
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
   hae_dept: {
     id: 'P302', name: '김O늘', dept: 'PM서비스팀', pos: '책임',
-    role: 'hq_general', roleLabel: '솔루션사업부 담당자',
-    roleClass: 'role-hq', roleTag: '[본]',
+    role: 'budget_op_manager', roleLabel: '예산 운영 (솔루션사업부)',
+    roleClass: 'role-hq', roleTag: '[운영]',
     budgetGroup: 'general', tenantId: 'HAE',
+    isolationGroupId: 'IG-HAE-ALL',
     scope: '솔루션사업부',
     managedVorgId: 'HAEHQ01', managerPersonaKey: 'hae_dept', cooperators: [],
-    // 솔루션사업부 소관 계정만 접근
     ownedAccounts: [],
-    allowedAccounts: ['HAE-OPS'],  // 솔루션사업부 운영계정만
+    allowedAccounts: ['HAE-OPS'],
     isolationGroup: 'HAE-SOL',
-    accessMenus: ['dashboard', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'reports']
   },
 
   // ── [프론트/학습자 — LXP 전용] ───────────────────────────────────────────
@@ -166,6 +186,14 @@ const BO_PERSONAS = {
     accessMenus: ['dashboard']
   },
 };
+
+// Isolation Groups Master
+let ISOLATION_GROUPS = [
+  { id: 'IG-HMC-GEN', tenantId: 'HMC', name: '일반예산 그룹',     desc: 'HMC 일반직군 교육예산 관리', globalAdminKey: 'hmc_total_general', opManagerKeys: ['hmc_hq_general'],  ownedAccounts: ['HMC-OPS','HMC-ETC','HMC-PART'], createdBy: 'hmc_tenant_admin',    status: 'active', createdAt: '2026-01-01' },
+  { id: 'IG-HMC-RND', tenantId: 'HMC', name: 'R&D예산 그룹',      desc: 'HMC 연구직군 R&D 교육예산 관리', globalAdminKey: 'hmc_total_rnd',     opManagerKeys: ['hmc_center_rnd'], ownedAccounts: ['HMC-RND'],                         createdBy: 'hmc_tenant_admin',    status: 'active', createdAt: '2026-01-01' },
+  { id: 'IG-KIA-GEN', tenantId: 'KIA', name: 'KIA 일반예산 그룹',  desc: '기아 전사 일반교육예산 관리',  globalAdminKey: 'kia_total_general', opManagerKeys: ['kia_hq_general'],  ownedAccounts: ['KIA-OPS','KIA-PART'],             createdBy: 'kia_total_general',   status: 'active', createdAt: '2026-01-15' },
+  { id: 'IG-HAE-ALL', tenantId: 'HAE', name: 'HAE 전사예산 그룹',  desc: 'HAE 전사 교육예산 관리',      globalAdminKey: 'hae_total',         opManagerKeys: ['hae_dept'],        ownedAccounts: ['HAE-OPS','HAE-PART','HAE-CERT'],   createdBy: 'hae_total',           status: 'active', createdAt: '2026-01-20' },
+];
 
 let boCurrentPersona = BO_PERSONAS.hmc_total_general;
 let boCurrentMenu = 'dashboard';

@@ -168,6 +168,119 @@ const BO_PERSONAS = {
     accessMenus: ['dashboard', 'my-operations', 'org-budget', 'reports']
   },
 
+
+  // ── [현대로템 ROTEM] ──────────────────────────────────────
+  rotem_total: {
+    id: 'P401', name: '담O은', dept: '교육문화팀', pos: '매니저',
+    role: 'tenant_global_admin', roleLabel: '테넌트/예산 총괄',
+    roleClass: 'role-tenant', roleTag: '[테넌트]',
+    dualRole: 'budget_global_admin',
+    budgetGroup: 'general', tenantId: 'ROTEM',
+    isolationGroupId: 'IG-ROTEM-ALL',
+    ownedAccounts: ['ROTEM-OPS', 'ROTEM-PART'],
+    allowedAccounts: ['ROTEM-OPS', 'ROTEM-PART'],
+    isolationGroup: 'ROTEM-ALL',
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+  },
+
+  // ── [현대엔지니어링 HEC] ─────────────────────────────────
+  hec_total: {
+    id: 'P501', name: '김O찬', dept: '인사전략팀', pos: '체임매니저',
+    role: 'tenant_global_admin', roleLabel: '테넌트/예산 총괄',
+    roleClass: 'role-tenant', roleTag: '[테넌트]',
+    dualRole: 'budget_global_admin',
+    budgetGroup: 'general', tenantId: 'HEC',
+    isolationGroupId: 'IG-HEC-ALL',
+    ownedAccounts: ['HEC-OPS', 'HEC-PART'],
+    allowedAccounts: ['HEC-OPS', 'HEC-PART'],
+    isolationGroup: 'HEC-ALL',
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+  },
+
+  // ── [현대제슠 HSC] ──────────────────────────────────────
+  hsc_total: {
+    id: 'P601', name: '정O안', dept: '성장디자인팀', pos: '매니저',
+    role: 'tenant_global_admin', roleLabel: '테넌트/예산 총괄',
+    roleClass: 'role-tenant', roleTag: '[테넌트]',
+    dualRole: 'budget_global_admin',
+    budgetGroup: 'general', tenantId: 'HSC',
+    isolationGroupId: 'IG-HSC-ALL',
+    ownedAccounts: ['HSC-OPS', 'HSC-PART'],
+    allowedAccounts: ['HSC-OPS', 'HSC-PART'],
+    isolationGroup: 'HSC-ALL',
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+  },
+
+  // ── [현대트랜시스 HTS] ─────────────────────────────────
+  hts_total: {
+    id: 'P701', name: '임O빈', dept: '조직개발팀', pos: '매니저',
+    role: 'tenant_global_admin', roleLabel: '테넌트/예산 총괄',
+    roleClass: 'role-tenant', roleTag: '[테넌트]',
+    dualRole: 'budget_global_admin',
+    budgetGroup: 'general', tenantId: 'HTS',
+    isolationGroupId: 'IG-HTS-ALL',
+    ownedAccounts: ['HTS-OPS', 'HTS-PART'],
+    allowedAccounts: ['HTS-OPS', 'HTS-PART'],
+    isolationGroup: 'HTS-ALL',
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+  },
+
+  // ── [현대글로비스 GLOVIS] ──────────────────────────────
+  glovis_total: {
+    id: 'P801', name: '임O래', dept: '교육문화팀', pos: '매니저',
+    role: 'tenant_global_admin', roleLabel: '테넌트/예산 총괄',
+    roleClass: 'role-tenant', roleTag: '[테넌트]',
+    dualRole: 'budget_global_admin',
+    budgetGroup: 'general', tenantId: 'GLOVIS',
+    isolationGroupId: 'IG-GLOVIS-ALL',
+    ownedAccounts: ['GLOVIS-OPS', 'GLOVIS-PART'],
+    allowedAccounts: ['GLOVIS-OPS', 'GLOVIS-PART'],
+    isolationGroup: 'GLOVIS-ALL',
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+  },
+
+  // ── [현대차증권 HIS] ───────────────────────────────────
+  his_total: {
+    id: 'P901', name: '김O형', dept: 'TM팀', pos: '체임매니저',
+    role: 'tenant_global_admin', roleLabel: '테넌트/예산 총괄',
+    roleClass: 'role-tenant', roleTag: '[테넌트]',
+    dualRole: 'budget_global_admin',
+    budgetGroup: 'general', tenantId: 'HIS',
+    isolationGroupId: 'IG-HIS-ALL',
+    ownedAccounts: ['HIS-OPS', 'HIS-PART'],
+    allowedAccounts: ['HIS-OPS', 'HIS-PART'],
+    isolationGroup: 'HIS-ALL',
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+  },
+
+  // ── [현대케피코 KEFICO] ────────────────────────────────
+  kefico_total: {
+    id: 'P1001', name: '이O영', dept: '인사팀', pos: '체임매니저',
+    role: 'tenant_global_admin', roleLabel: '테넌트/예산 총괄',
+    roleClass: 'role-tenant', roleTag: '[테넌트]',
+    dualRole: 'budget_global_admin',
+    budgetGroup: 'general', tenantId: 'KEFICO',
+    isolationGroupId: 'IG-KEFICO-ALL',
+    ownedAccounts: ['KEFICO-OPS', 'KEFICO-PART'],
+    allowedAccounts: ['KEFICO-OPS', 'KEFICO-PART'],
+    isolationGroup: 'KEFICO-ALL',
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+  },
+
+  // ── [현대ISC HISC] ──────────────────────────────────────
+  hisc_total: {
+    id: 'P1101', name: '오O성', dept: '인사지원팀', pos: '매니저',
+    role: 'tenant_global_admin', roleLabel: '테넌트/예산 총괄',
+    roleClass: 'role-tenant', roleTag: '[테넌트]',
+    dualRole: 'budget_global_admin',
+    budgetGroup: 'general', tenantId: 'HISC',
+    isolationGroupId: 'IG-HISC-ALL',
+    ownedAccounts: ['HISC-OPS', 'HISC-PART'],
+    allowedAccounts: ['HISC-OPS', 'HISC-PART'],
+    isolationGroup: 'HISC-ALL',
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'approval-routing', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+  },
+
   // ── [프론트/학습자 — LXP 전용] ───────────────────────────────────────────
   hmc_team_mgr: {
     id: 'P401', name: '조O성', dept: '역량혁신팀', pos: '책임',
@@ -193,6 +306,14 @@ let ISOLATION_GROUPS = [
   { id: 'IG-HMC-RND', tenantId: 'HMC', name: 'R&D예산 그룹',      desc: 'HMC 연구직군 R&D 교육예산 관리', globalAdminKey: 'hmc_total_rnd',     opManagerKeys: ['hmc_center_rnd'], ownedAccounts: ['HMC-RND'],                         createdBy: 'hmc_tenant_admin',    status: 'active', createdAt: '2026-01-01' },
   { id: 'IG-KIA-GEN', tenantId: 'KIA', name: 'KIA 일반예산 그룹',  desc: '기아 전사 일반교육예산 관리',  globalAdminKey: 'kia_total_general', opManagerKeys: ['kia_hq_general'],  ownedAccounts: ['KIA-OPS','KIA-PART'],             createdBy: 'kia_total_general',   status: 'active', createdAt: '2026-01-15' },
   { id: 'IG-HAE-ALL', tenantId: 'HAE', name: 'HAE 전사예산 그룹',  desc: 'HAE 전사 교육예산 관리',      globalAdminKey: 'hae_total',         opManagerKeys: ['hae_dept'],        ownedAccounts: ['HAE-OPS','HAE-PART','HAE-CERT'],   createdBy: 'hae_total',           status: 'active', createdAt: '2026-01-20' },
+  { id: 'IG-ROTEM-ALL',  tenantId: 'ROTEM',  name: '로템 전사예산 그룹',    desc: '현대로템 간무 교육예산 관리',    globalAdminKey: 'rotem_total',  opManagerKeys: [], ownedAccounts: ['ROTEM-OPS','ROTEM-PART'],  createdBy: 'rotem_total',  status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-HEC-ALL',    tenantId: 'HEC',    name: '엔지니어링 전사예산',  desc: '현대엔지니어링 교육예산 관리', globalAdminKey: 'hec_total',    opManagerKeys: [], ownedAccounts: ['HEC-OPS','HEC-PART'],    createdBy: 'hec_total',    status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-HSC-ALL',    tenantId: 'HSC',    name: '현대제슠 전사예산',       desc: '현대제슠 제조현장 중심 예산 관리', globalAdminKey: 'hsc_total',    opManagerKeys: [], ownedAccounts: ['HSC-OPS','HSC-PART'],    createdBy: 'hsc_total',    status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-HTS-ALL',    tenantId: 'HTS',    name: '트랜시스 전사예산',      desc: '현대트랜시스 조직단위 예산 관리', globalAdminKey: 'hts_total',    opManagerKeys: [], ownedAccounts: ['HTS-OPS','HTS-PART'],    createdBy: 'hts_total',    status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-GLOVIS-ALL', tenantId: 'GLOVIS', name: '글로비스 전사예산',      desc: '현대글로비스 물류/유통 예산 관리', globalAdminKey: 'glovis_total', opManagerKeys: [], ownedAccounts: ['GLOVIS-OPS','GLOVIS-PART'], createdBy: 'glovis_total', status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-HIS-ALL',    tenantId: 'HIS',    name: '현대차증권 교육예산',  desc: '현대차증권 금융전문 교육예산 관리', globalAdminKey: 'his_total',    opManagerKeys: [], ownedAccounts: ['HIS-OPS','HIS-PART'],    createdBy: 'his_total',    status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-KEFICO-ALL', tenantId: 'KEFICO', name: '케피코 전사예산',           desc: '현대케피코 기술인력 양성 예산 관리', globalAdminKey: 'kefico_total', opManagerKeys: [], ownedAccounts: ['KEFICO-OPS','KEFICO-PART'], createdBy: 'kefico_total', status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-HISC-ALL',   tenantId: 'HISC',   name: '현대ISC 전사예산',              desc: '현대ISC 교육예산 충원 및 운영담당자 관리', globalAdminKey: 'hisc_total',   opManagerKeys: [], ownedAccounts: ['HISC-OPS','HISC-PART'],   createdBy: 'hisc_total',   status: 'active', createdAt: '2026-02-01' },
 ];
 
 let boCurrentPersona = BO_PERSONAS.hmc_total_general;

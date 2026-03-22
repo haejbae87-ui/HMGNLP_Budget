@@ -137,30 +137,72 @@ function renderPolicyWizard() {
   // 각 단계별 내용
   let stepContent = '';
   if (_policyWizardStep === 0) {
-    // Step 1: 기본 정보
-    const flowOpts = [
-      {v:'result-only', l:'📋 결과 단독', d:'학습 완료 후 결과만 등록'},
-      {v:'apply-result', l:'📝 신청→결과', d:'신청 후 승인, 결과 보고'},
-      {v:'plan-apply-result', l:'📊 계획→신청→결과', d:'사전 계획 수립 후 전체 프로세스'},
+    // Step 1: 기본 정보 + 프로세스 패턴 (새 기획안 A/B/C)
+    const patterns = [
+      { v:'A', icon:'📊', l:'패턴 A: 계획 → 신청 → 결과', color:'#7C3AED',
+        d:'사전 통제가 엄격한 경우. 교육계획 수립 필수 → 가점유 신청 → 결과 정산.' },
+      { v:'B', icon:'📝', l:'패턴 B: 신청 → 결과',        color:'#1D4ED8',
+        d:'일반 사외교육 신청 흐름. 가점유(홀딩) 또는 선지불 후정산 선택 가능.' },
+      { v:'C', icon:'📋', l:'패턴 C: 신청 단독',           color:'#059669',
+        d:'선지출 후정산 또는 무예산 순수 이력 등록. 결과 단계 없이 종결.' },
+    ];
+    const applyModes = [
+      { v:'holding',       l:'💳 가점유형', d:'신청 승인 시 예산 가점유 → 결과 정산 시 실차감' },
+      { v:'reimbursement', l:'🧾 선지출 후정산형', d:'학습자 선지불 후 영수증 첨부 → 승인 시 즉시 차감' },
     ];
     stepContent = `
-<div style="display:grid;gap:16px">
+<div style="display:grid;gap:18px">
   <div>
     <label class="bo-label">정책명 <span style="color:#EF4444">*</span></label>
-    <input id="wiz-name" type="text" value="${d.name||''}" placeholder='예: "기아 사외교육 무예산 이력등록 정책"'
+    <input id="wiz-name" type="text" value="${d.name||''}" placeholder='예: "HMC 운영교육 정책"'
       style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;box-sizing:border-box"/>
   </div>
   <div>
-    <label class="bo-label">서비스 흐름 선택 <span style="color:#EF4444">*</span></label>
+    <label class="bo-label">프로세스 패턴 <span style="color:#EF4444">*</span></label>
     <div style="display:grid;gap:8px">
-      ${flowOpts.map(o=>`
-      <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;border:2px solid ${d.flow===o.v?'#7C3AED':'#E5E7EB'};background:${d.flow===o.v?'#F5F3FF':'white'};cursor:pointer"
-             onclick="document.querySelectorAll('[name=wiz-flow]').forEach(r=>r.checked=false);this.querySelector('input').checked=true;_policyWizardData.flow='${o.v}';renderPolicyWizard()">
-        <input type="radio" name="wiz-flow" value="${o.v}" ${d.flow===o.v?'checked':''} style="margin:0">
-        <div><div style="font-weight:700;font-size:13px">${o.l}</div><div style="font-size:11px;color:#6B7280">${o.d}</div></div>
+      ${patterns.map(o=>`
+      <label style="display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border-radius:10px;
+                    border:2px solid ${d.processPattern===o.v?o.color:'#E5E7EB'};
+                    background:${d.processPattern===o.v?o.color+'15':'white'};cursor:pointer"
+             onclick="_policyWizardData.processPattern='${o.v}';_policyWizardData.flow='${o.v==='A'?'plan-apply-result':o.v==='B'?'apply-result':'result-only'}';if('${o.v}'==='A'){_policyWizardData.applyMode='holding';}renderPolicyWizard()">
+        <input type="radio" name="wiz-pattern" value="${o.v}" ${d.processPattern===o.v?'checked':''} style="margin-top:2px;flex-shrink:0">
+        <div>
+          <div style="font-weight:800;font-size:13px;color:${d.processPattern===o.v?o.color:'#374151'}">${o.icon} ${o.l}</div>
+          <div style="font-size:11px;color:#6B7280;margin-top:2px">${o.d}</div>
+        </div>
       </label>`).join('')}
     </div>
   </div>
+  ${d.processPattern !== 'A' ? `
+  <div>
+    <label class="bo-label">예산 연동 여부</label>
+    <div style="display:flex;gap:8px">
+      ${[true,false].map(v=>`
+      <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:10px;
+                    border:2px solid ${d.budgetLinked===v?'#1D4ED8':'#E5E7EB'};
+                    background:${d.budgetLinked===v?'#EFF6FF':'white'};cursor:pointer"
+             onclick="_policyWizardData.budgetLinked=${v};if(!${v})_policyWizardData.applyMode=null;else _policyWizardData.applyMode='holding';renderPolicyWizard()">
+        <input type="radio" ${d.budgetLinked===v?'checked':''} style="margin:0">
+        <div><div style="font-weight:900;font-size:13px">${v?'Y — 예산 사용':'N — 무예산 이력'}</div>
+             <div style="font-size:10px;color:#6B7280">${v?'예산 계정 연결 필수':'학습이력만 등록'}</div></div>
+      </label>`).join('')}
+    </div>
+  </div>` : ''}
+  ${d.budgetLinked && d.processPattern !== 'A' ? `
+  <div>
+    <label class="bo-label">신청 방식</label>
+    <div style="display:grid;gap:8px">
+      ${applyModes.map(o=>`
+      <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:10px;
+                    border:2px solid ${d.applyMode===o.v?'#D97706':'#E5E7EB'};
+                    background:${d.applyMode===o.v?'#FFFBEB':'white'};cursor:pointer"
+             onclick="_policyWizardData.applyMode='${o.v}';renderPolicyWizard()">
+        <input type="radio" name="wiz-applymode" ${d.applyMode===o.v?'checked':''} style="margin-top:2px">
+        <div><div style="font-weight:800;font-size:12px;color:${d.applyMode===o.v?'#92400E':'#374151'}">${o.l}</div>
+             <div style="font-size:11px;color:#6B7280;margin-top:1px">${o.d}</div></div>
+      </label>`).join('')}
+    </div>
+  </div>` : ''}
 </div>`;
   } else if (_policyWizardStep === 1) {
     // Step 2: 예산 연동

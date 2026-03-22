@@ -108,6 +108,8 @@ function resetApplyState() {
   return {
     step: 1,
     purpose: null,
+    serviceId: null,      // 선택한 서비스 ID (SERVICE_DEFINITIONS)
+    applyMode: null,      // 'holding' | 'reimbursement' | null
     useBudget: null,
     hasPlan: null,
     planId: '',
@@ -123,6 +125,9 @@ function resetApplyState() {
     content: '',
     expenses: [{ id: 1, type: '교육비/등록비', price: 0, qty: 1 }],
     rndTotal: 0,
+    receiptFile: null,      // 후정산형 영수증
+    receiptAmt: 0,          // 후정산 요청 금액
+    receiptDesc: '',        // 후정산 지출 내용
   };
 }
 

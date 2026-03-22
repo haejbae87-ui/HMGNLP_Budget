@@ -107,102 +107,138 @@ function renderApply() {
 
   <!-- Step 2: Budget -->
   <div class="card p-8 ${s.step === 2 ? '' : 'hidden'}">
-    <h2 class="text-lg font-black text-gray-800 mb-2">02. 예산 선택</h2>
-    ${isRndPersona ? '<p class="text-xs text-gray-400 mb-5">연구직군: R&amp;D 예산 선택 시 사전 수립된 교육계획이 필요합니다.</p>' : isFixedProcess ? `<p class="text-xs text-purple-500 mb-5 font-bold">🔒 ${currentPersona.company} 정책: 사전에 수립된 교육계획을 선택하여 신청하세요.</p>` : '<p class="text-xs text-gray-400 mb-5">해당 교육목적에 사용 가능한 예산 계정을 선택하세요.</p>'}
+    <h2 class="text-lg font-black text-gray-800 mb-2">02. 서비스 선택 및 예산</h2>
 
-    <!-- 예산 집행 vs 단순 이력 -->
-    <div class="grid grid-cols-2 gap-4 mb-6">
-      <button onclick="setUseBudget(true)" class="p-5 rounded-2xl border-2 transition ${s.useBudget === true ? 'border-accent bg-blue-50' : 'border-gray-200 hover:border-gray-300'}">
-        <div class="font-black text-sm ${s.useBudget === true ? 'text-accent' : 'text-gray-700'}">💳 예산 집행 신청</div>
-        <div class="text-xs text-gray-400 mt-1">예산을 사용하여 비용을 신청합니다</div>
-      </button>
-      <button onclick="setUseBudget(false)" class="p-5 rounded-2xl border-2 transition ${s.useBudget === false ? 'border-accent bg-blue-50' : 'border-gray-200 hover:border-gray-300'}">
-        <div class="font-black text-sm ${s.useBudget === false ? 'text-accent' : 'text-gray-700'}">📝 단순 이력 등록</div>
-        <div class="text-xs text-gray-400 mt-1">비용 없이 이력만 기록합니다</div>
-      </button>
+    <!-- 서비스 선택 -->
+    <div class="mb-5">
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">어떤 서비스로 신청하시나요?</label>
+      ${(() => {
+        const svcs = (typeof SERVICE_DEFINITIONS !== 'undefined'
+          ? SERVICE_DEFINITIONS.filter(sv => sv.tenantId === currentPersona.tenantId && sv.status === 'active')
+          : []);
+        const patternColor = { A:'#7C3AED', B:'#1D4ED8', C:'#059669' };
+        const patternLabel = { A:'패턴A', B:'패턴B', C:'패턴C' };
+        return `<div style="display:grid;gap:6px">
+          ${svcs.map(sv => `
+          <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;
+                         border:2px solid ${s.serviceId===sv.id ? patternColor[sv.processPattern] : '#E5E7EB'};
+                         background:${s.serviceId===sv.id ? patternColor[sv.processPattern]+'12' : 'white'};
+                         cursor:pointer"
+                 onclick="selectService('${sv.id}')">
+            <input type="radio" ${s.serviceId===sv.id?'checked':''} style="margin:0;flex-shrink:0">
+            <div style="flex:1">
+              <div style="display:flex;align-items:center;gap:6px">
+                <span style="font-weight:800;font-size:12px;color:${s.serviceId===sv.id?patternColor[sv.processPattern]:'#374151'}">${sv.name}</span>
+                <span style="font-size:9px;font-weight:900;padding:1px 6px;border-radius:4px;
+                             background:${patternColor[sv.processPattern]}20;color:${patternColor[sv.processPattern]}">${patternLabel[sv.processPattern]}</span>
+                ${sv.budgetLinked ? '<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:#DBEAFE;color:#1E40AF;font-weight:700">💳 예산</span>'
+                                  : '<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:#F3F4F6;color:#6B7280;font-weight:700">📝 이력</span>'}
+                ${sv.applyMode==='reimbursement' ? '<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:#FEF3C7;color:#92400E;font-weight:700">🧾 후정산</span>' : ''}
+              </div>
+              <div style="font-size:11px;color:#9CA3AF;margin-top:1px">${sv.desc}</div>
+            </div>
+          </label>`).join('')}
+        </div>`;
+      })()}
     </div>
 
-    ${s.useBudget === true ? `
-    <div class="border-t border-dashed border-gray-200 pt-6 space-y-5">
+    <!-- 서비스 선택 후: 패턴별 분기 -->
+    ${s.serviceId ? (() => {
+      const svc = typeof SERVICE_DEFINITIONS !== 'undefined'
+        ? SERVICE_DEFINITIONS.find(sv => sv.id === s.serviceId) : null;
+      if (!svc) return '';
 
-      <!-- 예산 계정 선택 (공통) -->
-      <div>
-        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">예산 계정 선택</label>
-        <select onchange="applyState.budgetId=this.value;applyState.planId='';renderApply()" class="w-full border-2 border-gray-200 rounded-xl px-4 py-3 font-bold text-sm focus:border-accent bg-white">
-          <option value="">-- 예산 계정 선택 --</option>
-          ${availBudgets.map(b => `<option value="${b.id}" ${s.budgetId === b.id ? 'selected' : ''}>${b.name} · 잔액 ${fmt(b.balance - b.used)}원</option>`).join('')}
-        </select>
-      </div>
-
-      <!-- 연구직군 + R&D 예산 선택 시 추가 분기 -->
-      ${isRndBudget ? `
-        ${hasRndPlans ? `
-        <!-- 교육계획 선택 필수 -->
-        <div class="bg-blue-50 border-2 border-blue-200 rounded-2xl p-5">
-          <div class="flex items-center gap-2 mb-1">
-            <span class="text-base">📋</span>
-            <span class="text-sm font-black text-blue-700">교육계획 선택 <span class="text-red-500">*</span></span>
+      // 패턴 A (계획-신청-결과, 홀딩형)
+      if (svc.processPattern === 'A') {
+        return `
+        <div class="border-t border-dashed border-purple-200 pt-5 mt-2">
+          <div class="flex items-center gap-2 mb-4 p-3 bg-purple-50 rounded-xl border border-purple-200">
+            <span class="text-lg">📊</span>
+            <div>
+              <div class="font-black text-sm text-purple-700">패턴 A: 계획 → 신청 → 결과</div>
+              <div class="text-xs text-purple-500">사전에 수립된 교육계획을 선택하고 예산을 가점유합니다.</div>
+            </div>
           </div>
-          <p class="text-xs text-blue-500 mb-3">R&amp;D 교육예산 사용 시 사전 수립된 교육계획 연동이 필수입니다.</p>
-          <select onchange="selectPlan(this.value)" class="w-full bg-white border border-blue-200 rounded-xl px-4 py-3 font-bold text-sm focus:border-accent">
-            <option value="">-- 연계할 교육계획 선택 --</option>
-            ${rndPlans.map(p => `<option value="${p.id}" ${s.planId === p.id ? 'selected' : ''}>[${p.id}] ${p.title} (${fmt(p.amount)}원)</option>`).join('')}
+          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">예산 계정 선택</label>
+          <select onchange="applyState.budgetId=this.value;applyState.planId='';renderApply()"
+            class="w-full border-2 border-gray-200 rounded-xl px-4 py-3 font-bold text-sm focus:border-accent bg-white">
+            <option value="">-- 예산 계정 선택 --</option>
+            ${(s.purpose ? getPersonaBudgets(currentPersona, s.purpose.accounts) : currentPersona.budgets)
+              .map(b => `<option value="${b.id}" ${s.budgetId===b.id?'selected':''}>${b.name} · 잔액 ${fmt(b.balance-b.used)}원</option>`).join('')}
           </select>
-          ${s.planId ? `<div class="mt-2 text-xs font-black text-blue-600 flex items-center gap-1">✓ 교육계획이 연동되었습니다</div>` : ''}
-        </div>` : `
-        <!-- 교육계획 미수립 – 프로세스 종료 안내 -->
-        <div class="bg-red-50 border-2 border-red-200 rounded-2xl p-6">
-          <div class="flex items-start gap-4">
-            <span class="text-3xl flex-shrink-0">⚠️</span>
-            <div>
-              <div class="font-black text-red-700 mb-1">R&amp;D 교육계획이 없습니다</div>
-              <p class="text-xs text-red-500 leading-relaxed mb-4">R&amp;D 교육예산 사용을 위해서는 사전에 교육계획을 수립하여 승인받아야 합니다.<br/>교육계획을 먼저 수립하거나, 담당자에게 문의하세요.</p>
-              <div class="flex flex-wrap gap-3">
-                <button onclick="navigate('plans')" class="px-5 py-2 rounded-xl font-black text-xs bg-brand text-white hover:bg-blue-900 transition shadow">📋 교육계획 수립하기</button>
-                <button onclick="alert('담당자 문의\\n\\n인재개발파트: 02-1234-5678\\n이메일: hrd@hyundai.com')" class="px-5 py-2 rounded-xl font-black text-xs border-2 border-red-300 text-red-600 hover:bg-red-100 transition">☎ 담당자 문의</button>
-              </div>
-            </div>
-          </div>
-        </div>`}
-      ` : ''}
-      ${isOperBudget ? `
-        ${hasOperPlans ? `
-        <!-- 복수 교육계획 선택 필수 -->
-        <div class="bg-violet-50 border-2 border-violet-200 rounded-2xl p-5 mt-4">
-          <div class="flex items-center gap-2 mb-1">
-            <span class="text-base">📋</span>
-            <span class="text-sm font-black text-violet-700">연계 계획 다중 선택 <span class="text-red-500">*</span></span>
-          </div>
-          <p class="text-xs text-violet-500 mb-3">운영계정 사용 시 사전에 승인된 단위 교육계획을 복수로 매핑해야 합니다.</p>
-          <button onclick="applyState.showMultiPlanModal=true;renderApply()" class="w-full bg-white border border-violet-200 rounded-xl px-4 py-3 font-bold text-sm focus:border-accent text-left flex justify-between items-center hover:bg-violet-50 transition">
-             <span>${s.planIds?.length ? `${s.planIds.length}개의 계획이 선택됨` : '-- 연계할 교육계획 선택 (다중) --'}</span>
-             <span class="text-violet-400">▼</span>
-          </button>
-          ${s.planIds?.length ? `<div class="mt-3 text-xs font-black text-violet-600 flex flex-wrap gap-2">
-            ${s.planIds.map(id => `<span class="bg-violet-100 px-2 py-1 rounded border border-violet-200 shadow-sm">${MOCK_PLANS.find(p => p.id === id)?.title || id}</span>`).join('')}
+          ${availBudgets.find(b=>b.id===s.budgetId) ? `
+          <div class="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-200">
+            <div class="text-xs font-black text-blue-600 mb-1">💡 교육계획 연동 (선택사항)</div>
+            <select onchange="selectPlan(this.value)" class="w-full bg-white border border-blue-200 rounded-xl px-4 py-2 font-bold text-sm">
+              <option value="">-- 연계할 교육계획 선택 --</option>
+              ${MOCK_PLANS.map(p=>`<option value="${p.id}" ${s.planId===p.id?'selected':''}>[${p.id}] ${p.title} (${fmt(p.amount)}원)</option>`).join('')}
+            </select>
           </div>` : ''}
-        </div>` : `
-        <!-- 교육계획 미수립 -->
-        <div class="bg-red-50 border-2 border-red-200 rounded-2xl p-6 mt-4">
-          <div class="flex items-start gap-4">
-            <span class="text-3xl flex-shrink-0">⚠️</span>
+        </div>`;
+      }
+
+      // 패턴 B/C + 후정산형 (reimbursement)
+      if (svc.budgetLinked && svc.applyMode === 'reimbursement') {
+        return `
+        <div class="border-t border-dashed border-yellow-200 pt-5 mt-2">
+          <div class="flex items-center gap-2 mb-4 p-3 bg-yellow-50 rounded-xl border border-yellow-200">
+            <span class="text-lg">🧾</span>
             <div>
-              <div class="font-black text-red-700 mb-1">운영 교육계획이 없습니다</div>
-              <p class="text-xs text-red-500 leading-relaxed gap-4">선택한 운영 예산에 연동할 수 있는 교육계획이 없습니다.</p>
+              <div class="font-black text-sm text-yellow-700">선지출 후정산형</div>
+              <div class="text-xs text-yellow-600">학습자가 개인 선지불 후 영수증을 첨부하여 신청합니다.<br>승인 완료 즉시 예산이 차감되며 별도 결과 보고는 없습니다.</div>
             </div>
           </div>
-        </div>`}
-      ` : ''}
-    </div>` : ''}
+          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">예산 계정 선택</label>
+          <select onchange="applyState.budgetId=this.value;renderApply()"
+            class="w-full border-2 border-gray-200 rounded-xl px-4 py-3 font-bold text-sm focus:border-accent bg-white">
+            <option value="">-- 예산 계정 선택 --</option>
+            ${currentPersona.budgets.map(b=>`<option value="${b.id}" ${s.budgetId===b.id?'selected':''}>${b.name} · 잔액 ${fmt(b.balance-b.used)}원</option>`).join('')}
+          </select>
+        </div>`;
+      }
+
+      // 패턴 B 홀딩형
+      if (svc.budgetLinked && svc.applyMode === 'holding') {
+        return `
+        <div class="border-t border-dashed border-blue-200 pt-5 mt-2">
+          <div class="flex items-center gap-2 mb-4 p-3 bg-blue-50 rounded-xl border border-blue-200">
+            <span class="text-lg">💳</span>
+            <div>
+              <div class="font-black text-sm text-blue-700">패턴 B: 신청 → 결과 (가점유형)</div>
+              <div class="text-xs text-blue-500">신청 승인 시 예산 가점유 → 교육 완료 후 결과 등록 시 정산합니다.</div>
+            </div>
+          </div>
+          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">예산 계정 선택</label>
+          <select onchange="applyState.budgetId=this.value;renderApply()"
+            class="w-full border-2 border-gray-200 rounded-xl px-4 py-3 font-bold text-sm focus:border-accent bg-white">
+            <option value="">-- 예산 계정 선택 --</option>
+            ${currentPersona.budgets.map(b=>`<option value="${b.id}" ${s.budgetId===b.id?'selected':''}>${b.name} · 잔액 ${fmt(b.balance-b.used)}원</option>`).join('')}
+          </select>
+        </div>`;
+      }
+
+      // 무예산 이력 전용
+      return `
+      <div class="border-t border-dashed border-gray-200 pt-5 mt-2">
+        <div class="flex items-center gap-2 p-4 bg-gray-50 rounded-xl border border-gray-200">
+          <span class="text-2xl">📝</span>
+          <div>
+            <div class="font-black text-sm text-gray-700">무예산 학습이력 등록</div>
+            <div class="text-xs text-gray-500 mt-1">예산 집행 없이 학습 이력만 등록합니다.<br>자비 학습·무료 세미나 등에 활용하세요. 예산 잔액에 영향을 주지 않습니다.</div>
+          </div>
+        </div>
+      </div>`;
+    })() : ''}
 
     <div class="flex justify-between mt-6">
       <button onclick="applyPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
-      <button onclick="applyNext()" ${!step2CanNext ? 'disabled' : ''}
-        class="px-8 py-3 rounded-xl font-black text-sm transition ${!step2CanNext ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-brand text-white hover:bg-blue-900 shadow-lg'}">
+      <button onclick="applyNext()" ${!s.serviceId ? 'disabled' : ''}
+        class="px-8 py-3 rounded-xl font-black text-sm transition ${!s.serviceId ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-brand text-white hover:bg-blue-900 shadow-lg'}">
         다음 →
       </button>
     </div>
   </div>
+
 
   <!-- Step 3: 교육유형 선택 -->
   <div class="card p-8 ${s.step === 3 ? '' : 'hidden'}">
@@ -405,7 +441,26 @@ function applyPrev() { applyState.step = Math.max(applyState.step - 1, 1); rende
 function addExpRow() { applyState.expenses.push({ id: Date.now(), type: '교육비/등록비', price: 0, qty: 1 }); renderApply(); }
 function removeExpRow(i) { applyState.expenses.splice(i, 1); renderApply(); }
 function submitApply() {
-  alert('✅ 교육 신청서가 성공적으로 제출되었습니다.\n\n담당자 검토 후 알림이 발송됩니다.');
+  const svc = typeof SERVICE_DEFINITIONS !== 'undefined' && applyState.serviceId
+    ? SERVICE_DEFINITIONS.find(sv => sv.id === applyState.serviceId) : null;
+  const modeLabel = svc?.applyMode === 'reimbursement' ? '후정산형 신청' : '교육 신청';
+  const budgetNote = svc?.budgetLinked === false ? '\n\n📝 무예산 이력 등록으로 예산 잔액에는 영향을 주지 않습니다.'
+    : svc?.applyMode === 'reimbursement' ? '\n\n🧾 후정산 신청이 승인되면 예산에서 즉시 차감됩니다.'
+    : '\n\n💳 승인 시 예산이 가점유 처리됩니다.';
+  alert(`✅ ${modeLabel}서가 성공적으로 제출되었습니다.${budgetNote}\n\n담당자 검토 후 알림이 발송됩니다.`);
   applyState = resetApplyState();
   navigate('history');
 }
+
+function selectService(id) {
+  const svc = typeof SERVICE_DEFINITIONS !== 'undefined'
+    ? SERVICE_DEFINITIONS.find(sv => sv.id === id) : null;
+  applyState.serviceId = id;
+  applyState.applyMode = svc ? svc.applyMode : null;
+  applyState.useBudget = svc ? svc.budgetLinked : null;
+  applyState.budgetId  = '';
+  applyState.planId    = '';
+  applyState.planIds   = [];
+  renderApply();
+}
+

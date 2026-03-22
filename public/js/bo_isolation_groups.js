@@ -21,22 +21,133 @@ function _igPersonaChip(key, color, onRemove) {
 }
 
 // ── 메인 렌더 ──────────────────────────────────────────────────────────────────
+/**
+ * 역할별 뷰 분기:
+ *   tenant_global_admin (전용, dualRole 없음)
+ *     → 격리 그룹 생성 + 예산 총괄 선임만 표시
+ *   tenant_global_admin + dualRole:'budget_global_admin' (겸임)
+ *     → 격리 그룹 생성/선임 섹션 + 내 그룹 운영 담당자 관리 섹션 모두 표시
+ *   budget_global_admin (순수 총괄, dualRole 없음)
+ *     → 내 격리 그룹 운영 담당자 관리 섹션만 표시
+ */
 function renderIsolationGroups() {
   const persona = boCurrentPersona;
   const el = document.getElementById('bo-content');
-  const isTenantOnly = persona.role === 'tenant_global_admin' && !persona.dualRole;
-  const isBudgetAdmin = persona.role === 'budget_global_admin' || persona.dualRole === 'budget_global_admin';
   const personaKey = Object.keys(BO_PERSONAS).find(k => BO_PERSONAS[k] === persona) || '';
 
-  el.innerHTML = isTenantOnly
-    ? _renderTenantView(persona, personaKey)
-    : isBudgetAdmin
-      ? _renderBudgetAdminView(persona, personaKey)
-      : '<div style="padding:60px;text-align:center;color:#9CA3AF">이 페이지에 대한 접근 권한이 없습니다.</div>';
+  const isTenantAdmin  = persona.role === 'tenant_global_admin';
+  const isDualRole     = persona.dualRole === 'budget_global_admin';
+  const isBudgetOnly   = persona.role === 'budget_global_admin' && !isDualRole;
+
+  let html = '';
+
+  if (isTenantAdmin && !isDualRole) {
+    // ① 순수 테넌트 총괄: 그룹 생성 + 총괄 선임만
+    html = _renderTenantView(persona, personaKey);
+  } else if (isTenantAdmin && isDualRole) {
+    // ② 겸임 (테넌트 총괄 + 예산 총괄): 두 섹션 모두
+    html = _renderDualRoleView(persona, personaKey);
+  } else if (isBudgetOnly) {
+    // ③ 순수 예산 총괄: 운영 담당자 관리만
+    html = _renderBudgetAdminView(persona, personaKey);
+  } else {
+    html = '<div style="padding:60px;text-align:center;color:#9CA3AF">이 페이지에 대한 접근 권한이 없습니다.</div>';
+  }
+
+  el.innerHTML = html;
 
   // 모달 추가
-  if (_igModal)        el.innerHTML += _renderCreateGroupModal(persona);
-  if (_igAddOpModal)   el.innerHTML += _renderAddOpManagerModal(persona, personaKey);
+  if (_igModal)      el.innerHTML += _renderCreateGroupModal(persona);
+  if (_igAddOpModal) el.innerHTML += _renderAddOpManagerModal(persona, personaKey);
+}
+
+
+// ── 섹션 단위 렌더러 (겸임 뷰에서 재사용) ────────────────────────────────────
+function _renderTenantSection(persona, personaKey) {
+  // 테넌트 그룹 목록 카드 + 생성 버튼 (제목/배너 없이)
+  const myGroups = ISOLATION_GROUPS.filter(g => g.tenantId === persona.tenantId);
+  const cards = myGroups.map(g => {
+    const admin = BO_PERSONAS[g.globalAdminKey];
+    const opCount = g.opManagerKeys.length;
+    const accts = g.ownedAccounts || [];
+    return `
+<div class="bo-card" style="padding:18px;margin-bottom:12px">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+    <div style="flex:1">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+        <span>🛡️</span>
+        <span style="font-weight:900;font-size:13px;color:#111827">${g.name}</span>
+        <span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:7px;
+          background:${g.status==='active'?'#D1FAE5':'#F3F4F6'};
+          color:${g.status==='active'?'#065F46':'#9CA3AF'}">${g.status==='active'?'✅ 운영중':'⏸️'}</span>
+      </div>
+      <div style="font-size:11px;color:#6B7280;margin-bottom:10px">${g.desc}</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:9px;font-weight:900;color:#7C3AED;text-transform:uppercase;margin-bottom:3px">🔑 예산 총괄</div>
+          ${admin ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#F5F3FF;border:1px solid #DDD6FE;font-weight:700;color:#7C3AED">${admin.name} <span style="opacity:.7;font-size:9px">${admin.dept}</span></span>` : '<span style="font-size:11px;color:#EF4444;font-weight:700">⚠️ 미선임</span>'}
+        </div>
+        <div>
+          <div style="font-size:9px;font-weight:900;color:#1D4ED8;text-transform:uppercase;margin-bottom:3px">👤 운영 담당자</div>
+          <span style="font-size:11px;font-weight:700;color:${opCount>0?'#1D4ED8':'#9CA3AF'}">${opCount > 0 ? opCount + '명 등록됨' : '미등록'}</span>
+        </div>
+        <div>
+          <div style="font-size:9px;font-weight:900;color:#059669;text-transform:uppercase;margin-bottom:3px">💳 예산 계정</div>
+          <span style="font-size:11px;color:#374151;font-weight:700">${accts.length > 0 ? accts.join(', ') : '—'}</span>
+        </div>
+      </div>
+    </div>
+    <button onclick="alert('예산 총괄 변경 기능')"
+      style="font-size:11px;padding:5px 10px;border-radius:8px;border:1.5px solid #E5E7EB;background:white;cursor:pointer;font-weight:700;flex-shrink:0">✏️ 수정</button>
+  </div>
+</div>`;
+  }).join('');
+
+  return `
+<div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+  <button onclick="_igModal=true;renderIsolationGroups()" class="bo-btn-primary" style="display:flex;align-items:center;gap:5px;padding:8px 16px;font-size:12px">
+    <span>+</span> 새 격리 그룹 만들기
+  </button>
+</div>
+${cards || '<div style="padding:30px;text-align:center;color:#9CA3AF;background:#F9FAFB;border-radius:12px">생성된 격리 그룹이 없습니다.</div>'}`;
+}
+
+function _renderBudgetAdminSection(persona, personaKey) {
+  // 운영 담당자 관리 섹션 (제목 없이)
+  const myGroups = ISOLATION_GROUPS.filter(g =>
+    g.tenantId === persona.tenantId && g.globalAdminKey === personaKey
+  );
+  if (myGroups.length === 0) {
+    return '<div style="padding:30px;text-align:center;background:#F9FAFB;border-radius:12px;color:#9CA3AF">이 페르소나가 총괄로 배정된 격리 그룹이 없습니다.</div>';
+  }
+  return myGroups.map(g => {
+    const opCards = g.opManagerKeys.map(k => {
+      const p = BO_PERSONAS[k];
+      if (!p) return '';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#F9FAFB;border-radius:10px;border:1px solid #F3F4F6;margin-bottom:6px">
+        <div style="flex:1">
+          <div style="font-weight:800;font-size:12px;color:#111827">${p.name}</div>
+          <div style="font-size:10px;color:#9CA3AF">${p.dept} · ${p.pos} ${p.scope ? '· '+p.scope : ''}</div>
+        </div>
+        <button onclick="_igRemoveOpManager('${g.id}','${k}')"
+          style="font-size:11px;padding:4px 8px;border-radius:7px;border:1px solid #FECACA;background:#FEF2F2;color:#EF4444;cursor:pointer;font-weight:700">제거</button>
+      </div>`;
+    }).join('');
+    return `<div class="bo-card" style="padding:20px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div>
+          <div style="font-weight:900;font-size:13px;color:#111827">🛡️ ${g.name}</div>
+          <div style="font-size:11px;color:#6B7280;margin-top:2px">${g.desc}</div>
+        </div>
+        <button onclick="_igAddOpModal=true;_igTargetGroupId='${g.id}';renderIsolationGroups()"
+          class="bo-btn-primary" style="padding:7px 14px;font-size:12px;white-space:nowrap">+ 운영 담당자 추가</button>
+      </div>
+      ${opCards || '<div style="padding:20px;text-align:center;background:#F9FAFB;border-radius:10px;border:1px dashed #D1D5DB;color:#9CA3AF;font-size:12px">아직 등록된 운영 담당자가 없습니다</div>'}
+      ${g.opManagerKeys.length > 0 ? `<div style="margin-top:12px;padding:10px 14px;background:#EFF6FF;border-radius:10px;border:1px solid #BFDBFE;font-size:11px;color:#1D4ED8;font-weight:700">
+        💡 <button onclick="boNavigate('virtual-org')" style="background:none;border:none;cursor:pointer;font-size:11px;font-weight:900;color:#1D4ED8;text-decoration:underline">가상조직 템플릿 관리</button>에서 노드 담당자를 배정하세요.
+      </div>` : ''}
+    </div>`;
+  }).join('');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -130,6 +241,52 @@ function _renderTenantView(persona, personaKey) {
     격리 그룹 목록 (${myGroups.length}개)
   </div>
   ${cards || '<div style="padding:40px;text-align:center;color:#9CA3AF">생성된 격리 그룹이 없습니다.</div>'}
+</div>`;
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ② 겸임 뷰 (테넌트 총괄 + 예산 총괄 겸임)
+//    역할: 격리 그룹 생성/총괄 선임 + 내 그룹 운영 담당자 관리 모두 포함
+// ══════════════════════════════════════════════════════════════════════════════
+function _renderDualRoleView(persona, personaKey) {
+  const tenantSection = _renderTenantSection(persona, personaKey);
+  const budgetSection = _renderBudgetAdminSection(persona, personaKey);
+
+  return `
+<div class="bo-fade">
+  <div style="margin-bottom:20px">
+    <h1 class="bo-page-title">🛡️ 격리 그룹 관리</h1>
+    <p class="bo-page-sub">
+      <span style="background:#D97706;color:white;font-size:9px;font-weight:900;padding:2px 7px;border-radius:5px;margin-right:6px">[테넌트+총괄 겸임]</span>
+      격리 그룹을 생성·관리하고, 내 그룹의 운영 담당자도 직접 등록합니다.
+    </p>
+  </div>
+
+  <!-- 섹션 ①: 테넌트 총괄 기능 -->
+  <div style="margin-bottom:28px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <div style="width:28px;height:28px;border-radius:8px;background:#D9770618;display:flex;align-items:center;justify-content:center;font-size:13px">🛡️</div>
+      <div style="font-size:13px;font-weight:900;color:#92400E">① 격리 그룹 생성 및 예산 총괄 선임</div>
+      <div style="font-size:10px;color:#9CA3AF">(테넌트 총괄 권한)</div>
+    </div>
+    ${tenantSection}
+  </div>
+
+  <!-- 구분선 -->
+  <div style="border-top:2px dashed #E5E7EB;margin-bottom:28px;position:relative">
+    <span style="position:absolute;top:-9px;left:50%;transform:translateX(-50%);background:white;padding:0 12px;font-size:11px;font-weight:700;color:#9CA3AF">▼ 예산 총괄 담당자 기능</span>
+  </div>
+
+  <!-- 섹션 ②: 예산 총괄 기능 -->
+  <div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <div style="width:28px;height:28px;border-radius:8px;background:#1D4ED818;display:flex;align-items:center;justify-content:center;font-size:13px">👤</div>
+      <div style="font-size:13px;font-weight:900;color:#1E40AF">② 내 격리 그룹 운영 담당자 관리</div>
+      <div style="font-size:10px;color:#9CA3AF">(예산 총괄 권한)</div>
+    </div>
+    ${budgetSection}
+  </div>
 </div>`;
 }
 

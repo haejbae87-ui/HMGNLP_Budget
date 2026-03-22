@@ -1,297 +1,670 @@
-// ─── [메뉴3] 교육 양식 & 학습유형 관리 (Form Builder) ─────────────────────────
-// Tenant Admin이 계획용/신청용/결과용 양식을 직접 만들어두는 단계
+// ─── 교육신청양식마법사 (Form Builder Enhanced) ─────────────────────────────────
+// 3탭 구조: ① 양식 라이브러리 ② 양식 빌더 ③ 서비스 통합 매핑
+// 기획안 기반 고도화: 양식 분류체계, 입력 주체 제어, 조건부 로직, 서비스 매핑
 
-// LNB 독립 진입점 래퍼
-function renderFormBuilderMenu() {
-  document.getElementById('bo-content').innerHTML = renderFormMasterTab();
-}
+// ── 상수 정의 ──────────────────────────────────────────────────────────────────
+const FORM_TARGET_TYPES = {
+  learner: { label: '학습자용', icon: '👤', color: '#059669', bg: '#F0FDF4', desc: '개인직무 사외학습 신청' },
+  manager: { label: '교육담당자용', icon: '🎓', color: '#7C3AED', bg: '#F5F3FF', desc: '집합/운영/세미나/기타' },
+};
 
-const AVAILABLE_FIELDS = [
-  { key: '교육목적', icon: '🎯', required: true },
-  { key: '교육기간', icon: '📅', required: true },
-  { key: '교육기관', icon: '🏫', required: true },
-  { key: '장소', icon: '📍', required: false },
-  { key: '기대효과', icon: '✨', required: false },
-  { key: '예상비용', icon: '💰', required: true },
-  { key: '교육비', icon: '💳', required: true },
-  { key: '참가비', icon: '💲', required: false },
-  { key: '과정명', icon: '📚', required: true },
-  { key: '교육일정', icon: '🗓️', required: true },
-  { key: '수강인원', icon: '👥', required: false },
-  { key: '정원', icon: '🪑', required: false },
-  { key: '첨부파일', icon: '📎', required: false },
-  { key: '보안서약서', icon: '🔒', required: false },
-  { key: '영수증', icon: '🧾', required: false },
-  { key: '계획서연결', icon: '🔗', required: false, hint: 'Step5에서 연결된 계획 양식을 불러옵니다' },
+const FORM_SERVICE_TYPES = {
+  individual:  { label: '개인직무 사외학습', target: 'learner', icon: '🙋', color: '#059669' },
+  group:       { label: '집합/이러닝 운영',  target: 'manager', icon: '🏫', color: '#7C3AED' },
+  seminar:     { label: '컨퍼런스/세미나/워크샵', target: 'manager', icon: '🎤', color: '#0369A1' },
+  etc:         { label: '기타 항목 관리',    target: 'manager', icon: '📦', color: '#D97706' },
+};
+
+const FORM_STAGE_TYPES = {
+  plan:   { label: '교육계획 (Plan)',   icon: '📋', color: '#7C3AED', bg: '#F5F3FF' },
+  apply:  { label: '교육신청 (Apply)',  icon: '📄', color: '#059669', bg: '#F0FDF4' },
+  result: { label: '교육결과 (Result)', icon: '📝', color: '#D97706', bg: '#FFFBEB' },
+};
+
+const PROCESS_PATTERNS = {
+  A: { label: '패턴 A', desc: '계획 → 신청 → 결과', stages: ['plan','apply','result'], color: '#7C3AED' },
+  B: { label: '패턴 B', desc: '신청 → 결과',         stages: ['apply','result'],       color: '#059669' },
+  C: { label: '패턴 C', desc: '신청 단독 (후정산)',    stages: ['apply'],               color: '#0369A1' },
+};
+
+// 확장된 필드 라이브러리 - 입력 주체(scope) 포함
+const ADVANCED_FIELDS = [
+  // 공통 기본 필드
+  { key: '교육목적',      icon: '🎯', required: true,  scope: 'front',  category: '기본정보', hint: '학습 목표 및 기대효과' },
+  { key: '교육기간',      icon: '📅', required: true,  scope: 'front',  category: '기본정보', hint: '시작일~종료일' },
+  { key: '교육기관',      icon: '🏫', required: true,  scope: 'front',  category: '기본정보', hint: '교육 제공 기관명' },
+  { key: '과정명',        icon: '📚', required: true,  scope: 'front',  category: '기본정보', hint: '교육과정/행사명' },
+  { key: '장소',          icon: '📍', required: false, scope: 'front',  category: '기본정보', hint: '교육 장소' },
+  { key: '기대효과',      icon: '✨', required: false, scope: 'front',  category: '기본정보', hint: '참가 후 기대되는 효과' },
+  // 비용 관련
+  { key: '예상비용',      icon: '💰', required: true,  scope: 'front',  category: '비용정보', hint: '예상 총 비용 (예산 잔액 연동)', budget: true },
+  { key: '교육비',        icon: '💳', required: true,  scope: 'front',  category: '비용정보', hint: '수강료/등록비' },
+  { key: '참가비',        icon: '💲', required: false, scope: 'front',  category: '비용정보', hint: '행사 참가비' },
+  { key: '강사료',        icon: '👨‍🏫', required: false, scope: 'front',  category: '비용정보', hint: '외부 강사 강의료', trigger: '강사이력서' },
+  { key: '대관비',        icon: '🏛️', required: false, scope: 'front',  category: '비용정보', hint: '장소 대관 비용' },
+  { key: '식대/용차',     icon: '🍽️', required: false, scope: 'front',  category: '비용정보', hint: '식비 및 운송비' },
+  { key: '실지출액',      icon: '🧾', required: false, scope: 'back',   category: '비용정보', hint: '승인자 확정 실지출 인정액' },
+  // 인원 관련
+  { key: '수강인원',      icon: '👥', required: false, scope: 'front',  category: '인원정보', hint: '예상 수강 인원' },
+  { key: '정원',          icon: '🪑', required: false, scope: 'front',  category: '인원정보', hint: '최대 정원' },
+  { key: '참여자명단',    icon: '📋', required: false, scope: 'front',  category: '인원정보', hint: '참여자 명단 (엑셀 업로드)' },
+  { key: '강사정보',      icon: '🎤', required: false, scope: 'front',  category: '인원정보', hint: '확정 강사 정보' },
+  // 첨부 서류
+  { key: '첨부파일',      icon: '📎', required: false, scope: 'front',  category: '첨부서류', hint: '관련 서류 첨부' },
+  { key: '강사이력서',    icon: '📄', required: false, scope: 'front',  category: '첨부서류', hint: '외부강사 이력서 (강사료 선택 시 자동 활성화)' },
+  { key: '보안서약서',    icon: '🔒', required: false, scope: 'front',  category: '첨부서류', hint: '보안 서약서 서명' },
+  { key: '영수증',        icon: '🧾', required: false, scope: 'front',  category: '첨부서류', hint: '결제 영수증/증빙' },
+  { key: '수료증',        icon: '🎓', required: false, scope: 'front',  category: '첨부서류', hint: '수료증 업로드' },
+  { key: '대관확정서',    icon: '📜', required: false, scope: 'front',  category: '첨부서류', hint: '장소 대관 확정서' },
+  { key: '납품확인서',    icon: '✅', required: false, scope: 'front',  category: '첨부서류', hint: '물품 납품 확인서' },
+  // 결과 관련
+  { key: '수료생명단',    icon: '📝', required: false, scope: 'front',  category: '결과정보', hint: '최종 수료자 명단' },
+  { key: '학습만족도',    icon: '⭐', required: false, scope: 'front',  category: '결과정보', hint: '만족도 조사 (별점)' },
+  { key: '교육결과요약',  icon: '📊', required: false, scope: 'front',  category: '결과정보', hint: '교육 결과 요약 보고' },
+  // 백오피스 전용 (승인자)
+  { key: 'ERP코드',       icon: '🔗', required: false, scope: 'back',   category: '관리(승인자)', hint: 'ERP 연동 비용 코드' },
+  { key: '검토의견',      icon: '💬', required: false, scope: 'back',   category: '관리(승인자)', hint: '승인자 검토 및 의견' },
+  { key: '관리자비고',    icon: '📌', required: false, scope: 'back',   category: '관리(승인자)', hint: '관리자 내부 메모' },
+  // 연결/시스템 필드
+  { key: '계획서연결',    icon: '🔗', required: false, scope: 'system', category: '시스템', hint: '연결된 교육계획 양식 자동 불러오기' },
+  { key: '예산계정',      icon: '💼', required: false, scope: 'system', category: '시스템', hint: '예산 계정 잔액 실시간 연동', budget: true },
 ];
 
-let _fbEditId = null; // 편집 중인 양식 ID
-let _fbTempFields = []; // 임시 필드 목록 (빌더 내 현재 구성)
+// 서비스 매핑 데이터 (테넌트별 관리)
+let SERVICE_MAPPINGS = [
+  {
+    id: 'SVC_HMC_01', tenantId: 'HMC',
+    name: '개인직무 사외학습 지원',
+    target: 'learner', serviceType: 'individual', pattern: 'B',
+    formSets: { apply: 'FM001', result: 'FM004' },
+    desc: '일반직군 학습자가 사외교육 신청 후 결과를 보고하는 패턴',
+  },
+  {
+    id: 'SVC_HMC_02', tenantId: 'HMC',
+    name: 'R&D 집합/이러닝 과정 운영',
+    target: 'manager', serviceType: 'group', pattern: 'A',
+    formSets: { plan: 'FM002', apply: 'FM003', result: 'FM005' },
+    desc: 'R&D 교육담당자가 과정 기획부터 결과까지 전체 관리',
+  },
+];
 
-function renderFormMasterTab() {
-  const tenantId = boCurrentPersona.tenantId || 'HMG';
-  const allForms = FORM_MASTER.filter(f => f.tenantId === tenantId);
-  const planForms = allForms.filter(f => f.type === 'plan');
-  const applyForms = allForms.filter(f => f.type === 'apply');
-  const resultForms = allForms.filter(f => f.type === 'result');
-  const tenant = TENANTS.find(t => t.id === tenantId);
+// 현재 탭 상태
+let _fbCurrentTab   = 'library'; // 'library' | 'builder' | 'mapping'
+let _fbEditId       = null;
+let _fbTempFields   = []; // { key, scope:'front'|'back', order }
+let _fbBuilderMode  = 'create'; // 'create' | 'edit'
 
-  const formCard = (f) => {
-    const typeConfig = {
-      plan:   { color: '#7C3AED', bg: '#F5F3FF', label: '📋 교육계획 양식' },
-      apply:  { color: '#059669', bg: '#F0FDF4', label: '📄 교육신청 양식' },
-      result: { color: '#D97706', bg: '#FFFBEB', label: '📝 교육결과 양식' }
-    };
-    const { color: typeColor, bg: typeBg, label: typeLabel } = typeConfig[f.type] || typeConfig.apply;
-    return `
-    <div class="bo-rule-card" style="margin-bottom:10px">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;">
-        <div style="flex:1">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-            <span style="background:${typeBg};color:${typeColor};font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px">${typeLabel}</span>
-            <span style="font-size:14px;font-weight:800;color:#111827">${f.name}</span>
-            <span class="bo-badge ${f.active ? 'bo-badge-green' : 'bo-badge-gray'}">${f.active ? '활성' : '비활성'}</span>
-          </div>
-          <div style="font-size:12px;color:#6B7280;margin-bottom:8px">${f.desc || ''}</div>
-          <div style="display:flex;flex-wrap:wrap;gap:5px">
-            ${f.fields.map(fld => {
-      const meta = AVAILABLE_FIELDS.find(a => a.key === fld) || { icon: '📝' };
-      return `<span style="background:#F3F4F6;color:#374151;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px">${meta.icon} ${fld}</span>`;
-    }).join('')}
-          </div>
-        </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;margin-left:12px">
-          <button class="bo-btn-secondary bo-btn-sm" onclick="fbOpenBuilderModal('${f.id}')">✏️ 편집</button>
-          <button class="bo-btn-secondary bo-btn-sm" onclick="fbToggleActive('${f.id}')"
-            style="color:${f.active ? '#F59E0B' : '#059669'};border-color:${f.active ? '#F59E0B' : '#059669'}">
-            ${f.active ? '비활성화' : '활성화'}
-          </button>
-        </div>
-      </div>
-    </div>`;
-  };
+// ── 메인 진입점 ────────────────────────────────────────────────────────────────
+function renderFormBuilderMenu() {
+  document.getElementById('bo-content').innerHTML = _fbRenderPage();
+}
 
+function _fbRenderPage() {
   return `
-<div>
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
-    <div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-        <span style="width:10px;height:10px;background:${tenant?.color};border-radius:50%;display:inline-block"></span>
-        <span style="font-weight:800;font-size:14px;color:#111827">${tenant?.name}</span>
-      </div>
-      <div style="font-size:12px;color:#6B7280">
-        계획용 양식 <strong>${planForms.length}</strong>개 &nbsp;|&nbsp; 신청용 양식 <strong>${applyForms.length}</strong>개
-      </div>
-    </div>
-    <button class="bo-btn-primary bo-btn-sm" onclick="fbOpenBuilderModal()">+ 양식 신규 생성</button>
-  </div>
-
-  <!-- 교육계획 양식 목록 -->
+<div class="bo-fade">
   <div style="margin-bottom:20px">
-    <div style="font-size:12px;font-weight:800;color:#7C3AED;margin-bottom:10px;display:flex;align-items:center;gap:6px">
-      📋 교육계획 양식 (Plan Forms)
-      <span class="bo-badge bo-badge-purple">${planForms.length}</span>
-    </div>
-    ${planForms.length ? planForms.map(formCard).join('') :
-      '<div class="bo-card" style="padding:20px;text-align:center;color:#9CA3AF">교육계획 양식이 없습니다. 추가해 주세요.</div>'}
+    <h1 class="bo-page-title">🧙 교육신청양식마법사</h1>
+    <p class="bo-page-sub">교육 서비스에 사용할 양식을 제작하고, 프로세스 패턴과 연결합니다.</p>
   </div>
 
-  <!-- 교육신청 양식 목록 -->
-  <div style="margin-bottom:20px">
-    <div style="font-size:12px;font-weight:800;color:#059669;margin-bottom:10px;display:flex;align-items:center;gap:6px">
-      📄 교육신청 양식 (Apply Forms)
-      <span class="bo-badge bo-badge-green">${applyForms.length}</span>
-    </div>
-    ${applyForms.length ? applyForms.map(formCard).join('') :
-      '<div class="bo-card" style="padding:20px;text-align:center;color:#9CA3AF">교육신청 양식이 없습니다. 추가해 주세요.</div>'}
+  <!-- 탭 네비게이션 -->
+  <div style="display:flex;gap:0;border-bottom:2px solid #E5E7EB;margin-bottom:24px">
+    ${_fbTabBtn('library', '📚 양식 라이브러리')}
+    ${_fbTabBtn('builder', '🔧 양식 빌더')}
+    ${_fbTabBtn('mapping', '🔗 서비스 통합 매핑')}
   </div>
 
-  <!-- 교육결과 양식 목록 -->
-  <div style="margin-bottom:20px">
-    <div style="font-size:12px;font-weight:800;color:#D97706;margin-bottom:10px;display:flex;align-items:center;gap:6px">
-      📝 교육결과 양식 (Result Forms)
-      <span class="bo-badge" style="background:#FFFBEB;color:#D97706;border:1px solid #FDE68A">${resultForms.length}</span>
-    </div>
-    ${resultForms.length ? resultForms.map(formCard).join('') :
-      '<div class="bo-card" style="padding:20px;text-align:center;color:#9CA3AF">교육결과 양식이 없습니다. 추가해 주세요.</div>'}
+  <!-- 탭 콘텐츠 -->
+  <div id="fb-tab-content">
+    ${_fbCurrentTab === 'library' ? _fbRenderLibrary() :
+      _fbCurrentTab === 'builder' ? _fbRenderBuilder() :
+      _fbRenderMapping()}
   </div>
-
-  <div class="bo-card" style="padding:12px 18px;background:#F5F3FF;border-color:#DDD6FE;margin-bottom:24px">
-    <span style="font-size:12px;font-weight:700;color:#5B21B6">
-      🔗 여기서 만든 양식은 [Step4] 통합 정책 설정에서 자동으로 드롭다운에 표시됩니다.
-    </span>
-  </div>
-
-  <!-- 학습유형(Learning Type) 템플릿 마스터 보기 -->
-  <div style="margin-bottom:20px">
-    <div style="font-size:12px;font-weight:800;color:#111827;margin-bottom:10px;display:flex;align-items:center;gap:6px">
-      📚 학습유형 템플릿 마스터
-      <span style="font-size:11px;color:#6B7280;font-weight:500">(플랫폼 사전 정의)</span>
-    </div>
-    <div class="bo-card" style="padding:16px;background:#FAFAFA">
-      <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:16px">
-        ${LEARNING_TYPES.map(cat => `
-        <div>
-          <div style="font-size:12px;font-weight:800;color:#374151;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #E5E7EB">
-            ${cat.category}
-          </div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px">
-            ${cat.items.map(item => `
-            <span style="background:#fff;border:1px solid #D1D5DB;color:#4B5563;font-size:11px;padding:3px 8px;border-radius:6px">
-              ${item}
-            </span>`).join('')}
-          </div>
-        </div>`).join('')}
-      </div>
-      <div style="margin-top:12px;font-size:11px;color:#9CA3AF">
-        * 위 학습유형들은 [Step3] 통합 정책 설정 시, 각 예산 및 조직별로 허용 여부를 체크박스로 제어할 수 있습니다.
-      </div>
-    </div>
-  </div>
-
 </div>
 
-<!-- Form Builder 모달 -->
-<div id="fb-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9100;align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto">
-  <div style="background:#fff;border-radius:16px;width:640px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+<!-- 빌더 상세 모달 -->
+<div id="fb-field-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9100;align-items:flex-start;justify-content:center;padding-top:30px;overflow-y:auto">
+  <div style="background:#fff;border-radius:16px;width:720px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.25);margin-bottom:40px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-      <h3 id="fb-modal-title" style="font-size:15px;font-weight:800;margin:0">양식 신규 생성</h3>
-      <button onclick="fbCloseModal()" style="border:none;background:none;font-size:20px;cursor:pointer;color:#9CA3AF">✕</button>
+      <h3 id="fb-modal-title" style="font-size:16px;font-weight:900;margin:0">양식 신규 생성</h3>
+      <button onclick="fbCloseModal()" style="border:none;background:none;font-size:22px;cursor:pointer;color:#9CA3AF">✕</button>
     </div>
     <div id="fb-modal-body"></div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid #E5E7EB">
       <button class="bo-btn-secondary bo-btn-sm" onclick="fbCloseModal()">취소</button>
-      <button class="bo-btn-primary bo-btn-sm" onclick="fbSaveForm()">저장</button>
+      <button class="bo-btn-primary bo-btn-sm" onclick="fbSaveForm()">💾 저장</button>
     </div>
   </div>
 </div>`;
 }
 
-// ─── Form Builder 모달 내용 ──────────────────────────────────────────────────
-function _fbModalBody(form) {
-  const nameVal = form?.name || '';
-  const typeVal = form?.type || 'apply';
-  const descVal = form?.desc || '';
-  _fbTempFields = form ? [...form.fields] : [];
+function _fbTabBtn(id, label) {
+  const active = _fbCurrentTab === id;
+  return `<button onclick="_fbSwitchTab('${id}')" style="
+    padding:10px 20px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:${active?'900':'600'};
+    color:${active?'#7C3AED':'#6B7280'};border-bottom:${active?'3px solid #7C3AED':'3px solid transparent'};
+    margin-bottom:-2px;transition:all .15s">${label}</button>`;
+}
+
+function _fbSwitchTab(tab) {
+  _fbCurrentTab = tab;
+  document.getElementById('bo-content').innerHTML = _fbRenderPage();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ① 양식 라이브러리 탭
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function _fbRenderLibrary() {
+  const tenantId = boCurrentPersona.tenantId || 'HMC';
+  const allForms = FORM_MASTER.filter(f => f.tenantId === tenantId);
+
+  // 서비스 유형별 그룹화
+  const groups = [
+    { serviceType: 'individual', label: '개인직무 사외학습', icon: '🙋', color: '#059669', bg: '#F0FDF4' },
+    { serviceType: 'group',      label: '집합/이러닝 운영',  icon: '🏫', color: '#7C3AED', bg: '#F5F3FF' },
+    { serviceType: 'seminar',    label: '세미나/워크샵',     icon: '🎤', color: '#0369A1', bg: '#EFF6FF' },
+    { serviceType: 'etc',        label: '기타 항목 관리',    icon: '📦', color: '#D97706', bg: '#FFFBEB' },
+    { serviceType: null,         label: '분류 미지정',       icon: '📋', color: '#9CA3AF', bg: '#F9FAFB' },
+  ];
 
   return `
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-    <div>
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">양식 유형 *</label>
-      <select id="fb-type" style="width:100%;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
-        <option value="apply" ${typeVal === 'apply' ? 'selected' : ''}>📄 교육신청 양식</option>
-        <option value="plan"  ${typeVal === 'plan' ? 'selected' : ''}>📋 교육계획 양식</option>
-        <option value="result" ${typeVal === 'result' ? 'selected' : ''}>📝 교육결과 양식</option>
-      </select>
+<div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+  <button class="bo-btn-primary" onclick="_fbSwitchTab('builder');fbOpenBuilderModal()"
+    style="display:flex;align-items:center;gap:6px;padding:9px 18px">
+    ＋ 새 양식 만들기
+  </button>
+</div>
+
+<!-- 양식 현황 요약 -->
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px">
+  ${['plan','apply','result'].map(stage => {
+    const s = FORM_STAGE_TYPES[stage];
+    const cnt = allForms.filter(f => f.type === stage).length;
+    return `<div class="bo-card" style="padding:16px;text-align:center;border-top:3px solid ${s.color}">
+      <div style="font-size:22px;margin-bottom:4px">${s.icon}</div>
+      <div style="font-size:20px;font-weight:900;color:${s.color}">${cnt}</div>
+      <div style="font-size:11px;color:#6B7280;font-weight:700">${s.label}</div>
+    </div>`;
+  }).join('')}
+</div>
+
+<!-- 단계별 양식 목록 -->
+${['plan','apply','result'].map(stage => {
+  const s = FORM_STAGE_TYPES[stage];
+  const forms = allForms.filter(f => f.type === stage);
+  return `
+<div style="margin-bottom:24px">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    <div style="width:4px;height:16px;background:${s.color};border-radius:2px"></div>
+    <span style="font-size:13px;font-weight:900;color:${s.color}">${s.icon} ${s.label}</span>
+    <span style="font-size:10px;font-weight:900;background:${s.bg};color:${s.color};padding:2px 8px;border-radius:10px">${forms.length}개</span>
+  </div>
+  ${forms.length ? forms.map(f => _fbFormCard(f)).join('') :
+    `<div style="padding:20px;text-align:center;background:#F9FAFB;border-radius:12px;border:1px dashed #D1D5DB;color:#9CA3AF;font-size:12px">
+      아직 ${s.label}이 없습니다.
+      <button onclick="_fbSwitchTab('builder');fbOpenBuilderModal()" style="background:none;border:none;cursor:pointer;color:${s.color};font-weight:700;font-size:12px;text-decoration:underline">만들기</button>
+    </div>`}
+</div>`;
+}).join('')}`;
+}
+
+function _fbFormCard(f) {
+  const s = FORM_STAGE_TYPES[f.type] || FORM_STAGE_TYPES.apply;
+  const st = f.serviceType ? FORM_SERVICE_TYPES[f.serviceType] : null;
+  const target = f.target ? FORM_TARGET_TYPES[f.target] : null;
+  const fields = (f.fields || []);
+
+  return `
+<div class="bo-card" style="padding:18px;margin-bottom:10px;border-left:4px solid ${s.color}">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+    <div style="flex:1">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+        <span style="background:${s.bg};color:${s.color};font-size:9px;font-weight:900;padding:2px 7px;border-radius:6px">${s.icon} ${s.label.split(' ')[0]}</span>
+        ${target ? `<span style="background:${target.bg};color:${target.color};font-size:9px;font-weight:900;padding:2px 7px;border-radius:6px">${target.icon} ${target.label}</span>` : ''}
+        ${st ? `<span style="background:#F3F4F6;color:#374151;font-size:9px;font-weight:900;padding:2px 7px;border-radius:6px">${st.icon} ${st.label}</span>` : ''}
+        <span class="bo-badge ${f.active ? 'bo-badge-green' : 'bo-badge-gray'}">${f.active ? '활성' : '비활성'}</span>
+      </div>
+      <div style="font-size:14px;font-weight:800;color:#111827;margin-bottom:4px">${f.name}</div>
+      <div style="font-size:11px;color:#6B7280;margin-bottom:10px">${f.desc || ''}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">
+        ${fields.map(fld => {
+          const meta = ADVANCED_FIELDS.find(a => a.key === (typeof fld === 'object' ? fld.key : fld)) || { icon: '📝', scope: 'front' };
+          const key = typeof fld === 'object' ? fld.key : fld;
+          const scope = typeof fld === 'object' ? fld.scope : (meta.scope || 'front');
+          const scopeColor = scope === 'back' ? '#9D174D' : scope === 'system' ? '#0369A1' : '#374151';
+          const scopeBg   = scope === 'back' ? '#FDF2F8' : scope === 'system' ? '#EFF6FF' : '#F3F4F6';
+          return `<span style="background:${scopeBg};color:${scopeColor};font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;border:1px solid ${scopeColor}20"
+            title="${scope === 'back' ? '백오피스 전용' : scope === 'system' ? '시스템 자동' : '프론트 공개'}">${meta.icon} ${key}</span>`;
+        }).join('')}
+      </div>
     </div>
-    <div>
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">양식명 *</label>
-      <input id="fb-name" value="${nameVal}" type="text" placeholder="예) R&D 사외교육 신청서"
-        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+    <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+      <button class="bo-btn-secondary bo-btn-sm" onclick="_fbSwitchTab('builder');fbOpenBuilderModal('${f.id}')">✏️ 편집</button>
+      <button class="bo-btn-secondary bo-btn-sm" onclick="fbToggleActive('${f.id}')"
+        style="color:${f.active ? '#F59E0B' : '#059669'};border-color:${f.active ? '#F59E0B' : '#059669'}">${f.active ? '비활성화' : '활성화'}</button>
     </div>
   </div>
-  <div style="margin-bottom:14px">
-    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">설명</label>
-    <input id="fb-desc" value="${descVal}" type="text" placeholder="이 양식의 용도 설명"
-      style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+</div>`;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ② 양식 빌더 탭
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function _fbRenderBuilder() {
+  const tenantId = boCurrentPersona.tenantId || 'HMC';
+  const myForms  = FORM_MASTER.filter(f => f.tenantId === tenantId);
+  return `
+<div style="display:grid;grid-template-columns:260px 1fr;gap:20px">
+
+  <!-- 좌: 양식 목록 -->
+  <div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:900;color:#374151">내 양식 목록</div>
+      <button onclick="fbOpenBuilderModal()" class="bo-btn-primary" style="padding:5px 10px;font-size:11px">＋ 신규</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${myForms.map(f => {
+        const s = FORM_STAGE_TYPES[f.type] || FORM_STAGE_TYPES.apply;
+        return `<div onclick="_fbSwitchTab('builder');fbOpenBuilderModal('${f.id}')"
+          style="padding:10px 12px;border-radius:10px;border:1.5px solid #E5E7EB;cursor:pointer;
+                 background:white;transition:all .12s"
+          onmouseover="this.style.borderColor='${s.color}';this.style.background='${s.bg}'"
+          onmouseout="this.style.borderColor='#E5E7EB';this.style.background='white'">
+          <div style="font-size:9px;color:${s.color};font-weight:900;margin-bottom:2px">${s.icon} ${f.type.toUpperCase()}</div>
+          <div style="font-size:12px;font-weight:700;color:#111827">${f.name}</div>
+          <div style="font-size:10px;color:#9CA3AF;margin-top:2px">${(f.fields||[]).length}개 필드</div>
+        </div>`;
+      }).join('') || '<div style="padding:20px;text-align:center;color:#9CA3AF;font-size:12px">양식이 없습니다</div>'}
+    </div>
   </div>
-  <div style="border:1.5px solid #E5E7EB;border-radius:12px;overflow:hidden;margin-bottom:4px">
-    <div style="background:#F9FAFB;padding:10px 16px;border-bottom:1px solid #E5E7EB;font-size:12px;font-weight:800;color:#374151">
-      📋 입력 필드 구성 (클릭으로 추가/제거)
+
+  <!-- 우: 안내 또는 빌더 -->
+  <div id="fb-builder-area">
+    <div class="bo-card" style="padding:40px;text-align:center;background:#F9FAFB">
+      <div style="font-size:40px;margin-bottom:12px">🧙</div>
+      <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">양식 빌더</div>
+      <div style="font-size:12px;color:#6B7280;margin-bottom:16px">좌측 목록에서 기존 양식을 선택하거나, 신규 양식을 만드세요</div>
+      <button onclick="fbOpenBuilderModal()" class="bo-btn-primary">＋ 새 양식 만들기</button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
-      <!-- 좌: 사용 가능 필드 팔레트 -->
-      <div style="padding:14px;border-right:1px solid #E5E7EB">
-        <div style="font-size:11px;color:#6B7280;font-weight:700;margin-bottom:8px">사용 가능 필드</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px" id="fb-palette">
-          ${AVAILABLE_FIELDS.map(f => `
-          <span onclick="fbToggleField('${f.key}')" id="fbf-${f.key.replace(/\s/g, '_')}"
-            class="fb-field-chip ${_fbTempFields.includes(f.key) ? 'selected' : ''}"
-            title="${f.hint || ''}">
-            ${f.icon} ${f.key}${f.required ? '<sup>*</sup>' : ''}
-          </span>`).join('')}
+  </div>
+</div>`;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ③ 서비스 통합 매핑 탭
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function _fbRenderMapping() {
+  const tenantId = boCurrentPersona.tenantId || 'HMC';
+  const myMaps   = SERVICE_MAPPINGS.filter(m => m.tenantId === tenantId);
+  const myForms  = FORM_MASTER.filter(f => f.tenantId === tenantId && f.active);
+
+  const mapCard = (m) => {
+    const st = FORM_SERVICE_TYPES[m.serviceType] || {};
+    const pt = PROCESS_PATTERNS[m.pattern]  || {};
+    const tg = FORM_TARGET_TYPES[m.target]  || {};
+    const formSet = m.formSets || {};
+
+    const stageRow = (stage, fId) => {
+      const s = FORM_STAGE_TYPES[stage];
+      const f = myForms.find(x => x.id === fId);
+      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:${s.bg};border-radius:8px;margin-bottom:4px">
+        <span style="font-size:10px;font-weight:900;color:${s.color};min-width:48px">${s.icon} ${stage.toUpperCase()}</span>
+        <span style="font-size:11px;font-weight:700;color:#111827">${f ? f.name : '<span style="color:#EF4444">미연결</span>'}</span>
+      </div>`;
+    };
+
+    return `<div class="bo-card" style="padding:20px;margin-bottom:12px;border-left:4px solid ${st.color||'#E5E7EB'}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+            <span style="font-size:11px;font-weight:900;color:${st.color};background:${st.color}15;padding:2px 8px;border-radius:6px">${st.icon||''} ${st.label||''}</span>
+            <span style="font-size:11px;font-weight:900;color:${tg.color};background:${tg.bg};padding:2px 8px;border-radius:6px">${tg.icon||''} ${tg.label||''}</span>
+            <span style="font-size:11px;font-weight:900;color:${pt.color};background:${pt.color}15;padding:2px 8px;border-radius:6px">${pt.label||''}: ${pt.desc||''}</span>
+          </div>
+          <div style="font-size:15px;font-weight:900;color:#111827">${m.name}</div>
+          <div style="font-size:11px;color:#6B7280;margin-top:2px">${m.desc||''}</div>
         </div>
+        <button onclick="_fbEditMapping('${m.id}')" class="bo-btn-secondary bo-btn-sm">✏️ 수정</button>
       </div>
-      <!-- 우: 구성된 필드 미리보기 -->
-      <div style="padding:14px">
-        <div style="font-size:11px;color:#6B7280;font-weight:700;margin-bottom:8px">구성된 필드 순서</div>
-        <div id="fb-preview" style="min-height:80px">
-          ${_fbTempFields.length ? _fbTempFields.map((f, i) => `
-          <div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:#F9FAFB;border-radius:6px;margin-bottom:4px;font-size:12px">
-            <span style="color:#D1D5DB;font-weight:700">${i + 1}</span>
-            <span>${AVAILABLE_FIELDS.find(a => a.key === f)?.icon || '📝'} ${f}</span>
-            <span onclick="fbRemoveField('${f}')" style="margin-left:auto;cursor:pointer;color:#EF4444;font-size:14px">×</span>
-          </div>`).join('') :
-      '<div style="text-align:center;color:#D1D5DB;padding:20px;font-size:12px">왼쪽에서 필드를 클릭하여 추가</div>'}
-        </div>
+      <div style="display:grid;grid-template-columns:${pt.stages.includes('plan')?'1fr ':''} 1fr ${pt.stages.includes('result')?'1fr':''};gap:8px">
+        ${pt.stages.map(stage => stageRow(stage, formSet[stage])).join('')}
       </div>
-    </div>
-  </div>`;
+    </div>`;
+  };
+
+  return `
+<div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+  <button onclick="_fbOpenMappingModal()" class="bo-btn-primary" style="display:flex;align-items:center;gap:6px;padding:9px 18px">
+    ＋ 서비스 매핑 추가
+  </button>
+</div>
+
+<!-- 프로세스 패턴 안내 -->
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">
+  ${Object.entries(PROCESS_PATTERNS).map(([k,v]) => `
+  <div class="bo-card" style="padding:14px;border-top:3px solid ${v.color}">
+    <div style="font-size:11px;font-weight:900;color:${v.color};margin-bottom:4px">${v.label}</div>
+    <div style="font-size:12px;font-weight:700;color:#111827">${v.desc}</div>
+  </div>`).join('')}
+</div>
+
+<!-- 서비스 매핑 목록 -->
+<div style="font-size:13px;font-weight:900;color:#374151;margin-bottom:12px">📋 등록된 서비스 매핑 (${myMaps.length}개)</div>
+${myMaps.length ? myMaps.map(mapCard).join('') :
+  `<div style="padding:40px;text-align:center;background:#F9FAFB;border-radius:16px;border:1px dashed #D1D5DB">
+    <div style="font-size:32px;margin-bottom:8px">🔗</div>
+    <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:4px">아직 서비스 매핑이 없습니다</div>
+    <div style="font-size:11px;color:#9CA3AF;margin-bottom:12px">양식을 만든 후 서비스 프로세스와 연결하세요</div>
+    <button onclick="_fbOpenMappingModal()" class="bo-btn-primary">매핑 추가하기</button>
+  </div>`}
+
+<!-- 연동 안내 -->
+<div class="bo-card" style="margin-top:20px;padding:14px 18px;background:#F5F3FF;border-color:#DDD6FE">
+  <div style="font-size:12px;font-weight:700;color:#5B21B6">
+    🔗 여기서 설정된 서비스 매핑은 프론트 오피스의 '교육 신청/집행' 메뉴에 자동 반영됩니다.
+    학습자에게는 '개인직무' 유형만, 교육담당자에게는 '운영/세미나' 유형이 노출됩니다.
+  </div>
+</div>`;
 }
 
-function fbToggleField(key) {
-  const idx = _fbTempFields.indexOf(key);
-  if (idx > -1) _fbTempFields.splice(idx, 1); else _fbTempFields.push(key);
-  _refreshFbPreview();
-}
-
-function fbRemoveField(key) {
-  const idx = _fbTempFields.indexOf(key);
-  if (idx > -1) _fbTempFields.splice(idx, 1);
-  _refreshFbPreview();
-}
-
-function _refreshFbPreview() {
-  const previewEl = document.getElementById('fb-preview');
-  const paletteEls = document.querySelectorAll('.fb-field-chip');
-  if (previewEl) {
-    previewEl.innerHTML = _fbTempFields.length ? _fbTempFields.map((f, i) => `
-    <div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:#F9FAFB;border-radius:6px;margin-bottom:4px;font-size:12px">
-      <span style="color:#D1D5DB;font-weight:700">${i + 1}</span>
-      <span>${AVAILABLE_FIELDS.find(a => a.key === f)?.icon || '📝'} ${f}</span>
-      <span onclick="fbRemoveField('${f}')" style="margin-left:auto;cursor:pointer;color:#EF4444;font-size:14px">×</span>
-    </div>`).join('') :
-      '<div style="text-align:center;color:#D1D5DB;padding:20px;font-size:12px">왼쪽에서 필드를 클릭하여 추가</div>';
-  }
-  paletteEls.forEach(el => {
-    const key = el.textContent.trim().replace(/\*.*/, '').replace(/[^\uAC00-\uD7A3a-zA-Z&]/g, '').trim();
-    const fKey = AVAILABLE_FIELDS.find(a => el.id === `fbf-${a.key.replace(/\s/g, '_')}`)?.key;
-    if (fKey) el.classList.toggle('selected', _fbTempFields.includes(fKey));
-  });
-}
-
+// ── 빌더 모달 ─────────────────────────────────────────────────────────────────
 function fbOpenBuilderModal(formId) {
   _fbEditId = formId || null;
   const form = formId ? FORM_MASTER.find(f => f.id === formId) : null;
-  document.getElementById('fb-modal-title').textContent = formId ? '양식 편집' : '양식 신규 생성';
-  document.getElementById('fb-modal-body').innerHTML = _fbModalBody(form);
-  document.getElementById('fb-modal').style.display = 'flex';
+  _fbTempFields = form ? (form.fields || []).map(f =>
+    typeof f === 'object' ? { ...f } : { key: f, scope: 'front' }
+  ) : [];
+
+  document.getElementById('fb-modal-title').textContent = formId ? `'${form?.name}' 편집` : '새 양식 만들기';
+  document.getElementById('fb-modal-body').innerHTML = _fbAdvancedModalBody(form);
+  document.getElementById('fb-field-modal').style.display = 'flex';
 }
 
-function fbCloseModal() { document.getElementById('fb-modal').style.display = 'none'; }
+function fbCloseModal() { document.getElementById('fb-field-modal').style.display = 'none'; }
+
+function _fbAdvancedModalBody(form) {
+  const nameVal    = form?.name || '';
+  const typeVal    = form?.type || 'apply';
+  const descVal    = form?.desc || '';
+  const svcTypeVal = form?.serviceType || '';
+  const targetVal  = form?.target || '';
+
+  // 카테고리별 필드 그룹
+  const categories = [...new Set(ADVANCED_FIELDS.map(f => f.category))];
+
+  return `
+<!-- 기본 정보 -->
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+  <div>
+    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">단계 *</label>
+    <select id="fb-type" style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
+      ${Object.entries(FORM_STAGE_TYPES).map(([k,v]) =>
+        `<option value="${k}" ${typeVal===k?'selected':''}>${v.icon} ${v.label.split(' ')[0]}</option>`
+      ).join('')}
+    </select>
+  </div>
+  <div>
+    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">서비스 유형</label>
+    <select id="fb-service-type" style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
+      <option value="">— 선택 —</option>
+      ${Object.entries(FORM_SERVICE_TYPES).map(([k,v]) =>
+        `<option value="${k}" ${svcTypeVal===k?'selected':''}>${v.icon} ${v.label}</option>`
+      ).join('')}
+    </select>
+  </div>
+  <div>
+    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">대상자</label>
+    <select id="fb-target" style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
+      <option value="">— 선택 —</option>
+      ${Object.entries(FORM_TARGET_TYPES).map(([k,v]) =>
+        `<option value="${k}" ${targetVal===k?'selected':''}>${v.icon} ${v.label}</option>`
+      ).join('')}
+    </select>
+  </div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+  <div>
+    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">양식명 *</label>
+    <input id="fb-name" value="${nameVal}" type="text" placeholder="예) R&D 사외교육 신청서"
+      style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
+  </div>
+  <div>
+    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">설명</label>
+    <input id="fb-desc" value="${descVal}" type="text" placeholder="이 양식의 용도"
+      style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
+  </div>
+</div>
+
+<!-- 입력 주체 범례 -->
+<div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+  <span style="font-size:10px;font-weight:700;color:#374151">📌 필드 입력 주체:</span>
+  <span style="font-size:10px;background:#F3F4F6;color:#374151;padding:2px 8px;border-radius:6px;border:1px solid #E5E7EB">🔓 프론트 공개 (학습자/담당자 입력)</span>
+  <span style="font-size:10px;background:#FDF2F8;color:#9D174D;padding:2px 8px;border-radius:6px;border:1px solid #FBB6CE">🔒 백오피스 전용 (승인자만 입력)</span>
+  <span style="font-size:10px;background:#EFF6FF;color:#0369A1;padding:2px 8px;border-radius:6px;border:1px solid #BFDBFE">⚙️ 시스템 자동</span>
+</div>
+
+<!-- 필드 빌더 영역 -->
+<div style="border:1.5px solid #E5E7EB;border-radius:12px;overflow:hidden">
+  <div style="background:#F9FAFB;padding:10px 16px;border-bottom:1px solid #E5E7EB;font-size:12px;font-weight:800;color:#374151;display:flex;align-items:center;gap:6px">
+    📋 입력 필드 구성 <span style="font-size:10px;color:#9CA3AF;font-weight:500">(클릭으로 추가, 우클릭으로 입력 주체 변경)</span>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;min-height:220px">
+    <!-- 좌: 필드 팔레트 (카테고리별) -->
+    <div style="padding:14px;border-right:1px solid #E5E7EB;overflow-y:auto;max-height:320px">
+      <div style="font-size:10px;color:#6B7280;font-weight:800;margin-bottom:8px">사용 가능 필드 (카테고리별)</div>
+      ${categories.map(cat => {
+        const catFields = ADVANCED_FIELDS.filter(f => f.category === cat);
+        const catColor = cat.includes('승인') ? '#9D174D' : cat === '시스템' ? '#0369A1' : '#374151';
+        return `<div style="margin-bottom:10px">
+          <div style="font-size:9px;font-weight:900;color:${catColor};text-transform:uppercase;margin-bottom:6px;letter-spacing:.05em">${cat}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px">
+            ${catFields.map(f => {
+              const isSelected = _fbTempFields.some(tf => (typeof tf === 'object' ? tf.key : tf) === f.key);
+              const scopeStyle = f.scope === 'back' ? 'border:1.5px dashed #FBB6CE;color:#9D174D;background:#FDF2F8' :
+                                 f.scope === 'system' ? 'border:1.5px dashed #BFDBFE;color:#0369A1;background:#EFF6FF' :
+                                 'border:1.5px solid #E5E7EB;color:#374151;background:white';
+              return `<span onclick="fbToggleField('${f.key}')" id="fbf-${f.key}"
+                title="${f.hint||''} ${f.budget ? '💰예산연동' : ''}"
+                class="fb-field-chip ${isSelected ? 'selected' : ''}"
+                style="${scopeStyle};${isSelected ? 'opacity:.45;text-decoration:line-through;' : ''}">
+                ${f.icon} ${f.key}${f.required ? '<sup style=color:#EF4444>*</sup>' : ''}
+                ${f.budget ? '<span style="font-size:7px;vertical-align:super;color:#D97706">💰</span>' : ''}
+              </span>`;
+            }).join('')}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    <!-- 우: 구성된 필드 -->
+    <div style="padding:14px">
+      <div style="font-size:10px;color:#6B7280;font-weight:800;margin-bottom:8px">구성된 필드 순서 <span style="font-weight:400">(우클릭으로 입력 주체 변경)</span></div>
+      <div id="fb-preview" style="min-height:120px">
+        ${_fbPreviewHTML()}
+      </div>
+    </div>
+  </div>
+</div>`;
+}
+
+function _fbPreviewHTML() {
+  if (!_fbTempFields.length) return '<div style="text-align:center;color:#D1D5DB;padding:30px;font-size:12px">← 왼쪽에서 필드를 클릭하여 추가</div>';
+  return _fbTempFields.map((f, i) => {
+    const key   = typeof f === 'object' ? f.key : f;
+    const scope = typeof f === 'object' ? f.scope : 'front';
+    const meta  = ADVANCED_FIELDS.find(a => a.key === key) || { icon: '📝' };
+    const scopeLabel = scope === 'back' ? '🔒 백오피스 전용' : scope === 'system' ? '⚙️ 시스템' : '🔓 프론트';
+    const scopeColor = scope === 'back' ? '#9D174D' : scope === 'system' ? '#0369A1' : '#374151';
+    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:#F9FAFB;border-radius:8px;margin-bottom:5px;border:1px solid #E5E7EB">
+      <span style="color:#D1D5DB;font-weight:700;font-size:10px;min-width:16px">${i+1}</span>
+      <span style="font-size:12px;flex:1">${meta.icon} ${key}</span>
+      <span style="font-size:9px;font-weight:700;color:${scopeColor};background:${scopeColor}15;padding:1px 6px;border-radius:5px;cursor:pointer"
+        onclick="fbCycleScope(${i})" title="클릭하여 입력 주체 변경">${scopeLabel}</span>
+      <span onclick="fbRemoveField('${key}')" style="cursor:pointer;color:#EF4444;font-size:14px;line-height:1">×</span>
+    </div>`;
+  }).join('');
+}
+
+function fbToggleField(key) {
+  const idx = _fbTempFields.findIndex(f => (typeof f === 'object' ? f.key : f) === key);
+  if (idx > -1) { _fbTempFields.splice(idx, 1); }
+  else {
+    const meta = ADVANCED_FIELDS.find(a => a.key === key);
+    _fbTempFields.push({ key, scope: meta?.scope || 'front' });
+    // 조건부 로직: 강사료 추가 시 강사이력서 자동 추가 힌트
+    if (key === '강사료' && !_fbTempFields.find(f => (typeof f === 'object' ? f.key : f) === '강사이력서')) {
+      setTimeout(() => {
+        if (confirm('강사료 필드 추가 시 [강사이력서] 첨부 필드도 자동으로 추가할까요? (조건부 로직)')) {
+          _fbTempFields.push({ key: '강사이력서', scope: 'front' });
+          _fbRefreshPreview();
+        }
+      }, 100);
+    }
+  }
+  _fbRefreshPreview();
+}
+
+function fbRemoveField(key) {
+  const idx = _fbTempFields.findIndex(f => (typeof f === 'object' ? f.key : f) === key);
+  if (idx > -1) _fbTempFields.splice(idx, 1);
+  _fbRefreshPreview();
+}
+
+function fbCycleScope(idx) {
+  const current = typeof _fbTempFields[idx] === 'object' ? _fbTempFields[idx].scope : 'front';
+  const order   = ['front', 'back', 'system'];
+  const next    = order[(order.indexOf(current) + 1) % order.length];
+  if (typeof _fbTempFields[idx] === 'object') _fbTempFields[idx].scope = next;
+  else _fbTempFields[idx] = { key: _fbTempFields[idx], scope: next };
+  _fbRefreshPreview();
+}
+
+function _fbRefreshPreview() {
+  const el = document.getElementById('fb-preview');
+  if (el) el.innerHTML = _fbPreviewHTML();
+  // 팔레트 selected 상태 갱신
+  ADVANCED_FIELDS.forEach(f => {
+    const chip = document.getElementById(`fbf-${f.key}`);
+    if (chip) {
+      const isSelected = _fbTempFields.some(tf => (typeof tf === 'object' ? tf.key : tf) === f.key);
+      chip.classList.toggle('selected', isSelected);
+      chip.style.opacity = isSelected ? '.45' : '1';
+      chip.style.textDecoration = isSelected ? 'line-through' : 'none';
+    }
+  });
+}
+
+function fbSaveForm() {
+  const tenantId   = boCurrentPersona.tenantId || 'HMC';
+  const type        = document.getElementById('fb-type').value;
+  const name        = document.getElementById('fb-name').value.trim();
+  const desc        = document.getElementById('fb-desc').value.trim();
+  const serviceType = document.getElementById('fb-service-type')?.value || '';
+  const target      = document.getElementById('fb-target')?.value || '';
+
+  if (!name) { alert('양식명은 필수입니다.'); return; }
+  if (_fbTempFields.length === 0) { alert('최소 1개 이상의 필드를 추가해주세요.'); return; }
+
+  const formData = { type, name, desc, active: true, fields: [..._fbTempFields], serviceType, target };
+
+  if (_fbEditId) {
+    const idx = FORM_MASTER.findIndex(x => x.id === _fbEditId);
+    if (idx > -1) FORM_MASTER[idx] = { ...FORM_MASTER[idx], ...formData };
+  } else {
+    FORM_MASTER.push({ id: 'FM' + Date.now(), tenantId, ...formData });
+  }
+  fbCloseModal();
+  _fbCurrentTab = 'library';
+  renderFormBuilderMenu();
+}
 
 function fbToggleActive(formId) {
   const f = FORM_MASTER.find(x => x.id === formId);
   if (f) f.active = !f.active;
-  document.getElementById('bm-content').innerHTML = renderFormMasterTab();
+  renderFormBuilderMenu();
 }
 
-function fbSaveForm() {
-  const tenantId = boCurrentPersona.tenantId || 'HMG';
-  const type = document.getElementById('fb-type').value;
-  const name = document.getElementById('fb-name').value.trim();
-  const desc = document.getElementById('fb-desc').value.trim();
-  if (!name) { alert('양식명은 필수입니다.'); return; }
-  if (_fbTempFields.length === 0) { alert('최소 1개 이상의 필드를 선택해 주세요.'); return; }
+// ── 서비스 매핑 관련 ──────────────────────────────────────────────────────────
+function _fbOpenMappingModal() {
+  const tenantId = boCurrentPersona.tenantId || 'HMC';
+  const myForms  = FORM_MASTER.filter(f => f.tenantId === tenantId && f.active);
 
-  if (_fbEditId) {
-    const idx = FORM_MASTER.findIndex(x => x.id === _fbEditId);
-    if (idx > -1) FORM_MASTER[idx] = { ...FORM_MASTER[idx], type, name, desc, fields: [..._fbTempFields] };
-  } else {
-    FORM_MASTER.push({
-      id: 'FM' + (Date.now()), tenantId, type, name, desc, active: true, fields: [..._fbTempFields]
-    });
-  }
-  fbCloseModal();
-  document.getElementById('bm-content').innerHTML = renderFormMasterTab();
+  const formOpts = (stage) => {
+    const stageForms = myForms.filter(f => f.type === stage);
+    return `<option value="">— 미연결 —</option>` +
+      stageForms.map(f => `<option value="${f.id}">${f.name}</option>`).join('');
+  };
+
+  const modal = document.createElement('div');
+  modal.id = 'svc-map-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9200;display:flex;align-items:flex-start;justify-content:center;padding-top:40px';
+  modal.innerHTML = `
+<div style="background:#fff;border-radius:16px;width:560px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+    <h3 style="font-size:15px;font-weight:900;margin:0">🔗 서비스 매핑 추가</h3>
+    <button onclick="document.getElementById('svc-map-modal').remove()" style="border:none;background:none;font-size:22px;cursor:pointer;color:#9CA3AF">✕</button>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">서비스 유형 *</label>
+        <select id="svc-type" style="width:100%;padding:8px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
+          ${Object.entries(FORM_SERVICE_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}
+        </select></div>
+      <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">대상자 *</label>
+        <select id="svc-target" style="width:100%;padding:8px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
+          ${Object.entries(FORM_TARGET_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}
+        </select></div>
+    </div>
+    <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">서비스명 *</label>
+      <input id="svc-name" type="text" placeholder="예) 개인직무 사외학습 지원" style="width:100%;box-sizing:border-box;padding:8px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px"></div>
+    <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">프로세스 패턴 *</label>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+        ${Object.entries(PROCESS_PATTERNS).map(([k,v])=>`
+        <label style="display:flex;align-items:center;gap:6px;padding:8px;border:1.5px solid #E5E7EB;border-radius:8px;cursor:pointer">
+          <input type="radio" name="svc-pattern" value="${k}"> <div><div style="font-size:11px;font-weight:900;color:${v.color}">${v.label}</div><div style="font-size:10px;color:#9CA3AF">${v.desc}</div></div>
+        </label>`).join('')}
+      </div></div>
+    <div id="svc-form-sets" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">📋 계획 양식</label>
+        <select id="svc-plan" style="width:100%;padding:8px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:11px">${formOpts('plan')}</select></div>
+      <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">📄 신청 양식 *</label>
+        <select id="svc-apply" style="width:100%;padding:8px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:11px">${formOpts('apply')}</select></div>
+      <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">📝 결과 양식</label>
+        <select id="svc-result" style="width:100%;padding:8px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:11px">${formOpts('result')}</select></div>
+    </div>
+    <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">설명</label>
+      <input id="svc-desc" type="text" placeholder="서비스 설명" style="width:100%;box-sizing:border-box;padding:8px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px"></div>
+  </div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;padding-top:14px;border-top:1px solid #E5E7EB">
+    <button onclick="document.getElementById('svc-map-modal').remove()" class="bo-btn-secondary bo-btn-sm">취소</button>
+    <button onclick="_fbSaveMappingFromModal()" class="bo-btn-primary bo-btn-sm">💾 저장</button>
+  </div>
+</div>`;
+  document.body.appendChild(modal);
+}
+
+function _fbSaveMappingFromModal() {
+  const tenantId = boCurrentPersona.tenantId || 'HMC';
+  const name = document.getElementById('svc-name').value.trim();
+  const pattern = document.querySelector('input[name="svc-pattern"]:checked')?.value;
+  if (!name) { alert('서비스명을 입력하세요.'); return; }
+  if (!pattern) { alert('프로세스 패턴을 선택하세요.'); return; }
+  SERVICE_MAPPINGS.push({
+    id: 'SVC_' + Date.now(), tenantId,
+    name, pattern,
+    serviceType: document.getElementById('svc-type').value,
+    target: document.getElementById('svc-target').value,
+    desc: document.getElementById('svc-desc').value,
+    formSets: {
+      plan:   document.getElementById('svc-plan').value  || undefined,
+      apply:  document.getElementById('svc-apply').value || undefined,
+      result: document.getElementById('svc-result').value || undefined,
+    }
+  });
+  document.getElementById('svc-map-modal').remove();
+  _fbCurrentTab = 'mapping';
+  renderFormBuilderMenu();
+}
+
+function _fbEditMapping(id) {
+  alert('서비스 매핑 수정 기능은 추후 오픈됩니다.');
 }

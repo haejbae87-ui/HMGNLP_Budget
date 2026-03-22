@@ -13,12 +13,33 @@ function renderVirtualOrg() {
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
 }
 
+function _voGetMyTemplates() {
+  const persona = boCurrentPersona;
+  const personaKey = Object.keys(BO_PERSONAS).find(k => BO_PERSONAS[k] === persona) || '';
+
+  // Find my isolation group (as global admin or dual-role)
+  const myGroup = typeof ISOLATION_GROUPS !== 'undefined'
+    ? ISOLATION_GROUPS.find(g => g.tenantId === persona.tenantId && g.globalAdminKey === personaKey)
+    : null;
+
+  if (myGroup) {
+    // Budget global admin: only show templates in my isolation group
+    return VIRTUAL_ORG_TEMPLATES.filter(t => t.isolationGroupId === myGroup.id);
+  } else {
+    // System admin or tenant-only admin: show all templates in tenant
+    return VIRTUAL_ORG_TEMPLATES.filter(t => t.tenantId === persona.tenantId);
+  }
+}
+
 function _renderVirtualOrgFull() {
-  if (!_voActiveTemplateId && VIRTUAL_ORG_TEMPLATES.length > 0) {
-    _voActiveTemplateId = VIRTUAL_ORG_TEMPLATES[0].id;
+  // Use only templates scoped to the current persona's isolation group
+  const myTemplates = _voGetMyTemplates();
+
+  if (!_voActiveTemplateId || !myTemplates.find(t => t.id === _voActiveTemplateId)) {
+    _voActiveTemplateId = myTemplates.length > 0 ? myTemplates[0].id : null;
   }
 
-  const templateListHtml = VIRTUAL_ORG_TEMPLATES.map(tpl => {
+  const templateListHtml = myTemplates.map(tpl => {
     const isAct = tpl.id === _voActiveTemplateId;
     const isRnd = tpl.tree.centers !== undefined;
     const gList = isRnd ? tpl.tree.centers : tpl.tree.hqs;
@@ -38,7 +59,7 @@ function _renderVirtualOrgFull() {
     </div>`;
   }).join('');
 
-  const activeTpl = VIRTUAL_ORG_TEMPLATES.find(t => t.id === _voActiveTemplateId);
+  const activeTpl = myTemplates.find(t => t.id === _voActiveTemplateId);
   let rightHtml = '';
   if (activeTpl) {
     const isRnd = activeTpl.tree.centers !== undefined;
@@ -288,7 +309,13 @@ function voConfirmCreateTemplate() {
   if (!name) { alert('템플릿명을 입력해주세요.'); return; }
   const id = 'TPL_' + Date.now();
   const tree = type === 'rnd' ? { label: name, centers: [] } : { label: name, hqs: [] };
-  VIRTUAL_ORG_TEMPLATES.push({ id, tenantId: boCurrentPersona.tenantId, name, tree });
+  const _myTpls = _voGetMyTemplates();
+  const _myGrp = typeof ISOLATION_GROUPS !== 'undefined'
+    ? ISOLATION_GROUPS.find(g => g.tenantId === boCurrentPersona.tenantId &&
+        g.globalAdminKey === (Object.keys(BO_PERSONAS).find(k => BO_PERSONAS[k] === boCurrentPersona)||''))
+    : null;
+  VIRTUAL_ORG_TEMPLATES.push({ id, tenantId: boCurrentPersona.tenantId,
+    isolationGroupId: _myGrp ? _myGrp.id : null, name, tree });
   _voActiveTemplateId = id;
   voCloseModal('vo-tpl-create-modal');
   _voRerender();
@@ -305,7 +332,7 @@ function voRemoveTemplate(id) {
 }
 
 function voOpenCreateGroup(budgetType) {
-  const activeTpl = VIRTUAL_ORG_TEMPLATES.find(t => t.id === _voActiveTemplateId);
+  const activeTpl = myTemplates.find(t => t.id === _voActiveTemplateId);
   if (!activeTpl) return;
   const isRnd = activeTpl.tree.centers !== undefined;
   document.getElementById('vo-group-create-title').textContent = isRnd ? '가상 센터 생성' : '가상 본부 생성';
@@ -317,7 +344,7 @@ function voOpenCreateGroup(budgetType) {
 }
 
 function voOpenEditGroup(groupIdx) {
-  const activeTpl = VIRTUAL_ORG_TEMPLATES.find(t => t.id === _voActiveTemplateId);
+  const activeTpl = myTemplates.find(t => t.id === _voActiveTemplateId);
   const isRnd = activeTpl.tree.centers !== undefined;
   const list = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
   const g = list[groupIdx];
@@ -371,7 +398,7 @@ function voConfirmCreateGroup() {
   const mgrKey = document.getElementById('vo-group-manager-key')?.value || '';
   if (!name) { alert('그룹명을 입력해주세요.'); return; }
 
-  const activeTpl = VIRTUAL_ORG_TEMPLATES.find(t => t.id === _voActiveTemplateId);
+  const activeTpl = myTemplates.find(t => t.id === _voActiveTemplateId);
   const isRnd = activeTpl.tree.centers !== undefined;
   const list = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
 
@@ -395,7 +422,7 @@ let _voCoopGroupIdx = null;
 
 function voOpenCoopModal(groupIdx) {
   _voCoopGroupIdx = groupIdx;
-  const activeTpl = VIRTUAL_ORG_TEMPLATES.find(t => t.id === _voActiveTemplateId);
+  const activeTpl = myTemplates.find(t => t.id === _voActiveTemplateId);
   const isRnd = activeTpl.tree.centers !== undefined;
   const g = (isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs)[groupIdx];
   _voRenderCoopList(g.cooperators || []);
@@ -422,7 +449,7 @@ function _voRenderCoopList(cooperators) {
 }
 
 function _voDeleteCoop(idx) {
-  const activeTpl = VIRTUAL_ORG_TEMPLATES.find(t => t.id === _voActiveTemplateId);
+  const activeTpl = myTemplates.find(t => t.id === _voActiveTemplateId);
   const isRnd = activeTpl.tree.centers !== undefined;
   const g = (isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs)[_voCoopGroupIdx];
   g.cooperators.splice(idx, 1);
@@ -433,7 +460,7 @@ function voAddCoopTeam() {
   const teamName = document.getElementById('vo-coop-team-input')?.value.trim();
   const role     = document.getElementById('vo-coop-role-input')?.value.trim() || '협조';
   if (!teamName) { alert('팀명을 입력하세요.'); return; }
-  const activeTpl = VIRTUAL_ORG_TEMPLATES.find(t => t.id === _voActiveTemplateId);
+  const activeTpl = myTemplates.find(t => t.id === _voActiveTemplateId);
   const isRnd = activeTpl.tree.centers !== undefined;
   const g = (isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs)[_voCoopGroupIdx];
   if (!g.cooperators) g.cooperators = [];
@@ -450,7 +477,7 @@ function voSaveCoopModal() {
 
 // ── 직군 토글 ────────────────────────────────────────────────────────────────
 function voToggleJobType(groupIdx, teamIdx, jobType) {
-  const activeTpl = VIRTUAL_ORG_TEMPLATES.find(t => t.id === _voActiveTemplateId);
+  const activeTpl = myTemplates.find(t => t.id === _voActiveTemplateId);
   const isRnd = activeTpl.tree.centers !== undefined;
   const g = (isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs)[groupIdx];
   const team = g.teams[teamIdx];
@@ -462,7 +489,7 @@ function voToggleJobType(groupIdx, teamIdx, jobType) {
 }
 
 function voSelectAllJobTypes(groupIdx, teamIdx) {
-  const activeTpl = VIRTUAL_ORG_TEMPLATES.find(t => t.id === _voActiveTemplateId);
+  const activeTpl = myTemplates.find(t => t.id === _voActiveTemplateId);
   const isRnd = activeTpl.tree.centers !== undefined;
   const g = (isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs)[groupIdx];
   const team = g.teams[teamIdx];
@@ -474,7 +501,7 @@ function voSelectAllJobTypes(groupIdx, teamIdx) {
 }
 
 function voRemoveGroup(groupIdx) {
-  const activeTpl = VIRTUAL_ORG_TEMPLATES.find(t => t.id === _voActiveTemplateId);
+  const activeTpl = myTemplates.find(t => t.id === _voActiveTemplateId);
   const isRnd = activeTpl.tree.centers !== undefined;
   const list = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
   if (!confirm(`"${list[groupIdx].name}" 그룹을 삭제하시겠습니까?`)) return;
@@ -483,7 +510,7 @@ function voRemoveGroup(groupIdx) {
 }
 
 function voOpenAddTeam(groupIdx) {
-  const activeTpl = VIRTUAL_ORG_TEMPLATES.find(t => t.id === _voActiveTemplateId);
+  const activeTpl = myTemplates.find(t => t.id === _voActiveTemplateId);
   const isRnd = activeTpl.tree.centers !== undefined;
   _voCurrentGroup = { budgetType: isRnd ? 'rnd' : 'general', groupIdx };
   _voSelectedTeams = new Set();
@@ -544,7 +571,7 @@ function voFilterTree() {
   const filter = document.getElementById('vo-team-search').value;
   const { budgetType } = _voCurrentGroup;
 
-  const activeTpl = VIRTUAL_ORG_TEMPLATES.find(t => t.id === _voActiveTemplateId);
+  const activeTpl = myTemplates.find(t => t.id === _voActiveTemplateId);
   const isRnd = activeTpl.tree.centers !== undefined;
   const existIds = new Set();
   const groups = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
@@ -565,7 +592,7 @@ function voToggleTeam(cb) {
 function voConfirmAddTeams() {
   if (!_voSelectedTeams.size) { alert('매핑할 팀을 하나 이상 선택해주세요.'); return; }
   const { groupIdx } = _voCurrentGroup;
-  const activeTpl = VIRTUAL_ORG_TEMPLATES.find(t => t.id === _voActiveTemplateId);
+  const activeTpl = myTemplates.find(t => t.id === _voActiveTemplateId);
   const isRnd = activeTpl.tree.centers !== undefined;
   const grp = isRnd ? activeTpl.tree.centers[groupIdx] : activeTpl.tree.hqs[groupIdx];
 
@@ -580,7 +607,7 @@ function voConfirmAddTeams() {
 
 function voRemoveTeam(groupIdx, teamIdx) {
   if (!confirm('이 팀을 템플릿에서 제거하시겠습니까?')) return;
-  const activeTpl = VIRTUAL_ORG_TEMPLATES.find(t => t.id === _voActiveTemplateId);
+  const activeTpl = myTemplates.find(t => t.id === _voActiveTemplateId);
   const isRnd = activeTpl.tree.centers !== undefined;
   const grp = isRnd ? activeTpl.tree.centers[groupIdx] : activeTpl.tree.hqs[groupIdx];
   grp.teams.splice(teamIdx, 1);

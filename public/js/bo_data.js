@@ -325,6 +325,7 @@ let VIRTUAL_ORG_TEMPLATES = [
   {
     id: 'TPL_GEN_01',
     tenantId: 'HMC',
+    isolationGroupId: 'IG-HMC-GEN',
     name: '현대자동차 일반교육예산 템플릿 1',
     tree: {
       label: '일반 교육예산 조직',
@@ -352,6 +353,7 @@ let VIRTUAL_ORG_TEMPLATES = [
   {
     id: 'TPL_RND_01',
     tenantId: 'HMC',
+    isolationGroupId: 'IG-HMC-RND',
     name: '현대차 R&D교육예산 템플릿 1',
     tree: {
       label: 'R&D 교육예산 조직',
@@ -380,6 +382,7 @@ let VIRTUAL_ORG_TEMPLATES = [
   {
     id: 'TPL_KIA_GEN_01',
     tenantId: 'KIA',
+    isolationGroupId: 'IG-KIA-GEN',
     name: '기아 일반교육예산 템플릿 1',
     tree: {
       label: '기아 일반 교육예산 조직',
@@ -399,6 +402,7 @@ let VIRTUAL_ORG_TEMPLATES = [
   {
     id: 'TPL_HAE_GEN_01',
     tenantId: 'HAE',
+    isolationGroupId: 'IG-HAE-ALL',
     name: '현대오토에버 교육예산 템플릿 1',
     tree: {
       label: '오토에버 교육예산 조직',

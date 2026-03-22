@@ -20,19 +20,19 @@ const TENANT_ADMIN_MENUS = [
 
 // 예산 총괄 메뉴 (Budget Global Admin)
 const BUDGET_ADMIN_MENUS = [
-  { id: 'dashboard',        icon: '📊', label: '대시보드',              section: null },
-  { id: 'isolation-groups', icon: '🛡️',  label: '겍리 그룹 관리',        section: '그룹 설정' },
-  { id: 'budget-account',   icon: '💳', label: '예산 계정 관리',          section: '예산·설정' },
-  { id: 'virtual-org',      icon: '🏢', label: '가상조직 템플릿 관리',   section: null },
-  { id: 'form-builder',     icon: '📝', label: '교육 양식 & 학습유형',    section: null },
-  { id: 'calc-grounds',     icon: '📐', label: '세부산출근거 관리',       section: null },
-  { id: 'approval-routing', icon: '📊', label: '계정별 결재라인 설정',    section: null },
-  { id: 'service-policy',   icon: '🔧', label: '서비스 정책 관리',        section: null },
-  { id: 'plan-mgmt',        icon: '📋', label: '교육계획 관리',           section: '운영 메뉴' },
-  { id: 'allocation',       icon: '💰', label: '예산 배정 및 관리',       section: null },
-  { id: 'my-operations',   icon: '📥', label: '나의 운영 업무',           section: null },
-  { id: 'reports',          icon: '📈', label: '통계 및 리포트',          section: '분석' },
-  { id: 'manual',           icon: '📖', label: '서비스 매뉴얼',           section: null },
+  { id: 'dashboard',           icon: '📊', label: '대시보드',              section: null },
+  { id: 'my-isolation-groups', icon: '🔒', label: '내 격리 그룹 관리',  section: '그룹 설정' },
+  { id: 'budget-account',      icon: '💳', label: '예산 계정 관리',          section: '예산·설정' },
+  { id: 'virtual-org',         icon: '🏢', label: '가상조직 템플릿 관리',   section: null },
+  { id: 'form-builder',        icon: '📝', label: '교육 양식 & 학습유형',    section: null },
+  { id: 'calc-grounds',        icon: '📐', label: '세부산출근거 관리',       section: null },
+  { id: 'approval-routing',    icon: '📊', label: '계정별 결재라인 설정',    section: null },
+  { id: 'service-policy',      icon: '🔧', label: '서비스 정책 관리',        section: null },
+  { id: 'plan-mgmt',           icon: '📋', label: '교육계획 관리',           section: '운영 메뉴' },
+  { id: 'allocation',          icon: '💰', label: '예산 배정 및 관리',       section: null },
+  { id: 'my-operations',       icon: '📥', label: '나의 운영 업무',           section: null },
+  { id: 'reports',             icon: '📈', label: '통계 및 리포트',          section: '분석' },
+  { id: 'manual',              icon: '📖', label: '서비스 매뉴얼',           section: null },
 ];
 
 // 예산 운영 메뉴 (Budget Operation Manager)

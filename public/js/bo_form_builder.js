@@ -124,7 +124,7 @@ let SERVICE_MAPPINGS = [
 ];
 
 // 현재 탭 상태
-let _fbCurrentTab   = 'library'; // 'library' | 'builder' | 'mapping'
+let _fbCurrentTab   = 'library'; // 'library' | 'library' | 'mapping'
 let _fbEditId       = null;
 let _fbTempFields   = []; // { key, scope:'front'|'back', order }
 let _fbBuilderMode  = 'create'; // 'create' | 'edit'
@@ -233,15 +233,12 @@ function _fbRenderPage() {
   <!-- 탭 네비게이션 -->
   <div style="display:flex;gap:0;border-bottom:2px solid #E5E7EB;margin-bottom:24px">
     ${_fbTabBtn('library', '📚 양식 라이브러리')}
-    ${_fbTabBtn('builder', '🔧 양식 빌더')}
     ${_fbTabBtn('mapping', '🔗 서비스 통합 매핑')}
   </div>
 
   <!-- 탭 콘텐츠 -->
   <div id="fb-tab-content">
-    ${_fbCurrentTab === 'library' ? _fbRenderLibrary() :
-      _fbCurrentTab === 'builder' ? _fbRenderBuilder() :
-      _fbRenderMapping()}
+    ${_fbCurrentTab === 'library' ? _fbRenderLibrary() : _fbRenderMapping()}
   </div>
 </div>
 
@@ -480,49 +477,6 @@ function _fbFormCard(f) {
       <button class="bo-btn-secondary bo-btn-sm" onclick="fbOpenBuilderModal('${f.id}')">✏️ 편집</button>
       <button class="bo-btn-secondary bo-btn-sm" onclick="fbToggleActive('${f.id}')"
         style="color:${f.active ? '#F59E0B' : '#059669'};border-color:${f.active ? '#F59E0B' : '#059669'}">${f.active ? '비활성화' : '활성화'}</button>
-    </div>
-  </div>
-</div>`;
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ② 양식 빌더 탭
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function _fbRenderBuilder() {
-  const tenantId = boCurrentPersona.tenantId || 'HMC';
-  const myForms  = FORM_MASTER.filter(f => f.tenantId === tenantId);
-  return `
-<div style="display:grid;grid-template-columns:260px 1fr;gap:20px">
-
-  <!-- 좌: 양식 목록 -->
-  <div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <div style="font-size:12px;font-weight:900;color:#374151">내 양식 목록</div>
-      <button onclick="fbOpenBuilderModal()" class="bo-btn-primary" style="padding:5px 10px;font-size:11px">＋ 신규</button>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:6px">
-      ${myForms.map(f => {
-        const s = FORM_STAGE_TYPES[f.type] || FORM_STAGE_TYPES.apply;
-        return `<div onclick="fbOpenBuilderModal('${f.id}')"
-          style="padding:10px 12px;border-radius:10px;border:1.5px solid #E5E7EB;cursor:pointer;
-                 background:white;transition:all .12s"
-          onmouseover="this.style.borderColor='${s.color}';this.style.background='${s.bg}'"
-          onmouseout="this.style.borderColor='#E5E7EB';this.style.background='white'">
-          <div style="font-size:9px;color:${s.color};font-weight:900;margin-bottom:2px">${s.icon} ${f.type.toUpperCase()}</div>
-          <div style="font-size:12px;font-weight:700;color:#111827">${f.name}</div>
-          <div style="font-size:10px;color:#9CA3AF;margin-top:2px">${(f.fields||[]).length}개 필드</div>
-        </div>`;
-      }).join('') || '<div style="padding:20px;text-align:center;color:#9CA3AF;font-size:12px">양식이 없습니다</div>'}
-    </div>
-  </div>
-
-  <!-- 우: 안내 또는 빌더 -->
-  <div id="fb-builder-area">
-    <div class="bo-card" style="padding:40px;text-align:center;background:#F9FAFB">
-      <div style="font-size:40px;margin-bottom:12px">🧙</div>
-      <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">양식 빌더</div>
-      <div style="font-size:12px;color:#6B7280;margin-bottom:16px">좌측 목록에서 기존 양식을 선택하거나, 신규 양식을 만드세요</div>
-      <button onclick="fbOpenBuilderModal()" class="bo-btn-primary">＋ 새 양식 만들기</button>
     </div>
   </div>
 </div>`;

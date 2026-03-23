@@ -1,4 +1,4 @@
-// ─── 교육신청양식마법사 (Form Builder Enhanced) ─────────────────────────────────
+﻿// ─── 교육신청양식마법사 (Form Builder Enhanced) ─────────────────────────────────
 // 3탭 구조: ① 양식 라이브러리 ② 양식 빌더 ③ 서비스 통합 매핑
 // 기획안 기반 고도화: 양식 분류체계, 입력 주체 제어, 조건부 로직, 서비스 매핑
 
@@ -300,7 +300,7 @@ function _fbRenderLibrary() {
   // 상단 버튼
   const addBtn = `
 <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
-  <button class="bo-btn-primary" onclick="_fbSwitchTab('builder');fbOpenBuilderModal()"
+  <button class="bo-btn-primary" onclick="fbOpenBuilderModal()"
     style="display:flex;align-items:center;gap:6px;padding:9px 18px">＋ 새 양식 만들기</button>
 </div>`;
 
@@ -477,7 +477,7 @@ function _fbFormCard(f) {
       </div>
     </div>
     <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
-      <button class="bo-btn-secondary bo-btn-sm" onclick="_fbSwitchTab('builder');fbOpenBuilderModal('${f.id}')">✏️ 편집</button>
+      <button class="bo-btn-secondary bo-btn-sm" onclick="fbOpenBuilderModal('${f.id}')">✏️ 편집</button>
       <button class="bo-btn-secondary bo-btn-sm" onclick="fbToggleActive('${f.id}')"
         style="color:${f.active ? '#F59E0B' : '#059669'};border-color:${f.active ? '#F59E0B' : '#059669'}">${f.active ? '비활성화' : '활성화'}</button>
     </div>
@@ -503,7 +503,7 @@ function _fbRenderBuilder() {
     <div style="display:flex;flex-direction:column;gap:6px">
       ${myForms.map(f => {
         const s = FORM_STAGE_TYPES[f.type] || FORM_STAGE_TYPES.apply;
-        return `<div onclick="_fbSwitchTab('builder');fbOpenBuilderModal('${f.id}')"
+        return `<div onclick="fbOpenBuilderModal('${f.id}')"
           style="padding:10px 12px;border-radius:10px;border:1.5px solid #E5E7EB;cursor:pointer;
                  background:white;transition:all .12s"
           onmouseover="this.style.borderColor='${s.color}';this.style.background='${s.bg}'"

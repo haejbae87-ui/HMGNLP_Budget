@@ -1,4 +1,4 @@
-﻿// ─── BACK-OFFICE DATA LAYER ──────────────────────────────────────────────────
+// ─── BACK-OFFICE DATA LAYER ──────────────────────────────────────────────────
 
 // ─── 사전 정의된 학습유형 (Learning Types) ──────────────────────────────────
 const LEARNING_TYPES = [
@@ -386,7 +386,7 @@ let ISOLATION_GROUPS = [
   { id: 'IG-HISC-ALL',  tenantId: 'HISC',   name: 'HISC 교육예산',     color: '#374151', bg: '#F9FAFB', desc: '현대ISC 교육예산',              globalAdminKey: 'hisc_total',        globalAdminKeys: ['hisc_total'],       opManagerKeys: [],                  ownedAccounts: ['HISC-OPS','HISC-PART'],            createdBy: 'hisc_total',          status: 'active', createdAt: '2026-02-01' },
 ];
 
-let boCurrentPersona = BO_PERSONAS.hmc_total_general;
+let boCurrentPersona = BO_PERSONAS.platform_admin;
 let boCurrentMenu = 'dashboard';
 
 // ─── 가상 조직도 (Virtual Org) ───────────────────────────────────────────────

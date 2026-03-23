@@ -48,7 +48,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['*'],       // 전체 계정 소유자(설정 전용)
     allowedAccounts: ['*'],     // 전체 조회
     isolationGroup: 'SYSTEM',
-    accessMenus: ['dashboard', 'platform-monitor', 'platform-roles', 'reports']
+    accessMenus: ['dashboard', 'platform-monitor', 'platform-roles', 'isolation-groups', 'reports']
   },
 
   // ── [현대자동차 HMC] ──────────────────────────────────────────────────────

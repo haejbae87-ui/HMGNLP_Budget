@@ -130,9 +130,11 @@ let _fbTempFields   = []; // { key, scope:'front'|'back', order }
 let _fbBuilderMode  = 'create'; // 'create' | 'edit'
 
 // ─── 역할별 필터 상태 ─────────────────────────────────────────────────────────
-let _fbTenantId    = null;
-let _fbGroupId     = null;
-let _fbAccountCode = null;
+let _fbTenantId      = null;
+let _fbGroupId       = null;
+let _fbAccountCode   = null;
+let _fbPurposeFilter = '';   // '' = 전체
+let _fbEduTypeFilter = '';   // '' = 전체
 
 // ── 메인 진입점 ────────────────────────────────────────────────────────────────
 function renderFormBuilderMenu() {
@@ -180,13 +182,14 @@ function _fbRenderPage() {
   }) : [];
 
   // ── 필터바 (플랫폼·테넌트총괄에게만 표시) ──────────────────────────────────
+  // 행 1: 데이터 범위 필터 (tenant/group/account)
   const filterBar = (isPlatform || isTenant) ? `
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:13px 18px;
-              background:#F8FAFF;border:1.5px solid #E0E7FF;border-radius:14px;margin-bottom:20px">
+              background:#F8FAFF;border:1.5px solid #E0E7FF;border-radius:14px 14px 0 0;margin-bottom:0">
     ${ isPlatform ? `
     <div style="display:flex;align-items:center;gap:6px">
       <label style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">회사</label>
-      <select onchange="_fbTenantId=this.value;_fbGroupId=null;_fbAccountCode=null;renderFormBuilderMenu()"
+      <select onchange="_fbTenantId=this.value;_fbGroupId=null;_fbAccountCode=null;_fbPurposeFilter='';_fbEduTypeFilter='';renderFormBuilderMenu()"
         style="padding:7px 12px;border:1.5px solid #FDE68A;border-radius:8px;font-size:12px;font-weight:700;background:#FFFBEB;color:#92400E;cursor:pointer">
         ${tenants.map(t => `<option value="${t.id}" ${t.id===_fbTenantId?'selected':''}>${t.name}</option>`).join('')}
       </select>
@@ -199,7 +202,7 @@ function _fbRenderPage() {
     <span style="color:#D1D5DB">|</span>`}
     <div style="display:flex;align-items:center;gap:6px">
       <label style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">격리그룹</label>
-      <select onchange="_fbGroupId=this.value;_fbAccountCode=null;renderFormBuilderMenu()"
+      <select onchange="_fbGroupId=this.value;_fbAccountCode=null;_fbPurposeFilter='';_fbEduTypeFilter='';renderFormBuilderMenu()"
         style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:160px">
         <option value="">— 그룹 선택 —</option>
         ${groups.map(g => `<option value="${g.id}" ${g.id===_fbGroupId?'selected':''}>${g.name}</option>`).join('')}
@@ -208,15 +211,50 @@ function _fbRenderPage() {
     <span style="color:#D1D5DB">|</span>
     <div style="display:flex;align-items:center;gap:6px">
       <label style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">예산계정</label>
-      <select onchange="_fbAccountCode=this.value;renderFormBuilderMenu()"
+      <select onchange="_fbAccountCode=this.value;_fbPurposeFilter='';_fbEduTypeFilter='';renderFormBuilderMenu()"
         style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:160px">
         <option value="">— 계정 선택 —</option>
         ${accounts.map(a => `<option value="${a.code}" ${a.code===_fbAccountCode?'selected':''}>${a.name}</option>`).join('')}
       </select>
     </div>
+  </div>` : '';
+
+  // 행 2: 목적/교육유형 필터 (모든 역할 공통, 계정 선택 시만 활성화)
+  const eduTypesForPurpose = _fbPurposeFilter ? (FORM_EDU_TYPES[_fbPurposeFilter] || []) : [];
+  const filterBar2 = `
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:11px 18px;
+              background:#F0F4FF;border:1.5px solid #E0E7FF;border-top:1px solid #C7D2FE;
+              border-radius:${(isPlatform||isTenant)?'0 0 14px 14px':'14px'};margin-bottom:20px">
+    <span style="font-size:11px;font-weight:700;color:#4B5563">🔍 세부 필터</span>
+    <div style="display:flex;align-items:center;gap:6px">
+      <label style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">목적</label>
+      <select onchange="_fbPurposeFilter=this.value;_fbEduTypeFilter='';renderFormBuilderMenu()"
+        style="padding:7px 12px;border:1.5px solid #C4B5FD;border-radius:8px;font-size:12px;font-weight:700;background:#EDE9FE;color:#5B21B6;cursor:pointer;min-width:170px">
+        <option value="">📊 전체 목적</option>
+        ${Object.entries(FORM_PURPOSE_TYPES).map(([k,v]) =>
+          `<option value="${k}" ${_fbPurposeFilter===k?'selected':''}>${v.icon} ${v.label}</option>`
+        ).join('')}
+      </select>
+    </div>
+    <span style="color:#D1D5DB">|</span>
+    <div style="display:flex;align-items:center;gap:6px">
+      <label style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">교육유형</label>
+      <select onchange="_fbEduTypeFilter=this.value;renderFormBuilderMenu()"
+        style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:160px"
+        ${!_fbPurposeFilter ? 'disabled' : ''}>
+        <option value="">— 전체 교육유형 —</option>
+        ${eduTypesForPurpose.map(t =>
+          `<option value="${t.type}" ${_fbEduTypeFilter===t.type?'selected':''}>${t.type}</option>`
+        ).join('')}
+      </select>
+    </div>
+    <span style="color:#D1D5DB">|</span>
     <button onclick="renderFormBuilderMenu()"
       style="padding:7px 16px;background:#1D4ED8;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">🔍 조회</button>
-  </div>` : '';
+    ${(_fbPurposeFilter||_fbEduTypeFilter||(isPlatform&&_fbAccountCode)||(isTenant&&_fbAccountCode)) ? `
+    <button onclick="_fbPurposeFilter='';_fbEduTypeFilter='';renderFormBuilderMenu()"
+      style="padding:7px 12px;background:#F3F4F6;color:#6B7280;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✕ 필터 완전 초기화</button>` : ''}
+  </div>`;
 
   return `
 <div class="bo-fade">
@@ -229,6 +267,7 @@ function _fbRenderPage() {
   </div>
 
   ${filterBar}
+  ${filterBar2}
 
   <!-- 탭 네비게이션 -->
   <div style="display:flex;gap:0;border-bottom:2px solid #E5E7EB;margin-bottom:24px">
@@ -299,6 +338,15 @@ function _fbRenderLibrary() {
   } else if (!isPlatform && !isTenant) {
     // 일반 역할 (예산업무담당 등): 본인 테넌트 양식 전체 표시 (accountCode 무관)
     // 필터 없이 tenantId만으로 필터링
+  }
+
+  // 목적 필터 적용
+  if (_fbPurposeFilter) {
+    allForms = allForms.filter(f => f.purpose === _fbPurposeFilter);
+  }
+  // 교육유형 필터 적용
+  if (_fbEduTypeFilter) {
+    allForms = allForms.filter(f => f.eduType === _fbEduTypeFilter);
   }
 
   // 상단 버튼

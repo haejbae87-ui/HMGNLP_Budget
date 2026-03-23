@@ -503,36 +503,45 @@ function _fbStageMiniSet(forms) {
 }
 
 function _fbFormCard(f) {
-  const s   = FORM_STAGE_TYPES[f.type] || FORM_STAGE_TYPES.apply;
+  const s      = FORM_STAGE_TYPES[f.type] || FORM_STAGE_TYPES.apply;
   const fields = (f.fields || []);
-
+  const fieldNames = fields.map(fld => typeof fld === 'object' ? fld.key : fld).join(', ');
   return `
-<div class="bo-card" style="padding:14px 16px;margin-bottom:8px;border-left:3px solid ${s.color};background:#fff">
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
-    <div style="flex:1">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap">
-        <span style="background:${s.bg};color:${s.color};font-size:9px;font-weight:900;padding:2px 7px;border-radius:6px">${s.icon} ${s.label.split('(')[0].trim()}</span>
-        <span class="bo-badge ${f.active ? 'bo-badge-green' : 'bo-badge-gray'}">${f.active ? '활성' : '비활성'}</span>
-      </div>
-      <div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:3px">${f.name}</div>
-      ${f.desc ? `<div style="font-size:11px;color:#6B7280;margin-bottom:7px">${f.desc}</div>` : ''}
-      <div style="display:flex;flex-wrap:wrap;gap:3px">
-        ${fields.slice(0,8).map(fld => {
-          const meta  = ADVANCED_FIELDS.find(a => a.key === (typeof fld === 'object' ? fld.key : fld)) || { icon: '📝', scope: 'front' };
-          const key   = typeof fld === 'object' ? fld.key : fld;
-          const scope = typeof fld === 'object' ? fld.scope : (meta.scope || 'front');
-          const sc    = scope === 'back' ? '#9D174D' : scope === 'system' ? '#0369A1' : '#374151';
-          const sbg   = scope === 'back' ? '#FDF2F8' : scope === 'system' ? '#EFF6FF' : '#F3F4F6';
-          return `<span style="background:${sbg};color:${sc};font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px">${meta.icon} ${key}</span>`;
-        }).join('')}
-        ${fields.length > 8 ? `<span style="font-size:9px;color:#9CA3AF;font-style:italic">+${fields.length-8}개</span>` : ''}
-      </div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
-      <button class="bo-btn-secondary bo-btn-sm" onclick="fbOpenBuilderModal('${f.id}')">✏️ 편집</button>
-      <button class="bo-btn-secondary bo-btn-sm" onclick="fbToggleActive('${f.id}')"
-        style="color:${f.active ? '#F59E0B' : '#059669'};border-color:${f.active ? '#F59E0B' : '#059669'}">${f.active ? '비활성화' : '활성화'}</button>
-    </div>
+<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;
+            border-left:3px solid ${s.color};background:#fff;border-radius:8px;
+            margin-bottom:5px;border:1px solid #F3F4F6;border-left-width:3px;
+            transition:background .1s" 
+     onmouseover="this.style.background='${s.bg}'" 
+     onmouseout="this.style.background='#fff'">
+  <!-- 단계 뱃지 -->
+  <span style="flex-shrink:0;font-size:9px;font-weight:900;padding:3px 8px;border-radius:6px;
+               background:${s.bg};color:${s.color};min-width:48px;text-align:center">
+    ${s.icon} ${s.label.split('(')[0].trim()}
+  </span>
+  <!-- 양식명 -->
+  <span style="flex:1;font-size:12px;font-weight:800;color:#111827;overflow:hidden;
+               text-overflow:ellipsis;white-space:nowrap;cursor:default"
+        title="${f.name}${f.desc ? ' — '+f.desc : ''}">
+    ${f.name}
+  </span>
+  <!-- 필드 수 -->
+  <span title="포함 필드: ${fieldNames}"
+        style="flex-shrink:0;font-size:10px;color:#6B7280;background:#F3F4F6;
+               padding:2px 8px;border-radius:10px;cursor:default;white-space:nowrap">
+    📋 ${fields.length}개 필드
+  </span>
+  <!-- 활성 상태 -->
+  <span class="bo-badge ${f.active ? 'bo-badge-green' : 'bo-badge-gray'}" style="flex-shrink:0">
+    ${f.active ? '활성' : '비활성'}
+  </span>
+  <!-- 액션 버튼 -->
+  <div style="display:flex;gap:4px;flex-shrink:0">
+    <button class="bo-btn-secondary bo-btn-sm" onclick="fbOpenBuilderModal('${f.id}')">✏️</button>
+    <button onclick="fbToggleActive('${f.id}')"
+      style="padding:4px 8px;border-radius:6px;border:1.5px solid ${f.active ? '#F59E0B' : '#059669'};
+             background:#fff;color:${f.active ? '#F59E0B' : '#059669'};font-size:10px;font-weight:800;cursor:pointer">
+      ${f.active ? '비활성화' : '활성화'}
+    </button>
   </div>
 </div>`;
 }

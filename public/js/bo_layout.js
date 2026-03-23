@@ -1,7 +1,6 @@
-// ─── BACK-OFFICE LAYOUT: SIDEBAR + HEADER ────────────────────────────────────
-
-// ─── 격리그룹 전환 전역 상태 ─────────────────────────────────────────────────
-let _boActiveIsolationGroupId = null; // null = 자동 (persona 기본 그룹)
+// ─── 격리그룹 컨텍스트 전역 상태 ─────────────────────────────────────────────
+let _boActiveIsolationGroupId = null; // 현재 선택된 격리그룹 ID
+let _boPlatformSelectedTenantId = null; // 플랫폼 총괄: 선택된 테넌트
 
 // 현재 페르소나의 담당 격리그룹 목록 반환
 function boGetMyGroups(persona) {
@@ -13,8 +12,14 @@ function boGetMyGroups(persona) {
     : [];
 }
 
-// 현재 활성 격리그룹 ID 반환 (단일 선택 시 자동 선택)
+// 현재 활성 격리그룹 ID 반환
 function boGetActiveGroupId() {
+  const role = boCurrentPersona?.role;
+  // 플랫폼 총괄: 선택된 테넌트+그룹이 있으면 반환
+  if (role === 'platform_admin') return _boActiveIsolationGroupId;
+  // 테넌트 총괄: 필터 없음 (전체 그룹 동시 조회)
+  if (role === 'tenant_global_admin') return null;
+  // 예산 총괄/운영: 내 담당 그룹 중 선택된 것
   const groups = boGetMyGroups();
   if (!groups.length) return null;
   if (_boActiveIsolationGroupId && groups.find(g => g.id === _boActiveIsolationGroupId))
@@ -28,15 +33,32 @@ function boGetActiveGroup() {
   return id ? (ISOLATION_GROUPS||[]).find(g => g.id === id) : null;
 }
 
-// 격리그룹 스위치 (UI 콜백 후 현재 메뉴 재렌더링)
+// 격리그룹 스위치 (셀렉트박스 선택 + 조회 버튼 콜백)
 function boSwitchIsolationGroup(groupId) {
   _boActiveIsolationGroupId = groupId;
-  renderBoSidebar();
+  boNavigate(boCurrentMenu); // 사이드바 재렌더 없이 메뉴만 재렌더
+}
+
+// 플랫폼 총괄: 테넌트 선택 시 그룹 목록 동적 갱신
+function boPlatformSelectTenant(tenantId) {
+  _boPlatformSelectedTenantId = tenantId;
+  _boActiveIsolationGroupId = null;
+  // 그룹 셀렉트 갱신
+  const groupSel = document.getElementById('bo-group-select');
+  if (!groupSel) return;
+  const groups = (ISOLATION_GROUPS||[]).filter(g => g.tenantId === tenantId);
+  groupSel.innerHTML = `<option value="">전체 그룹 (${groups.length}개)</option>` +
+    groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+}
+
+// 셀렉트박스에서 그룹 선택 (조회 버튼 없이 즉시 저장 — 조회 버튼 클릭 시 boApplyGroupFilter 호출)
+function boApplyGroupFilter() {
+  const sel = document.getElementById('bo-group-select');
+  if (sel) _boActiveIsolationGroupId = sel.value || null;
   boNavigate(boCurrentMenu);
 }
 
-// 헬퍼: 활성 격리그룹 기준으로 배열 필터 (각 메뉴 렌더러에서 사용)
-// usage: boIsolationGroupFilter(DATA_ARRAY, 'isolationGroupId')
+// 헬퍼: 활성 격리그룹 기준으로 배열 필터
 function boIsolationGroupFilter(arr, field) {
   const activeId = boGetActiveGroupId();
   if (!activeId || !arr) return arr || [];
@@ -44,6 +66,116 @@ function boIsolationGroupFilter(arr, field) {
   return arr.filter(item => !item[f] || item[f] === activeId);
 }
 
+// ─── 역할별 상단 필터 바 (메뉴 innerHTML 최상단에 삽입) ───────────────────────
+function boRenderGroupContextBar() {
+  const persona = boCurrentPersona;
+  const role = persona?.role;
+
+  // ① 플랫폼 총괄: 테넌트(회사) → 격리그룹 캐스케이드 셀렉트 + 조회 버튼
+  if (role === 'platform_admin') {
+    const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
+    const selTenantId = _boPlatformSelectedTenantId || (tenants[0]?.id || '');
+    const filteredGroups = (ISOLATION_GROUPS||[]).filter(g => g.tenantId === selTenantId);
+    const activeId = _boActiveIsolationGroupId;
+    return `
+<div style="display:flex;align-items:center;gap:10px;padding:12px 18px;background:#FFFBEB;
+            border:1px solid #FDE68A;border-radius:12px;margin-bottom:20px;flex-wrap:wrap">
+  <span style="font-size:11px;font-weight:900;color:#92400E;white-space:nowrap">🔍 데이터 범위</span>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <label style="font-size:11px;color:#6B7280;font-weight:700">테넌트(회사)</label>
+    <select id="bo-tenant-select" onchange="boPlatformSelectTenant(this.value)"
+      style="padding:6px 10px;border:1.5px solid #FDE68A;border-radius:8px;font-size:12px;
+             font-weight:700;background:#fff;cursor:pointer;color:#92400E">
+      ${tenants.map(t =>`<option value="${t.id}" ${t.id===selTenantId?'selected':''}>${t.name} (${t.id})</option>`).join('')}
+    </select>
+    <label style="font-size:11px;color:#6B7280;font-weight:700">격리그룹</label>
+    <select id="bo-group-select"
+      style="padding:6px 10px;border:1.5px solid #FDE68A;border-radius:8px;font-size:12px;
+             font-weight:700;background:#fff;cursor:pointer;color:#92400E">
+      <option value="" ${!activeId?'selected':''}>전체 그룹 (${filteredGroups.length}개)</option>
+      ${filteredGroups.map(g =>`<option value="${g.id}" ${g.id===activeId?'selected':''}>${g.name}</option>`).join('')}
+    </select>
+    <button onclick="boApplyGroupFilter()"
+      style="padding:6px 16px;background:#D97706;color:#fff;border:none;border-radius:8px;
+             font-size:12px;font-weight:800;cursor:pointer;transition:all .12s;white-space:nowrap"
+      onmouseover="this.style.background='#B45309'" onmouseout="this.style.background='#D97706'">
+      조회
+    </button>
+  </div>
+  ${activeId ? `<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:4px;font-weight:700">
+    📊 현재: ${(ISOLATION_GROUPS||[]).find(g=>g.id===activeId)?.name || activeId}
+  </span>` : '<span style="font-size:10px;color:#9CA3AF">전체 그룹 데이터 표시 중</span>'}
+</div>`;
+  }
+
+  // ② 테넌트 총괄: 소속 테넌트의 모든 격리그룹을 탭/배지로 표시 (필터 없음, 전체 동시 조회)
+  if (role === 'tenant_global_admin') {
+    const tenantId = persona.tenantId;
+    const allGroups = (ISOLATION_GROUPS||[]).filter(g => g.tenantId === tenantId);
+    if (!allGroups.length) return '';
+    return `
+<div style="padding:12px 18px;background:#F0FDF4;border:1px solid #A7F3D0;border-radius:12px;margin-bottom:20px">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <span style="font-size:11px;font-weight:900;color:#065F46;white-space:nowrap">🛡️ 테넌트 내 전체 격리그룹 조회</span>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${allGroups.map(g => `
+      <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 12px;
+                   background:${g.color||'#059669'}18;border:1.5px solid ${g.color||'#059669'}40;
+                   border-radius:20px;font-size:11px;font-weight:700;color:${g.color||'#065F46'}">
+        <span style="width:7px;height:7px;border-radius:50%;background:${g.color||'#059669'}"></span>
+        ${g.name}
+      </span>`).join('')}
+    </div>
+    <span style="margin-left:auto;font-size:10px;color:#6B7280">모든 격리그룹 데이터를 통합 조회합니다</span>
+  </div>
+</div>`;
+  }
+
+  // ③ 예산 총괄 / 예산 운영 담당자
+  if (['budget_global_admin','budget_op_manager'].includes(role)) {
+    const myGroups = boGetMyGroups(persona);
+    if (!myGroups.length) return '';
+    const activeId = boGetActiveGroupId();
+    const activeGroup = myGroups.find(g => g.id === activeId) || myGroups[0];
+
+    // 단일 그룹: 라벨만 표시
+    if (myGroups.length === 1) {
+      return `
+<div style="display:flex;align-items:center;gap:8px;padding:10px 16px;
+            background:${activeGroup.color||'#6366F1'}08;border:1px solid ${activeGroup.color||'#6366F1'}25;
+            border-radius:10px;margin-bottom:20px">
+  <span style="width:8px;height:8px;border-radius:50%;background:${activeGroup.color||'#6366F1'}"></span>
+  <span style="font-size:11px;font-weight:900;color:${activeGroup.color||'#374151'}">${activeGroup.name}</span>
+  <span style="font-size:11px;color:#6B7280">데이터를 표시 중입니다.</span>
+</div>`;
+    }
+
+    // 다중 그룹: 셀렉트박스 + 조회 버튼
+    return `
+<div style="display:flex;align-items:center;gap:10px;padding:12px 18px;
+            background:${activeGroup.color||'#6366F1'}08;border:1px solid ${activeGroup.color||'#6366F1'}25;
+            border-radius:12px;margin-bottom:20px;flex-wrap:wrap">
+  <span style="font-size:11px;font-weight:900;color:${activeGroup.color||'#374151'};white-space:nowrap">🔀 예산 격리그룹 전환</span>
+  <select id="bo-group-select"
+    style="padding:6px 12px;border:1.5px solid ${activeGroup.color||'#6366F1'}50;border-radius:8px;
+           font-size:12px;font-weight:700;background:#fff;cursor:pointer;color:${activeGroup.color||'#374151'};flex:1;min-width:200px">
+    ${myGroups.map(g =>`<option value="${g.id}" ${g.id===activeId?'selected':''}>${g.name}</option>`).join('')}
+  </select>
+  <button onclick="boApplyGroupFilter()"
+    style="padding:6px 16px;background:${activeGroup.color||'#6366F1'};color:#fff;border:none;
+           border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap"
+    onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+    조회
+  </button>
+  <span style="font-size:10px;color:#9CA3AF">${myGroups.length}개 격리그룹 담당</span>
+</div>`;
+  }
+
+  return '';
+}
+
+// ─── 구버전 호환 별칭 (기존 boIsolationGroupBanner 호출부 호환) ───────────────
+function boIsolationGroupBanner() { return boRenderGroupContextBar(); }
 
 // Platform Admin 전용 메뉴
 const PLATFORM_MENUS = [
@@ -162,41 +294,6 @@ function renderBoSidebar() {
     <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">${persona.tenantId ? TENANTS.find(t=>t.id===persona.tenantId)?.name||'' : ''}</div>
   </div>`;
 
-  // 격리그룹 스위처 UI 생성
-  const activeGroup = boGetActiveGroup();
-  const myGroups = boGetMyGroups(persona);
-  const isMultiGroup = myGroups.length > 1 &&
-    ['budget_global_admin','budget_op_manager'].includes(persona.role);
-
-  let groupSwitcherHtml = '';
-  if (isMultiGroup) {
-    const activeId = boGetActiveGroupId();
-    const groupBtns = myGroups.map(g => {
-      const isAct = g.id === activeId;
-      return `<button onclick="boSwitchIsolationGroup('${g.id}')"
-        style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;
-               background:${isAct ? (g.color||'#6366F1') : 'rgba(255,255,255,.06)'};
-               border:1.5px solid ${isAct ? (g.color||'#6366F1') : 'transparent'};
-               color:${isAct ? '#fff' : 'rgba(255,255,255,.6)'};
-               width:100%;font-size:11px;font-weight:${isAct?900:600};cursor:pointer;
-               transition:all .15s;text-align:left;margin-bottom:4px">
-        <span style="width:7px;height:7px;border-radius:50%;background:${g.color||'#6B7280'};flex-shrink:0"></span>
-        <span style="flex:1">${g.name}</span>
-        ${isAct ? '<span style="font-size:10px">✔</span>' : ''}
-      </button>`;
-    }).join('');
-    groupSwitcherHtml = `
-<div style="margin:0 10px 10px;padding:10px;background:rgba(255,255,255,.04);border-radius:10px;border:1px solid rgba(255,255,255,.08)">
-  <div style="font-size:9px;font-weight:900;color:rgba(255,255,255,.4);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">활성 예산 격리그룹</div>
-  ${groupBtns}
-</div>`;
-  } else if (activeGroup) {
-    groupSwitcherHtml = `
-<div style="margin:0 10px 10px;padding:8px 10px;background:${activeGroup.color||'#6366F1'}18;border-radius:8px;border:1px solid ${activeGroup.color||'#6366F1'}30">
-  <div style="font-size:9px;font-weight:900;color:${activeGroup.color||'#6366F1'};letter-spacing:.06em;text-transform:uppercase">격리그룹</div>
-  <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:2px;font-weight:700">${activeGroup.name}</div>
-</div>`;
-  }
 
   document.getElementById('bo-sidebar').innerHTML = `
 <div class="bo-logo">
@@ -209,7 +306,6 @@ function renderBoSidebar() {
   </div>
 </div>
 ${platformBanner}
-${groupSwitcherHtml}
 <div class="bo-nav-section" style="flex:1">${menuHtml}</div>
 <div style="padding:14px 16px;border-top:1px solid rgba(255,255,255,0.08)">
   <a href="index.html" style="display:flex;align-items:center;gap:8px;color:rgba(255,255,255,0.45);font-size:12px;font-weight:700;text-decoration:none">

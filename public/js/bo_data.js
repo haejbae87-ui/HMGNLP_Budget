@@ -48,7 +48,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['*'],       // 전체 계정 소유자(설정 전용)
     allowedAccounts: ['*'],     // 전체 조회
     isolationGroup: 'SYSTEM',
-    accessMenus: ['dashboard', 'platform-monitor', 'platform-roles', 'isolation-groups', 'budget-account', 'virtual-org', 'reports']
+    accessMenus: ['dashboard', 'platform-monitor', 'platform-roles', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'reports']
   },
 
   // ── [현대자동차 HMC] ──────────────────────────────────────────────────────
@@ -64,7 +64,7 @@ const BO_PERSONAS = {
     ownedAccounts: [],
     allowedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC', 'HMC-RND'],
     isolationGroup: 'HMC-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'reports', 'manual']
   },
   // ── HMC 일반예산 그룹 ────────────────────────────────────────────────────────
   hmc_total_general: {
@@ -127,7 +127,7 @@ const BO_PERSONAS = {
     role: 'tenant_global_admin', roleLabel: 'KIA 테넌트 총괄',
     roleClass: 'role-tenant', roleTag: '[테넌트]',
     budgetGroup: 'general', tenantId: 'KIA',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'reports', 'manual']
   },
   kia_total_general: {
     id: 'P201', name: '고O현', dept: 'HRD솔루션팀', pos: '매니저',
@@ -162,7 +162,7 @@ const BO_PERSONAS = {
     role: 'tenant_global_admin', roleLabel: 'HAE 테넌트 총괄',
     roleClass: 'role-tenant', roleTag: '[테넌트]',
     budgetGroup: 'general', tenantId: 'HAE',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'reports', 'manual']
   },
   hae_total: {
     id: 'P301', name: '안O기', dept: '인재성장문화팀', pos: '책임',
@@ -196,7 +196,7 @@ const BO_PERSONAS = {
     role: 'tenant_global_admin', roleLabel: 'ROTEM 테넌트 총괄',
     roleClass: 'role-tenant', roleTag: '[테넌트]',
     budgetGroup: 'general', tenantId: 'ROTEM',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'reports', 'manual']
   },
   rotem_total: {
     id: 'P401', name: '담O은', dept: '교육문화팀', pos: '매니저',
@@ -216,7 +216,7 @@ const BO_PERSONAS = {
     role: 'tenant_global_admin', roleLabel: 'HEC 테넌트 총괄',
     roleClass: 'role-tenant', roleTag: '[테넌트]',
     budgetGroup: 'general', tenantId: 'HEC',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'reports', 'manual']
   },
   hec_total: {
     id: 'P501', name: '김O찬', dept: '인사전략팀', pos: '체임매니저',
@@ -236,7 +236,7 @@ const BO_PERSONAS = {
     role: 'tenant_global_admin', roleLabel: 'HSC 테넌트 총괄',
     roleClass: 'role-tenant', roleTag: '[테넌트]',
     budgetGroup: 'general', tenantId: 'HSC',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'reports', 'manual']
   },
   hsc_total: {
     id: 'P601', name: '정O안', dept: '성장디자인팀', pos: '매니저',
@@ -256,7 +256,7 @@ const BO_PERSONAS = {
     role: 'tenant_global_admin', roleLabel: 'HTS 테넌트 총괄',
     roleClass: 'role-tenant', roleTag: '[테넌트]',
     budgetGroup: 'general', tenantId: 'HTS',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'reports', 'manual']
   },
   hts_total: {
     id: 'P701', name: '임O빈', dept: '조직개발팀', pos: '매니저',
@@ -276,7 +276,7 @@ const BO_PERSONAS = {
     role: 'tenant_global_admin', roleLabel: 'GLOVIS 테넌트 총괄',
     roleClass: 'role-tenant', roleTag: '[테넌트]',
     budgetGroup: 'general', tenantId: 'GLOVIS',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'reports', 'manual']
   },
   glovis_total: {
     id: 'P801', name: '임O래', dept: '교육문화팀', pos: '매니저',
@@ -296,7 +296,7 @@ const BO_PERSONAS = {
     role: 'tenant_global_admin', roleLabel: 'HIS 테넌트 총괄',
     roleClass: 'role-tenant', roleTag: '[테넌트]',
     budgetGroup: 'general', tenantId: 'HIS',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'reports', 'manual']
   },
   his_total: {
     id: 'P901', name: '김O형', dept: 'TM팀', pos: '체임매니저',
@@ -316,7 +316,7 @@ const BO_PERSONAS = {
     role: 'tenant_global_admin', roleLabel: 'KEFICO 테넌트 총괄',
     roleClass: 'role-tenant', roleTag: '[테넌트]',
     budgetGroup: 'general', tenantId: 'KEFICO',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'reports', 'manual']
   },
   kefico_total: {
     id: 'P1001', name: '이O영', dept: '인사팀', pos: '체임매니저',
@@ -336,7 +336,7 @@ const BO_PERSONAS = {
     role: 'tenant_global_admin', roleLabel: 'HISC 테넌트 총괄',
     roleClass: 'role-tenant', roleTag: '[테넌트]',
     budgetGroup: 'general', tenantId: 'HISC',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'reports', 'manual']
   },
   hisc_total: {
     id: 'P1101', name: '오O성', dept: '인사지원팀', pos: '매니저',

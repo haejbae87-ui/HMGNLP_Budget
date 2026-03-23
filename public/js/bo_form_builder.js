@@ -94,18 +94,106 @@ let _fbEditId       = null;
 let _fbTempFields   = []; // { key, scope:'front'|'back', order }
 let _fbBuilderMode  = 'create'; // 'create' | 'edit'
 
+// ─── 역할별 필터 상태 ─────────────────────────────────────────────────────────
+let _fbTenantId    = null;
+let _fbGroupId     = null;
+let _fbAccountCode = null;
+
 // ── 메인 진입점 ────────────────────────────────────────────────────────────────
 function renderFormBuilderMenu() {
+  const role    = boCurrentPersona.role;
+  const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
+  const isPlatform = role === 'platform_admin';
+  const isTenant   = role === 'tenant_global_admin';
+
+  // 테넌트 초기화
+  if (!_fbTenantId) {
+    _fbTenantId = isPlatform ? (tenants[0]?.id || 'HMC') : (boCurrentPersona.tenantId || 'HMC');
+  }
+  // 격리그룹 초기화
+  if (!_fbGroupId) {
+    const groups = typeof ISOLATION_GROUPS !== 'undefined'
+      ? ISOLATION_GROUPS.filter(g => g.tenantId === _fbTenantId) : [];
+    _fbGroupId = groups[0]?.id || null;
+  }
+  // 계정 초기화
+  if (!_fbAccountCode) {
+    const grp = typeof ISOLATION_GROUPS !== 'undefined'
+      ? ISOLATION_GROUPS.find(g => g.id === _fbGroupId) : null;
+    const accs = grp?.ownedAccounts || [];
+    _fbAccountCode = accs[0] || null;
+  }
+
   document.getElementById('bo-content').innerHTML = _fbRenderPage();
 }
 
 function _fbRenderPage() {
+  const role      = boCurrentPersona.role;
+  const isPlatform = role === 'platform_admin';
+  const isTenant   = role === 'tenant_global_admin';
+  const tenants    = typeof TENANTS !== 'undefined' ? TENANTS : [];
+  const tenantName = tenants.find(t => t.id === _fbTenantId)?.name || _fbTenantId || '';
+
+  // 격리그룹 목록
+  const groups = typeof ISOLATION_GROUPS !== 'undefined'
+    ? ISOLATION_GROUPS.filter(g => g.tenantId === _fbTenantId) : [];
+  // 선택된 격리그룹의 예산 계정
+  const selGroup = groups.find(g => g.id === _fbGroupId);
+  const accounts = selGroup ? (selGroup.ownedAccounts || []).map(code => {
+    const acc = typeof ACCOUNT_MASTER !== 'undefined' ? ACCOUNT_MASTER.find(a => a.code === code) : null;
+    return { code, name: acc?.name || code };
+  }) : [];
+
+  // ── 필터바 (플랫폼·테넌트총괄에게만 표시) ──────────────────────────────────
+  const filterBar = (isPlatform || isTenant) ? `
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:13px 18px;
+              background:#F8FAFF;border:1.5px solid #E0E7FF;border-radius:14px;margin-bottom:20px">
+    ${ isPlatform ? `
+    <div style="display:flex;align-items:center;gap:6px">
+      <label style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">회사</label>
+      <select onchange="_fbTenantId=this.value;_fbGroupId=null;_fbAccountCode=null;renderFormBuilderMenu()"
+        style="padding:7px 12px;border:1.5px solid #FDE68A;border-radius:8px;font-size:12px;font-weight:700;background:#FFFBEB;color:#92400E;cursor:pointer">
+        ${tenants.map(t => `<option value="${t.id}" ${t.id===_fbTenantId?'selected':''}>${t.name}</option>`).join('')}
+      </select>
+    </div>
+    <span style="color:#D1D5DB">|</span>` : `
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="font-size:14px">🏢</span>
+      <span style="font-size:12px;font-weight:800;color:#111827">${tenantName}</span>
+    </div>
+    <span style="color:#D1D5DB">|</span>`}
+    <div style="display:flex;align-items:center;gap:6px">
+      <label style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">격리그룹</label>
+      <select onchange="_fbGroupId=this.value;_fbAccountCode=null;renderFormBuilderMenu()"
+        style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:160px">
+        <option value="">— 그룹 선택 —</option>
+        ${groups.map(g => `<option value="${g.id}" ${g.id===_fbGroupId?'selected':''}>${g.name}</option>`).join('')}
+      </select>
+    </div>
+    <span style="color:#D1D5DB">|</span>
+    <div style="display:flex;align-items:center;gap:6px">
+      <label style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">예산계정</label>
+      <select onchange="_fbAccountCode=this.value;renderFormBuilderMenu()"
+        style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:160px">
+        <option value="">— 계정 선택 —</option>
+        ${accounts.map(a => `<option value="${a.code}" ${a.code===_fbAccountCode?'selected':''}>${a.name}</option>`).join('')}
+      </select>
+    </div>
+    <button onclick="renderFormBuilderMenu()"
+      style="padding:7px 16px;background:#1D4ED8;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">🔍 조회</button>
+  </div>` : '';
+
   return `
 <div class="bo-fade">
   <div style="margin-bottom:20px">
-    <h1 class="bo-page-title">🧙 교육신청양식마법사</h1>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+      <span style="background:#7C3AED;color:#fff;font-size:9px;font-weight:900;padding:3px 8px;border-radius:6px">양식 관리</span>
+      <h1 class="bo-page-title" style="margin:0">🧙 교육신청양식마법사</h1>
+    </div>
     <p class="bo-page-sub">교육 서비스에 사용할 양식을 제작하고, 프로세스 패턴과 연결합니다.</p>
   </div>
+
+  ${filterBar}
 
   <!-- 탭 네비게이션 -->
   <div style="display:flex;gap:0;border-bottom:2px solid #E5E7EB;margin-bottom:24px">
@@ -155,8 +243,27 @@ function _fbSwitchTab(tab) {
 // ① 양식 라이브러리 탭
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function _fbRenderLibrary() {
-  const tenantId = boCurrentPersona.tenantId || 'HMC';
-  const allForms = FORM_MASTER.filter(f => f.tenantId === tenantId);
+  const role      = boCurrentPersona.role;
+  const isPlatform = role === 'platform_admin';
+  const isTenant   = role === 'tenant_global_admin';
+
+  // 필터 기준 테넌트 결정
+  const tenantId = (isPlatform || isTenant) ? (_fbTenantId || boCurrentPersona.tenantId) : (boCurrentPersona.tenantId || 'HMC');
+  let allForms = FORM_MASTER.filter(f => f.tenantId === tenantId);
+
+  // 플랫폼·테넌트총괄: 예산계정 기준 필터 적용
+  if ((isPlatform || isTenant) && _fbAccountCode) {
+    allForms = allForms.filter(f =>
+      !f.accountCode || f.accountCode === _fbAccountCode
+    );
+  } else if ((isPlatform || isTenant) && _fbGroupId) {
+    // 계정 미선택이지만 격리그룹 선택 시: 해당 그룹의 모든 계정 포함
+    const grp = typeof ISOLATION_GROUPS !== 'undefined' ? ISOLATION_GROUPS.find(g => g.id === _fbGroupId) : null;
+    const groupAccounts = grp?.ownedAccounts || [];
+    if (groupAccounts.length > 0) {
+      allForms = allForms.filter(f => !f.accountCode || groupAccounts.includes(f.accountCode));
+    }
+  }
 
   // 서비스 유형별 그룹화
   const groups = [

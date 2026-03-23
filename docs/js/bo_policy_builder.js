@@ -19,7 +19,12 @@ function _patternFromPolicy(p) {
 function renderServicePolicy() {
   const persona = boCurrentPersona;
   const el = document.getElementById('bo-content');
-  const myPolicies = SERVICE_POLICIES.filter(p => p.tenantId === persona.tenantId);
+  // 격리그룹 기준 필터링 (isolationGroupId 또는 tenantId fallback)
+  const activeGroupId = (typeof boGetActiveGroupId === 'function') ? boGetActiveGroupId() : null;
+  const myPolicies = SERVICE_POLICIES.filter(p => {
+    if (activeGroupId && p.isolationGroupId) return p.isolationGroupId === activeGroupId;
+    return p.tenantId === persona.tenantId;
+  });
 
   const policyCards = myPolicies.map(p => {
     const approver = Object.values(BO_PERSONAS).find(pe =>
@@ -57,6 +62,7 @@ function renderServicePolicy() {
 
   el.innerHTML = `
 <div class="bo-fade">
+  ${typeof boIsolationGroupBanner==='function' ? boIsolationGroupBanner() : ''}
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">
     <div>
       <h1 class="bo-page-title">🔧 서비스 정책 관리</h1>

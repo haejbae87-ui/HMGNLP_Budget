@@ -1,5 +1,50 @@
 // ─── BACK-OFFICE LAYOUT: SIDEBAR + HEADER ────────────────────────────────────
 
+// ─── 격리그룹 전환 전역 상태 ─────────────────────────────────────────────────
+let _boActiveIsolationGroupId = null; // null = 자동 (persona 기본 그룹)
+
+// 현재 페르소나의 담당 격리그룹 목록 반환
+function boGetMyGroups(persona) {
+  if (!persona) persona = boCurrentPersona;
+  const ids = persona.isolationGroups ||
+    (persona.isolationGroupId ? [persona.isolationGroupId] : []);
+  return (typeof ISOLATION_GROUPS !== 'undefined')
+    ? ids.map(id => ISOLATION_GROUPS.find(g => g.id === id)).filter(Boolean)
+    : [];
+}
+
+// 현재 활성 격리그룹 ID 반환 (단일 선택 시 자동 선택)
+function boGetActiveGroupId() {
+  const groups = boGetMyGroups();
+  if (!groups.length) return null;
+  if (_boActiveIsolationGroupId && groups.find(g => g.id === _boActiveIsolationGroupId))
+    return _boActiveIsolationGroupId;
+  return groups[0].id;
+}
+
+// 활성 격리그룹 객체 반환
+function boGetActiveGroup() {
+  const id = boGetActiveGroupId();
+  return id ? (ISOLATION_GROUPS||[]).find(g => g.id === id) : null;
+}
+
+// 격리그룹 스위치 (UI 콜백 후 현재 메뉴 재렌더링)
+function boSwitchIsolationGroup(groupId) {
+  _boActiveIsolationGroupId = groupId;
+  renderBoSidebar();
+  boNavigate(boCurrentMenu);
+}
+
+// 헬퍼: 활성 격리그룹 기준으로 배열 필터 (각 메뉴 렌더러에서 사용)
+// usage: boIsolationGroupFilter(DATA_ARRAY, 'isolationGroupId')
+function boIsolationGroupFilter(arr, field) {
+  const activeId = boGetActiveGroupId();
+  if (!activeId || !arr) return arr || [];
+  const f = field || 'isolationGroupId';
+  return arr.filter(item => !item[f] || item[f] === activeId);
+}
+
+
 // Platform Admin 전용 메뉴
 const PLATFORM_MENUS = [
   { id: 'dashboard',         icon: '📊', label: '대시보드',              section: null },
@@ -117,6 +162,42 @@ function renderBoSidebar() {
     <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">${persona.tenantId ? TENANTS.find(t=>t.id===persona.tenantId)?.name||'' : ''}</div>
   </div>`;
 
+  // 격리그룹 스위처 UI 생성
+  const activeGroup = boGetActiveGroup();
+  const myGroups = boGetMyGroups(persona);
+  const isMultiGroup = myGroups.length > 1 &&
+    ['budget_global_admin','budget_op_manager'].includes(persona.role);
+
+  let groupSwitcherHtml = '';
+  if (isMultiGroup) {
+    const activeId = boGetActiveGroupId();
+    const groupBtns = myGroups.map(g => {
+      const isAct = g.id === activeId;
+      return `<button onclick="boSwitchIsolationGroup('${g.id}')"
+        style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;
+               background:${isAct ? (g.color||'#6366F1') : 'rgba(255,255,255,.06)'};
+               border:1.5px solid ${isAct ? (g.color||'#6366F1') : 'transparent'};
+               color:${isAct ? '#fff' : 'rgba(255,255,255,.6)'};
+               width:100%;font-size:11px;font-weight:${isAct?900:600};cursor:pointer;
+               transition:all .15s;text-align:left;margin-bottom:4px">
+        <span style="width:7px;height:7px;border-radius:50%;background:${g.color||'#6B7280'};flex-shrink:0"></span>
+        <span style="flex:1">${g.name}</span>
+        ${isAct ? '<span style="font-size:10px">✔</span>' : ''}
+      </button>`;
+    }).join('');
+    groupSwitcherHtml = `
+<div style="margin:0 10px 10px;padding:10px;background:rgba(255,255,255,.04);border-radius:10px;border:1px solid rgba(255,255,255,.08)">
+  <div style="font-size:9px;font-weight:900;color:rgba(255,255,255,.4);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">활성 예산 격리그룹</div>
+  ${groupBtns}
+</div>`;
+  } else if (activeGroup) {
+    groupSwitcherHtml = `
+<div style="margin:0 10px 10px;padding:8px 10px;background:${activeGroup.color||'#6366F1'}18;border-radius:8px;border:1px solid ${activeGroup.color||'#6366F1'}30">
+  <div style="font-size:9px;font-weight:900;color:${activeGroup.color||'#6366F1'};letter-spacing:.06em;text-transform:uppercase">격리그룹</div>
+  <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:2px;font-weight:700">${activeGroup.name}</div>
+</div>`;
+  }
+
   document.getElementById('bo-sidebar').innerHTML = `
 <div class="bo-logo">
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -128,6 +209,7 @@ function renderBoSidebar() {
   </div>
 </div>
 ${platformBanner}
+${groupSwitcherHtml}
 <div class="bo-nav-section" style="flex:1">${menuHtml}</div>
 <div style="padding:14px 16px;border-top:1px solid rgba(255,255,255,0.08)">
   <a href="index.html" style="display:flex;align-items:center;gap:8px;color:rgba(255,255,255,0.45);font-size:12px;font-weight:700;text-decoration:none">
@@ -275,8 +357,46 @@ function boNavigate(menuId) {
 
 function boSwitchPersona(key) {
   boCurrentPersona = BO_PERSONAS[key];
+  _boActiveIsolationGroupId = null; // 페르소나 전환 시 그룹 자동 리셋
   if (!boCurrentPersona.accessMenus.includes(boCurrentMenu)) {
     boCurrentMenu = 'dashboard';
   }
   boNavigate(boCurrentMenu);
+}
+
+// ─── 격리그룹 컨텍스트 배너 (각 메뉴 상단에 삽입용) ──────────────────────────
+// 활성 격리그룹 정보를 메뉴 상단에 표시. 다중 그룹일 때는 전환 링크도 표시.
+function boIsolationGroupBanner() {
+  const persona = boCurrentPersona;
+  const myGroups = boGetMyGroups(persona);
+  if (!myGroups.length) return '';
+  const activeId = boGetActiveGroupId();
+  const activeGroup = myGroups.find(g => g.id === activeId) || myGroups[0];
+  const isMulti = myGroups.length > 1;
+  const otherGroups = myGroups.filter(g => g.id !== activeId);
+
+  const otherBtns = isMulti ? otherGroups.map(g =>
+    `<button onclick="boSwitchIsolationGroup('${g.id}')"
+      style="padding:3px 10px;border-radius:6px;background:${g.color||'#6366F1'}18;
+             border:1px solid ${g.color||'#6366F1'}40;color:${g.color||'#374151'};
+             font-size:11px;font-weight:700;cursor:pointer;transition:all .12s"
+      onmouseover="this.style.background='${g.color||'#6366F1'}28'"
+      onmouseout="this.style.background='${g.color||'#6366F1'}18'">
+      ${g.name} 전환 →
+    </button>`).join(' ') : '';
+
+  return `
+<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;
+            background:${activeGroup.color||'#6366F1'}0C;border-radius:10px;
+            border:1px solid ${activeGroup.color||'#6366F1'}25;margin-bottom:20px;flex-wrap:wrap;gap:8px">
+  <div style="display:flex;align-items:center;gap:8px">
+    <span style="width:8px;height:8px;border-radius:50%;background:${activeGroup.color||'#6366F1'};flex-shrink:0"></span>
+    <span style="font-size:11px;font-weight:900;color:${activeGroup.color||'#374151'}">
+      ${activeGroup.name}
+    </span>
+    <span style="font-size:11px;color:#6B7280">데이터를 표시 중입니다.</span>
+    ${isMulti ? `<span style="font-size:10px;background:#F3F4F6;color:#9CA3AF;padding:2px 6px;border-radius:4px">${myGroups.length}개 그룹 담당</span>` : ''}
+  </div>
+  ${isMulti ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${otherBtns}</div>` : ''}
+</div>`;
 }

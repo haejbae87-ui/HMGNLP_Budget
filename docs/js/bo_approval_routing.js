@@ -14,6 +14,7 @@ function renderApprovalRouting() {
 
   el.innerHTML = `
 <div class="bo-fade">
+  ${typeof boIsolationGroupBanner==='function' ? boIsolationGroupBanner() : ''}
   <div style="margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
       <span style="background:#D97706;color:#fff;font-size:9px;font-weight:900;padding:3px 8px;border-radius:6px;letter-spacing:.08em">결재라인</span>

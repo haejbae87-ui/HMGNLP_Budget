@@ -7,12 +7,14 @@ function renderMyOperations() {
   const el = document.getElementById('bo-content');
   const persona = boCurrentPersona;
   const personaKey = Object.keys(BO_PERSONAS).find(k => BO_PERSONAS[k] === persona) || '';
+  const activeGroupId = (typeof boGetActiveGroupId === 'function') ? boGetActiveGroupId() : null;
 
-  // 자신이 승인자인 정책 (직접 승인자 + 금액별 결재라인 포함)
+  // 자신이 승인자인 정책 (격리그룹 기준 필터 우선)
   const myPolicies = SERVICE_POLICIES.filter(p => {
+    // 격리그룹 필터
+    if (activeGroupId && p.isolationGroupId && p.isolationGroupId !== activeGroupId) return false;
     if (p.tenantId !== persona.tenantId) return false;
     if (p.approverPersonaKey === personaKey) return true;
-    // 금액별 결재라인에서도 나인지 확인
     return (p.approvalThresholds||[]).some(t => t.approverKey === personaKey);
   });
   const myPolicyIds = myPolicies.map(p => p.id);
@@ -142,6 +144,7 @@ function renderMyOperations() {
 
   el.innerHTML = `
 <div class="bo-fade">
+  ${typeof boIsolationGroupBanner==='function' ? boIsolationGroupBanner() : ''}
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">
     <div>
       <h1 class="bo-page-title">📥 나의 운영 업무</h1>

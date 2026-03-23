@@ -184,6 +184,7 @@ const PLATFORM_MENUS = [
   { id: 'platform-roles',    icon: '🔐', label: '관리자 권한 매핑',       section: null },
   { id: 'isolation-groups',  icon: '🛡️', label: '격리그룹 관리',          section: '테넌트 운영' },
   { id: 'budget-account',    icon: '💳', label: '예산 계정 관리',          section: null },
+  { id: 'virtual-org',       icon: '🏢', label: '가상조직 템플릿 관리',   section: null },
   { id: 'reports',           icon: '📈', label: '통계 및 리포트',        section: '분석' },
   { id: 'manual',            icon: '📖', label: '서비스 매뉴얼',          section: null },
 ];
@@ -193,6 +194,7 @@ const TENANT_ADMIN_MENUS = [
   { id: 'dashboard',        icon: '📊', label: '대시보드',              section: null },
   { id: 'isolation-groups', icon: '🛡️', label: '격리그룹 관리',         section: '테넌트 관리' },
   { id: 'budget-account',   icon: '💳', label: '예산 계정 관리',         section: null },
+  { id: 'virtual-org',      icon: '🏢', label: '가상조직 템플릿 관리',  section: null },
   { id: 'reports',          icon: '📈', label: '전사 통계 리포트',       section: '분석' },
   { id: 'manual',           icon: '📖', label: '서비스 매뉴얼',          section: null },
 ];

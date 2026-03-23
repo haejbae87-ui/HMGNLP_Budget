@@ -1,4 +1,4 @@
-﻿// ─── BACK-OFFICE DATA LAYER ──────────────────────────────────────────────────
+// ─── BACK-OFFICE DATA LAYER ──────────────────────────────────────────────────
 
 // ─── 사전 정의된 학습유형 (Learning Types) ──────────────────────────────────
 const LEARNING_TYPES = [
@@ -40,7 +40,7 @@ function getIsolationGroup(id) {
 const BO_PERSONAS = {
   // ── [플랫폼 총괄] ─────────────────────────────────────────────────────────
   platform_admin: {
-    id: 'P000', name: '장O준', dept: '플랫폼운영팀', pos: '팀장',
+    id: 'P000', name: '배O석', dept: 'LX플랫폼추진TFT', pos: '책임',
     role: 'platform_admin', roleLabel: '플랫폼 총괄',
     roleClass: 'role-platform', roleTag: '[SYSTEM]',
     budgetGroup: null, tenantId: null,

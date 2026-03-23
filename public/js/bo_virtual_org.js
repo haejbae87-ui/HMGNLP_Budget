@@ -155,9 +155,13 @@ function _renderVirtualOrgFull(filterBar) {
           const mgrBadge = mgrP
             ? `<span style="font-size:10px;background:#EFF6FF;color:#1D4ED8;padding:2px 8px;border-radius:6px;font-weight:700">👤 ${mgrP.name} (${mgrP.dept})</span>`
             : `<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:6px;font-weight:700">👤 담당자 미지정</span>`;
-          const coopBadges = (g.cooperators||[]).map(c =>
-            `<span style="font-size:10px;background:#F5F3FF;color:#5B21B6;padding:2px 7px;border-radius:6px;font-weight:700">🤝 ${c.teamName}</span>`
-          ).join(' ');
+          const coopBadges = (g.cooperators||[]).map(c => {
+            const tc  = c.coopType === '재경협조처' ? '#92400E' : '#1D4ED8';
+            const tbg = c.coopType === '재경협조처' ? '#FEF3C7' : '#EFF6FF';
+            const icon = c.coopType === '재경협조처' ? '💰' : '📚';
+            const req  = c.required === '선택' ? '⚪' : '🔴';
+            return `<span style="font-size:10px;background:${tbg};color:${tc};padding:2px 8px;border-radius:6px;font-weight:700">${req}${icon} ${c.teamName}</span>`;
+          }).join(' ');
           return `
         <li style="margin-bottom:16px">
           <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:12px 16px;margin-bottom:8px">
@@ -314,23 +318,66 @@ function _renderVirtualOrgFull(filterBar) {
 
 <!-- 협조처 설정 모달 -->
 <div id="vo-coop-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:16px;width:480px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+  <div style="background:#fff;border-radius:16px;width:560px;max-height:88vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
     <div style="display:flex;justify-content:space-between;margin-bottom:16px">
       <div>
         <h3 style="font-size:15px;font-weight:800;margin:0 0 3px">🤝 협조처 설정</h3>
-        <p style="font-size:11px;color:#6B7280;margin:0">결재 시 협조가 필요한 팀을 지정합니다</p>
+        <p style="font-size:11px;color:#6B7280;margin:0">결재라인에 포함할 협조처를 복수로 추가할 수 있습니다</p>
       </div>
       <button onclick="voCloseModal('vo-coop-modal')" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">✕</button>
     </div>
-    <div id="vo-coop-list" style="max-height:280px;overflow-y:auto;margin-bottom:16px"></div>
-    <div style="background:#F9FAFB;border-radius:8px;padding:12px;margin-bottom:16px">
-      <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:8px">협조처 추가</div>
-      <div style="display:flex;gap:8px">
-        <input id="vo-coop-team-input" placeholder="팀명 입력" style="flex:1;padding:7px 10px;border:1.5px solid #E5E7EB;border-radius:7px;font-size:12px;outline:none">
-        <input id="vo-coop-role-input" placeholder="역할 (예: 검토)" style="width:100px;padding:7px 10px;border:1.5px solid #E5E7EB;border-radius:7px;font-size:12px;outline:none">
-        <button onclick="voAddCoopTeam()" class="bo-btn-primary bo-btn-sm">추가</button>
+
+    <!-- 등록된 협조처 목록 -->
+    <div id="vo-coop-list" style="max-height:220px;overflow-y:auto;margin-bottom:16px"></div>
+
+    <!-- 협조처 추가 폼 -->
+    <div style="background:#F8FAFF;border:1.5px solid #E0E7FF;border-radius:12px;padding:16px;margin-bottom:16px">
+      <div style="font-size:12px;font-weight:800;color:#374151;margin-bottom:12px">✏️ 협조처 추가</div>
+
+      <!-- 협조처 유형 -->
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:7px">협조처 유형 <span style="color:#EF4444">*</span></div>
+        <div style="display:flex;gap:10px">
+          <label style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;cursor:pointer;border:1.5px solid #BFDBFE;background:#EFF6FF">
+            <input type="radio" name="vo-coop-type" value="교육협조처" checked style="accent-color:#1D4ED8;width:14px;height:14px">
+            <span style="font-size:12px;font-weight:700;color:#1D4ED8">📚 교육협조처</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;cursor:pointer;border:1.5px solid #E5E7EB;background:#F9FAFB">
+            <input type="radio" name="vo-coop-type" value="재경협조처" style="accent-color:#D97706;width:14px;height:14px">
+            <span style="font-size:12px;font-weight:700;color:#92400E">💰 재경협조처</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 필수/선택 여부 -->
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:7px">협조 구분 <span style="color:#EF4444">*</span></div>
+        <div style="display:flex;gap:10px">
+          <label style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;cursor:pointer;border:1.5px solid #FECACA;background:#FEF2F2">
+            <input type="radio" name="vo-coop-required" value="필수" checked style="accent-color:#EF4444;width:14px;height:14px">
+            <span style="font-size:12px;font-weight:700;color:#EF4444">🔴 필수 협조처</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;cursor:pointer;border:1.5px solid #E5E7EB;background:#F9FAFB">
+            <input type="radio" name="vo-coop-required" value="선택" style="accent-color:#6B7280;width:14px;height:14px">
+            <span style="font-size:12px;font-weight:700;color:#6B7280">⚪ 선택 협조처</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 팀명·역할 입력 -->
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:5px">팀명 <span style="color:#EF4444">*</span></div>
+          <input id="vo-coop-team-input" placeholder="예) HRD팀, 재무팀" style="width:100%;box-sizing:border-box;padding:8px 11px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;outline:none">
+        </div>
+        <div style="width:120px">
+          <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:5px">역할</div>
+          <input id="vo-coop-role-input" placeholder="예) 검토, 확인" style="width:100%;box-sizing:border-box;padding:8px 11px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;outline:none">
+        </div>
+        <button onclick="voAddCoopTeam()" class="bo-btn-primary bo-btn-sm" style="flex-shrink:0;padding:8px 16px">+ 추가</button>
       </div>
     </div>
+
     <div style="display:flex;justify-content:flex-end;gap:8px">
       <button class="bo-btn-secondary bo-btn-sm" onclick="voCloseModal('vo-coop-modal')">취소</button>
       <button class="bo-btn-primary bo-btn-sm" onclick="voSaveCoopModal()">저장</button>
@@ -517,17 +564,33 @@ function _voRenderCoopList(cooperators) {
   const el = document.getElementById('vo-coop-list');
   if (!el) return;
   if (cooperators.length === 0) {
-    el.innerHTML = '<div style="padding:20px;text-align:center;color:#9CA3AF;font-size:12px">설정된 협조처가 없습니다</div>';
+    el.innerHTML = '<div style="padding:16px;text-align:center;color:#9CA3AF;font-size:12px;background:#F9FAFB;border-radius:8px">설정된 협조처가 없습니다</div>';
     return;
   }
-  el.innerHTML = cooperators.map((c,i) => `
-<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#F9FAFB;border-radius:8px;margin-bottom:6px">
-  <div>
-    <span style="font-weight:700;font-size:12px">🤝 ${c.teamName}</span>
-    <span style="font-size:11px;color:#6B7280;margin-left:6px">${c.role || '협조'}</span>
+  el.innerHTML = cooperators.map((c, i) => {
+    const typeColor  = c.coopType === '재경협조처' ? { bg:'#FFFBEB', border:'#FDE68A', text:'#92400E', icon:'💰' }
+                                                   : { bg:'#EFF6FF', border:'#BFDBFE', text:'#1D4ED8', icon:'📚' };
+    const reqColor   = c.required === '필수' ? '#EF4444' : '#6B7280';
+    const reqIcon    = c.required === '필수' ? '🔴' : '⚪';
+    const reqLabel   = c.required === '필수' ? '필수협조처' : '선택협조처';
+    return `
+<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;
+            background:${typeColor.bg};border:1px solid ${typeColor.border};border-radius:10px;margin-bottom:7px">
+  <div style="flex:1">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-weight:800;font-size:13px;color:#111827">${c.teamName}</span>
+      <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${typeColor.border};color:${typeColor.text};font-weight:700">
+        ${typeColor.icon} ${c.coopType || '교육협조처'}
+      </span>
+      <span style="font-size:10px;padding:2px 8px;border-radius:6px;color:${reqColor};font-weight:700;background:${c.required==='필수'?'#FEF2F2':'#F3F4F6'};border:1px solid ${c.required==='필수'?'#FECACA':'#E5E7EB'}">
+        ${reqIcon} ${reqLabel}
+      </span>
+      ${c.role && c.role !== '협조' ? `<span style="font-size:10px;color:#6B7280">${c.role}</span>` : ''}
+    </div>
   </div>
-  <button onclick="_voDeleteCoop(${i})" style="border:none;background:none;cursor:pointer;color:#D1D5DB;font-size:14px">✕</button>
-</div>`).join('');
+  <button onclick="_voDeleteCoop(${i})" style="border:none;background:none;cursor:pointer;color:#D1D5DB;font-size:14px;flex-shrink:0">✕</button>
+</div>`;
+  }).join('');
 }
 
 function _voDeleteCoop(idx) {
@@ -542,18 +605,22 @@ function _voDeleteCoop(idx) {
 function voAddCoopTeam() {
   const teamName = document.getElementById('vo-coop-team-input')?.value.trim();
   const role     = document.getElementById('vo-coop-role-input')?.value.trim() || '협조';
+  const coopType = document.querySelector('input[name="vo-coop-type"]:checked')?.value || '교육협조처';
+  const required = document.querySelector('input[name="vo-coop-required"]:checked')?.value || '필수';
   if (!teamName) { alert('팀명을 입력하세요.'); return; }
-  const activeTpl = _voGetActiveTpl();  // ★ 수정
+  const activeTpl = _voGetActiveTpl();
   if (!activeTpl) return;
   const isRnd = activeTpl.tree.centers !== undefined;
   const g = (isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs)[_voCoopGroupIdx];
   if (!g.cooperators) g.cooperators = [];
-  g.cooperators.push({ teamId: 'CT'+Date.now(), teamName, role });
+  g.cooperators.push({ teamId: 'CT'+Date.now(), teamName, coopType, required, role });
   _voRenderCoopList(g.cooperators);
+  // 입력 필드 초기화
   const ti = document.getElementById('vo-coop-team-input');
   const ri = document.getElementById('vo-coop-role-input');
   if (ti) ti.value = '';
   if (ri) ri.value = '';
+  // 라디오는 기본값 유지 (사용자 편의)
 }
 
 function voSaveCoopModal() {

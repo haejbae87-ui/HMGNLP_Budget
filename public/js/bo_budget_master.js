@@ -145,6 +145,20 @@ function renderBudgetAccount() {
 
   <!-- 계정 목록 + 결재라인 통합 -->
   <div id="ba-content">${_baRenderContent()}</div>
+
+  <!-- 결재라인 편집 모달 (approval-routing 함수들과 공유) -->
+  <div id="ar-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:16px;width:620px;max-height:85vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h3 id="ar-modal-title" style="font-size:15px;font-weight:800;color:#111827;margin:0">결재라인 편집</h3>
+        <button onclick="arCloseModal()" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">✕</button>
+      </div>
+      <div id="ar-modal-body"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+        <button class="bo-btn-secondary bo-btn-sm" onclick="arCloseModal()">닫기</button>
+      </div>
+    </div>
+  </div>
 </div>`;
 }
 

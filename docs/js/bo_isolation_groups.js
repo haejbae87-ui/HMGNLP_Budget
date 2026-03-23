@@ -208,12 +208,47 @@ function _renderGroupCards(groups, viewMode, persona, personaKey) {
         : _igPersonaChip(aKey, '#7C3AED', null);
     }).join('');
 
-    // 예산운영 담당자 칩
-    const opChips = g.opManagerKeys.map(k =>
-      canEditOps
-        ? _igPersonaChip(k, '#1D4ED8', `_igRemoveOpManager('${g.id}',`)
-        : _igPersonaChip(k, '#1D4ED8', null)
-    ).join('');
+    // 예산운영 담당자 카드 (가상조직 매핑 포함)
+    const opCards = g.opManagerKeys.map(k => {
+      const p = BO_PERSONAS[k];
+      if (!p) return '';
+      const vorgNodes = _igGetVOrgAssignments(k, g.id);
+      const vorgBadges = vorgNodes.map(n =>
+        `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:12px;
+          background:#F0FDF4;border:1px solid #86EFAC;font-size:10px;font-weight:700;color:#065F46">
+          🏢 ${n.tplName} · ${n.nodeName}
+        </span>`
+      ).join('');
+      const vorgSection = vorgNodes.length > 0
+        ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${vorgBadges}</div>`
+        : `<div style="margin-top:5px;display:flex;align-items:center;gap:6px">
+            <span style="font-size:10px;color:#9CA3AF">🏢 담당 가상조직 없음</span>
+            <button onclick="boNavigate('virtual-org')"
+              style="font-size:10px;padding:2px 8px;border-radius:6px;border:1px solid #D1FAE5;
+                     background:#F0FDF4;color:#059669;cursor:pointer;font-weight:700">
+              → 가상조직 배정
+            </button>
+          </div>`;
+
+      return `
+<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;
+            background:#F8FAFF;border-radius:10px;border:1px solid #E0E7FF;margin-bottom:6px">
+  <div style="flex:1;min-width:0">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-weight:800;font-size:12px;color:#111827">${p.name}</span>
+      <span style="font-size:10px;color:#9CA3AF">${p.dept} · ${p.pos}</span>
+      <span style="font-size:9px;padding:2px 7px;border-radius:6px;background:#EFF6FF;
+                   color:#1D4ED8;font-weight:700;border:1px solid #BFDBFE">운영</span>
+      ${vorgNodes.length > 0 ? `<span style="font-size:9px;padding:2px 7px;border-radius:6px;
+        background:#D1FAE5;color:#065F46;font-weight:700">🏢 ${vorgNodes.length}개 조직 담당</span>` : ''}
+    </div>
+    ${vorgSection}
+  </div>
+  ${canEditOps ? `<button onclick="_igRemoveOpManager('${g.id}','${k}')"
+    style="font-size:11px;padding:4px 8px;border-radius:7px;border:1px solid #FECACA;
+           background:#FEF2F2;color:#EF4444;cursor:pointer;font-weight:700;flex-shrink:0">제거</button>` : ''}
+</div>`;
+    }).join('');
 
     return `
 <div class="bo-card" style="padding:22px;margin-bottom:16px;border-left:4px solid ${g.color||'#6366F1'}">
@@ -265,7 +300,7 @@ function _renderGroupCards(groups, viewMode, persona, personaKey) {
     </div>
   </div>
 
-  <!-- 예산 운영 담당자 섹션 -->
+  <!-- 예산 운영 담당자 섹션 (가상조직 매핑 포함) -->
   <div style="border-top:1px solid #F3F4F6;padding-top:14px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
       <div>
@@ -279,23 +314,40 @@ function _renderGroupCards(groups, viewMode, persona, personaKey) {
         + 운영 담당자 추가
       </button>` : ''}
     </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;min-height:24px">
-      ${opChips || `<span style="font-size:11px;color:#9CA3AF">
-        ${canEditOps ? '아직 등록된 운영담당자가 없습니다 — 위 버튼으로 추가하세요' : '운영담당자 미등록'}
-      </span>`}
+    <div>
+      ${opCards || `<div style="padding:16px;text-align:center;background:#F9FAFB;border-radius:10px;
+          border:1px dashed #D1D5DB;color:#9CA3AF">
+        <div style="font-size:12px;font-weight:700">
+          ${canEditOps ? '아직 등록된 운영담당자가 없습니다 — 위 버튼으로 추가하세요' : '운영담당자 미등록'}
+        </div>
+      </div>`}
     </div>
   </div>
-
-  ${opCount > 0 ? `
-  <div style="margin-top:12px;padding:10px 14px;background:#EFF6FF;border-radius:10px;border:1px solid #BFDBFE">
-    <span style="font-size:11px;font-weight:700;color:#1D4ED8">💡 </span>
-    <button onclick="boNavigate('virtual-org')"
-      style="background:none;border:none;cursor:pointer;font-size:11px;font-weight:900;
-             color:#1D4ED8;text-decoration:underline">가상조직 템플릿 관리</button>
-    <span style="font-size:11px;color:#1D4ED8">에서 노드 담당자를 배정하세요.</span>
-  </div>` : ''}
 </div>`;
   }).join('');
+}
+
+// ── 가상조직 배정 현황 조회 헬퍼 ─────────────────────────────────────────────
+// opKey: 운영담당자 persona key
+// isolationGroupId: 격리그룹 ID (해당 그룹의 템플릿만 조회)
+function _igGetVOrgAssignments(opKey, isolationGroupId) {
+  if (typeof VIRTUAL_ORG_TEMPLATES === 'undefined') return [];
+  const results = [];
+  const templates = isolationGroupId
+    ? VIRTUAL_ORG_TEMPLATES.filter(t => t.isolationGroupId === isolationGroupId)
+    : VIRTUAL_ORG_TEMPLATES;
+  templates.forEach(tpl => {
+    const nodes = [
+      ...(tpl.tree?.hqs     || []),
+      ...(tpl.tree?.centers || [])
+    ];
+    nodes.forEach(n => {
+      if (n.managerPersonaKey === opKey) {
+        results.push({ tplName: tpl.name, nodeName: n.name });
+      }
+    });
+  });
+  return results;
 }
 
 // ── 검색 필터 헬퍼 (담당자 검색 리스트 렌더) ─────────────────────────────────

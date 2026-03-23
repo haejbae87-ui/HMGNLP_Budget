@@ -1,4 +1,4 @@
-﻿// ─── 교육신청양식마법사 (Form Builder Enhanced) ─────────────────────────────────
+// ─── 교육신청양식마법사 (Form Builder Enhanced) ─────────────────────────────────
 // 3탭 구조: ① 양식 라이브러리 ② 양식 빌더 ③ 서비스 통합 매핑
 // 기획안 기반 고도화: 양식 분류체계, 입력 주체 제어, 조건부 로직, 서비스 매핑
 
@@ -285,13 +285,20 @@ function _fbRenderLibrary() {
 
   // 예산계정 또는 격리그룹 기준 필터
   if ((isPlatform || isTenant) && _fbAccountCode) {
-    allForms = allForms.filter(f => !f.accountCode || f.accountCode === _fbAccountCode);
+    // 계정 선택: 해당 계정에 합치하는 양식만
+    allForms = allForms.filter(f => f.accountCode === _fbAccountCode);
   } else if ((isPlatform || isTenant) && _fbGroupId) {
+    // 계정 미선택 + 격리그룹 선택: 해당 그룹의 계정 양식만
     const grp = typeof ISOLATION_GROUPS !== 'undefined' ? ISOLATION_GROUPS.find(g => g.id === _fbGroupId) : null;
     const groupAccounts = grp?.ownedAccounts || [];
     if (groupAccounts.length > 0) {
-      allForms = allForms.filter(f => !f.accountCode || groupAccounts.includes(f.accountCode));
+      allForms = allForms.filter(f => groupAccounts.includes(f.accountCode));
+    } else {
+      allForms = []; // 그룹에 계정이 없으면 빈 목록
     }
+  } else if (!isPlatform && !isTenant) {
+    // 일반 역할 (예산업무담당 등): 본인 테넌트 양식 전체 표시 (accountCode 무관)
+    // 필터 없이 tenantId만으로 필터링
   }
 
   // 상단 버튼

@@ -34,7 +34,7 @@ const TENANTS = [
 const BO_PERSONAS = {
   // ── [플랫폼 총괄] ─────────────────────────────────────────────────────────
   platform_admin: {
-    id: 'P000', name: '장민준', dept: '플랫폼운영팀', pos: '팀장',
+    id: 'P000', name: '장O준', dept: '플랫폼운영팀', pos: '팀장',
     role: 'platform_admin', roleLabel: '플랫폼 총괄',
     roleClass: 'role-platform', roleTag: '[SYSTEM]',
     budgetGroup: null, tenantId: null,

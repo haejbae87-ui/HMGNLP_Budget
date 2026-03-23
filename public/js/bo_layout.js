@@ -445,7 +445,6 @@ function boNavigate(menuId) {
   if (menuId === 'my-operations')    renderMyOperations();
   if (menuId === 'org-budget')       renderOrgBudget();
   if (menuId === 'isolation-groups')    renderIsolationGroups();
-  if (menuId === 'my-isolation-groups') renderMyIsolationGroups();
   if (menuId === 'reports')          renderBoReports();
   if (menuId === 'manual')           renderBoManual();
 }

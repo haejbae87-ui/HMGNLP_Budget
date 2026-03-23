@@ -2,6 +2,19 @@
 
 // 드롭다운 열림 상태
 let _gnbDropdownOpen = null;
+let _gnbListenerAttached = false;
+
+// 외부 클릭 시 드롭다운 닫기 (최초 1회만 등록)
+function initGNBListener() {
+  if (_gnbListenerAttached) return;
+  _gnbListenerAttached = true;
+  document.addEventListener('click', function(e) {
+    if (_gnbDropdownOpen && !e.target.closest('#gnb')) {
+      _gnbDropdownOpen = null;
+      renderGNB();
+    }
+  });
+}
 
 function renderGNB() {
   // 1depth 메뉴 정의: dropdown 포함 구조
@@ -106,10 +119,11 @@ function renderGNB() {
     }).join('');
 
     return `<div style="position:relative;display:flex;align-items:center">
-      <div onclick="_gnbDropdownOpen=_gnbDropdownOpen==='${m.id}'?null:'${m.id}';renderGNB()"
+      <div
         style="display:flex;align-items:center;gap:5px;padding:0 14px;height:56px;font-size:13px;font-weight:700;cursor:pointer;
                border-bottom:2.5px solid ${active || isOpen ? '#fff' : 'transparent'};
-               color:${active || isOpen ? '#fff' : 'rgba(255,255,255,0.7)'};transition:all .15s;white-space:nowrap;user-select:none">
+               color:${active || isOpen ? '#fff' : 'rgba(255,255,255,0.7)'};transition:all .15s;white-space:nowrap;user-select:none"
+        onclick="event.stopPropagation();_gnbDropdownOpen=_gnbDropdownOpen==='${m.id}'?null:'${m.id}';renderGNB()">
         ${m.label}
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="transition:transform .2s;transform:${isOpen ? 'rotate(180deg)' : 'rotate(0)'}">
           <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -124,9 +138,9 @@ function renderGNB() {
     </div>`;
   }).join('');
 
+  initGNBListener();
   document.getElementById('gnb').innerHTML = `
-<div style="display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:56px"
-     onclick="event.target.closest('[data-dropdown]')||(_gnbDropdownOpen&&(_gnbDropdownOpen=null,renderGNB()))">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:56px">
   <div style="display:flex;align-items:center;gap:12px">
     <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="navigate('dashboard');_gnbDropdownOpen=null;renderGNB()">
       <div style="background:rgba(255,255,255,0.15);border-radius:10px;padding:6px">
@@ -158,18 +172,7 @@ function renderGNB() {
   </div>
 </div>
 
-<!-- 드롭다운 외부 클릭 닫기 -->
-<script>
-if (!window._gnbOutsideHandler) {
-  window._gnbOutsideHandler = true;
-  document.addEventListener('click', function(e) {
-    if (_gnbDropdownOpen && !e.target.closest('#gnb')) {
-      _gnbDropdownOpen = null;
-      renderGNB();
-    }
-  });
-}
-</script>`;
+`;
 }
 
 // 페르소나 전환 함수 (LXP 전용)

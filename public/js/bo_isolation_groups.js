@@ -6,11 +6,12 @@
 // renderMyIsolationGroups()는 budget_global_admin 전용 진입점 (동일 함수로 리다이렉트)
 
 let _igModal = false;
-let _igEditGroupId = null; // 편집 중인 그룹 ID
-let _igAddAdminModal = false; // 예산총괄 추가 모달
-let _igAddOpModal = false;    // 예산운영 추가 모달
-let _igTargetGroupId = null;  // 액션 대상 그룹 ID
+let _igEditGroupId = null;      // 편집 중인 그룹 ID
+let _igAddAdminModal = false;   // 예산총괄 추가 모달
+let _igAddOpModal = false;      // 예산운영 추가 모달
+let _igTargetGroupId = null;    // 액션 대상 그룹 ID
 let _igPlatformTenantId = null; // 플랫폼 총괄: 선택된 테넌트
+let _igNewModalTenantId = null; // 생성 모달: 선택된 테넌트 (플랫폼총괄용)
 
 // ── 공통 헬퍼 ──────────────────────────────────────────────────────────────────
 function _igPersonaChip(key, color, onRemoveFn) {
@@ -297,32 +298,124 @@ function _renderGroupCards(groups, viewMode, persona, personaKey) {
   }).join('');
 }
 
+// ── 검색 필터 헬퍼 (담당자 검색 리스트 렌더) ─────────────────────────────────
+function _igSearchList(inputId, listId, candidates, checkboxName, accentColor, badgeLabel) {
+  return `
+<div style="margin-bottom:4px">
+  <div style="position:relative">
+    <input id="${inputId}" type="text" placeholder="이름 또는 부서 검색..."
+      oninput="_igFilterList('${inputId}','${listId}')"
+      style="width:100%;box-sizing:border-box;padding:9px 14px 9px 36px;
+             border:1.5px solid #E5E7EB;border-radius:10px;font-size:12px;outline:none"
+      onfocus="this.style.borderColor='${accentColor}'" onblur="this.style.borderColor='#E5E7EB'">
+    <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#9CA3AF;font-size:13px">🔍</span>
+  </div>
+</div>
+<div id="${listId}" style="display:flex;flex-direction:column;gap:5px;max-height:200px;
+     overflow-y:auto;border:1.5px solid ${accentColor}30;border-radius:10px;padding:8px">
+  ${candidates.length ? candidates.map(([k,p]) => `
+  <label data-name="${p.name}" data-dept="${p.dept||''}"
+    style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;
+           cursor:pointer;border:1px solid #F3F4F6;transition:all .12s"
+    onmouseover="this.style.background='${accentColor}08';this.style.borderColor='${accentColor}40'"
+    onmouseout="this.style.background='';this.style.borderColor='#F3F4F6'">
+    <input type="checkbox" name="${checkboxName}" value="${k}"
+      style="accent-color:${accentColor};width:15px;height:15px;flex-shrink:0">
+    <div style="flex:1;min-width:0">
+      <div style="font-weight:800;font-size:12px;color:#111827">${p.name}</div>
+      <div style="font-size:10px;color:#9CA3AF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+        ${p.dept||''} · ${p.pos||''}
+      </div>
+    </div>
+    <span style="font-size:9px;padding:2px 7px;border-radius:6px;flex-shrink:0;
+                 background:${accentColor}12;color:${accentColor};font-weight:700;border:1px solid ${accentColor}30">
+      ${badgeLabel}
+    </span>
+  </label>`).join('') : `<div style="padding:16px;text-align:center;color:#9CA3AF;font-size:11px">해당하는 담당자가 없습니다</div>`}
+</div>
+<div style="font-size:10px;color:#9CA3AF;margin-top:4px">총 ${candidates.length}명 · 검색으로 찾아 선택하세요</div>`;
+}
+
+function _igFilterList(inputId, listId) {
+  const q = document.getElementById(inputId)?.value?.toLowerCase() || '';
+  document.querySelectorAll(`#${listId} label[data-name]`).forEach(el => {
+    const name = (el.dataset.name||'').toLowerCase();
+    const dept = (el.dataset.dept||'').toLowerCase();
+    el.style.display = (!q || name.includes(q) || dept.includes(q)) ? '' : 'none';
+  });
+}
+
+// ── 생성 모달 테넌트 변경 콜백 ────────────────────────────────────────────────
+function _igCreateModalChangeTenant(tenantId) {
+  _igNewModalTenantId = tenantId;
+  // 예산총괄 리스트 갱신
+  const adminCandidates = Object.entries(BO_PERSONAS).filter(([k,p]) =>
+    p.tenantId === tenantId && (p.role === 'budget_global_admin' || p.dualRole === 'budget_global_admin')
+  );
+  const adminList = document.getElementById('ig-admin-list');
+  const adminInput = document.getElementById('ig-admin-search');
+  if (adminInput) adminInput.value = '';
+  if (adminList) {
+    adminList.innerHTML = adminCandidates.length ? adminCandidates.map(([k,p]) =>
+      `<label data-name="${p.name}" data-dept="${p.dept||''}"
+        style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;
+               cursor:pointer;border:1px solid #F3F4F6"
+        onmouseover="this.style.background='#F5F3FF';this.style.borderColor='#DDD6FE'"
+        onmouseout="this.style.background='';this.style.borderColor='#F3F4F6'">
+        <input type="checkbox" name="ig-new-admins" value="${k}" style="accent-color:#7C3AED;width:15px;height:15px;flex-shrink:0">
+        <div style="flex:1">
+          <div style="font-weight:800;font-size:12px;color:#111827">${p.name}</div>
+          <div style="font-size:10px;color:#9CA3AF">${p.dept||''} · ${p.pos||''}</div>
+        </div>
+        <span style="font-size:9px;padding:2px 7px;border-radius:6px;background:#F5F3FF;color:#7C3AED;font-weight:700;border:1px solid #DDD6FE">총괄</span>
+      </label>`).join('') : '<div style="padding:16px;text-align:center;color:#9CA3AF;font-size:11px">등록 가능한 예산총괄 담당자가 없습니다</div>';
+  }
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // 모달: 새 격리그룹 생성
 // ══════════════════════════════════════════════════════════════════════════════
 function _renderCreateGroupModal(persona) {
-  const tenantId = _igGetTenantId();
-  const tenantName = (typeof TENANTS !== 'undefined' ? TENANTS.find(t=>t.id===tenantId)?.name : '') || tenantId;
+  const isPlatform = persona.role === 'platform_admin';
+  const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
+  // 테넌트 결정: 플랫폼총괄=_igNewModalTenantId(선택) or 첫번째, 테넌트총괄=고정
+  const fixedTenantId = persona.tenantId;
+  const selTenantId = isPlatform
+    ? (_igNewModalTenantId || tenants[0]?.id || 'HMC')
+    : fixedTenantId;
+  const selTenantName = tenants.find(t => t.id === selTenantId)?.name || selTenantId;
+
   const adminCandidates = Object.entries(BO_PERSONAS).filter(([k,p]) =>
-    p.tenantId === tenantId && (p.role === 'budget_global_admin' || p.dualRole === 'budget_global_admin')
+    p.tenantId === selTenantId && (p.role === 'budget_global_admin' || p.dualRole === 'budget_global_admin')
   );
-  const opCandidates = Object.entries(BO_PERSONAS).filter(([k,p]) =>
-    p.tenantId === tenantId && p.role === 'budget_op_manager'
-  );
+
+  const tenantSection = isPlatform ? `
+<div>
+  <label class="bo-label">테넌트(회사) 선택 <span style="color:#EF4444">*</span></label>
+  <select id="ig-new-tenant" onchange="_igCreateModalChangeTenant(this.value)"
+    style="width:100%;border:1.5px solid #FDE68A;border-radius:10px;padding:10px 14px;
+           font-size:13px;font-weight:700;color:#92400E;background:#FFFBEB;box-sizing:border-box">
+    ${tenants.map(t => `<option value="${t.id}" ${t.id===selTenantId?'selected':''}>${t.name} (${t.id})</option>`).join('')}
+  </select>
+</div>` : `
+<div style="padding:10px 14px;background:#F0FDF4;border-radius:10px;border:1px solid #A7F3D0;
+            display:flex;align-items:center;gap:8px">
+  <span style="font-size:12px">🏢</span>
+  <span style="font-size:12px;font-weight:700;color:#065F46">${selTenantName}</span>
+  <span style="font-size:10px;color:#6B7280">(소속 테넌트 자동 적용)</span>
+</div>`;
 
   return `
 <div style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center">
   <div style="background:white;border-radius:20px;width:560px;max-height:90vh;overflow-y:auto;padding:28px;box-shadow:0 25px 50px rgba(0,0,0,.25)">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-      <div>
-        <h3 style="font-weight:900;font-size:17px;margin:0">🛡️ 새 격리그룹 만들기</h3>
-        <div style="font-size:11px;color:#9CA3AF;margin-top:2px">테넌트: ${tenantName}</div>
-      </div>
-      <button onclick="_igModal=false;renderIsolationGroups()"
+      <h3 style="font-weight:900;font-size:17px;margin:0">🛡️ 새 격리그룹 만들기</h3>
+      <button onclick="_igModal=false;_igNewModalTenantId=null;renderIsolationGroups()"
         style="border:none;background:none;cursor:pointer;font-size:20px;color:#6B7280">✕</button>
     </div>
 
     <div style="display:grid;gap:16px">
+      ${tenantSection}
       <div>
         <label class="bo-label">그룹명 <span style="color:#EF4444">*</span></label>
         <input id="ig-name" type="text" placeholder='예: "HMC 글로벌교육 그룹"'
@@ -336,50 +429,21 @@ function _renderCreateGroupModal(persona) {
                  font-size:12px;resize:none;box-sizing:border-box"></textarea>
       </div>
       <div>
-        <label class="bo-label">예산총괄 담당자 지정 <span style="color:#7C3AED">(복수 가능, 쉼표 구분)</span></label>
-        <div style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;
-                    border:1.5px solid #DDD6FE;border-radius:10px;padding:10px">
-          ${adminCandidates.length ? adminCandidates.map(([k,p]) => `
-          <label style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;cursor:pointer;
-                         border:1px solid #F3F4F6;transition:background .12s"
-                 onmouseover="this.style.background='#F5F3FF'" onmouseout="this.style.background=''">
-            <input type="checkbox" name="ig-new-admins" value="${k}" style="accent-color:#7C3AED">
-            <div>
-              <span style="font-weight:700;font-size:12px;color:#111827">${p.name}</span>
-              <span style="font-size:10px;color:#9CA3AF;margin-left:6px">${p.dept} · ${p.pos}</span>
-            </div>
-            <span style="margin-left:auto;font-size:9px;padding:2px 7px;border-radius:6px;
-                         background:#F5F3FF;color:#7C3AED;font-weight:700">총괄</span>
-          </label>`).join('') : '<div style="font-size:11px;color:#9CA3AF;padding:8px">등록 가능한 예산총괄 담당자가 없습니다</div>'}
-        </div>
-      </div>
-      <div>
-        <label class="bo-label">예산운영 담당자 지정 <span style="color:#1D4ED8">(복수 가능 — 생성 후 추가도 가능)</span></label>
-        <div style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;
-                    border:1.5px solid #BFDBFE;border-radius:10px;padding:10px">
-          ${opCandidates.length ? opCandidates.map(([k,p]) => `
-          <label style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;cursor:pointer;
-                         border:1px solid #F3F4F6;transition:background .12s"
-                 onmouseover="this.style.background='#EFF6FF'" onmouseout="this.style.background=''">
-            <input type="checkbox" name="ig-new-ops" value="${k}" style="accent-color:#1D4ED8">
-            <div>
-              <span style="font-weight:700;font-size:12px;color:#111827">${p.name}</span>
-              <span style="font-size:10px;color:#9CA3AF;margin-left:6px">${p.dept} · ${p.pos}</span>
-            </div>
-            <span style="margin-left:auto;font-size:9px;padding:2px 7px;border-radius:6px;
-                         background:#EFF6FF;color:#1D4ED8;font-weight:700">운영</span>
-          </label>`).join('') : '<div style="font-size:11px;color:#9CA3AF;padding:8px">등록 가능한 예산운영 담당자가 없습니다</div>'}
-        </div>
+        <label class="bo-label" style="display:flex;align-items:center;gap:6px">
+          🔑 예산총괄 담당자 지정
+          <span style="font-size:10px;color:#7C3AED;font-weight:600">(복수 선택 가능)</span>
+        </label>
+        ${_igSearchList('ig-admin-search', 'ig-admin-list', adminCandidates, 'ig-new-admins', '#7C3AED', '총괄')}
       </div>
       <div style="padding:12px;background:#FEF3C7;border-radius:10px;border:1px solid #FDE68A;
-                  font-size:11px;color:#78350F;line-height:1.5">
+                  font-size:11px;color:#78350F;line-height:1.6">
         ⚠️ 서로 다른 그룹의 데이터는 상호 열람 불가입니다.<br>
-        담당자는 생성 후에도 추가·제거할 수 있습니다.
+        💡 예산운영 담당자는 <strong>그룹 생성 후</strong> 카드에서 추가할 수 있습니다.
       </div>
     </div>
 
     <div style="display:flex;justify-content:space-between;margin-top:20px">
-      <button onclick="_igModal=false;renderIsolationGroups()"
+      <button onclick="_igModal=false;_igNewModalTenantId=null;renderIsolationGroups()"
         style="padding:10px 20px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-weight:700;cursor:pointer">
         취소</button>
       <button onclick="_saveNewIsolationGroup()" class="bo-btn-primary" style="padding:10px 24px">
@@ -437,7 +501,7 @@ function _renderEditGroupModal(persona) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 모달: 예산총괄 담당자 추가
+// 모달: 예산총괄 담당자 추가 (검색 필터 UI)
 // ══════════════════════════════════════════════════════════════════════════════
 function _renderAddAdminModal(persona) {
   const g = ISOLATION_GROUPS.find(x => x.id === _igTargetGroupId);
@@ -452,37 +516,27 @@ function _renderAddAdminModal(persona) {
 
   return `
 <div style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center">
-  <div style="background:white;border-radius:20px;width:480px;padding:26px;box-shadow:0 25px 50px rgba(0,0,0,.25)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+  <div style="background:white;border-radius:20px;width:520px;max-height:90vh;overflow-y:auto;padding:28px;box-shadow:0 25px 50px rgba(0,0,0,.25)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
       <div>
         <h3 style="font-weight:900;font-size:16px;margin:0">🔑 예산총괄 담당자 추가</h3>
-        <div style="font-size:11px;color:#7C3AED;margin-top:3px">${g.name}</div>
+        <div style="font-size:11px;color:#7C3AED;margin-top:3px">📌 ${g.name}</div>
       </div>
       <button onclick="_igAddAdminModal=false;renderIsolationGroups()"
         style="border:none;background:none;cursor:pointer;font-size:20px;color:#6B7280">✕</button>
     </div>
-    ${candidates.length ? `
-    <div style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto;margin-bottom:16px">
-      ${candidates.map(([k,p]) => `
-      <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;
-                     border:1.5px solid #E5E7EB;background:white;cursor:pointer;transition:border-color .15s"
-             onmouseover="this.style.borderColor='#C4B5FD'" onmouseout="this.style.borderColor='#E5E7EB'">
-        <input type="checkbox" name="ig-admin-candidate" value="${k}" style="accent-color:#7C3AED;flex-shrink:0">
-        <div style="flex:1">
-          <div style="font-weight:800;font-size:13px;color:#111827">${p.name}</div>
-          <div style="font-size:11px;color:#9CA3AF">${p.dept} · ${p.pos}</div>
-        </div>
-        <span style="font-size:9px;padding:2px 7px;border-radius:6px;background:#F5F3FF;color:#7C3AED;font-weight:700">총괄</span>
-      </label>`).join('')}
+    <div style="font-size:11px;color:#6B7280;margin-bottom:16px;padding:8px 12px;
+                background:#F5F3FF;border-radius:8px;border-left:3px solid #7C3AED">
+      이름이나 부서명으로 검색하여 담당자를 선택하세요. 복수 선택 가능합니다.
     </div>
-    <div style="display:flex;justify-content:space-between">
+    ${_igSearchList('ig-admin-search', 'ig-admin-list', candidates, 'ig-admin-candidate', '#7C3AED', '총괄')}
+    ${!candidates.length ? '' : `
+    <div style="display:flex;justify-content:space-between;margin-top:16px">
       <button onclick="_igAddAdminModal=false;renderIsolationGroups()"
         style="padding:9px 18px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-weight:700;cursor:pointer">취소</button>
-      <button onclick="_igConfirmAddAdmin()" class="bo-btn-primary" style="padding:9px 20px">✅ 추가</button>
-    </div>` : `
-    <div style="padding:30px;text-align:center;background:#F9FAFB;border-radius:10px;color:#9CA3AF">
-      <div style="font-size:11px;font-weight:700">추가 가능한 예산총괄 담당자가 없습니다</div>
-    </div>
+      <button onclick="_igConfirmAddAdmin()" class="bo-btn-primary" style="padding:9px 20px">✅ 선택 추가</button>
+    </div>`}
+    ${candidates.length ? '' : `
     <div style="text-align:right;margin-top:12px">
       <button onclick="_igAddAdminModal=false;renderIsolationGroups()"
         style="padding:9px 18px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-weight:700;cursor:pointer">닫기</button>
@@ -492,7 +546,7 @@ function _renderAddAdminModal(persona) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 모달: 예산운영 담당자 추가
+// 모달: 예산운영 담당자 추가 (검색 필터 UI)
 // ══════════════════════════════════════════════════════════════════════════════
 function _renderAddOpModal(persona, personaKey) {
   const g = ISOLATION_GROUPS.find(x => x.id === _igTargetGroupId);
@@ -505,38 +559,27 @@ function _renderAddOpModal(persona, personaKey) {
 
   return `
 <div style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center">
-  <div style="background:white;border-radius:20px;width:480px;padding:26px;box-shadow:0 25px 50px rgba(0,0,0,.25)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+  <div style="background:white;border-radius:20px;width:520px;max-height:90vh;overflow-y:auto;padding:28px;box-shadow:0 25px 50px rgba(0,0,0,.25)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
       <div>
         <h3 style="font-weight:900;font-size:16px;margin:0">👤 예산운영 담당자 추가</h3>
-        <div style="font-size:11px;color:#1D4ED8;margin-top:3px">${g.name}</div>
+        <div style="font-size:11px;color:#1D4ED8;margin-top:3px">📌 ${g.name}</div>
       </div>
       <button onclick="_igAddOpModal=false;renderIsolationGroups()"
         style="border:none;background:none;cursor:pointer;font-size:20px;color:#6B7280">✕</button>
     </div>
-    ${candidates.length ? `
-    <div style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto;margin-bottom:16px">
-      ${candidates.map(([k,p]) => `
-      <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;
-                     border:1.5px solid #E5E7EB;background:white;cursor:pointer;transition:border-color .15s"
-             onmouseover="this.style.borderColor='#93C5FD'" onmouseout="this.style.borderColor='#E5E7EB'">
-        <input type="checkbox" name="ig-op-candidate" value="${k}" style="accent-color:#1D4ED8;flex-shrink:0">
-        <div style="flex:1">
-          <div style="font-weight:800;font-size:13px;color:#111827">${p.name}</div>
-          <div style="font-size:11px;color:#9CA3AF">${p.dept} · ${p.pos}${p.scope?' · '+p.scope:''}</div>
-        </div>
-        <span style="font-size:9px;padding:2px 7px;border-radius:6px;background:#EFF6FF;color:#1D4ED8;font-weight:700">운영</span>
-      </label>`).join('')}
+    <div style="font-size:11px;color:#6B7280;margin-bottom:16px;padding:8px 12px;
+                background:#EFF6FF;border-radius:8px;border-left:3px solid #1D4ED8">
+      이름이나 부서명으로 검색하여 담당자를 선택하세요. 복수 선택 가능합니다.
     </div>
-    <div style="display:flex;justify-content:space-between">
+    ${_igSearchList('ig-op-search', 'ig-op-list', candidates, 'ig-op-candidate', '#1D4ED8', '운영')}
+    ${!candidates.length ? '' : `
+    <div style="display:flex;justify-content:space-between;margin-top:16px">
       <button onclick="_igAddOpModal=false;renderIsolationGroups()"
         style="padding:9px 18px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-weight:700;cursor:pointer">취소</button>
-      <button onclick="_igConfirmAddOp()" class="bo-btn-primary" style="padding:9px 20px">✅ 추가</button>
-    </div>` : `
-    <div style="padding:30px;text-align:center;background:#F9FAFB;border-radius:10px;color:#9CA3AF">
-      <div style="font-size:11px;font-weight:700">추가 가능한 예산운영 담당자가 없습니다</div>
-      <div style="font-size:10px;margin-top:4px">이미 모든 운영 담당자가 등록되었거나 해당 테넌트에 운영 담당자가 없습니다.</div>
-    </div>
+      <button onclick="_igConfirmAddOp()" class="bo-btn-primary" style="padding:9px 20px">✅ 선택 추가</button>
+    </div>`}
+    ${candidates.length ? '' : `
     <div style="text-align:right;margin-top:12px">
       <button onclick="_igAddOpModal=false;renderIsolationGroups()"
         style="padding:9px 18px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-weight:700;cursor:pointer">닫기</button>
@@ -551,10 +594,18 @@ function _saveNewIsolationGroup() {
   const desc = document.getElementById('ig-desc')?.value?.trim();
   if (!name) { alert('그룹명을 입력하세요.'); return; }
 
-  const adminKeys   = [...document.querySelectorAll('input[name="ig-new-admins"]:checked')].map(el => el.value);
-  const opKeys      = [...document.querySelectorAll('input[name="ig-new-ops"]:checked')].map(el => el.value);
-  const tenantId    = _igGetTenantId();
-  const creatorKey  = Object.keys(BO_PERSONAS).find(k => BO_PERSONAS[k] === boCurrentPersona);
+  const adminKeys = [...document.querySelectorAll('input[name="ig-new-admins"]:checked')].map(el => el.value);
+
+  // 플랫폼총괄: 모달에서 선택한 테넌트 / 그 외: 소속 테넌트
+  const isPlatform = boCurrentPersona.role === 'platform_admin';
+  const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
+  let tenantId;
+  if (isPlatform) {
+    tenantId = _igNewModalTenantId || document.getElementById('ig-new-tenant')?.value || tenants[0]?.id || 'HMC';
+  } else {
+    tenantId = boCurrentPersona.tenantId;
+  }
+  const creatorKey = Object.keys(BO_PERSONAS).find(k => BO_PERSONAS[k] === boCurrentPersona);
 
   const newGroup = {
     id: 'IG-' + tenantId + '-' + Date.now().toString().slice(-4),
@@ -562,7 +613,7 @@ function _saveNewIsolationGroup() {
     color: '#6366F1', bg: '#EEF2FF',
     globalAdminKey: adminKeys[0] || '',
     globalAdminKeys: adminKeys,
-    opManagerKeys: opKeys,
+    opManagerKeys: [],           // 생성 후 카드에서 추가
     ownedAccounts: [],
     createdBy: creatorKey,
     status: 'active',
@@ -570,10 +621,11 @@ function _saveNewIsolationGroup() {
   };
   ISOLATION_GROUPS.push(newGroup);
 
+  const tenantName = tenants.find(t => t.id === tenantId)?.name || tenantId;
   const adminNames = adminKeys.map(k => BO_PERSONAS[k]?.name||k).join(', ') || '(미선임)';
-  const opNames    = opKeys.map(k => BO_PERSONAS[k]?.name||k).join(', ') || '(미등록)';
   _igModal = false;
-  alert(`✅ 격리그룹 「${name}」이 생성되었습니다.\n\n🔑 예산총괄: ${adminNames}\n👤 예산운영: ${opNames}`);
+  _igNewModalTenantId = null;
+  alert(`✅ 격리그룹 「${name}」이 생성되었습니다.\n\n🏢 테넌트: ${tenantName}\n🔑 예산총괄: ${adminNames}\n\n💡 예산운영 담당자는 생성된 그룹 카드의 [+ 운영 담당자 추가] 버튼으로 추가할 수 있습니다.`);
   renderIsolationGroups();
 }
 

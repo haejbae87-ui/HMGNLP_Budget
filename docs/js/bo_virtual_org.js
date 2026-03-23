@@ -151,9 +151,14 @@ function _renderVirtualOrgFull(filterBar) {
       </div>
       <ul class="org-tree">
         ${groups.map((g, gIdx) => {
-          const mgrP = g.managerPersonaKey ? BO_PERSONAS[g.managerPersonaKey] : null;
-          const mgrBadge = mgrP
-            ? `<span style="font-size:10px;background:#EFF6FF;color:#1D4ED8;padding:2px 8px;border-radius:6px;font-weight:700">👤 ${mgrP.name} (${mgrP.dept})</span>`
+          // managerPersonaKeys 배열 지원 (기존 단일 managerPersonaKey 하위호환)
+          const mgrKeys = g.managerPersonaKeys?.length ? g.managerPersonaKeys
+            : (g.managerPersonaKey ? [g.managerPersonaKey] : []);
+          const mgrBadge = mgrKeys.length > 0
+            ? mgrKeys.map(k => {
+                const p = BO_PERSONAS[k];
+                return p ? `<span style="font-size:10px;background:#EFF6FF;color:#1D4ED8;padding:2px 8px;border-radius:6px;font-weight:700">👤 ${p.name} (${p.dept})</span>` : '';
+              }).join(' ')
             : `<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:6px;font-weight:700">👤 담당자 미지정</span>`;
           const coopBadges = (g.cooperators||[]).map(c => {
             const tc  = c.coopType === '재경협조처' ? '#92400E' : '#1D4ED8';
@@ -287,7 +292,7 @@ function _renderVirtualOrgFull(filterBar) {
 
 <!-- 그룹 생성/수정 모달 -->
 <div id="vo-group-create-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:16px;width:460px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+  <div style="background:#fff;border-radius:16px;width:500px;max-height:88vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
     <div style="display:flex;justify-content:space-between;margin-bottom:18px">
       <h3 id="vo-group-create-title" style="font-size:15px;font-weight:800;margin:0">가상 그룹 생성</h3>
       <button onclick="voCloseModal('vo-group-create-modal')" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">✕</button>
@@ -297,17 +302,16 @@ function _renderVirtualOrgFull(filterBar) {
       <input id="vo-group-name" type="text" placeholder="예) 전략본부"
         style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;outline:none">
     </div>
-    <div style="margin-bottom:14px">
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">담당자 텍스트 (레거시)</label>
-      <input id="vo-group-manager" type="text" placeholder="예) 홍길동"
-        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;outline:none">
-    </div>
+    <!-- 운영담당자 복수 선택 -->
     <div style="margin-bottom:20px">
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">👤 백오피스 담당자 연결 <span style="font-size:10px;color:#6B7280">(나의 운영 업무 등 권한에 반영)</span></label>
-      <select id="vo-group-manager-key"
-        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;outline:none">
-        <option value="">— 담당자 미지정 —</option>
-      </select>
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px">👤 운영담당자 연결 <span style="font-size:10px;color:#6B7280;font-weight:400">(복수 선택 가능 · 나의 운영 업무 권한 반영)</span></label>
+      <!-- 검색 -->      
+      <input id="vo-mgr-search" type="text" placeholder="🔍 이름 또는 부서 검색..." oninput="_voFilterMgrPicker()"
+        style="width:100%;box-sizing:border-box;padding:8px 11px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;outline:none;background:#F9FAFB;margin-bottom:8px">
+      <!-- 선택된 담당자 칩 -->
+      <div id="vo-mgr-chips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px;margin-bottom:8px"></div>
+      <!-- 후보 목록 -->
+      <div id="vo-mgr-list" style="max-height:180px;overflow-y:auto;border:1.5px solid #E5E7EB;border-radius:8px;background:#fff"></div>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="bo-btn-secondary bo-btn-sm" onclick="voCloseModal('vo-group-create-modal')">취소</button>
@@ -456,22 +460,21 @@ function voRemoveTemplate(id) {
 
 // ── 그룹(본부/센터) 생성·수정 ─────────────────────────────────────────────────
 function voOpenCreateGroup(budgetType) {
-  const activeTpl = _voGetActiveTpl();  // ★ 수정: 전역 헬퍼 사용
+  const activeTpl = _voGetActiveTpl();
   if (!activeTpl) return;
   const isRnd = activeTpl.tree.centers !== undefined;
   const el = document.getElementById('vo-group-create-title');
   if (el) el.textContent = isRnd ? '가상 센터 생성' : '가상 본부 생성';
   const nm = document.getElementById('vo-group-name');
   if (nm) nm.value = '';
-  const mg = document.getElementById('vo-group-manager');
-  if (mg) mg.value = '';
   _voEditGroupIdx = null;
-  _voPopulateManagerDropdown('');
+  _voSelectedMgrKeys = [];
+  _voRenderMgrPicker([]);
   document.getElementById('vo-group-create-modal').style.display = 'flex';
 }
 
 function voOpenEditGroup(groupIdx) {
-  const activeTpl = _voGetActiveTpl();  // ★ 수정: 전역 헬퍼 사용
+  const activeTpl = _voGetActiveTpl();
   if (!activeTpl) return;
   const isRnd = activeTpl.tree.centers !== undefined;
   const list  = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
@@ -481,63 +484,126 @@ function voOpenEditGroup(groupIdx) {
   if (et) et.textContent = `"${g.name}" 수정`;
   const nm = document.getElementById('vo-group-name');
   if (nm) nm.value = g.name;
-  const mg = document.getElementById('vo-group-manager');
-  if (mg) mg.value = g.manager || '';
   _voEditGroupIdx = groupIdx;
-  _voPopulateManagerDropdown(g.managerPersonaKey || '');
+  // 기존 담당자 복원 (배열 또는 단일key 하위호환)
+  const existing = g.managerPersonaKeys?.length ? g.managerPersonaKeys
+    : (g.managerPersonaKey ? [g.managerPersonaKey] : []);
+  _voSelectedMgrKeys = [...existing];
+  _voRenderMgrPicker(_voSelectedMgrKeys);
   document.getElementById('vo-group-create-modal').style.display = 'flex';
 }
 
-function _voPopulateManagerDropdown(selectedKey) {
-  const sel = document.getElementById('vo-group-manager-key');
-  if (!sel) return;
-  const personaKey = Object.keys(BO_PERSONAS).find(k => BO_PERSONAS[k] === boCurrentPersona) || '';
+// 선택된 담당자 키 배열 (전역)
+let _voSelectedMgrKeys = [];
 
-  // 현재 격리그룹의 운영 담당자 목록
+// 담당자 피커 렌더 (검색+체크박스)
+function _voRenderMgrPicker(selectedKeys, filter = '') {
   const myGroup = _voGroupId
     ? (typeof ISOLATION_GROUPS !== 'undefined' ? ISOLATION_GROUPS.find(g => g.id === _voGroupId) : null)
     : null;
   const opManagerKeys = myGroup ? (myGroup.opManagerKeys || []) : [];
 
-  sel.innerHTML = "<option value=''>— 담당자 미지정 —</option>";
+  // 칩 영역
+  const chips = document.getElementById('vo-mgr-chips');
+  if (chips) {
+    if (selectedKeys.length === 0) {
+      chips.innerHTML = '<span style="font-size:11px;color:#9CA3AF">선택된 담당자 없음</span>';
+    } else {
+      chips.innerHTML = selectedKeys.map(k => {
+        const p = BO_PERSONAS[k];
+        if (!p) return '';
+        return `<span style="display:inline-flex;align-items:center;gap:5px;background:#EFF6FF;color:#1D4ED8;
+          padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid #BFDBFE">
+          👤 ${p.name}
+          <button onclick="_voRemoveMgr('${k}')" style="border:none;background:none;cursor:pointer;color:#93C5FD;font-size:12px;padding:0;line-height:1">✕</button>
+        </span>`;
+      }).join('');
+    }
+  }
+
+  // 후보 목록
+  const listEl = document.getElementById('vo-mgr-list');
+  if (!listEl) return;
 
   if (opManagerKeys.length === 0) {
-    const opt = document.createElement('option');
-    opt.value = ''; opt.disabled = true;
-    opt.textContent = '※ 격리 그룹 관리에서 운영 담당자를 먼저 등록해주세요';
-    sel.appendChild(opt);
-    sel.style.borderColor = '#FCA5A5';
-  } else {
-    sel.style.borderColor = '#E5E7EB';
-    opManagerKeys.forEach(k => {
-      const p = BO_PERSONAS[k];
-      if (!p) return;
-      const opt = document.createElement('option');
-      opt.value = k;
-      opt.textContent = `${p.name} (${p.dept} · ${p.scope || p.pos})`;
-      if (k === selectedKey) opt.selected = true;
-      sel.appendChild(opt);
-    });
+    listEl.innerHTML = `<div style="padding:14px 16px;font-size:11px;color:#9CA3AF;text-align:center">
+      격리그룹 관리에서 운영담당자를 먼저 등록해주세요</div>`;
+    return;
   }
+
+  const lf = filter.toLowerCase();
+  const candidates = opManagerKeys.filter(k => {
+    const p = BO_PERSONAS[k];
+    if (!p) return false;
+    if (!lf) return true;
+    return p.name.toLowerCase().includes(lf) || (p.dept||'').toLowerCase().includes(lf);
+  });
+
+  if (candidates.length === 0) {
+    listEl.innerHTML = `<div style="padding:14px 16px;font-size:11px;color:#9CA3AF;text-align:center">검색 결과 없음</div>`;
+    return;
+  }
+
+  listEl.innerHTML = candidates.map(k => {
+    const p = BO_PERSONAS[k];
+    const sel = selectedKeys.includes(k);
+    return `<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;
+      cursor:pointer;background:${sel ? '#EFF6FF' : '#fff'};
+      border-bottom:1px solid #F3F4F6;transition:background 0.15s"
+      onmouseenter="this.style.background='${sel ? '#DBEAFE' : '#F9FAFB'}'"
+      onmouseleave="this.style.background='${sel ? '#EFF6FF' : '#fff'}'">
+      <input type="checkbox" value="${k}" ${sel ? 'checked' : ''}
+        onchange="_voToggleMgr(this)" style="width:15px;height:15px;accent-color:#1D4ED8;margin:0;flex-shrink:0">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:${sel ? '800' : '600'};color:${sel ? '#1D4ED8' : '#374151'}">${p.name}</div>
+        <div style="font-size:11px;color:#6B7280">${p.dept} · ${p.scope || p.pos || ''}</div>
+      </div>
+      ${sel ? '<span style="font-size:10px;color:#1D4ED8;font-weight:700;background:#BFDBFE;padding:2px 7px;border-radius:10px">선택됨</span>' : ''}
+    </label>`;
+  }).join('');
+}
+
+function _voToggleMgr(cb) {
+  if (cb.checked) {
+    if (!_voSelectedMgrKeys.includes(cb.value)) _voSelectedMgrKeys.push(cb.value);
+  } else {
+    _voSelectedMgrKeys = _voSelectedMgrKeys.filter(k => k !== cb.value);
+  }
+  _voRenderMgrPicker(_voSelectedMgrKeys, document.getElementById('vo-mgr-search')?.value || '');
+}
+
+function _voRemoveMgr(key) {
+  _voSelectedMgrKeys = _voSelectedMgrKeys.filter(k => k !== key);
+  _voRenderMgrPicker(_voSelectedMgrKeys, document.getElementById('vo-mgr-search')?.value || '');
+}
+
+function _voFilterMgrPicker() {
+  const filter = document.getElementById('vo-mgr-search')?.value || '';
+  _voRenderMgrPicker(_voSelectedMgrKeys, filter);
 }
 
 function voConfirmCreateGroup() {
-  const name   = document.getElementById('vo-group-name').value.trim();
-  const mgr    = document.getElementById('vo-group-manager').value.trim() || '담당자 미정';
-  const mgrKey = document.getElementById('vo-group-manager-key')?.value || '';
+  const name = document.getElementById('vo-group-name').value.trim();
   if (!name) { alert('그룹명을 입력해주세요.'); return; }
 
-  const activeTpl = _voGetActiveTpl();  // ★ 수정
+  const activeTpl = _voGetActiveTpl();
   if (!activeTpl) return;
   const isRnd = activeTpl.tree.centers !== undefined;
   const list  = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
 
   if (_voEditGroupIdx !== null && _voEditGroupIdx !== undefined) {
     const g = list[_voEditGroupIdx];
-    g.name = name; g.manager = mgr; g.managerPersonaKey = mgrKey;
+    g.name = name;
+    g.managerPersonaKeys = [..._voSelectedMgrKeys];
+    // 하위호환: 첫 번째 키를 단일 필드에도 유지
+    g.managerPersonaKey = _voSelectedMgrKeys[0] || '';
   } else {
-    list.push({ id:'VG'+Date.now(), name, manager:mgr, managerPersonaKey:mgrKey,
-      cooperators:[], budget:{total:0,deducted:0,holding:0}, teams:[] });
+    list.push({
+      id: 'VG'+Date.now(), name,
+      managerPersonaKeys: [..._voSelectedMgrKeys],
+      managerPersonaKey: _voSelectedMgrKeys[0] || '',
+      cooperators:[], budget:{total:0,deducted:0,holding:0}, teams:[]
+    });
   }
   voCloseModal('vo-group-create-modal');
   _voMyTemplates = _voGetTemplatesByGroup(_voGroupId, _voTenantId);

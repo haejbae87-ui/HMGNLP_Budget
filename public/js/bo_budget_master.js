@@ -58,24 +58,275 @@ const REAL_ORG_TREE = {
 
 let virtualOrgState = JSON.parse(JSON.stringify(VIRTUAL_ORG));
 
-// ─── 진입점: 메니 1 ─ 예산 계정 관리 ────────────────────────────────────────
+// ── 상태 변수 ─────────────────────────────────────────────────────────────────
+let _baTenantId    = null; // 플랫폼총괄: 선택된 테넌트
+let _baGroupId     = null; // 선택된 격리그룹 ID
+let _baExpandedAR  = {};   // 결재라인 펼침 상태 { accountCode: bool }
+
+// ─── 진입점: 예산 계정 관리 (+ 결재라인 통합) ────────────────────────────────
 function renderBudgetAccount() {
-  const tenantId = boCurrentPersona.tenantId || 'HMG';
-  const tenantName = TENANTS.find(t => t.id === tenantId)?.name || tenantId;
+  const role = boCurrentPersona.role;
+  const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
   const el = document.getElementById('bo-content');
+
+  // 테넌트 초기값
+  if (!_baTenantId) {
+    _baTenantId = (role === 'platform_admin')
+      ? (tenants[0]?.id || 'HMC')
+      : boCurrentPersona.tenantId || 'HMC';
+  }
+  const tenantName = tenants.find(t => t.id === _baTenantId)?.name || _baTenantId;
+
+  // 격리그룹 목록 (현재 테넌트)
+  const groups = typeof ISOLATION_GROUPS !== 'undefined'
+    ? ISOLATION_GROUPS.filter(g => g.tenantId === _baTenantId) : [];
+  if (!_baGroupId || !groups.find(g => g.id === _baGroupId)) {
+    _baGroupId = groups[0]?.id || null;
+  }
+
+  // ── 역할별 필터바 ──────────────────────────────────────────────────────────
+  const isPlatform = role === 'platform_admin';
+  const isTenant   = role === 'tenant_global_admin';
+  const isBudget   = role === 'budget_global_admin';
+
+  // 플랫폼총괄: 테넌트 셀렉트 + 격리그룹 셀렉트
+  const tenantSelect = isPlatform ? `
+  <div style="display:flex;align-items:center;gap:6px">
+    <label style="font-size:11px;font-weight:700;color:#92400E;white-space:nowrap">회사</label>
+    <select onchange="_baTenantId=this.value;_baGroupId=null;renderBudgetAccount()"
+      style="padding:7px 12px;border:1.5px solid #FDE68A;border-radius:8px;font-size:12px;
+             font-weight:700;background:#FFFBEB;color:#92400E;cursor:pointer">
+      ${tenants.map(t => `<option value="${t.id}" ${t.id===_baTenantId?'selected':''}>${t.name}</option>`).join('')}
+    </select>
+  </div>` : `
+  <div style="display:flex;align-items:center;gap:6px">
+    <span style="font-size:11px;font-weight:700;color:#374151">🏢</span>
+    <span style="font-size:12px;font-weight:800;color:#111827">${tenantName}</span>
+  </div>`;
+
+  // 격리그룹 셀렉트 (플랫폼·테넌트총괄: 전체 보기 / 예산총괄: 본인 담당만)
+  const personaKey = Object.keys(BO_PERSONAS).find(k => BO_PERSONAS[k] === boCurrentPersona) || '';
+  const visibleGroups = isBudget
+    ? groups.filter(g => (g.globalAdminKeys||[]).includes(personaKey))
+    : groups;
+
+  const groupSelect = visibleGroups.length > 0 ? `
+  <div style="display:flex;align-items:center;gap:6px">
+    <label style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">격리그룹</label>
+    <select onchange="_baGroupId=this.value;renderBudgetAccount()"
+      style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;
+             font-weight:700;background:white;cursor:pointer;min-width:200px">
+      ${visibleGroups.map(g => `<option value="${g.id}" ${g.id===_baGroupId?'selected':''}>${g.name}</option>`).join('')}
+    </select>
+  </div>` : `<span style="font-size:11px;color:#9CA3AF">등록된 격리그룹이 없습니다</span>`;
+
   el.innerHTML = `
 <div class="bo-fade">
   ${typeof boIsolationGroupBanner==='function' ? boIsolationGroupBanner() : ''}
   <div style="margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
-      <span style="background:#1D4ED8;color:#fff;font-size:9px;font-weight:900;padding:3px 8px;border-radius:6px;letter-spacing:.08em">예산 계정 관리</span>
-      <h1 class="bo-page-title" style="margin:0">예산 계정 관리</h1>
-      <span style="font-size:13px;color:#6B7280">— ${tenantName}</span>
+      <span style="background:#1D4ED8;color:#fff;font-size:9px;font-weight:900;padding:3px 8px;border-radius:6px">예산 계정 관리</span>
+      <h1 class="bo-page-title" style="margin:0">예산 계정 관리 · 결재라인 설정</h1>
     </div>
-    <p class="bo-page-sub">자사의 예산 바구니를 정의하고 공동 관리자를 지정합니다</p>
+    <p class="bo-page-sub">예산 계정의 속성과 계정별 금액 구간 결재라인을 한 화면에서 관리합니다.</p>
   </div>
-  <div id="bm-content">${renderStep1()}</div>
+
+  <!-- 역할별 필터바 -->
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 18px;
+              background:#F8FAFF;border:1.5px solid #E0E7FF;border-radius:14px;margin-bottom:20px">
+    ${tenantSelect}
+    <span style="color:#D1D5DB;font-size:16px">|</span>
+    ${groupSelect}
+    <button onclick="renderBudgetAccount()"
+      style="padding:7px 16px;background:#1D4ED8;color:#fff;border:none;border-radius:8px;
+             font-size:12px;font-weight:800;cursor:pointer;margin-left:4px">🔍 조회</button>
+    ${isPlatform || isTenant ? `<span style="font-size:10px;color:#9CA3AF;margin-left:4px">모든 격리그룹의 계정을 조회할 수 있습니다</span>` : ''}
+  </div>
+
+  <!-- 계정 목록 + 결재라인 통합 -->
+  <div id="ba-content">${_baRenderContent()}</div>
 </div>`;
+}
+
+// ── 계정 목록 + 결재라인 통합 렌더 ───────────────────────────────────────────
+function _baRenderContent() {
+  if (!_baGroupId) {
+    return `<div style="padding:40px;text-align:center;background:#F9FAFB;border-radius:14px;color:#9CA3AF">
+      <div style="font-size:14px;font-weight:700">격리그룹을 선택하세요</div>
+    </div>`;
+  }
+  const group = typeof ISOLATION_GROUPS !== 'undefined'
+    ? ISOLATION_GROUPS.find(g => g.id === _baGroupId) : null;
+  if (!group) return '<div style="padding:40px;text-align:center;color:#9CA3AF">그룹 정보를 찾을 수 없습니다.</div>';
+
+  const role = boCurrentPersona.role;
+  const isViewOnly = (role === 'platform_admin' || role === 'tenant_global_admin');
+
+  // 해당 격리그룹 소유 계정
+  const acctCodes = group.ownedAccounts || [];
+  const accounts = typeof ACCOUNT_MASTER !== 'undefined'
+    ? ACCOUNT_MASTER.filter(a => acctCodes.includes(a.code) && a.active) : [];
+  const systemAccounts = typeof ACCOUNT_MASTER !== 'undefined'
+    ? ACCOUNT_MASTER.filter(a => a.isSystem && a.active) : [];
+  const allAccounts = [...systemAccounts, ...accounts];
+
+  if (allAccounts.length === 0) {
+    return `
+<div style="padding:20px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;margin-bottom:16px;
+            display:flex;align-items:center;gap:10px">
+  <span style="font-size:18px">🛡️</span>
+  <div>
+    <div style="font-weight:800;font-size:13px;color:#C2410C">${group.name}</div>
+    <div style="font-size:11px;color:#9CA3AF;margin-top:2px">${group.id}</div>
+  </div>
+</div>
+<div style="padding:40px;text-align:center;background:#F9FAFB;border-radius:14px;color:#9CA3AF;border:1px dashed #D1D5DB">
+  <div style="font-size:13px;font-weight:700">이 격리그룹에 등록된 예산 계정이 없습니다</div>
+  ${!isViewOnly ? '<div style="font-size:11px;margin-top:6px">위 조회 결과는 ownedAccounts 기준입니다. 계정 등록은 예산총괄 담당자가 진행합니다.</div>' : ''}
+</div>`;
+  }
+
+  const groupHeader = `
+<div style="padding:16px 20px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:12px;
+            margin-bottom:16px;display:flex;align-items:center;gap:12px">
+  <span style="font-size:22px">🛡️</span>
+  <div style="flex:1">
+    <div style="font-weight:900;font-size:14px;color:#1D4ED8">${group.name}</div>
+    <div style="font-size:10px;color:#9CA3AF;margin-top:2px">${group.id} · ${allAccounts.length}개 계정</div>
+  </div>
+  ${!isViewOnly ? `<button class="bo-btn-primary bo-btn-sm" onclick="openS1Modal()">+ 계정 신규 등록</button>` : ''}
+</div>`;
+
+  const accountCards = allAccounts.map(a => _baRenderAccountCard(a, group, isViewOnly)).join('');
+  return groupHeader + accountCards;
+}
+
+// ── 계정 카드 (결재라인 인라인 포함) ─────────────────────────────────────────
+function _baRenderAccountCard(a, group, isViewOnly) {
+  const isSystem = a.isSystem;
+  const typeColor = a.group === 'R&D' ? { bg:'#FFF7ED', border:'#FED7AA', text:'#C2410C', badge:'R&D' }
+    : { bg:'#EFF6FF', border:'#BFDBFE', text:'#1D4ED8', badge:'일반' };
+
+  // 결재라인 조회 (해당 계정 코드 포함하는 routing)
+  const routings = typeof APPROVAL_ROUTING !== 'undefined'
+    ? APPROVAL_ROUTING.filter(r => r.tenantId === (group?.tenantId||boCurrentPersona.tenantId) && r.accountCodes.includes(a.code))
+    : [];
+  const hasRouting = routings.length > 0;
+  const expanded = _baExpandedAR[a.code] || false;
+
+  const routingSection = `
+<div style="border-top:1px solid #F3F4F6;margin-top:14px;padding-top:12px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${expanded?'10px':'0'}">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:11px;font-weight:900;color:#D97706">⚡ 결재라인</span>
+      ${hasRouting
+        ? `<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:#FEF3C7;color:#92400E;font-weight:700">${routings.length}개 설정됨</span>`
+        : `<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:#FEF2F2;color:#EF4444;font-weight:700">⚠️ 미설정</span>`}
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      ${!isViewOnly && !isSystem ? `<button onclick="arOpenNewModalForAccount('${a.code}')"
+        style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid #FDE68A;
+               background:#FFFBEB;color:#D97706;cursor:pointer;font-weight:700">+ 결재라인 추가</button>` : ''}
+      ${hasRouting ? `<button onclick="_baToggleAR('${a.code}')"
+        style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid #E5E7EB;
+               background:white;cursor:pointer;font-weight:700;color:#6B7280">
+        ${expanded ? '▲ 접기' : '▼ 펼치기'}</button>` : ''}
+    </div>
+  </div>
+  ${expanded && hasRouting ? routings.map(r => `
+  <div style="margin-top:8px;padding:12px 14px;background:#FFFBEB;border-radius:10px;border:1px solid #FDE68A">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <span style="font-size:12px;font-weight:800;color:#92400E">${r.name}</span>
+      ${!isViewOnly ? `<button onclick="arOpenEditModal('${r.id}')"
+        style="font-size:10px;padding:3px 8px;border-radius:6px;border:1px solid #FDE68A;
+               background:white;color:#D97706;cursor:pointer;font-weight:700">편집</button>` : ''}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      ${r.ranges.map((range, i) => `
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;
+                  background:${i%2===0?'#FFF':'#FEFCE8'};border-radius:7px;border:1px solid #FEF3C7">
+        <span style="font-size:10px;font-weight:700;color:#92400E;min-width:140px">${range.label}</span>
+        <div style="display:flex;align-items:center;gap:4px;flex:1;flex-wrap:wrap">
+          ${range.approvers.map((ap, j) =>
+            `<span style="background:#FEF3C7;color:#92400E;padding:3px 10px;border-radius:14px;font-size:11px;font-weight:800">${ap}</span>` +
+            (j < range.approvers.length-1 ? '<span style="color:#D97706;font-size:12px">→</span>' : '')
+          ).join('')}
+        </div>
+        <span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;flex-shrink:0;
+          background:${range.approvers.length===1?'#F0FDF4':range.approvers.length===2?'#FFFBEB':'#FEF2F2'};
+          color:${range.approvers.length===1?'#059669':range.approvers.length===2?'#D97706':'#DC2626'}">
+          ${range.approvers.length}단계</span>
+      </div>`).join('')}
+    </div>
+  </div>`).join('') : ''}
+</div>`;
+
+  return `
+<div class="bo-card" style="padding:18px 22px;margin-bottom:12px;
+  border-left:4px solid ${isSystem?'#F59E0B':typeColor.border}">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+    <div style="flex:1">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+        <code style="background:#F3F4F6;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:900">${a.code}</code>
+        ${isSystem ? '<span style="background:#FEF3C7;color:#92400E;font-size:9px;font-weight:800;padding:2px 7px;border-radius:5px">SYSTEM</span>' : ''}
+        <span style="font-size:10px;padding:2px 8px;border-radius:6px;font-weight:700;
+          background:${typeColor.bg};color:${typeColor.text};border:1px solid ${typeColor.border}">${typeColor.badge}</span>
+        <span style="font-size:13px;font-weight:800;color:#111827">${a.name}</span>
+        <span style="font-size:10px;padding:2px 7px;border-radius:5px;font-weight:700;
+          background:${a.active?'#D1FAE5':'#F3F4F6'};color:${a.active?'#065F46':'#9CA3AF'}">
+          ${a.active?'✅ 활성':'⏸️ 비활성'}</span>
+      </div>
+      <div style="font-size:11px;color:#6B7280">${a.purpose || a.desc || ''}</div>
+      <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap">
+        <span style="font-size:10px;color:#374151">
+          📋 사전계획: <strong style="color:${a.planRequired?'#1D4ED8':'#9CA3AF'}">${a.planRequired?'필수':'미적용'}</strong>
+        </span>
+        <span style="font-size:10px;color:#374151">
+          🔄 이월: <strong style="color:${a.carryover?'#059669':'#9CA3AF'}">${a.carryover?'허용':'불허'}</strong>
+        </span>
+        ${a.manager ? `<span style="font-size:10px;color:#374151">👤 담당: <strong>${a.manager}</strong></span>` : ''}
+      </div>
+    </div>
+    ${!isViewOnly && !isSystem ? `
+    <div style="display:flex;gap:6px;flex-shrink:0">
+      <button class="bo-btn-secondary bo-btn-sm" onclick="openS1Modal('${a.code}')">수정</button>
+      <button class="bo-btn-secondary bo-btn-sm" onclick="s1ToggleActive('${a.code}')"
+        style="color:${a.active?'#F59E0B':'#059669'};border-color:${a.active?'#F59E0B':'#059669'}">
+        ${a.active?'비활성화':'활성화'}</button>
+    </div>` : ''}
+  </div>
+  ${routingSection}
+</div>`;
+}
+
+// ── 결재라인 펼침 토글 ──────────────────────────────────────────────────────
+function _baToggleAR(code) {
+  _baExpandedAR[code] = !(_baExpandedAR[code] || false);
+  document.getElementById('ba-content').innerHTML = _baRenderContent();
+}
+
+// ── 특정 계정으로 결재라인 추가 모달 열기 ────────────────────────────────────
+function arOpenNewModalForAccount(accountCode) {
+  const tenantId = boCurrentPersona.tenantId || (boCurrentPersona.role === 'platform_admin' ? _baTenantId : 'HMC');
+  const newId = 'AR' + String(Date.now()).slice(-6);
+  const newRouting = {
+    id: newId, tenantId,
+    name: accountCode + ' 결재라인', accountCodes: [accountCode],
+    ranges: [
+      { max: 1000000, label: '100만원 미만', approvers: ['팀장 전결'] },
+      { max: null,    label: '100만원 이상', approvers: ['팀장', '실장'] },
+    ]
+  };
+  APPROVAL_ROUTING.push(newRouting);
+  // 기존 모달 재활용
+  const modal = document.getElementById('ar-modal');
+  if (modal) {
+    document.getElementById('ar-modal-title').textContent = `결재라인 추가 — ${accountCode}`;
+    document.getElementById('ar-modal-body').innerHTML = _renderArEditor(newRouting);
+    modal.style.display = 'flex';
+    // 모달 닫을 때 ba-content 갱신
+    modal._onClose = () => { document.getElementById('ba-content').innerHTML = _baRenderContent(); };
+  }
 }
 
 // ─── 진입점: 메니 4 ─ 예산-조직-양식 정책 설정 ───────────────────────────────

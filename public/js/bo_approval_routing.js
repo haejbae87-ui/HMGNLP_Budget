@@ -149,8 +149,15 @@ function arOpenNewModal() {
 
 function arCloseModal() {
   document.getElementById('ar-modal').style.display = 'none';
-  const tenantId = boCurrentPersona.tenantId || 'HMC';
-  document.getElementById('ar-content').innerHTML = _renderArContent(tenantId);
+  // 통합 계정관리 화면에서 열린 경우 ba-content 갱신
+  const modal = document.getElementById('ar-modal');
+  if (modal?._onClose) { modal._onClose(); modal._onClose = null; return; }
+  // 기존 approval-routing 단독 화면인 경우
+  const arContent = document.getElementById('ar-content');
+  if (arContent) {
+    const tenantId = boCurrentPersona.tenantId || 'HMC';
+    arContent.innerHTML = _renderArContent(tenantId);
+  }
 }
 
 // ─── 결재라인 편집기 ─────────────────────────────────────────────────────────

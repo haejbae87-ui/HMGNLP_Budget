@@ -1,0 +1,399 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { 
+  CreditCard, Users, Briefcase, MonitorPlay, Search, Plus, Trash2, Info, 
+  CheckCircle2, ChevronRight, AlertCircle, BookOpen, Mic2, Globe, RefreshCw, 
+  Wallet, Book, FileText, UserCheck, Calendar, Clock, ChevronDown, X, 
+  SearchIcon, Database, BarChart3, ClipboardList, ArrowLeft, MapPin, Laptop, 
+  CheckCircle, Link, Paperclip, UploadCloud, MapIcon, ExternalLink, Calculator, 
+  Coins, ShieldCheck, Plane, HelpCircle
+} from 'lucide-react';
+
+/**
+ * HMG Next-LMS Front-Office (FO) Prototype v5.9
+ * 에러 수정(ReferenceError & React Child Error) 및 디자인 시스템 완성 버전
+ */
+
+// --- 1. 페르소나 데이터 ---
+const MOCK_USERS = {
+  manager_r: { 
+    id: 'H2024002', name: '류해령', dept: '연구개발성장지원팀', pos: '책임', group: 'Hybrid_Admin', 
+    company: '현대자동차', role: 'R&D본부 전용 예산 및 일반예산 혼용 담당자' 
+  },
+  manager_h: { id: 'H2024001', name: '신XX', dept: '피플육성팀', pos: '매니저', group: 'General_Admin', company: '현대자동차', role: '일반 교육예산 총괄 담당자' },
+  user_k: { id: 'H2024003', name: '강XX', dept: '개인정보보호팀', pos: '매니저', group: 'General_Learner', company: '현대자동차', role: '일반 학습자' }
+};
+
+// --- 2. 예산 데이터 ---
+const BUDGET_POCKETS = {
+  Hybrid_Admin: [
+    { id: 'p2-r', name: '연구개발성장지원팀 사외참가비', account: '참가', balance: 45000000 },
+    { id: 'p4', name: '연구개발본부 R&D교육예산', account: '연구투자', balance: 450000000 },
+    { id: 'p5', name: '연구개발성장지원팀 운영비', account: '운영', balance: 3500000 },
+  ],
+  General_Admin: [
+    { id: 'p2', name: '피플육성팀 사외참가비', account: '참가', balance: 82000000 },
+    { id: 'p3', name: '피플육성팀 운영비', account: '운영', balance: 5200000 },
+  ],
+  General_Learner: [
+    { id: 'p8', name: '개인정보보호팀 사외참가비', account: '참가', balance: 1500000 },
+  ]
+};
+
+// --- 3. 사업계획 데이터 ---
+const MOCK_PLANS = [
+  { id: 'BP26-001', title: '26년 글로벌 리더십 테크 포럼 참가', account: '참가', budgetId: 'p2-r', amount: 5000000, category: 'external_personal', subType: 'edu_offline' },
+  { id: 'BP26-002', title: 'SDV 아키텍처 전문가 양성 과정 운영', account: '연구투자', budgetId: 'p4', amount: 25000000, category: 'internal_edu', subType: '' },
+];
+
+const ALL_PURPOSES = [
+  { 
+    id: 'external_personal', title: '개인 직무 사외학습', icon: <Briefcase size={22} />, desc: '개인 역량 향상 사외 활동', 
+    allowedGroups: ['General_Admin', 'Hybrid_Admin', 'General_Learner'], allowedAccounts: ['참가', '연구투자'],
+    subTypeGroups: [
+      { groupTitle: '학습 및 활동 방식', items: [
+          { id: 'edu_offline', label: '집합교육 (세미나/학회 등)', icon: <Users size={14}/> },
+          { id: 'edu_online', label: '이러닝 교육 (온라인)', icon: <Laptop size={14}/> },
+          { id: 'conf_present', label: '학회 직접발표', icon: <Mic2 size={14}/> },
+      ]},
+      { groupTitle: '학술 및 기술 자료', items: [
+          { id: 'membership_fee', label: '학협회비', icon: <CheckCircle2 size={14}/> },
+          { id: 'journal', label: '논문/저널', icon: <FileText size={14}/> },
+          { id: 'tech_material', label: '기술자료 (DB/구매)', icon: <Database size={14}/> },
+      ]}
+    ]
+  },
+  { id: 'internal_edu', title: '사내 집합/이러닝 운영', icon: <MonitorPlay size={22} />, desc: '과정 개설 및 운영', allowedGroups: ['General_Admin', 'Hybrid_Admin'], allowedAccounts: ['운영', '연구투자'] },
+  { id: 'workshop', title: '워크샵/사외 단체참가', icon: <Users size={22} />, desc: '과정 개설 없는 팀 행사', allowedGroups: ['General_Admin', 'Hybrid_Admin'], allowedAccounts: ['운영', '연구투자'] },
+];
+
+export default function App() {
+  const [user, setUser] = useState(MOCK_USERS.manager_r); 
+  const [activeTab, setActiveTab] = useState('history_apply'); 
+  const [viewMode, setViewMode] = useState('list'); 
+  
+  // 폼 상태
+  const [purpose, setPurpose] = useState(null);
+  const [useBudget, setUseBudget] = useState(null); 
+  const [hasPlan, setHasPlan] = useState(null);
+  const [selectedPlanId, setSelectedPlanId] = useState('');
+  const [selectedBudget, setSelectedBudget] = useState('');
+  const [subType, setSubType] = useState(''); 
+  const [region, setRegion] = useState('domestic');
+  const [projectTitle, setProjectTitle] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [learningHours, setLearningHours] = useState('');
+  const [learningContent, setLearningContent] = useState('');
+  const [location, setLocation] = useState('');
+  const [onlineCompany, setOnlineCompany] = useState('');
+  const [onlineUrl, setOnlineUrl] = useState('');
+  const [isInsuranceRefund, setIsInsuranceRefund] = useState(false);
+  const [validityStart, setValidityStart] = useState('');
+  const [validityEnd, setValidityEnd] = useState('');
+  const [expenseList, setExpenseList] = useState([{ id: 1, type: '교육비/등록비', unitPrice: 0, quantity: 1 }]);
+  const [rndEduCost, setRndEduCost] = useState(0);
+  const [rndTravelCost, setRndTravelCost] = useState(0);
+  const [rndTotalCost, setRndTotalCost] = useState(0);
+  const [participants, setParticipants] = useState([]);
+
+  // 자동 계산 및 데이터 필터링 로직
+  const availableBudgets = useMemo(() => {
+    if (!purpose || useBudget === false) return [];
+    return (BUDGET_POCKETS[user.group] || []).filter(b => (purpose.allowedAccounts || []).includes(b.account));
+  }, [user.group, purpose, useBudget]);
+
+  const currentBudget = useMemo(() => {
+    return availableBudgets.find(b => b.id === selectedBudget) || null;
+  }, [selectedBudget, availableBudgets]);
+
+  const learningDays = useMemo(() => {
+    if (!startDate || !endDate) return 0;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diff = Math.abs(end - start);
+    return Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1;
+  }, [startDate, endDate]);
+
+  const isEduType = useMemo(() => ['edu_offline', 'edu_online', 'conf_present'].includes(subType), [subType]);
+
+  const isStep4Enabled = useMemo(() => {
+    if (!purpose) return false;
+    if (useBudget === false) return !!subType || purpose.id !== 'external_personal';
+    return !!selectedBudget && (!!subType || purpose.id !== 'external_personal');
+  }, [useBudget, selectedBudget, subType, purpose]);
+
+  const totalAmount = useMemo(() => {
+    if (useBudget === false) return 0;
+    if (currentBudget?.account === '연구투자') {
+      return region === 'overseas' ? (Number(rndEduCost) + Number(rndTravelCost)) : Number(rndTotalCost);
+    }
+    return expenseList.reduce((sum, exp) => sum + (Number(exp.unitPrice) * Number(exp.quantity || 0)), 0);
+  }, [useBudget, expenseList, rndEduCost, rndTravelCost, rndTotalCost, currentBudget, region]);
+
+  // Effects
+  useEffect(() => { 
+    setUseBudget(null); setHasPlan(null); setSelectedPlanId(''); setSelectedBudget(''); 
+    setSubType(''); setProjectTitle(''); setLearningContent(''); setRegion('domestic'); 
+  }, [purpose]);
+  
+  useEffect(() => {
+    if (selectedPlanId) {
+      const plan = MOCK_PLANS.find(p => p.id === selectedPlanId);
+      if (plan) {
+        setSelectedBudget(plan.budgetId); setProjectTitle(plan.title); setSubType(plan.subType);
+        if (plan.account === '참가') setExpenseList([{ id: 1, type: '교육비/등록비', unitPrice: plan.amount, quantity: 1 }]);
+        else setRndTotalCost(plan.amount);
+      }
+    }
+  }, [selectedPlanId]);
+
+  useEffect(() => { 
+    setParticipants([{ id: Date.now(), name: user.name, dept: user.dept, pos: user.pos }]); 
+  }, [user]);
+
+  const switchUser = () => {
+    let nextUser = user.id === 'H2024001' ? MOCK_USERS.manager_r : (user.id === 'H2024002' ? MOCK_USERS.user_k : MOCK_USERS.manager_h);
+    setUser(nextUser); setViewMode('list'); setPurpose(null);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F0F2F5] pb-24 font-sans text-[#333] tracking-tight">
+      {/* GNB */}
+      <div className="bg-[#002C5F] text-white px-6 py-2.5 flex justify-between items-center text-[11px] font-bold sticky top-0 z-[60] shadow-md border-b border-white/5">
+        <div className="flex items-center space-x-2 opacity-80"><Globe size={13} className="text-blue-300" /><span>현대자동차 차세대 학습플랫폼 HMG 표준 UI 가이드라인 v5.9 (Stable)</span></div>
+        <button onClick={switchUser} className="bg-white/15 hover:bg-white/25 px-3 py-1 rounded-md border border-white/10 transition-all flex items-center shadow-sm"><RefreshCw size={12} className="mr-2" /> Persona 전환 (현재: {user.name} {user.pos})</button>
+      </div>
+
+      <header className="bg-white border-b border-gray-200 sticky top-[36px] z-[50]">
+        <div className="h-[2.5px] bg-[#007AFF] w-full"></div>
+        <div className="max-w-[1440px] mx-auto px-10 h-16 flex justify-between items-center">
+          <div className="flex items-center space-x-12">
+            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => setViewMode('list')}>
+                <div className="bg-[#002C5F] text-white p-1 rounded-md"><Globe size={22} /></div>
+                <span className="font-black text-2xl text-[#002C5F] italic uppercase tracking-tighter">Next Learning</span>
+            </div>
+            <nav className="hidden lg:flex space-x-10 text-[14px] font-bold text-gray-500">
+               <span className="text-[#007AFF] border-b-[3px] border-[#007AFF] h-16 flex items-center cursor-pointer">교육신청/품의</span>
+               <span className="h-16 flex items-center hover:text-[#002C5F] cursor-pointer transition-colors">내 정보 관리</span>
+               <span className="h-16 flex items-center hover:text-[#002C5F] cursor-pointer opacity-60">대시보드</span>
+               <span className="h-16 flex items-center hover:text-[#002C5F] cursor-pointer opacity-60">커뮤니티</span>
+            </nav>
+          </div>
+          <div className="flex items-center space-x-6">
+             <div className="text-right mr-1"><div className="text-[12px] font-bold text-gray-800">{user.name} <span className="text-gray-400">| {user.dept}</span></div><div className="text-[10px] text-[#007AFF] font-black tracking-widest uppercase mt-0.5">{user.role}</div></div>
+             <div className="w-11 h-11 bg-gray-100 rounded-2xl border border-gray-200 flex items-center justify-center font-black text-[#002C5F] text-lg shadow-inner">{user.name.substring(0,1)}</div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-[1440px] mx-auto px-10 pt-10">
+        <div className="grid grid-cols-12 gap-10">
+            {/* Left Area (Col 9) */}
+            <div className="col-span-12 lg:col-span-9 space-y-8 animate-fadeIn">
+              
+              {viewMode === 'list' ? (
+                <div className="space-y-8">
+                  <div className="bg-white p-12 rounded-[2.5rem] border border-gray-200 shadow-xl relative overflow-hidden flex justify-between items-center transition-all hover:shadow-2xl">
+                    <div className="absolute top-0 left-12 w-16 h-1.5 bg-[#007AFF] rounded-b-full"></div>
+                    <div>
+                        <div className="text-[11px] font-black text-[#007AFF] uppercase tracking-[0.2em] mb-3">
+                            Home {' > '} Training Application {' > '} Create New
+                        </div>
+                        <h1 className="text-4xl font-black text-[#111] tracking-tight mb-2">통합 교육 이력</h1>
+                        <p className="text-gray-400 font-bold text-sm italic uppercase tracking-[0.2em]">Learning History & Budget Tracking</p>
+                    </div>
+                    <button onClick={() => setViewMode('apply')} className="bg-[#002C5F] text-white px-10 py-5 rounded-[1.5rem] font-black text-[16px] hover:bg-[#001c3f] transition-all shadow-blue-900/20 shadow-2xl flex items-center uppercase tracking-widest active:scale-95"><Plus className="mr-2" size={20} /> New Application</button>
+                  </div>
+                  <div className="bg-white rounded-[2.5rem] border border-gray-200 shadow-sm overflow-hidden p-32 text-center bg-gray-50/30">
+                    <Info className="mx-auto text-gray-200 mb-6" size={64} />
+                    <p className="font-black text-gray-300 italic uppercase tracking-[0.5em] text-lg">No records found.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="animate-fadeIn space-y-8 pb-32">
+                  <div className="bg-white p-12 rounded-[2.5rem] border border-gray-200 shadow-sm relative overflow-hidden flex items-center justify-between">
+                    <div className="absolute top-0 left-12 w-16 h-1.5 bg-[#007AFF] rounded-b-full"></div>
+                    <div><button onClick={() => setViewMode('list')} className="text-gray-400 flex items-center font-black text-[11px] mb-4 hover:text-[#007AFF] transition-all uppercase tracking-widest"><ArrowLeft size={16} className="mr-2" /> Back to History</button><h1 className="text-4xl font-black text-[#111] tracking-tighter">교육 신청서 작성</h1></div>
+                    {selectedPlanId && <div className="bg-blue-50 text-[#007AFF] px-6 py-3 rounded-2xl border border-blue-100 font-black text-xs flex items-center shadow-sm uppercase italic animate-pulse"><Link size={16} className="mr-3"/>Plan Synced</div>}
+                  </div>
+
+                  {/* Stepper Sections */}
+                  <div className="bg-white rounded-[2.5rem] border border-gray-200 shadow-sm divide-y divide-gray-50 overflow-hidden">
+                    <div className="p-10">
+                      <div className="flex items-center justify-between mb-10"><h2 className="text-[20px] font-black flex items-center text-[#111] uppercase italic tracking-tighter"><span className="w-9 h-9 bg-[#F0F2F5] text-[#002C5F] text-[15px] rounded-xl flex items-center justify-center mr-4 font-black not-italic shadow-inner">01</span>Purpose Selection</h2>{purpose && <CheckCircle2 className="text-[#007AFF] animate-scaleIn" size={28} />}</div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {ALL_PURPOSES.filter(p => p.allowedGroups.includes(user.group)).map((item) => (
+                          <button key={item.id} onClick={() => setPurpose(item)} className={`p-8 rounded-3xl border-2 text-left transition-all ${purpose?.id === item.id ? 'border-[#007AFF] bg-[#007AFF]/5 shadow-xl ring-4 ring-[#007AFF]/5 translate-y-[-4px]' : 'border-gray-100 bg-white hover:border-gray-300'}`}><div className={`mb-5 p-2 rounded-lg w-fit ${purpose?.id === item.id ? 'bg-[#007AFF] text-white shadow-lg shadow-blue-400/30' : 'bg-gray-50 text-gray-400'}`}>{item.icon}</div><h3 className={`font-black text-[16px] ${purpose?.id === item.id ? 'text-[#007AFF]' : 'text-gray-800'}`}>{item.title}</h3></button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {purpose && (
+                      <div className="p-10 animate-fadeIn bg-gray-50/30">
+                        <div className="flex items-center justify-between mb-10"><h2 className="text-[20px] font-black flex items-center text-[#111] uppercase italic tracking-tighter"><span className="w-9 h-9 bg-white text-[#002C5F] text-[15px] rounded-xl flex items-center justify-center mr-4 font-black shadow-sm">02</span>Budget Choice</h2></div>
+                        <div className="flex space-x-4 mb-8">
+                           <button onClick={() => setUseBudget(true)} className={`flex-1 p-6 rounded-3xl border-2 transition-all ${useBudget === true ? 'border-[#007AFF] bg-white shadow-2xl shadow-blue-900/5' : 'bg-transparent border-gray-200 opacity-60'}`}><span className={`font-black text-[16px] uppercase ${useBudget === true ? 'text-[#007AFF]' : 'text-gray-600'}`}>예산 집행 신청</span></button>
+                           <button onClick={() => setUseBudget(false)} className={`flex-1 p-6 rounded-3xl border-2 transition-all ${useBudget === false ? 'border-[#007AFF] bg-white shadow-2xl shadow-blue-900/5' : 'bg-transparent border-gray-200 opacity-60'}`}><span className={`font-black text-[16px] uppercase ${useBudget === false ? 'text-[#007AFF]' : 'text-gray-600'}`}>단순 이력 등록</span></button>
+                        </div>
+                        {useBudget === true && (
+                          <div className="animate-slideDown space-y-6 pt-6 border-t border-dashed border-gray-200">
+                             <div className="flex space-x-3"><button onClick={() => setHasPlan(true)} className={`px-6 py-3 rounded-2xl border-2 font-black text-xs transition-all ${hasPlan === true ? 'bg-[#333] text-white border-[#333]' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-200'}`}>사업계획 연동</button><button onClick={() => {setHasPlan(false); setSelectedPlanId('');}} className={`px-6 py-3 rounded-2xl border-2 font-black text-xs transition-all ${hasPlan === false ? 'bg-[#333] text-white border-[#333]' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-200'}`}>계획 없음</button></div>
+                             {hasPlan && <div className="bg-[#EBF5FF] p-6 rounded-[2rem] border border-[#CCE5FF] animate-slideIn"><div className="relative"><select className="w-full bg-white border border-gray-200 rounded-2xl p-4 font-black text-[15px] appearance-none outline-none focus:border-[#007AFF]" value={selectedPlanId} onChange={(e) => setSelectedPlanId(e.target.value)}><option value="">-- 연동할 사전 승인된 계획을 선택하세요 --</option>{MOCK_PLANS.filter(p => p.category === purpose.id).map(plan => (<option key={plan.id} value={plan.id}>[{plan.id}] {plan.title}</option>))}</select><ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={20} /></div></div>}
+                             {(!hasPlan || (hasPlan && !selectedPlanId)) && <div className="relative max-w-lg"><select className="w-full border-2 border-gray-100 rounded-2xl p-4 bg-white font-black text-[15px] appearance-none focus:border-[#007AFF] outline-none shadow-sm transition-all" value={selectedBudget} onChange={(e) => setSelectedBudget(e.target.value)}><option value="">-- 집행 예산 계정을 선택해 주세요 --</option>{availableBudgets.map(b => (<option key={b.id} value={b.id}>{b.name} ({b.account})</option>))}</select><ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={20} /></div>}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {(useBudget === false || (useBudget === true && (selectedBudget || selectedPlanId))) && (
+                      <div className="p-10 animate-fadeIn">
+                        <div className="flex items-center mb-10"><h2 className="text-[20px] font-black flex items-center text-[#111] uppercase italic tracking-tighter"><span className="w-9 h-9 bg-[#F0F2F5] text-[#002C5F] text-[13px] rounded-lg flex items-center justify-center mr-4 font-black not-italic shadow-inner">03</span>Category</h2></div>
+                        {purpose.id === 'external_personal' ? (
+                          <div className="space-y-10">{purpose.subTypeGroups.map((group, gIdx) => (<div key={gIdx} className="space-y-5"><div className="flex items-center space-x-3 text-[13px] font-black text-gray-400 uppercase tracking-[0.3em] italic"><div className="w-1.5 h-1.5 bg-[#007AFF] rounded-full"></div><span>{group.groupTitle}</span></div><div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{group.items.map(sub => (<button key={sub.id} onClick={() => setSubType(sub.id)} disabled={!!selectedPlanId} className={`flex items-center space-x-5 px-8 py-5 rounded-2xl border-2 text-[14px] font-black transition-all ${subType === sub.id ? 'bg-[#111] border-[#111] text-white shadow-2xl translate-y-[-3px]' : 'bg-white border-gray-100 text-gray-500 hover:border-gray-400'}`}>{sub.icon}<span className="tracking-tighter">{sub.label}</span></button>))}</div></div>))}</div>
+                        ) : (<div className="p-8 bg-[#F8F9FB] rounded-[2rem] border border-gray-100 flex items-center text-sm font-black text-gray-500 shadow-inner italic uppercase"><CheckCircle size={20} className="mr-4 text-[#007AFF]"/> Standard process automatically applied.</div>)}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Step 04 Detail */}
+                  {isStep4Enabled && (
+                    <div className="bg-white rounded-[3rem] border border-gray-200 shadow-2xl overflow-hidden animate-fadeIn mt-12 transition-all border-t-[12px] border-t-[#002C5F]">
+                      <div className="bg-gray-50/50 px-12 py-8 border-b border-gray-100 flex justify-between items-center">
+                        <h2 className="text-[20px] font-black flex items-center text-[#111] uppercase italic tracking-tighter"><span className="w-10 h-10 bg-white border border-gray-100 text-[#002C5F] text-[16px] rounded-[1rem] flex items-center justify-center mr-5 font-black not-italic shadow-md">04</span>Application Spec & Costing</h2>
+                      </div>
+                      
+                      <div className="p-12 space-y-16">
+                        {/* Course Header */}
+                        <div className="space-y-12">
+                           <div className="bg-[#EBF5FF]/30 p-2.5 rounded-3xl border border-blue-100 flex max-w-xs shadow-inner">
+                              <button onClick={() => setRegion('domestic')} className={`flex-1 flex items-center justify-center py-3.5 rounded-2xl text-[14px] font-black transition-all ${region === 'domestic' ? 'bg-white text-[#007AFF] shadow-lg' : 'text-gray-400'}`}><MapPin size={18} className="mr-2"/>국내</button>
+                              <button onClick={() => setRegion('overseas')} className={`flex-1 flex items-center justify-center py-3.5 rounded-2xl text-[14px] font-black transition-all ${region === 'overseas' ? 'bg-white text-[#007AFF] shadow-lg' : 'text-gray-400'}`}><Globe size={18} className="mr-2"/>해외</button>
+                           </div>
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-14 gap-y-12">
+                              <div className="col-span-2 space-y-4"><label className="text-[13px] font-black text-gray-500 uppercase tracking-[0.2em] italic">Course Title (과정명) <span className="text-red-500 ml-2 font-black">*</span></label><input type="text" className="w-full bg-[#F8F9FB] border-none rounded-2xl px-8 py-6 font-black text-[18px] focus:bg-white focus:ring-4 focus:ring-blue-100 outline-none shadow-inner transition-all tracking-tight" placeholder="특정 교육, 자격, 세미나 등 공식 명칭을 입력하세요" value={projectTitle} onChange={(e) => setProjectTitle(e.target.value)} /></div>
+                              <div className="space-y-4"><label className="text-[13px] font-black text-gray-500 uppercase flex items-center tracking-widest italic font-black"><Calendar size={18} className="mr-3 text-[#007AFF]" /> Schedule</label><div className="flex items-center space-x-3"><input type="date" className="flex-1 bg-[#F8F9FB] border-none rounded-2xl px-6 py-5 text-[15px] font-bold focus:bg-white shadow-inner" value={startDate} onChange={(e) => setStartDate(e.target.value)} /><span className="text-gray-300 font-black text-xl">~</span><input type="date" className="flex-1 bg-[#F8F9FB] border-none rounded-2xl px-6 py-5 text-[15px] font-bold focus:bg-white shadow-inner" value={endDate} onChange={(e) => setEndDate(e.target.value)} />{learningDays > 0 && <div className="bg-[#002C5F] text-white px-5 py-5 rounded-2xl font-black text-[14px] whitespace-nowrap shadow-2xl">{learningDays}일간</div>}</div></div>
+                              <div className="space-y-4"><label className="text-[13px] font-black text-gray-500 uppercase flex items-center tracking-widest italic font-black"><Clock size={18} className="mr-3 text-[#007AFF]" /> Total Hours</label><div className="relative group"><input type="number" className="w-full bg-[#F8F9FB] border-none rounded-2xl px-8 py-5 text-[18px] font-black focus:bg-white outline-none shadow-inner transition-all" placeholder="0" value={learningHours} onChange={(e) => setLearningHours(e.target.value)} /><span className="absolute right-6 top-1/2 -translate-y-1/2 text-[12px] font-black text-gray-400 uppercase italic">HR</span></div></div>
+                              <div className="col-span-2 space-y-4 pt-6 border-t border-gray-50"><label className="text-[13px] font-black text-gray-600 uppercase tracking-widest italic font-black">상세학습계획 (학습내용) <span className="text-red-500 ml-2 font-black">*</span></label><textarea className="w-full bg-[#F8F9FB] border-none rounded-[2.5rem] px-10 py-8 font-medium text-[16px] focus:bg-white focus:ring-4 focus:ring-blue-100 outline-none shadow-inner min-h-[220px] leading-relaxed transition-all" placeholder="학습 목표, 주요 커리큘럼 및 활용 방안을 입력하세요." value={learningContent} onChange={(e) => setLearningContent(e.target.value)}></textarea></div>
+                           </div>
+                        </div>
+
+                        {/* Location Details */}
+                        {isEduType && (
+                           <div className="pt-14 border-t border-gray-100 space-y-10 animate-fadeIn">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                                 <div className="space-y-4"><label className="text-[13px] font-black text-gray-500 uppercase flex items-center italic font-black">{subType === 'edu_online' ? <Laptop size={20} className="mr-3 text-[#007AFF]"/> : <MapIcon size={20} className="mr-3 text-[#007AFF]"/>} Location Info</label>{subType === 'edu_online' ? (<div className="flex space-x-4"><input type="text" className="w-1/3 bg-[#F8F9FB] border-none rounded-2xl p-5 text-[15px] font-bold shadow-inner" placeholder="업체명" value={onlineCompany} onChange={(e) => setOnlineCompany(e.target.value)} /><input type="text" className="flex-1 bg-[#F8F9FB] border-none rounded-2xl p-5 text-[15px] font-bold shadow-inner" placeholder="학습 URL" value={onlineUrl} onChange={(e) => setOnlineUrl(e.target.value)} /></div>) : (<input type="text" className="w-full bg-[#F8F9FB] border-none rounded-2xl p-5 text-[16px] font-black shadow-inner focus:bg-white transition-all outline-none" placeholder={region === 'overseas' ? "해외 학습 장소 입력" : "국내 장소 입력"} value={location} onChange={(e) => setLocation(e.target.value)} />)}</div>
+                                 {region === 'domestic' && (<div className="flex items-center justify-between p-8 bg-[#F8F9FB] rounded-[2rem] border border-gray-100 shadow-inner"><div className="flex items-center space-x-4 font-black"><div className="bg-white p-3 rounded-xl shadow-sm"><Database className="text-[#007AFF]" size={22}/></div><span className="text-[15px] text-gray-700 uppercase italic tracking-widest font-black">Insurance Refund</span></div><button onClick={() => setIsInsuranceRefund(!isInsuranceRefund)} className={`w-16 h-8 rounded-full relative transition-all duration-500 ${isInsuranceRefund ? 'bg-[#007AFF]' : 'bg-gray-200'}`}><div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all duration-300 ${isInsuranceRefund ? 'left-9' : 'left-1'}`}></div></button></div>)}
+                              </div>
+                           </div>
+                        )}
+
+                        {/* Cost Breakdown */}
+                        {useBudget === true && (
+                           <div className="pt-16 border-t border-gray-100 space-y-12 animate-fadeIn">
+                              {currentBudget?.account === '참가' ? (
+                                 <div className="space-y-12">
+                                    <div className="flex justify-between items-center bg-[#F8F9FB] p-10 rounded-[3rem] border border-gray-100 shadow-inner"><div className="space-y-5 flex-1"><label className="text-[13px] font-black text-gray-500 uppercase tracking-widest flex items-center italic font-black"><Calendar size={20} className="mr-3 text-[#007AFF]" /> Validity Period <span className="text-red-500 ml-2 font-black">*</span></label><div className="flex items-center space-x-4 max-w-md"><input type="date" className="flex-1 bg-white border-none rounded-2xl p-5 text-[14px] font-bold shadow-xl" value={validityStart} onChange={(e) => setValidityStart(e.target.value)} /><span className="text-gray-300 font-black text-xl">~</span><input type="date" className="flex-1 bg-white border-none rounded-2xl p-5 text-[14px] font-bold shadow-xl" value={validityEnd} onChange={(e) => setValidityEnd(e.target.value)} /></div></div><div className="bg-white px-10 py-8 rounded-[2rem] shadow-2xl flex flex-col items-end border border-blue-50 transition-all"><div className="flex items-center text-[#002C5F] space-x-3 mb-2 font-black uppercase text-[12px] italic"><Coins size={22} className="text-[#007AFF]"/><span>General Balance</span></div><div className="text-3xl font-black text-[#002C5F] tracking-tighter italic">{currentBudget?.balance.toLocaleString()} KRW</div></div></div>
+                                    <div className="space-y-6">
+                                       <div className="flex justify-between items-center px-6"><div className="flex items-center font-black italic uppercase"><Calculator size={26} className="mr-4 text-[#007AFF]"/><h4 className="text-[18px] text-[#111] tracking-widest">예상 지불 비용 명세</h4></div><button onClick={() => setExpenseList([...expenseList, { id: Date.now(), type: '교육비/등록비', unitPrice: 0, quantity: 1 }])} className="bg-white text-[#007AFF] text-[13px] border-2 border-[#007AFF] px-6 py-3 rounded-[1.2rem] hover:bg-blue-50 shadow-xl active:scale-95 italic font-black uppercase tracking-widest">+ ADD ROW</button></div>
+                                       <div className="rounded-[2.5rem] border border-gray-200 overflow-hidden shadow-2xl"><table className="w-full text-[15px] text-center"><thead className="bg-[#F8F9FB] border-b border-gray-200 text-gray-400 font-black uppercase italic tracking-[0.2em]"><tr><th className="py-6 pl-10 text-left">Category</th><th className="py-6 text-right pr-10">Unit Price</th><th className="py-6 w-32">Qty</th><th className="py-6 text-right pr-10 w-64 font-black italic text-[#002C5F]">Subtotal</th><th className="py-6 w-20"></th></tr></thead>
+                                          <tbody className="divide-y divide-gray-100 bg-white italic font-black">
+                                             {expenseList.map((exp, idx) => (<tr key={exp.id} className="hover:bg-slate-50/70 transition-colors group"><td className="py-6 pl-10 text-left"><select className="bg-transparent focus:ring-0 outline-none border-none p-0 text-[15px] w-full font-black uppercase italic text-gray-700 cursor-pointer" value={exp.type} onChange={(e) => { const list = [...expenseList]; list[idx].type = e.target.value; setExpenseList(list); }}><option>교육비/등록비</option><option>교보재비</option><option>시험응시료</option>{region === 'overseas' && <><option className="text-blue-600 font-black">항공료 (해외)</option><option className="text-blue-600 font-black">숙박비 (해외)</option></>}</select></td><td className="py-6 pr-8 text-right"><input type="number" className="w-full text-right bg-transparent border-none p-0 font-black text-2xl focus:ring-0 text-[#002C5F] tracking-tighter" value={exp.unitPrice} onChange={(e) => { const list = [...expenseList]; list[idx].unitPrice = e.target.value; setExpenseList(list); }} /></td><td className="py-6 px-2 text-center"><input type="number" className="w-full text-center bg-[#F8F9FB] border border-gray-200 rounded-2xl py-3 font-black text-[#007AFF] focus:bg-white shadow-inner scale-90" value={exp.quantity} onChange={(e) => { const list = [...expenseList]; list[idx].quantity = e.target.value; setExpenseList(list); }} /></td><td className="py-6 pr-10 text-right font-black text-gray-900 bg-gray-50/40 italic text-xl tracking-tighter">{(exp.unitPrice * exp.quantity).toLocaleString()}</td><td className="py-6 pr-4 text-right"><button onClick={() => setExpenseList(expenseList.filter(item => item.id !== exp.id))} className="text-gray-300 hover:text-red-500 transition-all p-3 hover:bg-red-50 rounded-xl"><Trash2 size={22}/></button></td></tr>))}
+                                          </tbody>
+                                          <tfoot className="bg-[#F8F9FB] border-t-4 border-[#002C5F] font-black text-[#111] transition-all"><tr className="divide-x divide-gray-100 uppercase italic tracking-widest"><td className="py-8 pl-10 text-left text-[12px] text-gray-400">Calculation Summary</td><td className="py-8 pr-10 text-right text-[#002C5F] font-black text-2xl tracking-tighter">Total Sum</td><td className="py-8 text-gray-300">Summation</td><td className="py-8 pr-10 text-right text-[32px] text-[#007AFF] font-black bg-blue-50/50 shadow-inner">{totalAmount.toLocaleString()}</td><td className="py-8 bg-blue-50/50"></td></tr></tfoot>
+                                       </table></div>
+                                    </div>
+                                 </div>
+                              ) : (
+                                 <div className="space-y-10 animate-fadeIn">
+                                    <div className="flex justify-between items-end">
+                                       <div className="space-y-8 flex-1">
+                                          {region === 'overseas' ? (
+                                             <div className="flex flex-col md:flex-row gap-10 animate-slideDown">
+                                                <div className="flex-1 space-y-5"><label className="text-[13px] font-black text-gray-500 uppercase tracking-widest flex items-center italic font-black tracking-widest"><Calculator size={22} className="mr-3 text-[#007AFF]"/> R&D Education Fee</label><div className="relative"><input type="number" className="w-full bg-[#EBF5FF]/30 border border-[#CCE5FF] rounded-[2rem] px-8 py-8 font-black text-[28px] focus:bg-white focus:border-[#007AFF] outline-none pr-20 shadow-inner text-[#002C5F] italic" value={rndEduCost} onChange={(e) => setRndEduCost(e.target.value)} /><span className="absolute right-8 top-1/2 -translate-y-1/2 text-[14px] font-black text-[#007AFF] uppercase">KRW</span></div></div>
+                                                <div className="flex-1 space-y-5"><label className="text-[13px] font-black text-gray-500 uppercase tracking-widest flex items-center italic font-black tracking-widest"><Plane size={22} className="mr-3 text-blue-500"/> R&D Travel Expense</label><div className="relative"><input type="number" className="w-full bg-[#EBF5FF]/30 border border-[#CCE5FF] rounded-[2rem] px-8 py-8 font-black text-[28px] focus:bg-white focus:border-[#007AFF] outline-none pr-20 shadow-inner text-[#002C5F] italic" value={rndTravelCost} onChange={(e) => setRndTravelCost(e.target.value)} /><span className="absolute right-8 top-1/2 -translate-y-1/2 text-[14px] font-black text-[#007AFF] uppercase">KRW</span></div></div>
+                                             </div>
+                                          ) : (
+                                             <div className="space-y-5"><label className="text-[13px] font-black text-gray-400 uppercase tracking-widest italic font-black"><Calculator size={22} className="mr-3 text-[#007AFF]"/> R&D Total Investment (Domestic)</label><div className="relative max-w-lg"><input type="number" className="w-full bg-[#EBF5FF]/30 border border-[#CCE5FF] rounded-[2rem] px-10 py-10 font-black text-[36px] focus:bg-white focus:border-[#007AFF] outline-none pr-24 shadow-inner text-[#002C5F] italic" value={rndTotalCost} onChange={(e) => setRndTotalCost(e.target.value)} /><span className="absolute right-10 top-1/2 -translate-y-1/2 text-[18px] font-black text-[#007AFF] uppercase italic">KRW</span></div></div>
+                                          )}
+                                       </div>
+                                       <div className="bg-orange-50 px-12 py-10 rounded-[4rem] border border-orange-100 flex flex-col items-end shadow-2xl h-fit ml-12 hover:scale-105 transition-all"><div className="flex items-center text-orange-900 space-x-3 mb-3 font-black text-[14px] uppercase tracking-[0.5em] italic font-black"><Coins size={24}/><span className="tracking-tighter underline underline-offset-4 decoration-orange-200">R&D Balance</span></div><div className="text-4xl font-black text-orange-600 tracking-tighter italic">{currentBudget?.balance.toLocaleString()} <span className="text-[10px] font-bold text-gray-400 opacity-50">KRW</span></div></div>
+                                    </div>
+                                 </div>
+                              )}
+                           </div>
+                        )}
+
+                        {/* Final Summary Card (Black Box) */}
+                        <div className="bg-[#111] p-16 rounded-[5rem] text-white flex flex-col md:flex-row justify-between items-center shadow-2xl relative overflow-hidden mt-20 border-b-[15px] border-[#007AFF] transition-all active:scale-[0.99] group">
+                           <div className="absolute top-0 right-0 p-20 opacity-[0.04] translate-x-1/4 -translate-y-1/4 rotate-[15deg] transition-transform group-hover:rotate-[20deg] duration-1000"><Plane size={600} /></div>
+                           <div className="relative z-10 mb-12 md:mb-0 text-center md:text-left">
+                              <div className="text-[14px] font-black text-gray-400 uppercase tracking-[0.7em] mb-8 flex items-center justify-center md:justify-start italic font-black">
+                                 {region === 'overseas' ? <Globe size={22} className="mr-4 text-blue-400 animate-spin-slow"/> : <MapPin size={22} className="mr-4 text-emerald-400"/>}
+                                 Final Settlement Calculation Summary ({region === 'overseas' ? 'OVERSEAS' : 'DOMESTIC'})
+                              </div>
+                              <div className="text-9xl font-black tracking-tighter animate-fadeIn italic leading-none">{totalAmount.toLocaleString()}<span className="text-[28px] font-medium text-gray-400 ml-6 tracking-widest uppercase not-italic opacity-40 italic">krw</span></div>
+                           </div>
+                           <div className="text-right z-10 min-w-[360px] bg-white/5 p-8 rounded-[3rem] backdrop-blur-xl border border-white/10 shadow-2xl">
+                              {currentBudget && totalAmount > currentBudget.balance ? (<div className="flex items-center text-red-400 font-black text-[18px] bg-red-400/10 px-8 py-6 rounded-[2.5rem] border-2 border-red-400/30 animate-bounce shadow-2xl uppercase italic tracking-[0.3em] font-black"><AlertCircle size={28} className="mr-5" /> INSUFFICIENT FUNDS</div>) : (<div className="space-y-6 text-right transition-all"><div className="text-[16px] font-black text-[#007AFF] uppercase flex items-center justify-end italic tracking-[0.5em] font-black"><CheckCircle size={24} className="mr-4 animate-pulse text-[#007AFF]"/> VERIFICATION SUCCESS</div><p className="text-[14px] font-black text-gray-500 italic font-medium leading-relaxed opacity-80 tracking-tight">The requested amount is within the available balance.</p></div>)}
+                           </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex justify-end space-x-6 pt-20 border-t border-gray-100 font-black italic uppercase">
+                            <button className="px-16 py-7 rounded-[2rem] text-gray-400 bg-white border-2 border-gray-100 hover:bg-gray-50 transition-all text-[17px] shadow-xl italic font-black">Save Draft</button>
+                            <button onClick={() => { alert('신청서가 상신되었습니다.'); setViewMode('list'); }} disabled={!isStep4Enabled || (useBudget === true && totalAmount > currentBudget?.balance)} className={`px-24 py-7 rounded-[2.2rem] font-black text-white shadow-2xl transition-all flex items-center justify-center text-[18px] uppercase italic shadow-blue-900/30 ${!isStep4Enabled || (useBudget === true && totalAmount > currentBudget?.balance) ? 'bg-gray-300 cursor-not-allowed opacity-50' : 'bg-[#002C5F] hover:bg-[#001c3f] hover:translate-y-[-6px] active:translate-y-[2px] active:scale-[0.98]'}`}>Submit Application <ChevronRight size={28} className="ml-5 animate-bounce-x"/></button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Sidebar Context */}
+            <aside className="col-span-12 lg:col-span-3 space-y-10 animate-fadeIn">
+              <div className="bg-white p-10 rounded-[4rem] border border-gray-100 shadow-2xl space-y-12 sticky top-40 border-t-[15px] border-[#002C5F] transition-all bg-gradient-to-b from-white to-gray-50">
+                 <div className="space-y-8 text-center relative font-black">
+                    <div className="flex justify-between items-center border-b border-gray-100 pb-5 font-black text-[13px] text-gray-400 uppercase tracking-[0.4em] italic font-black">System Identity <ShieldCheck size={22} className="text-[#007AFF] shadow-sm animate-pulse"/></div>
+                    <div className="w-28 h-28 bg-[#F0F2F5] text-[#002C5F] rounded-[3.5rem] flex items-center justify-center font-black text-6xl mx-auto shadow-inner border-4 border-white uppercase italic transition-all hover:rotate-6 font-black">{user.name.substring(0, 1)}</div>
+                    <div className="space-y-2"><div className="font-black text-[26px] text-[#111] tracking-tighter italic font-black">{user.name} <span className="font-bold text-[16px] text-gray-300 not-italic ml-2 uppercase opacity-60">/ {user.pos}</span></div><div className="text-[11px] font-black text-[#007AFF] bg-blue-50/50 px-4 py-2 rounded-full border border-blue-100 uppercase tracking-[0.3em] mt-3 italic font-black leading-relaxed">{user.dept}</div></div>
+                 </div>
+                 <div className="space-y-8 pt-8 border-t border-gray-100">
+                    <div className="flex justify-between items-center border-b border-gray-100 pb-4 font-black text-[14px] text-gray-900 uppercase tracking-[0.3em] italic font-black">Managed Wallets</div>
+                    <div className="space-y-9 pt-2">
+                       {(BUDGET_POCKETS[user.group] || []).map(b => (
+                         <div key={b.id} className="space-y-4 group">
+                            <div className="flex justify-between items-center text-[12px] font-black">
+                               <span className="text-gray-400 group-hover:text-[#002C5F] transition-all flex items-center tracking-tighter truncate w-40 font-black italic uppercase tracking-[0.05em] font-black"><Wallet size={16} className="mr-3 flex-shrink-0 text-gray-300 group-hover:text-[#007AFF]"/> {b.name}</span>
+                               <span className={`font-black text-[15px] ${b.id === selectedBudget ? 'text-[#007AFF] scale-110 translate-x-[-4px]' : 'text-gray-900'} transition-all tracking-tighter italic font-black font-black`}>{b.balance.toLocaleString()} 원</span>
+                            </div>
+                            <div className="h-2.5 bg-gray-100 rounded-full w-full overflow-hidden shadow-inner border border-gray-200">
+                               <div className={`h-full transition-all duration-[1500ms] ${b.id === selectedBudget ? 'bg-[#007AFF]' : 'bg-gray-300'}`} style={{ width: `${Math.min((b.balance / 100000000) * 100, 100)}%` }}></div>
+                            </div>
+                         </div>
+                       ))}
+                    </div>
+                 </div>
+                 
+                 <div className="bg-[#EBF5FF]/50 p-8 rounded-[2.5rem] border border-[#CCE5FF] space-y-5 animate-slideUp shadow-sm">
+                    <div className="flex items-center space-x-3 text-[#004085] font-black uppercase italic text-[13px] tracking-widest font-black"><HelpCircle size={20}/><span>Help & Policy</span></div>
+                    <ul className="text-[12px] text-blue-900/60 font-black space-y-4 leading-relaxed list-disc pl-5 italic font-bold">
+                       <li>사외교육비는 연간 개인 한도 내에서만 집행 가능합니다.</li>
+                       <li>도서 구매 시 1인당 월 1회, 2권 이내로 제한됩니다.</li>
+                       <li>결제 완료 후 사외 플랫폼 연동을 확인하십시오.</li>
+                    </ul>
+                 </div>
+              </div>
+            </aside>
+        </div>
+      </main>
+
+      <footer className="mt-64 py-32 bg-white border-t border-gray-200 shadow-inner font-black uppercase italic">
+        <div className="max-w-[1440px] mx-auto px-10 flex flex-col md:flex-row justify-between items-center opacity-30 gap-16">
+          <div className="flex flex-col text-center md:text-left font-black italic"><span className="text-5xl italic tracking-tighter text-[#002C5F] mb-4">HYUNDAI MOTOR GROUP</span><span className="text-[13px] text-gray-400 tracking-[0.8em] font-medium leading-relaxed italic font-black">Integrated Enterprise Standard Platform v5.9</span></div>
+          <div className="flex space-x-16 text-[15px] tracking-[0.5em] font-black uppercase italic border-l-2 border-gray-200 pl-16"><span>Policy Enforcement</span><span>Data Integrity</span><span>Security Scoped</span></div>
+        </div>
+      </footer>
+    </div>
+  );
+}

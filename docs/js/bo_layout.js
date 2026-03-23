@@ -1,0 +1,282 @@
+// ─── BACK-OFFICE LAYOUT: SIDEBAR + HEADER ────────────────────────────────────
+
+// Platform Admin 전용 메뉴
+const PLATFORM_MENUS = [
+  { id: 'dashboard',         icon: '📊', label: '대시보드',              section: null },
+  { id: 'platform-monitor',  icon: '🖥️',  label: '전사 예산 모니터링',    section: '플랫폼 총괄' },
+  { id: 'platform-roles',    icon: '🔐', label: '관리자 권한 매핑',       section: null },
+  { id: 'reports',           icon: '📈', label: '통계 및 리포트',        section: '분석' },
+  { id: 'manual',            icon: '📖', label: '서비스 매뉴얼',          section: null },
+];
+
+// Tenant Admin 메뉴 (테넌트 총괄 전용)
+const TENANT_ADMIN_MENUS = [
+  { id: 'dashboard',        icon: '📊', label: '대시보드',              section: null },
+  { id: 'isolation-groups',    icon: '🛡️', label: '격리 그룹 관리',     section: '테넌트 관리' },
+  { id: 'my-isolation-groups', icon: '🔒',        label: '내 격리 그룹 관리', section: null },
+  { id: 'reports',          icon: '📈', label: '전사 통계 리포트',        section: '분석' },
+  { id: 'manual',           icon: '📖', label: '서비스 매뉴얼',          section: null },
+];
+
+// 예산 총괄 메뉴 (Budget Global Admin)
+const BUDGET_ADMIN_MENUS = [
+  { id: 'dashboard',           icon: '📊', label: '대시보드',              section: null },
+  { id: 'my-isolation-groups', icon: '🔒', label: '내 격리 그룹 관리',  section: '그룹 설정' },
+  { id: 'budget-account',      icon: '💳', label: '예산 계정 관리',          section: '예산·설정' },
+  { id: 'virtual-org',         icon: '🏢', label: '가상조직 템플릿 관리',   section: null },
+  { id: 'form-builder',        icon: '📝', label: '교육신청양식마법사',    section: null },
+  { id: 'calc-grounds',        icon: '📐', label: '세부산출근거 관리',       section: null },
+  { id: 'approval-routing',    icon: '📊', label: '계정별 결재라인 설정',    section: null },
+  { id: 'service-policy',      icon: '🔧', label: '서비스 정책 관리',        section: null },
+  { id: 'plan-mgmt',           icon: '📋', label: '교육계획 관리',           section: '운영 메뉴' },
+  { id: 'allocation',          icon: '💰', label: '예산 배정 및 관리',       section: null },
+  { id: 'my-operations',       icon: '📥', label: '나의 운영 업무',           section: null },
+  { id: 'reports',             icon: '📈', label: '통계 및 리포트',          section: '분석' },
+  { id: 'manual',              icon: '📖', label: '서비스 매뉴얼',           section: null },
+];
+
+// 예산 운영 메뉴 (Budget Operation Manager)
+const BUDGET_OP_MENUS = [
+  { id: 'dashboard',        icon: '📊', label: '대시보드',              section: null },
+  { id: 'my-operations',   icon: '📥', label: '나의 운영 업무',           section: '운영 업무' },
+  { id: 'org-budget',       icon: '💰', label: '조직 예산 현황',          section: null },
+  { id: 'reports',          icon: '📈', label: '통계 및 리포트',          section: '분석' },
+];
+
+// 겸임용 통합 메뉴 (Tenant Admin + Budget Admin 겸임)
+const TENANT_DUAL_MENUS = [
+  { id: 'dashboard',        icon: '📊', label: '대시보드',              section: null },
+  { id: 'isolation-groups',    icon: '🛡️', label: '격리 그룹 관리',     section: '테넌트 관리' },
+  { id: 'my-isolation-groups', icon: '🔒',        label: '내 격리 그룹 관리', section: null },
+  { id: 'budget-account',   icon: '💳', label: '예산 계정 관리',          section: '예산·설정' },
+  { id: 'virtual-org',      icon: '🏢', label: '가상조직 템플릿 관리',   section: null },
+  { id: 'form-builder',     icon: '📝', label: '교육신청양식마법사',    section: null },
+  { id: 'calc-grounds',     icon: '📐', label: '세부산출근거 관리',       section: null },
+  { id: 'approval-routing', icon: '📊', label: '계정별 결재라인 설정',    section: null },
+  { id: 'service-policy',   icon: '🔧', label: '서비스 정책 관리',        section: null },
+  { id: 'plan-mgmt',        icon: '📋', label: '교육계획 관리',           section: '운영 메뉴' },
+  { id: 'allocation',       icon: '💰', label: '예산 배정 및 관리',       section: null },
+  { id: 'my-operations',   icon: '📥', label: '나의 운영 업무',           section: null },
+  { id: 'reports',          icon: '📈', label: '통계 및 리포트',          section: '분석' },
+  { id: 'manual',           icon: '📖', label: '서비스 매뉴얼',           section: null },
+];
+
+// 레거시 호환용 (platform_admin 이외 기존 flow 지원)
+const TENANT_MENUS = BUDGET_ADMIN_MENUS;
+
+// PENDING_COUNTS는 동적으로 계산 (renderBoSidebar에서 호출)
+function _getPendingCounts() {
+  const p = boCurrentPersona;
+  const myOps = typeof getPendingCountForPersona==='function' ? getPendingCountForPersona(p) : 3;
+  return { 'plan-mgmt': MOCK_BO_PLANS?.filter(x=>x.status.startsWith('pending')).length||2, 'my-operations': myOps };
+}
+
+function _getMenus(persona) {
+  if (persona.role === 'platform_admin')      return PLATFORM_MENUS;
+  if (persona.role === 'tenant_global_admin') return TENANT_ADMIN_MENUS;
+  if (persona.role === 'budget_global_admin') return BUDGET_ADMIN_MENUS;
+  if (persona.role === 'budget_op_manager')   return BUDGET_OP_MENUS;
+  return TENANT_MENUS; // 레거시 fallback
+}
+
+function renderBoLayout() { renderBoSidebar(); renderBoHeader(); }
+
+function renderBoSidebar() {
+  const persona = boCurrentPersona;
+  const menus = _getMenus(persona);
+  const isPlatform = persona.role === 'platform_admin';
+  let lastSection = null;
+  let menuHtml = '';
+
+  menus.forEach(m => {
+    const hasAccess = persona.accessMenus.includes(m.id);
+    if (m.section && m.section !== lastSection) {
+      menuHtml += `<div class="bo-nav-label" style="margin-top:8px">${m.section}</div>`;
+      lastSection = m.section;
+    }
+    const _pending = _getPendingCounts();
+    const badge = _pending[m.id] ? `<span class="bo-nav-badge">${_pending[m.id]}</span>` : '';
+    menuHtml += `
+    <div class="bo-nav-item ${boCurrentMenu===m.id?'active':''} ${!hasAccess?'disabled':''}"
+         onclick="boNavigate('${m.id}')">
+      <span class="bo-nav-icon">${m.icon}</span>
+      <span>${m.label}</span>
+      ${badge}
+    </div>`;
+  });
+
+  // Platform 배지 표시
+  const platformBanner = isPlatform ? `
+  <div style="margin:0 12px 12px;padding:8px 10px;background:rgba(251,191,36,.12);
+              border:1px solid rgba(251,191,36,.3);border-radius:8px">
+    <div style="font-size:9px;font-weight:900;color:#F59E0B;letter-spacing:.06em;text-transform:uppercase">SYSTEM ADMIN</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.7);margin-top:2px">플랫폼 글로벌 설정</div>
+  </div>` : `
+  <div style="margin:0 12px 12px;padding:8px 10px;background:rgba(255,255,255,.06);border-radius:8px">
+    <div style="font-size:9px;font-weight:900;color:rgba(255,255,255,.4);letter-spacing:.06em;text-transform:uppercase">TENANT ADMIN</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">${persona.tenantId ? TENANTS.find(t=>t.id===persona.tenantId)?.name||'' : ''}</div>
+  </div>`;
+
+  document.getElementById('bo-sidebar').innerHTML = `
+<div class="bo-logo">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+    <div style="background:rgba(255,255,255,0.15);border-radius:8px;padding:5px 7px;font-size:14px">🏢</div>
+    <div>
+      <div class="bo-logo-title">Next Learning</div>
+      <div class="bo-logo-sub">Back Office</div>
+    </div>
+  </div>
+</div>
+${platformBanner}
+<div class="bo-nav-section" style="flex:1">${menuHtml}</div>
+<div style="padding:14px 16px;border-top:1px solid rgba(255,255,255,0.08)">
+  <a href="index.html" style="display:flex;align-items:center;gap:8px;color:rgba(255,255,255,0.45);font-size:12px;font-weight:700;text-decoration:none">
+    <span>←</span> 프론트로 이동
+  </a>
+</div>`;
+}
+
+function renderBoHeader() {
+  const persona = boCurrentPersona;
+  const menus = _getMenus(persona);
+  const menuLabel = menus.find(m => m.id === boCurrentMenu)?.label || '';
+
+  // All tenant groups with their personas
+  const TENANT_GROUPS = [
+    { label: 'SYSTEM',  tenantId: null,    color: '#92400E', bg: '#FEF3C7', keys: ['platform_admin'] },
+    { label: 'HMC',     tenantId: 'HMC',   color: '#002C5F', bg: '#EFF6FF', keys: ['hmc_tenant_admin','hmc_total_general','hmc_hq_general','hmc_total_rnd','hmc_center_rnd'] },
+    { label: 'KIA',     tenantId: 'KIA',   color: '#059669', bg: '#F0FDF4', keys: ['kia_tenant_admin','kia_total_general','kia_hq_general'] },
+    { label: 'HAE',     tenantId: 'HAE',   color: '#7C3AED', bg: '#F5F3FF', keys: ['hae_tenant_admin','hae_total','hae_dept'] },
+    { label: '로템',   tenantId: 'ROTEM', color: '#B45309', bg: '#FFFBEB', keys: ['rotem_tenant_admin','rotem_total'] },
+    { label: '엔지',   tenantId: 'HEC',   color: '#0369A1', bg: '#F0F9FF', keys: ['hec_tenant_admin','hec_total'] },
+    { label: '제철',   tenantId: 'HSC',   color: '#BE123C', bg: '#FFF1F2', keys: ['hsc_tenant_admin','hsc_total'] },
+    { label: '트랜시', tenantId: 'HTS',color: '#6D28D9', bg: '#F5F3FF', keys: ['hts_tenant_admin','hts_total'] },
+    { label: '글로비스', tenantId: 'GLOVIS', color: '#0E7490', bg: '#ECFEFF', keys: ['glovis_tenant_admin','glovis_total'] },
+    { label: '차증권', tenantId: 'HIS',  color: '#9D174D', bg: '#FDF2F8', keys: ['his_tenant_admin','his_total'] },
+    { label: '케피코', tenantId: 'KEFICO', color: '#1D4ED8', bg: '#EFF6FF', keys: ['kefico_tenant_admin','kefico_total'] },
+    { label: 'ISC',     tenantId: 'HISC',  color: '#374151', bg: '#F9FAFB', keys: ['hisc_tenant_admin','hisc_total'] },
+  ];
+
+  const currentKey = Object.keys(BO_PERSONAS).find(k => BO_PERSONAS[k] === persona) || '';
+  const currentGroup = TENANT_GROUPS.find(g => g.keys.includes(currentKey));
+
+  // Compact current persona display + dropdown button
+  const switcher = `
+<div style="position:relative;display:inline-block" id="persona-switcher-wrap">
+  <button onclick="_boTogglePersonaSwitcher()"
+    style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:10px;
+           border:1.5px solid ${currentGroup?.color||'#E5E7EB'};background:white;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap"
+    title="\ud398\ub974\uc18c\ub098 \uc804\ud658">
+    <span class="role-tag ${persona.roleClass}" style="font-size:9px">${persona.roleTag}</span>
+    <span style="color:${currentGroup?.color||'#374151'}">${persona.name}</span>
+    <span style="font-size:10px;color:#9CA3AF;font-weight:600">${currentGroup?.label||''}</span>
+    <span style="font-size:9px;color:#9CA3AF">\u25bc</span>
+  </button>
+  <div id="persona-switcher-panel" style="display:none;position:fixed;top:56px;right:16px;z-index:500;
+       background:white;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.2);
+       border:1px solid #E5E7EB;padding:12px;width:580px;max-height:70vh;overflow-y:auto">
+    <div style="font-size:10px;font-weight:900;color:#9CA3AF;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">\ud14c\ub10c\ud2b8\ubcc4 \uc811\uc18d\uc790 \uc804\ud658</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      ${TENANT_GROUPS.map(g => {
+        const personas = g.keys.map(key => {
+          const p = BO_PERSONAS[key]; if(!p) return '';
+          const isActive = boCurrentPersona === p;
+          return `<button onclick="boSwitchPersona('${key}');_boTogglePersonaSwitcher(false)"
+            style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;text-align:left;width:100%;
+                   border:1.5px solid ${isActive ? g.color : '#F3F4F6'};
+                   background:${isActive ? g.color+'18' : 'white'};cursor:pointer;transition:all .12s"
+            onmouseover="this.style.borderColor='${g.color}';this.style.background='${g.bg}'"
+            onmouseout="this.style.borderColor='${isActive ? g.color : '#F3F4F6'}';this.style.background='${isActive ? g.color+'18':'white'}'">
+            <span class="role-tag ${p.roleClass}" style="font-size:8px;flex-shrink:0">${p.roleTag}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:${isActive?900:700};font-size:11px;color:${isActive?g.color:'#111827'}">${p.name}</div>
+              <div style="font-size:9px;color:#9CA3AF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.dept} \u00b7 ${p.pos}</div>
+            </div>
+            ${isActive ? '<span style="font-size:10px;color:'+g.color+'">&#10003;</span>' : ''}
+          </button>`;
+        }).join('');
+        return `<div style="background:${g.bg}20;border-radius:10px;padding:8px;border:1px solid ${g.color}20">
+          <div style="font-size:9px;font-weight:900;color:${g.color};letter-spacing:.06em;margin-bottom:6px;text-transform:uppercase">${g.label}</div>
+          <div style="display:flex;flex-direction:column;gap:4px">${personas}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>
+</div>`;
+
+  document.getElementById('bo-header').innerHTML = `
+<div style="display:flex;align-items:center;justify-content:space-between;height:100%;padding:0 16px">
+  <div style="display:flex;align-items:center;gap:10px">
+    <a href="index.html"
+      style="display:flex;align-items:center;gap:5px;background:linear-gradient(135deg,#002C5F,#0050A8);color:#fff;text-decoration:none;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;border:1.5px solid #0050A8;white-space:nowrap;transition:all .15s"
+      onmouseover="this.style.opacity='.8'"
+      onmouseout="this.style.opacity='1'"
+      title="LXP \ud559\uc2b5\uc790 \ud654\uba74(\ud504\ub860\ud2b8 \uc624\ud53c\uc2a4)\uc73c\ub85c \uc774\ub3d9">
+      \ud83c\udf93 LXP \ud504\ub860\ud2b8
+    </a>
+    <div style="font-size:11px;color:#9CA3AF;font-weight:700;border-left:1px solid #E5E7EB;padding-left:10px">\ubc31\uc624\ud53c\uc2a4 / ${menuLabel}</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <span style="font-size:10px;font-weight:700;color:#9CA3AF;white-space:nowrap">\uc811\uc18d\uc790 \uc804\ud658:</span>
+    ${switcher}
+  </div>
+</div>`;
+
+  // Close on outside click
+  setTimeout(() => {
+    document.removeEventListener('click', _boOutsideClose);
+    document.addEventListener('click', _boOutsideClose);
+  }, 0);
+}
+
+let _boSwitcherOpen = false;
+function _boTogglePersonaSwitcher(forceClose) {
+  const panel = document.getElementById('persona-switcher-panel');
+  if (!panel) return;
+  _boSwitcherOpen = forceClose === false ? false : !_boSwitcherOpen;
+  panel.style.display = _boSwitcherOpen ? 'block' : 'none';
+}
+function _boOutsideClose(e) {
+  if (!document.getElementById('persona-switcher-wrap')?.contains(e.target)) {
+    _boSwitcherOpen = false;
+    const panel = document.getElementById('persona-switcher-panel');
+    if (panel) panel.style.display = 'none';
+  }
+}
+
+
+function boNavigate(menuId) {
+  if (!boCurrentPersona.accessMenus.includes(menuId)) return;
+  boCurrentMenu = menuId;
+  renderBoSidebar();
+  renderBoHeader();
+  document.getElementById('bo-content').innerHTML = '';
+
+  if (menuId === 'dashboard')        renderBoDashboard();
+  if (menuId === 'platform-monitor') renderPlatformMonitor();
+  if (menuId === 'platform-roles')   renderPlatformRoles();
+  // 예산·양식 설정 5개 독립 메뉴
+  if (menuId === 'budget-account')   renderBudgetAccount();
+  if (menuId === 'virtual-org')      renderVirtualOrg();
+  if (menuId === 'form-builder')     renderFormBuilderMenu();
+  if (menuId === 'calc-grounds')     renderCalcGrounds();
+  if (menuId === 'approval-routing') renderApprovalRouting();
+  if (menuId === 'service-policy')   renderServicePolicy();
+  // 운영 메뉴
+  if (menuId === 'plan-mgmt')        renderBoPlanMgmt();
+  if (menuId === 'allocation')       renderBoAllocation();
+  if (menuId === 'my-operations')    renderMyOperations();
+  if (menuId === 'org-budget')       renderOrgBudget();
+  if (menuId === 'isolation-groups')    renderIsolationGroups();
+  if (menuId === 'my-isolation-groups') renderMyIsolationGroups();
+  if (menuId === 'reports')          renderBoReports();
+  if (menuId === 'manual')           renderBoManual();
+}
+
+function boSwitchPersona(key) {
+  boCurrentPersona = BO_PERSONAS[key];
+  if (!boCurrentPersona.accessMenus.includes(boCurrentMenu)) {
+    boCurrentMenu = 'dashboard';
+  }
+  boNavigate(boCurrentMenu);
+}

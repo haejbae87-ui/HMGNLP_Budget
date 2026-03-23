@@ -27,6 +27,41 @@ const PROCESS_PATTERNS = {
   C: { label: '패턴 C', desc: '신청 단독 (후정산)',    stages: ['apply'],               color: '#0369A1' },
 };
 
+// 폼 목적 (purpose) 정의 ────────────────────────────────────────────────────────────
+const FORM_PURPOSE_TYPES = {
+  individual: { label: '개인직무 사외학습',           icon: '🙋', color: '#059669', bg: '#F0FDF4' },
+  elearning:  { label: '이러닝/집합(비대면) 운영',  icon: '🏢', color: '#7C3AED', bg: '#F5F3FF' },
+  seminar:    { label: '콘퍼런스/세미나/워크숍 등 운영', icon: '🎤', color: '#0369A1', bg: '#EFF6FF' },
+  etc:        { label: '기타 운영',                    icon: '📦', color: '#D97706', bg: '#FFFBEB' },
+};
+
+// 교육유형 + 세부유형 2-depth 맵 ──────────────────────────────────────────────────────
+const FORM_EDU_TYPES = {
+  individual: [
+    { type: '콘텐츠',       sub: ['이러닝', '동영상', '디지털 교재'] },
+    { type: '오프라인/비대면', sub: ['집합(비대면) 교육', '학회 · 세미나 · 콘퍼런스', '어학학습비'] },
+    { type: '전문자료',      sub: ['도서', '논문/자료', '기술자료(DB구독 · 자료구매)', '학·협회비'] },
+    { type: '기타',          sub: ['자격증취득', '사내 강의 진행', '사외 출강', '학회 직접 발표'] },
+  ],
+  elearning: [
+    { type: '이러닝',   sub: [] },
+    { type: '집합(비대면)', sub: [] },
+  ],
+  seminar: [
+    { type: '콘퍼런스', sub: [] },
+    { type: '세미나',    sub: [] },
+    { type: '팀빌딩',   sub: [] },
+    { type: '자격유지',  sub: [] },
+    { type: '제도연계',  sub: [] },
+  ],
+  etc: [
+    { type: '과정개발',   sub: [] },
+    { type: '교안개발',   sub: [] },
+    { type: '영상제작',   sub: [] },
+    { type: '교육시설운영', sub: [] },
+  ],
+};
+
 // 확장된 필드 라이브러리 - 입력 주체(scope) 포함
 const ADVANCED_FIELDS = [
   // 공통 기본 필드
@@ -490,18 +525,24 @@ function fbOpenBuilderModal(formId) {
 function fbCloseModal() { document.getElementById('fb-field-modal').style.display = 'none'; }
 
 function _fbAdvancedModalBody(form) {
-  const nameVal    = form?.name || '';
-  const typeVal    = form?.type || 'apply';
-  const descVal    = form?.desc || '';
-  const svcTypeVal = form?.serviceType || '';
-  const targetVal  = form?.target || '';
+  const nameVal    = form?.name    || '';
+  const typeVal    = form?.type    || 'apply';
+  const descVal    = form?.desc    || '';
+  const purposeVal = form?.purpose || '';
+  const eduTypeVal = form?.eduType || '';
+  const eduSubVal  = form?.eduSubType || '';
+
+  // 목적 연동 교육유형 목록
+  const eduTypesMap = purposeVal ? (FORM_EDU_TYPES[purposeVal] || []) : [];
+  const selEduType  = eduTypesMap.find(t => t.type === eduTypeVal) || null;
 
   // 카테고리별 필드 그룹
   const categories = [...new Set(ADVANCED_FIELDS.map(f => f.category))];
 
   return `
 <!-- 기본 정보 -->
-<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+<!-- 행 1: 단계 + 목적 -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
   <div>
     <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">단계 *</label>
     <select id="fb-type" style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
@@ -511,24 +552,38 @@ function _fbAdvancedModalBody(form) {
     </select>
   </div>
   <div>
-    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">서비스 유형</label>
-    <select id="fb-service-type" style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
+    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">목적</label>
+    <select id="fb-purpose" onchange="_fbOnPurposeChange(this.value)"
+      style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
       <option value="">— 선택 —</option>
-      ${Object.entries(FORM_SERVICE_TYPES).map(([k,v]) =>
-        `<option value="${k}" ${svcTypeVal===k?'selected':''}>${v.icon} ${v.label}</option>`
-      ).join('')}
-    </select>
-  </div>
-  <div>
-    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">대상자</label>
-    <select id="fb-target" style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-      <option value="">— 선택 —</option>
-      ${Object.entries(FORM_TARGET_TYPES).map(([k,v]) =>
-        `<option value="${k}" ${targetVal===k?'selected':''}>${v.icon} ${v.label}</option>`
+      ${Object.entries(FORM_PURPOSE_TYPES).map(([k,v]) =>
+        `<option value="${k}" ${purposeVal===k?'selected':''}>${v.icon} ${v.label}</option>`
       ).join('')}
     </select>
   </div>
 </div>
+<!-- 행 2: 교육유형 + 세부유형 (목적 선택 시 표시) -->
+<div id="fb-edutypes-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;${(purposeVal&&eduTypesMap.length>0)?'':'display:none'}"
+  class="${(purposeVal&&eduTypesMap.length>0)?'':'d-none'}">
+  <div>
+    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">교육유형</label>
+    <select id="fb-edu-type" onchange="_fbOnEduTypeChange(this.value)"
+      style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
+      <option value="">— 선택 —</option>
+      ${eduTypesMap.map(t => `<option value="${t.type}" ${eduTypeVal===t.type?'selected':''}>${t.type}</option>`).join('')}
+    </select>
+  </div>
+  <div id="fb-sub-col">
+    ${selEduType && selEduType.sub.length > 0 ? `
+    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">세부유형</label>
+    <select id="fb-edu-sub"
+      style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
+      <option value="">— 선택 —</option>
+      ${selEduType.sub.map(s => `<option value="${s}" ${eduSubVal===s?'selected':''}>${s}</option>`).join('')}
+    </select>` : '<div></div>'}
+  </div>
+</div>
+<!-- 행 3: 양식명 + 설명 -->
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
   <div>
     <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">양식명 *</label>
@@ -660,18 +715,56 @@ function _fbRefreshPreview() {
   });
 }
 
+// 목적 변경 시 교육유형 행 토글
+function _fbOnPurposeChange(purposeKey) {
+  const row = document.getElementById('fb-edutypes-row');
+  const etSel = document.getElementById('fb-edu-type');
+  const subCol = document.getElementById('fb-sub-col');
+  if (!row || !etSel) return;
+
+  const types = FORM_EDU_TYPES[purposeKey] || [];
+  if (types.length === 0) {
+    row.style.display = 'none';
+    return;
+  }
+  row.style.display = 'grid';
+  etSel.innerHTML = '<option value="">— 선택 —</option>' +
+    types.map(t => `<option value="${t.type}">${t.type}</option>`).join('');
+  if (subCol) subCol.innerHTML = '<div></div>';
+}
+
+// 교육유형 변경 시 세부유형 목록 갱신
+function _fbOnEduTypeChange(typeVal) {
+  const purposeKey = document.getElementById('fb-purpose')?.value || '';
+  const types = FORM_EDU_TYPES[purposeKey] || [];
+  const selT = types.find(t => t.type === typeVal);
+  const subCol = document.getElementById('fb-sub-col');
+  if (!subCol) return;
+  if (selT && selT.sub.length > 0) {
+    subCol.innerHTML = `
+      <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">세부유형</label>
+      <select id="fb-edu-sub" style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
+        <option value="">— 선택 —</option>
+        ${selT.sub.map(s => `<option value="${s}">${s}</option>`).join('')}
+      </select>`;
+  } else {
+    subCol.innerHTML = '<div></div>';
+  }
+}
+
 function fbSaveForm() {
-  const tenantId   = boCurrentPersona.tenantId || 'HMC';
-  const type        = document.getElementById('fb-type').value;
-  const name        = document.getElementById('fb-name').value.trim();
-  const desc        = document.getElementById('fb-desc').value.trim();
-  const serviceType = document.getElementById('fb-service-type')?.value || '';
-  const target      = document.getElementById('fb-target')?.value || '';
+  const tenantId = boCurrentPersona.tenantId || 'HMC';
+  const type       = document.getElementById('fb-type').value;
+  const name       = document.getElementById('fb-name').value.trim();
+  const desc       = document.getElementById('fb-desc').value.trim();
+  const purpose    = document.getElementById('fb-purpose')?.value || '';
+  const eduType    = document.getElementById('fb-edu-type')?.value || '';
+  const eduSubType = document.getElementById('fb-edu-sub')?.value || '';
 
   if (!name) { alert('양식명은 필수입니다.'); return; }
   if (_fbTempFields.length === 0) { alert('최소 1개 이상의 필드를 추가해주세요.'); return; }
 
-  const formData = { type, name, desc, active: true, fields: [..._fbTempFields], serviceType, target };
+  const formData = { type, name, desc, active: true, fields: [..._fbTempFields], purpose, eduType, eduSubType };
 
   if (_fbEditId) {
     const idx = FORM_MASTER.findIndex(x => x.id === _fbEditId);

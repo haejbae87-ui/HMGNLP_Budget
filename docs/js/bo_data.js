@@ -1445,12 +1445,12 @@ function boPlanStatusBadge(s) {
   },
   // HSC 학습자
   hsc_learner: {
-    id: 'P608', name: '정치안', dept: '성장지원팀', pos: '매니저',
+    id: 'P608', name: '정O안', dept: '성장디자인팀', pos: '매니저',
     role: 'learner', roleLabel: '[HSC] 학습자',
     roleClass: 'role-team', roleTag: '[학습자]',
     budgetGroup: 'general', tenantId: 'HSC',
     isolationGroupId: 'IG-HSC-ALL',
-    scope: '성장지원팀',
+    scope: '성장디자인팀',
     desc: '현대제철 일반직 학습자. 개인직무 사외학습 중심. 교육신청/결과 작성.',
     accessMenus: ['dashboard']
   },

@@ -40,27 +40,42 @@ const _PURPOSE_MAP = {
 };
 const _EDU_TYPE_MAP = {
   external_personal: [
-    { id:'regular',   label:'정규교육',         subs:['이러닝','집합','라이브'] },
-    { id:'academic',  label:'학술 및 연구활동', subs:['학회','세미나','컨퍼런스'] },
-    { id:'knowledge', label:'지식자원 학습',    subs:['도서구입','온라인콘텐츠'] },
-    { id:'competency',label:'역량개발지원',      subs:['어학학습비','자격증취득'] },
-    { id:'etc',       label:'기타',              subs:[] },
+    { id:'regular',    label:'정규교육',         subs:[
+      {id:'elearning', label:'이러닝'},
+      {id:'class',     label:'집합'},
+      {id:'live',      label:'라이브'},
+    ]},
+    { id:'academic',   label:'학술 및 연구활동', subs:[
+      {id:'conf',      label:'학회/컨퍼런스'},
+      {id:'seminar',   label:'세미나'},
+    ]},
+    { id:'knowledge',  label:'지식자원 학습',    subs:[
+      {id:'book',      label:'도서구입'},
+      {id:'online',    label:'온라인콘텐츠'},
+    ]},
+    { id:'competency', label:'역량개발지원',      subs:[
+      {id:'lang',      label:'어학학습비 지원'},
+      {id:'cert',      label:'자격증 취득지원'},
+    ]},
+    { id:'etc',        label:'기타',              subs:[
+      {id:'team_build',label:'팀빌딩'},
+    ]},
   ],
   elearning_class: [
     { id:'elearning', label:'이러닝',   subs:[] },
     { id:'class',     label:'집합교육', subs:[] },
   ],
   conf_seminar: [
-    { id:'conference', label:'콘퍼런스',  subs:[] },
-    { id:'seminar',    label:'세미나',    subs:[] },
-    { id:'teambuilding',label:'팀빌딩',  subs:[] },
-    { id:'cert_maintain',label:'자격유지',subs:[] },
-    { id:'system_link', label:'제도연계', subs:[] },
+    { id:'conference',   label:'콘퍼런스',  subs:[] },
+    { id:'seminar',      label:'세미나',    subs:[] },
+    { id:'teambuilding', label:'팀빌딩',    subs:[] },
+    { id:'cert_maintain',label:'자격유지',  subs:[] },
+    { id:'system_link',  label:'제도연계',  subs:[] },
   ],
   misc_ops: [
-    { id:'course_dev',  label:'과정개발',   subs:[] },
-    { id:'material_dev',label:'교안개발',   subs:[] },
-    { id:'video_prod',  label:'영상제작',   subs:[] },
+    { id:'course_dev',  label:'과정개발',    subs:[] },
+    { id:'material_dev',label:'교안개발',    subs:[] },
+    { id:'video_prod',  label:'영상제작',    subs:[] },
     { id:'facility',    label:'교육시설운영',subs:[] },
   ],
 };
@@ -326,24 +341,37 @@ function renderPolicyWizard() {
   // ── Step 3: 교육유형 ───────────────────────────────────────────────────────────
   } else if (_policyWizardStep === 2) {
     const types = _EDU_TYPE_MAP[d.purpose] || [];
+    if (!d.eduSubTypes) d.eduSubTypes = {};
     stepContent = `
 <div style="display:grid;gap:10px">
   <div style="padding:12px 16px;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:10px;font-size:12px;color:#5B21B6">
     목적: <strong>${[..._PURPOSE_MAP.learner,..._PURPOSE_MAP.operator].find(x=>x.id===d.purpose)?.label||d.purpose}</strong>
   </div>
-  <label class="bo-label">교육 유형 <span style="font-size:10px;color:#9CA3AF">(복수 선택 가능)</span></label>
-  <div style="display:grid;gap:8px">
-    ${types.map(t=>`
-    <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:10px;
-                  border:1.5px solid ${(d.eduTypes||[]).includes(t.id)?'#7C3AED':'#E5E7EB'};
-                  background:${(d.eduTypes||[]).includes(t.id)?'#F5F3FF':'white'};cursor:pointer"
-           onclick="_toggleEduType('${t.id}')">
-      <input type="checkbox" ${(d.eduTypes||[]).includes(t.id)?'checked':''} style="margin-top:2px;flex-shrink:0">
-      <div>
-        <div style="font-size:12px;font-weight:800;color:${(d.eduTypes||[]).includes(t.id)?'#7C3AED':'#374151'}">${t.label}</div>
-        ${t.subs.length?`<div style="font-size:11px;color:#9CA3AF;margin-top:2px">${t.subs.join(' · ')}</div>`:''}
-      </div>
-    </label>`).join('')}
+  <label class="bo-label">교육 유형 <span style="font-size:10px;color:#9CA3AF">(복수 선택 가능 · 세부 항목 개별 선택)</span></label>
+  <div style="display:grid;gap:6px">
+    ${types.map(t=>{
+      const isChecked = (d.eduTypes||[]).includes(t.id);
+      const subRows = isChecked && t.subs.length ? `
+        <div style="margin:4px 0 0 32px;display:flex;flex-wrap:wrap;gap:6px">
+          ${t.subs.map(s=>`
+          <label style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:7px;
+                        border:1.5px solid ${(d.eduSubTypes[t.id]||[]).includes(s.id)?'#7C3AED':'#D1D5DB'};
+                        background:${(d.eduSubTypes[t.id]||[]).includes(s.id)?'#F5F3FF':'#F9FAFB'};cursor:pointer"
+                 onclick="event.stopPropagation();_toggleEduSubType('${t.id}','${s.id}')">
+            <input type="checkbox" ${(d.eduSubTypes[t.id]||[]).includes(s.id)?'checked':''} style="margin:0">
+            <span style="font-size:11px;font-weight:700;color:${(d.eduSubTypes[t.id]||[]).includes(s.id)?'#7C3AED':'#6B7280'}">${s.label}</span>
+          </label>`).join('')}
+        </div>` : '';
+      return `
+    <div style="border-radius:10px;border:1.5px solid ${isChecked?'#7C3AED':'#E5E7EB'};background:${isChecked?'#F5F3FF':'white'};overflow:hidden">
+      <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer" onclick="_toggleEduType('${t.id}')">
+        <input type="checkbox" ${isChecked?'checked':''} style="margin:0;flex-shrink:0">
+        <div style="font-size:13px;font-weight:800;color:${isChecked?'#7C3AED':'#374151'}">${t.label}</div>
+        ${!isChecked && t.subs.length ? `<div style="font-size:11px;color:#9CA3AF;margin-left:2px">(${t.subs.map(s=>s.label).join(' · ')})</div>` : ''}
+      </label>
+      ${subRows ? `<div style="padding:0 14px 12px">${subRows}</div>` : ''}
+    </div>`;
+    }).join('')}
   </div>
 </div>`;
 
@@ -587,8 +615,22 @@ function renderPolicyWizard() {
 function _toggleEduType(id) {
   const arr = _policyWizardData.eduTypes || [];
   const i = arr.indexOf(id);
-  if (i>=0) arr.splice(i,1); else arr.push(id);
+  if (i>=0) {
+    arr.splice(i,1);
+    // 상위 해제 시 세부항목도 초기화
+    if (_policyWizardData.eduSubTypes) delete _policyWizardData.eduSubTypes[id];
+  } else {
+    arr.push(id);
+  }
   _policyWizardData.eduTypes = arr;
+  renderPolicyWizard();
+}
+function _toggleEduSubType(typeId, subId) {
+  if (!_policyWizardData.eduSubTypes) _policyWizardData.eduSubTypes = {};
+  if (!_policyWizardData.eduSubTypes[typeId]) _policyWizardData.eduSubTypes[typeId] = [];
+  const arr = _policyWizardData.eduSubTypes[typeId];
+  const i = arr.indexOf(subId);
+  if (i>=0) arr.splice(i,1); else arr.push(subId);
   renderPolicyWizard();
 }
 function _addStageThreshold(stage) {

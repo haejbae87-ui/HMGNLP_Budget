@@ -452,7 +452,7 @@ let ISOLATION_GROUPS = [
   { id: 'IG-ROTEM-FREE',tenantId: 'ROTEM',  name: '예산미사용 그룹',   color: '#6B7280', bg: '#F9FAFB', desc: '로템 무예산 학습이력 관리 전용',globalAdminKey: 'rotem_total',       globalAdminKeys: ['rotem_total'],      opManagerKeys: [],                  ownedAccounts: ['COMMON-FREE'],                     createdBy: 'rotem_total',         status: 'active', createdAt: '2026-02-01' },
   { id: 'IG-HEC-ALL',   tenantId: 'HEC',    name: 'HEC 전사예산',      color: '#0369A1', bg: '#F0F9FF', desc: '현대엔지니어링 교육예산',       globalAdminKey: 'hec_total',         globalAdminKeys: ['hec_total'],        opManagerKeys: [],                  ownedAccounts: ['HEC-OPS','HEC-PART'],              createdBy: 'hec_total',           status: 'active', createdAt: '2026-02-01' },
   { id: 'IG-HEC-FREE',  tenantId: 'HEC',    name: '예산미사용 그룹',   color: '#6B7280', bg: '#F9FAFB', desc: 'HEC 무예산 학습이력 관리 전용', globalAdminKey: 'hec_total',         globalAdminKeys: ['hec_total'],        opManagerKeys: [],                  ownedAccounts: ['COMMON-FREE'],                     createdBy: 'hec_total',           status: 'active', createdAt: '2026-02-01' },
-  { id: 'IG-HSC-ALL',   tenantId: 'HSC',    name: 'HSC 전사예산',      color: '#BE123C', bg: '#FFF1F2', desc: '현대제철 교육예산',             globalAdminKey: 'hsc_total',         globalAdminKeys: ['hsc_total'],        opManagerKeys: [],                  ownedAccounts: ['HSC-OPS','HSC-PART'],              createdBy: 'hsc_total',           status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-HSC-ALL',   tenantId: 'HSC',    name: 'HSC 전사예산',      color: '#BE123C', bg: '#FFF1F2', desc: '현대제철 교육예산',             globalAdminKey: 'hsc_total',         globalAdminKeys: ['hsc_total'],        opManagerKeys: [],                  ownedAccounts: ['HSC-OPS','HSC-PART','HSC-EXT'],      createdBy: 'hsc_total',           status: 'active', createdAt: '2026-02-01' },
   { id: 'IG-HSC-FREE',  tenantId: 'HSC',    name: '예산미사용 그룹',   color: '#6B7280', bg: '#F9FAFB', desc: 'HSC 무예산 학습이력 관리 전용', globalAdminKey: 'hsc_total',         globalAdminKeys: ['hsc_total'],        opManagerKeys: [],                  ownedAccounts: ['COMMON-FREE'],                     createdBy: 'hsc_total',           status: 'active', createdAt: '2026-02-01' },
   { id: 'IG-HTS-ALL',   tenantId: 'HTS',    name: 'HTS 전사예산',      color: '#6D28D9', bg: '#F5F3FF', desc: '현대트랜시스 교육예산',         globalAdminKey: 'hts_total',         globalAdminKeys: ['hts_total'],        opManagerKeys: [],                  ownedAccounts: ['HTS-OPS','HTS-PART'],              createdBy: 'hts_total',           status: 'active', createdAt: '2026-02-01' },
   { id: 'IG-HTS-FREE',  tenantId: 'HTS',    name: '예산미사용 그룹',   color: '#6B7280', bg: '#F9FAFB', desc: 'HTS 무예산 학습이력 관리 전용', globalAdminKey: 'hts_total',         globalAdminKeys: ['hts_total'],        opManagerKeys: [],                  ownedAccounts: ['COMMON-FREE'],                     createdBy: 'hts_total',           status: 'active', createdAt: '2026-02-01' },
@@ -795,6 +795,10 @@ let ACCOUNT_MASTER = [
     code: 'HAE-CERT', tenantId: 'HAE', group: '일반', name: '오토에버-자격증계정', planRequired: false, carryover: false,
     desc: 'IT인증/자격증 업무지원 전용', active: true
   },
+  },
+  {
+    code: 'HSC-EXT', tenantId: 'HSC', group: '일반', name: '현대제철-사외교육', planRequired: false, carryover: false,
+    desc: '임직원 사외교육(외부 교육과정, 세미나, 컨퍼런스 등) 예산 계정', active: true
 ];
 
 // 헬퍼: 테넌트별 계정 목록

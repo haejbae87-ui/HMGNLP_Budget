@@ -174,7 +174,8 @@ function _baRenderContent() {
   if (!group) return '<div style="padding:40px;text-align:center;color:#9CA3AF">그룹 정보를 찾을 수 없습니다.</div>';
 
   const role = boCurrentPersona.role;
-  const isViewOnly = (role === 'platform_admin' || role === 'tenant_global_admin');
+  // 플랫폼조잡·테넌트조잡도 계정 추가 가능, 일반 조회용엠 영진만 읽기 전용
+  const isViewOnly = false;
 
   // 해당 격리그룹 소유 계정
   const acctCodes = group.ownedAccounts || [];
@@ -581,7 +582,11 @@ function s1ToggleActive(code) {
 }
 
 function s1SaveAccount() {
-  const tenantId = boCurrentPersona.tenantId || 'HMG';
+  // platform_admin은 _baTenantId, 나머지는 persona.tenantId
+  const role = boCurrentPersona.role;
+  const tenantId = (role === 'platform_admin')
+    ? (_baTenantId || 'HMC')
+    : (boCurrentPersona.tenantId || _baTenantId || 'HMC');
   const code = document.getElementById('s1-code').value.trim();
   const name = document.getElementById('s1-name').value.trim();
   if (!code || !name) { alert('코드와 계정명은 필수입니다.'); return; }
@@ -601,6 +606,13 @@ function s1SaveAccount() {
   } else {
     if (ACCOUNT_MASTER.find(x => x.code === code)) { alert('이미 존재하는 코드입니다.'); return; }
     ACCOUNT_MASTER.push(obj);
+    // 현재 선택된 격리그룹의 ownedAccounts에 자동 연결
+    if (_baGroupId && typeof ISOLATION_GROUPS !== 'undefined') {
+      const grp = ISOLATION_GROUPS.find(g => g.id === _baGroupId);
+      if (grp && !grp.ownedAccounts.includes(code)) {
+        grp.ownedAccounts.push(code);
+      }
+    }
   }
   s1CloseModal();
   document.getElementById('bm-content').innerHTML = renderStep1();

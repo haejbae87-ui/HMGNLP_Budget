@@ -16,8 +16,9 @@ function _patternFromPolicy(p) {
 }
 
 // ── 정책 목록 메인 화면 ───────────────────────────────────────────────────────
-let _pbTenantFilter = '';
-let _pbGroupFilter  = '';
+let _pbTenantFilter  = '';
+let _pbGroupFilter   = '';
+let _pbAccountFilter = '';
 
 function renderServicePolicy() {
   const persona    = boCurrentPersona;
@@ -44,13 +45,17 @@ function renderServicePolicy() {
     if (!tenantMatch) return false;
     if (isBudgetOp || isBudgetAdmin) {
       // 예산운영/예산총괄: 격리그룹 매칭 또는 ownedAccounts 교집합
-      if (pbGroupId && p.isolationGroupId) return p.isolationGroupId === pbGroupId;
-      const myAccts = persona.ownedAccounts || [];
-      if (myAccts.includes('*')) return p.tenantId === activeTenantId;
-      return myAccts.some(a => p.accountCodes?.includes(a));
+      if (pbGroupId && p.isolationGroupId) { if (p.isolationGroupId !== pbGroupId) return false; }
+      else {
+        const myAccts = persona.ownedAccounts || [];
+        if (!myAccts.includes('*') && !myAccts.some(a => p.accountCodes?.includes(a))) return false;
+      }
+    } else {
+      if (pbGroupId && p.isolationGroupId && p.isolationGroupId !== pbGroupId) return false;
+      if (activeTenantId && p.tenantId !== activeTenantId) return false;
     }
-    if (pbGroupId && p.isolationGroupId) return p.isolationGroupId === pbGroupId;
-    if (activeTenantId) return p.tenantId === activeTenantId;
+    // ── 예산 계정 필터 ────────────────────────────────────────────────────────
+    if (_pbAccountFilter && !(p.accountCodes || []).includes(_pbAccountFilter)) return false;
     return true;
   });
 
@@ -60,12 +65,20 @@ function renderServicePolicy() {
   const availGroups = (typeof ISOLATION_GROUPS !== 'undefined' ? ISOLATION_GROUPS : [])
     .filter(g => !activeTenantId || g.tenantId === activeTenantId);
 
-  const filterBar = (isPlatform || isTenant || isBudgetOp) ? `
-<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+  // 격리그룹 선택 시 해당 그룹 계정만, 아니면 테넌트 전체 계정
+  const availAccounts = ACCOUNT_MASTER.filter(a => {
+    if (!a.active) return false;
+    if (activeTenantId && a.tenantId !== activeTenantId) return false;
+    if (pbGroupId && a.isolationGroupId && a.isolationGroupId !== pbGroupId) return false;
+    return true;
+  });
+
+  const filterBar = (isPlatform || isTenant || isBudgetOp || isBudgetAdmin) ? `
+<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:flex-end">
   ${isPlatform ? `
   <div>
     <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">회사</label>
-    <select onchange="_pbTenantFilter=this.value;_pbGroupFilter='';renderServicePolicy()"
+    <select onchange="_pbTenantFilter=this.value;_pbGroupFilter='';_pbAccountFilter='';renderServicePolicy()"
       style="padding:7px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700">
       <option value="">전체 회사</option>
       ${TENANTS.map(t=>`<option value="${t.id}" ${activeTenantId===t.id?'selected':''}>${t.name||t.id}</option>`).join('')}
@@ -78,14 +91,22 @@ function renderServicePolicy() {
   </div>` : `
   <div>
     <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">교육 격리그룹</label>
-    <select onchange="_pbGroupFilter=this.value;renderServicePolicy()"
+    <select onchange="_pbGroupFilter=this.value;_pbAccountFilter='';renderServicePolicy()"
       style="padding:7px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700">
       <option value="">전체 그룹</option>
       ${availGroups.map(g=>`<option value="${g.id}" ${pbGroupId===g.id?'selected':''}>${g.name}</option>`).join('')}
     </select>
   </div>`}
-  ${!isBudgetOp ? `<button onclick="_pbTenantFilter='';_pbGroupFilter='';renderServicePolicy()"
-    style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:11px;font-weight:700;background:white;cursor:pointer;margin-top:16px">초기화</button>` : ''}
+  <div>
+    <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">예산 계정</label>
+    <select onchange="_pbAccountFilter=this.value;renderServicePolicy()"
+      style="padding:7px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;min-width:140px">
+      <option value="">전체 계정</option>
+      ${availAccounts.map(a=>`<option value="${a.code}" ${_pbAccountFilter===a.code?'selected':''}>${a.name}</option>`).join('')}
+    </select>
+  </div>
+  ${!isBudgetOp ? `<button onclick="_pbTenantFilter='';_pbGroupFilter='';_pbAccountFilter='';renderServicePolicy()"
+    style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:11px;font-weight:700;background:white;cursor:pointer">초기화</button>` : ''}
 </div>` : '';
 
   const policyCards = myPolicies.map(p => {

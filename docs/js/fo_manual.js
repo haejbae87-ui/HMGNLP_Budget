@@ -13,7 +13,7 @@ function renderFoManual() {
     <h1 style="font-size:20px;font-weight:900;margin:0 0 8px">프론트오피스 서비스 매뉴얼</h1>
     <p style="font-size:13px;color:rgba(255,255,255,.8);margin:0;line-height:1.6">
       LXP 학습자·팀담당자를 위한 교육예산 활용 안내서<br>
-      차세대학습플랫폼 기획자·개발자가 학습자 화면 흐름을 파악하는 데도 활용하세요. | 2026-03-23
+      차세대학습플랫폼 기획자·개발자가 학습자 화면 흐름을 파악하는 데도 활용하세요. | 2026-03-24 v3.0
     </p>
   </div>
 
@@ -69,7 +69,8 @@ function _foManOverview() {
         { role:'팀담당자', desc:'팀 단위 교육계획 수립 + 구성원 신청 대행', color:'#002C5F' },
         { role:'HMC 학습자', desc:'일반예산·R&D예산 복합 사용 가능', color:'#1D4ED8' },
         { role:'KIA 학습자', desc:'기아 일반예산 기반 신청', color:'#059669' },
-        { role:'HAE 학습자', desc:'계획→신청→결과 고정 프로세스', color:'#7C3AED' },
+        { role:'HAE 학습자', desc:'전사교육예산·팀프로젝트할당예산·예산미사용 3가지 카드 선택', color:'#7C3AED' },
+        { role:'HSC 학습자', desc:'현대제쳊 사외교육 계정(신청→결과 패턴B)', color:'#BE123C' },
       ].map(p => `
       <div style="display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;background:#F9FAFB;margin-bottom:6px">
         <span style="background:${p.color};color:#fff;font-size:9px;font-weight:900;padding:2px 7px;border-radius:4px;white-space:nowrap">${p.role}</span>

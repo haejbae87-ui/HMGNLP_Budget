@@ -1,6 +1,7 @@
-// ─── 백오피스: 서비스 매뉴얼 (v2.0) ────────────────────────────────────────────
+// ─── 백오피스: 서비스 매뉴얼 (v3.0) ────────────────────────────────────────────
 // 대상: 차세대학습플랫폼 서비스 기획자 및 개발자
 // 내용: 멀티테넌트 교육예산 관리 시스템의 전체 구조·역할·메뉴·데이터 흐름 안내
+// 최종 업데이트: 2026-03-24 (HAE/HSC 현행화, 서비스정책 권한 확장, 개발 일정 추가)
 
 function renderBoManual() {
   const el = document.getElementById('bo-content');
@@ -13,7 +14,7 @@ function renderBoManual() {
     <h1 style="font-size:22px;font-weight:900;margin:0 0 8px">백오피스 서비스 매뉴얼</h1>
     <p style="font-size:13px;color:rgba(255,255,255,.8);margin:0;line-height:1.6">
       차세대학습플랫폼(NLP) 서비스 기획자·개발자를 위한 멀티테넌트 교육예산 관리 시스템 안내서<br>
-      예산 정책 설계부터 결재 자동 라우팅까지 전체 흐름을 다룹니다. | 2026-03-23
+      예산 정책 설계부터 결재 자동 라우팅까지 전체 흐름을 다룹니다. | 2026-03-24 v3.0
     </p>
   </div>
 
@@ -25,6 +26,7 @@ function renderBoManual() {
       { id:'patterns',    label:'④ 프로세스 패턴' },
       { id:'data-flow',   label:'⑤ 데이터 흐름' },
       { id:'tech',        label:'⑥ 기술 구조' },
+      { id:'devplan',     label:'⑦ 개발 일정' },
     ].map(t => `
     <button onclick="_manSetTab('${t.id}')" id="mbtab-${t.id}"
       style="padding:10px 16px;font-size:12px;font-weight:700;border:none;border-bottom:3px solid transparent;
@@ -48,7 +50,7 @@ function _manSetTab(id) {
   });
   const c = document.getElementById('manual-content');
   if (!c) return;
-  const map = { overview:_manOverview, personas:_manPersonas, menus:_manMenus, patterns:_manPatterns, 'data-flow':_manDataFlow, tech:_manTech };
+  const map = { overview:_manOverview, personas:_manPersonas, menus:_manMenus, patterns:_manPatterns, 'data-flow':_manDataFlow, tech:_manTech, devplan:_manDevPlan };
   if (map[id]) c.innerHTML = map[id]();
 }
 
@@ -221,11 +223,12 @@ function _manMenus() {
   const menus = [
     {
       icon:'🔧', id:'service-policy', name:'서비스 정책 설정 ★',
-      roles:'budget_global_admin',
+      roles:'platform_admin(회사+그룹 필터) / tenant_global_admin(그룹 필터) / budget_op_manager(그룹 자동 고정)',
       desc:`<strong>핵심 메뉴</strong>: 학습자 시나리오 기반으로 예산·조직·양식·프로세스를 하나의 정책으로 통합 설계합니다.<br>
             <strong>6단계 위저드</strong>: Step1 기본정보(서비스명+패턴A/B/C/D) → Step2 예산연동 → Step3 금액별 결재라인 → Step4 대상조직 → Step5 양식·유형 → Step6 결재권한<br>
-            <strong>금액별 결재라인</strong>: 구간별 결재자를 동적으로 설정(예: 100만↓팀장, 100만↑본부장). 최종 결재자 지정 시 라우팅 미리보기 제공.`,
-      impl:'패턴D(무예산 이력) 선택 시 Step2 자동 스킵. approvalThresholds[] 배열로 구간 관리.',
+            <strong>조회 필터</strong>: 플랫폼 총괄은 회사+격리그룹 선택, 테넌트 총괄은 격리그룹 선택, 예산운영담당자는 본인 격리그룹 자동 고정(🔒배지).<br>
+            <strong>정책 카드</strong>: 플랫폼 총괄 조회 시 테넌트ID 배지 추가 표시.`,
+      impl:'_pbTenantFilter/_pbGroupFilter 상태변수로 필터링. isBudgetOp 분기로 격리그룹 자동 고정. approvalThresholds[] 배열로 구간 관리.',
     },
     {
       icon:'💳', id:'budget-account', name:'예산 계정 관리',
@@ -244,11 +247,11 @@ function _manMenus() {
     },
     {
       icon:'🧙', id:'form-builder', name:'교육신청양식마법사',
-      roles:'budget_global_admin',
-      desc:`3탭 구조: 📚 양식 라이브러리 | 🔧 양식 빌더(FO/BO/시스템 필드 구분) | 🔗 서비스 통합 매핑<br>
-            패턴별 양식 구성: A=계획+신청+결과(3종) / B=신청+결과(2종) / C·D=신청(1종)<br>
-            FO(학습자 입력)와 BO(승인자 보완) 필드 구분 설정 가능.`,
-      impl:'Form Schema를 JSON으로 저장. 조건부 노출은 rule 엔진 필요.',
+      roles:'budget_global_admin / tenant_global_admin',
+      desc:`3탭 구조: 📚 양식 라이브러리 | 🔗 서비스 통합 매핑<br>
+            양식 빌더 모달: 사용대상(학습자용/교육담당자용) → 단계+목적 → 교육유형·세부유형 → 필드 구성 → <strong>공지사항</strong>(신청화면 상단 표시) + <strong>필수 첨부파일 목록</strong>(+ 추가/× 삭제)<br>
+            FO(학습자 입력)·BO(승인자 보완)·시스템 필드 구분 설정 가능.`,
+      impl:'fbSaveForm()에서 noticeText, attachments[] FORM_MASTER에 저장. fbAddAttach/fbRemoveAttach DOM 직접 조작.',
     },
     {
       icon:'📐', id:'calc-grounds', name:'세부산출근거 관리',
@@ -497,6 +500,117 @@ function _manTech() {
       <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:#F9FAFB;border-radius:8px;border:1px solid #F3F4F6">
         <span style="color:#6366F1;font-weight:800;font-size:12px;white-space:nowrap;min-width:100px">${d.item}</span>
         <span style="font-size:11px;color:#6B7280">${d.desc}</span>
+      </div>`).join('')}
+    </div>
+  </div>
+
+</div>`;
+}
+
+/* ⑦ 개발 일정 (풀스택 개발자용) */
+function _manDevPlan() {
+  const phases = [
+    {
+      phase:'Phase 1', title:'기반 인프라 & 인증', weeks:'1~2주', color:'#6366F1',
+      items:[
+        { task:'SSO/IAM 연동 (OAuth2/SAML)', detail:'현대차그룹 통합계정 연동, 역할 자동 매핑', days:5 },
+        { task:'멀티테넌트 DB 스키마 설계', detail:'isolationGroupId 기반 Row-Level Security 설정', days:5 },
+        { task:'API Gateway 기본 구조', detail:'테넌트 컨텍스트 헤더 주입, 권한 미들웨어', days:3 },
+      ]
+    },
+    {
+      phase:'Phase 2', title:'백오피스 마스터 데이터 관리', weeks:'3~5주', color:'#7C3AED',
+      items:[
+        { task:'예산 계정 관리 API', detail:'CRUD + 6단계 위저드 데이터 저장, isolationGroup 필터', days:5 },
+        { task:'가상조직 템플릿 API', detail:'VOrg 트리 구조 저장·조회, 관리자/협력팀/직무유형', days:4 },
+        { task:'세부산출근거 API', detail:'항목 CRUD, usageScope/visibleFor/softLimit/hardLimit', days:3 },
+        { task:'양식 빌더 API', detail:'Form Schema JSON 저장·버전관리, 공지사항/첨부파일 포함', days:4 },
+        { task:'서비스 정책 API', detail:'6단계 위저드 저장, 패턴A/B/C/D, approvalThresholds[]', days:5 },
+      ]
+    },
+    {
+      phase:'Phase 3', title:'결재 라우팅 & 워크플로우', weeks:'6~8주', color:'#1D4ED8',
+      items:[
+        { task:'결재 워크플로우 엔진 연동', detail:'Camunda/사내 전자결재 BPMN 프로세스 정의', days:7 },
+        { task:'금액 구간별 결재자 자동 라우팅', detail:'approvalThresholds 평가 로직, 담당 결재자 배달', days:4 },
+        { task:'나의 운영 업무 API', detail:'계획/신청/결과 3탭 미결건 조회, 역할별 필터', days:4 },
+        { task:'알림 서비스', detail:'이메일/슬랙 미결건 알림, 결재완료 알림, 잔액경보', days:3 },
+      ]
+    },
+    {
+      phase:'Phase 4', title:'프론트오피스 (LXP) 개발', weeks:'9~12주', color:'#059669',
+      items:[
+        { task:'교육신청 목록 화면 (리스트 우선)', detail:'상태 뱃지(결재진행중/승인/반려), 결과작성 버튼', days:4 },
+        { task:'교육신청 위저드 (목적→예산→유형→정보)', detail:'HAE/HSC/HMC/KIA 페르소나별 예산카드 분기', days:6 },
+        { task:'교육계획 위저드 (4단계)', detail:'가상조직 선택, 세부산출근거 입력, 계획 상신', days:5 },
+        { task:'결과보고 화면', detail:'실지출 입력, 증빙 첨부, 패턴별 결과 흐름', days:4 },
+        { task:'대시보드 & 예산 위젯', detail:'잔액·집행률·진행중 신청 실시간 표시', days:3 },
+      ]
+    },
+    {
+      phase:'Phase 5', title:'ERP 연동 & 정산', weeks:'13~15주', color:'#D97706',
+      items:[
+        { task:'SAP ERP 예산 잔액 동기화', detail:'RFC/API Gateway, 가점유·실차감 이벤트 송신', days:7 },
+        { task:'파일 스토리지 연동', detail:'S3/Object Storage 증빙 업로드, CDN 서명 URL', days:3 },
+        { task:'Excel 리포트 추출', detail:'ExcelJS/Apache POI 서버사이드 생성', days:3 },
+      ]
+    },
+    {
+      phase:'Phase 6', title:'QA & 안정화', weeks:'16~18주', color:'#DC2626',
+      items:[
+        { task:'테넌트 격리 검증 (Pen Test)', detail:'Cross-tenant 데이터 접근 차단 검증', days:3 },
+        { task:'성능 테스트', detail:'동시 결재 처리, ERP 동기화 지연 케이스', days:3 },
+        { task:'UAT (사용자 수락 테스트)', detail:'페르소나별 시나리오 검증, 기획자 확인', days:5 },
+        { task:'운영 이관 & 문서화', detail:'배포 파이프라인 구성, 운영 매뉴얼 작성', days:4 },
+      ]
+    },
+  ];
+
+  const totalWeeks = 18;
+  const totalDays  = phases.reduce((s,p) => s + p.items.reduce((ss,i) => ss + i.days, 0), 0);
+
+  return `<div style="display:flex;flex-direction:column;gap:20px">
+
+  <div style="padding:16px 20px;background:linear-gradient(135deg,#312E81,#4F46E5);border-radius:12px;color:#fff">
+    <div style="font-size:13px;font-weight:900;margin-bottom:6px">🗓️ 프론트·백오피스 풀스택 개발 예상 일정</div>
+    <div style="font-size:12px;opacity:.85;line-height:1.6">
+      인원 기준: 시니어 풀스택 개발자 2명 + 퍼블리셔 1명 기준<br>
+      총 예상 기간: <strong>${totalWeeks}주 (약 4~5개월)</strong> · 총 작업량: 약 ${totalDays} 인일(man-day)
+    </div>
+  </div>
+
+  ${phases.map((p,pi) => `
+  <div class="bo-card" style="padding:18px 20px;border-left:4px solid ${p.color}">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <span style="background:${p.color};color:#fff;font-size:11px;font-weight:900;padding:3px 10px;border-radius:6px">${p.phase}</span>
+      <span style="font-size:14px;font-weight:800;color:#111827">${p.title}</span>
+      <span style="margin-left:auto;font-size:11px;font-weight:700;color:${p.color};background:${p.color}15;padding:2px 10px;border-radius:6px">⏱ ${p.weeks}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${p.items.map((item,ii) => `
+      <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:#F9FAFB;border-radius:10px">
+        <div style="width:20px;height:20px;border-radius:50%;background:${p.color}20;color:${p.color};font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">${pi+1}.${ii+1}</div>
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:800;color:#374151;margin-bottom:2px">${item.task}</div>
+          <div style="font-size:11px;color:#6B7280">${item.detail}</div>
+        </div>
+        <div style="font-size:10px;font-weight:700;color:#9CA3AF;white-space:nowrap">${item.days}일</div>
+      </div>`).join('')}
+    </div>
+  </div>`).join('')}
+
+  <div class="bo-card" style="padding:16px 20px;background:#F0FDF4;border:1.5px solid #A7F3D0">
+    <div style="font-size:12px;font-weight:900;color:#065F46;margin-bottom:8px">💡 개발 우선순위 가이드</div>
+    <div style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:#374151">
+      ${[
+        { p:'P0 · 즉시', t:'메뉴 접근권한 + HAE 예산카드 + 서비스 정책 필터', c:'#DC2626' },
+        { p:'P1 · 2주내', t:'신청 리스트 화면 + 결과보고 버튼 + 양식 공지사항/첨부파일', c:'#D97706' },
+        { p:'P2 · 1달내', t:'결재 라우팅 실 연동 + SAP ERP 잔액 동기화', c:'#1D4ED8' },
+        { p:'P3 · 분기내', t:'Excel 리포트, 어학/자격증 메뉴, 알림 서비스', c:'#6B7280' },
+      ].map(r => `
+      <div style="display:flex;align-items:center;gap:10px;padding:7px 12px;background:#fff;border-radius:8px">
+        <span style="background:${r.c}18;color:${r.c};font-size:10px;font-weight:900;padding:2px 8px;border-radius:4px;white-space:nowrap">${r.p}</span>
+        <span>${r.t}</span>
       </div>`).join('')}
     </div>
   </div>

@@ -1,4 +1,4 @@
-﻿// ─── DATA LAYER ─────────────────────────────────────────────────────────────
+// ─── DATA LAYER ─────────────────────────────────────────────────────────────
 // LXP 프론트 오피스 — 4개 테넌트 학습자 페르소나
 
 const PERSONAS = {
@@ -51,13 +51,13 @@ const PERSONAS = {
     type: 'HAE_Learner', typeLabel: 'HAE 학습자 (솔루션사업부)',
     company: '현대오토에버', tenantId: 'HAE',
     role: 'learner', jobType: '일반직',
-    allowedAccounts: ['HAE-PART', 'HAE-CERT', 'COMMON-FREE'],
+    allowedAccounts: ['HAE-EDU', 'HAE-TEAM', 'COMMON-FREE'],
     isolationGroup: 'HAE-SOL',
     process: 'plan-apply-result',
-    desc: '솔루션사업부 학습자. 개인직무 사외학습에 한정하여 프로세스 수행. HAE 고정 프로세스(개인직무 사외학습 계획 수립 ➡️ 계획 기반 신청 ➡️ 수료 후 결과 단순 입력) 준수. 본인의 개인직무 관련 학습 이력만 관리.',
+    desc: '솔루션사업부 학습자. 개인직무 사외학습에 한정. 전사교육예산 또는 팀/프로젝트 할당예산으로 신청 후 결과 작성.',
     budgets: [
-      { id: 'b_hae01', name: 'PM서비스팀 참가계정', account: '참가', balance: 4000000, used: 600000 },
-      { id: 'b_hae02', name: 'PM서비스팀 자격증계정', account: '자격증', balance: 2000000, used: 0 }
+      { id: 'b_hae_edu',  name: 'PM서비스팀 전사교육예산',         account: '전사교육', balance: 10000000, used: 1200000 },
+      { id: 'b_hae_team', name: 'PM서비스팀 팀/프로젝트 할당예산', account: '팀할당',   balance:  5000000, used:  800000 },
     ]
   },
 

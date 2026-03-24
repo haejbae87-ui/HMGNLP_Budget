@@ -21,6 +21,8 @@ const ACCOUNT_TYPE_MAP = {
   'HMC-OPS': '운영', 'HMC-PART': '참가', 'HMC-ETC': '기타', 'HMC-RND': '연구투자',
   'KIA-OPS': '운영', 'KIA-PART': '참가',
   'HAE-OPS': '운영', 'HAE-PART': '참가', 'HAE-CERT': '자격증',
+  'HAE-EDU': '전사교육', 'HAE-TEAM': '팀할당',
+  'HSC-EXT': '사외교육',
   'COMMON-FREE': null
 };
 

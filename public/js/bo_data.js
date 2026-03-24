@@ -250,6 +250,57 @@ const BO_PERSONAS = {
     accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
+  hsc_budget_rnd: {
+    id: 'P602', name: '송O연', dept: 'R&D운영팀', pos: '매니저',
+    role: 'budget_admin', roleLabel: '예산운영담당 (HSC)',
+    roleClass: 'role-admin', roleTag: '[운영]',
+    budgetGroup: 'general', tenantId: 'HSC',
+    isolationGroupId: 'IG-HSC-ALL',
+    ownedAccounts: ['HSC-OPS', 'HSC-PART'],
+    allowedAccounts: ['HSC-OPS', 'HSC-PART'],
+    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+  },
+  hsc_budget_hr_dang: {
+    id: 'P603', name: '박O연', dept: '(당)인사지원팀', pos: '매니저',
+    role: 'budget_admin', roleLabel: '예산운영담당 (HSC)',
+    roleClass: 'role-admin', roleTag: '[운영]',
+    budgetGroup: 'general', tenantId: 'HSC',
+    isolationGroupId: 'IG-HSC-ALL',
+    ownedAccounts: ['HSC-OPS', 'HSC-PART'],
+    allowedAccounts: ['HSC-OPS', 'HSC-PART'],
+    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+  },
+  hsc_budget_hr_in: {
+    id: 'P604', name: '박O영', dept: '(인)인사팀', pos: '매니저',
+    role: 'budget_admin', roleLabel: '예산운영담당 (HSC)',
+    roleClass: 'role-admin', roleTag: '[운영]',
+    budgetGroup: 'general', tenantId: 'HSC',
+    isolationGroupId: 'IG-HSC-ALL',
+    ownedAccounts: ['HSC-OPS', 'HSC-PART'],
+    allowedAccounts: ['HSC-OPS', 'HSC-PART'],
+    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+  },
+  hsc_budget_hr_po: {
+    id: 'P605', name: '석O영', dept: '(포)인사팀', pos: '매니저',
+    role: 'budget_admin', roleLabel: '예산운영담당 (HSC)',
+    roleClass: 'role-admin', roleTag: '[운영]',
+    budgetGroup: 'general', tenantId: 'HSC',
+    isolationGroupId: 'IG-HSC-ALL',
+    ownedAccounts: ['HSC-OPS', 'HSC-PART'],
+    allowedAccounts: ['HSC-OPS', 'HSC-PART'],
+    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+  },
+  hsc_budget_cold: {
+    id: 'P606', name: '김O민', dept: '(순)냉연업무지원팀', pos: '매니저',
+    role: 'budget_admin', roleLabel: '예산운영담당 (HSC)',
+    roleClass: 'role-admin', roleTag: '[운영]',
+    budgetGroup: 'general', tenantId: 'HSC',
+    isolationGroupId: 'IG-HSC-ALL',
+    ownedAccounts: ['HSC-OPS', 'HSC-PART'],
+    allowedAccounts: ['HSC-OPS', 'HSC-PART'],
+    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+  },
+
   // ── [현대트랜시스 HTS] ─────────────────────────────────
   hts_tenant_admin: {
     id: 'P700', name: '임O빈', dept: '조직개발팀', pos: '매니저',

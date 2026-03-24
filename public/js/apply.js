@@ -1,4 +1,4 @@
-﻿// ─── APPLY (교육신청) — 목록 ↔ 신청폼 전환 허브 ────────────────────────────────
+// ─── APPLY (교육신청) — 목록 ↔ 신청폼 전환 허브 ────────────────────────────────
 
 function renderApply() {
   if (typeof applyViewMode === 'undefined') applyViewMode = 'list';
@@ -224,20 +224,40 @@ function _renderApplyForm() {
         // ── 개인직무 사외학습: 페르소나별 동적 예산 옵션 카드 ──────────────────
         const hasRnd    = (currentPersona.allowedAccounts || []).some(a => a.includes('RND'));
         const hasHscExt = (currentPersona.allowedAccounts || []).includes('HSC-EXT');
+        const hasHaeEdu = (currentPersona.allowedAccounts || []).includes('HAE-EDU');
+        const hasHaeTeam= (currentPersona.allowedAccounts || []).includes('HAE-TEAM');
         const CHOICES = [
-          ...(!hasHscExt ? [{
+          // ── HAE 전사교육예산 ──────────────────────────────────────────────────
+          ...(hasHaeEdu ? [{
+            id:'hae-edu', icon:'🏫',
+            title:'전사교육예산',
+            desc:'현대오토에버 전사 공통 교육예산에서 교육비를 지원받습니다. 신청 승인 후 교육 이수 결과를 작성합니다.',
+            tag:'신청→결과', tagColor:'#7C3AED', tagBg:'#F5F3FF',
+            next:'교육유형 선택 → 세부정보', nextColor:'#7C3AED',
+          }] : []),
+          // ── HAE 팀/프로젝트 할당예산 ─────────────────────────────────────────
+          ...(hasHaeTeam ? [{
+            id:'hae-team', icon:'👥',
+            title:'팀/프로젝트 할당예산',
+            desc:'팀 및 프로젝트 단위로 배정된 교육예산에서 교육비를 지원받습니다. 신청 승인 후 교육 이수 결과를 작성합니다.',
+            tag:'신청→결과', tagColor:'#059669', tagBg:'#F0FDF4',
+            next:'교육유형 선택 → 세부정보', nextColor:'#059669',
+          }] : []),
+          // ── HSC 사외교육 계정 ───────────────────────────────────────────────
+          ...(hasHscExt ? [{
+            id:'general', icon:'🏭',
+            title:'현대제철-사외교육 계정',
+            desc:'현대제철 사외교육 예산에서 교육비를 지원받습니다. 신청 후 승인 시 예산이 차감되며, 이후 교육 결과를 작성합니다. (패턴 B: 신청 → 결과)',
+            tag:'신청→결과', tagColor:'#BE123C', tagBg:'#FFF1F2',
+            next:'교육유형 선택 → 세부정보', nextColor:'#BE123C',
+          }] : []),
+          // ── 일반 참가계정 (HMC/KIA 등 HAE/HSC 아닌 경우) ───────────────────
+          ...(!hasHscExt && !hasHaeEdu ? [{
             id:'general', icon:'💳',
             title:'일반교육예산 참가계정',
             desc:'일반 교육예산에서 참가비를 지원받습니다. 개인 선지출 후 영수증을 첨부하여 신청합니다.',
             tag:'후정산형', tagColor:'#D97706', tagBg:'#FEF3C7',
             next:'교육유형 선택 → 세부정보', nextColor:'#059669',
-          }] : []),
-          ...(hasHscExt ? [{
-            id:'general', icon:'🏭',
-            title:'현대제철-사외교육 계정',
-            desc:'현대제철 사외교육 예산에서 교육비를 지원받습니다. 신청 후 승인 시 예산이 차감되며, 이후 교육 결과를 작성합니다. (패턴 B: 신청 → 결과)',
-            tag:'패턴B · 신청→결과', tagColor:'#BE123C', tagBg:'#FFF1F2',
-            next:'교육유형 선택 → 세부정보', nextColor:'#BE123C',
           }] : []),
           ...(hasRnd ? [{
             id:'rnd', icon:'🔬',

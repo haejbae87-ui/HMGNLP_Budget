@@ -1,5 +1,5 @@
 // ─── 🔧 서비스 정책 관리 ─────────────────────────────────────────────────────
-// 7단계 위저드: 대상자 → 목적 → 교육유형 → 예산+패턴 → 대상조직 → 양식 → 단계별결재라인
+// 8단계 위저드: 범위설정(회사·그룹·계정) → 정책명+대상자 → 목적 → 교육유형 → 패턴 → 대상조직 → 양식 → 결재라인
 
 let _policyWizardStep = 0;
 let _policyWizardData = {};
@@ -268,14 +268,16 @@ function startPolicyWizard(policyId) {
     _policyWizardData = {
       id: 'POL-' + Date.now(),
       tenantId: boCurrentPersona.tenantId,
+      scopeTenantId: boCurrentPersona.tenantId || '',
+      scopeGroupId: boCurrentPersona.isolationGroupId || '',
       name: '', desc: '',
-      targetType: '',    // 'learner' | 'operator'
-      purpose: '',       // purpose id
-      eduTypes: [],      // selected edu type ids
+      targetType: '',
+      purpose: '',
+      eduTypes: [], selectedEduItem: null, eduSubTypes: {},
       processPattern: '', flow: 'apply-result',
       budgetLinked: true, applyMode: 'holding',
       accountCodes: [], vorgTemplateId: '',
-      formIds: [],
+      stageFormIds: { plan:[], apply:[], result:[] },
       approvalConfig: {
         plan:   { thresholds: [], finalApproverKey: '' },
         apply:  { thresholds: [], finalApproverKey: '' },
@@ -291,7 +293,7 @@ function startPolicyWizard(policyId) {
 // ── 위저드 렌더링 ─────────────────────────────────────────────────────────────
 function renderPolicyWizard() {
   const el = document.getElementById('bo-content');
-  const steps = ['대상자', '목적', '교육유형', '예산·패턴', '대상조직', '양식', '결재라인'];
+  const steps = ['범위설정', '정책명·대상자', '목적', '교육유형', '패턴', '대상조직', '양식', '결재라인'];
   const TOTAL = steps.length - 1;
   const d = _policyWizardData;
   const persona = boCurrentPersona;
@@ -309,8 +311,96 @@ function renderPolicyWizard() {
 
   let stepContent = '';
 
-  // ── Step 1: 정책명 + 대상자 ──────────────────────────────────────────────────
+  // ── Step 0: 범위 설정 (회사 → 격리그룹 → 예산계정) ────────────────────────────
   if (_policyWizardStep === 0) {
+    const isPlatform = persona.role === 'platform_admin';
+    const isTenant   = ['tenant_global_admin'].includes(persona.role);
+    const isBudgetOp = ['budget_op_manager','budget_hq','budget_global_admin'].includes(persona.role);
+
+    const TENANTS = typeof TENANT_MASTER !== 'undefined' ? TENANT_MASTER
+      : [...new Set((typeof SERVICE_POLICIES!=='undefined'?SERVICE_POLICIES:[]).map(p=>p.tenantId))].map(id=>({id,name:id}));
+    const scopeTenantId = d.scopeTenantId || (isTenant||isBudgetOp ? persona.tenantId : '');
+    const scopeGroups = (typeof ISOLATION_GROUPS!=='undefined' ? ISOLATION_GROUPS : [])
+      .filter(g => scopeTenantId ? g.tenantId === scopeTenantId : true);
+    const scopeGroupId = d.scopeGroupId || (isBudgetOp ? (persona.isolationGroupId||'') : '');
+    const scopeGroup   = scopeGroups.find(g => g.id === scopeGroupId);
+    const scopeAccts   = scopeGroupId
+      ? ACCOUNT_MASTER.filter(a => a.active && (scopeGroup?.ownedAccounts||[]).includes(a.code))
+      : [];
+
+    stepContent = `
+<div style="display:grid;gap:18px">
+  <div style="padding:12px 16px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;font-size:12px;color:#92400E">
+    💡 정책이 적용될 <strong>회사 · 격리그룹 · 예산계정</strong>을 먼저 설정합니다. 이 설정이 정책의 모든 데이터 범위를 결정합니다.
+  </div>
+  ${isPlatform ? `
+  <div>
+    <label class="bo-label">회사 선택 <span style="color:#EF4444">*</span></label>
+    <select onchange="_policyWizardData.scopeTenantId=this.value;_policyWizardData.scopeGroupId='';_policyWizardData.accountCodes=[];renderPolicyWizard()"
+      style="width:100%;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700">
+      <option value="">— 회사를 선택하세요 —</option>
+      ${TENANTS.map(t=>`<option value="${t.id}" ${scopeTenantId===t.id?'selected':''}>${t.name||t.id}</option>`).join('')}
+    </select>
+  </div>` : `
+  <div style="padding:10px 16px;background:#F3F4F6;border-radius:10px;display:flex;align-items:center;gap:8px">
+    <span style="font-size:12px;font-weight:700;color:#6B7280">회사</span>
+    <span style="font-size:14px;font-weight:900;color:#111827">🏢 ${TENANTS.find(t=>t.id===scopeTenantId)?.name||scopeTenantId}</span>
+    <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#E5E7EB;color:#6B7280">자동 설정</span>
+  </div>`}
+  ${scopeTenantId ? `
+  <div>
+    <label class="bo-label">${isBudgetOp?'담당 격리그룹':'격리그룹 선택'} <span style="color:#EF4444">*</span></label>
+    ${isBudgetOp ? `
+    <div style="padding:10px 16px;background:#EDE9FE;border:1.5px solid #C4B5FD;border-radius:10px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:16px">🔒</span>
+      <span style="font-size:14px;font-weight:900;color:#7C3AED">${scopeGroups.find(g=>g.id===scopeGroupId)?.name||scopeGroupId}</span>
+      <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#DDD6FE;color:#5B21B6">자동 고정</span>
+    </div>` : `
+    <div style="display:grid;gap:6px">
+      ${scopeGroups.map(g=>`
+      <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;
+                    border:2px solid ${scopeGroupId===g.id?g.color||'#7C3AED':'#E5E7EB'};
+                    background:${scopeGroupId===g.id?(g.bg||'#F5F3FF'):'white'};cursor:pointer"
+             onclick="_policyWizardData.scopeGroupId='${g.id}';_policyWizardData.accountCodes=[];_policyWizardData.budgetLinked=true;renderPolicyWizard()">
+        <input type="radio" name="wiz-group" ${scopeGroupId===g.id?'checked':''} style="margin:0;flex-shrink:0">
+        <div>
+          <div style="font-weight:800;font-size:13px;color:${scopeGroupId===g.id?(g.color||'#7C3AED'):'#374151'}">${g.name}</div>
+          <div style="font-size:11px;color:#9CA3AF">${g.desc||''}</div>
+        </div>
+      </label>`).join('')}
+    </div>`}
+  </div>` : ''}
+  ${scopeGroupId && scopeAccts.length ? `
+  <div>
+    <label class="bo-label">예산 계정 선택 <span style="color:#EF4444">*</span></label>
+    <div style="display:grid;gap:6px">
+      ${scopeAccts.map(a=>`
+      <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;
+                    border:2px solid ${(d.accountCodes||[])[0]===a.code?'#1D4ED8':'#E5E7EB'};
+                    background:${(d.accountCodes||[])[0]===a.code?'#EFF6FF':'white'};cursor:pointer"
+             onclick="_selectPolicyAcct('${a.code}')">
+        <input type="radio" name="wiz-acct" ${(d.accountCodes||[])[0]===a.code?'checked':''} style="margin:0;flex-shrink:0">
+        <div>
+          <div style="font-weight:800;font-size:13px;color:${(d.accountCodes||[])[0]===a.code?'#1E40AF':'#374151'}">
+            ${a.code==='COMMON-FREE'?'📝 ':a.budgetLinked===false?'':'💳 '}${a.name}
+          </div>
+          <div style="font-size:11px;color:#9CA3AF">${a.desc||''}</div>
+        </div>
+        ${(d.accountCodes||[])[0]===a.code?`<span style="margin-left:auto;font-size:10px;font-weight:900;padding:2px 8px;border-radius:5px;background:#1D4ED8;color:white">선택됨</span>`:''}
+      </label>`).join('')}
+    </div>
+    ${(d.accountCodes||[])[0] ? `
+    <div style="margin-top:8px;padding:10px 16px;background:${d.budgetLinked?'#EFF6FF':'#F0FDF4'};border-radius:10px;font-size:12px;color:${d.budgetLinked?'#1E40AF':'#065F46'}">
+      ${d.budgetLinked?'💳 <strong>예산 연동</strong> — 선택한 계정에서 예산을 집행합니다.':'📝 <strong>무예산</strong> — 예산 차감 없이 이력 관리합니다.'}
+    </div>` : ''}
+  </div>` : scopeGroupId ? `
+  <div style="padding:20px;text-align:center;background:#F9FAFB;border-radius:10px;color:#9CA3AF;font-size:12px">
+    선택한 격리그룹에 연결된 예산 계정이 없습니다.
+  </div>` : ''}
+</div>`;
+
+  // ── Step 1: 정책명 + 대상자 ──────────────────────────────────────────────────
+  } else if (_policyWizardStep === 2) {
     stepContent = `
 <div style="display:grid;gap:18px">
   <div>
@@ -345,7 +435,7 @@ function renderPolicyWizard() {
 </div>`;
 
   // ── Step 2: 목적 ──────────────────────────────────────────────────────────────
-  } else if (_policyWizardStep === 1) {
+  } else if (_policyWizardStep === 2) {
     const purposes = _PURPOSE_MAP[d.targetType] || [];
     stepContent = `
 <div style="display:grid;gap:10px">
@@ -364,7 +454,7 @@ function renderPolicyWizard() {
 </div>`;
 
   // ── Step 3: 교육유형 ───────────────────────────────────────────────────────────
-  } else if (_policyWizardStep === 2) {
+  } else if (_policyWizardStep === 3) {
     const types = _EDU_TYPE_MAP[d.purpose] || [];
     if (!d.eduSubTypes) d.eduSubTypes = {};
     const isPersonal = d.purpose === 'external_personal';
@@ -433,74 +523,48 @@ function renderPolicyWizard() {
 </div>`;
     }
 
-  // ── Step 4: 예산 계정 + 패턴 ──────────────────────────────────────────────────
-  } else if (_policyWizardStep === 3) {
-    const myAccts = ACCOUNT_MASTER.filter(a => a.tenantId === persona.tenantId && a.active && a.code !== 'COMMON-FREE');
-    // 예산 미사용 특수 항목 추가
-    const acctList = [
-      ...myAccts,
-      { code: '__none__', name: '예산 미사용', desc: '이력만 등록하거나 무예산 결과까지 진행 (패턴D/E)', budgetLinked: false },
-    ];
-    // 현재 선택된 계정이 무예산인지 판별
-    const selCode   = (d.accountCodes||[])[0] || '';
-    const isNoBudget = selCode === '__none__' || (!selCode && d.budgetLinked === false);
+  // ── Step 4: 패턴 ─────────────────────────────────────────────────────────────
+  } else if (_policyWizardStep === 4) {
+    const isNoBudget = !d.budgetLinked;
+    const selAcctName = (d.accountCodes||[]).map(c => ACCOUNT_MASTER.find(a=>a.code===c)?.name||c).join(', ') || '—';
     const budgetedPatterns = [
       { v:'A', icon:'📊', l:'패턴A: 계획→신청→결과', color:'#7C3AED', d:'고통제형. R&D·대규모 집합교육. 사전계획 필수, 예산 가점유 후 실차감.' },
-      { v:'B', icon:'📝', l:'패턴B: 신청→결과',      color:'#1D4ED8', d:'자율신청형. 일반 사외교육 참가. 신청 승인 시 가점유, 결과 후 실차감.' },
-      { v:'C', icon:'🧾', l:'패턴C: 신청 단독(후정산)', color:'#D97706', d:'선지불 후정산. 개인 카드 결제 후 영수증 첨부. 승인 즉시 예산 차감.' },
+      { v:'B', icon:'📝', l:'패턴B: 신청→결과',       color:'#1D4ED8', d:'자율신청형. 일반 사외교육 참가. 신청 승인 시 가점유, 결과 후 실차감.' },
+      { v:'C', icon:'🧾', l:'패턴C: 신청 단독(후정산)',color:'#D97706', d:'선지불 후정산. 개인 카드 결제 후 영수증 첨부. 승인 즉시 예산 차감.' },
     ];
     const noBudgetPatterns = [
-      { v:'D', icon:'📋', l:'패턴D: 신청 단독(이력)', color:'#6B7280', d:'무예산 이력관리. 무료 웨비나·자체세미나. 승인 시 즉시 이력 DB 적재.' },
+      { v:'D', icon:'📋', l:'패턴D: 신청 단독(이력)',      color:'#6B7280', d:'무예산 이력관리. 무료 웨비나·자체세미나. 승인 시 즉시 이력 DB 적재.' },
       { v:'E', icon:'✅', l:'패턴E: 신청→결과(이력+결과)', color:'#059669', d:'무예산이지만 결과보고까지 진행. 자비학습 후 결과 제출 필요한 경우.' },
     ];
     const patterns = isNoBudget ? noBudgetPatterns : budgetedPatterns;
 
     stepContent = `
 <div style="display:grid;gap:16px">
-  <div>
-    <label class="bo-label">예산 계정 선택 <span style="color:#EF4444">*</span><span style="font-size:10px;color:#9CA3AF;margin-left:6px">계정 선택에 따라 패턴이 자동 결정됩니다</span></label>
-    <div style="display:grid;gap:6px">
-      ${acctList.map(a=>`
-      <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;
-                    border:2px solid ${selCode===a.code?'#1D4ED8':'#E5E7EB'};
-                    background:${selCode===a.code?'#EFF6FF':'white'};cursor:pointer;
-                    ${a.code==='__none__'?'margin-top:4px;border-style:dashed':''}"
-             onclick="_selectPolicyAcct('${a.code}')">
-        <input type="radio" name="wiz-acct" value="${a.code}" ${selCode===a.code?'checked':''} style="margin:0;flex-shrink:0">
-        <div>
-          <div style="font-weight:800;font-size:13px;color:${selCode===a.code?'#1E40AF':'#374151'}">${a.code==='__none__'?'📝 ':a.budgetLinked===false?'':'💳 '}${a.name}</div>
-          <div style="font-size:11px;color:#9CA3AF;margin-top:2px">${a.desc||''}</div>
-        </div>
-        ${selCode===a.code?`<span style="margin-left:auto;font-size:10px;font-weight:900;padding:2px 8px;border-radius:5px;background:#1D4ED8;color:white">선택됨</span>`:''}
-      </label>`).join('')}
-    </div>
-  </div>
-  ${selCode ? `
-  <div style="padding:10px 16px;background:${isNoBudget?'#F0FDF4':'#EFF6FF'};border-radius:10px;border:1.5px solid ${isNoBudget?'#A7F3D0':'#BFDBFE'};font-size:12px;color:${isNoBudget?'#065F46':'#1E40AF'}">
-    ${isNoBudget ? '📝 <strong>무예산</strong> — 예산 차감 없이 이력 관리 패턴을 사용합니다.' : '💳 <strong>예산 연동</strong> — 선택한 계정에서 예산을 집행합니다.'}
+  <div style="padding:12px 16px;background:${isNoBudget?'#F0FDF4':'#EFF6FF'};border:1px solid ${isNoBudget?'#A7F3D0':'#BFDBFE'};border-radius:10px;display:flex;align-items:center;gap:10px;font-size:12px">
+    ${isNoBudget ? '📝 <strong style="color:#065F46">무예산</strong>' : '💳 <strong style="color:#1E40AF">예산 연동</strong>'}
+    <span style="color:#6B7280">|</span>
+    <span style="color:#374151;font-weight:700">${selAcctName}</span>
+    <span style="font-size:10px;color:#9CA3AF;margin-left:4px">(Step 1에서 설정됨)</span>
   </div>
   <div>
     <label class="bo-label">프로세스 패턴 <span style="color:#EF4444">*</span></label>
     <div style="display:grid;gap:8px">
       ${patterns.map(o=>`
-      <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:10px;
+      <label style="display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border-radius:10px;
                     border:2px solid ${d.processPattern===o.v?o.color:'#E5E7EB'};background:${d.processPattern===o.v?o.color+'15':'white'};cursor:pointer"
              onclick="_policyWizardData.processPattern='${o.v}';_setPatternDefaults('${o.v}');renderPolicyWizard()">
         <input type="radio" name="wiz-pattern" value="${o.v}" ${d.processPattern===o.v?'checked':''} style="margin-top:2px;flex-shrink:0">
         <div>
-          <div style="font-weight:800;font-size:12px;color:${d.processPattern===o.v?o.color:'#374151'}">${o.icon} ${o.l}</div>
+          <div style="font-weight:800;font-size:13px;color:${d.processPattern===o.v?o.color:'#374151'}">${o.icon} ${o.l}</div>
           <div style="font-size:11px;color:#6B7280;margin-top:2px">${o.d}</div>
         </div>
       </label>`).join('')}
     </div>
-  </div>` : `
-  <div style="padding:20px;text-align:center;background:#F9FAFB;border-radius:10px;color:#9CA3AF;font-size:13px">
-    ↑ 예산 계정을 먼저 선택하면 패턴이 표시됩니다.
-  </div>`}
+  </div>
 </div>`;
 
   // ── Step 5: 대상 조직 ─────────────────────────────────────────────────────────
-  } else if (_policyWizardStep === 4) {
+  } else if (_policyWizardStep === 5) {
     const tpls = VIRTUAL_ORG_TEMPLATES.filter(t => t.tenantId === persona.tenantId);
     stepContent = `
 <div>
@@ -521,7 +585,7 @@ function renderPolicyWizard() {
 </div>`;
 
   // ── Step 6: 단계별 양식 선택 ──────────────────────────────────────────────────
-  } else if (_policyWizardStep === 5) {
+  } else if (_policyWizardStep === 6) {
     const myForms = FORM_MASTER.filter(f => f.tenantId === persona.tenantId && f.active);
     const stages = _PATTERN_STAGES[d.processPattern] || ['apply'];
     const stageLabel = { plan:'📊 계획', apply:'📝 신청', result:'📄 결과' };
@@ -558,7 +622,7 @@ function renderPolicyWizard() {
 </div>`;
 
   // ── Step 7: 단계별 결재라인 ────────────────────────────────────────────────────
-  } else if (_policyWizardStep === 6) {
+  } else if (_policyWizardStep === 7) {
     const stages = _PATTERN_STAGES[d.processPattern] || ['apply'];
     const stageLabel = { plan:'📊 계획', apply:'📝 신청', result:'📄 결과' };
     const stageColor = { plan:'#7C3AED', apply:'#1D4ED8', result:'#059669' };
@@ -717,25 +781,31 @@ function _selectEduItem(typeId, subId) {
 function advancePolicyWizard() {
   const d = _policyWizardData;
   if (_policyWizardStep === 0) {
+    const d = _policyWizardData;
+    if (!d.scopeTenantId) { alert('회사를 선택하세요.'); return; }
+    if (!d.scopeGroupId)  { alert('격리그룹을 선택하세요.'); return; }
+    if (!(d.accountCodes||[]).length) { alert('예산 계정을 선택하세요.'); return; }
+    // scopeTenantId를 tenantId로 동기화
+    _policyWizardData.tenantId = d.scopeTenantId;
+  } else if (_policyWizardStep === 1) {
     const n = document.getElementById('wiz-name')?.value?.trim();
     if (!n) { alert('정책명을 입력하세요.'); return; }
     d.name = n;
     const desc = document.getElementById('wiz-desc')?.value?.trim();
     if (desc) d.desc = desc;
     if (!d.targetType) { alert('대상자를 선택하세요.'); return; }
-  } else if (_policyWizardStep === 1) {
-    if (!d.purpose) { alert('교육 목적을 선택하세요.'); return; }
   } else if (_policyWizardStep === 2) {
+    if (!d.purpose) { alert('교육 목적을 선택하세요.'); return; }
+  } else if (_policyWizardStep === 3) {
     if (d.purpose === 'external_personal') {
       if (!d.selectedEduItem) { alert('교육 유형 세부 항목을 하나 선택하세요.'); return; }
     } else {
       if (!(d.eduTypes||[]).length) { alert('교육 유형을 하나 이상 선택하세요.'); return; }
     }
-  } else if (_policyWizardStep === 3) {
-    if (d.budgetLinked && !(d.accountCodes||[]).length) { alert('예산 계정을 선택하세요.'); return; }
+  } else if (_policyWizardStep === 4) {
     if (!d.processPattern) { alert('프로세스 패턴을 선택하세요.'); return; }
   }
-  _policyWizardStep = Math.min(_policyWizardStep + 1, 6);
+  _policyWizardStep = Math.min(_policyWizardStep + 1, 7);
   renderPolicyWizard();
 }
 

@@ -1,4 +1,4 @@
-﻿// ─── BACK-OFFICE DATA LAYER ──────────────────────────────────────────────────
+// ─── BACK-OFFICE DATA LAYER ──────────────────────────────────────────────────
 
 // ─── 사전 정의된 학습유형 (Learning Types) ──────────────────────────────────
 const LEARNING_TYPES = [
@@ -795,10 +795,10 @@ let ACCOUNT_MASTER = [
     code: 'HAE-CERT', tenantId: 'HAE', group: '일반', name: '오토에버-자격증계정', planRequired: false, carryover: false,
     desc: 'IT인증/자격증 업무지원 전용', active: true
   },
-  },
   {
     code: 'HSC-EXT', tenantId: 'HSC', group: '일반', name: '현대제철-사외교육', planRequired: false, carryover: false,
     desc: '임직원 사외교육(외부 교육과정, 세미나, 컨퍼런스 등) 예산 계정', active: true
+  },
 ];
 
 // 헬퍼: 테넌트별 계정 목록

@@ -246,6 +246,16 @@ const BO_PERSONAS = {
     budgetGroup: 'general', tenantId: 'HSC',
     accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'reports', 'manual']
   },
+  hsc_budget_gen: {
+    id: 'P607', name: '최O경', dept: '성장디자인팀', pos: '매니저',
+    role: 'budget_admin', roleLabel: '예산운영담당 (HSC)',
+    roleClass: 'role-admin', roleTag: '[운영]',
+    budgetGroup: 'general', tenantId: 'HSC',
+    isolationGroupId: 'IG-HSC-ALL',
+    ownedAccounts: ['HSC-OPS', 'HSC-PART'],
+    allowedAccounts: ['HSC-OPS', 'HSC-PART'],
+    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
+  },
   hsc_total: {
     id: 'P601', name: '정O안', dept: '성장디자인팀', pos: '매니저',
     role: 'budget_global_admin', roleLabel: '예산 총괄 (HSC)',
@@ -571,15 +581,15 @@ let VIRTUAL_ORG_TEMPLATES = [
     tenantId: 'HSC',
     isolationGroupId: 'IG-HSC-ALL',
     name: '현대제철 전사예산 템플릿 1',
-    jobTypes: ['일반직', '기술직', '연구직', '임원'],  // 현대제철 직군 정의
+    jobTypes: ['일반직', '생산직', '기술직', '연구직', '임원'],  // 현대제철 직군 정의
     tree: {
       label: '현대제철 전사 교육예산 조직',
       hqs: [
         // ① 전사 일반직
         {
           id: 'HSCVO01', name: '전사 일반직',
-          managerPersonaKey: 'hsc_total',
-          managerPersonaKeys: ['hsc_total'],
+          managerPersonaKey: 'hsc_budget_gen',
+          managerPersonaKeys: ['hsc_budget_gen'],
           cooperators: [],
           budget: { total: 150000000, deducted: 0, holding: 0 },
           teams: [
@@ -588,7 +598,7 @@ let VIRTUAL_ORG_TEMPLATES = [
             { id: 'HSVT03', name: '(포)전기로기술팀',  allowedJobTypes: ['일반직', '임원'], budget: { allocated: 25000000, deducted: 0, holding: 0 } },
             { id: 'HSVT04', name: '(당)자재팀',        allowedJobTypes: ['일반직', '임원'], budget: { allocated: 25000000, deducted: 0, holding: 0 } },
             { id: 'HSVT05', name: '(인)전기로기술팀',  allowedJobTypes: ['일반직', '임원'], budget: { allocated: 25000000, deducted: 0, holding: 0 } },
-            { id: 'HSVT06', name: '(순)전기로기술팀',  allowedJobTypes: ['일반직', '기술직'], budget: { allocated: 35000000, deducted: 0, holding: 0 } },
+            { id: 'HSVT06', name: '(순)전기로기술팀',  allowedJobTypes: ['일반직'], budget: { allocated: 35000000, deducted: 0, holding: 0 } },
           ]
         },
         // ② 전사 연구직
@@ -1692,9 +1702,10 @@ function getPendingCountForPersona(persona) {
 // ─── 직군 마스터 (JOB_TYPES) ────────────────────────────────────────────────
 // 테넌트별 허용 직군 - 팀별 직군 필터링에 사용
 const JOB_TYPES = {
-  'HMC': ['일반직', '생산직', '연구직', '임원'],
-  'KIA': ['일반직', '생산직', '연구직'],
-  'HAE': ['일반직', '임원'],
+  'HMC':   ['일반직', '생산직', '연구직', '임원'],
+  'KIA':   ['일반직', '생산직', '연구직'],
+  'HAE':   ['일반직', '임원'],
+  'HSC':   ['일반직', '생산직', '기술직', '연구직', '임원'],
   'default': ['일반직']
 };
 

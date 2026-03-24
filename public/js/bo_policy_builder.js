@@ -25,6 +25,7 @@ function renderServicePolicy() {
   const isPlatform = role === 'platform_admin';
   const isTenant   = role === 'tenant_global_admin';
   const isBudgetOp = role === 'budget_op_manager' || role === 'budget_hq';
+  const isBudgetAdmin = role === 'budget_global_admin';
   const el = document.getElementById('bo-content');
 
   // ── 테넌트/그룹 필터 결정 ──────────────────────────────────────────────────
@@ -33,18 +34,19 @@ function renderServicePolicy() {
     : (persona.tenantId || '');
 
   const activeGroupId = (typeof boGetActiveGroupId === 'function') ? boGetActiveGroupId() : null;
-  // 예산운영담당자는 자신의 격리그룹 자동 고정
-  const autoGroupId = isBudgetOp ? (persona.isolationGroupId || activeGroupId || '') : null;
+  // 예산운영담당자/예산총괄담당자: 자신의 격리그룹 자동 기준
+  const autoGroupId = (isBudgetOp || isBudgetAdmin) ? (persona.isolationGroupId || activeGroupId || '') : null;
   const pbGroupId   = autoGroupId || _pbGroupFilter || activeGroupId || '';
 
   // ── 정책 필터링 ────────────────────────────────────────────────────────────
   let myPolicies = SERVICE_POLICIES.filter(p => {
     const tenantMatch = activeTenantId ? p.tenantId === activeTenantId : true;
     if (!tenantMatch) return false;
-    if (isBudgetOp) {
-      // 예산운영담당자: 자신의 formatIsolationGroup 또는 ownedAccounts 교집합
+    if (isBudgetOp || isBudgetAdmin) {
+      // 예산운영/예산총괄: 격리그룹 매칭 또는 ownedAccounts 교집합
       if (pbGroupId && p.isolationGroupId) return p.isolationGroupId === pbGroupId;
       const myAccts = persona.ownedAccounts || [];
+      if (myAccts.includes('*')) return p.tenantId === activeTenantId;
       return myAccts.some(a => p.accountCodes?.includes(a));
     }
     if (pbGroupId && p.isolationGroupId) return p.isolationGroupId === pbGroupId;

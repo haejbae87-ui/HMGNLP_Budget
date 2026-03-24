@@ -186,6 +186,7 @@ const PLATFORM_MENUS = [
   { id: 'budget-account',    icon: '💳', label: '예산 계정 관리',          section: null },
   { id: 'virtual-org',       icon: '🏢', label: '가상조직 템플릿 관리',   section: null },
   { id: 'form-builder',      icon: '📝', label: '교육양식마법사',          section: null },
+  { id: 'service-policy',    icon: '🔧', label: '서비스 정책 관리',        section: null },
   { id: 'reports',           icon: '📈', label: '통계 및 리포트',        section: '분석' },
   { id: 'manual',            icon: '📖', label: '서비스 매뉴얼',          section: null },
 ];
@@ -197,6 +198,7 @@ const TENANT_ADMIN_MENUS = [
   { id: 'budget-account',   icon: '💳', label: '예산 계정 관리',         section: null },
   { id: 'virtual-org',      icon: '🏢', label: '가상조직 템플릿 관리',  section: null },
   { id: 'form-builder',     icon: '📝', label: '교육양식마법사',         section: null },
+  { id: 'service-policy',   icon: '🔧', label: '서비스 정책 관리',       section: null },
   { id: 'reports',          icon: '📈', label: '전사 통계 리포트',       section: '분석' },
   { id: 'manual',           icon: '📖', label: '서비스 매뉴얼',          section: null },
 ];
@@ -219,10 +221,11 @@ const BUDGET_ADMIN_MENUS = [
 
 // 예산 운영 메뉴 (Budget Operation Manager)
 const BUDGET_OP_MENUS = [
-  { id: 'dashboard',        icon: '📊', label: '대시보드',              section: null },
-  { id: 'my-operations',   icon: '📥', label: '나의 운영 업무',           section: '운영 업무' },
-  { id: 'org-budget',       icon: '💰', label: '조직 예산 현황',          section: null },
-  { id: 'reports',          icon: '📈', label: '통계 및 리포트',          section: '분석' },
+  { id: 'dashboard',       icon: '📊', label: '대시보드',              section: null },
+  { id: 'my-operations',  icon: '📥', label: '나의 운영 업무',           section: '운영 업무' },
+  { id: 'service-policy', icon: '🔧', label: '서비스 정책 관리',        section: null },
+  { id: 'org-budget',      icon: '💰', label: '조직 예산 현황',          section: null },
+  { id: 'reports',         icon: '📈', label: '통계 및 리포트',          section: '분석' },
 ];
 
 // 겸임용 통합 메뉴 (Tenant Admin + Budget Admin 겸임)
@@ -255,7 +258,7 @@ function _getMenus(persona) {
   if (persona.role === 'platform_admin')      return PLATFORM_MENUS;
   if (persona.role === 'tenant_global_admin') return TENANT_ADMIN_MENUS;
   if (persona.role === 'budget_global_admin') return BUDGET_ADMIN_MENUS;
-  if (persona.role === 'budget_op_manager')   return BUDGET_OP_MENUS;
+  if (persona.role === 'budget_op_manager' || persona.role === 'budget_hq') return BUDGET_OP_MENUS;
   return TENANT_MENUS; // 레거시 fallback
 }
 

@@ -26,7 +26,6 @@ function renderBoManual() {
       { id:'patterns',    label:'④ 프로세스 패턴' },
       { id:'data-flow',   label:'⑤ 데이터 흐름' },
       { id:'tech',        label:'⑥ 기술 구조' },
-      { id:'devplan',     label:'⑦ 개발 일정' },
     ].map(t => `
     <button onclick="_manSetTab('${t.id}')" id="mbtab-${t.id}"
       style="padding:10px 16px;font-size:12px;font-weight:700;border:none;border-bottom:3px solid transparent;

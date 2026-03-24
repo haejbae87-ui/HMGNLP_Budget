@@ -7,8 +7,7 @@ const PERSONAS = {
     id: 'P401', name: '조O성', dept: '역량혁신팀', pos: '책임',
     type: 'HMC_TeamMgr', typeLabel: 'HMC 팀담당자·실무자',
     company: '현대자동차', tenantId: 'HMC',
-    role: 'team_general',
-    // 보안: 일반예산 계정만 허용 — R&D예산 관련 신청/조회 불가
+    role: 'team_general', jobType: '일반직',
     allowedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC', 'COMMON-FREE'],
     isolationGroup: 'HMC-GENERAL',
     desc: '일반예산(운영/기타/참가) 활용 실무자. 운영·기타 계정으로 교육계획 수립 후, 승인된 계획 복수 매핑 신청. 무예산 개인 이력·운영 결과 등록 활용.',
@@ -21,10 +20,9 @@ const PERSONAS = {
     id: 'P402', name: '이O봉', dept: '내구기술팀', pos: '책임',
     type: 'HMC_Learner', typeLabel: 'HMC 학습자·연구원',
     company: '현대자동차', tenantId: 'HMC',
-    role: 'learner',
-    // 보안: 일반예산(참가계정) + R&D예산 동시 허용 (권한 부여된 경우)
+    role: 'learner', jobType: '연구직',
     allowedAccounts: ['HMC-PART', 'HMC-RND', 'COMMON-FREE'],
-    isolationGroup: 'HMC-BOTH',   // 양쪽 계정 접근 가능한 특수 권한
+    isolationGroup: 'HMC-BOTH',
     desc: '일반예산 및 R&D교육예산 복합 학습자. R&D계정으로 계획→신청→결과, 일반예산 복수 계획 매핑 신청 가능. 무예산 이력 및 단순 결과 등록 활용.',
     budgets: [
       { id: 'b_hmc03', name: '내구기술팀 일반예산 참가계정', account: '참가', balance: 4500000, used: 500000 },
@@ -37,7 +35,7 @@ const PERSONAS = {
     id: 'P203', name: '강O우', dept: '개인정보보호팀', pos: '책임',
     type: 'KIA_Learner', typeLabel: 'KIA 학습자',
     company: '기아', tenantId: 'KIA',
-    role: 'learner',
+    role: 'learner', jobType: '일반직',
     allowedAccounts: ['KIA-OPS', 'KIA-PART', 'COMMON-FREE'],
     isolationGroup: 'KIA-GENERAL',
     desc: '일반예산기반 학습자. 교육계획 수립 → 복수 계획 매핑 신청 → 결과 작성. 자비/무료 교육 무예산 이력 등록 및 결과 단독 등록 활용.',
@@ -52,11 +50,10 @@ const PERSONAS = {
     id: 'P303', name: '남O우', dept: 'PM서비스팀', pos: '책임',
     type: 'HAE_Learner', typeLabel: 'HAE 학습자 (솔루션사업부)',
     company: '현대오토에버', tenantId: 'HAE',
-    role: 'learner',
-    // HAE 정책: 개인직무 사외학습에 한정, 참가계정 + 자격증계정 활용 가능
+    role: 'learner', jobType: '일반직',
     allowedAccounts: ['HAE-PART', 'HAE-CERT', 'COMMON-FREE'],
     isolationGroup: 'HAE-SOL',
-    process: 'plan-apply-result',   // 고정 프로세스만 허용
+    process: 'plan-apply-result',
     desc: '솔루션사업부 학습자. 개인직무 사외학습에 한정하여 프로세스 수행. HAE 고정 프로세스(개인직무 사외학습 계획 수립 ➡️ 계획 기반 신청 ➡️ 수료 후 결과 단순 입력) 준수. 본인의 개인직무 관련 학습 이력만 관리.',
     budgets: [
       { id: 'b_hae01', name: 'PM서비스팀 참가계정', account: '참가', balance: 4000000, used: 600000 },
@@ -68,15 +65,30 @@ const PERSONAS = {
     id: 'P304', name: '이O준', dept: 'L&D플랫폼팀', pos: '책임',
     type: 'HAE_Learner', typeLabel: 'HAE 학습자 (L&D플랫폼팀)',
     company: '현대오토에버', tenantId: 'HAE',
-    role: 'learner',
+    role: 'learner', jobType: '일반직',
     allowedAccounts: ['HAE-OPS', 'HAE-PART', 'HAE-CERT', 'COMMON-FREE'],
     isolationGroup: 'HAE-ALL',
-    process: 'plan-apply-result',   // 고정 프로세스만 허용
+    process: 'plan-apply-result',
     desc: 'L&D플랫폼팀 학습자. 플랫폼 운영·기획 관련 교육 및 개인직무 사외학습 프로세스 수행. 운영·참가·자격증 전 계정 활용 가능.',
     budgets: [
       { id: 'b_hae03', name: 'L&D플랫폼팀 운영계정', account: '운영', balance: 6000000, used: 1200000 },
       { id: 'b_hae04', name: 'L&D플랫폼팀 참가계정', account: '참가', balance: 3000000, used: 400000 },
       { id: 'b_hae05', name: 'L&D플랫폼팀 자격증계정', account: '자격증', balance: 1500000, used: 0 }
+    ]
+  },
+
+  // ── 현대제철 (HSC) ────────────────────────────────────────────────────────
+  hsc_learner: {
+    id: 'P608', name: '정O안', dept: '성장디자인팀', pos: '매니저',
+    type: 'HSC_Learner', typeLabel: 'HSC 학습자',
+    company: '현대제철', tenantId: 'HSC',
+    role: 'learner', jobType: '일반직',
+    allowedAccounts: ['HSC-OPS', 'HSC-EXT', 'COMMON-FREE'],
+    isolationGroup: 'IG-HSC-ALL',
+    process: 'plan-apply-result',
+    desc: '현대제철 성장디자인팀 학습자. 개인직무 사외학습 중심. 사외교육 계정(HSC-EXT) 활용.',
+    budgets: [
+      { id: 'b_hsc01', name: '성장디자인팀 사외교육계정', account: '사외교육', balance: 5000000, used: 0 }
     ]
   },
 };
@@ -102,7 +114,7 @@ let currentPersona = PERSONAS.hmc_team_mgr;
 let currentPage = 'dashboard';
 
 // LXP 페르소나 전환 목록 (백오피스 제외)
-const LXP_PERSONA_LIST = ['hmc_team_mgr', 'hmc_learner', 'kia_learner', 'hae_learner'];
+const LXP_PERSONA_LIST = ['hmc_team_mgr', 'hmc_learner', 'kia_learner', 'hae_learner', 'hae_learner2', 'hsc_learner'];
 
 function resetApplyState() {
   return {

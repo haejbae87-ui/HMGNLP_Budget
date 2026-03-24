@@ -47,6 +47,7 @@ function renderGNB() {
     { label: 'HMC', color: '#002C5F', keys: ['hmc_team_mgr', 'hmc_learner'] },
     { label: 'KIA', color: '#059669', keys: ['kia_learner'] },
     { label: 'HAE', color: '#7C3AED', keys: ['hae_learner', 'hae_learner2'] },
+    { label: 'HSC', color: '#BE123C', keys: ['hsc_learner'] },
   ];
 
   const switcherGroups = LXP_GROUPS.map(g => {
@@ -54,10 +55,15 @@ function renderGNB() {
       const p = PERSONAS[key];
       if (!p) return '';
       const isActive = currentPersona === p;
+      const jobBadge = p.jobType
+        ? `<span style="font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;background:${isActive ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.15)'};color:rgba(255,255,255,0.85)">${p.jobType}</span>`
+        : '';
       return `<button onclick="switchPersonaTo('${key}')"
-        title="${p.company} ${p.dept} ${p.name}"
-        style="border:1.5px solid ${isActive ? g.color : '#ffffff30'};background:${isActive ? 'rgba(255,255,255,0.2)' : 'transparent'};color:#fff;border-radius:8px;padding:3px 8px;font-size:11px;font-weight:${isActive ? 900 : 500};cursor:pointer;transition:all .15s">
-        ${isActive ? '● ' : ''}${p.name}
+        title="${p.company} ${p.dept} ${p.name} (${p.jobType || p.role})"
+        style="display:flex;align-items:center;gap:4px;border:1.5px solid ${isActive ? g.color : '#ffffff30'};background:${isActive ? 'rgba(255,255,255,0.2)' : 'transparent'};color:#fff;border-radius:8px;padding:3px 8px;font-size:11px;font-weight:${isActive ? 900 : 500};cursor:pointer;transition:all .15s">
+        ${isActive ? '<span style="font-size:8px">●</span>' : ''}
+        <span>${p.name}</span>
+        ${jobBadge}
       </button>`;
     }).join('');
     return `<div style="display:flex;align-items:center;gap:3px">

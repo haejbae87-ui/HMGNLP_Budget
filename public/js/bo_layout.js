@@ -330,7 +330,7 @@ function renderBoHeader() {
     { label: 'HAE',     tenantId: 'HAE',   color: '#7C3AED', bg: '#F5F3FF', keys: ['hae_tenant_admin','hae_total','hae_dept'] },
     { label: '로템',   tenantId: 'ROTEM', color: '#B45309', bg: '#FFFBEB', keys: ['rotem_tenant_admin','rotem_total'] },
     { label: '엔지',   tenantId: 'HEC',   color: '#0369A1', bg: '#F0F9FF', keys: ['hec_tenant_admin','hec_total'] },
-    { label: '제철',   tenantId: 'HSC',   color: '#BE123C', bg: '#FFF1F2', keys: ['hsc_tenant_admin','hsc_total'] },
+    { label: '제철',   tenantId: 'HSC',   color: '#BE123C', bg: '#FFF1F2', keys: ['hsc_platform','hsc_tenant_admin','hsc_total','hsc_budget_gen','hmc_budget_gen1','hmc_budget_gen2','hmc_budget_gen3','hmc_budget_gen4','hsc_learner'] },
     { label: '트랜시', tenantId: 'HTS',color: '#6D28D9', bg: '#F5F3FF', keys: ['hts_tenant_admin','hts_total'] },
     { label: '글로비스', tenantId: 'GLOVIS', color: '#0E7490', bg: '#ECFEFF', keys: ['glovis_tenant_admin','glovis_total'] },
     { label: '차증권', tenantId: 'HIS',  color: '#9D174D', bg: '#FDF2F8', keys: ['his_tenant_admin','his_total'] },

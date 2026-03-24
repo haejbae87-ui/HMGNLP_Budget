@@ -56,7 +56,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['*'],       // 전체 계정 소유자(설정 전용)
     allowedAccounts: ['*'],     // 전체 조회
     isolationGroup: 'SYSTEM',
-    accessMenus: ['dashboard', 'platform-monitor', 'platform-roles', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'reports']
+    accessMenus: ['dashboard', 'platform-monitor', 'platform-roles', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'reports', 'manual', 'manual']
   },
 
   // ── [현대자동차 HMC] ──────────────────────────────────────────────────────
@@ -99,7 +99,7 @@ const BO_PERSONAS = {
     ownedAccounts: [],
     allowedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC'],
     isolationGroup: 'HMC-GENERAL',
-    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'reports']
+    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'reports', 'manual']
   },
   // ── HMC R&D예산 그룹 ────────────────────────────────────────────────────────
   hmc_total_rnd: {
@@ -125,7 +125,7 @@ const BO_PERSONAS = {
     ownedAccounts: [],
     allowedAccounts: ['HMC-RND'],
     isolationGroup: 'HMC-RND',
-    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'reports']
+    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'reports', 'manual']
   },
 
   // ── [기아 KIA] ────────────────────────────────────────────────────────────
@@ -160,7 +160,7 @@ const BO_PERSONAS = {
     ownedAccounts: [],
     allowedAccounts: ['KIA-OPS', 'KIA-PART', 'KIA-ETC'],
     isolationGroup: 'KIA-GENERAL',
-    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'reports']
+    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'reports', 'manual']
   },
 
   // ── [현대오토에버 HAE] ────────────────────────────────────────────────────
@@ -194,7 +194,7 @@ const BO_PERSONAS = {
     ownedAccounts: [],
     allowedAccounts: ['HAE-OPS'],
     isolationGroup: 'HAE-SOL',
-    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'reports']
+    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'reports', 'manual']
   },
 
 

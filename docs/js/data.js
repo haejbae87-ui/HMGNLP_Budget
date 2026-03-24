@@ -156,7 +156,7 @@ const PURPOSES = [
     label: '개인 직무 사외학습',
     desc: '개인 역량 향상 사외 활동',
     icon: '💼',
-    accounts: ['참가', '연구투자', '사외교육'],
+    accounts: ['참가', '연구투자', '사외교육', '전사교육', '팀/프로젝트'],
     subtypes: [
       {
         group: '정규교육',

@@ -357,38 +357,71 @@ function renderPolicyWizard() {
   } else if (_policyWizardStep === 2) {
     const types = _EDU_TYPE_MAP[d.purpose] || [];
     if (!d.eduSubTypes) d.eduSubTypes = {};
-    stepContent = `
+    const isPersonal = d.purpose === 'external_personal';
+    // 개인직무사외학습: selectedEduItem = {typeId, subId}  (단독 선택)
+    if (!d.selectedEduItem) d.selectedEduItem = null;
+
+    const purposeLabel = [...(_PURPOSE_MAP.learner||[]),...(_PURPOSE_MAP.operator||[])].find(x=>x.id===d.purpose)?.label||d.purpose;
+
+    if (isPersonal) {
+      // ── 개인직무사외학습: 헤더+라디오 단독선택 ─────────────────────────────────
+      stepContent = `
+<div style="display:grid;gap:12px">
+  <div style="padding:12px 16px;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:10px;font-size:12px;color:#5B21B6">
+    목적: <strong>${purposeLabel}</strong>
+  </div>
+  <label class="bo-label">교육 유형 세부 항목 <span style="font-size:10px;color:#9CA3AF">(하나만 선택)</span></label>
+  ${types.map(t => {
+    if (!t.subs || !t.subs.length) return `
+  <div style="border-radius:10px;border:1.5px solid #E5E7EB;overflow:hidden">
+    <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer"
+           onclick="_selectEduItem('${t.id}','')">
+      <input type="radio" name="wiz-edu-item" ${d.selectedEduItem?.typeId===t.id&&!d.selectedEduItem?.subId?'checked':''} style="margin:0;flex-shrink:0">
+      <span style="font-size:13px;font-weight:800;color:${d.selectedEduItem?.typeId===t.id?'#7C3AED':'#374151'}">${t.label}</span>
+    </label>
+  </div>`;
+    return `
+  <div style="border-radius:10px;border:1.5px solid #E5E7EB;overflow:hidden">
+    <div style="padding:10px 16px;background:#F9FAFB;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;gap:8px">
+      <span style="font-size:12px;font-weight:900;color:#374151">${t.label}</span>
+      <span style="font-size:10px;color:#9CA3AF">${t.subs.map(s=>s.label).join(' · ')}</span>
+    </div>
+    <div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:8px">
+      ${t.subs.map(s=>`
+      <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;
+                    border:1.5px solid ${d.selectedEduItem?.typeId===t.id&&d.selectedEduItem?.subId===s.id?'#7C3AED':'#E5E7EB'};
+                    background:${d.selectedEduItem?.typeId===t.id&&d.selectedEduItem?.subId===s.id?'#F5F3FF':'white'};cursor:pointer"
+             onclick="_selectEduItem('${t.id}','${s.id}')">
+        <input type="radio" name="wiz-edu-item" ${d.selectedEduItem?.typeId===t.id&&d.selectedEduItem?.subId===s.id?'checked':''} style="margin:0">
+        <span style="font-size:13px;font-weight:700;color:${d.selectedEduItem?.typeId===t.id&&d.selectedEduItem?.subId===s.id?'#7C3AED':'#374151'}">${s.label}</span>
+      </label>`).join('')}
+    </div>
+  </div>`;
+  }).join('')}
+</div>`;
+
+    } else {
+      // ── 기타 목적: 복수 체크박스 ───────────────────────────────────────────────
+      stepContent = `
 <div style="display:grid;gap:10px">
   <div style="padding:12px 16px;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:10px;font-size:12px;color:#5B21B6">
-    목적: <strong>${[..._PURPOSE_MAP.learner,..._PURPOSE_MAP.operator].find(x=>x.id===d.purpose)?.label||d.purpose}</strong>
+    목적: <strong>${purposeLabel}</strong>
   </div>
-  <label class="bo-label">교육 유형 <span style="font-size:10px;color:#9CA3AF">(복수 선택 가능 · 세부 항목 개별 선택)</span></label>
+  <label class="bo-label">교육 유형 <span style="font-size:10px;color:#9CA3AF">(복수 선택 가능)</span></label>
   <div style="display:grid;gap:6px">
     ${types.map(t=>{
       const isChecked = (d.eduTypes||[]).includes(t.id);
-      const subRows = isChecked && t.subs.length ? `
-        <div style="margin:4px 0 0 32px;display:flex;flex-wrap:wrap;gap:6px">
-          ${t.subs.map(s=>`
-          <label style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:7px;
-                        border:1.5px solid ${(d.eduSubTypes[t.id]||[]).includes(s.id)?'#7C3AED':'#D1D5DB'};
-                        background:${(d.eduSubTypes[t.id]||[]).includes(s.id)?'#F5F3FF':'#F9FAFB'};cursor:pointer"
-                 onclick="event.stopPropagation();_toggleEduSubType('${t.id}','${s.id}')">
-            <input type="checkbox" ${(d.eduSubTypes[t.id]||[]).includes(s.id)?'checked':''} style="margin:0">
-            <span style="font-size:11px;font-weight:700;color:${(d.eduSubTypes[t.id]||[]).includes(s.id)?'#7C3AED':'#6B7280'}">${s.label}</span>
-          </label>`).join('')}
-        </div>` : '';
       return `
     <div style="border-radius:10px;border:1.5px solid ${isChecked?'#7C3AED':'#E5E7EB'};background:${isChecked?'#F5F3FF':'white'};overflow:hidden">
       <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer" onclick="_toggleEduType('${t.id}')">
         <input type="checkbox" ${isChecked?'checked':''} style="margin:0;flex-shrink:0">
         <div style="font-size:13px;font-weight:800;color:${isChecked?'#7C3AED':'#374151'}">${t.label}</div>
-        ${!isChecked && t.subs.length ? `<div style="font-size:11px;color:#9CA3AF;margin-left:2px">(${t.subs.map(s=>s.label).join(' · ')})</div>` : ''}
       </label>
-      ${subRows ? `<div style="padding:0 14px 12px">${subRows}</div>` : ''}
     </div>`;
     }).join('')}
   </div>
 </div>`;
+    }
 
   // ── Step 4: 예산 계정 + 패턴 ──────────────────────────────────────────────────
   } else if (_policyWizardStep === 3) {
@@ -664,6 +697,11 @@ function _setPatternDefaults(pat) {
   _policyWizardData.applyMode = m.applyMode;
   if (!m.budgetLinked) _policyWizardData.accountCodes = [];
 }
+function _selectEduItem(typeId, subId) {
+  _policyWizardData.selectedEduItem = { typeId, subId };
+  _policyWizardData.eduTypes = typeId ? [typeId] : [];
+  renderPolicyWizard();
+}
 
 // ── 위저드 진행 ───────────────────────────────────────────────────────────────
 function advancePolicyWizard() {
@@ -678,7 +716,11 @@ function advancePolicyWizard() {
   } else if (_policyWizardStep === 1) {
     if (!d.purpose) { alert('교육 목적을 선택하세요.'); return; }
   } else if (_policyWizardStep === 2) {
-    if (!(d.eduTypes||[]).length) { alert('교육 유형을 하나 이상 선택하세요.'); return; }
+    if (d.purpose === 'external_personal') {
+      if (!d.selectedEduItem) { alert('교육 유형 세부 항목을 하나 선택하세요.'); return; }
+    } else {
+      if (!(d.eduTypes||[]).length) { alert('교육 유형을 하나 이상 선택하세요.'); return; }
+    }
   } else if (_policyWizardStep === 3) {
     if (d.budgetLinked && !(d.accountCodes||[]).length) { alert('예산 계정을 선택하세요.'); return; }
     if (!d.processPattern) { alert('프로세스 패턴을 선택하세요.'); return; }

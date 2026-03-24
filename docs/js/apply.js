@@ -112,16 +112,24 @@ function renderApply() {
     ${(() => {
       const isIndividual = s.purpose?.id === 'external_personal';
       if (isIndividual) {
-        // ── 개인직무 사외학습: 3가지 예산 옵션 카드 ──────────────────────────
-        const hasRnd = (currentPersona.allowedAccounts || []).some(a => a.includes('RND'));
+        // ── 개인직무 사외학습: 페르소나별 동적 예산 옵션 카드 ──────────────────
+        const hasRnd    = (currentPersona.allowedAccounts || []).some(a => a.includes('RND'));
+        const hasHscExt = (currentPersona.allowedAccounts || []).includes('HSC-EXT');
         const CHOICES = [
-          {
+          ...(!hasHscExt ? [{
             id:'general', icon:'💳',
             title:'일반교육예산 참가계정',
             desc:'일반 교육예산에서 참가비를 지원받습니다. 개인 선지출 후 영수증을 첨부하여 신청합니다.',
             tag:'후정산형', tagColor:'#D97706', tagBg:'#FEF3C7',
             next:'교육유형 선택 → 세부정보', nextColor:'#059669',
-          },
+          }] : []),
+          ...(hasHscExt ? [{
+            id:'general', icon:'🏭',
+            title:'현대제철-사외교육 계정',
+            desc:'현대제철 사외교육 예산에서 교육비를 지원받습니다. 교육비 선지출 후 영수증을 첨부하여 신청합니다.',
+            tag:'후정산형', tagColor:'#BE123C', tagBg:'#FFF1F2',
+            next:'교육유형 선택 → 세부정보', nextColor:'#BE123C',
+          }] : []),
           ...(hasRnd ? [{
             id:'rnd', icon:'🔬',
             title:'R&D교육예산 계정',
@@ -211,7 +219,20 @@ ${svcs.map(sv => `<label style="display:flex;align-items:center;gap:10px;padding
   <!-- Step 3: 교육유형 선택 -->
   <div class="card p-8 ${s.step === 3 ? '' : 'hidden'}">
     <h2 class="text-lg font-black text-gray-800 mb-6">03. 교육유형 선택</h2>
-    ${s.purpose?.subtypes ? s.purpose.subtypes.map(g => `
+    ${(() => {
+      // HSC-EXT 계정 선택 시 허용 교육유형 ID 제한
+      const hasHscExt = (currentPersona.allowedAccounts || []).includes('HSC-EXT');
+      const isHscExtBudget = hasHscExt && s.budgetChoice === 'general';
+      const HSC_EXT_ALLOWED = ['edu_elearning','edu_class','edu_live','acad_conf'];
+      const subtypes = s.purpose?.subtypes
+        ? (isHscExtBudget
+            ? s.purpose.subtypes
+                .map(g => ({ ...g, items: g.items.filter(i => HSC_EXT_ALLOWED.includes(i.id)) }))
+                .filter(g => g.items.length > 0)
+            : s.purpose.subtypes)
+        : null;
+      if (!subtypes) return '<div class="p-5 bg-gray-50 rounded-2xl text-sm font-bold text-gray-500 flex items-center gap-3"><span class="text-accent text-xl">✓</span> 표준 프로세스가 자동 적용됩니다.</div>';
+      return subtypes.map(g => `
     <div class="mb-7">
       <div class="mb-3">
         <div class="text-xs font-black text-gray-700 flex items-center gap-2 mb-0.5"><span class="w-1.5 h-1.5 bg-accent rounded-full inline-block"></span>${g.group}</div>
@@ -221,7 +242,8 @@ ${svcs.map(sv => `<label style="display:flex;align-items:center;gap:10px;padding
         ${g.items.map(i => `
         <button onclick="applyState.subType='${i.id}';renderApply()" class="p-4 rounded-xl border-2 text-sm font-bold text-left leading-snug transition ${s.subType === i.id ? 'bg-gray-900 border-gray-900 text-white shadow-xl' : 'border-gray-200 text-gray-700 hover:border-accent hover:text-accent'}">${i.label}</button>`).join('')}
       </div>
-    </div>`).join('') : '<div class="p-5 bg-gray-50 rounded-2xl text-sm font-bold text-gray-500 flex items-center gap-3"><span class="text-accent text-xl">✓</span> 표준 프로세스가 자동 적용됩니다.</div>'}
+    </div>`).join('');
+    })()}
     <div class="flex justify-between mt-6">
       <button onclick="applyPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
       <button onclick="applyNext()" ${s.purpose?.subtypes && !s.subType ? 'disabled' : ''}
@@ -441,6 +463,10 @@ function selectBudgetChoice(choice) {
   applyState.serviceId = '';
   applyState.applyMode = choice === 'none' ? null : (choice === 'general' ? 'reimbursement' : 'holding');
   applyState.useBudget = choice !== 'none';
+  // 단일 예산 페르소나(HSC 등)는 budgetId 자동 설정
+  if (choice === 'general' && (currentPersona.budgets || []).length >= 1) {
+    applyState.budgetId = currentPersona.budgets[0].id;
+  }
   renderApply();
 }
 

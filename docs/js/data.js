@@ -153,37 +153,47 @@ const PURPOSES = [
     label: '개인 직무 사외학습',
     desc: '개인 역량 향상 사외 활동',
     icon: '💼',
-    accounts: ['참가', '연구투자'],
+    accounts: ['참가', '연구투자', '사외교육'],
     subtypes: [
       {
-        group: '콘텐츠',
-        desc: '언제 어디서든 시청/학습하는 형태',
+        group: '정규교육',
         items: [
-          { id: 'content_elearning', label: '이러닝' },
-          { id: 'content_video', label: '동영상' },
-          { id: 'content_ebook', label: '디지털 교재' }
+          { id: 'edu_elearning', label: '이러닝' },
+          { id: 'edu_class',     label: '집합' },
+          { id: 'edu_live',      label: '라이브' },
         ]
       },
       {
-        group: '오프라인 / 비대면',
-        desc: '특정 시간에 실시간으로 참여하는 형태',
+        group: '학술 및 연구활동',
         items: [
-          { id: 'live_class', label: '집합교육 (오프라인)' },
-          { id: 'live_online', label: '실시간 화상교육 (비대면)' },
-          { id: 'live_conf', label: '학회/세미나/컨퍼런스' },
-          { id: 'live_present', label: '학회 직접 발표' }
+          { id: 'acad_conf',    label: '학회/세미나/컨퍼런스' },
+          { id: 'acad_present', label: '학회 직접 발표' },
+          { id: 'acad_study',   label: '연수' },
         ]
       },
       {
-        group: '자료 구독 / 구매',
-        desc: '전문 지식을 참고/소유하는 형태',
+        group: '지식자원학습',
         items: [
-          { id: 'mat_book', label: '도서' },
-          { id: 'mat_journal', label: '논문/저널' },
-          { id: 'mat_tech', label: '기술자료 (DB구독·자료구매)' },
-          { id: 'mat_membership', label: '학·협회비' }
+          { id: 'res_book',    label: '도서' },
+          { id: 'res_journal', label: '논문/저널' },
+          { id: 'res_tech',    label: '기술자료(DB구독·자료구매)' },
         ]
-      }
+      },
+      {
+        group: '역량개발지원',
+        items: [
+          { id: 'dev_lang',  label: '어학학습비 지원' },
+          { id: 'dev_cert',  label: '자격증 취득지원' },
+          { id: 'dev_assoc', label: '학협회비' },
+        ]
+      },
+      {
+        group: '기타',
+        items: [
+          { id: 'etc_teach', label: '교육출강(사/내외)' },
+          { id: 'etc_team',  label: '팀빌딩' },
+        ]
+      },
     ]
   },
   {

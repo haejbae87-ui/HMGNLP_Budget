@@ -25,9 +25,17 @@ let SERVICE_DEFINITIONS = [
 
 // ─── 법인(테넌트) 마스터 ─────────────────────────────────────────────────────
 const TENANTS = [
-  { id: 'HMC', name: '현대자동차', budgetMode: 'full',     color: '#002C5F', bg: '#EFF6FF', border: '#BFDBFE' },
-  { id: 'KIA', name: '기아',           budgetMode: 'full',     color: '#05141F', bg: '#F0FDF4', border: '#BBF7D0' },
-  { id: 'HAE', name: '현대오토에버',   budgetMode: 'full',     color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
+  { id: 'HMC',    name: '현대자동차',   budgetMode: 'full', color: '#002C5F', bg: '#EFF6FF', border: '#BFDBFE' },
+  { id: 'KIA',    name: '기아',         budgetMode: 'full', color: '#05141F', bg: '#F0FDF4', border: '#BBF7D0' },
+  { id: 'HAE',    name: '현대오토에버', budgetMode: 'full', color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
+  { id: 'HSC',    name: '현대제철',     budgetMode: 'full', color: '#BE123C', bg: '#FFF1F2', border: '#FECDD3' },
+  { id: 'ROTEM',  name: '현대로템',     budgetMode: 'full', color: '#B45309', bg: '#FFFBEB', border: '#FDE68A' },
+  { id: 'HEC',    name: '현대엔지니어링', budgetMode: 'full', color: '#0369A1', bg: '#F0F9FF', border: '#BAE6FD' },
+  { id: 'HTS',    name: '현대트랜시스', budgetMode: 'full', color: '#6D28D9', bg: '#F5F3FF', border: '#DDD6FE' },
+  { id: 'GLOVIS', name: '현대글로비스', budgetMode: 'full', color: '#0E7490', bg: '#ECFEFF', border: '#A5F3FC' },
+  { id: 'HIS',    name: '현대차증권',   budgetMode: 'full', color: '#9D174D', bg: '#FDF2F8', border: '#FBCFE8' },
+  { id: 'KEFICO', name: '현대케피코',   budgetMode: 'full', color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
+  { id: 'HISC',   name: '현대ISC',      budgetMode: 'full', color: '#374151', bg: '#F9FAFB', border: '#E5E7EB' },
 ];
 
 // 격리그룹 조회 헬퍼 (ISOLATION_GROUPS는 하단에 let으로 선언됨)

@@ -1,4 +1,4 @@
-// ─── BACK-OFFICE DATA LAYER ──────────────────────────────────────────────────
+﻿// ─── BACK-OFFICE DATA LAYER ──────────────────────────────────────────────────
 
 // ─── 사전 정의된 학습유형 (Learning Types) ──────────────────────────────────
 const LEARNING_TYPES = [
@@ -590,7 +590,10 @@ let VIRTUAL_ORG_TEMPLATES = [
           id: 'HSCVO01', name: '전사 일반직',
           managerPersonaKey: 'hsc_budget_gen',
           managerPersonaKeys: ['hsc_budget_gen'],
-          cooperators: [],
+          cooperators: [
+            { teamId: 'HSCCOP01', teamName: '재경팀',           coopType: '재경협조처', required: false, role: '예산검토' },
+            { teamId: 'HSCCOP02', teamName: '투명경영지원팀',   coopType: '재경협조처', required: false, role: '예산검토' }
+          ],
           budget: { total: 150000000, deducted: 0, holding: 0 },
           teams: [
             { id: 'HSVT01', name: '준법경영실',        allowedJobTypes: ['일반직', '임원'], budget: { allocated: 20000000, deducted: 0, holding: 0 } },
@@ -606,7 +609,10 @@ let VIRTUAL_ORG_TEMPLATES = [
           id: 'HSCVO02', name: '전사 연구직',
           managerPersonaKey: 'hsc_budget_rnd',
           managerPersonaKeys: ['hsc_budget_rnd'],
-          cooperators: [],
+          cooperators: [
+            { teamId: 'HSCCOP01', teamName: '재경팀',           coopType: '재경협조처', required: false, role: '예산검토' },
+            { teamId: 'HSCCOP02', teamName: '투명경영지원팀',   coopType: '재경협조처', required: false, role: '예산검토' }
+          ],
           budget: { total: 80000000, deducted: 0, holding: 0 },
           teams: [
             { id: 'HSVT11', name: 'R&D전략기획팀',     allowedJobTypes: ['연구직'], budget: { allocated: 80000000, deducted: 0, holding: 0 } },
@@ -617,7 +623,10 @@ let VIRTUAL_ORG_TEMPLATES = [
           id: 'HSCVO03', name: '당진공장(기술직)',
           managerPersonaKey: 'hsc_budget_hr_dang',
           managerPersonaKeys: ['hsc_budget_hr_dang'],
-          cooperators: [],
+          cooperators: [
+            { teamId: 'HSCCOP01', teamName: '재경팀',           coopType: '재경협조처', required: false, role: '예산검토' },
+            { teamId: 'HSCCOP02', teamName: '투명경영지원팀',   coopType: '재경협조처', required: false, role: '예산검토' }
+          ],
           budget: { total: 60000000, deducted: 0, holding: 0 },
           teams: [
             { id: 'HSVT21', name: '(당)자재팀',        allowedJobTypes: ['기술직'], budget: { allocated: 60000000, deducted: 0, holding: 0 } },
@@ -628,7 +637,10 @@ let VIRTUAL_ORG_TEMPLATES = [
           id: 'HSCVO04', name: '포항공장(기술직)',
           managerPersonaKey: 'hsc_budget_hr_po',
           managerPersonaKeys: ['hsc_budget_hr_po'],
-          cooperators: [],
+          cooperators: [
+            { teamId: 'HSCCOP01', teamName: '재경팀',           coopType: '재경협조처', required: false, role: '예산검토' },
+            { teamId: 'HSCCOP02', teamName: '투명경영지원팀',   coopType: '재경협조처', required: false, role: '예산검토' }
+          ],
           budget: { total: 70000000, deducted: 0, holding: 0 },
           teams: [
             { id: 'HSVT31', name: '(포)전기로기술팀',  allowedJobTypes: ['기술직'], budget: { allocated: 70000000, deducted: 0, holding: 0 } },
@@ -639,7 +651,10 @@ let VIRTUAL_ORG_TEMPLATES = [
           id: 'HSCVO05', name: '인천공장(기술직)',
           managerPersonaKey: 'hsc_budget_hr_in',
           managerPersonaKeys: ['hsc_budget_hr_in'],
-          cooperators: [],
+          cooperators: [
+            { teamId: 'HSCCOP01', teamName: '재경팀',           coopType: '재경협조처', required: false, role: '예산검토' },
+            { teamId: 'HSCCOP02', teamName: '투명경영지원팀',   coopType: '재경협조처', required: false, role: '예산검토' }
+          ],
           budget: { total: 50000000, deducted: 0, holding: 0 },
           teams: [
             { id: 'HSVT41', name: '(인)전기로기술팀',  allowedJobTypes: ['기술직'], budget: { allocated: 50000000, deducted: 0, holding: 0 } },
@@ -650,7 +665,10 @@ let VIRTUAL_ORG_TEMPLATES = [
           id: 'HSCVO06', name: '순천공장(기술직)',
           managerPersonaKey: 'hsc_budget_cold',
           managerPersonaKeys: ['hsc_budget_cold'],
-          cooperators: [],
+          cooperators: [
+            { teamId: 'HSCCOP01', teamName: '재경팀',           coopType: '재경협조처', required: false, role: '예산검토' },
+            { teamId: 'HSCCOP02', teamName: '투명경영지원팀',   coopType: '재경협조처', required: false, role: '예산검토' }
+          ],
           budget: { total: 45000000, deducted: 0, holding: 0 },
           teams: [
             { id: 'HSVT51', name: '(순)전기로기술팀',  allowedJobTypes: ['기술직'], budget: { allocated: 45000000, deducted: 0, holding: 0 } },

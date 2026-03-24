@@ -1,4 +1,4 @@
-// ─── APPLY (교육신청) — 목록 ↔ 신청폼 전환 허브 ────────────────────────────────
+﻿// ─── APPLY (교육신청) — 목록 ↔ 신청폼 전환 허브 ────────────────────────────────
 
 function renderApply() {
   if (typeof applyViewMode === 'undefined') applyViewMode = 'list';

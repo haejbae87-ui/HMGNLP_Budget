@@ -779,12 +779,35 @@ function _fbAdvancedModalBody(form) {
         </div>`;
       }).join('')}
     </div>
-    <!-- 우: 구성된 필드 -->
-    <div style="padding:14px">
-      <div style="font-size:10px;color:#6B7280;font-weight:800;margin-bottom:8px">구성된 필드 순서 <span style="font-weight:400">(우클릭으로 입력 주체 변경)</span></div>
-      <div id="fb-preview" style="min-height:120px">
-        ${_fbPreviewHTML()}
+  </div>
+</div>
+
+<!-- 공지사항 & 첨부파일 섹션 -->
+<div style="margin-top:18px;border-top:1px solid #E5E7EB;padding-top:16px">
+  <div style="font-size:12px;font-weight:900;color:#374151;margin-bottom:12px">📢 공지사항 & 📎 첨부파일</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <!-- 공지사항 -->
+    <div>
+      <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">공지사항
+        <span style="font-weight:400;color:#9CA3AF">(신청 화면 상단에 표시)</span>
+      </label>
+      <textarea id="fb-notice" rows="4" placeholder="학습자/담당자에게 전달할 안내사항을 입력하세요...\n예) 이 양식은 사외교육 신청 전용입니다."\n              style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;resize:vertical;line-height:1.5;font-family:inherit">${form?.noticeText || ''}</textarea>
+    </div>
+    <!-- 첨부파일 -->
+    <div>
+      <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">필수 첨부파일 목록
+        <span style="font-weight:400;color:#9CA3AF">(신청자에게 안내)</span>
+      </label>
+      <div id="fb-attach-list" style="min-height:60px;margin-bottom:6px">
+        ${(form?.attachments||[]).map((a,i)=>`
+        <div id="fb-attach-row-${i}" style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+          <input type="text" value="${a}" data-attach-idx="${i}"
+            style="flex:1;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;font-size:12px"
+            placeholder="첨부파일명 (예: 교육비 영수증)">
+          <button type="button" onclick="fbRemoveAttach(${i})" style="border:none;background:none;color:#EF4444;font-size:16px;cursor:pointer;line-height:1">×</button>
+        </div>`).join('')}
       </div>
+      <button type="button" onclick="fbAddAttach()" style="font-size:11px;font-weight:700;color:#7C3AED;background:#F5F3FF;border:1.5px dashed #C4B5FD;border-radius:6px;padding:5px 12px;cursor:pointer;width:100%">+ 첨부파일 추가</button>
     </div>
   </div>
 </div>`;
@@ -831,6 +854,25 @@ function fbRemoveField(key) {
   const idx = _fbTempFields.findIndex(f => (typeof f === 'object' ? f.key : f) === key);
   if (idx > -1) _fbTempFields.splice(idx, 1);
   _fbRefreshPreview();
+}
+
+function fbAddAttach() {
+  const list = document.getElementById('fb-attach-list');
+  if (!list) return;
+  const idx = list.querySelectorAll('[data-attach-idx]').length;
+  const row = document.createElement('div');
+  row.id = `fb-attach-row-${idx}`;
+  row.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:5px';
+  row.innerHTML = `<input type="text" data-attach-idx="${idx}"
+    style="flex:1;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;font-size:12px"
+    placeholder="첨부파일명 (예: 교육비 영수증)">
+    <button type="button" onclick="fbRemoveAttach(${idx})" style="border:none;background:none;color:#EF4444;font-size:16px;cursor:pointer;line-height:1">×</button>`;
+  list.appendChild(row);
+}
+
+function fbRemoveAttach(idx) {
+  const row = document.getElementById(`fb-attach-row-${idx}`);
+  if (row) row.remove();
 }
 
 function fbCycleScope(idx) {
@@ -933,13 +975,17 @@ function fbSaveForm() {
   const purpose    = document.getElementById('fb-purpose')?.value || '';
   const eduType    = document.getElementById('fb-edu-type')?.value || '';
   const eduSubType = document.getElementById('fb-edu-sub')?.value || '';
-
+  const noticeText = document.getElementById('fb-notice')?.value.trim() || '';
   const targetUser  = document.querySelector('input[name="fb-target-user"]:checked')?.value || '';
+
+  // 첨부파일 목록 수집
+  const attachInputs = document.querySelectorAll('#fb-attach-list input[data-attach-idx]');
+  const attachments = Array.from(attachInputs).map(el => el.value.trim()).filter(Boolean);
 
   if (!name) { alert('양식명은 필수입니다.'); return; }
   if (_fbTempFields.length === 0) { alert('최소 1개 이상의 필드를 추가해주세요.'); return; }
 
-  const formData = { type, name, desc, active: true, fields: [..._fbTempFields], purpose, eduType, eduSubType, targetUser };
+  const formData = { type, name, desc, active: true, fields: [..._fbTempFields], purpose, eduType, eduSubType, targetUser, noticeText, attachments };
 
   if (_fbEditId) {
     const idx = FORM_MASTER.findIndex(x => x.id === _fbEditId);

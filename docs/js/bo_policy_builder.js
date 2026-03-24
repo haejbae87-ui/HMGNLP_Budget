@@ -16,15 +16,75 @@ function _patternFromPolicy(p) {
 }
 
 // ── 정책 목록 메인 화면 ───────────────────────────────────────────────────────
+let _pbTenantFilter = '';
+let _pbGroupFilter  = '';
+
 function renderServicePolicy() {
-  const persona = boCurrentPersona;
+  const persona    = boCurrentPersona;
+  const role       = persona.role;
+  const isPlatform = role === 'platform_admin';
+  const isTenant   = role === 'tenant_global_admin';
+  const isBudgetOp = role === 'budget_op_manager' || role === 'budget_hq';
   const el = document.getElementById('bo-content');
-  // 격리그룹 기준 필터링 (isolationGroupId 또는 tenantId fallback)
+
+  // ── 테넌트/그룹 필터 결정 ──────────────────────────────────────────────────
+  const activeTenantId = isPlatform
+    ? (_pbTenantFilter || '')
+    : (persona.tenantId || '');
+
   const activeGroupId = (typeof boGetActiveGroupId === 'function') ? boGetActiveGroupId() : null;
-  const myPolicies = SERVICE_POLICIES.filter(p => {
-    if (activeGroupId && p.isolationGroupId) return p.isolationGroupId === activeGroupId;
-    return p.tenantId === persona.tenantId;
+  // 예산운영담당자는 자신의 격리그룹 자동 고정
+  const autoGroupId = isBudgetOp ? (persona.isolationGroupId || activeGroupId || '') : null;
+  const pbGroupId   = autoGroupId || _pbGroupFilter || activeGroupId || '';
+
+  // ── 정책 필터링 ────────────────────────────────────────────────────────────
+  let myPolicies = SERVICE_POLICIES.filter(p => {
+    const tenantMatch = activeTenantId ? p.tenantId === activeTenantId : true;
+    if (!tenantMatch) return false;
+    if (isBudgetOp) {
+      // 예산운영담당자: 자신의 formatIsolationGroup 또는 ownedAccounts 교집합
+      if (pbGroupId && p.isolationGroupId) return p.isolationGroupId === pbGroupId;
+      const myAccts = persona.ownedAccounts || [];
+      return myAccts.some(a => p.accountCodes?.includes(a));
+    }
+    if (pbGroupId && p.isolationGroupId) return p.isolationGroupId === pbGroupId;
+    if (activeTenantId) return p.tenantId === activeTenantId;
+    return true;
   });
+
+  // ── 상단 필터 바 ───────────────────────────────────────────────────────────
+  const TENANTS = typeof TENANT_MASTER !== 'undefined' ? TENANT_MASTER
+    : [...new Set(SERVICE_POLICIES.map(p=>p.tenantId))].map(id=>({id,name:id}));
+  const availGroups = (typeof ISOLATION_GROUPS !== 'undefined' ? ISOLATION_GROUPS : [])
+    .filter(g => !activeTenantId || g.tenantId === activeTenantId);
+
+  const filterBar = (isPlatform || isTenant || isBudgetOp) ? `
+<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+  ${isPlatform ? `
+  <div>
+    <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">회사</label>
+    <select onchange="_pbTenantFilter=this.value;_pbGroupFilter='';renderServicePolicy()"
+      style="padding:7px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700">
+      <option value="">전체 회사</option>
+      ${TENANTS.map(t=>`<option value="${t.id}" ${activeTenantId===t.id?'selected':''}>${t.name||t.id}</option>`).join('')}
+    </select>
+  </div>` : ''}
+  ${isBudgetOp ? `
+  <div style="display:flex;align-items:center;gap:6px;padding:7px 12px;background:#EDE9FE;border:1.5px solid #C4B5FD;border-radius:8px">
+    <span style="font-size:11px;font-weight:800;color:#7C3AED">🔒 담당 격리그룹</span>
+    <span style="font-size:12px;font-weight:900;color:#5B21B6">${(typeof ISOLATION_GROUPS!=='undefined'?ISOLATION_GROUPS:[]).find(g=>g.id===pbGroupId)?.name || pbGroupId || '전체'}</span>
+  </div>` : `
+  <div>
+    <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">교육 격리그룹</label>
+    <select onchange="_pbGroupFilter=this.value;renderServicePolicy()"
+      style="padding:7px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700">
+      <option value="">전체 그룹</option>
+      ${availGroups.map(g=>`<option value="${g.id}" ${pbGroupId===g.id?'selected':''}>${g.name}</option>`).join('')}
+    </select>
+  </div>`}
+  ${!isBudgetOp ? `<button onclick="_pbTenantFilter='';_pbGroupFilter='';renderServicePolicy()"
+    style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:11px;font-weight:700;background:white;cursor:pointer;margin-top:16px">초기화</button>` : ''}
+</div>` : '';
 
   const policyCards = myPolicies.map(p => {
     const approver = Object.values(BO_PERSONAS).find(pe =>
@@ -43,6 +103,7 @@ function renderServicePolicy() {
         <span style="font-size:10px;font-weight:900;padding:2px 9px;border-radius:6px;background:${pm.color}18;color:${pm.color};border:1px solid ${pm.color}40">${pm.icon} ${pm.label}</span>
         <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${p.budgetLinked?'#DBEAFE':'#F3F4F6'};color:${p.budgetLinked?'#1E40AF':'#6B7280'};font-weight:700">${p.budgetLinked?'💳 예산 연동':'무예산'}</span>
         <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${p.status==='active'?'#D1FAE5':'#F3F4F6'};color:${p.status==='active'?'#065F46':'#9CA3AF'};font-weight:700">${p.status==='active'?'✅ 운영중':'⏸️ 중지'}</span>
+        ${isPlatform ? `<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:#FEF3C7;color:#92400E;font-weight:700">${p.tenantId}</span>` : ''}
       </div>
       <div style="font-weight:900;font-size:15px;color:#111827;margin-bottom:4px">${p.name}</div>
       <div style="font-size:12px;color:#6B7280;display:flex;gap:12px;flex-wrap:wrap">
@@ -63,7 +124,7 @@ function renderServicePolicy() {
   el.innerHTML = `
 <div class="bo-fade">
   ${typeof boIsolationGroupBanner==='function' ? boIsolationGroupBanner() : ''}
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
     <div>
       <h1 class="bo-page-title">🔧 서비스 정책 관리</h1>
       <p class="bo-page-sub">교육 서비스 흐름, 예산 연동, 금액별 결재라인, 조직, 양식, 결재 권한을 하나의 정책으로 통합 관리</p>
@@ -72,6 +133,8 @@ function renderServicePolicy() {
       <span style="font-size:16px">+</span> 새 정책 만들기
     </button>
   </div>
+
+  ${filterBar}
 
   <!-- 패턴 안내 카드 -->
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:20px">

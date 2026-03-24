@@ -178,8 +178,8 @@ const BO_PERSONAS = {
     roleClass: 'role-total', roleTag: '[총괄]',
     budgetGroup: 'general', tenantId: 'HAE',
     isolationGroupId: 'IG-HAE-ALL',
-    ownedAccounts: ['HAE-OPS', 'HAE-PART', 'HAE-CERT'],
-    allowedAccounts: ['HAE-OPS', 'HAE-PART', 'HAE-CERT'],
+    ownedAccounts: ['HAE-OPS', 'HAE-PART', 'HAE-CERT', 'HAE-EDU', 'HAE-TEAM'],
+    allowedAccounts: ['HAE-OPS', 'HAE-PART', 'HAE-CERT', 'HAE-EDU', 'HAE-TEAM'],
     isolationGroup: 'HAE-ALL',
     accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
@@ -446,7 +446,7 @@ let ISOLATION_GROUPS = [
   { id: 'IG-HMC-FREE',  tenantId: 'HMC',    name: '예산미사용 그룹',   color: '#6B7280', bg: '#F9FAFB', desc: 'HMC 무예산 학습이력 관리 전용', globalAdminKey: 'hmc_total_general', globalAdminKeys: ['hmc_total_general'], opManagerKeys: [],                  ownedAccounts: ['COMMON-FREE'],                     createdBy: 'hmc_tenant_admin',    status: 'active', createdAt: '2026-01-01' },
   { id: 'IG-KIA-GEN',   tenantId: 'KIA',    name: 'KIA 일반예산 그룹', color: '#059669', bg: '#F0FDF4', desc: '기아 전사 일반교육예산',        globalAdminKey: 'kia_total_general', globalAdminKeys: ['kia_total_general'], opManagerKeys: ['kia_hq_general'],  ownedAccounts: ['KIA-OPS','KIA-PART','KIA-ETC'],      createdBy: 'kia_total_general',   status: 'active', createdAt: '2026-01-15' },
   { id: 'IG-KIA-FREE',  tenantId: 'KIA',    name: '예산미사용 그룹',   color: '#6B7280', bg: '#F9FAFB', desc: 'KIA 무예산 학습이력 관리 전용', globalAdminKey: 'kia_total_general', globalAdminKeys: ['kia_total_general'], opManagerKeys: [],                  ownedAccounts: ['COMMON-FREE'],                     createdBy: 'kia_total_general',   status: 'active', createdAt: '2026-01-15' },
-  { id: 'IG-HAE-ALL',   tenantId: 'HAE',    name: 'HAE 전사예산 그룹', color: '#7C3AED', bg: '#F5F3FF', desc: 'HAE 전사 교육예산',             globalAdminKey: 'hae_total',         globalAdminKeys: ['hae_total'],        opManagerKeys: ['hae_dept'],        ownedAccounts: ['HAE-OPS','HAE-PART','HAE-CERT'],   createdBy: 'hae_total',           status: 'active', createdAt: '2026-01-20' },
+  { id: 'IG-HAE-ALL',   tenantId: 'HAE',    name: 'HAE 전사예산 그룹', color: '#7C3AED', bg: '#F5F3FF', desc: 'HAE 전사 교육예산',             globalAdminKey: 'hae_total',         globalAdminKeys: ['hae_total'],        opManagerKeys: ['hae_dept'],        ownedAccounts: ['HAE-OPS','HAE-PART','HAE-CERT','HAE-EDU','HAE-TEAM'],   createdBy: 'hae_total',           status: 'active', createdAt: '2026-01-20' },
   { id: 'IG-HAE-FREE',  tenantId: 'HAE',    name: '예산미사용 그룹',   color: '#6B7280', bg: '#F9FAFB', desc: 'HAE 무예산 학습이력 관리 전용', globalAdminKey: 'hae_total',         globalAdminKeys: ['hae_total'],        opManagerKeys: [],                  ownedAccounts: ['COMMON-FREE'],                     createdBy: 'hae_total',           status: 'active', createdAt: '2026-01-20' },
   { id: 'IG-ROTEM-ALL', tenantId: 'ROTEM',  name: '로템 전사예산',     color: '#B45309', bg: '#FFFBEB', desc: '현대로템 업무 교육예산',         globalAdminKey: 'rotem_total',       globalAdminKeys: ['rotem_total'],      opManagerKeys: [],                  ownedAccounts: ['ROTEM-OPS','ROTEM-PART'],          createdBy: 'rotem_total',         status: 'active', createdAt: '2026-02-01' },
   { id: 'IG-ROTEM-FREE',tenantId: 'ROTEM',  name: '예산미사용 그룹',   color: '#6B7280', bg: '#F9FAFB', desc: '로템 무예산 학습이력 관리 전용',globalAdminKey: 'rotem_total',       globalAdminKeys: ['rotem_total'],      opManagerKeys: [],                  ownedAccounts: ['COMMON-FREE'],                     createdBy: 'rotem_total',         status: 'active', createdAt: '2026-02-01' },
@@ -782,7 +782,6 @@ let ACCOUNT_MASTER = [
     code: 'KIA-ETC', tenantId: 'KIA', group: '일반', name: '일반교육예산-기타', planRequired: true, carryover: false,
     desc: '교안/콘텐츠 개발, 영상제작, 학습환경 구성비 등', active: true
   },
-  // 현대오토에버 (HAE) — 안슬기 사운다
   {
     code: 'HAE-OPS', tenantId: 'HAE', group: '일반', name: '오토에버-운영계정', planRequired: true, carryover: false,
     desc: '오토에버 운영교육 전용 (집합/이러닝)', active: true
@@ -794,6 +793,14 @@ let ACCOUNT_MASTER = [
   {
     code: 'HAE-CERT', tenantId: 'HAE', group: '일반', name: '오토에버-자격증계정', planRequired: false, carryover: false,
     desc: 'IT인증/자격증 업무지원 전용', active: true
+  },
+  {
+    code: 'HAE-EDU', tenantId: 'HAE', group: '일반', name: '오토에버-전사교육예산', planRequired: true, carryover: false,
+    desc: '현대오토에버 전사 공통 교육예산 (기획·운영 전반)', active: true
+  },
+  {
+    code: 'HAE-TEAM', tenantId: 'HAE', group: '일반', name: '오토에버-팀/프로젝트 할당 예산', planRequired: false, carryover: false,
+    desc: '팀·프로젝트 단위 배정 교육예산 (자율 집행)', active: true
   },
   {
     code: 'HSC-EXT', tenantId: 'HSC', group: '일반', name: '현대제철-사외교육', planRequired: false, carryover: false,

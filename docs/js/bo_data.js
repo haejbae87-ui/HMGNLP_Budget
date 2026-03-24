@@ -1443,6 +1443,17 @@ function boPlanStatusBadge(s) {
     desc: '개인 직무 사외학습 중심. HAE 고정 프로세스(교육계획→계획기반신청→수료 후 결과) 준수. 개인 학습 이력 전용.',
     accessMenus: ['dashboard']
   },
+  // HSC 학습자
+  hsc_learner: {
+    id: 'P608', name: '정치안', dept: '성장지원팀', pos: '매니저',
+    role: 'learner', roleLabel: '[HSC] 학습자',
+    roleClass: 'role-team', roleTag: '[학습자]',
+    budgetGroup: 'general', tenantId: 'HSC',
+    isolationGroupId: 'IG-HSC-ALL',
+    scope: '성장지원팀',
+    desc: '현대제철 일반직 학습자. 개인직무 사외학습 중심. 교육신청/결과 작성.',
+    accessMenus: ['dashboard']
+  },
   };
   const [cls, label] = m[s] || ['bo-badge-gray', s];
   return `<span class="bo-badge ${cls}">${label}</span>`;

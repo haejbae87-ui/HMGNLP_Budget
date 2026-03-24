@@ -378,45 +378,53 @@ function renderPolicyWizard() {
   // ── Step 4: 예산 계정 + 패턴 ──────────────────────────────────────────────────
   } else if (_policyWizardStep === 3) {
     const myAccts = ACCOUNT_MASTER.filter(a => a.tenantId === persona.tenantId && a.active && a.code !== 'COMMON-FREE');
-    const budgeted   = [
+    // 예산 미사용 특수 항목 추가
+    const acctList = [
+      ...myAccts,
+      { code: '__none__', name: '예산 미사용', desc: '이력만 등록하거나 무예산 결과까지 진행 (패턴D/E)', budgetLinked: false },
+    ];
+    // 현재 선택된 계정이 무예산인지 판별
+    const selCode   = (d.accountCodes||[])[0] || '';
+    const isNoBudget = selCode === '__none__' || (!selCode && d.budgetLinked === false);
+    const budgetedPatterns = [
       { v:'A', icon:'📊', l:'패턴A: 계획→신청→결과', color:'#7C3AED', d:'고통제형. R&D·대규모 집합교육. 사전계획 필수, 예산 가점유 후 실차감.' },
       { v:'B', icon:'📝', l:'패턴B: 신청→결과',      color:'#1D4ED8', d:'자율신청형. 일반 사외교육 참가. 신청 승인 시 가점유, 결과 후 실차감.' },
       { v:'C', icon:'🧾', l:'패턴C: 신청 단독(후정산)', color:'#D97706', d:'선지불 후정산. 개인 카드 결제 후 영수증 첨부. 승인 즉시 예산 차감.' },
     ];
-    const noBudget = [
+    const noBudgetPatterns = [
       { v:'D', icon:'📋', l:'패턴D: 신청 단독(이력)', color:'#6B7280', d:'무예산 이력관리. 무료 웨비나·자체세미나. 승인 시 즉시 이력 DB 적재.' },
       { v:'E', icon:'✅', l:'패턴E: 신청→결과(이력+결과)', color:'#059669', d:'무예산이지만 결과보고까지 진행. 자비학습 후 결과 제출 필요한 경우.' },
     ];
+    const patterns = isNoBudget ? noBudgetPatterns : budgetedPatterns;
+
     stepContent = `
 <div style="display:grid;gap:16px">
   <div>
-    <label class="bo-label">예산 사용 여부</label>
-    <div style="display:flex;gap:10px">
-      ${[true,false].map(v=>`
-      <label style="flex:1;display:flex;align-items:center;gap:8px;padding:14px 18px;border-radius:10px;border:2px solid ${d.budgetLinked===v?'#1D4ED8':'#E5E7EB'};background:${d.budgetLinked===v?'#EFF6FF':'white'};cursor:pointer"
-             onclick="_policyWizardData.budgetLinked=${v};if(!${v}){_policyWizardData.accountCodes=[];if(!['D','E'].includes(_policyWizardData.processPattern))_policyWizardData.processPattern='D';}else{if(['D','E'].includes(_policyWizardData.processPattern))_policyWizardData.processPattern='B';}renderPolicyWizard()">
-        <input type="radio" value="${v}" ${d.budgetLinked===v?'checked':''} style="margin:0">
-        <div><div style="font-weight:900;font-size:14px">${v?'Y — 예산 사용':'N — 무예산'}</div>
-             <div style="font-size:11px;color:#6B7280">${v?'예산 계정 선택 필수':'이력 등록 전용'}</div></div>
+    <label class="bo-label">예산 계정 선택 <span style="color:#EF4444">*</span><span style="font-size:10px;color:#9CA3AF;margin-left:6px">계정 선택에 따라 패턴이 자동 결정됩니다</span></label>
+    <div style="display:grid;gap:6px">
+      ${acctList.map(a=>`
+      <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;
+                    border:2px solid ${selCode===a.code?'#1D4ED8':'#E5E7EB'};
+                    background:${selCode===a.code?'#EFF6FF':'white'};cursor:pointer;
+                    ${a.code==='__none__'?'margin-top:4px;border-style:dashed':''}"
+             onclick="_selectPolicyAcct('${a.code}')">
+        <input type="radio" name="wiz-acct" value="${a.code}" ${selCode===a.code?'checked':''} style="margin:0;flex-shrink:0">
+        <div>
+          <div style="font-weight:800;font-size:13px;color:${selCode===a.code?'#1E40AF':'#374151'}">${a.code==='__none__'?'📝 ':a.budgetLinked===false?'':'💳 '}${a.name}</div>
+          <div style="font-size:11px;color:#9CA3AF;margin-top:2px">${a.desc||''}</div>
+        </div>
+        ${selCode===a.code?`<span style="margin-left:auto;font-size:10px;font-weight:900;padding:2px 8px;border-radius:5px;background:#1D4ED8;color:white">선택됨</span>`:''}
       </label>`).join('')}
     </div>
   </div>
-  ${d.budgetLinked ? `
-  <div>
-    <label class="bo-label">연동 예산 계정 <span style="color:#EF4444">*</span></label>
-    <div style="display:grid;gap:6px">
-      ${myAccts.map(a=>`
-      <label style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:8px;border:1.5px solid ${(d.accountCodes||[]).includes(a.code)?'#1D4ED8':'#E5E7EB'};background:${(d.accountCodes||[]).includes(a.code)?'#EFF6FF':'white'};cursor:pointer"
-             onclick="togglePolicyAcct('${a.code}')">
-        <input type="checkbox" ${(d.accountCodes||[]).includes(a.code)?'checked':''} style="margin:0">
-        <div><div style="font-weight:700;font-size:12px">${a.name}</div><div style="font-size:10px;color:#9CA3AF">${a.desc||''}</div></div>
-      </label>`).join('')}
-    </div>
+  ${selCode ? `
+  <div style="padding:10px 16px;background:${isNoBudget?'#F0FDF4':'#EFF6FF'};border-radius:10px;border:1.5px solid ${isNoBudget?'#A7F3D0':'#BFDBFE'};font-size:12px;color:${isNoBudget?'#065F46':'#1E40AF'}">
+    ${isNoBudget ? '📝 <strong>무예산</strong> — 예산 차감 없이 이력 관리 패턴을 사용합니다.' : '💳 <strong>예산 연동</strong> — 선택한 계정에서 예산을 집행합니다.'}
   </div>
   <div>
     <label class="bo-label">프로세스 패턴 <span style="color:#EF4444">*</span></label>
     <div style="display:grid;gap:8px">
-      ${budgeted.map(o=>`
+      ${patterns.map(o=>`
       <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:10px;
                     border:2px solid ${d.processPattern===o.v?o.color:'#E5E7EB'};background:${d.processPattern===o.v?o.color+'15':'white'};cursor:pointer"
              onclick="_policyWizardData.processPattern='${o.v}';_setPatternDefaults('${o.v}');renderPolicyWizard()">
@@ -428,20 +436,8 @@ function renderPolicyWizard() {
       </label>`).join('')}
     </div>
   </div>` : `
-  <div>
-    <label class="bo-label">프로세스 패턴 (무예산) <span style="color:#EF4444">*</span></label>
-    <div style="display:grid;gap:8px">
-      ${noBudget.map(o=>`
-      <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:10px;
-                    border:2px solid ${d.processPattern===o.v?o.color:'#E5E7EB'};background:${d.processPattern===o.v?o.color+'15':'white'};cursor:pointer"
-             onclick="_policyWizardData.processPattern='${o.v}';_setPatternDefaults('${o.v}');renderPolicyWizard()">
-        <input type="radio" name="wiz-pattern" value="${o.v}" ${d.processPattern===o.v?'checked':''} style="margin-top:2px;flex-shrink:0">
-        <div>
-          <div style="font-weight:800;font-size:12px;color:${d.processPattern===o.v?o.color:'#374151'}">${o.icon} ${o.l}</div>
-          <div style="font-size:11px;color:#6B7280;margin-top:2px">${o.d}</div>
-        </div>
-      </label>`).join('')}
-    </div>
+  <div style="padding:20px;text-align:center;background:#F9FAFB;border-radius:10px;color:#9CA3AF;font-size:13px">
+    ↑ 예산 계정을 먼저 선택하면 패턴이 표시됩니다.
   </div>`}
 </div>`;
 
@@ -711,6 +707,18 @@ function togglePolicyAcct(code) {
   const arr = _policyWizardData.accountCodes;
   const i = arr.indexOf(code);
   if (i>=0) arr.splice(i,1); else arr.push(code);
+  renderPolicyWizard();
+}
+function _selectPolicyAcct(code) {
+  const isNoBudget = code === '__none__';
+  _policyWizardData.accountCodes = isNoBudget ? [] : [code];
+  _policyWizardData.budgetLinked = !isNoBudget;
+  // 패턴 자동 보정: 예산↔무예산 전환 시 패턴 리셋
+  const pat = _policyWizardData.processPattern || '';
+  const isBudgetedPat = ['A','B','C'].includes(pat);
+  const isNoBudgetPat = ['D','E'].includes(pat);
+  if (isNoBudget && isBudgetedPat) _policyWizardData.processPattern = 'D';
+  if (!isNoBudget && isNoBudgetPat) _policyWizardData.processPattern = 'B';
   renderPolicyWizard();
 }
 function toggleStageForm(stage, id) {

@@ -52,12 +52,11 @@ const PERSONAS = {
     company: '현대오토에버', tenantId: 'HAE',
     role: 'learner', jobType: '일반직',
     allowedAccounts: ['HAE-EDU', 'HAE-TEAM', 'COMMON-FREE'],
-    isolationGroup: 'HAE-SOL',
-    process: 'plan-apply-result',
-    desc: '솔루션사업부 학습자. 개인직무 사외학습에 한정. 전사교육예산 또는 팀/프로젝트 할당예산으로 신청 후 결과 작성.',
+    isolationGroup: 'HAE-ALL',
+    desc: '솔루션사업부 학습자. 개인직무 사외학습 중심. 전사교육예산 및 팀/프로젝트 할당예산 활용.',
     budgets: [
-      { id: 'b_hae_edu',  name: 'PM서비스팀 전사교육예산',         account: '전사교육', balance: 10000000, used: 1200000 },
-      { id: 'b_hae_team', name: 'PM서비스팀 팀/프로젝트 할당예산', account: '팀할당',   balance:  5000000, used:  800000 },
+      { id: 'b_hae01', name: 'PM서비스팀 전사교육예산', account: '전사교육', balance: 5000000, used: 600000 },
+      { id: 'b_hae02', name: 'PM서비스팀 팀/프로젝트 할당예산', account: '팀/프로젝트', balance: 3000000, used: 0 }
     ]
   },
 

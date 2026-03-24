@@ -1,4 +1,4 @@
-// ─── APPLY (교육신청) — 목록 ↔ 신청폼 전환 허브 ────────────────────────────────
+﻿// ─── APPLY (교육신청) — 목록 ↔ 신청폼 전환 허브 ────────────────────────────────
 
 function renderApply() {
   if (typeof applyViewMode === 'undefined') applyViewMode = 'list';
@@ -220,35 +220,14 @@ function _renderApplyForm() {
         // ── 개인직무 사외학습: 페르소나별 동적 예산 옵션 카드 ──────────────────
         const hasRnd    = (currentPersona.allowedAccounts || []).some(a => a.includes('RND'));
         const hasHscExt = (currentPersona.allowedAccounts || []).includes('HSC-EXT');
-        const hasHaeEdu = (currentPersona.allowedAccounts || []).includes('HAE-EDU');
-        const hasHaeTeam= (currentPersona.allowedAccounts || []).includes('HAE-TEAM');
-        const isHaeLearner = hasHaeEdu || hasHaeTeam;
         const CHOICES = [
-          // HAE 전용 카드 (전사교육예산)
-          ...(hasHaeEdu ? [{
-            id:'hae_edu', icon:'🎓',
-            title:'전사교육예산',
-            desc:'現 소속 전사 공통 교육예산을 활용합니다. 신청 승인 후 예산이 차감되며, 교육 수료 후 결과를 작성합니다.',
-            tag:'패턴B · 신청→결과', tagColor:'#7C3AED', tagBg:'#F5F3FF',
-            next:'교육유형 선택 → 세부정보', nextColor:'#7C3AED',
-          }] : []),
-          // HAE 전용 카드 (팀/프로젝트 할당예산)
-          ...(hasHaeTeam ? [{
-            id:'hae_team', icon:'👥',
-            title:'팀/프로젝트 할당예산',
-            desc:'팀 또는 프로젝트 단위로 별도 할당된 예산을 사용합니다. 이월 가능하며 신청 후 결과를 작성합니다.',
-            tag:'패턴B · 신청→결과', tagColor:'#059669', tagBg:'#F0FDF4',
-            next:'교육유형 선택 → 세부정보', nextColor:'#059669',
-          }] : []),
-          // 일반 참가계정 (HAE·HSC 아닌 경우)
-          ...(!hasHscExt && !isHaeLearner ? [{
+          ...(!hasHscExt ? [{
             id:'general', icon:'💳',
             title:'일반교육예산 참가계정',
             desc:'일반 교육예산에서 참가비를 지원받습니다. 개인 선지출 후 영수증을 첨부하여 신청합니다.',
             tag:'후정산형', tagColor:'#D97706', tagBg:'#FEF3C7',
             next:'교육유형 선택 → 세부정보', nextColor:'#059669',
           }] : []),
-          // HSC 사외교육 계정
           ...(hasHscExt ? [{
             id:'general', icon:'🏭',
             title:'현대제철-사외교육 계정',
@@ -256,7 +235,6 @@ function _renderApplyForm() {
             tag:'패턴B · 신청→결과', tagColor:'#BE123C', tagBg:'#FFF1F2',
             next:'교육유형 선택 → 세부정보', nextColor:'#BE123C',
           }] : []),
-          // R&D 계정
           ...(hasRnd ? [{
             id:'rnd', icon:'🔬',
             title:'R&D교육예산 계정',
@@ -264,7 +242,6 @@ function _renderApplyForm() {
             tag:'계획 연동 필수', tagColor:'#7C3AED', tagBg:'#F5F3FF',
             next:'교육계획 선택 → 세부정보', nextColor:'#7C3AED',
           }] : []),
-          // 예산 미사용
           {
             id:'none', icon:'📝',
             title:'예산 미사용 (이력만 등록)',
@@ -274,15 +251,12 @@ function _renderApplyForm() {
           },
         ];
         const bc = s.budgetChoice;
-        const _activeColor = (id) => ({
-          rnd:'#7C3AED', hae_edu:'#7C3AED', hae_team:'#059669',
-          general: hasHscExt ? '#BE123C' : '#059669', none:'#9CA3AF'
-        })[id] || '#059669';
         return `<p class="text-sm text-gray-400 mb-5">이번 교육 신청에 어떤 예산을 사용하시겠습니까?</p>
 <div style="display:grid;gap:10px;margin-bottom:4px">
 ${CHOICES.map(ch => {
   const active = bc === ch.id;
-  const col = active ? _activeColor(ch.id) : '#E5E7EB';
+  const activeColor = ch.id==='rnd'?'#7C3AED':ch.id==='hae-edu'?'#7C3AED':ch.id==='hae-team'?'#059669':ch.id==='general'?(hasHscExt?'#BE123C':'#059669'):'#9CA3AF';
+  const col = active ? activeColor : '#E5E7EB';
   return `<button onclick="selectBudgetChoice('${ch.id}')"
   style="text-align:left;padding:18px 20px;border-radius:14px;border:2px solid ${col};
          background:${active?col+'12':'white'};cursor:pointer;width:100%;transition:all .15s">
@@ -352,21 +326,24 @@ ${svcs.map(sv => `<label style="display:flex;align-items:center;gap:10px;padding
   <div class="card p-8 ${s.step === 3 ? '' : 'hidden'}">
     <h2 class="text-lg font-black text-gray-800 mb-6">03. 교육유형 선택</h2>
     ${(() => {
-      // 예산 선택에 따른 교육유형 ID 화이트리스트 계산
-      const hasHscExt   = (currentPersona.allowedAccounts || []).includes('HSC-EXT');
-      const hasHaeEdu   = (currentPersona.allowedAccounts || []).includes('HAE-EDU');
-      const hasHaeTeam  = (currentPersona.allowedAccounts || []).includes('HAE-TEAM');
-      const isHaeLearner = hasHaeEdu || hasHaeTeam;
-      const isHscExtBudget  = hasHscExt && s.budgetChoice === 'general';
-      const isHaeBudget     = isHaeLearner && (s.budgetChoice === 'hae_edu' || s.budgetChoice === 'hae_team');
-      const isHaeNoneBudget = isHaeLearner && s.budgetChoice === 'none';
+      // 예산별 허용 교육유형 ID 맵
+      const SUBTYPE_FILTER_MAP = {
+        'hae-edu':  ['edu_elearning','edu_class','edu_live','acad_conf','dev_lang','dev_cert'],
+        'hae-team': ['edu_elearning','edu_class','edu_live','acad_conf','dev_lang','dev_cert'],
+        'none-hae': ['edu_elearning','edu_class','edu_live','acad_conf','etc_team'],
+      };
+      const hasHaeEdu2 = (currentPersona.allowedAccounts || []).includes('HAE-EDU');
+      const isHscExtBudget = (currentPersona.allowedAccounts || []).includes('HSC-EXT') && s.budgetChoice === 'general';
+      const HSC_EXT_ALLOWED = ['edu_elearning','edu_class','edu_live','acad_conf'];
 
-      // 허용 subtype ID 산출
-      const allowedIds =
-        isHscExtBudget  ? ['edu_elearning','edu_class','edu_live','acad_conf'] :
-        isHaeBudget     ? ['edu_elearning','edu_class','edu_live','acad_conf','dev_lang','dev_cert'] :
-        isHaeNoneBudget ? ['edu_elearning','edu_class','edu_live','acad_conf','etc_team'] :
-        null;  // null = 전체 표시
+      // 필터 키 결정
+      let filterKey = null;
+      if (s.budgetChoice === 'hae-edu') filterKey = 'hae-edu';
+      else if (s.budgetChoice === 'hae-team') filterKey = 'hae-team';
+      else if (s.budgetChoice === 'none' && hasHaeEdu2) filterKey = 'none-hae';
+      else if (isHscExtBudget) filterKey = 'hsc-ext';
+
+      const allowedIds = filterKey === 'hsc-ext' ? HSC_EXT_ALLOWED : SUBTYPE_FILTER_MAP[filterKey] || null;
 
       const subtypes = s.purpose?.subtypes
         ? (allowedIds
@@ -605,20 +582,18 @@ function selectBudgetChoice(choice) {
   applyState.planId    = '';
   applyState.planIds   = [];
   applyState.serviceId = '';
-  // applyMode 결정
-  const isHscExtMode  = (currentPersona.allowedAccounts || []).includes('HSC-EXT');
-  const isHaeLearner  = (currentPersona.allowedAccounts || []).some(a => a === 'HAE-EDU' || a === 'HAE-TEAM');
+  // applyMode 결정: HAE-EDU/TEAM → holding(신청→결과), HSC-EXT → holding, 일반 general → reimbursement(후정산)
+  const isHscExtMode = (currentPersona.allowedAccounts || []).includes('HSC-EXT');
+  const isHaeMode    = ['hae-edu','hae-team'].includes(choice);
   applyState.applyMode = choice === 'none' ? null
-    : choice === 'rnd' ? 'holding'
-    : (isHscExtMode || isHaeLearner || choice === 'hae_edu' || choice === 'hae_team') ? 'holding'
-    : 'reimbursement';
+    : (choice === 'rnd' || isHscExtMode || isHaeMode) ? 'holding' : 'reimbursement';
   applyState.useBudget = choice !== 'none';
-  // budgetId 자동 연결
-  if (choice === 'hae_edu') {
-    const b = (currentPersona.budgets || []).find(b => b.account === '전사교육');
+  // budgetId 자동 연결 (HAE-EDU → b_hae01, HAE-TEAM → b_hae02, 단일 예산 → [0])
+  if (choice === 'hae-edu') {
+    const b = (currentPersona.budgets||[]).find(b => b.account === '전사교육');
     if (b) applyState.budgetId = b.id;
-  } else if (choice === 'hae_team') {
-    const b = (currentPersona.budgets || []).find(b => b.account === '팀할당');
+  } else if (choice === 'hae-team') {
+    const b = (currentPersona.budgets||[]).find(b => b.account === '팀/프로젝트');
     if (b) applyState.budgetId = b.id;
   } else if (choice === 'general' && (currentPersona.budgets || []).length >= 1) {
     applyState.budgetId = currentPersona.budgets[0].id;

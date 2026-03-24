@@ -231,8 +231,8 @@ function _renderApplyForm() {
           ...(hasHscExt ? [{
             id:'general', icon:'🏭',
             title:'현대제철-사외교육 계정',
-            desc:'현대제철 사외교육 예산에서 교육비를 지원받습니다. 교육비 선지출 후 영수증을 첨부하여 신청합니다.',
-            tag:'후정산형', tagColor:'#BE123C', tagBg:'#FFF1F2',
+            desc:'현대제철 사외교육 예산에서 교육비를 지원받습니다. 신청 후 승인 시 예산이 차감되며, 이후 교육 결과를 작성합니다. (패턴 B: 신청 → 결과)',
+            tag:'패턴B · 신청→결과', tagColor:'#BE123C', tagBg:'#FFF1F2',
             next:'교육유형 선택 → 세부정보', nextColor:'#BE123C',
           }] : []),
           ...(hasRnd ? [{
@@ -566,7 +566,11 @@ function selectBudgetChoice(choice) {
   applyState.planId    = '';
   applyState.planIds   = [];
   applyState.serviceId = '';
-  applyState.applyMode = choice === 'none' ? null : (choice === 'general' ? 'reimbursement' : 'holding');
+  // HSC-EXT(사외교육)는 패턴B(holding), 일반 general은 후정산(reimbursement)
+  const isHscExtMode = (currentPersona.allowedAccounts || []).includes('HSC-EXT');
+  applyState.applyMode = choice === 'none' ? null
+    : choice === 'rnd' ? 'holding'
+    : (isHscExtMode ? 'holding' : 'reimbursement');
   applyState.useBudget = choice !== 'none';
   // 단일 예산 페르소나(HSC 등)는 budgetId 자동 설정
   if (choice === 'general' && (currentPersona.budgets || []).length >= 1) {

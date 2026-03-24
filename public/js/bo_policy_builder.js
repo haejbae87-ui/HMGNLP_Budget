@@ -129,37 +129,52 @@ function renderServicePolicy() {
   });
 
   const filterBar = (isPlatform || isTenant || isBudgetOp || isBudgetAdmin) ? `
-<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:flex-end">
-  ${isPlatform ? `<div>
-    <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">회사</label>
-    <select onchange="_pbTenantFilter=this.value;_pbGroupFilter='';_pbAccountFilter='';renderServicePolicy()"
-      style="padding:7px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700">
+<div style="background:white;border:1.5px solid #E5E7EB;border-radius:14px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+  ${isPlatform ? `
+  <div style="display:flex;align-items:center;gap:8px">
+    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">회사</span>
+    <select id="pb-tenant-sel" onchange="_pbTenantFilter=this.value;_pbGroupFilter='';_pbAccountFilter=''"
+      style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:140px">
       <option value="">전체 회사</option>
       ${TENANTS.map(t=>`<option value="${t.id}" ${activeTenantId===t.id?'selected':''}>${t.name||t.id}</option>`).join('')}
     </select>
-  </div>` : ''}
+  </div>
+  <div style="width:1px;height:28px;background:#E5E7EB"></div>` : ''}
   ${isBudgetOp ? `
-  <div style="display:flex;align-items:center;gap:6px;padding:7px 12px;background:#EDE9FE;border:1.5px solid #C4B5FD;border-radius:8px">
-    <span style="font-size:11px;font-weight:800;color:#7C3AED">🔒 담당 격리그룹</span>
-    <span style="font-size:12px;font-weight:900;color:#5B21B6">${(typeof ISOLATION_GROUPS!=='undefined'?ISOLATION_GROUPS:[]).find(g=>g.id===pbGroupId)?.name || pbGroupId || '전체'}</span>
-  </div>` : `<div>
-    <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">교육 격리그룹</label>
-    <select onchange="_pbGroupFilter=this.value;_pbAccountFilter='';renderServicePolicy()"
-      style="padding:7px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700">
+  <div style="display:flex;align-items:center;gap:8px">
+    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">격리그룹</span>
+    <div style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid #C4B5FD;border-radius:10px;background:#F5F3FF;min-width:140px">
+      <span style="font-size:12px">🔒</span>
+      <span style="font-size:13px;font-weight:800;color:#7C3AED">${(typeof ISOLATION_GROUPS!=='undefined'?ISOLATION_GROUPS:[]).find(g=>g.id===pbGroupId)?.name||pbGroupId||'전체'}</span>
+    </div>
+  </div>` : `
+  <div style="display:flex;align-items:center;gap:8px">
+    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">격리그룹</span>
+    <select id="pb-group-sel" onchange="_pbGroupFilter=this.value;_pbAccountFilter=''"
+      style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:160px">
       <option value="">전체 그룹</option>
       ${availGroups.map(g=>`<option value="${g.id}" ${pbGroupId===g.id?'selected':''}>${g.name}</option>`).join('')}
     </select>
   </div>`}
-  <div>
-    <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">예산 계정</label>
-    <select onchange="_pbAccountFilter=this.value;renderServicePolicy()"
-      style="padding:7px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;min-width:140px">
+  <div style="display:flex;align-items:center;gap:8px">
+    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">예산 계정</span>
+    <select id="pb-acct-sel" onchange="_pbAccountFilter=this.value"
+      style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:160px">
       <option value="">전체 계정</option>
       ${availAccounts.map(a=>`<option value="${a.code}" ${_pbAccountFilter===a.code?'selected':''}>${a.name}</option>`).join('')}
     </select>
   </div>
-  ${!isBudgetOp ? `<button onclick="_pbTenantFilter='';_pbGroupFilter='';_pbAccountFilter='';renderServicePolicy()"
-    style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:11px;font-weight:700;background:white;cursor:pointer">초기화</button>` : ''}
+  <button onclick="
+    _pbTenantFilter=document.getElementById('pb-tenant-sel')?.value||_pbTenantFilter;
+    _pbGroupFilter=document.getElementById('pb-group-sel')?.value||_pbGroupFilter;
+    _pbAccountFilter=document.getElementById('pb-acct-sel')?.value||_pbAccountFilter;
+    renderServicePolicy()"
+    style="padding:9px 20px;background:linear-gradient(135deg,#1D4ED8,#2563EB);color:white;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(37,99,235,.35);white-space:nowrap">
+    ● 조회
+  </button>
+  ${!isBudgetOp ? `
+  <button onclick="_pbTenantFilter='';_pbGroupFilter='';_pbAccountFilter='';renderServicePolicy()"
+    style="padding:9px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:12px;font-weight:700;background:white;cursor:pointer;color:#6B7280;white-space:nowrap">초기화</button>` : ''}
 </div>` : '';
 
   const policyCards = myPolicies.map(p => {

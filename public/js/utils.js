@@ -70,7 +70,7 @@ function navigate(page) {
   if (page === 'plans') renderPlans();
   if (page === 'history') renderHistory();
   if (page === 'budget') renderBudget();
-  if (page === 'apply') renderApply();
+  if (page === 'apply') { applyViewMode = 'list'; renderApply(); }
   if (page === 'mypage') renderMypage();
   if (page === 'fo-manual') renderFoManual();
 }

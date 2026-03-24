@@ -1,6 +1,106 @@
-// ─── APPLY (4-step stepper) ─────────────────────────────────────────────────
+// ─── APPLY (교육신청) — 목록 ↔ 신청폼 전환 허브 ────────────────────────────────
 
 function renderApply() {
+  if (typeof applyViewMode === 'undefined') applyViewMode = 'list';
+  if (applyViewMode === 'form') {
+    _renderApplyForm();
+  } else {
+    _renderApplyList();
+  }
+}
+
+// ─── 교육신청 목록 뷰 ──────────────────────────────────────────────────────────
+function _renderApplyList() {
+  const STATUS_CFG = {
+    '승인완료':   { color: '#059669', bg: '#F0FDF4', border: '#BBF7D0', icon: '✅', label: '승인완료'   },
+    '반려':       { color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', icon: '❌', label: '반려'       },
+    '결재진행중': { color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', icon: '⏳', label: '결재진행중' },
+    '승인대기':   { color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB', icon: '🕐', label: '승인대기'   },
+  };
+
+  const rows = MOCK_HISTORY.map(h => {
+    const cfg = STATUS_CFG[h.applyStatus] || STATUS_CFG['승인대기'];
+    const canResult = h.applyStatus === '승인완료';
+    return `
+    <div style="display:flex;align-items:flex-start;gap:16px;padding:18px 20px;border-radius:14px;
+                border:1.5px solid ${cfg.border};background:${cfg.bg};transition:all .15s">
+      <!-- 상태 아이콘 -->
+      <div style="font-size:24px;flex-shrink:0;margin-top:2px">${cfg.icon}</div>
+      <!-- 본문 -->
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+          <span style="font-size:14px;font-weight:900;color:#111827">${h.title}</span>
+          <span style="font-size:9px;font-weight:900;padding:2px 7px;border-radius:6px;
+                background:${cfg.color}20;color:${cfg.color}">${cfg.label}</span>
+          ${h.resultDone ? '<span style="font-size:9px;font-weight:900;padding:2px 7px;border-radius:6px;background:#DBEAFE;color:#1D4ED8">📋 결과작성완료</span>' : ''}
+        </div>
+        <div style="font-size:11px;color:#6B7280;display:flex;gap:12px;flex-wrap:wrap">
+          <span>📅 ${h.date} ~ ${h.endDate}</span>
+          <span>📚 ${h.type}</span>
+          <span>💰 ${h.budget} · ${(h.amount||0).toLocaleString()}원</span>
+          <span>⏱ ${h.hours}H</span>
+        </div>
+        ${h.applyStatus === '반려' ? `
+        <div style="margin-top:8px;padding:8px 12px;border-radius:8px;background:#FEE2E2;border:1px solid #FECACA;font-size:11px;color:#DC2626;font-weight:700">
+          ⚠️ 반려 사유: 예산 잔액 부족으로 반려되었습니다. 예산 계획 수립 후 재신청 바랍니다.
+        </div>` : ''}
+      </div>
+      <!-- 액션 버튼 -->
+      <div style="flex-shrink:0;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        ${canResult && !h.resultDone ? `
+        <button onclick="alert('교육결과 작성 기능 준비 중입니다.')"
+          style="padding:8px 14px;border-radius:8px;background:#002C5F;color:white;font-size:11px;
+                 font-weight:800;border:none;cursor:pointer;white-space:nowrap">
+          📝 결과 작성
+        </button>` : ''}
+        ${canResult && h.resultDone ? `
+        <button style="padding:8px 14px;border-radius:8px;background:#F3F4F6;color:#9CA3AF;
+                       font-size:11px;font-weight:800;border:none;cursor:default;white-space:nowrap">
+          ✅ 결과 제출 완료
+        </button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('page-apply').innerHTML = `
+<div class="max-w-4xl mx-auto space-y-6">
+  <!-- 헤더 -->
+  <div style="display:flex;align-items:flex-end;justify-content:space-between">
+    <div>
+      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육 신청</div>
+      <h1 class="text-3xl font-black text-brand tracking-tight">내 교육신청 현황</h1>
+      <p style="font-size:12px;color:#9CA3AF;margin-top:4px">${currentPersona.name} · ${currentPersona.dept}</p>
+    </div>
+    <button onclick="applyViewMode='form';applyState=resetApplyState();renderApply()"
+      style="display:flex;align-items:center;gap:8px;padding:12px 22px;border-radius:12px;
+             background:#002C5F;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer;
+             box-shadow:0 4px 16px rgba(0,44,95,.3);transition:all .15s"
+      onmouseover="this.style.background='#0050A8'"
+      onmouseout="this.style.background='#002C5F'">
+      ✏️ 교육 신청하기
+    </button>
+  </div>
+
+  <!-- 요약 뱃지 -->
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    ${Object.entries({'승인완료':'#059669','결재진행중':'#D97706','반려':'#DC2626','승인대기':'#6B7280'}).map(([k,c]) => {
+      const cnt = MOCK_HISTORY.filter(h => h.applyStatus === k).length;
+      return `<div style="padding:6px 14px;border-radius:8px;background:${c}15;border:1.5px solid ${c}40;font-size:11px;font-weight:900;color:${c}">${k} ${cnt}건</div>`;
+    }).join('')}
+  </div>
+
+  <!-- 목록 -->
+  <div class="card p-6">
+    ${MOCK_HISTORY.length === 0
+      ? '<div style="padding:60px 20px;text-align:center;color:#9CA3AF;font-weight:700">📭 신청 이력이 없습니다.<br><span style="font-size:12px">위의 "교육 신청하기" 버튼으로 신청해보세요.</span></div>'
+      : `<div style="display:flex;flex-direction:column;gap:10px">${rows}</div>`
+    }
+  </div>
+</div>`;
+}
+
+// ─── 교육신청 폼 뷰 (기존 renderApply 로직) ──────────────────────────────────
+function _renderApplyForm() {
   const s = applyState;
   const isFixedProcess = isFixedPlanProcess(currentPersona);
   const isRndPersona = currentPersona.role === 'learner' && (currentPersona.allowedAccounts || []).includes('HMC-RND');
@@ -31,6 +131,11 @@ function renderApply() {
 <div class="max-w-4xl mx-auto space-y-6">
   <div class="flex items-center justify-between">
     <div>
+      <button onclick="applyViewMode='list';renderApply()"
+        style="font-size:11px;font-weight:800;color:#6B7280;background:none;border:none;cursor:pointer;padding:0;margin-bottom:6px;display:flex;align-items:center;gap:4px"
+        onmouseover="this.style.color='#002C5F'" onmouseout="this.style.color='#6B7280'">
+        ← 신청 목록으로
+      </button>
       <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육 신청</div>
       <h1 class="text-3xl font-black text-brand tracking-tight">교육 신청서 작성</h1>
     </div>

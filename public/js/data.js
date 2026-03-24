@@ -1,4 +1,4 @@
-// ─── DATA LAYER ─────────────────────────────────────────────────────────────
+﻿// ─── DATA LAYER ─────────────────────────────────────────────────────────────
 // LXP 프론트 오피스 — 4개 테넌트 학습자 페르소나
 
 const PERSONAS = {
@@ -95,11 +95,12 @@ const PERSONAS = {
 
 
 const MOCK_HISTORY = [
-  { id: 'H001', title: 'AWS 클라우드 아키텍처 전문가 과정', type: '사외교육', category: 'edu_offline', date: '2026-02-10', endDate: '2026-02-12', hours: 24, amount: 1500000, status: '완료', budget: '참가' },
-  { id: 'H002', title: 'SDV 소프트웨어 개발 세미나', type: '세미나', category: 'conf_present', date: '2026-01-20', endDate: '2026-01-20', hours: 8, amount: 300000, status: '완료', budget: '참가' },
-  { id: 'H003', title: '애자일 PM 자격증 취득', type: '자격증', category: 'edu_online', date: '2026-03-01', endDate: '2026-03-31', hours: 40, amount: 450000, status: '진행중', budget: '참가' },
-  { id: 'H004', title: '데이터 분석 이러닝', type: '이러닝', category: 'edu_online', date: '2025-12-01', endDate: '2025-12-31', hours: 20, amount: 200000, status: '완료', budget: '참가' },
-  { id: 'H005', title: '리더십 워크샵', type: '워크샵', category: 'workshop', date: '2025-11-15', endDate: '2025-11-16', hours: 16, amount: 600000, status: '완료', budget: '운영' },
+  { id: 'H001', title: 'AWS 클라우드 아키텍처 전문가 과정',   type: '사외교육', category: 'edu_offline',   date: '2026-02-10', endDate: '2026-02-12', hours: 24, amount: 1500000, status: '완료',   budget: '참가', applyStatus: '승인완료',   resultDone: true  },
+  { id: 'H002', title: 'SDV 소프트웨어 개발 세미나',          type: '세미나',   category: 'conf_present',  date: '2026-01-20', endDate: '2026-01-20', hours:  8, amount:  300000, status: '완료',   budget: '참가', applyStatus: '승인완료',   resultDone: false },
+  { id: 'H003', title: '애자일 PM 자격증 취득',               type: '자격증',   category: 'edu_online',    date: '2026-03-01', endDate: '2026-03-31', hours: 40, amount:  450000, status: '진행중', budget: '참가', applyStatus: '결재진행중', resultDone: false },
+  { id: 'H004', title: '데이터 분석 이러닝',                  type: '이러닝',   category: 'edu_online',    date: '2025-12-01', endDate: '2025-12-31', hours: 20, amount:  200000, status: '완료',   budget: '참가', applyStatus: '반려',       resultDone: false },
+  { id: 'H005', title: '리더십 워크샵',                       type: '워크샵',   category: 'workshop',      date: '2025-11-15', endDate: '2025-11-16', hours: 16, amount:  600000, status: '완료',   budget: '운영', applyStatus: '승인완료',   resultDone: true  },
+  { id: 'H006', title: 'AI/ML 실무 활용 강의',                type: '사외교육', category: 'edu_offline',   date: '2026-03-20', endDate: '2026-03-21', hours: 16, amount:  800000, status: '대기중', budget: '참가', applyStatus: '승인대기',   resultDone: false },
 ];
 
 const MOCK_PLANS = [
@@ -112,6 +113,9 @@ const MOCK_PLANS = [
 // ─── GLOBAL STATE ────────────────────────────────────────────────────────────
 let currentPersona = PERSONAS.hmc_team_mgr;
 let currentPage = 'dashboard';
+// 교육신청 화면 모드: 'list' = 신청 목록, 'form' = 신청 폼
+// (navigate('apply') 진입 시 'list'로 리셋)
+let applyViewMode = 'list';
 
 // LXP 페르소나 전환 목록 (백오피스 제외)
 const LXP_PERSONA_LIST = ['hmc_team_mgr', 'hmc_learner', 'kia_learner', 'hae_learner', 'hae_learner2', 'hsc_learner'];

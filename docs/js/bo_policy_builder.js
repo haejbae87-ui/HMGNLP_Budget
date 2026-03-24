@@ -121,12 +121,22 @@ function renderServicePolicy() {
     : [...new Set(SERVICE_POLICIES.map(p=>p.tenantId))].map(id=>({id,name:id}));
   const availGroups = (typeof ISOLATION_GROUPS !== 'undefined' ? ISOLATION_GROUPS : [])
     .filter(g => !activeTenantId || g.tenantId === activeTenantId);
-  const availAccounts = ACCOUNT_MASTER.filter(a => {
-    if (!a.active) return false;
-    if (activeTenantId && a.tenantId !== activeTenantId) return false;
-    if (pbGroupId && a.isolationGroupId && a.isolationGroupId !== pbGroupId) return false;
-    return true;
-  });
+  const availAccounts = (() => {
+    // 격리그룹을 선택한 경우 해당 그룹의 ownedAccounts만 표시
+    if (pbGroupId) {
+      const grp = (typeof ISOLATION_GROUPS !== 'undefined' ? ISOLATION_GROUPS : []).find(g => g.id === pbGroupId);
+      const owned = grp?.ownedAccounts || [];
+      if (owned.length) {
+        return ACCOUNT_MASTER.filter(a => a.active && owned.includes(a.code));
+      }
+    }
+    // 그룹 미선택: 테넌트 전체 계정 (COMMON-FREE 제외)
+    return ACCOUNT_MASTER.filter(a =>
+      a.active &&
+      a.code !== 'COMMON-FREE' &&
+      (activeTenantId ? a.tenantId === activeTenantId : true)
+    );
+  })();
 
   const filterBar = (isPlatform || isTenant || isBudgetOp || isBudgetAdmin) ? `
 <div style="background:white;border:1.5px solid #E5E7EB;border-radius:14px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.05)">

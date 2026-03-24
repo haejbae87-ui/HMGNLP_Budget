@@ -179,11 +179,18 @@ function _baRenderContent() {
 
   // 해당 격리그룹 소유 계정
   const acctCodes = group.ownedAccounts || [];
-  const accounts = typeof ACCOUNT_MASTER !== 'undefined'
-    ? ACCOUNT_MASTER.filter(a => acctCodes.includes(a.code) && a.active) : [];
-  const systemAccounts = typeof ACCOUNT_MASTER !== 'undefined'
-    ? ACCOUNT_MASTER.filter(a => a.isSystem && a.active) : [];
-  const allAccounts = [...systemAccounts, ...accounts];
+  const isFreeGroup = acctCodes.includes('COMMON-FREE');
+
+  let allAccounts;
+  if (isFreeGroup) {
+    // 예산미사용 격리그룹: COMMON-FREE(isSystem) 1개만 표시
+    allAccounts = typeof ACCOUNT_MASTER !== 'undefined'
+      ? ACCOUNT_MASTER.filter(a => a.code === 'COMMON-FREE' && a.active) : [];
+  } else {
+    // 일반 예산 격리그룹: ownedAccounts 계정만 표시 (COMMON-FREE 제외)
+    allAccounts = typeof ACCOUNT_MASTER !== 'undefined'
+      ? ACCOUNT_MASTER.filter(a => acctCodes.includes(a.code) && a.active && a.code !== 'COMMON-FREE') : [];
+  }
 
   if (allAccounts.length === 0) {
     return `

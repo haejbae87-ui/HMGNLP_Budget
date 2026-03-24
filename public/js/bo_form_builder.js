@@ -29,10 +29,10 @@ const PROCESS_PATTERNS = {
 
 // 폼 목적 (purpose) 정의 ────────────────────────────────────────────────────────────
 const FORM_PURPOSE_TYPES = {
-  individual: { label: '개인직무 사외학습',           icon: '🙋', color: '#059669', bg: '#F0FDF4' },
-  elearning:  { label: '이러닝/집합(비대면) 운영',  icon: '🏢', color: '#7C3AED', bg: '#F5F3FF' },
-  seminar:    { label: '콘퍼런스/세미나/워크숍 등 운영', icon: '🎤', color: '#0369A1', bg: '#EFF6FF' },
-  etc:        { label: '기타 운영',                    icon: '📦', color: '#D97706', bg: '#FFFBEB' },
+  individual: { label: '개인직무 사외학습',               icon: '🙋', color: '#059669', bg: '#F0FDF4', targetUser: 'learner' },
+  elearning:  { label: '이러닝/집합(비대면) 운영',       icon: '🏢', color: '#7C3AED', bg: '#F5F3FF', targetUser: 'admin' },
+  seminar:    { label: '콘퍼런스/세미나/워크숍 등 운영', icon: '🎤', color: '#0369A1', bg: '#EFF6FF', targetUser: 'admin' },
+  etc:        { label: '기타 운영',                       icon: '📦', color: '#D97706', bg: '#FFFBEB', targetUser: 'admin' },
 };
 
 // 교육유형 + 세부유형 2-depth 맵 ──────────────────────────────────────────────────────
@@ -649,12 +649,37 @@ function _fbAdvancedModalBody(form) {
   // 목적 연동 교육유형 목록
   const eduTypesMap = purposeVal ? (FORM_EDU_TYPES[purposeVal] || []) : [];
   const selEduType  = eduTypesMap.find(t => t.type === eduTypeVal) || null;
+  // 사용대상: 기존 form.purpose에서 유추하거나 form.targetUser에서 읽음
+  const targetUser  = form?.targetUser || (purposeVal ? (FORM_PURPOSE_TYPES[purposeVal]?.targetUser || '') : '');
 
   // 카테고리별 필드 그룹
   const categories = [...new Set(ADVANCED_FIELDS.map(f => f.category))];
 
   return `
-<!-- 기본 정보 -->
+<!-- 사용대상 선택 (학습자용 / 교육담당자용) -->
+<div style="margin-bottom:12px">
+  <label style="font-size:11px;font-weight:800;display:block;margin-bottom:6px;color:#374151">사용대상 *</label>
+  <div style="display:flex;gap:8px">
+    <label id="fb-target-learner-lbl" onclick="_fbOnTargetUserChange('learner')"
+      style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;cursor:pointer;
+             border:2px solid ${targetUser==='learner'?'#059669':'#E5E7EB'};
+             background:${targetUser==='learner'?'#F0FDF4':'#F9FAFB'}">
+      <input type="radio" name="fb-target-user" value="learner" ${targetUser==='learner'?'checked':''}
+             style="accent-color:#059669;width:14px;height:14px">
+      <span style="font-size:12px;font-weight:800;color:${targetUser==='learner'?'#059669':'#6B7280'}">🙋 학습자용</span>
+      <span style="font-size:10px;color:#9CA3AF">(개인 신청)</span>
+    </label>
+    <label id="fb-target-admin-lbl" onclick="_fbOnTargetUserChange('admin')"
+      style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;cursor:pointer;
+             border:2px solid ${targetUser==='admin'?'#7C3AED':'#E5E7EB'};
+             background:${targetUser==='admin'?'#F5F3FF':'#F9FAFB'}">
+      <input type="radio" name="fb-target-user" value="admin" ${targetUser==='admin'?'checked':''}
+             style="accent-color:#7C3AED;width:14px;height:14px">
+      <span style="font-size:12px;font-weight:800;color:${targetUser==='admin'?'#7C3AED':'#6B7280'}">🏢 교육담당자용</span>
+      <span style="font-size:10px;color:#9CA3AF">(운영 관리)</span>
+    </label>
+  </div>
+</div>
 <!-- 행 1: 단계 + 목적 -->
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
   <div>
@@ -670,9 +695,11 @@ function _fbAdvancedModalBody(form) {
     <select id="fb-purpose" onchange="_fbOnPurposeChange(this.value)"
       style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
       <option value="">— 선택 —</option>
-      ${Object.entries(FORM_PURPOSE_TYPES).map(([k,v]) =>
-        `<option value="${k}" ${purposeVal===k?'selected':''}>${v.icon} ${v.label}</option>`
-      ).join('')}
+      ${Object.entries(FORM_PURPOSE_TYPES)
+        .filter(([k,v]) => !targetUser || v.targetUser === targetUser)
+        .map(([k,v]) =>
+          `<option value="${k}" ${purposeVal===k?'selected':''}>${v.icon} ${v.label}</option>`
+        ).join('')}
     </select>
   </div>
 </div>
@@ -847,6 +874,37 @@ function _fbOnPurposeChange(purposeKey) {
   if (subCol) subCol.innerHTML = '<div></div>';
 }
 
+// 사용대상 변경 시 목적 드롭다운 필터링
+function _fbOnTargetUserChange(targetUser) {
+  // 라디오 버튼 시각적 업데이트
+  ['learner','admin'].forEach(t => {
+    const lbl = document.getElementById(`fb-target-${t}-lbl`);
+    if (!lbl) return;
+    const isActive = t === targetUser;
+    const color    = t === 'learner' ? '#059669' : '#7C3AED';
+    lbl.style.border     = `2px solid ${isActive ? color : '#E5E7EB'}`;
+    lbl.style.background = isActive ? (t === 'learner' ? '#F0FDF4' : '#F5F3FF') : '#F9FAFB';
+    const span = lbl.querySelector('span');
+    if (span) span.style.color = isActive ? color : '#6B7280';
+  });
+  // 목적 드롭다운 필터링
+  const purposeSel = document.getElementById('fb-purpose');
+  if (!purposeSel) return;
+  const currentPurpose = purposeSel.value;
+  purposeSel.innerHTML = '<option value="">— 선택 —</option>' +
+    Object.entries(FORM_PURPOSE_TYPES)
+      .filter(([k,v]) => v.targetUser === targetUser)
+      .map(([k,v]) => `<option value="${k}">${v.icon} ${v.label}</option>`)
+      .join('');
+  // 이전 선택이 새 목록에 있으면 복원
+  if (FORM_PURPOSE_TYPES[currentPurpose]?.targetUser === targetUser) {
+    purposeSel.value = currentPurpose;
+  } else {
+    // 목적이 바뀌었으면 교육유형 행 숨기기
+    _fbOnPurposeChange('');
+  }
+}
+
 // 교육유형 변경 시 세부유형 목록 갱신
 function _fbOnEduTypeChange(typeVal) {
   const purposeKey = document.getElementById('fb-purpose')?.value || '';
@@ -875,10 +933,12 @@ function fbSaveForm() {
   const eduType    = document.getElementById('fb-edu-type')?.value || '';
   const eduSubType = document.getElementById('fb-edu-sub')?.value || '';
 
+  const targetUser  = document.querySelector('input[name="fb-target-user"]:checked')?.value || '';
+
   if (!name) { alert('양식명은 필수입니다.'); return; }
   if (_fbTempFields.length === 0) { alert('최소 1개 이상의 필드를 추가해주세요.'); return; }
 
-  const formData = { type, name, desc, active: true, fields: [..._fbTempFields], purpose, eduType, eduSubType };
+  const formData = { type, name, desc, active: true, fields: [..._fbTempFields], purpose, eduType, eduSubType, targetUser };
 
   if (_fbEditId) {
     const idx = FORM_MASTER.findIndex(x => x.id === _fbEditId);

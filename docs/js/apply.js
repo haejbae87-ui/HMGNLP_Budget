@@ -1,4 +1,4 @@
-﻿// ─── APPLY (교육신청) — 목록 ↔ 신청폼 전환 허브 ────────────────────────────────
+// ─── APPLY (교육신청) — 목록 ↔ 신청폼 전환 허브 ────────────────────────────────
 
 function renderApply() {
   if (typeof applyViewMode === 'undefined') applyViewMode = 'list';
@@ -185,22 +185,26 @@ function _renderApplyForm() {
       </div>
     </div>
 
-    <!-- 교육담당자 섹션 (고정 프로세스 페르소나는 숨김) -->
-    ${!isFixedProcess ? `
+    <!-- 교육담당자 섹션: 표시할 목적 버튼이 있을 때만 렌더링 -->
+    ${(() => {
+      const operPurposes = !isFixedProcess ? getPersonaPurposes(currentPersona).filter(p => p.id !== 'external_personal') : [];
+      if (operPurposes.length === 0) return '';
+      return `
     <div>
       <div class="flex items-center gap-2 mb-3">
         <span class="text-[10px] font-black px-2.5 py-1 rounded-full bg-violet-100 text-violet-600 tracking-wider">🛠 교육담당자</span>
         <span class="text-[11px] text-gray-400">교육과정을 기획·운영하는 담당자</span>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        ${getPersonaPurposes(currentPersona).filter(p => p.id !== 'external_personal').map(p => `
+        ${operPurposes.map(p => `
         <button onclick="selectPurpose('${p.id}')" class="p-6 rounded-2xl border-2 text-left transition-all hover:border-violet-400 ${s.purpose?.id === p.id ? 'border-violet-500 bg-violet-50 shadow-lg' : 'border-gray-200 bg-gray-50/50'}">
           <div class="text-3xl mb-3">${p.icon}</div>
           <div class="font-black text-gray-900 text-sm mb-1 ${s.purpose?.id === p.id ? 'text-violet-600' : ''}">${p.label}</div>
           <div class="text-xs text-gray-500">${p.desc}</div>
         </button>`).join('')}
       </div>
-    </div>` : ''}
+    </div>`;
+    })()}
 
     <div class="flex justify-end mt-6">
       <button onclick="applyNext()" ${!s.purpose ? 'disabled' : ''}

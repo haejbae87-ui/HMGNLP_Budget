@@ -556,6 +556,78 @@ let VIRTUAL_ORG_TEMPLATES = [
         }
       ]
     }
+  },
+  // HSC 가상조직 템플릿
+  {
+    id: 'TPL_HSC_ALL_01',
+    tenantId: 'HSC',
+    isolationGroupId: 'IG-HSC-ALL',
+    name: '현대제철 전사예산 템플릿 1',
+    tree: {
+      label: '현대제철 전사 교육예산 조직',
+      hqs: [
+        {
+          id: 'HSCHQ01', name: '(본)R&D운영본부', manager: '송O연',
+          managerPersonaKey: 'hsc_budget_rnd',
+          managerPersonaKeys: ['hsc_budget_rnd'],
+          cooperators: [],
+          budget: { total: 80000000, deducted: 15000000, holding: 8000000 },
+          teams: [
+            { id: 'HST01', allowedJobTypes: [], name: 'R&D기획팀',    budget: { allocated: 30000000, deducted: 6000000,  holding: 3000000 } },
+            { id: 'HST02', allowedJobTypes: [], name: '기술지원팀',   budget: { allocated: 25000000, deducted: 5000000,  holding: 2000000 } },
+            { id: 'HST03', allowedJobTypes: [], name: '품질혁신팀',   budget: { allocated: 25000000, deducted: 4000000,  holding: 3000000 } },
+          ]
+        },
+        {
+          id: 'HSCHQ02', name: '(당)당진사업장본부', manager: '박O연',
+          managerPersonaKey: 'hsc_budget_hr_dang',
+          managerPersonaKeys: ['hsc_budget_hr_dang'],
+          cooperators: [],
+          budget: { total: 120000000, deducted: 28000000, holding: 12000000 },
+          teams: [
+            { id: 'HST04', allowedJobTypes: [], name: '인사지원팀',   budget: { allocated: 40000000, deducted: 10000000, holding: 5000000 } },
+            { id: 'HST05', allowedJobTypes: [], name: '생산관리팀',   budget: { allocated: 35000000, deducted: 9000000,  holding: 3000000 } },
+            { id: 'HST06', allowedJobTypes: [], name: '설비기술팀',   budget: { allocated: 45000000, deducted: 9000000,  holding: 4000000 } },
+          ]
+        },
+        {
+          id: 'HSCHQ03', name: '(인)인천사업장본부', manager: '박O영',
+          managerPersonaKey: 'hsc_budget_hr_in',
+          managerPersonaKeys: ['hsc_budget_hr_in'],
+          cooperators: [],
+          budget: { total: 70000000, deducted: 15000000, holding: 8000000 },
+          teams: [
+            { id: 'HST07', allowedJobTypes: [], name: '인사팀',       budget: { allocated: 25000000, deducted: 6000000,  holding: 3000000 } },
+            { id: 'HST08', allowedJobTypes: [], name: '경영지원팀',   budget: { allocated: 20000000, deducted: 5000000,  holding: 2000000 } },
+            { id: 'HST09', allowedJobTypes: [], name: '특수강생산팀', budget: { allocated: 25000000, deducted: 4000000,  holding: 3000000 } },
+          ]
+        },
+        {
+          id: 'HSCHQ04', name: '(포)포항사업장본부', manager: '석O영',
+          managerPersonaKey: 'hsc_budget_hr_po',
+          managerPersonaKeys: ['hsc_budget_hr_po'],
+          cooperators: [],
+          budget: { total: 90000000, deducted: 20000000, holding: 10000000 },
+          teams: [
+            { id: 'HST10', allowedJobTypes: [], name: '인사팀',       budget: { allocated: 30000000, deducted: 7000000,  holding: 4000000 } },
+            { id: 'HST11', allowedJobTypes: [], name: '후판생산팀',   budget: { allocated: 35000000, deducted: 8000000,  holding: 3000000 } },
+            { id: 'HST12', allowedJobTypes: [], name: '설비운영팀',   budget: { allocated: 25000000, deducted: 5000000,  holding: 3000000 } },
+          ]
+        },
+        {
+          id: 'HSCHQ05', name: '(순)순천사업장본부', manager: '김O민',
+          managerPersonaKey: 'hsc_budget_cold',
+          managerPersonaKeys: ['hsc_budget_cold'],
+          cooperators: [],
+          budget: { total: 60000000, deducted: 12000000, holding: 6000000 },
+          teams: [
+            { id: 'HST13', allowedJobTypes: [], name: '냉연업무지원팀', budget: { allocated: 22000000, deducted: 5000000,  holding: 2000000 } },
+            { id: 'HST14', allowedJobTypes: [], name: '냉연생산팀',     budget: { allocated: 20000000, deducted: 4000000,  holding: 2000000 } },
+            { id: 'HST15', allowedJobTypes: [], name: '품질관리팀',     budget: { allocated: 18000000, deducted: 3000000,  holding: 2000000 } },
+          ]
+        }
+      ]
+    }
   }
 ];
 

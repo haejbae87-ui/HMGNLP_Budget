@@ -489,16 +489,16 @@ let _userFilterTenant = '';
 let _userSearch = '';
 
 // 직군 정의 (단일 선택)
-const JOB_TYPES = {
+const window.JOB_TYPES = {
   general:    { label: '일반직',  color: '#374151', bg: '#F3F4F6' },
   research:   { label: '연구직',  color: '#7C3AED', bg: '#EDE9FE' },
   production: { label: '생산직',  color: '#059669', bg: '#D1FAE5' },
   technical:  { label: '기술직',  color: '#1D4ED8', bg: '#DBEAFE' },
   executive:  { label: '임원',    color: '#B45309', bg: '#FEF3C7' },
 };
-function _jobLabel(code) { return (JOB_TYPES[code] || JOB_TYPES.general).label; }
-function _jobBg(code)    { return (JOB_TYPES[code] || JOB_TYPES.general).bg; }
-function _jobColor(code) { return (JOB_TYPES[code] || JOB_TYPES.general).color; }
+function _jobLabel(code) { return (window.JOB_TYPES[code] || window.JOB_TYPES.general).label; }
+function _jobBg(code)    { return (window.JOB_TYPES[code] || window.JOB_TYPES.general).bg; }
+function _jobColor(code) { return (window.JOB_TYPES[code] || window.JOB_TYPES.general).color; }
 
 async function renderUserMgmt() {
   const el = document.getElementById('bo-content');
@@ -623,7 +623,7 @@ async function renderUserMgmt() {
         <div><label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:3px">직군 *</label>
           <select id="user-jobtype"
             style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-size:13px">
-            ${Object.entries(JOB_TYPES).map(([v,t])=>`<option value="${v}">${t.label}</option>`).join('')}
+            ${Object.entries(window.JOB_TYPES).map(([v,t])=>`<option value="${v}">${t.label}</option>`).join('')}
           </select></div>
       </div>
       <!-- 조직 -->

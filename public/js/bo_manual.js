@@ -1,4 +1,4 @@
-// ─── 백오피스: 서비스 매뉴얼 (v3.0) ────────────────────────────────────────────
+﻿// ─── 백오피스: 서비스 매뉴얼 (v3.0) ────────────────────────────────────────────
 // 대상: 차세대학습플랫폼 서비스 기획자 및 개발자
 // 내용: 멀티테넌트 교육예산 관리 시스템의 전체 구조·역할·메뉴·데이터 흐름 안내
 // 최종 업데이트: 2026-03-24 (HAE/HSC 현행화, 서비스정책 권한 확장, 개발 일정 추가)
@@ -26,6 +26,7 @@ function renderBoManual() {
       { id:'patterns',    label:'④ 프로세스 패턴' },
       { id:'data-flow',   label:'⑤ 데이터 흐름' },
       { id:'tech',        label:'⑥ 기술 구조' },
+      { id:'ia',          label:'⑦ IA·화면구조' },
     ].map(t => `
     <button onclick="_manSetTab('${t.id}')" id="mbtab-${t.id}"
       style="padding:10px 16px;font-size:12px;font-weight:700;border:none;border-bottom:3px solid transparent;
@@ -49,7 +50,7 @@ function _manSetTab(id) {
   });
   const c = document.getElementById('manual-content');
   if (!c) return;
-  const map = { overview:_manOverview, personas:_manPersonas, menus:_manMenus, patterns:_manPatterns, 'data-flow':_manDataFlow, tech:_manTech, devplan:_manDevPlan };
+  const map = { overview:_manOverview, personas:_manPersonas, menus:_manMenus, patterns:_manPatterns, 'data-flow':_manDataFlow, tech:_manTech, devplan:_manDevPlan, ia:_manIA };
   if (map[id]) c.innerHTML = map[id]();
 }
 
@@ -614,5 +615,116 @@ function _manDevPlan() {
     </div>
   </div>
 
+</div>`;
+}
+
+/* ⑦ IA · 화면 구조 */
+function _manIA() {
+  const screens = [
+    { area:'공통', menu:'로그인/인증', screen:'BO 로그인', type:'화면', role:'전체', note:'SSO/역할 분기' },
+    { area:'공통', menu:'레이아웃', screen:'사이드바·헤더·GNB', type:'컴포넌트', role:'전체', note:'접근권한 기반 메뉴 표시' },
+    { area:'대시보드', menu:'메인 대시보드', screen:'예산 현황 요약', type:'화면', role:'전체', note:'역할별 데이터 범위' },
+    { area:'마스터데이터', menu:'예산계정 관리', screen:'계정 목록·상세', type:'화면', role:'플랫폼·테넌트', note:'' },
+    { area:'마스터데이터', menu:'예산계정 편집', screen:'계정 생성/수정 모달', type:'모달', role:'플랫폼·테넌트', note:'' },
+    { area:'마스터데이터', menu:'격리그룹 관리', screen:'격리그룹 목록', type:'화면', role:'플랫폼·테넌트', note:'' },
+    { area:'마스터데이터', menu:'가상조직 템플릿', screen:'VOrg 템플릿 목록', type:'화면', role:'테넌트', note:'' },
+    { area:'마스터데이터', menu:'VOrg 템플릿 편집', screen:'VOrg 트리 편집', type:'화면', role:'테넌트', note:'' },
+    { area:'마스터데이터', menu:'양식 빌더', screen:'양식 목록', type:'화면', role:'전체', note:'' },
+    { area:'마스터데이터', menu:'양식 빌더 편집', screen:'양식 설계 에디터', type:'화면', role:'전체', note:'' },
+    { area:'서비스 정책', menu:'정책 목록', screen:'정책 목록 (필터 포함)', type:'화면', role:'플랫폼·테넌트·예산운영', note:'' },
+    { area:'서비스 정책', menu:'정책 생성 위저드', screen:'Step 0 범위설정', type:'화면', role:'권한별 자동고정', note:'' },
+    { area:'서비스 정책', menu:'정책 생성 위저드', screen:'Step 1 정책명·대상자', type:'화면', role:'전체', note:'' },
+    { area:'서비스 정책', menu:'정책 생성 위저드', screen:'Step 2 목적', type:'화면', role:'전체', note:'' },
+    { area:'서비스 정책', menu:'정책 생성 위저드', screen:'Step 3 교육유형', type:'화면', role:'전체', note:'' },
+    { area:'서비스 정책', menu:'정책 생성 위저드', screen:'Step 4 패턴', type:'화면', role:'전체', note:'' },
+    { area:'서비스 정책', menu:'정책 생성 위저드', screen:'Step 5 대상조직', type:'화면', role:'전체', note:'' },
+    { area:'서비스 정책', menu:'정책 생성 위저드', screen:'Step 6 양식', type:'화면', role:'전체', note:'' },
+    { area:'서비스 정책', menu:'정책 생성 위저드', screen:'Step 7 결재라인', type:'화면', role:'전체', note:'' },
+    { area:'예산 계획', menu:'계획 목록', screen:'예산계획 목록', type:'화면', role:'예산운영', note:'' },
+    { area:'예산 계획', menu:'계획 상세', screen:'계획 상세 모달', type:'모달', role:'예산운영', note:'' },
+    { area:'신청 관리', menu:'신청 목록', screen:'교육신청 목록', type:'화면', role:'예산운영·승인자', note:'' },
+    { area:'신청 관리', menu:'신청 상세', screen:'신청 상세·승인 모달', type:'모달', role:'승인자', note:'' },
+    { area:'원장', menu:'원장 목록', screen:'예산 원장 (원가차감 내역)', type:'화면', role:'예산운영·테넌트', note:'' },
+    { area:'원장', menu:'원장 상세', screen:'거래 상세 모달', type:'모달', role:'예산운영·테넌트', note:'' },
+    { area:'보고서', menu:'리포트', screen:'예산 집행 리포트', type:'화면', role:'테넌트·플랫폼', note:'' },
+    { area:'서비스 매뉴얼', menu:'매뉴얼', screen:'BO 서비스 매뉴얼', type:'화면', role:'전체', note:'' },
+  ];
+  const screenCount = screens.filter(s=>s.type==='화면').length;
+  const modalCount  = screens.filter(s=>s.type==='모달').length;
+  const compCount   = screens.filter(s=>s.type==='컴포넌트').length;
+
+  const tree = [
+    { label:'백오피스 (BO)', indent:0, icon:'⚙️', bold:true },
+    { label:'로그인 / 인증', indent:1, icon:'🔐', bold:false },
+    { label:'대시보드', indent:1, icon:'📊', bold:true },
+    { label:'마스터데이터 관리', indent:1, icon:'🗄️', bold:true },
+    { label:'예산계정 관리 (목록·편집)', indent:2, icon:'└', bold:false },
+    { label:'격리그룹 관리 (목록·설정)', indent:2, icon:'└', bold:false },
+    { label:'가상조직(VOrg) 템플릿 관리', indent:2, icon:'└', bold:false },
+    { label:'양식 빌더 (목록·에디터)', indent:2, icon:'└', bold:false },
+    { label:'서비스 정책 관리', indent:1, icon:'🔧', bold:true },
+    { label:'정책 목록 (격리그룹·계정 필터)', indent:2, icon:'└', bold:false },
+    { label:'정책 생성 위저드 (8단계)', indent:2, icon:'└', bold:false },
+    { label:'Step 0 범위설정', indent:3, icon:'△', bold:false },
+    { label:'Step 1 정책명·대상자', indent:3, icon:'△', bold:false },
+    { label:'Step 2 목적', indent:3, icon:'△', bold:false },
+    { label:'Step 3 교육유형', indent:3, icon:'△', bold:false },
+    { label:'Step 4 패턴', indent:3, icon:'△', bold:false },
+    { label:'Step 5 대상조직', indent:3, icon:'△', bold:false },
+    { label:'Step 6 양식', indent:3, icon:'△', bold:false },
+    { label:'Step 7 결재라인', indent:3, icon:'△', bold:false },
+    { label:'예산 계획 관리', indent:1, icon:'📋', bold:true },
+    { label:'계획 목록·상세', indent:2, icon:'└', bold:false },
+    { label:'신청 관리', indent:1, icon:'📝', bold:true },
+    { label:'신청 목록·승인', indent:2, icon:'└', bold:false },
+    { label:'예산 원장', indent:1, icon:'📒', bold:true },
+    { label:'원장 목록·거래 상세', indent:2, icon:'└', bold:false },
+    { label:'보고서', indent:1, icon:'📈', bold:true },
+    { label:'서비스 매뉴얼', indent:1, icon:'📖', bold:false },
+  ];
+
+  return `<div style="display:flex;flex-direction:column;gap:22px">
+  <div style="padding:14px 18px;background:#EDE9FE;border-radius:12px;border:1px solid #C4B5FD">
+    <h2 style="font-size:14px;font-weight:900;color:#6D28D9;margin:0 0 4px">⑦ IA (Information Architecture) · 화면 구조</h2>
+    <p style="font-size:12px;color:#374151;margin:0">백오피스 전체 메뉴 계층, 화면 구성 및 접근 역할을 정의합니다.</p>
+  </div>
+  <div>
+    <h3 style="font-size:13px;font-weight:900;color:#374151;margin:0 0 10px">📐 메뉴 구조도 (IA Tree)</h3>
+    <div style="background:white;border:1.5px solid #E5E7EB;border-radius:12px;padding:16px 20px">
+      ${tree.map(n=>`<div style="display:flex;align-items:center;gap:6px;padding:4px 0;padding-left:${n.indent*22}px">
+        <span style="font-size:11px;color:#9CA3AF">${n.icon}</span>
+        <span style="font-size:${n.bold?'13px':'12px'};font-weight:${n.bold?'900':'600'};color:${n.bold?'#111827':'#374151'}">${n.label}</span>
+      </div>`).join('')}
+    </div>
+  </div>
+  <div>
+    <h3 style="font-size:13px;font-weight:900;color:#374151;margin:0 0 10px">📋 화면 본수 목록</h3>
+    <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="padding:10px 20px;background:#DBEAFE;border-radius:10px;font-size:12px;font-weight:800;color:#1D4ED8">화면 <span style="font-size:18px;margin-left:6px">${screenCount}</span> 본</div>
+      <div style="padding:10px 20px;background:#EDE9FE;border-radius:10px;font-size:12px;font-weight:800;color:#7C3AED">모달 <span style="font-size:18px;margin-left:6px">${modalCount}</span> 본</div>
+      <div style="padding:10px 20px;background:#F3F4F6;border-radius:10px;font-size:12px;font-weight:800;color:#374151">컴포넌트 <span style="font-size:18px;margin-left:6px">${compCount}</span></div>
+      <div style="padding:10px 20px;background:#D1FAE5;border-radius:10px;font-size:12px;font-weight:800;color:#065F46">전체 <span style="font-size:18px;margin-left:6px">${screenCount+modalCount}</span> 본</div>
+    </div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="background:#F3F4F6">
+        <th style="padding:8px 12px;text-align:left;border:1px solid #E5E7EB;font-weight:900">영역</th>
+        <th style="padding:8px 12px;text-align:left;border:1px solid #E5E7EB;font-weight:900">메뉴</th>
+        <th style="padding:8px 12px;text-align:left;border:1px solid #E5E7EB;font-weight:900">화면명</th>
+        <th style="padding:8px 12px;text-align:center;border:1px solid #E5E7EB;font-weight:900">유형</th>
+        <th style="padding:8px 12px;text-align:left;border:1px solid #E5E7EB;font-weight:900">접근역할</th>
+        <th style="padding:8px 12px;text-align:left;border:1px solid #E5E7EB;font-weight:900">비고</th>
+      </tr></thead>
+      <tbody>${screens.map((s,i)=>`<tr style="background:${i%2===0?'white':'#FAFAFA'}">
+        <td style="padding:7px 12px;border:1px solid #E5E7EB;color:#374151">${s.area}</td>
+        <td style="padding:7px 12px;border:1px solid #E5E7EB;font-weight:700;color:#111827">${s.menu}</td>
+        <td style="padding:7px 12px;border:1px solid #E5E7EB;color:#374151">${s.screen}</td>
+        <td style="padding:7px 12px;border:1px solid #E5E7EB;text-align:center">
+          <span style="padding:2px 8px;border-radius:5px;font-weight:800;background:${s.type==='화면'?'#DBEAFE':s.type==='모달'?'#EDE9FE':'#F3F4F6'};color:${s.type==='화면'?'#1D4ED8':s.type==='모달'?'#7C3AED':'#6B7280'}">${s.type}</span>
+        </td>
+        <td style="padding:7px 12px;border:1px solid #E5E7EB;font-size:11px;color:#6B7280">${s.role}</td>
+        <td style="padding:7px 12px;border:1px solid #E5E7EB;font-size:11px;color:#9CA3AF">${s.note}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+  </div>
 </div>`;
 }

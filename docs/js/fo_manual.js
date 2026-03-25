@@ -23,6 +23,7 @@ function renderFoManual() {
       { id:'fo-scenarios', label:'② 신청 시나리오' },
       { id:'fo-menus',     label:'③ 메뉴 상세' },
       { id:'fo-calc',      label:'④ 세부산출근거' },
+      { id:'fo-ia',        label:'⑤ IA·화면구조' },
     ].map(t => `
     <button onclick="_foManSetTab('${t.id}')" id="fomtab-${t.id}"
       style="padding:10px 16px;font-size:12px;font-weight:700;border:none;border-bottom:3px solid transparent;
@@ -46,7 +47,7 @@ function _foManSetTab(id) {
   });
   const c = document.getElementById('fo-manual-content');
   if (!c) return;
-  const map = { 'fo-overview':_foManOverview, 'fo-scenarios':_foManScenarios, 'fo-menus':_foManMenus, 'fo-calc':_foManCalc };
+  const map = { 'fo-overview':_foManOverview, 'fo-scenarios':_foManScenarios, 'fo-menus':_foManMenus, 'fo-calc':_foManCalc, 'fo-ia':_foManIA };
   if (map[id]) c.innerHTML = map[id]();
 }
 
@@ -303,5 +304,87 @@ function _foManCalc() {
     </div>
   </div>
 
+</div>`;
+}
+
+/* ⑤ IA · 화면 구조 */
+function _foManIA() {
+  const screens = [
+    { area:'공통', menu:'로그인/인증', screen:'로그인 화면', type:'화면', note:'SSO 연동' },
+    { area:'공통', menu:'내비게이션', screen:'GNB/LNB (글로벌 메뉴)', type:'컴포넌트', note:'상단 고정' },
+    { area:'대시보드', menu:'메인 대시보드', screen:'교육예산 현황 카드 목록', type:'화면', note:'신청 대기·결과 대기 배지' },
+    { area:'대시보드', menu:'신청 상세', screen:'신청 카드 상세 모달', type:'모달', note:'상태·결재라인 표시' },
+    { area:'교육 신청', menu:'신청 목록', screen:'신청 가능 교육 목록', type:'화면', note:'예산계정별 필터' },
+    { area:'교육 신청', menu:'신청서 작성', screen:'교육신청서 입력', type:'화면', note:'패턴별 동적 구성' },
+    { area:'교육 신청', menu:'계획서 작성', screen:'사전계획서 입력 (패턴A)', type:'화면', note:'패턴A 전용' },
+    { area:'교육 신청', menu:'신청 완료', screen:'신청 완료 확인', type:'화면', note:'결재라인 안내' },
+    { area:'결과 보고', menu:'결과 작성', screen:'교육 결과 입력', type:'화면', note:'패턴B/E 전용' },
+    { area:'결과 보고', menu:'결과 완료', screen:'결과 완료 확인', type:'화면', note:'' },
+    { area:'내 현황', menu:'내 신청 이력', screen:'신청·승인·결과 이력 목록', type:'화면', note:'' },
+    { area:'내 현황', menu:'이력 상세', screen:'신청 이력 상세 모달', type:'모달', note:'' },
+    { area:'세부산출근거', menu:'산출 조회', screen:'교육비 상세 산출근거', type:'화면', note:'교육비 계산 내역' },
+  ];
+  const total = screens.filter(s=>s.type==='화면').length;
+  const modal = screens.filter(s=>s.type==='모달').length;
+  const tree = [
+    { label:'프론트오피스 (LXP)', indent:0, icon:'🏠', bold:true },
+    { label:'로그인 / 인증', indent:1, icon:'🔐', bold:false },
+    { label:'메인 대시보드', indent:1, icon:'📊', bold:true },
+    { label:'예산 현황 카드 목록', indent:2, icon:'└', bold:false },
+    { label:'신청 카드 상세 (모달)', indent:2, icon:'└', bold:false },
+    { label:'교육 신청', indent:1, icon:'📝', bold:true },
+    { label:'신청 목록 (예산계정별)', indent:2, icon:'└', bold:false },
+    { label:'사전계획서 작성 (패턴A)', indent:2, icon:'└', bold:false },
+    { label:'교육신청서 작성', indent:2, icon:'└', bold:false },
+    { label:'신청 완료 확인', indent:2, icon:'└', bold:false },
+    { label:'결과 보고', indent:1, icon:'✅', bold:true },
+    { label:'교육 결과 입력 (패턴B/E)', indent:2, icon:'└', bold:false },
+    { label:'결과 완료 확인', indent:2, icon:'└', bold:false },
+    { label:'내 현황', indent:1, icon:'👤', bold:true },
+    { label:'신청·승인·결과 이력', indent:2, icon:'└', bold:false },
+    { label:'이력 상세 (모달)', indent:2, icon:'└', bold:false },
+    { label:'세부산출근거', indent:1, icon:'🧮', bold:true },
+    { label:'교육비 산출 상세', indent:2, icon:'└', bold:false },
+  ];
+  return `<div style="display:flex;flex-direction:column;gap:22px">
+  <div style="padding:14px 18px;background:#EFF6FF;border-radius:12px;border:1px solid #BFDBFE">
+    <h2 style="font-size:14px;font-weight:900;color:#1D4ED8;margin:0 0 4px">⑤ IA · 화면 구조</h2>
+    <p style="font-size:12px;color:#374151;margin:0">학습자가 접근하는 프론트오피스(LXP) 전체 메뉴 계층과 화면 구성입니다.</p>
+  </div>
+  <div>
+    <h3 style="font-size:13px;font-weight:900;color:#374151;margin:0 0 10px">📐 메뉴 구조도 (IA Tree)</h3>
+    <div style="background:white;border:1.5px solid #E5E7EB;border-radius:12px;padding:16px 20px">
+      ${tree.map(n=>`<div style="display:flex;align-items:center;gap:6px;padding:5px 0;padding-left:${n.indent*24}px">
+        <span style="font-size:12px">${n.icon}</span>
+        <span style="font-size:${n.bold?'13px':'12px'};font-weight:${n.bold?'900':'600'};color:${n.bold?'#111827':'#374151'}">${n.label}</span>
+      </div>`).join('')}
+    </div>
+  </div>
+  <div>
+    <h3 style="font-size:13px;font-weight:900;color:#374151;margin:0 0 10px">📋 화면 본수 목록</h3>
+    <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="padding:10px 20px;background:#DBEAFE;border-radius:10px;font-size:12px;font-weight:800;color:#1D4ED8">화면 <span style="font-size:18px;margin-left:6px">${total}</span> 본</div>
+      <div style="padding:10px 20px;background:#EDE9FE;border-radius:10px;font-size:12px;font-weight:800;color:#7C3AED">모달 <span style="font-size:18px;margin-left:6px">${modal}</span> 본</div>
+      <div style="padding:10px 20px;background:#D1FAE5;border-radius:10px;font-size:12px;font-weight:800;color:#065F46">전체 <span style="font-size:18px;margin-left:6px">${total+modal}</span> 본</div>
+    </div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="background:#F3F4F6">
+        <th style="padding:8px 12px;text-align:left;border:1px solid #E5E7EB;font-weight:900">영역</th>
+        <th style="padding:8px 12px;text-align:left;border:1px solid #E5E7EB;font-weight:900">메뉴</th>
+        <th style="padding:8px 12px;text-align:left;border:1px solid #E5E7EB;font-weight:900">화면명</th>
+        <th style="padding:8px 12px;text-align:center;border:1px solid #E5E7EB;font-weight:900">유형</th>
+        <th style="padding:8px 12px;text-align:left;border:1px solid #E5E7EB;font-weight:900">비고</th>
+      </tr></thead>
+      <tbody>${screens.map((s,i)=>`<tr style="background:${i%2===0?'white':'#FAFAFA'}">
+        <td style="padding:7px 12px;border:1px solid #E5E7EB;color:#374151">${s.area}</td>
+        <td style="padding:7px 12px;border:1px solid #E5E7EB;font-weight:700;color:#111827">${s.menu}</td>
+        <td style="padding:7px 12px;border:1px solid #E5E7EB;color:#374151">${s.screen}</td>
+        <td style="padding:7px 12px;border:1px solid #E5E7EB;text-align:center">
+          <span style="padding:2px 8px;border-radius:5px;font-weight:800;background:${s.type==='화면'?'#DBEAFE':s.type==='모달'?'#EDE9FE':'#F3F4F6'};color:${s.type==='화면'?'#1D4ED8':s.type==='모달'?'#7C3AED':'#6B7280'}">${s.type}</span>
+        </td>
+        <td style="padding:7px 12px;border:1px solid #E5E7EB;color:#6B7280;font-size:11px">${s.note}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+  </div>
 </div>`;
 }

@@ -1,4 +1,4 @@
-// ─── 플랫폼 관리 메뉴: 테넌트/조직/사용자/역할 ─────────────────────────────
+﻿// ─── 플랫폼 관리 메뉴: 테넌트/조직/사용자/역할 ─────────────────────────────
 // Supabase에서 실시간 데이터 로드, 실패 시 mock fallback
 
 // ── 공통 헬퍼 ──────────────────────────────────────────────────────────────
@@ -488,31 +488,56 @@ window._orgRootDragLeave = function(e) {
 let _userFilterTenant = '';
 let _userSearch = '';
 
+// 직군 정의 (단일 선택)
+const JOB_TYPES = {
+  general:    { label: '일반직',  color: '#374151', bg: '#F3F4F6' },
+  research:   { label: '연구직',  color: '#7C3AED', bg: '#EDE9FE' },
+  production: { label: '생산직',  color: '#059669', bg: '#D1FAE5' },
+  technical:  { label: '기술직',  color: '#1D4ED8', bg: '#DBEAFE' },
+  executive:  { label: '임원',    color: '#B45309', bg: '#FEF3C7' },
+};
+function _jobLabel(code) { return (JOB_TYPES[code] || JOB_TYPES.general).label; }
+function _jobBg(code)    { return (JOB_TYPES[code] || JOB_TYPES.general).bg; }
+function _jobColor(code) { return (JOB_TYPES[code] || JOB_TYPES.general).color; }
+
 async function renderUserMgmt() {
   const el = document.getElementById('bo-content');
   el.innerHTML = '<div class="bo-fade" style="padding:20px"><p style="color:#9CA3AF">로딩 중...</p></div>';
 
-  const tenants = await _sbGet('tenants') || TENANTS || [];
+  const allTenants = await _sbGet('tenants') || TENANTS || [];
+  const tenants = allTenants.filter(t => t.id !== 'SYSTEM');
   if (!_userFilterTenant && tenants.length) _userFilterTenant = tenants[0].id;
 
   let users = (await _sbGet('users', _userFilterTenant ? { tenant_id: _userFilterTenant } : {})) || [];
   if (_userSearch) users = users.filter(u => u.name.includes(_userSearch) || (u.emp_no||'').includes(_userSearch));
 
-  const userRoles = users.length ? (await (async () => {
-    if (!_sb()) return [];
-    const ids = users.map(u=>u.id);
-    const { data } = await _sb().from('user_roles').select('*').in('user_id', ids);
-    return data || [];
-  })()) : [];
+  // 역할 로드
+  const userRoles = users.length && _sb() ? (() => {
+    const ids = users.map(u => u.id);
+    return _sb().from('user_roles').select('*').in('user_id', ids).then(r => r.data || []);
+  })() : Promise.resolve([]);
 
-  function getRoles(userId) { return userRoles.filter(r=>r.user_id===userId); }
+  // 조직 로드 (현재 선택 회사)
+  const orgsPromise = _userFilterTenant
+    ? _sbGet('organizations', { tenant_id: _userFilterTenant })
+    : Promise.resolve([]);
+
+  const [roleData, orgData] = await Promise.all([userRoles, orgsPromise]);
+  const allOrgs = orgData || [];
+
+  function getRoles(userId) { return roleData.filter(r => r.user_id === userId); }
+  function getOrgName(orgId) {
+    if (!orgId) return '-';
+    const o = allOrgs.find(x => x.id === orgId);
+    return o ? o.name : orgId;
+  }
 
   el.innerHTML = `
-<div class="bo-fade" style="max-width:1000px">
+<div class="bo-fade" style="max-width:1080px">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
     <div>
       <h1 style="font-size:20px;font-weight:900;color:#111827;margin:0">👤 사용자 관리</h1>
-      <p style="font-size:12px;color:#6B7280;margin:4px 0 0">회사별 사용자 등록 및 역할을 관리합니다.</p>
+      <p style="font-size:12px;color:#6B7280;margin:4px 0 0">회사별 사용자 등록 및 조직·역할을 관리합니다.</p>
     </div>
     <button onclick="_openUserModal()" style="padding:10px 18px;background:#4F46E5;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer">+ 사용자 등록</button>
   </div>
@@ -534,19 +559,22 @@ async function renderUserMgmt() {
       <thead><tr style="background:#F9FAFB;border-bottom:1.5px solid #E5E7EB">
         <th style="padding:10px 14px;text-align:left;font-weight:900;color:#374151">이름</th>
         <th style="padding:10px 14px;text-align:left;font-weight:900;color:#374151">사번</th>
-        <th style="padding:10px 14px;text-align:left;font-weight:900;color:#374151">회사</th>
-        <th style="padding:10px 14px;text-align:left;font-weight:900;color:#374151">이메일</th>
+        <th style="padding:10px 14px;text-align:left;font-weight:900;color:#374151">조직</th>
+        <th style="padding:10px 14px;text-align:left;font-weight:900;color:#374151">직군</th>
         <th style="padding:10px 14px;text-align:left;font-weight:900;color:#374151">역할</th>
         <th style="padding:10px 14px;text-align:center;font-weight:900;color:#374151">상태</th>
         <th style="padding:10px 14px;text-align:center;font-weight:900;color:#374151">관리</th>
       </tr></thead>
       <tbody>
-        ${users.length ? users.map((u,i)=>`
+        ${users.length ? users.map((u,i) => `
         <tr style="border-bottom:1px solid #F3F4F6;background:${i%2?'#FAFAFA':'white'}">
           <td style="padding:10px 14px;font-weight:700;color:#111827">${u.name}</td>
           <td style="padding:10px 14px;color:#6B7280">${u.emp_no||'-'}</td>
-          <td style="padding:10px 14px;color:#374151">${u.tenant_id}</td>
-          <td style="padding:10px 14px;color:#6B7280;font-size:11px">${u.email||'-'}</td>
+          <td style="padding:10px 14px;color:#374151;font-size:11px">${getOrgName(u.org_id)}</td>
+          <td style="padding:10px 14px">
+            <span style="padding:2px 8px;border-radius:5px;font-size:10px;font-weight:800;
+              background:${_jobBg(u.job_type)};color:${_jobColor(u.job_type)}">${_jobLabel(u.job_type)}</span>
+          </td>
           <td style="padding:10px 14px">
             <div style="display:flex;gap:4px;flex-wrap:wrap">
               ${getRoles(u.id).map(r=>`<span style="padding:2px 7px;border-radius:5px;font-size:10px;font-weight:800;background:${_roleBg(r.role_code)};color:${_roleColor(r.role_code)}">${_roleName(r.role_code)}</span>`).join('')}
@@ -554,10 +582,12 @@ async function renderUserMgmt() {
             </div>
           </td>
           <td style="padding:10px 14px;text-align:center">
-            <span style="padding:2px 8px;border-radius:5px;font-size:10px;font-weight:800;background:${u.status==='active'?'#D1FAE5':'#F3F4F6'};color:${u.status==='active'?'#065F46':'#6B7280'}">${u.status==='active'?'활성':'비활성'}</span>
+            <span style="padding:2px 8px;border-radius:5px;font-size:10px;font-weight:800;
+              background:${u.status==='active'?'#D1FAE5':'#F3F4F6'};color:${u.status==='active'?'#065F46':'#6B7280'}">${u.status==='active'?'활성':'비활성'}</span>
           </td>
           <td style="padding:10px 14px;text-align:center">
-            <button onclick="_openUserModal('${u.id}')" style="padding:4px 10px;border:1.5px solid #E5E7EB;border-radius:6px;background:white;font-size:11px;font-weight:700;cursor:pointer;color:#374151">✏️ 수정</button>
+            <button onclick="_openUserModal('${u.id}')"
+              style="padding:4px 10px;border:1.5px solid #E5E7EB;border-radius:6px;background:white;font-size:11px;font-weight:700;cursor:pointer;color:#374151">✏️ 수정</button>
           </td>
         </tr>`).join('') : `<tr><td colspan="7" style="padding:40px;text-align:center;color:#9CA3AF;font-size:12px">등록된 사용자가 없습니다.</td></tr>`}
       </tbody>
@@ -566,32 +596,46 @@ async function renderUserMgmt() {
 </div>
 
 <div id="user-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center">
-  <div style="background:white;border-radius:16px;padding:28px;width:480px;max-width:90vw;max-height:85vh;overflow-y:auto">
+  <div style="background:white;border-radius:16px;padding:28px;width:500px;max-width:92vw;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)">
     <h2 style="font-size:16px;font-weight:900;margin:0 0 18px" id="user-modal-title">사용자 등록</h2>
     <input type="hidden" id="user-edit-id"/>
     <div style="display:grid;gap:12px">
+      <!-- 이름 / 사번 -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div><label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:3px">이름 *</label>
-          <input id="user-name" type="text" placeholder="홍길동" style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-size:13px;box-sizing:border-box"/></div>
+          <input id="user-name" type="text" placeholder="홍길동"
+            style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-size:13px;box-sizing:border-box"/></div>
         <div><label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:3px">사번</label>
-          <input id="user-empno" type="text" placeholder="12345" style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-size:13px;box-sizing:border-box"/></div>
+          <input id="user-empno" type="text" placeholder="12345"
+            style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-size:13px;box-sizing:border-box"/></div>
       </div>
+      <!-- 이메일 -->
       <div><label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:3px">이메일</label>
-        <input id="user-email" type="email" placeholder="hong@hmg.com" style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-size:13px;box-sizing:border-box"/></div>
+        <input id="user-email" type="email" placeholder="hong@hmg.com"
+          style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-size:13px;box-sizing:border-box"/></div>
+      <!-- 회사 / 직군 -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div><label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:3px">회사 *</label>
-          <select id="user-tenant" style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-size:13px">
+          <select id="user-tenant" onchange="_loadUserOrgOptions(this.value)"
+            style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-size:13px">
             ${tenants.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}
           </select></div>
-        <div><label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:3px">직군</label>
-          <select id="user-jobtype" style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-size:13px">
-            <option value="general">일반직</option>
-            <option value="rnd">R&D직</option>
-            <option value="production">생산직</option>
+        <div><label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:3px">직군 *</label>
+          <select id="user-jobtype"
+            style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-size:13px">
+            ${Object.entries(JOB_TYPES).map(([v,t])=>`<option value="${v}">${t.label}</option>`).join('')}
           </select></div>
       </div>
-      <div><label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:6px">역할 부여 <span style="font-weight:400;color:#6B7280">(학습자는 기본 부여)</span></label>
-        <div style="display:grid;gap:6px" id="role-checkboxes">
+      <!-- 조직 -->
+      <div><label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:3px">소속 조직</label>
+        <select id="user-org"
+          style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-size:13px">
+          <option value="">-- 조직 미지정 --</option>
+        </select></div>
+      <!-- 역할 -->
+      <div><label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:6px">역할 부여
+        <span style="font-weight:400;color:#6B7280">(학습자는 기본 부여)</span></label>
+        <div style="display:grid;gap:6px">
           ${['platform_admin','tenant_admin','budget_admin','budget_ops'].map(code=>`
           <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;cursor:pointer">
             <input type="checkbox" name="user-role" value="${code}" style="width:14px;height:14px"/>
@@ -599,6 +643,7 @@ async function renderUserMgmt() {
           </label>`).join('')}
         </div>
       </div>
+      <!-- 상태 -->
       <div><label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:3px">상태</label>
         <select id="user-status" style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-size:13px">
           <option value="active">활성</option>
@@ -607,47 +652,90 @@ async function renderUserMgmt() {
     </div>
     <div style="display:flex;gap:10px;margin-top:20px">
       <button onclick="_saveUser()" style="flex:1;padding:10px;background:#4F46E5;color:white;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">저장</button>
-      <button onclick="document.getElementById('user-modal').style.display='none'" style="flex:1;padding:10px;background:#F3F4F6;color:#374151;border:none;border-radius:8px;font-size:13px;cursor:pointer">취소</button>
+      <button onclick="document.getElementById('user-modal').style.display='none'"
+        style="flex:1;padding:10px;background:#F3F4F6;color:#374151;border:none;border-radius:8px;font-size:13px;cursor:pointer">취소</button>
     </div>
   </div>
 </div>`;
 }
 
+// 회사 변경 시 조직 드롭다운을 동적 로드
+window._loadUserOrgOptions = async function(tenantId, selectedOrgId) {
+  const sel = document.getElementById('user-org');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">-- 조직 미지정 --</option>';
+  if (!tenantId || !_sb()) return;
+  const orgs = await _sbGet('organizations', { tenant_id: tenantId }) || [];
+
+  // 트리 순서로 정렬 (부모 먼저)
+  function flatOrgs(items, parentId, depth) {
+    return items.filter(o => o.parent_id === parentId).sort((a,b)=>a.order_seq-b.order_seq).flatMap(o =>
+      [{ ...o, _depth: depth }, ...flatOrgs(items, o.id, depth + 1)]
+    );
+  }
+  const flat = flatOrgs(orgs, null, 0);
+  flat.forEach(o => {
+    const ot = (typeof ORG_TYPES !== 'undefined' && ORG_TYPES[o.type]) ? ORG_TYPES[o.type] : { label: o.type, icon: '' };
+    const opt = document.createElement('option');
+    opt.value = o.id;
+    opt.textContent = '　'.repeat(o._depth) + (ot.icon||'') + ' ' + o.name + ' (' + ot.label + ')';
+    if (o.id === selectedOrgId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+};
+
 window._openUserModal = async function(userId) {
   document.getElementById('user-edit-id').value = userId || '';
   document.getElementById('user-modal-title').textContent = userId ? '사용자 수정' : '사용자 등록';
   document.querySelectorAll('[name="user-role"]').forEach(cb => cb.checked = false);
+
+  const tenantSel = document.getElementById('user-tenant');
+  const defaultTenant = tenantSel ? tenantSel.options[0]?.value : '';
+
   if (userId) {
-    const u = (await _sbGet('users') || []).find(x=>x.id===userId) || {};
+    const u = (await _sbGet('users') || []).find(x => x.id === userId) || {};
     document.getElementById('user-name').value = u.name || '';
     document.getElementById('user-empno').value = u.emp_no || '';
     document.getElementById('user-email').value = u.email || '';
-    document.getElementById('user-tenant').value = u.tenant_id || '';
+    if (tenantSel) tenantSel.value = u.tenant_id || defaultTenant;
     document.getElementById('user-jobtype').value = u.job_type || 'general';
     document.getElementById('user-status').value = u.status || 'active';
+    // 조직 옵션 로드 후 선택
+    await window._loadUserOrgOptions(u.tenant_id, u.org_id);
+    // 역할 체크
     const roles = await _sbGet('user_roles', { user_id: userId }) || [];
     roles.forEach(r => {
       const cb = document.querySelector(`[name="user-role"][value="${r.role_code}"]`);
       if (cb) cb.checked = true;
     });
+  } else {
+    document.getElementById('user-name').value = '';
+    document.getElementById('user-empno').value = '';
+    document.getElementById('user-email').value = '';
+    if (tenantSel) tenantSel.value = defaultTenant;
+    document.getElementById('user-jobtype').value = 'general';
+    document.getElementById('user-status').value = 'active';
+    await window._loadUserOrgOptions(defaultTenant, null);
   }
   document.getElementById('user-modal').style.display = 'flex';
 };
+
 window._saveUser = async function() {
   const name = document.getElementById('user-name').value.trim();
   const tenantId = document.getElementById('user-tenant').value;
   if (!name || !tenantId) { alert('이름과 회사를 입력해주세요'); return; }
   const editId = document.getElementById('user-edit-id').value;
   const id = editId || 'USR-' + Date.now();
+  const orgId = document.getElementById('user-org').value || null;
   try {
     await _sbUpsert('users', {
       id, tenant_id: tenantId, name,
       emp_no: document.getElementById('user-empno').value,
       email: document.getElementById('user-email').value,
       job_type: document.getElementById('user-jobtype').value,
+      org_id: orgId,
       status: document.getElementById('user-status').value
     }, 'id');
-    // 기존 역할 삭제 후 재등록
     if (_sb()) await _sb().from('user_roles').delete().eq('user_id', id);
     const rolesToSave = [{ user_id:id, role_code:'learner', tenant_id:tenantId, scope_id:null }];
     document.querySelectorAll('[name="user-role"]:checked').forEach(cb => {
@@ -659,7 +747,6 @@ window._saveUser = async function() {
   } catch(e) { alert('저장 실패: ' + e.message); }
 };
 
-// ══════════════════════════════════════════════════════════════════════════════
 // ④ 역할 관리
 // ══════════════════════════════════════════════════════════════════════════════
 async function renderRoleMgmt() {

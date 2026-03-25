@@ -807,3 +807,147 @@ window._viewRoleUsers = async function(roleCode) {
     ${(users||[]).map(u=>`<span style="padding:6px 12px;background:white;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;color:#374151">${u.name} <span style="color:#9CA3AF;font-weight:400">(${u.tenant_id})</span></span>`).join('')}
   </div>`;
 };
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ⑤ 역할별 메뉴 권한 관리
+// ══════════════════════════════════════════════════════════════════════════════
+
+// 전체 메뉴 정의 (PLATFORM_MENUS와 동기화)
+const ALL_MENUS = [
+  { id: 'dashboard',        label: '대시보드' },
+  { id: 'platform-monitor', label: '전사 예산 모니터링' },
+  { id: 'platform-roles',   label: '관리자 권한 매핑' },
+  { id: 'tenant-mgmt',      label: '테넌트/회사 관리' },
+  { id: 'org-mgmt',         label: '조직 관리' },
+  { id: 'user-mgmt',        label: '사용자 관리' },
+  { id: 'role-mgmt',        label: '역할 관리' },
+  { id: 'role-menu-perms',  label: '역할별 메뉴 권한' },
+  { id: 'isolation-groups', label: '격리그룹 관리' },
+  { id: 'budget-account',   label: '예산 계정 관리' },
+  { id: 'virtual-org',      label: '가상조직 템플릿' },
+  { id: 'form-builder',     label: '교육양식마법사' },
+  { id: 'calc-grounds',     label: '산정기준 관리' },
+  { id: 'approval-routing', label: '결재 라우팅' },
+  { id: 'service-policy',   label: '서비스 정책 관리' },
+  { id: 'plan-mgmt',        label: '계획 관리' },
+  { id: 'allocation',       label: '예산 배정' },
+  { id: 'my-operations',    label: '내 업무' },
+  { id: 'org-budget',       label: '조직 예산 현황' },
+  { id: 'reports',          label: '통계 및 리포트' },
+  { id: 'manual',           label: '서비스 매뉴얼' },
+];
+
+const MANAGED_ROLES = [
+  { code: 'platform_admin', label: '플랫폼총괄관리자', color: '#7C3AED' },
+  { code: 'tenant_admin',   label: '테넌트총괄관리자', color: '#1D4ED8' },
+  { code: 'budget_admin',   label: '예산총괄관리자',   color: '#059669' },
+  { code: 'budget_ops',     label: '예산운영담당자',   color: '#D97706' },
+  { code: 'learner',        label: '학습자',           color: '#6B7280' },
+];
+
+async function renderRoleMenuPerms() {
+  const el = document.getElementById('bo-content');
+  el.innerHTML = '<div class="bo-fade" style="padding:20px"><p style="color:#9CA3AF">로딩 중...</p></div>';
+
+  // DB에서 현재 권한 로드
+  let currentPerms = {};
+  if (_sb()) {
+    const { data } = await _sb().from('role_menu_permissions').select('role_code, menu_id');
+    (data || []).forEach(({ role_code, menu_id }) => {
+      if (!currentPerms[role_code]) currentPerms[role_code] = new Set();
+      currentPerms[role_code].add(menu_id);
+    });
+  } else {
+    // 폴백: window._roleMenuPerms 사용
+    Object.entries(window._roleMenuPerms || {}).forEach(([rc, set]) => {
+      currentPerms[rc] = new Set(set);
+    });
+  }
+
+  function isChecked(roleCode, menuId) {
+    return currentPerms[roleCode]?.has(menuId) ? 'checked' : '';
+  }
+
+  el.innerHTML = `
+<div class="bo-fade" style="max-width:1100px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div>
+      <h1 style="font-size:20px;font-weight:900;color:#111827;margin:0">🔑 역할별 메뉴 권한 관리</h1>
+      <p style="font-size:12px;color:#6B7280;margin:4px 0 0">역할별로 접근 가능한 메뉴를 DB에서 직접 관리합니다. 저장 즉시 반영됩니다.</p>
+    </div>
+    <button onclick="_saveRoleMenuPerms()" style="padding:10px 20px;background:#4F46E5;color:white;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer">💾 변경사항 저장</button>
+  </div>
+
+  <div style="background:white;border:1.5px solid #E5E7EB;border-radius:14px;overflow:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
+      <thead>
+        <tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB">
+          <th style="padding:12px 16px;text-align:left;font-weight:900;color:#374151;min-width:160px">메뉴</th>
+          ${MANAGED_ROLES.map(r => `
+          <th style="padding:12px 8px;text-align:center;font-weight:900;color:${r.color};min-width:110px">
+            ${r.label}
+          </th>`).join('')}
+        </tr>
+      </thead>
+      <tbody>
+        ${ALL_MENUS.map((m, i) => `
+        <tr style="border-bottom:1px solid #F3F4F6;background:${i%2?'#FAFAFA':'white'}">
+          <td style="padding:9px 16px;font-weight:600;color:#374151">${m.label}
+            <span style="font-size:9px;color:#9CA3AF;margin-left:4px">${m.id}</span>
+          </td>
+          ${MANAGED_ROLES.map(r => `
+          <td style="padding:9px 8px;text-align:center">
+            <input type="checkbox" data-role="${r.code}" data-menu="${m.id}"
+              ${isChecked(r.code, m.id)}
+              style="width:16px;height:16px;cursor:pointer;accent-color:${r.color}"
+              onchange="_onPermChange(this)"/>
+          </td>`).join('')}
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>
+  <p id="perm-save-msg" style="margin-top:12px;font-size:12px;color:#059669;display:none;text-align:center;font-weight:700"></p>
+</div>`;
+}
+
+// 체크박스 변경 즉시 메모리 반영 (저장은 버튼 클릭)
+window._onPermChange = function(cb) {
+  const role = cb.dataset.role;
+  const menu = cb.dataset.menu;
+  if (!window._pendingPermChanges) window._pendingPermChanges = [];
+  window._pendingPermChanges.push({ role, menu, checked: cb.checked });
+  document.getElementById('perm-save-msg').style.display = 'none';
+};
+
+window._saveRoleMenuPerms = async function() {
+  if (!_sb()) { alert('DB 연결이 필요합니다.'); return; }
+  const checks = document.querySelectorAll('[data-role][data-menu]');
+  if (!checks.length) return;
+
+  // 현재 체크 상태 전체 수집
+  const toInsert = [];
+  const allRoleCodes = MANAGED_ROLES.map(r => r.code);
+
+  checks.forEach(cb => {
+    if (cb.checked) toInsert.push({ role_code: cb.dataset.role, menu_id: cb.dataset.menu });
+  });
+
+  try {
+    // 관리 대상 role 전체 삭제 후 재삽입
+    await _sb().from('role_menu_permissions').delete().in('role_code', allRoleCodes);
+    if (toInsert.length) {
+      const { error } = await _sb().from('role_menu_permissions').insert(toInsert);
+      if (error) throw error;
+    }
+    // 메모리 캐시 업데이트
+    window._pendingPermChanges = [];
+    if (typeof sbLoadRoleMenuPerms === 'function') {
+      await sbLoadRoleMenuPerms();
+      if (typeof renderBoSidebar === 'function') renderBoSidebar();
+    }
+    const msg = document.getElementById('perm-save-msg');
+    if (msg) { msg.textContent = `✅ ${toInsert.length}건 권한 저장 완료`; msg.style.display = 'block'; }
+  } catch(e) {
+    alert('저장 실패: ' + e.message);
+  }
+};

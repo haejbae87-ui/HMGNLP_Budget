@@ -114,6 +114,53 @@ async function sbLoadApplications(filters = {}) {
   }
 }
 
+// ─── 역할별 메뉴 권한 로더 ────────────────────────────────────────────────────
+// role_menu_permissions 테이블 → window._roleMenuPerms: Map<role_code, Set<menu_id>>
+window._roleMenuPerms = null;  // null = 아직 미로드, {} = 로드 완료(빈 값도 포함)
+
+async function sbLoadRoleMenuPerms() {
+  try {
+    const { data, error } = await getSB().from('role_menu_permissions').select('role_code, menu_id');
+    if (error) throw error;
+    const map = {};
+    (data || []).forEach(({ role_code, menu_id }) => {
+      if (!map[role_code]) map[role_code] = new Set();
+      map[role_code].add(menu_id);
+    });
+    window._roleMenuPerms = map;
+    console.log(`[Supabase] ✅ role_menu_permissions 로드: ${Object.keys(map).length}개 역할, ${data.length}건`);
+    return map;
+  } catch (e) {
+    console.warn('[Supabase] role_menu_permissions 로드 실패 → accessMenus 폴백 사용:', e.message);
+    window._roleMenuPerms = {};  // 빈 객체 = 로드 시도 완료 (폴백 모드)
+    return {};
+  }
+}
+
+// 역할 배열로 메뉴 접근 가능 여부 확인 (boNavigate에서 사용)
+function checkMenuAccess(menuId, roles, fallbackMenus) {
+  // DB 권한이 로드됐으면 DB 기준
+  if (window._roleMenuPerms && Object.keys(window._roleMenuPerms).length > 0) {
+    return (roles || []).some(role => window._roleMenuPerms[role]?.has(menuId));
+  }
+  // 폴백: bo_data.js의 accessMenus 배열
+  return (fallbackMenus || []).includes(menuId);
+}
+window.checkMenuAccess = checkMenuAccess;
+
+// 역할 배열로 접근 가능한 전체 메뉴 Set 반환 (사이드바 렌더링에 사용)
+function getAllowedMenuSet(roles, fallbackMenus) {
+  if (window._roleMenuPerms && Object.keys(window._roleMenuPerms).length > 0) {
+    const allowed = new Set();
+    (roles || []).forEach(role => {
+      (window._roleMenuPerms[role] || new Set()).forEach(m => allowed.add(m));
+    });
+    return allowed;
+  }
+  return new Set(fallbackMenus || []);
+}
+window.getAllowedMenuSet = getAllowedMenuSet;
+
 // ─── 초기 로딩 ───────────────────────────────────────────────────────────────
 // 앱 시작 시 전역 변수를 DB 데이터로 교체
 async function initSupabaseData() {
@@ -133,9 +180,17 @@ async function initSupabaseData() {
     if (policies && policies.length) window.SERVICE_POLICIES = policies;
 
     console.log(`[Supabase] ✅ 로딩 완료 - 테넌트:${tenants.length}, 계정:${accounts.length}, 격리그룹:${groups.length}, 정책:${policies.length}`);
+
+    // 역할별 메뉴 권한 로드 (비동기, 완료 후 사이드바 재렌더)
+    sbLoadRoleMenuPerms().then(() => {
+      // 로드 완료 후 사이드바를 다시 그려서 DB 권한 반영
+      if (typeof renderBoSidebar === 'function') renderBoSidebar();
+    });
+
     return true;
   } catch (e) {
     console.error('[Supabase] ❌ 초기 로딩 실패. JS mock 데이터 사용:', e.message);
     return false;
   }
 }
+

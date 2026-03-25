@@ -185,6 +185,7 @@ const PLATFORM_MENUS = [
   { id: 'org-mgmt',          icon: '🗂️', label: '조직 관리',              section: null },
   { id: 'user-mgmt',         icon: '👤', label: '사용자 관리',            section: null },
   { id: 'role-mgmt',         icon: '🔐', label: '역할 관리',              section: null },
+  { id: 'role-menu-perms',   icon: '🔑', label: '역할별 메뉴 권한',        section: null },
   { id: 'platform-roles',    icon: '🛠️', label: '관리자 권한 매핑',       section: null },
   { id: 'isolation-groups',  icon: '🛡️', label: '격리그룹 관리',          section: '테넌트 운영' },
   { id: 'budget-account',    icon: '💳', label: '예산 계정 관리',          section: null },
@@ -275,8 +276,14 @@ function renderBoSidebar() {
   let lastSection = null;
   let menuHtml = '';
 
+  // 현재 persona의 역할 배열 (단일 role → [role] 배열로 통일)
+  const personaRoles = persona.roles || [persona.role];
+
   menus.forEach(m => {
-    const hasAccess = persona.accessMenus.includes(m.id);
+    // DB 권한 우선, 없으면 accessMenus 폴백
+    const hasAccess = (typeof checkMenuAccess === 'function')
+      ? checkMenuAccess(m.id, personaRoles, persona.accessMenus)
+      : persona.accessMenus.includes(m.id);
     if (m.section && m.section !== lastSection) {
       menuHtml += `<div class="bo-nav-label" style="margin-top:8px">${m.section}</div>`;
       lastSection = m.section;
@@ -434,7 +441,11 @@ function _boOutsideClose(e) {
 
 
 function boNavigate(menuId) {
-  if (!boCurrentPersona.accessMenus.includes(menuId)) return;
+  const personaRoles = boCurrentPersona.roles || [boCurrentPersona.role];
+  const allowed = (typeof checkMenuAccess === 'function')
+    ? checkMenuAccess(menuId, personaRoles, boCurrentPersona.accessMenus)
+    : boCurrentPersona.accessMenus.includes(menuId);
+  if (!allowed) return;
   boCurrentMenu = menuId;
   renderBoSidebar();
   renderBoHeader();
@@ -447,6 +458,7 @@ function boNavigate(menuId) {
   if (menuId === 'org-mgmt')         renderOrgMgmt();
   if (menuId === 'user-mgmt')        renderUserMgmt();
   if (menuId === 'role-mgmt')        renderRoleMgmt();
+  if (menuId === 'role-menu-perms')  renderRoleMenuPerms();
   // 예산·양식 설정 5개 독립 메뉴
   if (menuId === 'budget-account')   renderBudgetAccount();
   if (menuId === 'virtual-org')      renderVirtualOrg();

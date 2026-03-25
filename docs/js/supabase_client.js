@@ -220,10 +220,80 @@ async function initSupabaseData() {
       if (templates && templates.length) window.VIRTUAL_ORG_TEMPLATES = templates;
     });
 
+    // 교육신청 양식 템플릿 로드 (비동기)
+    sbLoadFormTemplates().then(forms => {
+      if (forms && forms.length) window.FORM_MASTER = forms;
+    });
+
     return true;
   } catch (e) {
     console.error('[Supabase] ❌ 초기 로딩 실패. JS mock 데이터 사용:', e.message);
     return false;
   }
 }
+
+// ─── form_templates 로더 ──────────────────────────────────────────────────────
+async function sbLoadFormTemplates() {
+  try {
+    const { data, error } = await getSB()
+      .from('form_templates')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    // DB 컬럼명을 FORM_MASTER 구조(JS camelCase)로 변환
+    const forms = (data || []).map(r => ({
+      id:          r.id,
+      tenantId:    r.tenant_id,
+      name:        r.name,
+      type:        r.type,
+      purpose:     r.purpose,
+      eduType:     r.edu_type,
+      eduSubType:  r.edu_sub_type,
+      targetUser:  r.target_user,
+      desc:        r.desc_text,
+      noticeText:  r.notice_text,
+      fields:      r.fields || [],
+      attachments: r.attachments || [],
+      active:      r.active,
+    }));
+    console.log(`[Supabase] ✅ form_templates 로드: ${forms.length}건`);
+    return forms;
+  } catch (e) {
+    console.warn('[Supabase] form_templates 로드 실패 → mock 데이터 사용:', e.message);
+    return [];
+  }
+}
+window.sbLoadFormTemplates = sbLoadFormTemplates;
+
+// ─── 양식 저장(upsert) ────────────────────────────────────────────────────────
+async function sbSaveFormTemplate(formObj) {
+  try {
+    const row = {
+      id:           formObj.id,
+      tenant_id:    formObj.tenantId,
+      name:         formObj.name,
+      type:         formObj.type,
+      purpose:      formObj.purpose || null,
+      edu_type:     formObj.eduType || null,
+      edu_sub_type: formObj.eduSubType || null,
+      target_user:  formObj.targetUser || null,
+      desc_text:    formObj.desc || null,
+      notice_text:  formObj.noticeText || null,
+      fields:       formObj.fields || [],
+      attachments:  formObj.attachments || [],
+      active:       formObj.active !== false,
+      updated_at:   new Date().toISOString(),
+    };
+    const { error } = await getSB()
+      .from('form_templates')
+      .upsert(row, { onConflict: 'id' });
+    if (error) throw error;
+    console.log(`[Supabase] ✅ 양식 저장 완료: ${formObj.name}`);
+    return true;
+  } catch (e) {
+    console.error('[Supabase] 양식 저장 실패:', e.message);
+    return false;
+  }
+}
+window.sbSaveFormTemplate = sbSaveFormTemplate;
 

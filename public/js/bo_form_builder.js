@@ -967,7 +967,7 @@ function _fbOnEduTypeChange(typeVal) {
   }
 }
 
-function fbSaveForm() {
+async function fbSaveForm() {
   const tenantId = boCurrentPersona.tenantId || 'HMC';
   const type       = document.getElementById('fb-type').value;
   const name       = document.getElementById('fb-name').value.trim();
@@ -985,14 +985,32 @@ function fbSaveForm() {
   if (!name) { alert('양식명은 필수입니다.'); return; }
   if (_fbTempFields.length === 0) { alert('최소 1개 이상의 필드를 추가해주세요.'); return; }
 
-  const formData = { type, name, desc, active: true, fields: [..._fbTempFields], purpose, eduType, eduSubType, targetUser, noticeText, attachments };
+  const formId = _fbEditId || ('FM' + Date.now());
+  const formData = {
+    id: formId, tenantId,
+    type, name, desc, active: true,
+    fields: [..._fbTempFields],
+    purpose, eduType, eduSubType, targetUser, noticeText, attachments
+  };
 
+  // 1) 메모리 FORM_MASTER 업데이트
   if (_fbEditId) {
     const idx = FORM_MASTER.findIndex(x => x.id === _fbEditId);
     if (idx > -1) FORM_MASTER[idx] = { ...FORM_MASTER[idx], ...formData };
+    else FORM_MASTER.push(formData);
   } else {
-    FORM_MASTER.push({ id: 'FM' + Date.now(), tenantId, ...formData });
+    FORM_MASTER.push(formData);
   }
+
+  // 2) DB 저장 (upsert)
+  if (typeof sbSaveFormTemplate === 'function') {
+    const ok = await sbSaveFormTemplate(formData);
+    if (!ok) {
+      // DB 실패 시 경고만 표시하고 계속 (메모리엔 이미 반영됨)
+      console.warn('[FormBuilder] DB 저장 실패 - 메모리에만 저장됨');
+    }
+  }
+
   fbCloseModal();
   _fbCurrentTab = 'library';
   renderFormBuilderMenu();

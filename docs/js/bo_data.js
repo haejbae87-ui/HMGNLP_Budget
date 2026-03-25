@@ -1,4 +1,4 @@
-﻿// ─── BACK-OFFICE DATA LAYER ──────────────────────────────────────────────────
+// ─── BACK-OFFICE DATA LAYER ──────────────────────────────────────────────────
 
 // ─── 사전 정의된 학습유형 (Learning Types) ──────────────────────────────────
 const LEARNING_TYPES = [
@@ -56,7 +56,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['*'],       // 전체 계정 소유자(설정 전용)
     allowedAccounts: ['*'],     // 전체 조회
     isolationGroup: 'SYSTEM',
-    accessMenus: ['dashboard', 'platform-monitor', 'platform-roles', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'reports', 'manual', 'manual']
+    accessMenus: ['dashboard', 'platform-monitor', 'platform-roles', 'tenant-mgmt', 'org-mgmt', 'user-mgmt', 'role-mgmt', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'reports', 'manual']
   },
 
   // ── [현대자동차 HMC] ──────────────────────────────────────────────────────

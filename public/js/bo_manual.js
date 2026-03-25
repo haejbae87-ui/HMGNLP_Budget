@@ -27,6 +27,7 @@ function renderBoManual() {
       { id:'data-flow',   label:'⑤ 데이터 흐름' },
       { id:'tech',        label:'⑥ 기술 구조' },
       { id:'ia',          label:'⑦ IA·화면구조' },
+      { id:'db',          label:'⑧ DB 구조' },
     ].map(t => `
     <button onclick="_manSetTab('${t.id}')" id="mbtab-${t.id}"
       style="padding:10px 16px;font-size:12px;font-weight:700;border:none;border-bottom:3px solid transparent;
@@ -50,7 +51,7 @@ function _manSetTab(id) {
   });
   const c = document.getElementById('manual-content');
   if (!c) return;
-  const map = { overview:_manOverview, personas:_manPersonas, menus:_manMenus, patterns:_manPatterns, 'data-flow':_manDataFlow, tech:_manTech, devplan:_manDevPlan, ia:_manIA };
+  const map = { overview:_manOverview, personas:_manPersonas, menus:_manMenus, patterns:_manPatterns, 'data-flow':_manDataFlow, tech:_manTech, devplan:_manDevPlan, ia:_manIA, db:_manDbSchema };
   if (map[id]) c.innerHTML = map[id]();
 }
 
@@ -725,6 +726,153 @@ function _manIA() {
         <td style="padding:7px 12px;border:1px solid #E5E7EB;font-size:11px;color:#9CA3AF">${s.note}</td>
       </tr>`).join('')}</tbody>
     </table></div>
+  </div>
+</div>`;
+}
+
+/* ⑧ DB 구조 */
+function _manDbSchema() {
+  const tables = [
+    { name:'tenants', layer:'L1 테넌트', color:'#1D4ED8', bg:'#DBEAFE', desc:'회사·법인 단위. 모든 데이터의 최상위 격리 기준', cols:['id PK','name','short_name','active','created_at'] },
+    { name:'isolation_groups', layer:'L2 격리그룹', color:'#16A34A', bg:'#D1FAE5', desc:'테넌트 내 예산계정 격리 그룹 (일반교육예산, R&D 등)', cols:['id PK','tenant_id FK','name','owned_accounts[]','op_manager_keys[]','global_admin_key','status'] },
+    { name:'organizations', layer:'L3 조직', color:'#B45309', bg:'#FEF3C7', desc:'HR 조직 트리 (본부>센터>실>팀). parent_id 자기참조', cols:['id PK','tenant_id FK','parent_id FK(self)','name','type','order_seq'] },
+    { name:'users', layer:'L4 사용자', color:'#7C3AED', bg:'#EDE9FE', desc:'시스템 사용자. 조직 소속 + 직군(job_type) 구분', cols:['id PK','tenant_id FK','emp_no','name','email','org_id FK','job_type','status'] },
+    { name:'roles', layer:'L4 역할', color:'#7C3AED', bg:'#EDE9FE', desc:'역할 정의 (platform_admin, tenant_admin 등)', cols:['code PK','name','descr','level'] },
+    { name:'user_roles', layer:'L4 역할', color:'#7C3AED', bg:'#EDE9FE', desc:'사용자-역할 N:M 매핑. scope_id로 적용 범위 제한', cols:['id PK','user_id FK','role_code FK','tenant_id FK','scope_id'] },
+    { name:'role_menu_permissions', layer:'L4 역할', color:'#7C3AED', bg:'#EDE9FE', desc:'역할별 접근 가능 메뉴 ID 목록', cols:['role_code FK','menu_id'] },
+    { name:'service_policies', layer:'L5 서비스구성', color:'#0369A1', bg:'#E0F2FE', desc:'서비스 정책. 예산계정·양식·가상조직·결재선을 묶는 허브', cols:['id PK','tenant_id FK','isolation_group_id FK','name','target_type','purpose','account_codes[]','vorg_template_id FK','stage_form_ids jsonb','approval_config jsonb','status'] },
+    { name:'virtual_org_templates', layer:'L5 서비스구성', color:'#0369A1', bg:'#E0F2FE', desc:'가상 조직도 템플릿. tree jsonb에 본부/센터/실/팀 저장', cols:['id PK','tenant_id FK','isolation_group_id FK','name','tree jsonb'] },
+    { name:'form_templates', layer:'L5 서비스구성', color:'#0369A1', bg:'#E0F2FE', desc:'교육신청 양식. fields jsonb에 입력 필드 구성', cols:['id PK','tenant_id FK','name','type(plan/apply/result)','purpose','target_user','fields jsonb','attachments jsonb','active'] },
+    { name:'plans', layer:'L6 예산실행', color:'#9D174D', bg:'#FCE7F3', desc:'교육계획. 정책 기반으로 생성. status: draft→submitted→approved', cols:['id PK','tenant_id FK','account_code','isolation_group_id FK','policy_id FK','edu_name','amount','status','detail jsonb'] },
+    { name:'ledger', layer:'L6 예산실행', color:'#9D174D', bg:'#FCE7F3', desc:'예산 원장. 모든 예산 변동을 tx_type으로 순차 기록', cols:['id PK','tenant_id FK','account_code','application_id FK','tx_type','amount','balance_after','memo'] },
+  ];
+
+  const fkRows = [
+    ['isolation_groups','tenant_id','tenants.id','격리그룹 → 회사'],
+    ['organizations','tenant_id','tenants.id','조직 → 회사'],
+    ['organizations','parent_id','organizations.id','상위조직 (자기참조)'],
+    ['users','tenant_id','tenants.id','사용자 → 회사'],
+    ['users','org_id','organizations.id','사용자 → 소속조직'],
+    ['user_roles','user_id','users.id','사용자 역할 매핑'],
+    ['user_roles','role_code','roles.code','역할 코드 참조'],
+    ['role_menu_permissions','role_code','roles.code','역할 → 메뉴권한'],
+    ['service_policies','tenant_id','tenants.id','정책 → 회사'],
+    ['service_policies','isolation_group_id','isolation_groups.id','정책 → 격리그룹'],
+    ['service_policies','vorg_template_id','virtual_org_templates.id','정책 → 가상조직'],
+    ['virtual_org_templates','isolation_group_id','isolation_groups.id','가상조직 → 격리그룹'],
+    ['form_templates','tenant_id','tenants.id','양식 → 회사'],
+    ['plans','tenant_id','tenants.id','계획 → 회사'],
+    ['plans','isolation_group_id','isolation_groups.id','계획 → 격리그룹'],
+    ['plans','policy_id','service_policies.id','계획 → 서비스 정책'],
+    ['ledger','tenant_id','tenants.id','원장 → 회사'],
+    ['ledger','application_id','plans.id','원장 → 신청(계획)'],
+  ];
+
+  const jsonbRows = [
+    ['virtual_org_templates','tree','본부/센터/실/팀 계층 + allowedJobTypes + budget'],
+    ['service_policies','approval_config','단계별 결재선 (임계금액·결재자 키)'],
+    ['service_policies','stage_form_ids','단계별 양식 ID {plan, apply, result}'],
+    ['service_policies','selected_edu_item','선택된 교육 세부 항목'],
+    ['form_templates','fields','입력 필드 목록 [{key, scope, required}]'],
+    ['form_templates','attachments','필수 첨부파일 목록'],
+    ['plans','detail','교육 상세 정보 (자유형식)'],
+  ];
+
+  const layerGroups = [...new Set(tables.map(t=>t.layer))];
+
+  return `<div style="display:flex;flex-direction:column;gap:22px">
+  <div style="padding:14px 18px;background:#DBEAFE;border-radius:12px;border:1px solid #BFDBFE">
+    <h2 style="font-size:14px;font-weight:900;color:#1D4ED8;margin:0 0 4px">⑧ DB 구조 관계도</h2>
+    <p style="font-size:12px;color:#374151;margin:0">Supabase PostgreSQL 기반 12개 테이블 구조와 FK 관계를 정의합니다. (2026-03-25 현재)</p>
+  </div>
+
+  <!-- 레이어별 테이블 카드 -->
+  <div>
+    <h3 style="font-size:13px;font-weight:900;color:#374151;margin:0 0 12px">📦 테이블 레이어 구조</h3>
+    ${layerGroups.map(layer => {
+      const layerTables = tables.filter(t => t.layer === layer);
+      const c = layerTables[0].color;
+      const bg = layerTables[0].bg;
+      return `<div style="margin-bottom:14px">
+        <div style="font-size:11px;font-weight:900;color:${c};background:${bg};border-radius:8px;padding:6px 14px;margin-bottom:8px;display:inline-block">${layer}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">
+          ${layerTables.map(t => `
+          <div style="background:white;border:1.5px solid ${c}30;border-left:4px solid ${c};border-radius:10px;padding:12px 14px">
+            <div style="font-size:13px;font-weight:900;color:#111827;margin-bottom:4px;font-family:monospace">${t.name}</div>
+            <div style="font-size:11px;color:#6B7280;margin-bottom:8px">${t.desc}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px">
+              ${t.cols.map(col => {
+                const isPK = col.includes('PK');
+                const isFK = col.includes('FK');
+                const isJson = col.includes('jsonb');
+                const isArr = col.includes('[]');
+                const bg2 = isPK ? '#FEF3C7' : isFK ? '#EDE9FE' : isJson ? '#E0F2FE' : isArr ? '#D1FAE5' : '#F3F4F6';
+                const col2 = isPK ? '#B45309' : isFK ? '#7C3AED' : isJson ? '#0369A1' : isArr ? '#16A34A' : '#374151';
+                return `<span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:5px;background:${bg2};color:${col2}">${col}</span>`;
+              }).join('')}
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>
+
+  <!-- 범례 -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px;background:#F9FAFB;border-radius:10px;border:1px solid #E5E7EB">
+    <span style="font-size:11px;font-weight:700;color:#374151">컬럼 유형 범례:</span>
+    <span style="font-size:10px;background:#FEF3C7;color:#B45309;padding:2px 8px;border-radius:5px;font-weight:800">PK = 기본키</span>
+    <span style="font-size:10px;background:#EDE9FE;color:#7C3AED;padding:2px 8px;border-radius:5px;font-weight:800">FK = 외래키</span>
+    <span style="font-size:10px;background:#E0F2FE;color:#0369A1;padding:2px 8px;border-radius:5px;font-weight:800">jsonb = JSON객체</span>
+    <span style="font-size:10px;background:#D1FAE5;color:#16A34A;padding:2px 8px;border-radius:5px;font-weight:800">[] = 배열</span>
+  </div>
+
+  <!-- FK 관계 테이블 -->
+  <div>
+    <h3 style="font-size:13px;font-weight:900;color:#374151;margin:0 0 10px">🔗 주요 FK 관계 (${fkRows.length}개)</h3>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="background:#F3F4F6">
+        <th style="padding:8px 12px;text-align:left;border:1px solid #E5E7EB;font-weight:900">테이블</th>
+        <th style="padding:8px 12px;text-align:left;border:1px solid #E5E7EB;font-weight:900">컬럼</th>
+        <th style="padding:8px 12px;text-align:left;border:1px solid #E5E7EB;font-weight:900">참조</th>
+        <th style="padding:8px 12px;text-align:left;border:1px solid #E5E7EB;font-weight:900">설명</th>
+      </tr></thead>
+      <tbody>${fkRows.map((r,i) => `<tr style="background:${i%2===0?'white':'#FAFAFA'}">
+        <td style="padding:7px 12px;border:1px solid #E5E7EB;font-family:monospace;font-size:11px;color:#111827">${r[0]}</td>
+        <td style="padding:7px 12px;border:1px solid #E5E7EB;font-family:monospace;font-size:11px;color:#7C3AED">${r[1]}</td>
+        <td style="padding:7px 12px;border:1px solid #E5E7EB;font-family:monospace;font-size:11px;color:#0369A1">${r[2]}</td>
+        <td style="padding:7px 12px;border:1px solid #E5E7EB;font-size:11px;color:#6B7280">${r[3]}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+  </div>
+
+  <!-- JSONB 구조 -->
+  <div>
+    <h3 style="font-size:13px;font-weight:900;color:#374151;margin:0 0 10px">🗃️ JSONB 필드 구조 (${jsonbRows.length}개)</h3>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="background:#F3F4F6">
+        <th style="padding:8px 12px;text-align:left;border:1px solid #E5E7EB;font-weight:900">테이블</th>
+        <th style="padding:8px 12px;text-align:left;border:1px solid #E5E7EB;font-weight:900">컬럼</th>
+        <th style="padding:8px 12px;text-align:left;border:1px solid #E5E7EB;font-weight:900">저장 내용</th>
+      </tr></thead>
+      <tbody>${jsonbRows.map((r,i) => `<tr style="background:${i%2===0?'white':'#FAFAFA'}">
+        <td style="padding:7px 12px;border:1px solid #E5E7EB;font-family:monospace;font-size:11px;color:#111827">${r[0]}</td>
+        <td style="padding:7px 12px;border:1px solid #E5E7EB;font-family:monospace;font-size:11px;color:#0369A1">${r[1]}</td>
+        <td style="padding:7px 12px;border:1px solid #E5E7EB;font-size:11px;color:#374151">${r[2]}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+  </div>
+
+  <!-- 데이터 흐름 요약 -->
+  <div>
+    <h3 style="font-size:13px;font-weight:900;color:#374151;margin:0 0 10px">🔄 데이터 생성 순서 (관리자 기준)</h3>
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+      ${['tenants','isolation_groups','organizations','users + user_roles','virtual_org_templates','form_templates','service_policies','plans','ledger'].map((step,i,arr) => `
+      <div style="text-align:center">
+        <div style="background:#EFF6FF;border:1.5px solid #93C5FD;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:800;color:#1D4ED8;white-space:nowrap">${step}</div>
+      </div>
+      ${i < arr.length-1 ? '<span style="font-size:16px;color:#93C5FD;font-weight:900">→</span>' : ''}
+      `).join('')}
+    </div>
   </div>
 </div>`;
 }

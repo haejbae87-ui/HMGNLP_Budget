@@ -1,4 +1,4 @@
-﻿// ─── 플랫폼 관리 메뉴: 테넌트/조직/사용자/역할 ─────────────────────────────
+// ─── 플랫폼 관리 메뉴: 테넌트/조직/사용자/역할 ─────────────────────────────
 // Supabase에서 실시간 데이터 로드, 실패 시 mock fallback
 
 // ── 공통 헬퍼 ──────────────────────────────────────────────────────────────
@@ -144,83 +144,180 @@ window._toggleTenantStatus = async function(id, active) {
 // ② 조직 관리
 // ══════════════════════════════════════════════════════════════════════════════
 let _orgSelectedTenant = '';
+
+// 조직 유형 정의
+const ORG_TYPES = {
+  headquarters: { label: '본부', icon: '🏛️', color: '#1D4ED8', bg: '#DBEAFE' },
+  center:       { label: '센터', icon: '🔬', color: '#7C3AED', bg: '#EDE9FE' },
+  division:     { label: '사업부', icon: '🏭', color: '#059669', bg: '#D1FAE5' },
+  office:       { label: '실',   icon: '🗂️', color: '#D97706', bg: '#FEF3C7' },
+  team:         { label: '팀',   icon: '👥', color: '#374151', bg: '#F3F4F6' },
+  group:        { label: '그룹', icon: '📎', color: '#6B7280', bg: '#F9FAFB' },
+};
+
 async function renderOrgMgmt() {
   const el = document.getElementById('bo-content');
-  const tenants = await _sbGet('tenants') || TENANTS || [];
+  el.innerHTML = '<div class="bo-fade" style="padding:20px"><p style="color:#9CA3AF">로딩 중...</p></div>';
+
+  const tenants = (await _sbGet('tenants') || TENANTS || []).filter(t => t.id !== 'SYSTEM');
   if (!_orgSelectedTenant && tenants.length) _orgSelectedTenant = tenants[0].id;
+  const selectedTenant = tenants.find(t => t.id === _orgSelectedTenant) || {};
   const orgs = _orgSelectedTenant ? (await _sbGet('organizations', { tenant_id: _orgSelectedTenant }) || []) : [];
 
-  function buildTree(items, parentId = null, depth = 0) {
-    return items.filter(o => o.parent_id === parentId).sort((a,b)=>a.order_seq-b.order_seq).map(o => `
-      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;
-                  margin-left:${depth*20}px;border-left:${depth>0?'2px solid #E5E7EB':'none'};
-                  background:white;border-radius:8px;margin-bottom:4px;border:1px solid #F3F4F6">
-        <span style="font-size:10px;color:#9CA3AF">${{headquarters:'🏛️',dept:'🏢',team:'👥'}[o.type]||'📁'}</span>
-        <span style="font-size:13px;font-weight:700;color:#111827;flex:1">${o.name}</span>
-        <span style="padding:2px 6px;background:#F3F4F6;border-radius:4px;font-size:10px;color:#6B7280">${{headquarters:'본부',dept:'부문/부',team:'팀'}[o.type]||o.type}</span>
-        <button onclick="_openOrgModal('${o.id}','${_orgSelectedTenant}')" style="padding:3px 8px;border:1px solid #E5E7EB;border-radius:5px;background:white;font-size:10px;cursor:pointer">수정</button>
-        <button onclick="_openOrgModal(null,'${_orgSelectedTenant}','${o.id}')" style="padding:3px 8px;border:1px solid #DBEAFE;border-radius:5px;background:#EFF6FF;font-size:10px;cursor:pointer;color:#1D4ED8">+ 하위</button>
-      </div>
-      ${buildTree(items, o.id, depth + 1)}
-    `).join('');
+  // 트리 재귀 빌드 (depth 0 = 회사 하위 1레벨)
+  function buildTree(items, parentId, depth) {
+    const children = items.filter(o => o.parent_id === parentId).sort((a, b) => a.order_seq - b.order_seq);
+    if (!children.length) return '';
+    return children.map(o => {
+      const ot = ORG_TYPES[o.type] || ORG_TYPES.team;
+      const hasChildren = items.some(x => x.parent_id === o.id);
+      const indent = depth * 24;
+      return `
+      <div style="margin-bottom:3px">
+        <div style="display:flex;align-items:center;gap:8px;padding:9px 12px 9px ${12 + indent}px;
+                    background:white;border:1px solid #F3F4F6;border-radius:8px;
+                    border-left:3px solid ${ot.color}">
+          <span style="font-size:13px">${ot.icon}</span>
+          <span style="font-size:13px;font-weight:700;color:#111827;flex:1">${o.name}</span>
+          <span style="padding:2px 7px;background:${ot.bg};color:${ot.color};border-radius:5px;font-size:10px;font-weight:800">${ot.label}</span>
+          <div style="display:flex;gap:5px;margin-left:4px">
+            <button onclick="_openOrgModal('${o.id}','${_orgSelectedTenant}')"
+              style="padding:3px 9px;border:1px solid #E5E7EB;border-radius:5px;background:white;font-size:10px;font-weight:700;cursor:pointer;color:#374151">✏️ 수정</button>
+            <button onclick="_openOrgModal(null,'${_orgSelectedTenant}','${o.id}')"
+              style="padding:3px 9px;border:1px solid #DBEAFE;border-radius:5px;background:#EFF6FF;font-size:10px;font-weight:700;cursor:pointer;color:#1D4ED8">+ 하위</button>
+            <button onclick="_deleteOrg('${o.id}','${o.name}',${hasChildren})"
+              style="padding:3px 9px;border:1px solid #FEE2E2;border-radius:5px;background:#FFF5F5;font-size:10px;font-weight:700;cursor:pointer;color:#DC2626">🗑️</button>
+          </div>
+        </div>
+        <div style="margin-left:${indent + 16}px;border-left:2px dashed #E5E7EB;padding-left:8px;margin-top:3px">
+          ${buildTree(items, o.id, depth + 1)}
+        </div>
+      </div>`;
+    }).join('');
   }
 
   el.innerHTML = `
-<div class="bo-fade" style="max-width:960px">
+<div class="bo-fade" style="max-width:980px">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
     <div>
       <h1 style="font-size:20px;font-weight:900;color:#111827;margin:0">🗂️ 조직 관리</h1>
-      <p style="font-size:12px;color:#6B7280;margin:4px 0 0">회사별 조직 계층 구조를 관리합니다.</p>
+      <p style="font-size:12px;color:#6B7280;margin:4px 0 0">회사를 최상위(0레벨)로 조직 계층 구조를 관리합니다.</p>
     </div>
-    <button onclick="_openOrgModal(null,'${_orgSelectedTenant}')" style="padding:10px 18px;background:#4F46E5;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer">+ 최상위 조직 추가</button>
+    <button onclick="_openOrgModal(null,'${_orgSelectedTenant}')"
+      style="padding:10px 18px;background:#4F46E5;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer">
+      + 조직 추가
+    </button>
   </div>
-  <div style="display:flex;gap:10px;margin-bottom:16px;align-items:center">
+
+  <!-- 회사 선택 -->
+  <div style="display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap">
     <label style="font-size:12px;font-weight:700;color:#374151">회사 선택</label>
-    <select onchange="window._orgChangeTenant(this.value)" style="border:1.5px solid #E5E7EB;border-radius:8px;padding:6px 12px;font-size:13px;min-width:160px">
-      ${tenants.map(t=>`<option value="${t.id}" ${t.id===_orgSelectedTenant?'selected':''}>${t.name}</option>`).join('')}
+    <select onchange="window._orgChangeTenant(this.value)"
+      style="border:1.5px solid #E5E7EB;border-radius:8px;padding:6px 12px;font-size:13px;min-width:160px">
+      ${tenants.map(t => `<option value="${t.id}" ${t.id === _orgSelectedTenant ? 'selected' : ''}>${t.name}</option>`).join('')}
     </select>
     <span style="font-size:12px;color:#6B7280">총 ${orgs.length}개 조직</span>
   </div>
-  <div style="background:#F9FAFB;border-radius:12px;padding:16px;min-height:200px">
-    ${orgs.length ? buildTree(orgs) : '<p style="text-align:center;color:#9CA3AF;font-size:12px;padding:40px 0">등록된 조직이 없습니다. 최상위 조직을 추가해주세요.</p>'}
+
+  <!-- 트리 -->
+  <div style="background:#F9FAFB;border-radius:14px;padding:16px;min-height:240px">
+
+    <!-- 레벨 0: 회사 (루트 노드) -->
+    <div style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;
+                  background:linear-gradient(135deg,#002C5F,#1D4ED8);border-radius:10px;color:white">
+        <span style="font-size:18px">🏢</span>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:900">${selectedTenant.name || _orgSelectedTenant}</div>
+          <div style="font-size:10px;opacity:.7">회사 (레벨 0 · 루트)</div>
+        </div>
+        <span style="padding:3px 10px;background:rgba(255,255,255,.2);border-radius:6px;font-size:10px;font-weight:800">${selectedTenant.id || ''}</span>
+      </div>
+
+      <!-- 레벨 1+ 조직 트리 -->
+      <div style="margin-top:6px;margin-left:16px;border-left:2px dashed #CBD5E1;padding-left:8px">
+        ${orgs.length
+          ? buildTree(orgs, null, 0)
+          : '<p style="text-align:center;color:#9CA3AF;font-size:12px;padding:32px 0">등록된 조직이 없습니다.<br/>상단 \'+ 조직 추가\' 버튼으로 최상위 조직을 추가하세요.</p>'
+        }
+      </div>
+    </div>
+
+    <!-- 범례 -->
+    <div style="margin-top:16px;padding-top:12px;border-top:1px solid #E5E7EB;display:flex;gap:10px;flex-wrap:wrap">
+      ${Object.entries(ORG_TYPES).map(([k, v]) => `
+        <span style="display:flex;align-items:center;gap:4px;padding:4px 10px;background:${v.bg};border-radius:6px;font-size:10px;font-weight:800;color:${v.color}">
+          ${v.icon} ${v.label}
+        </span>`).join('')}
+    </div>
   </div>
 </div>
 
+<!-- 조직 추가/수정 모달 -->
 <div id="org-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center">
-  <div style="background:white;border-radius:16px;padding:28px;width:420px;max-width:90vw">
-    <h2 style="font-size:16px;font-weight:900;margin:0 0 18px" id="org-modal-title">조직 추가</h2>
+  <div style="background:white;border-radius:16px;padding:28px;width:440px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+    <h2 style="font-size:16px;font-weight:900;margin:0 0 6px" id="org-modal-title">조직 추가</h2>
+    <p id="org-modal-parent-label" style="font-size:11px;color:#6B7280;margin:0 0 18px"></p>
     <input type="hidden" id="org-edit-id"/>
     <input type="hidden" id="org-tenant-id"/>
     <input type="hidden" id="org-parent-id"/>
-    <div style="display:grid;gap:10px">
-      <div><label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:3px">조직명 *</label>
-        <input id="org-name" type="text" placeholder="예: 인재개발부문" style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-size:13px;box-sizing:border-box"/></div>
-      <div><label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:3px">조직 유형</label>
+    <div style="display:grid;gap:12px">
+      <div>
+        <label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:4px">조직명 *</label>
+        <input id="org-name" type="text" placeholder="예: 인재개발부문"
+          style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-size:13px;box-sizing:border-box"/>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:4px">조직 유형</label>
         <select id="org-type" style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-size:13px">
-          <option value="headquarters">본부</option>
-          <option value="dept">부문/부</option>
-          <option value="team" selected>팀</option>
-        </select></div>
-      <div><label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:3px">순서</label>
-        <input id="org-order" type="number" value="0" style="width:80px;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-size:13px"/></div>
+          <option value="headquarters">🏛️ 본부</option>
+          <option value="center">🔬 센터</option>
+          <option value="division">🏭 사업부</option>
+          <option value="office">🗂️ 실</option>
+          <option value="team" selected>👥 팀</option>
+          <option value="group">📎 그룹</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:4px">표시 순서</label>
+        <input id="org-order" type="number" value="0" min="0"
+          style="width:100px;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-size:13px"/>
+      </div>
     </div>
     <div style="display:flex;gap:10px;margin-top:20px">
-      <button onclick="_saveOrg()" style="flex:1;padding:10px;background:#4F46E5;color:white;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">저장</button>
-      <button onclick="document.getElementById('org-modal').style.display='none'" style="flex:1;padding:10px;background:#F3F4F6;color:#374151;border:none;border-radius:8px;font-size:13px;cursor:pointer">취소</button>
+      <button onclick="_saveOrg()"
+        style="flex:1;padding:10px;background:#4F46E5;color:white;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">저장</button>
+      <button onclick="document.getElementById('org-modal').style.display='none'"
+        style="flex:1;padding:10px;background:#F3F4F6;color:#374151;border:none;border-radius:8px;font-size:13px;cursor:pointer">취소</button>
     </div>
   </div>
 </div>`;
 }
 
 window._orgChangeTenant = function(id) { _orgSelectedTenant = id; renderOrgMgmt(); };
+
 window._openOrgModal = async function(editId, tenantId, parentId) {
   document.getElementById('org-edit-id').value = editId || '';
   document.getElementById('org-tenant-id').value = tenantId || '';
   document.getElementById('org-parent-id').value = parentId || '';
   document.getElementById('org-modal-title').textContent = editId ? '조직 수정' : '조직 추가';
+
+  // 상위 조직 이름 표시
+  let parentLabel = '';
+  if (parentId && !editId) {
+    const orgs = await _sbGet('organizations', { tenant_id: tenantId }) || [];
+    const p = orgs.find(o => o.id === parentId);
+    if (p) parentLabel = `상위 조직: ${(ORG_TYPES[p.type]||{}).label || p.type} · ${p.name}`;
+  } else if (!editId && !parentId) {
+    const tenants = await _sbGet('tenants') || TENANTS || [];
+    const t = tenants.find(x => x.id === tenantId);
+    parentLabel = `상위: 회사(루트) · ${t ? t.name : tenantId}`;
+  }
+  document.getElementById('org-modal-parent-label').textContent = parentLabel;
+
   if (editId) {
     const orgs = await _sbGet('organizations', { tenant_id: tenantId }) || [];
-    const o = orgs.find(x=>x.id===editId) || {};
+    const o = orgs.find(x => x.id === editId) || {};
     document.getElementById('org-name').value = o.name || '';
     document.getElementById('org-type').value = o.type || 'team';
     document.getElementById('org-order').value = o.order_seq || 0;
@@ -231,6 +328,7 @@ window._openOrgModal = async function(editId, tenantId, parentId) {
   }
   document.getElementById('org-modal').style.display = 'flex';
 };
+
 window._saveOrg = async function() {
   const name = document.getElementById('org-name').value.trim();
   if (!name) { alert('조직명을 입력하세요'); return; }
@@ -238,8 +336,9 @@ window._saveOrg = async function() {
   const row = {
     tenant_id: document.getElementById('org-tenant-id').value,
     parent_id: document.getElementById('org-parent-id').value || null,
-    name, type: document.getElementById('org-type').value,
-    order_seq: parseInt(document.getElementById('org-order').value)||0
+    name,
+    type: document.getElementById('org-type').value,
+    order_seq: parseInt(document.getElementById('org-order').value) || 0
   };
   if (editId) row.id = editId;
   try {
@@ -247,6 +346,18 @@ window._saveOrg = async function() {
     document.getElementById('org-modal').style.display = 'none';
     renderOrgMgmt();
   } catch(e) { alert('저장 실패: ' + e.message); }
+};
+
+window._deleteOrg = async function(orgId, orgName, hasChildren) {
+  if (hasChildren) {
+    alert(`"${orgName}"에 하위 조직이 있습니다.\n하위 조직을 먼저 삭제한 후 진행해주세요.`);
+    return;
+  }
+  if (!confirm(`"${orgName}" 조직을 삭제하시겠습니까?`)) return;
+  try {
+    await _sbDelete('organizations', orgId);
+    renderOrgMgmt();
+  } catch(e) { alert('삭제 실패: ' + e.message); }
 };
 
 // ══════════════════════════════════════════════════════════════════════════════

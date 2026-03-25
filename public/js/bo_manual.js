@@ -786,6 +786,15 @@ function _manDbSchema() {
     <p style="font-size:12px;color:#374151;margin:0">Supabase PostgreSQL 기반 12개 테이블 구조와 FK 관계를 정의합니다. (2026-03-25 현재)</p>
   </div>
 
+  <!-- ERD 이미지 -->
+  <div>
+    <h3 style="font-size:13px;font-weight:900;color:#374151;margin:0 0 10px">📊 ERD 전체 관계도</h3>
+    <div style="text-align:center;background:#0F172A;border-radius:14px;padding:16px;overflow:hidden">
+      <img src="images/erd_diagram.png" alt="ERD Diagram" style="width:100%;max-width:900px;border-radius:10px">
+    </div>
+    <p style="font-size:11px;color:#9CA3AF;text-align:center;margin-top:6px">클릭하여 원본 크기로 확인하세요 (2026-03-25 기준)</p>
+  </div>
+
   <!-- 레이어별 테이블 카드 -->
   <div>
     <h3 style="font-size:13px;font-weight:900;color:#374151;margin:0 0 12px">📦 테이블 레이어 구조</h3>

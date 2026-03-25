@@ -114,6 +114,26 @@ async function sbLoadApplications(filters = {}) {
   }
 }
 
+// ─── 가상조직 템플릿 로더 ─────────────────────────────────────────────────────
+async function sbLoadVirtualOrgTemplates(filters = {}) {
+  try {
+    let q = getSB().from('virtual_org_templates').select('*');
+    if (filters.tenantId)          q = q.eq('tenant_id', filters.tenantId);
+    if (filters.isolationGroupId)  q = q.eq('isolation_group_id', filters.isolationGroupId);
+    const { data, error } = await q.order('created_at');
+    if (error) throw error;
+    // DB 컬럼(snake_case) → JS mock 형식(camelCase) 정규화
+    return (data || []).map(t => ({
+      ...t,
+      tenantId: t.tenant_id,
+      isolationGroupId: t.isolation_group_id,
+    }));
+  } catch (e) {
+    console.warn('[Supabase] virtual_org_templates fallback:', e.message);
+    return typeof VIRTUAL_ORG_TEMPLATES !== 'undefined' ? VIRTUAL_ORG_TEMPLATES : [];
+  }
+}
+
 // ─── 역할별 메뉴 권한 로더 ────────────────────────────────────────────────────
 // role_menu_permissions 테이블 → window._roleMenuPerms: Map<role_code, Set<menu_id>>
 window._roleMenuPerms = null;  // null = 아직 미로드, {} = 로드 완료(빈 값도 포함)
@@ -183,8 +203,12 @@ async function initSupabaseData() {
 
     // 역할별 메뉴 권한 로드 (비동기, 완료 후 사이드바 재렌더)
     sbLoadRoleMenuPerms().then(() => {
-      // 로드 완료 후 사이드바를 다시 그려서 DB 권한 반영
       if (typeof renderBoSidebar === 'function') renderBoSidebar();
+    });
+
+    // 가상조직 템플릿 로드 (비동기)
+    sbLoadVirtualOrgTemplates().then(templates => {
+      if (templates && templates.length) window.VIRTUAL_ORG_TEMPLATES = templates;
     });
 
     return true;

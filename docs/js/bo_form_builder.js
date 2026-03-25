@@ -779,6 +779,13 @@ function _fbAdvancedModalBody(form) {
         </div>`;
       }).join('')}
     </div>
+    <!-- 우: 선택된 필드 목록 (프리뷰) -->
+    <div style="padding:14px;overflow-y:auto;max-height:320px;background:#FAFAFA">
+      <div style="font-size:10px;color:#6B7280;font-weight:800;margin-bottom:8px">
+        선택된 필드 <span style="font-size:9px;font-weight:400">(드래그 불필요 — 순서는 클릭 순)</span>
+      </div>
+      <div id="fb-preview">${_fbPreviewHTML()}</div>
+    </div>
   </div>
 </div>
 

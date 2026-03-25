@@ -796,57 +796,166 @@ async function voOpenAddTeam(groupIdx) {
 }
 
 // DB 조직 트리 렌더 (organizations 테이블 데이터 기반)
+// 타입별 아이콘/색상
+function _voOrgStyle(type) {
+  const s = { headquarters: { icon:'🏢', color:'#1E40AF', bg:'#EFF6FF', border:'#BFDBFE' },
+               center:        { icon:'🔬', color:'#6D28D9', bg:'#F5F3FF', border:'#DDD6FE' },
+               office:        { icon:'📋', color:'#065F46', bg:'#ECFDF5', border:'#A7F3D0' },
+               division:      { icon:'🏭', color:'#92400E', bg:'#FFFBEB', border:'#FDE68A' },
+               team:          { icon:'👥', color:'#374151', bg:'#F9FAFB', border:'#E5E7EB' } };
+  return s[type] || s.team;
+}
+
+// 특정 노드의 모든 하위 자손 ID 수집
+function _voGetDescendantIds(node) {
+  const ids = [];
+  function collect(n) {
+    ids.push(n.id);
+    (n.children || []).forEach(collect);
+  }
+  (node.children || []).forEach(collect);
+  return ids;
+}
+
+// 상위 조직이 이미 선택돼 있는지 확인 (조상 중 선택된 것이 있으면 true)
+function _voIsAncestorSelected(nodeId, tree) {
+  function findParentSelected(nodes, targetId, ancestors) {
+    for (const n of nodes) {
+      if (n.id === targetId) return ancestors.some(a => _voSelectedTeams.has(a.id));
+      const found = findParentSelected(n.children || [], targetId, [...ancestors, n]);
+      if (found !== null) return found;
+    }
+    return null;
+  }
+  return findParentSelected(tree, nodeId, []) === true;
+}
+
 function voRenderTree(existIds, filter = '', orgTree) {
   const tree = orgTree || _voOrgTreeData;
   const lf = (filter || '').toLowerCase();
 
-  function renderNode(node, depth) {
-    // 검색 필터: 노드 이름 또는 자식 중 하나라도 매치되면 표시
-    const nameMatch = !lf || node.name.toLowerCase().includes(lf);
-    const childrenFiltered = node.children ? node.children.filter(c =>
-      !lf || c.name.toLowerCase().includes(lf) || node.name.toLowerCase().includes(lf)
-    ) : [];
-    if (!nameMatch && childrenFiltered.length === 0) return '';
-
-    const hasChildren = node.children && node.children.length > 0;
-    const isLeaf = !hasChildren;
-    const ex = existIds && existIds.has(node.id);
-    const ck = _voSelectedTeams.has(node.id);
-    const indent = depth * 16;
-
-    if (isLeaf) {
-      // 팀 레벨 (선택 가능한 체크박스)
-      return `<label style="display:flex;align-items:center;gap:10px;padding:9px 14px;padding-left:${14+indent}px;border-radius:8px;
-                cursor:${ex ? 'not-allowed' : 'pointer'};background:${ex ? '#F9FAFB' : ck ? '#EFF6FF' : '#fff'};
-                border:1px solid ${ck && !ex ? '#93C5FD' : '#E5E7EB'};margin-bottom:5px;opacity:${ex ? '.5' : '1'};transition:all 0.15s">
-        <input type="checkbox" value="${node.id}" data-name="${node.name}" ${ex ? 'disabled' : ''}
-          ${ck ? 'checked' : ''} onchange="voToggleTeam(this)"
-          style="width:15px;height:15px;accent-color:#1D4ED8;margin:0;flex-shrink:0">
-        <span style="font-size:14px">👥</span>
-        <span style="font-size:13px;font-weight:${ck ? '700' : '600'};color:${ck ? '#1D4ED8' : '#374151'};flex:1">${node.name}</span>
-        <span style="font-size:10px;color:#9CA3AF;background:#F3F4F6;padding:2px 6px;border-radius:5px">${node.type||'팀'}</span>
-        ${ex ? '<span style="font-size:10px;color:#6B7280;background:#E5E7EB;padding:2px 6px;border-radius:12px;font-weight:700">맵핑됨</span>' : ''}
-      </label>`;
-    } else {
-      // 부모 조직 (헤더)
-      const childHtml = (node.children || []).map(c => renderNode(c, depth + 1)).join('');
-      return `<div style="margin-bottom:10px">
-        <div style="display:flex;align-items:center;gap:8px;padding:9px 14px;padding-left:${14+indent}px;border-radius:8px;
-                    background:#F0F4FF;border:1px solid #C7D2FE;margin-bottom:6px">
-          <span>🏢</span>
-          <span style="font-weight:800;font-size:12px;color:#1E40AF">${node.name}</span>
-          <span style="font-size:10px;color:#6B7280;background:#E0E7FF;padding:1px 6px;border-radius:5px">${node.type||''}</span>
-        </div>
-        <div>${childHtml}</div>
-      </div>`;
-    }
+  function nodeMatchesFilter(node) {
+    if (!lf) return true;
+    if (node.name.toLowerCase().includes(lf)) return true;
+    return (node.children || []).some(c => nodeMatchesFilter(c));
   }
 
-  const html = tree.map(n => renderNode(n, 0)).join('');
+  function renderNode(node, depth, ancestorSelected) {
+    if (!nodeMatchesFilter(node)) return '';
+
+    const hasChildren = node.children && node.children.length > 0;
+    const ex = existIds && existIds.has(node.id);
+    const ck = _voSelectedTeams.has(node.id);
+    // 상위가 선택된 경우 → 이 노드는 이미 포함됨(dim 처리)
+    const parentCk = ancestorSelected;
+    const indent = depth * 20;
+    const st = _voOrgStyle(node.type);
+
+    const isDisabled = ex || parentCk;  // 이미 맵핑됐거나 상위 선택으로 포함됨
+
+    // 배지
+    let badge = '';
+    if (ex) badge = '<span style="font-size:10px;color:#6B7280;background:#E5E7EB;padding:2px 7px;border-radius:12px;font-weight:700">맵핑됨</span>';
+    else if (parentCk) badge = '<span style="font-size:10px;color:#065F46;background:#D1FAE5;padding:2px 7px;border-radius:12px;font-weight:700">✓ 포함됨</span>';
+    else if (ck && hasChildren) badge = '<span style="font-size:10px;color:#1D4ED8;background:#DBEAFE;padding:2px 7px;border-radius:12px;font-weight:700">📂 하위 전체 포함</span>';
+
+    const rowBg    = parentCk ? '#F0FDF4' : ck ? (hasChildren ? '#EFF6FF' : '#EFF6FF') : '#fff';
+    const rowBd    = parentCk ? '#A7F3D0' : ck ? '#93C5FD' : '#E5E7EB';
+    const nameCl   = parentCk ? '#065F46' : ck ? '#1D4ED8' : '#374151';
+    const cursor   = isDisabled ? 'not-allowed' : 'pointer';
+    const opacity  = isDisabled && !parentCk ? '.5' : '1';
+
+    const childHtml = hasChildren
+      ? (node.children || []).map(c => renderNode(c, depth + 1, ck || parentCk)).join('')
+      : '';
+
+    return `<div style="margin-bottom:5px">
+      <label style="display:flex;align-items:center;gap:9px;padding:9px 14px;padding-left:${14+indent}px;
+             border-radius:9px;cursor:${cursor};background:${rowBg};border:1px solid ${rowBd};
+             opacity:${opacity};transition:all 0.15s;user-select:none">
+        <input type="checkbox" value="${node.id}" data-name="${node.name}"
+          data-has-children="${hasChildren}"
+          ${isDisabled ? 'disabled' : ''}
+          ${ck ? 'checked' : ''} onchange="voToggleTeam(this)"
+          style="width:15px;height:15px;accent-color:#1D4ED8;margin:0;flex-shrink:0">
+        <span style="font-size:14px">${st.icon}</span>
+        <span style="font-size:13px;font-weight:${ck ? '800' : '600'};color:${nameCl};flex:1">${node.name}</span>
+        <span style="font-size:10px;color:${st.color};background:${st.bg};border:1px solid ${st.border};
+              padding:1px 7px;border-radius:5px;font-weight:700">${node.type || '팀'}</span>
+        ${badge}
+      </label>
+      ${childHtml ? `<div style="padding-left:4px">${childHtml}</div>` : ''}
+    </div>`;
+  }
+
+  const html = tree.map(n => renderNode(n, 0, false)).join('');
   const cont = document.getElementById('vo-tree-container');
   if (cont) cont.innerHTML = html || '<div style="text-align:center;color:#9CA3AF;padding:40px;font-size:13px">조직 데이터가 없습니다</div>';
+  _voUpdateSelCount();
 }
 
+function voToggleTeam(cb) {
+  const id = cb.value;
+  const hasChildren = cb.dataset.hasChildren === 'true';
+  if (cb.checked) {
+    _voSelectedTeams.add(id);
+    // 부모가 선택됐으면 자식은 dim만 (별도 추가 불필요)
+  } else {
+    _voSelectedTeams.delete(id);
+  }
+  _voUpdateSelCount();
+  // 트리 재렌더 (dim/포함됨 배지 반영)
+  const activeTpl = _voGetActiveTpl();
+  if (!activeTpl) return;
+  const isRnd = activeTpl.tree.centers !== undefined;
+  const existIds = new Set();
+  const groups = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
+  groups.forEach(g => g.teams.forEach(t => existIds.add(t.id)));
+  if (_voOrgTreeData && _voOrgTreeData.length > 0) {
+    voRenderTree(existIds, document.getElementById('vo-team-search')?.value || '');
+  }
+}
+
+function _voUpdateSelCount() {
+  const sc = document.getElementById('vo-sel-count');
+  const n = _voSelectedTeams.size;
+  if (sc) {
+    sc.textContent = n > 0 ? `${n}개 조직 선택 (하위 전체 포함)` : '0개 선택됨';
+    sc.style.color = n > 0 ? '#1D4ED8' : '#111827';
+  }
+}
+
+function voConfirmAddTeams() {
+  if (!_voSelectedTeams.size) { alert('조직을 하나 이상 선택해주세요.'); return; }
+  const { groupIdx } = _voCurrentGroup;
+  const activeTpl    = _voGetActiveTpl();
+  if (!activeTpl) return;
+  const isRnd = activeTpl.tree.centers !== undefined;
+  const grp   = isRnd ? activeTpl.tree.centers[groupIdx] : activeTpl.tree.hqs[groupIdx];
+
+  // 이미 맵핑된 ID Set
+  const existIds = new Set(grp.teams.map(t => t.id));
+
+  // 선택된 모든 체크박스 (checked + not disabled except parentCk)
+  // 실제 저장은 선택된 조직 ID만 저장. 하위 포함 여부는 includesSubOrgs 플래그로 표기
+  document.querySelectorAll('#vo-tree-container input[type=checkbox]').forEach(cb => {
+    if (!_voSelectedTeams.has(cb.value)) return;
+    if (existIds.has(cb.value)) return;
+    const hasChildren = cb.dataset.hasChildren === 'true';
+    grp.teams.push({
+      id: cb.value,
+      name: cb.dataset.name,
+      includesSubOrgs: hasChildren,  // 하위 전체 포함 여부
+      allowedJobTypes: [],
+      budget: { allocated: 0, deducted: 0, holding: 0 }
+    });
+    existIds.add(cb.value);
+  });
+
+  voCloseModal('vo-team-modal');
+  _voMyTemplates = _voGetTemplatesByGroup(_voGroupId, _voTenantId);
+  document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
+}
 // 레거시 폴백 (REAL_ORG_TREE 기반)
 function voRenderTreeLegacy(budgetType, existIds, filter = '') {
   const orgGroups = budgetType === 'rnd' ? REAL_ORG_TREE.rnd : REAL_ORG_TREE.general;
@@ -908,30 +1017,6 @@ function voFilterTree() {
   });
 }
 
-function voToggleTeam(cb) {
-  cb.checked ? _voSelectedTeams.add(cb.value) : _voSelectedTeams.delete(cb.value);
-  const sc = document.getElementById('vo-sel-count');
-  if (sc) { sc.textContent = `${_voSelectedTeams.size}개 매핑됨`; sc.style.color = _voSelectedTeams.size > 0 ? '#1D4ED8' : '#111827'; }
-  cb.closest('label').style.background   = cb.checked ? '#EFF6FF' : '#fff';
-  cb.closest('label').style.borderColor  = cb.checked ? '#93C5FD' : '#E5E7EB';
-}
-
-function voConfirmAddTeams() {
-  if (!_voSelectedTeams.size) { alert('매핑할 팀을 하나 이상 선택해주세요.'); return; }
-  const { groupIdx } = _voCurrentGroup;
-  const activeTpl    = _voGetActiveTpl();  // ★ 수정
-  if (!activeTpl) return;
-  const isRnd = activeTpl.tree.centers !== undefined;
-  const grp   = isRnd ? activeTpl.tree.centers[groupIdx] : activeTpl.tree.hqs[groupIdx];
-  document.querySelectorAll('#vo-tree-container input:checked').forEach(cb => {
-    if (_voSelectedTeams.has(cb.value)) {
-      grp.teams.push({ id: cb.value, name: cb.dataset.name, allowedJobTypes: [], budget: { allocated: 0, deducted: 0, holding: 0 } });
-    }
-  });
-  voCloseModal('vo-team-modal');
-  _voMyTemplates = _voGetTemplatesByGroup(_voGroupId, _voTenantId);
-  document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
-}
 
 function voRemoveTeam(groupIdx, teamIdx) {
   if (!confirm('이 팀을 템플릿에서 제거하시겠습니까?')) return;

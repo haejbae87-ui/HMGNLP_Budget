@@ -321,6 +321,20 @@ window._openOrgModal = async function(editId, tenantId, parentId) {
     document.getElementById('org-name').value = o.name || '';
     document.getElementById('org-type').value = o.type || 'team';
     document.getElementById('org-order').value = o.order_seq || 0;
+    // ✅ 핵심 버그 수정: 수정 시 기존 parent_id를 hidden 필드에 세팅
+    document.getElementById('org-parent-id').value = o.parent_id || '';
+
+    // 상위 조직 레이블 표시
+    if (o.parent_id) {
+      const p = orgs.find(x => x.id === o.parent_id);
+      if (p) document.getElementById('org-modal-parent-label').textContent =
+        `상위 조직: ${(ORG_TYPES[p.type]||{}).label || p.type} · ${p.name}`;
+    } else {
+      const tenantList = await _sbGet('tenants') || TENANTS || [];
+      const t = tenantList.find(x => x.id === tenantId);
+      document.getElementById('org-modal-parent-label').textContent =
+        `상위: 회사(루트) · ${t ? t.name : tenantId}`;
+    }
   } else {
     document.getElementById('org-name').value = '';
     document.getElementById('org-type').value = 'team';

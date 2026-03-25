@@ -1,4 +1,4 @@
-﻿// ─── 🔧 서비스 정책 관리 ─────────────────────────────────────────────────────
+// ─── 🔧 서비스 정책 관리 ─────────────────────────────────────────────────────
 // 8단계 위저드: 범위설정(회사·그룹·계정) → 정책명+대상자 → 목적 → 교육유형 → 패턴 → 대상조직 → 양식 → 결재라인
 
 let _policyWizardStep = 0;
@@ -810,7 +810,7 @@ function advancePolicyWizard() {
 }
 
 // ── 정책 저장 ─────────────────────────────────────────────────────────────────
-function savePolicy() {
+async function savePolicy() {
   const d = _policyWizardData;
   const mgr = document.getElementById('wiz-manager')?.value;
   if (mgr) d.managerPersonaKey = mgr;
@@ -830,9 +830,43 @@ function savePolicy() {
   d.allowedLearningTypes = d.eduTypes || [];
   if (!d.name) { alert('정책명이 없습니다.'); return; }
 
+  // 1) 메모리 SERVICE_POLICIES 업데이트
   const idx = SERVICE_POLICIES.findIndex(p => p.id === d.id);
   if (idx >= 0) SERVICE_POLICIES[idx] = d;
   else SERVICE_POLICIES.push(d);
+
+  // 2) DB 저장 (upsert) - camelCase → snake_case 컬럼 매핑
+  if (typeof sbSaveServicePolicy === 'function') {
+    const dbRow = {
+      id:                  d.id,
+      tenant_id:           d.tenantId || d.scopeTenantId,
+      isolation_group_id:  d.isolationGroupId || d.scopeGroupId || null,
+      scope_tenant_id:     d.scopeTenantId || null,
+      scope_group_id:      d.scopeGroupId || null,
+      name:                d.name,
+      descr:               d.desc || d.descr || null,
+      target_type:         d.targetType || null,
+      purpose:             d.purpose || null,
+      edu_types:           d.eduTypes || [],
+      selected_edu_item:   d.selectedEduItem || null,
+      process_pattern:     d.processPattern || null,
+      flow:                d.flow || null,
+      budget_linked:       d.budgetLinked !== false,
+      apply_mode:          d.applyMode || null,
+      account_codes:       d.accountCodes || [],
+      vorg_template_id:    d.vorgTemplateId || null,
+      stage_form_ids:      d.stageFormIds || d.formSets || null,
+      approval_config:     d.approvalConfig || null,
+      manager_persona_key: d.managerPersonaKey || null,
+      status:              'active',
+    };
+    try {
+      await sbSaveServicePolicy(dbRow);
+    } catch(e) {
+      console.warn('[PolicyBuilder] DB 저장 실패 - 메모리에만 저장됨:', e.message);
+      alert('⚠️ 정책이 임시 저장됐습니다. (DB 저장 실패 - 새로고침 시 초기화될 수 있습니다)');
+    }
+  }
 
   const ap = BO_PERSONAS[applyFinalKey];
   alert(`✅ 정책 저장 완료!\n\n📋 ${d.name}\n🔄 패턴 ${d.processPattern}\n✅ 신청 최종 결재자: ${ap?.name||'—'}\n\n이제 학습자 신청 시 [나의 운영 업무]에 자동 배달됩니다.`);

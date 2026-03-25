@@ -479,9 +479,11 @@ function boNavigate(menuId) {
 function boSwitchPersona(key) {
   boCurrentPersona = BO_PERSONAS[key];
   _boActiveIsolationGroupId = null; // 페르소나 전환 시 그룹 자동 리셋
-  if (!boCurrentPersona.accessMenus.includes(boCurrentMenu)) {
-    boCurrentMenu = 'dashboard';
-  }
+  const personaRoles = boCurrentPersona.roles || [boCurrentPersona.role];
+  const canKeepMenu = (typeof checkMenuAccess === 'function')
+    ? checkMenuAccess(boCurrentMenu, personaRoles, boCurrentPersona.accessMenus)
+    : boCurrentPersona.accessMenus.includes(boCurrentMenu);
+  if (!canKeepMenu) boCurrentMenu = 'dashboard';
   boNavigate(boCurrentMenu);
 }
 

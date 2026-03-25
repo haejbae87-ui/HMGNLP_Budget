@@ -734,9 +734,11 @@ function voRemoveGroup(groupIdx) {
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
 }
 
-// ── 팀 맵핑 ──────────────────────────────────────────────────────────────────
-function voOpenAddTeam(groupIdx) {
-  const activeTpl = _voGetActiveTpl();  // ★ 수정
+// 전역: 팀 맵핑 모달용 로드된 조직 데이터
+let _voOrgTreeData = [];  // [{ id, name, type, parent_id, children:[] }]
+
+async function voOpenAddTeam(groupIdx) {
+  const activeTpl = _voGetActiveTpl();
   if (!activeTpl) return;
   const isRnd = activeTpl.tree.centers !== undefined;
   _voCurrentGroup = { budgetType: isRnd ? 'rnd' : 'general', groupIdx };
@@ -752,11 +754,101 @@ function voOpenAddTeam(groupIdx) {
   const groups   = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
   groups.forEach(g => g.teams.forEach(t => existIds.add(t.id)));
 
-  voRenderTree(_voCurrentGroup.budgetType, existIds);
+  // 조직관리 DB에서 해당 회사 조직 로드
+  const tenantId = activeTpl.tenantId || activeTpl.tenant_id;
+  const cont = document.getElementById('vo-tree-container');
+  if (cont) cont.innerHTML = '<div style="text-align:center;padding:30px;color:#9CA3AF;font-size:12px">조직 로딩 중...</div>';
   document.getElementById('vo-team-modal').style.display = 'flex';
+
+  try {
+    if (typeof getSB === 'function' && getSB()) {
+      // DB에서 해당 회사(tenant) 조직 전체 로드
+      const { data: orgs, error } = await getSB()
+        .from('organizations')
+        .select('id, name, type, parent_id, tenant_id')
+        .eq('tenant_id', tenantId)
+        .order('name');
+
+      if (!error && orgs && orgs.length) {
+        // 조직 트리 구성: 팀/실/센터 레벨 조직만 표시 (leaf 노드 우선, 부모 그룹과 함께)
+        const orgMap = {};
+        orgs.forEach(o => { orgMap[o.id] = { ...o, children: [] }; });
+        const roots = [];
+        orgs.forEach(o => {
+          if (o.parent_id && orgMap[o.parent_id]) {
+            orgMap[o.parent_id].children.push(orgMap[o.id]);
+          } else if (!o.parent_id) {
+            roots.push(orgMap[o.id]);
+          }
+        });
+        _voOrgTreeData = roots;
+        voRenderTree(existIds, '', roots);
+        return;
+      }
+    }
+  } catch(e) {
+    console.warn('[VOrg] 조직 DB 로드 실패, 목데이터 사용:', e.message);
+  }
+
+  // 폴백: 기존 REAL_ORG_TREE 사용
+  _voOrgTreeData = [];
+  voRenderTreeLegacy(_voCurrentGroup.budgetType, existIds);
 }
 
-function voRenderTree(budgetType, existIds, filter = '') {
+// DB 조직 트리 렌더 (organizations 테이블 데이터 기반)
+function voRenderTree(existIds, filter = '', orgTree) {
+  const tree = orgTree || _voOrgTreeData;
+  const lf = (filter || '').toLowerCase();
+
+  function renderNode(node, depth) {
+    // 검색 필터: 노드 이름 또는 자식 중 하나라도 매치되면 표시
+    const nameMatch = !lf || node.name.toLowerCase().includes(lf);
+    const childrenFiltered = node.children ? node.children.filter(c =>
+      !lf || c.name.toLowerCase().includes(lf) || node.name.toLowerCase().includes(lf)
+    ) : [];
+    if (!nameMatch && childrenFiltered.length === 0) return '';
+
+    const hasChildren = node.children && node.children.length > 0;
+    const isLeaf = !hasChildren;
+    const ex = existIds && existIds.has(node.id);
+    const ck = _voSelectedTeams.has(node.id);
+    const indent = depth * 16;
+
+    if (isLeaf) {
+      // 팀 레벨 (선택 가능한 체크박스)
+      return `<label style="display:flex;align-items:center;gap:10px;padding:9px 14px;padding-left:${14+indent}px;border-radius:8px;
+                cursor:${ex ? 'not-allowed' : 'pointer'};background:${ex ? '#F9FAFB' : ck ? '#EFF6FF' : '#fff'};
+                border:1px solid ${ck && !ex ? '#93C5FD' : '#E5E7EB'};margin-bottom:5px;opacity:${ex ? '.5' : '1'};transition:all 0.15s">
+        <input type="checkbox" value="${node.id}" data-name="${node.name}" ${ex ? 'disabled' : ''}
+          ${ck ? 'checked' : ''} onchange="voToggleTeam(this)"
+          style="width:15px;height:15px;accent-color:#1D4ED8;margin:0;flex-shrink:0">
+        <span style="font-size:14px">👥</span>
+        <span style="font-size:13px;font-weight:${ck ? '700' : '600'};color:${ck ? '#1D4ED8' : '#374151'};flex:1">${node.name}</span>
+        <span style="font-size:10px;color:#9CA3AF;background:#F3F4F6;padding:2px 6px;border-radius:5px">${node.type||'팀'}</span>
+        ${ex ? '<span style="font-size:10px;color:#6B7280;background:#E5E7EB;padding:2px 6px;border-radius:12px;font-weight:700">맵핑됨</span>' : ''}
+      </label>`;
+    } else {
+      // 부모 조직 (헤더)
+      const childHtml = (node.children || []).map(c => renderNode(c, depth + 1)).join('');
+      return `<div style="margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px;padding:9px 14px;padding-left:${14+indent}px;border-radius:8px;
+                    background:#F0F4FF;border:1px solid #C7D2FE;margin-bottom:6px">
+          <span>🏢</span>
+          <span style="font-weight:800;font-size:12px;color:#1E40AF">${node.name}</span>
+          <span style="font-size:10px;color:#6B7280;background:#E0E7FF;padding:1px 6px;border-radius:5px">${node.type||''}</span>
+        </div>
+        <div>${childHtml}</div>
+      </div>`;
+    }
+  }
+
+  const html = tree.map(n => renderNode(n, 0)).join('');
+  const cont = document.getElementById('vo-tree-container');
+  if (cont) cont.innerHTML = html || '<div style="text-align:center;color:#9CA3AF;padding:40px;font-size:13px">조직 데이터가 없습니다</div>';
+}
+
+// 레거시 폴백 (REAL_ORG_TREE 기반)
+function voRenderTreeLegacy(budgetType, existIds, filter = '') {
   const orgGroups = budgetType === 'rnd' ? REAL_ORG_TREE.rnd : REAL_ORG_TREE.general;
   const lf = filter.toLowerCase();
   const isRnd = budgetType === 'rnd';
@@ -798,14 +890,18 @@ function voRenderTree(budgetType, existIds, filter = '') {
 
 function voFilterTree() {
   const filter = document.getElementById('vo-team-search').value;
-  const { budgetType } = _voCurrentGroup;
-  const activeTpl = _voGetActiveTpl();  // ★ 수정
+  const activeTpl = _voGetActiveTpl();
   if (!activeTpl) return;
   const isRnd    = activeTpl.tree.centers !== undefined;
   const existIds = new Set();
   const groups   = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
   groups.forEach(g => g.teams.forEach(t => existIds.add(t.id)));
-  voRenderTree(budgetType, existIds, filter);
+
+  if (_voOrgTreeData && _voOrgTreeData.length > 0) {
+    voRenderTree(existIds, filter);
+  } else {
+    voRenderTreeLegacy(_voCurrentGroup.budgetType, existIds, filter);
+  }
   _voSelectedTeams.forEach(id => {
     const cb = document.querySelector(`#vo-tree-container input[value="${id}"]`);
     if (cb) cb.checked = true;

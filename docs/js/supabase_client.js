@@ -157,11 +157,20 @@ async function sbLoadRoleMenuPerms() {
   }
 }
 
+// 페르소나 role값 → DB role_code 매핑 (보정 테이블)
+const _ROLE_ALIAS = {
+  'tenant_global_admin': 'tenant_admin',
+  'budget_global_admin': 'budget_admin',
+  'budget_op_manager':   'budget_ops',
+  'budget_hq':           'budget_ops',
+};
+function _resolveRole(role) { return _ROLE_ALIAS[role] || role; }
+
 // 역할 배열로 메뉴 접근 가능 여부 확인 (boNavigate에서 사용)
 function checkMenuAccess(menuId, roles, fallbackMenus) {
-  // DB 권한이 로드됐으면 DB 기준
+  // DB 권한이 로드됐으면 DB 기준 (role alias 포함)
   if (window._roleMenuPerms && Object.keys(window._roleMenuPerms).length > 0) {
-    return (roles || []).some(role => window._roleMenuPerms[role]?.has(menuId));
+    return (roles || []).some(role => window._roleMenuPerms[_resolveRole(role)]?.has(menuId));
   }
   // 폴백: bo_data.js의 accessMenus 배열
   return (fallbackMenus || []).includes(menuId);
@@ -173,7 +182,7 @@ function getAllowedMenuSet(roles, fallbackMenus) {
   if (window._roleMenuPerms && Object.keys(window._roleMenuPerms).length > 0) {
     const allowed = new Set();
     (roles || []).forEach(role => {
-      (window._roleMenuPerms[role] || new Set()).forEach(m => allowed.add(m));
+      (window._roleMenuPerms[_resolveRole(role)] || new Set()).forEach(m => allowed.add(m));
     });
     return allowed;
   }

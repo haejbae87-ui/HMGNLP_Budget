@@ -164,6 +164,17 @@ async function renderOrgMgmt() {
   const selectedTenant = tenants.find(t => t.id === _orgSelectedTenant) || {};
   const orgs = _orgSelectedTenant ? (await _sbGet('organizations', { tenant_id: _orgSelectedTenant }) || []) : [];
 
+  // 드래그앤드롭 상태
+  window._dndDragId = null;
+  window._dndAllOrgs = orgs;
+
+  // 순환 참조 방지: targetId가 dragId의 자손인지 확인
+  function isDescendant(items, dragId, targetId) {
+    if (dragId === targetId) return true;
+    const children = items.filter(o => o.parent_id === dragId);
+    return children.some(c => isDescendant(items, c.id, targetId));
+  }
+
   // 트리 재귀 빌드 (depth 0 = 회사 하위 1레벨)
   function buildTree(items, parentId, depth) {
     const children = items.filter(o => o.parent_id === parentId).sort((a, b) => a.order_seq - b.order_seq);
@@ -173,10 +184,21 @@ async function renderOrgMgmt() {
       const hasChildren = items.some(x => x.parent_id === o.id);
       const indent = depth * 24;
       return `
-      <div style="margin-bottom:3px">
-        <div style="display:flex;align-items:center;gap:8px;padding:9px 12px 9px ${12 + indent}px;
+      <div data-org-drop="${o.id}" style="margin-bottom:3px"
+           ondragover="window._orgDragOver(event,'${o.id}')"
+           ondragleave="window._orgDragLeave(event,'${o.id}')"
+           ondrop="window._orgDrop(event,'${o.id}')">
+        <!-- 위에 삽입 drop zone -->
+        <div class="org-drop-before" data-before="${o.id}"
+             style="height:4px;border-radius:2px;margin-bottom:2px;transition:all .15s"></div>
+        <div data-org-row="${o.id}"
+             draggable="true"
+             ondragstart="window._orgDragStart(event,'${o.id}')"
+             ondragend="window._orgDragEnd(event)"
+             style="display:flex;align-items:center;gap:8px;padding:9px 12px 9px ${12 + indent}px;
                     background:white;border:1px solid #F3F4F6;border-radius:8px;
-                    border-left:3px solid ${ot.color}">
+                    border-left:3px solid ${ot.color};cursor:grab;transition:opacity .15s,background .15s">
+          <span style="font-size:11px;color:#CBD5E1;margin-right:2px;cursor:grab" title="드래그하여 이동">⠿</span>
           <span style="font-size:13px">${ot.icon}</span>
           <span style="font-size:13px;font-weight:700;color:#111827;flex:1">${o.name}</span>
           <span style="padding:2px 7px;background:${ot.bg};color:${ot.color};border-radius:5px;font-size:10px;font-weight:800">${ot.label}</span>
@@ -234,8 +256,13 @@ async function renderOrgMgmt() {
         <span style="padding:3px 10px;background:rgba(255,255,255,.2);border-radius:6px;font-size:10px;font-weight:800">${selectedTenant.id || ''}</span>
       </div>
 
-      <!-- 레벨 1+ 조직 트리 -->
-      <div style="margin-top:6px;margin-left:16px;border-left:2px dashed #CBD5E1;padding-left:8px">
+      <!-- 레벨 1+ 조직 트리 + 루트 드롭존 -->
+      <div id="org-root-dropzone"
+           ondragover="window._orgRootDragOver(event)"
+           ondragleave="window._orgRootDragLeave(event)"
+           ondrop="window._orgDropToRoot(event)"
+           style="margin-top:6px;margin-left:16px;border-left:2px dashed #CBD5E1;padding-left:8px;
+                  min-height:40px;border-radius:6px;transition:outline .15s">
         ${orgs.length
           ? buildTree(orgs, null, 0)
           : '<p style="text-align:center;color:#9CA3AF;font-size:12px;padding:32px 0">등록된 조직이 없습니다.<br/>상단 \'+ 조직 추가\' 버튼으로 최상위 조직을 추가하세요.</p>'
@@ -375,6 +402,87 @@ window._deleteOrg = async function(orgId, orgName, hasChildren) {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
+
+// ── DnD 핸들러 ──────────────────────────────────────────────────────────────
+
+function _isOrgDescendant(items, dragId, targetId) {
+  if (dragId === targetId) return true;
+  const children = items.filter(o => o.parent_id === dragId);
+  return children.some(c => _isOrgDescendant(items, c.id, targetId));
+}
+
+window._orgDragStart = function(e, orgId) {
+  window._dndDragId = orgId;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', orgId);
+  setTimeout(() => {
+    const row = document.querySelector(`[data-org-row="${orgId}"]`);
+    if (row) row.style.opacity = '0.35';
+  }, 0);
+};
+
+window._orgDragEnd = function() {
+  document.querySelectorAll('[data-org-row]').forEach(el => { el.style.opacity = '1'; el.style.background = ''; });
+  document.querySelectorAll('[data-org-drop]').forEach(el => { el.style.outline = ''; el.style.background = ''; });
+  const rootZone = document.getElementById('org-root-dropzone');
+  if (rootZone) { rootZone.style.background = ''; rootZone.style.outline = ''; }
+};
+
+window._orgDragOver = function(e, targetId) {
+  e.preventDefault(); e.stopPropagation();
+  if (!window._dndDragId || window._dndDragId === targetId) return;
+  if (_isOrgDescendant(window._dndAllOrgs || [], window._dndDragId, targetId)) return;
+  e.dataTransfer.dropEffect = 'move';
+  const dropWrap = document.querySelector(`[data-org-drop="${targetId}"]`);
+  if (dropWrap) dropWrap.style.outline = '2px dashed #4F46E5';
+};
+
+window._orgDragLeave = function(e, targetId) {
+  const dropWrap = document.querySelector(`[data-org-drop="${targetId}"]`);
+  if (dropWrap && !dropWrap.contains(e.relatedTarget)) dropWrap.style.outline = '';
+};
+
+window._orgDrop = async function(e, targetId) {
+  e.preventDefault(); e.stopPropagation();
+  const dragId = window._dndDragId;
+  window._orgDragEnd();
+  if (!dragId || dragId === targetId) return;
+  const orgs = window._dndAllOrgs || [];
+  if (_isOrgDescendant(orgs, dragId, targetId)) { alert('자신의 하위 조직 안으로는 이동할 수 없습니다.'); return; }
+  const dragged = orgs.find(o => o.id === dragId);
+  if (dragged && dragged.parent_id === targetId) return;
+  try {
+    if (typeof getSB === 'function' && getSB()) await getSB().from('organizations').update({ parent_id: targetId }).eq('id', dragId);
+    window._dndDragId = null;
+    await renderOrgMgmt();
+  } catch(err) { alert('이동 실패: ' + err.message); }
+};
+
+window._orgDropToRoot = async function(e) {
+  e.preventDefault(); e.stopPropagation();
+  const dragId = window._dndDragId;
+  window._orgDragEnd();
+  if (!dragId) return;
+  const orgs = window._dndAllOrgs || [];
+  const dragged = orgs.find(o => o.id === dragId);
+  if (!dragged || dragged.parent_id === null) return;
+  try {
+    if (typeof getSB === 'function' && getSB()) await getSB().from('organizations').update({ parent_id: null }).eq('id', dragId);
+    window._dndDragId = null;
+    await renderOrgMgmt();
+  } catch(err) { alert('이동 실패: ' + err.message); }
+};
+
+window._orgRootDragOver = function(e) {
+  e.preventDefault(); e.stopPropagation();
+  e.dataTransfer.dropEffect = 'move';
+  const z = document.getElementById('org-root-dropzone');
+  if (z) z.style.outline = '2px dashed #4F46E5';
+};
+window._orgRootDragLeave = function(e) {
+  const z = document.getElementById('org-root-dropzone');
+  if (z) z.style.outline = '';
+};
 // ③ 사용자 관리
 // ══════════════════════════════════════════════════════════════════════════════
 let _userFilterTenant = '';

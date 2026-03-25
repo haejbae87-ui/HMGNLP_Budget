@@ -489,7 +489,7 @@ let _userFilterTenant = '';
 let _userSearch = '';
 
 // 직군 정의 (단일 선택)
-const window.JOB_TYPES = {
+window.JOB_TYPES = {
   general:    { label: '일반직',  color: '#374151', bg: '#F3F4F6' },
   research:   { label: '연구직',  color: '#7C3AED', bg: '#EDE9FE' },
   production: { label: '생산직',  color: '#059669', bg: '#D1FAE5' },

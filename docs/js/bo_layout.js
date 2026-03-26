@@ -1,4 +1,4 @@
-﻿// ─── 격리그룹 컨텍스트 전역 상태 ─────────────────────────────────────────────
+// ─── 격리그룹 컨텍스트 전역 상태 ─────────────────────────────────────────────
 let _boActiveIsolationGroupId = null; // 현재 선택된 격리그룹 ID
 let _boPlatformSelectedTenantId = null; // 플랫폼 총괄: 선택된 테넌트
 
@@ -191,6 +191,7 @@ const PLATFORM_MENUS = [
   { id: 'budget-account',    icon: '💳', label: '예산 계정 관리',          section: null },
   { id: 'virtual-org',       icon: '🏗️', label: '가상조직 템플릿 관리',   section: null },
   { id: 'form-builder',      icon: '📝', label: '교육양식마법사',          section: null },
+  { id: 'calc-grounds',      icon: '📐', label: '산정기준 관리',          section: null },
   { id: 'service-policy',    icon: '🔧', label: '서비스 정책 관리',        section: null },
   { id: 'reports',           icon: '📈', label: '통계 및 리포트',        section: '분석' },
   { id: 'manual',            icon: '📖', label: '서비스 매뉴얼',          section: null },
@@ -203,6 +204,7 @@ const TENANT_ADMIN_MENUS = [
   { id: 'budget-account',   icon: '💳', label: '예산 계정 관리',         section: null },
   { id: 'virtual-org',      icon: '🏢', label: '가상조직 템플릿 관리',  section: null },
   { id: 'form-builder',     icon: '📝', label: '교육양식마법사',         section: null },
+  { id: 'calc-grounds',     icon: '📐', label: '산정기준 관리',         section: null },
   { id: 'service-policy',   icon: '🔧', label: '서비스 정책 관리',       section: null },
   { id: 'reports',          icon: '📈', label: '전사 통계 리포트',       section: '분석' },
   { id: 'manual',           icon: '📖', label: '서비스 매뉴얼',          section: null },

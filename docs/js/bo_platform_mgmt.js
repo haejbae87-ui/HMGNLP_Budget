@@ -1,4 +1,4 @@
-﻿// ─── 플랫폼 관리 메뉴: 테넌트/조직/사용자/역할 ─────────────────────────────
+// ─── 플랫폼 관리 메뉴: 테넌트/조직/사용자/역할 ─────────────────────────────
 // Supabase에서 실시간 데이터 로드, 실패 시 mock fallback
 
 // ── 공통 헬퍼 ──────────────────────────────────────────────────────────────
@@ -814,27 +814,27 @@ window._viewRoleUsers = async function(roleCode) {
 
 // 전체 메뉴 정의 (PLATFORM_MENUS와 동기화)
 const ALL_MENUS = [
-  { id: 'dashboard',        label: '대시보드' },
-  { id: 'platform-monitor', label: '전사 예산 모니터링' },
-  { id: 'platform-roles',   label: '관리자 권한 매핑' },
-  { id: 'tenant-mgmt',      label: '테넌트/회사 관리' },
-  { id: 'org-mgmt',         label: '조직 관리' },
-  { id: 'user-mgmt',        label: '사용자 관리' },
-  { id: 'role-mgmt',        label: '역할 관리' },
-  { id: 'role-menu-perms',  label: '역할별 메뉴 권한' },
-  { id: 'isolation-groups', label: '격리그룹 관리' },
-  { id: 'budget-account',   label: '예산 계정 관리' },
-  { id: 'virtual-org',      label: '가상조직 템플릿' },
-  { id: 'form-builder',     label: '교육양식마법사' },
-  { id: 'calc-grounds',     label: '산정기준 관리' },
-  { id: 'approval-routing', label: '결재 라우팅' },
-  { id: 'service-policy',   label: '서비스 정책 관리' },
-  { id: 'plan-mgmt',        label: '계획 관리' },
-  { id: 'allocation',       label: '예산 배정' },
-  { id: 'my-operations',    label: '내 업무' },
-  { id: 'org-budget',       label: '조직 예산 현황' },
-  { id: 'reports',          label: '통계 및 리포트' },
-  { id: 'manual',           label: '서비스 매뉴얼' },
+  { id: 'dashboard',        label: '대시보드',             sys: 'BO', depth1: '공통' },
+  { id: 'platform-monitor', label: '전사 예산 모니터링',     sys: 'BO', depth1: '플랫폼 총괄' },
+  { id: 'platform-roles',   label: '관리자 권한 매핑',       sys: 'BO', depth1: '플랫폼 총괄' },
+  { id: 'tenant-mgmt',      label: '테넌트/회사 관리',       sys: 'BO', depth1: '플랫폼 총괄' },
+  { id: 'org-mgmt',         label: '조직 관리',              sys: 'BO', depth1: '플랫폼 총괄' },
+  { id: 'user-mgmt',        label: '사용자 관리',            sys: 'BO', depth1: '플랫폼 총괄' },
+  { id: 'role-mgmt',        label: '역할 관리',              sys: 'BO', depth1: '플랫폼 총괄' },
+  { id: 'role-menu-perms',  label: '역할별 메뉴 권한',        sys: 'BO', depth1: '플랫폼 총괄' },
+  { id: 'isolation-groups', label: '격리그룹 관리',          sys: 'BO', depth1: '테넌트 운영' },
+  { id: 'budget-account',   label: '예산 계정 관리',          sys: 'BO', depth1: '테넌트 운영' },
+  { id: 'virtual-org',      label: '가상조직 템플릿',         sys: 'BO', depth1: '테넌트 운영' },
+  { id: 'form-builder',     label: '교육양식마법사',          sys: 'BO', depth1: '테넌트 운영' },
+  { id: 'calc-grounds',     label: '산정기준 관리',           sys: 'BO', depth1: '테넌트 운영' },
+  { id: 'approval-routing', label: '결재 라우팅',            sys: 'BO', depth1: '테넌트 운영' },
+  { id: 'service-policy',   label: '서비스 정책 관리',        sys: 'BO', depth1: '테넌트 운영' },
+  { id: 'plan-mgmt',        label: '계획 관리',              sys: 'BO', depth1: '운영 업무' },
+  { id: 'allocation',       label: '예산 배정',              sys: 'BO', depth1: '운영 업무' },
+  { id: 'my-operations',    label: '내 업무',                sys: 'BO', depth1: '운영 업무' },
+  { id: 'org-budget',       label: '조직 예산 현황',          sys: 'BO', depth1: '운영 업무' },
+  { id: 'reports',          label: '통계 및 리포트',          sys: 'BO', depth1: '분석' },
+  { id: 'manual',           label: '서비스 매뉴얼',          sys: 'BO', depth1: '기타' },
 ];
 
 const MANAGED_ROLES = [
@@ -882,7 +882,9 @@ async function renderRoleMenuPerms() {
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
       <thead>
         <tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB">
-          <th style="padding:12px 16px;text-align:left;font-weight:900;color:#374151;min-width:160px">메뉴</th>
+          <th style="padding:12px 10px;text-align:center;font-weight:900;color:#6B7280;width:70px">구분</th>
+          <th style="padding:12px 10px;text-align:left;font-weight:900;color:#6B7280;width:120px">1 Depth</th>
+          <th style="padding:12px 16px;text-align:left;font-weight:900;color:#374151;min-width:160px">2 Depth (메뉴)</th>
           ${MANAGED_ROLES.map(r => `
           <th style="padding:12px 8px;text-align:center;font-weight:900;color:${r.color};min-width:110px">
             ${r.label}
@@ -892,6 +894,10 @@ async function renderRoleMenuPerms() {
       <tbody>
         ${ALL_MENUS.map((m, i) => `
         <tr style="border-bottom:1px solid #F3F4F6;background:${i%2?'#FAFAFA':'white'}">
+          <td style="padding:9px 10px;text-align:center;font-size:11px;color:#6B7280;font-weight:700">
+            <span style="background:#E5E7EB;padding:2px 6px;border-radius:4px">${m.sys}</span>
+          </td>
+          <td style="padding:9px 10px;color:#4B5563;font-size:11px;font-weight:700">${m.depth1}</td>
           <td style="padding:9px 16px;font-weight:600;color:#374151">${m.label}
             <span style="font-size:9px;color:#9CA3AF;margin-left:4px">${m.id}</span>
           </td>

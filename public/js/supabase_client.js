@@ -133,6 +133,39 @@ async function sbLoadVirtualOrgTemplates(filters = {}) {
     return typeof VIRTUAL_ORG_TEMPLATES !== 'undefined' ? VIRTUAL_ORG_TEMPLATES : [];
   }
 }
+window.sbLoadVirtualOrgTemplates = sbLoadVirtualOrgTemplates;
+
+async function sbSaveVirtualOrgTemplate(tplObj) {
+  try {
+    const row = {
+      id: tplObj.id,
+      tenant_id: tplObj.tenantId,
+      isolation_group_id: tplObj.isolationGroupId || null,
+      name: tplObj.name,
+      tree: tplObj.tree,
+      updated_at: new Date().toISOString()
+    };
+    const { error } = await getSB().from('virtual_org_templates').upsert(row, { onConflict: 'id' });
+    if(error) throw error;
+    return true;
+  } catch(e) {
+    console.error('[Supabase] virtual_org_templates 저장 실패:', e.message);
+    return false;
+  }
+}
+window.sbSaveVirtualOrgTemplate = sbSaveVirtualOrgTemplate;
+
+async function sbDeleteVirtualOrgTemplate(id) {
+  try {
+    const { error } = await getSB().from('virtual_org_templates').delete().eq('id', id);
+    if(error) throw error;
+    return true;
+  } catch(e) {
+    console.error('[Supabase] virtual_org_templates 삭제 실패:', e.message);
+    return false;
+  }
+}
+window.sbDeleteVirtualOrgTemplate = sbDeleteVirtualOrgTemplate;
 
 // ─── 역할별 메뉴 권한 로더 ────────────────────────────────────────────────────
 // role_menu_permissions 테이블 → window._roleMenuPerms: Map<role_code, Set<menu_id>>
@@ -296,4 +329,21 @@ async function sbSaveFormTemplate(formObj) {
   }
 }
 window.sbSaveFormTemplate = sbSaveFormTemplate;
+
+// ─── 양식 삭제(delete) ────────────────────────────────────────────────────────
+async function sbDeleteFormTemplate(formId) {
+  try {
+    const { error } = await getSB()
+      .from('form_templates')
+      .delete()
+      .eq('id', formId);
+    if (error) throw error;
+    console.log(`[Supabase] ✅ 양식 삭제 완료: ${formId}`);
+    return true;
+  } catch (e) {
+    console.error('[Supabase] 양식 삭제 실패:', e.message);
+    return false;
+  }
+}
+window.sbDeleteFormTemplate = sbDeleteFormTemplate;
 

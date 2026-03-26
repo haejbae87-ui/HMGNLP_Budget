@@ -1645,7 +1645,7 @@ function getPersonaAccountBudgets(persona) {
 // approverPersonaKey: 최종 승인자 persona key
 // managerPersonaKey: 정책 관리자 persona key
 
-let SERVICE_POLICIES = [
+var SERVICE_POLICIES = [
   {
     id: 'POL-HMC-GEN-001',
     tenantId: 'HMC',

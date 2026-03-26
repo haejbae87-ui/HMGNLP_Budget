@@ -489,6 +489,14 @@ function _fbFormCard(f) {
   const s      = FORM_STAGE_TYPES[f.type] || FORM_STAGE_TYPES.apply;
   const fields = (f.fields || []);
   const fieldNames = fields.map(fld => typeof fld === 'object' ? fld.key : fld).join(', ');
+
+  // 서비스 정책 및 구버전 서비스 매핑 확인
+  const mappedPolicy = (typeof SERVICE_POLICIES !== 'undefined') ? SERVICE_POLICIES.find(p => (p.formIds || []).includes(f.id)) : null;
+  const mappedLegacy = (typeof SERVICE_MAPPINGS !== 'undefined') ? SERVICE_MAPPINGS.find(m => Object.values(m.formSets || {}).includes(f.id)) : null;
+  
+  const isMapped = mappedPolicy || mappedLegacy;
+  const mapName = mappedPolicy ? mappedPolicy.name : (mappedLegacy ? mappedLegacy.name : '');
+
   return `
 <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;
             border-left:3px solid ${s.color};background:#fff;border-radius:8px;
@@ -506,6 +514,7 @@ function _fbFormCard(f) {
                text-overflow:ellipsis;white-space:nowrap;cursor:default"
         title="${f.name}${f.desc ? ' — '+f.desc : ''}">
     ${f.name}
+    ${isMapped ? ` <span style="font-size:10px;color:#059669;background:#ecfdf5;padding:2px 6px;border-radius:4px;vertical-align:middle;margin-left:6px" title="이 양식은 [${mapName}] 정책에 연동되어 있습니다.">[🔒 ${mapName} 연결됨]</span>` : ''}
   </span>
   <!-- 필드 수 -->
   <span title="포함 필드: ${fieldNames}"
@@ -519,14 +528,40 @@ function _fbFormCard(f) {
   </span>
   <!-- 액션 버튼 -->
   <div style="display:flex;gap:4px;flex-shrink:0">
-    <button class="bo-btn-secondary bo-btn-sm" onclick="fbOpenBuilderModal('${f.id}')">✏️</button>
+    <button class="bo-btn-secondary bo-btn-sm" onclick="fbOpenBuilderModal('${f.id}')">✏️ 수정</button>
     <button onclick="fbToggleActive('${f.id}')"
       style="padding:4px 8px;border-radius:6px;border:1.5px solid ${f.active ? '#F59E0B' : '#059669'};
              background:#fff;color:${f.active ? '#F59E0B' : '#059669'};font-size:10px;font-weight:800;cursor:pointer">
       ${f.active ? '비활성화' : '활성화'}
     </button>
+    <button ${isMapped ? `disabled title="${mapName} 정책에 연결되어 삭제할 수 없습니다."` : `onclick="fbDeleteForm('${f.id}')"`}
+      style="padding:4px 8px;border-radius:6px;border:1.5px solid ${isMapped ? '#E5E7EB' : '#EF4444'};
+             background:#fff;color:${isMapped ? '#9CA3AF' : '#EF4444'};font-size:10px;font-weight:800;cursor:${isMapped ? 'not-allowed' : 'pointer'}">
+      삭제
+    </button>
   </div>
 </div>`;
+}
+
+async function fbDeleteForm(formId) {
+  if (!confirm('정말로 이 양식을 삭제하시겠습니까? (삭제 후 복구 불가)')) return;
+  
+  // 1) 메모리 삭제
+  if (typeof FORM_MASTER !== 'undefined') {
+    const idx = FORM_MASTER.findIndex(x => x.id === formId);
+    if (idx > -1) FORM_MASTER.splice(idx, 1);
+  }
+  
+  // 2) DB 삭제
+  if (typeof sbDeleteFormTemplate === 'function') {
+    const ok = await sbDeleteFormTemplate(formId);
+    if (!ok) {
+      console.warn('[FormBuilder] DB 삭제 실패 - 메모리에서만 삭제되었습니다.');
+    }
+  }
+
+  // 3) UI 갱신
+  renderFormBuilderMenu();
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

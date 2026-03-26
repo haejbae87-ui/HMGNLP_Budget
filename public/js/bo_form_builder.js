@@ -491,7 +491,13 @@ function _fbFormCard(f) {
   const fieldNames = fields.map(fld => typeof fld === 'object' ? fld.key : fld).join(', ');
 
   // 서비스 정책 및 구버전 서비스 매핑 확인
-  const mappedPolicy = (typeof SERVICE_POLICIES !== 'undefined') ? SERVICE_POLICIES.find(p => (p.formIds || []).includes(f.id)) : null;
+  const mappedPolicy = (typeof SERVICE_POLICIES !== 'undefined') ? SERVICE_POLICIES.find(p => {
+    const list1 = p.formIds || [];
+    const list2 = p.stage_form_ids ? Object.values(p.stage_form_ids) : [];
+    const list3 = p.formSets ? Object.values(p.formSets) : [];
+    const list4 = p.stageFormIds ? Object.values(p.stageFormIds) : [];
+    return [...list1, ...list2, ...list3, ...list4].includes(f.id);
+  }) : null;
   const mappedLegacy = (typeof SERVICE_MAPPINGS !== 'undefined') ? SERVICE_MAPPINGS.find(m => Object.values(m.formSets || {}).includes(f.id)) : null;
   
   const isMapped = mappedPolicy || mappedLegacy;

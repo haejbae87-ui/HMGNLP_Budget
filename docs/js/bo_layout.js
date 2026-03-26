@@ -1,4 +1,4 @@
-// ─── 격리그룹 컨텍스트 전역 상태 ─────────────────────────────────────────────
+﻿// ─── 격리그룹 컨텍스트 전역 상태 ─────────────────────────────────────────────
 let _boActiveIsolationGroupId = null; // 현재 선택된 격리그룹 ID
 let _boPlatformSelectedTenantId = null; // 플랫폼 총괄: 선택된 테넌트
 
@@ -325,7 +325,7 @@ function renderBoSidebar() {
 ${platformBanner}
 <div class="bo-nav-section" style="flex:1">${menuHtml}</div>
 <div style="padding:14px 16px;border-top:1px solid rgba(255,255,255,0.08)">
-  <a href="index.html" style="display:flex;align-items:center;gap:8px;color:rgba(255,255,255,0.45);font-size:12px;font-weight:700;text-decoration:none">
+  <a href="frontoffice.html" style="display:flex;align-items:center;gap:8px;color:rgba(255,255,255,0.45);font-size:12px;font-weight:700;text-decoration:none">
     <span>←</span> 프론트로 이동
   </a>
 </div>`;
@@ -402,7 +402,7 @@ function renderBoHeader() {
   document.getElementById('bo-header').innerHTML = `
 <div style="display:flex;align-items:center;justify-content:space-between;height:100%;padding:0 16px">
   <div style="display:flex;align-items:center;gap:10px">
-    <a href="index.html"
+    <a href="frontoffice.html"
       style="display:flex;align-items:center;gap:5px;background:linear-gradient(135deg,#002C5F,#0050A8);color:#fff;text-decoration:none;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;border:1.5px solid #0050A8;white-space:nowrap;transition:all .15s"
       onmouseover="this.style.opacity='.8'"
       onmouseout="this.style.opacity='1'"

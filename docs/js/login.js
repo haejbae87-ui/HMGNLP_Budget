@@ -64,7 +64,7 @@ async function doLogin(empNo, password) {
     if (sessionData.roles.includes('platform_admin') || sessionData.roles.includes('tenant_admin') || sessionData.roles.includes('budget_admin') || sessionData.roles.includes('budget_ops')) {
       window.location.href = 'backoffice.html';
     } else {
-      window.location.href = 'index.html';
+      window.location.href = 'frontoffice.html';
     }
   } catch (err) {
     console.error('Login error:', err);

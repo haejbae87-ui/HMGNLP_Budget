@@ -323,24 +323,6 @@ function _fbRenderLibrary() {
   const tenantId = (isPlatform || isTenant) ? (_fbTenantId || boCurrentPersona.tenantId) : (boCurrentPersona.tenantId || 'HMC');
   let allForms = FORM_MASTER.filter(f => f.tenantId === tenantId);
 
-  // 예산계정 또는 격리그룹 기준 필터
-  if ((isPlatform || isTenant) && _fbAccountCode) {
-    // 계정 선택: 해당 계정에 합치하는 양식만
-    allForms = allForms.filter(f => f.accountCode === _fbAccountCode);
-  } else if ((isPlatform || isTenant) && _fbGroupId) {
-    // 계정 미선택 + 격리그룹 선택: 해당 그룹의 계정 양식만
-    const grp = typeof ISOLATION_GROUPS !== 'undefined' ? ISOLATION_GROUPS.find(g => g.id === _fbGroupId) : null;
-    const groupAccounts = grp?.ownedAccounts || [];
-    if (groupAccounts.length > 0) {
-      allForms = allForms.filter(f => groupAccounts.includes(f.accountCode));
-    } else {
-      allForms = []; // 그룹에 계정이 없으면 빈 목록
-    }
-  } else if (!isPlatform && !isTenant) {
-    // 일반 역할 (예산업무담당 등): 본인 테넌트 양식 전체 표시 (accountCode 무관)
-    // 필터 없이 tenantId만으로 필터링
-  }
-
   // 목적 필터 적용
   if (_fbPurposeFilter) {
     allForms = allForms.filter(f => f.purpose === _fbPurposeFilter);

@@ -9,6 +9,22 @@ let _voSelectedTeams    = new Set();
 let _voEditGroupIdx     = null;
 let _voCoopGroupIdx     = null;
 
+// ─── 자동 저장 헬퍼 (변경 즉시 DB에 upsert) ──────────────────────────────────
+async function _voAutoSave(tpl) {
+  if (!tpl) return;
+  try {
+    if (typeof sbSaveVirtualOrgTemplate === 'function') {
+      await sbSaveVirtualOrgTemplate(tpl);
+      // 저장 토스트
+      const toast = document.createElement('div');
+      toast.textContent = '💾 저장됨';
+      toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#059669;color:#fff;padding:8px 18px;border-radius:10px;font-size:12px;font-weight:800;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.2);animation:fadeIn .2s';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2000);
+    }
+  } catch(e) { console.warn('[VOrg] DB 저장 실패 (로컬 반영은 유지):', e.message); }
+}
+
 // 역할별 필터 상태
 let _voTenantId  = null;
 let _voGroupId   = null;
@@ -437,14 +453,16 @@ function voConfirmCreateTemplate() {
   const id   = 'TPL_' + Date.now();
   const tree = type === 'rnd' ? { label: name, centers: [] } : { label: name, hqs: [] };
   const currentGroupId = _voGroupId;
-  VIRTUAL_ORG_TEMPLATES.push({
+  const newTpl = {
     id, tenantId: _voTenantId || boCurrentPersona.tenantId,
     isolationGroupId: currentGroupId || null, name, tree
-  });
+  };
+  VIRTUAL_ORG_TEMPLATES.push(newTpl);
   _voActiveTemplateId = id;
   _voMyTemplates = _voGetTemplatesByGroup(_voGroupId, _voTenantId);
   voCloseModal('vo-tpl-create-modal');
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
+  _voAutoSave(newTpl);  // ★ DB 자동 저장
 }
 
 function voRemoveTemplate(id) {
@@ -608,6 +626,7 @@ function voConfirmCreateGroup() {
   voCloseModal('vo-group-create-modal');
   _voMyTemplates = _voGetTemplatesByGroup(_voGroupId, _voTenantId);
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
+  _voAutoSave(_voGetActiveTpl());  // ★ DB 자동 저장
 }
 
 // ── 협조처 ────────────────────────────────────────────────────────────────────
@@ -693,6 +712,7 @@ function voSaveCoopModal() {
   voCloseModal('vo-coop-modal');
   _voMyTemplates = _voGetTemplatesByGroup(_voGroupId, _voTenantId);
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
+  _voAutoSave(_voGetActiveTpl());  // ★ DB 자동 저장
 }
 
 // ── 직군 토글 ─────────────────────────────────────────────────────────────────
@@ -955,6 +975,7 @@ function voConfirmAddTeams() {
   voCloseModal('vo-team-modal');
   _voMyTemplates = _voGetTemplatesByGroup(_voGroupId, _voTenantId);
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
+  _voAutoSave(activeTpl);  // ★ DB 자동 저장
 }
 // 레거시 폴백 (REAL_ORG_TREE 기반)
 function voRenderTreeLegacy(budgetType, existIds, filter = '') {

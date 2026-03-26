@@ -117,7 +117,7 @@ function renderServicePolicy() {
     return true;
   });
 
-  const TENANTS = typeof TENANT_MASTER !== 'undefined' ? TENANT_MASTER
+  const TENANTS_LIST = typeof TENANTS !== 'undefined' ? TENANTS
     : [...new Set(SERVICE_POLICIES.map(p=>p.tenantId))].map(id=>({id,name:id}));
   const availGroups = (typeof ISOLATION_GROUPS !== 'undefined' ? ISOLATION_GROUPS : [])
     .filter(g => !activeTenantId || g.tenantId === activeTenantId);
@@ -146,7 +146,7 @@ function renderServicePolicy() {
     <select id="pb-tenant-sel" onchange="_pbTenantFilter=this.value;_pbGroupFilter='';_pbAccountFilter=''"
       style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:140px">
       <option value="">전체 회사</option>
-      ${TENANTS.map(t=>`<option value="${t.id}" ${activeTenantId===t.id?'selected':''}>${t.name||t.id}</option>`).join('')}
+      ${TENANTS_LIST.map(t=>`<option value="${t.id}" ${activeTenantId===t.id?'selected':''}>${t.name||t.id}</option>`).join('')}
     </select>
   </div>
   <div style="width:1px;height:28px;background:#E5E7EB"></div>` : ''}

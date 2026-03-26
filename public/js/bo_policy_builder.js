@@ -286,6 +286,10 @@ function startPolicyWizard(policyId) {
       managerPersonaKey: Object.keys(BO_PERSONAS).find(k => BO_PERSONAS[k] === boCurrentPersona) || '',
       status: 'active', createdAt: new Date().toISOString().slice(0,10),
     };
+    // 목록 페이지의 필터값을 새 정책 초기값으로 pre-fill
+    if (_pbTenantFilter)  _policyWizardData.scopeTenantId = _pbTenantFilter;
+    if (_pbGroupFilter)   _policyWizardData.scopeGroupId  = _pbGroupFilter;
+    if (_pbAccountFilter) _policyWizardData.accountCodes  = [_pbAccountFilter];
   }
   renderPolicyWizard();
 }
@@ -317,7 +321,7 @@ function renderPolicyWizard() {
     const isTenant   = ['tenant_global_admin'].includes(persona.role);
     const isBudgetOp = ['budget_op_manager','budget_hq','budget_global_admin'].includes(persona.role);
 
-    const TENANTS = typeof TENANT_MASTER !== 'undefined' ? TENANT_MASTER
+    const _TENANTS_LIST = typeof TENANTS !== 'undefined' ? TENANTS
       : [...new Set((typeof SERVICE_POLICIES!=='undefined'?SERVICE_POLICIES:[]).map(p=>p.tenantId))].map(id=>({id,name:id}));
     const scopeTenantId = d.scopeTenantId || (isTenant||isBudgetOp ? persona.tenantId : '');
     const scopeGroups = (typeof ISOLATION_GROUPS!=='undefined' ? ISOLATION_GROUPS : [])
@@ -339,12 +343,12 @@ function renderPolicyWizard() {
     <select onchange="_policyWizardData.scopeTenantId=this.value;_policyWizardData.scopeGroupId='';_policyWizardData.accountCodes=[];renderPolicyWizard()"
       style="width:100%;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700">
       <option value="">— 회사를 선택하세요 —</option>
-      ${TENANTS.map(t=>`<option value="${t.id}" ${scopeTenantId===t.id?'selected':''}>${t.name||t.id}</option>`).join('')}
+      ${_TENANTS_LIST.map(t=>`<option value="${t.id}" ${scopeTenantId===t.id?'selected':''}>${t.name||t.id}</option>`).join('')}
     </select>
   </div>` : `
   <div style="padding:10px 16px;background:#F3F4F6;border-radius:10px;display:flex;align-items:center;gap:8px">
     <span style="font-size:12px;font-weight:700;color:#6B7280">회사</span>
-    <span style="font-size:14px;font-weight:900;color:#111827">🏢 ${TENANTS.find(t=>t.id===scopeTenantId)?.name||scopeTenantId}</span>
+    <span style="font-size:14px;font-weight:900;color:#111827">🏢 ${_TENANTS_LIST.find(t=>t.id===scopeTenantId)?.name||scopeTenantId}</span>
     <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#E5E7EB;color:#6B7280">자동 설정</span>
   </div>`}
   ${scopeTenantId ? `

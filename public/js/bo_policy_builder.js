@@ -623,39 +623,126 @@ function renderPolicyWizard() {
   // ── Step 6: 단계별 양식 선택 ──────────────────────────────────────────────────
   } else if (_policyWizardStep === 6) {
     const _scopeTenantId = d.scopeTenantId || persona.tenantId;
-    const myForms = (typeof FORM_MASTER !== 'undefined' ? FORM_MASTER : [])
-      .filter(f => (f.tenantId === _scopeTenantId) && f.active);
+    const _scopeGroupId  = d.scopeGroupId  || '';
+    const _scopeAcctCode = (d.accountCodes||[])[0] || '';
+
+    // 정책에서 선택된 교육유형 집합 (필터에 사용)
+    const _policyEduTypes = d.purpose === 'external_personal'
+      ? (d.selectedEduItem?.typeId ? [d.selectedEduItem.typeId] : [])
+      : (d.eduTypes || []);
+    // 정책에서 선택된 세부유형
+    const _policyEduSubId = d.purpose === 'external_personal'
+      ? (d.selectedEduItem?.subId || '') : '';
+
+    // 기준 양식 풀 (텐넌트+격리그룹+계정)
+    const _allForms = (typeof FORM_MASTER !== 'undefined' ? FORM_MASTER : [])
+      .filter(f => {
+        if (f.tenantId !== _scopeTenantId || !f.active) return false;
+        if (_scopeGroupId && f.isolationGroupId && f.isolationGroupId !== _scopeGroupId) return false;
+        if (_scopeAcctCode && f.accountCode && f.accountCode !== _scopeAcctCode) return false;
+        return true;
+      });
+
+    // 교육유형으로 추가 필터 (목적·유형 정보가 없는 구형 양식은 숨기지 않음)
+    const _eduFiltered = _policyEduTypes.length === 0 ? _allForms : _allForms.filter(f => {
+      if (!f.eduType && !f.purpose) return true; // 구형 양식 허용
+      if (_policyEduTypes.includes(f.eduType)) return true;
+      return false;
+    });
+
+    // stage별 폼 목록 함수 (해당 탭의 type에 맞는 것만)
+    const _formsForStage = (stage) => _eduFiltered.filter(f => f.type === stage);
+
     const stages = _PATTERN_STAGES[d.processPattern] || ['apply'];
     const stageLabel = { plan:'📊 계획', apply:'📝 신청', result:'📄 결과' };
     const stageColor = { plan:'#7C3AED', apply:'#1D4ED8', result:'#059669' };
     if (!d.stageFormIds) d.stageFormIds = { plan:[], apply:[], result:[] };
     const activeStageTab = _policyWizardData._formTab || stages[0];
 
+    // 교육유형 안내 칩
+    const _eduLabel = _policyEduTypes.length
+      ? _policyEduTypes.map(t => {
+          const sub = _policyEduSubId ? ` › ${_policyEduSubId}` : '';
+          return `<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:#FEF3C7;color:#92400E">${t}${sub}</span>`;
+        }).join(' ')
+      : `<span style="font-size:11px;color:#9CA3AF">교육유형 미지정 (전체 표시)</span>`;
+
+    // 탭 완성도 배지 (선택 수 + 미연결 경고)
+    const _tabBadge = (stage) => {
+      const cnt = (d.stageFormIds[stage]||[]).length;
+      const avail = _formsForStage(stage).length;
+      if (cnt > 0) return `<span style="font-size:10px;font-weight:900;padding:1px 7px;border-radius:10px;background:${stageColor[stage]};color:white;margin-left:4px">${cnt}</span>`;
+      if (avail > 0) return `<span style="font-size:10px;font-weight:900;padding:1px 7px;border-radius:10px;background:#FEF3C7;color:#92400E;margin-left:4px">미선택</span>`;
+      return `<span style="font-size:10px;padding:1px 7px;border-radius:10px;background:#F3F4F6;color:#9CA3AF;margin-left:4px">없음</span>`;
+    };
+
+    // 활성 탭의 양식 목록
+    const _activeForms = _formsForStage(activeStageTab);
+    const _selectedIds = d.stageFormIds[activeStageTab] || [];
+
+    // 연결 요약 패널 (단계별 선택 현황)
+    const _summaryPanels = stages.map(s => {
+      const sel = (d.stageFormIds[s]||[]).length;
+      const avail = _formsForStage(s).length;
+      const ok = sel > 0;
+      return `<div style="flex:1;padding:10px 12px;border-radius:10px;border:1.5px solid ${ok?stageColor[s]+'50':'#E5E7EB'};background:${ok?stageColor[s]+'08':'#F9FAFB'};text-align:center">
+        <div style="font-size:10px;font-weight:700;color:${ok?stageColor[s]:'#9CA3AF'}">${stageLabel[s]}</div>
+        <div style="font-size:16px;font-weight:900;color:${ok?stageColor[s]:'#D1D5DB'};margin-top:2px">${ok ? '✓' : '—'}</div>
+        <div style="font-size:10px;color:${ok?stageColor[s]:'#9CA3AF'}">${sel > 0 ? sel+'개 연결' : `${avail}개 중 미선택`}</div>
+      </div>`;
+    }).join('');
+
     stepContent = `
-<div style="display:grid;gap:16px">
-  <div style="padding:12px 16px;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:10px">
-    <div style="font-size:11px;font-weight:900;color:#5B21B6;margin-bottom:4px">📌 패턴 ${d.processPattern} 구성 단계</div>
-    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-      ${stages.map(s=>`<span style="padding:4px 10px;border-radius:6px;background:${stageColor[s]}18;color:${stageColor[s]};font-size:11px;font-weight:700">${stageLabel[s]}</span>`).join('<span style="color:#9CA3AF">+</span>')}
-    </div>
+<div style="display:grid;gap:14px">
+  <!-- 교육유형 안내 -->
+  <div style="padding:10px 16px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <span style="font-size:11px;font-weight:900;color:#92400E">🎯 교육유형 필터</span>
+    ${_eduLabel}
+    <span style="font-size:10px;color:#9CA3AF">| 해당 유형의 양식만 표시됩니다</span>
   </div>
-  <div style="display:flex;gap:0;border-bottom:2px solid #E5E7EB;margin-bottom:12px">
+  <!-- 단계별 연결 현황 요약 -->
+  <div>
+    <div style="font-size:11px;font-weight:800;color:#374151;margin-bottom:8px">📋 단계별 연결 현황</div>
+    <div style="display:flex;gap:8px">${_summaryPanels}</div>
+  </div>
+  <!-- 탭 (완성도 배지 포함) -->
+  <div style="display:flex;gap:0;border-bottom:2px solid #E5E7EB">
     ${stages.map(s=>`
     <button onclick="_policyWizardData._formTab='${s}';renderPolicyWizard()"
-      style="padding:8px 16px;font-size:12px;font-weight:700;border:none;border-bottom:3px solid ${activeStageTab===s?stageColor[s]:'transparent'};background:none;cursor:pointer;color:${activeStageTab===s?stageColor[s]:'#6B7280'}">
-      ${stageLabel[s]} 양식
+      style="padding:8px 16px;font-size:12px;font-weight:700;border:none;border-bottom:3px solid ${activeStageTab===s?stageColor[s]:'transparent'};background:none;cursor:pointer;color:${activeStageTab===s?stageColor[s]:'#6B7280'};display:flex;align-items:center">
+      ${stageLabel[s]} 양식${_tabBadge(s)}
     </button>`).join('')}
   </div>
+  <!-- 현재 탭 양식 목록 (stage 타입 일치하는 것만) -->
   <div>
-    <label class="bo-label">${stageLabel[activeStageTab]} 단계 양식 선택</label>
+    <div style="font-size:11px;font-weight:800;color:#374151;margin-bottom:8px">${stageLabel[activeStageTab]} 단계 양식 선택 <span style="font-size:10px;font-weight:500;color:#9CA3AF">(${_activeForms.length}개 사용 가능)</span></div>
+    ${_activeForms.length === 0 ? `
+    <div style="padding:24px;text-align:center;background:#F9FAFB;border-radius:10px;border:1px dashed #D1D5DB">
+      <div style="font-size:24px;margin-bottom:6px">📭</div>
+      <div style="font-size:12px;font-weight:700;color:#374151">사용 가능한 양식이 없습니다</div>
+      <div style="font-size:11px;color:#9CA3AF;margin-top:4px">먼저 교육양식마법사에서 "${stageLabel[activeStageTab].split(' ')[1]}" 단계 양식을 만들어 주세요</div>
+    </div>` : `
     <div style="display:grid;gap:6px">
-      ${myForms.map(f=>`
-      <label style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:8px;border:1.5px solid ${(d.stageFormIds[activeStageTab]||[]).includes(f.id)?stageColor[activeStageTab]:'#E5E7EB'};background:${(d.stageFormIds[activeStageTab]||[]).includes(f.id)?stageColor[activeStageTab]+'12':'white'};cursor:pointer"
+      ${_activeForms.map(f => {
+        const isSelected = _selectedIds.includes(f.id);
+        return `
+      <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:8px;
+                    border:1.5px solid ${isSelected?stageColor[activeStageTab]:'#E5E7EB'};
+                    background:${isSelected?stageColor[activeStageTab]+'12':'white'};cursor:pointer"
              onclick="toggleStageForm('${activeStageTab}','${f.id}')">
-        <input type="checkbox" ${(d.stageFormIds[activeStageTab]||[]).includes(f.id)?'checked':''} style="margin:0">
-        <div><div style="font-weight:700;font-size:12px">${f.name}</div><div style="font-size:10px;color:#9CA3AF">${f.type} · ${f.desc||''}</div></div>
-      </label>`).join('')}
-    </div>
+        <input type="checkbox" ${isSelected?'checked':''} style="margin:0;flex-shrink:0;width:16px;height:16px">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:12px;color:${isSelected?stageColor[activeStageTab]:'#111827'}">${f.name}</div>
+          <div style="font-size:10px;color:#9CA3AF;margin-top:2px">
+            ${f.purpose ? `🎯 ${f.purpose}` : ''}
+            ${f.eduType  ? ` · ${f.eduType}` : ''}
+            ${f.eduSubType ? ` › ${f.eduSubType}` : ''}
+            ${f.desc ? ` · ${f.desc}` : ''}
+          </div>
+        </div>
+        ${isSelected ? `<span style="flex-shrink:0;font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;background:${stageColor[activeStageTab]};color:white">선택됨</span>` : ''}
+      </label>`; }).join('')}
+    </div>`}
   </div>
 </div>`;
 

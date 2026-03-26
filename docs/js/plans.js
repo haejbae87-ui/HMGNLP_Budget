@@ -61,7 +61,7 @@ function renderPlans() {
           <td class="px-4 py-4"><span class="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">${p.account}</span></td>
           <td class="px-4 py-4 text-right font-black text-gray-900">${fmt(p.amount)}원</td>
           <td class="px-4 py-4 text-center">
-            <button onclick="navigate('apply')" class="text-xs font-black text-white bg-accent px-4 py-1.5 rounded-lg hover:bg-blue-600 transition">교육신청 →</button>
+            <button onclick="startApplyFromPlan('${p.id}')" class="text-xs font-black text-white bg-accent px-4 py-1.5 rounded-lg hover:bg-blue-600 transition">교육신청 →</button>
           </td>
           <td class="px-4 py-4 text-center"><span class="badge bg-green-100 text-green-700">승인완료</span></td>
         </tr>`).join('')}
@@ -374,6 +374,29 @@ function savePlan() {
     `담당자 검토 후 결재선이 자동 구성됩니다.`);
   closePlanWizard();
   renderPlans();
+}
+
+// ─── 교육계획 기반 교육신청 연동 ─────────────────────────────────────────────
+function startApplyFromPlan(planId) {
+  const plan = MOCK_PLANS.find(p => p.id === planId);
+  if (!plan) { navigate('apply'); return; }
+
+  // applyState 초기화 후 계획 정보 셋팅
+  applyState = resetApplyState();
+  applyState.planId = planId;
+
+  // 예산계정 자동 선택
+  if (plan.budgetId) applyState.budgetId = plan.budgetId;
+
+  // 목적: 계획에 purpose 없으면 internal_edu(운영) 기본
+  const purposeId = plan.purpose || 'internal_edu';
+  applyState.purpose = PURPOSES.find(p => p.id === purposeId) || null;
+
+  // 교육신청 페이지로 이동 (폼 모드 직접)
+  applyViewMode = 'form';
+  // 목적이 설정되었으면 Step 2(예산 선택)로 바로 이동
+  if (applyState.purpose) applyState.step = 2;
+  navigate('apply');
 }
 
 // ─── 세부 산출 근거 (Calculation Grounds) 헬퍼 ──────────────────────────────

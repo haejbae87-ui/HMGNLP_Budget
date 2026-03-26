@@ -42,35 +42,50 @@ function renderGNB() {
     { id: 'fo-manual', label: '📖 매뉴얼', dropdown: null },
   ];
 
-  // 테넌트별 페르소나 그룹
-  const LXP_GROUPS = [
-    { label: 'HMC', color: '#002C5F', keys: ['hmc_team_mgr', 'hmc_learner'] },
-    { label: 'KIA', color: '#059669', keys: ['kia_learner'] },
-    { label: 'HAE', color: '#7C3AED', keys: ['hae_learner', 'hae_learner2'] },
-    { label: 'HSC', color: '#BE123C', keys: ['hsc_learner'] },
-  ];
+  // ── 회사→학습자 cascade 드롭다운 ───────────────────────────────────────────
+  // 회사 목록 (PERSONAS 기반, 중복 제거)
+  const _companyList = Object.entries(PERSONAS).reduce((acc, [k, p]) => {
+    if (!acc.find(x => x.tenantId === p.tenantId)) {
+      acc.push({ tenantId: p.tenantId, label: p.company });
+    }
+    return acc;
+  }, []);
 
-  const switcherGroups = LXP_GROUPS.map(g => {
-    const btns = g.keys.map(key => {
-      const p = PERSONAS[key];
-      if (!p) return '';
-      const isActive = currentPersona === p;
-      const jobBadge = p.jobType
-        ? `<span style="font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;background:${isActive ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.15)'};color:rgba(255,255,255,0.85)">${p.jobType}</span>`
-        : '';
-      return `<button onclick="switchPersonaTo('${key}')"
-        title="${p.company} ${p.dept} ${p.name} (${p.jobType || p.role})"
-        style="display:flex;align-items:center;gap:4px;border:1.5px solid ${isActive ? g.color : '#ffffff30'};background:${isActive ? 'rgba(255,255,255,0.2)' : 'transparent'};color:#fff;border-radius:8px;padding:3px 8px;font-size:11px;font-weight:${isActive ? 900 : 500};cursor:pointer;transition:all .15s">
-        ${isActive ? '<span style="font-size:8px">●</span>' : ''}
-        <span>${p.name}</span>
-        ${jobBadge}
-      </button>`;
-    }).join('');
-    return `<div style="display:flex;align-items:center;gap:3px">
-      <span style="font-size:9px;font-weight:900;color:${g.color};background:rgba(255,255,255,0.9);border-radius:3px;padding:1px 4px">${g.label}</span>
-      ${btns}
-    </div>`;
-  }).join('<div style="width:1px;height:20px;background:rgba(255,255,255,0.2);margin:0 4px"></div>');
+  // 현재 선택된 회사
+  const _currentTenantId = currentPersona.tenantId;
+
+  // 현재 회사의 학습자 목록
+  const _currentCompanyPersonas = Object.entries(PERSONAS)
+    .filter(([k, p]) => p.tenantId === _currentTenantId)
+    .map(([k, p]) => ({ key: k, name: p.name, pos: p.pos, dept: p.dept }));
+
+  const _currentPersonaKey = Object.keys(PERSONAS).find(k => PERSONAS[k] === currentPersona) || '';
+
+  // 회사 select 변경 → 해당 회사 첫 번째 학습자로 전환
+  const switcherHtml = `
+<span style="font-size:10px;color:rgba(255,255,255,0.55);font-weight:700;white-space:nowrap">접속자:</span>
+<div style="display:flex;align-items:center;gap:6px">
+  <select id="gnb-company-select"
+    onchange="gnbSwitchCompany(this.value)"
+    style="height:30px;padding:0 28px 0 10px;border-radius:8px;border:1.5px solid rgba(255,255,255,0.3);
+           background:rgba(255,255,255,0.12);color:#fff;font-size:12px;font-weight:700;
+           cursor:pointer;outline:none;appearance:none;
+           background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22 viewBox=%220 0 10 6%22><path d=%22M0 0l5 6 5-6z%22 fill=%22rgba(255,255,255,0.7)%22/></svg>');
+           background-repeat:no-repeat;background-position:right 8px center">
+    ${_companyList.map(c => `<option value="${c.tenantId}" ${c.tenantId === _currentTenantId ? 'selected' : ''}
+      style="background:#1E293B;color:#fff">${c.label}</option>`).join('')}
+  </select>
+  <select id="gnb-persona-select"
+    onchange="switchPersonaTo(this.value)"
+    style="height:30px;padding:0 28px 0 10px;border-radius:8px;border:1.5px solid rgba(255,255,255,0.4);
+           background:rgba(255,255,255,0.18);color:#fff;font-size:12px;font-weight:800;
+           cursor:pointer;outline:none;appearance:none;
+           background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22 viewBox=%220 0 10 6%22><path d=%22M0 0l5 6 5-6z%22 fill=%22rgba(255,255,255,0.7)%22/></svg>');
+           background-repeat:no-repeat;background-position:right 8px center">
+    ${_currentCompanyPersonas.map(p => `<option value="${p.key}" ${p.key === _currentPersonaKey ? 'selected' : ''}
+      style="background:#1E293B;color:#fff">${p.name} ${p.pos} · ${p.dept}</option>`).join('')}
+  </select>
+</div>`;
 
   // 1depth 활성 메뉴 판별 (드롭다운 자식 포함)
   function isMenuActive(menu) {
@@ -163,9 +178,8 @@ function renderGNB() {
   </div>
 
   <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-    <!-- 페르소나 전환 -->
-    <span style="font-size:10px;color:rgba(255,255,255,0.6);font-weight:700;white-space:nowrap">접속자:</span>
-    <div style="display:flex;align-items:center;gap:4px">${switcherGroups}</div>
+    <!-- 회사 → 학습자 cascade 선택 -->
+    ${switcherHtml}
     <div style="width:1px;height:20px;background:rgba(255,255,255,0.2);margin:0 4px"></div>
     <!-- 백오피스 이동 버튼 -->
     <a href="backoffice.html"
@@ -179,6 +193,12 @@ function renderGNB() {
 </div>
 
 `;
+}
+
+// 회사 변경 시 해당 회사 첫 번째 학습자로 전환
+function gnbSwitchCompany(tenantId) {
+  const firstKey = Object.keys(PERSONAS).find(k => PERSONAS[k].tenantId === tenantId);
+  if (firstKey) switchPersonaTo(firstKey);
 }
 
 // 페르소나 전환 함수 (LXP 전용)

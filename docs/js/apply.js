@@ -139,7 +139,14 @@ function _renderApplyForm() {
       <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육 신청</div>
       <h1 class="text-3xl font-black text-brand tracking-tight">교육 신청서 작성</h1>
     </div>
-    ${s.planId ? '<span class="text-xs font-black text-accent bg-blue-50 border border-blue-200 px-4 py-2 rounded-full animate-pulse">🔗 사업계획 연동됨</span>' : ''}
+    ${s.planId ? `
+<div style="margin-bottom:16px;padding:12px 18px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:12px;display:flex;align-items:center;gap:10px">
+  <span style="font-size:20px">🔗</span>
+  <div>
+    <div style="font-size:12px;font-weight:900;color:#1D4ED8">교육계획 기반 신청</div>
+    <div style="font-size:11px;color:#3B82F6;margin-top:2px">${(MOCK_PLANS.find(p=>p.id===s.planId)||{}).title||s.planId} · 예산계정이 자동 연동되었습니다</div>
+  </div>
+</div>` : ''}
   </div>
 
   <!-- Stepper indicator -->

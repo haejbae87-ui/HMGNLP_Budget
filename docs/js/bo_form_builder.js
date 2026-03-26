@@ -325,6 +325,15 @@ function _fbRenderLibrary() {
   const tenantId = (isPlatform || isTenant) ? (_fbTenantId || boCurrentPersona.tenantId) : (boCurrentPersona.tenantId || 'HMC');
   let allForms = FORM_MASTER.filter(f => f.tenantId === tenantId);
 
+  // 격리그룹 필터 적용 (isolationGroupId 없는 구형 양식은 하위호환으로 항상 표시)
+  if (_fbGroupId) {
+    allForms = allForms.filter(f => !f.isolationGroupId || f.isolationGroupId === _fbGroupId);
+  }
+  // 예산계정 필터 적용 (accountCode 없는 구형 양식은 하위호환으로 항상 표시)
+  if (_fbAccountCode) {
+    allForms = allForms.filter(f => !f.accountCode || f.accountCode === _fbAccountCode);
+  }
+
   // 목적 필터 적용
   if (_fbPurposeFilter) {
     allForms = allForms.filter(f => f.purpose === _fbPurposeFilter);
@@ -683,6 +692,14 @@ function _fbAdvancedModalBody(form) {
   const categories = [...new Set(ADVANCED_FIELDS.map(f => f.category))];
 
   return `
+<!-- 범위 배지 (현재 선택된 격리그룹 / 계정) -->
+${(_fbGroupId || _fbAccountCode) ? `
+<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;background:#F5F3FF;border:1.5px solid #DDD6FE;border-radius:10px;margin-bottom:14px">
+  <span style="font-size:10px;font-weight:900;color:#5B21B6">📌 분류 범위</span>
+  ${_fbGroupId ? (() => { const g = (typeof ISOLATION_GROUPS!=='undefined'?ISOLATION_GROUPS:[]).find(x=>x.id===_fbGroupId); return `<span style="font-size:11px;font-weight:700;background:#EDE9FE;color:#5B21B6;padding:2px 8px;border-radius:6px">🛡️ ${g?.name||_fbGroupId}</span>`; })() : ''}
+  ${_fbAccountCode ? (() => { const a = (typeof ACCOUNT_MASTER!=='undefined'?ACCOUNT_MASTER:[]).find(x=>x.code===_fbAccountCode); return `<span style="font-size:11px;font-weight:700;background:#DBEAFE;color:#1E40AF;padding:2px 8px;border-radius:6px">💳 ${a?.name||_fbAccountCode}</span>`; })() : ''}
+  <span style="font-size:10px;color:#9CA3AF">이 양식은 위 범위에만 표시됩니다</span>
+</div>` : ''}
 <!-- 사용대상 선택 (학습자용 / 교육담당자용) -->
 <div style="margin-bottom:12px">
   <label style="font-size:11px;font-weight:800;display:block;margin-bottom:6px;color:#374151">사용대상 *</label>
@@ -1021,6 +1038,8 @@ async function fbSaveForm() {
   const formId = _fbEditId || ('FM' + Date.now());
   const formData = {
     id: formId, tenantId,
+    isolationGroupId: _fbGroupId   || null,   // 격리그룹 범위
+    accountCode:      _fbAccountCode || null,  // 예산계정 범위
     type, name, desc, active: true,
     fields: [..._fbTempFields],
     purpose, eduType, eduSubType, targetUser, noticeText, attachments

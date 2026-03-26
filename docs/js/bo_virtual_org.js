@@ -14,13 +14,18 @@ async function _voAutoSave(tpl) {
   if (!tpl) return;
   try {
     if (typeof sbSaveVirtualOrgTemplate === 'function') {
-      await sbSaveVirtualOrgTemplate(tpl);
-      // 저장 토스트
+      const ok = await sbSaveVirtualOrgTemplate(tpl);
+      // 결과에 따라 다른 토스트 표시
       const toast = document.createElement('div');
-      toast.textContent = '💾 저장됨';
-      toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#059669;color:#fff;padding:8px 18px;border-radius:10px;font-size:12px;font-weight:800;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.2);animation:fadeIn .2s';
+      if (ok) {
+        toast.textContent = '💾 저장됨';
+        toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#059669;color:#fff;padding:8px 18px;border-radius:10px;font-size:12px;font-weight:800;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.2)';
+      } else {
+        toast.textContent = '❌ 저장 실패 (브라우저 콘솔 확인)';
+        toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#DC2626;color:#fff;padding:8px 18px;border-radius:10px;font-size:12px;font-weight:800;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.2)';
+      }
       document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 2000);
+      setTimeout(() => toast.remove(), ok ? 2000 : 4000);
     }
   } catch(e) { console.warn('[VOrg] DB 저장 실패 (로컬 반영은 유지):', e.message); }
 }

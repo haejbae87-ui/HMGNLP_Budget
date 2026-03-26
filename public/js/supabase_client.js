@@ -145,8 +145,24 @@ async function sbSaveVirtualOrgTemplate(tplObj) {
       tree: tplObj.tree,
       updated_at: new Date().toISOString()
     };
-    const { error } = await getSB().from('virtual_org_templates').upsert(row, { onConflict: 'id' });
-    if(error) throw error;
+    // JS SDK 대신 fetch 직접 호출 (getSB() 초기화 타이밍 문제 우회)
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/virtual_org_templates`,
+      {
+        method : 'POST',
+        headers: {
+          'apikey'       : SUPABASE_ANON,
+          'Authorization': `Bearer ${SUPABASE_ANON}`,
+          'Content-Type' : 'application/json',
+          'Prefer'       : 'resolution=merge-duplicates,return=minimal',
+        },
+        body: JSON.stringify(row),
+      }
+    );
+    if (!res.ok) {
+      const msg = await res.text();
+      throw new Error(`HTTP ${res.status}: ${msg}`);
+    }
     return true;
   } catch(e) {
     console.error('[Supabase] virtual_org_templates 저장 실패:', e.message);

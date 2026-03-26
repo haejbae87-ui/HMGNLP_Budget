@@ -25,9 +25,13 @@ async function doLogin(empNo, password) {
   btn.disabled = true;
 
   try {
-    const { data: users, error } = await window._supabase
+    const sb = typeof getSB === 'function' ? getSB() : null;
+    if (!sb) throw new Error('Supabase client not initialized');
+
+    // 1. 사용자 정보 확인 (단순 조회)
+    const { data: users, error } = await sb
       .from('users')
-      .select('*, user_roles(*, roles(*)), organizations(*), tenants(*)')
+      .select('*')
       .eq('emp_no', empNo)
       .eq('password', password);
 
@@ -40,6 +44,10 @@ async function doLogin(empNo, password) {
 
     const user = users[0];
     
+    // 2. 역할(user_roles) 별도 조회 (외래키 제약조건 문제 회피)
+    const { data: rolesData } = await sb.from('user_roles').select('role_code').eq('user_id', user.id);
+    const userRoles = rolesData && rolesData.length > 0 ? rolesData.map(r => r.role_code) : ['learner'];
+    
     // 세션 정보 저장
     const sessionData = {
       id: user.id,
@@ -47,16 +55,17 @@ async function doLogin(empNo, password) {
       empNo: user.emp_no,
       name: user.name,
       email: user.email,
-      roles: user.user_roles ? user.user_roles.map(r => r.role_code) : ['learner'],
+      roles: userRoles,
       orgId: user.org_id,
-      orgName: user.organizations ? user.organizations.name : null,
-      tenantName: user.tenants ? user.tenants.name : null,
+      orgName: null, 
+      tenantName: null
     };
     
     // 플랫폼 총괄인 경우 P000, 그 외는 학습자 등.
     // 기존 mock up (bo_data.js)과 호환을 위해 sessionStorage에 로깅 유저 저장
     sessionStorage.setItem('loggedInUser', JSON.stringify(sessionData));
     sessionStorage.setItem('currentPersona', user.emp_no === 'HMGNLP' ? 'platform_admin' : 'hmc_total_general'); // fallback 
+
 
     alert(`${user.name}님 환영합니다.`);
     

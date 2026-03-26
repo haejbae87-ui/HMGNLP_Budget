@@ -143,7 +143,6 @@ async function sbSaveVirtualOrgTemplate(tplObj) {
       isolation_group_id: tplObj.isolationGroupId || null,
       name: tplObj.name,
       tree: tplObj.tree,
-      updated_at: new Date().toISOString()
     };
     // JS SDK 대신 fetch 직접 호출 (getSB() 초기화 타이밍 문제 우회)
     const res = await fetch(

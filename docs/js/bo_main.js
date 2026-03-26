@@ -1,4 +1,4 @@
-﻿// ─── BACK-OFFICE INITIALIZATION ──────────────────────────────────────────────
+// ─── BACK-OFFICE INITIALIZATION ──────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
   renderBoLayout();
@@ -6,5 +6,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (typeof initSupabaseData === 'function') {
     await initSupabaseData();
   }
-  boNavigate('dashboard');
+  boNavigate(boCurrentMenu);
 });

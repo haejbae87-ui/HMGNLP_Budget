@@ -449,7 +449,7 @@ function renderPolicyWizard() {
       <label style="display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border-radius:10px;
                     border:2px solid ${d.targetType===o.v?'#7C3AED':'#E5E7EB'};
                     background:${d.targetType===o.v?'#F5F3FF':'white'};cursor:pointer"
-             onclick="_policyWizardData.targetType='${o.v}';_policyWizardData.purpose='';_policyWizardData.eduTypes=[];renderPolicyWizard()">
+             onclick="_wizSaveStep1Inputs();_policyWizardData.targetType='${o.v}';_policyWizardData.purpose='';_policyWizardData.eduTypes=[];renderPolicyWizard()">
         <input type="radio" name="wiz-target" value="${o.v}" ${d.targetType===o.v?'checked':''} style="margin-top:2px;flex-shrink:0">
         <div>
           <div style="font-weight:800;font-size:13px;color:${d.targetType===o.v?'#7C3AED':'#374151'}">${o.icon} ${o.l}</div>
@@ -815,6 +815,15 @@ function _selectEduItem(typeId, subId) {
 }
 
 // ── 위저드 진행 ───────────────────────────────────────────────────────────────
+// step1 input 값을 _policyWizardData에 먼저 저장한 후 재렌더 (입력 유실 방지)
+function _wizSaveStep1Inputs() {
+  const n = document.getElementById('wiz-name')?.value;
+  const desc = document.getElementById('wiz-desc')?.value;
+  if (n    !== undefined) _policyWizardData.name = n.trim();
+  if (desc !== undefined) _policyWizardData.desc = desc.trim();
+}
+window._wizSaveStep1Inputs = _wizSaveStep1Inputs;
+
 function advancePolicyWizard() {
   const d = _policyWizardData;
   if (_policyWizardStep === 0) {

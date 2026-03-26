@@ -405,3 +405,65 @@ async function sbDeleteFieldDefinition(key) {
   }
 }
 window.sbDeleteFieldDefinition = sbDeleteFieldDefinition;
+
+// ─── 예산 잔액 실시간 조회 (account_budgets) ──────────────────────────────────
+// 반환: { accountCode, totalBudget, deducted, holding, available, fiscalYear }
+async function sbGetBudgetBalance(accountCode, fiscalYear) {
+  const year = fiscalYear || new Date().getFullYear();
+  try {
+    const { data, error } = await getSB()
+      .from('account_budgets')
+      .select('*')
+      .eq('account_code', accountCode)
+      .eq('fiscal_year', year)
+      .single();
+    if (error) throw error;
+    const available = (data.total_budget || 0) - (data.deducted || 0) - (data.holding || 0);
+    return {
+      accountCode,
+      fiscalYear: year,
+      totalBudget: data.total_budget || 0,
+      deducted:    data.deducted    || 0,
+      holding:     data.holding     || 0,
+      available,
+    };
+  } catch (e) {
+    console.warn('[Supabase] account_budgets 조회 실패, 목업 사용:', e.message);
+    // 목업 폴백: bo_data.js의 ACCOUNT_BUDGETS 또는 하드코딩 기본값
+    return _getBudgetBalanceMock(accountCode, year);
+  }
+}
+window.sbGetBudgetBalance = sbGetBudgetBalance;
+
+// 목업 폴백: bo_data.js의 ACCOUNT_BUDGETS 배열 사용
+function _getBudgetBalanceMock(accountCode, year) {
+  if (typeof ACCOUNT_BUDGETS !== 'undefined') {
+    const rec = ACCOUNT_BUDGETS.find(b => b.accountCode === accountCode && b.fiscalYear === year);
+    if (rec) {
+      const available = (rec.totalBudget||0) - (rec.deducted||0) - (rec.holding||0);
+      return { accountCode, fiscalYear: year, ...rec, available };
+    }
+  }
+  return { accountCode, fiscalYear: year, totalBudget: 0, deducted: 0, holding: 0, available: 0 };
+}
+window._getBudgetBalanceMock = _getBudgetBalanceMock;
+
+// 조직(격리그룹)의 모든 예산계정 잔액 합산
+async function sbGetGroupBudgetSummary(ownedAccountCodes, fiscalYear) {
+  const year = fiscalYear || new Date().getFullYear();
+  const results = await Promise.all(
+    (ownedAccountCodes || []).map(code => sbGetBudgetBalance(code, year))
+  );
+  const total = results.reduce((s, r) => s + r.totalBudget, 0);
+  const deducted = results.reduce((s, r) => s + r.deducted, 0);
+  const holding  = results.reduce((s, r) => s + r.holding, 0);
+  return { fiscalYear: year, totalBudget: total, deducted, holding, available: total - deducted - holding, accounts: results };
+}
+window.sbGetGroupBudgetSummary = sbGetGroupBudgetSummary;
+
+// 숫자 포맷 헬퍼 (미정의 환경용)
+function _fmtKRW(n) {
+  if (typeof boFmt === 'function') return boFmt(n);
+  return (n||0).toLocaleString('ko-KR') + '원';
+}
+window._fmtKRW = _fmtKRW;

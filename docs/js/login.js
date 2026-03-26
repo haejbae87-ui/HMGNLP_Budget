@@ -69,12 +69,8 @@ async function doLogin(empNo, password) {
 
     alert(`${user.name}님 환영합니다.`);
     
-    // 권한에 따라 BO/FO 리다이렉트 분기
-    if (sessionData.roles.includes('platform_admin') || sessionData.roles.includes('tenant_admin') || sessionData.roles.includes('budget_admin') || sessionData.roles.includes('budget_ops')) {
-      window.location.href = 'backoffice.html';
-    } else {
-      window.location.href = 'frontoffice.html';
-    }
+    // 무조건 FO(frontoffice.html)로 먼저 진입
+    window.location.href = 'frontoffice.html';
   } catch (err) {
     console.error('Login error:', err);
     alert('로그인 처리 중 오류가 발생했습니다.');

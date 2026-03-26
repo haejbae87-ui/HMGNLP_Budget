@@ -13,12 +13,7 @@
   <script>
     const userStr = sessionStorage.getItem('loggedInUser');
     if (userStr) {
-      const u = JSON.parse(userStr);
-      if (u.roles && (u.roles.includes('platform_admin') || u.roles.includes('tenant_admin') || u.roles.includes('budget_admin') || u.roles.includes('budget_ops'))) {
-        window.location.href = 'backoffice.html';
-      } else {
-        window.location.href = 'frontoffice.html';
-      }
+      window.location.href = 'frontoffice.html';
     }
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">

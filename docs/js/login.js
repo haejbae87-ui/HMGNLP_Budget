@@ -1,5 +1,11 @@
 // login.js
 document.addEventListener('DOMContentLoaded', () => {
+  // 기본 자격증명 자동 입력 (로그인 버튼만 누르면 바로 로그인)
+  const empNoInput  = document.getElementById('emp_no');
+  const passwordInput = document.getElementById('password');
+  if (empNoInput  && !empNoInput.value)  empNoInput.value  = 'HMGNLP';
+  if (passwordInput && !passwordInput.value) passwordInput.value = '1218';
+
   const loginForm = document.getElementById('login-form');
   if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {

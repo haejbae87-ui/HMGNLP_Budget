@@ -272,34 +272,96 @@ function _getMenus(persona) {
 
 function renderBoLayout() { renderBoSidebar(); renderBoHeader(); }
 
-function renderBoSidebar() {
-  const persona = boCurrentPersona;
-  const menus = _getMenus(persona);
-  const isPlatform = persona.role === 'platform_admin';
-  let lastSection = null;
-  let menuHtml = '';
+// 섹션 접기 상태 관리 (세션 스토리지로 유지)
+function _boGetCollapsedSections() {
+  try { return JSON.parse(sessionStorage.getItem('boCollapsed') || '{}'); } catch { return {}; }
+}
+function _boSaveCollapsedSections(state) {
+  sessionStorage.setItem('boCollapsed', JSON.stringify(state));
+}
+function boToggleSection(sectionKey) {
+  const state = _boGetCollapsedSections();
+  state[sectionKey] = !state[sectionKey];
+  _boSaveCollapsedSections(state);
+  // 섹션만 토글 (전체 재렌더 없이 부드럽게)
+  const el = document.getElementById(`bo-sec-${sectionKey}`);
+  const arrow = document.getElementById(`bo-sec-arrow-${sectionKey}`);
+  if (el) {
+    const isCollapsed = state[sectionKey];
+    el.style.overflow = 'hidden';
+    el.style.maxHeight = isCollapsed ? '0' : '1000px';
+    el.style.opacity   = isCollapsed ? '0' : '1';
+    if (arrow) arrow.textContent = isCollapsed ? '›' : '⌄';
+  }
+}
 
-  // 현재 persona의 역할 배열 (단일 role → [role] 배열로 통일)
+function renderBoSidebar() {
+  const persona  = boCurrentPersona;
+  const menus    = _getMenus(persona);
+  const isPlatform = persona.role === 'platform_admin';
+  const collapsed  = _boGetCollapsedSections();
   const personaRoles = persona.roles || [persona.role];
 
+  // ── 섹션별 그루핑 ─────────────────────────────────────────────
+  // 구조: [{sectionKey, sectionLabel, items:[{m, hasAccess}]}]
+  const groups = [];
+  let current = null;
+  const NO_SECTION = '__nosec__';
+
   menus.forEach(m => {
-    // DB 권한 우선, 없으면 accessMenus 폴백
+    const sectionKey = m.section || NO_SECTION;
+    if (!current || current.key !== sectionKey) {
+      current = { key: sectionKey, label: m.section, items: [] };
+      groups.push(current);
+    }
     const hasAccess = (typeof checkMenuAccess === 'function')
       ? checkMenuAccess(m.id, personaRoles, persona.accessMenus)
-      : persona.accessMenus.includes(m.id);
-    if (m.section && m.section !== lastSection) {
-      menuHtml += `<div class="bo-nav-label" style="margin-top:8px">${m.section}</div>`;
-      lastSection = m.section;
+      : (persona.accessMenus || []).includes(m.id);
+    current.items.push({ m, hasAccess });
+  });
+
+  const _pending = _getPendingCounts();
+
+  // ── 섹션 HTML 생성 ────────────────────────────────────────────
+  let menuHtml = '';
+  groups.forEach(g => {
+    const isCollapsed = !!collapsed[g.key];
+
+    if (g.key !== NO_SECTION) {
+      // 섹션 헤더 (클릭 → 접기)
+      menuHtml += `
+      <div onclick="boToggleSection('${g.key}')"
+           style="display:flex;align-items:center;justify-content:space-between;
+                  padding:7px 14px 4px;cursor:pointer;user-select:none;
+                  border-top:1px solid rgba(255,255,255,0.06);margin-top:6px"
+           onmouseover="this.style.background='rgba(255,255,255,0.04)'"
+           onmouseout="this.style.background='transparent'">
+        <span class="bo-nav-label" style="margin:0;font-size:9px;letter-spacing:.08em;pointer-events:none">${g.label}</span>
+        <span id="bo-sec-arrow-${g.key}"
+              style="font-size:13px;color:rgba(255,255,255,0.3);transition:transform .2s;line-height:1;pointer-events:none">
+          ${isCollapsed ? '›' : '⌄'}
+        </span>
+      </div>
+      <div id="bo-sec-${g.key}"
+           style="overflow:hidden;transition:max-height .25s ease,opacity .2s ease;
+                  max-height:${isCollapsed ? '0' : '1000px'};
+                  opacity:${isCollapsed ? '0' : '1'}">`;
     }
-    const _pending = _getPendingCounts();
-    const badge = _pending[m.id] ? `<span class="bo-nav-badge">${_pending[m.id]}</span>` : '';
-    menuHtml += `
-    <div class="bo-nav-item ${boCurrentMenu===m.id?'active':''} ${!hasAccess?'disabled':''}"
-         onclick="boNavigate('${m.id}')">
-      <span class="bo-nav-icon">${m.icon}</span>
-      <span>${m.label}</span>
-      ${badge}
-    </div>`;
+
+    g.items.forEach(({ m, hasAccess }) => {
+      const badge = _pending[m.id] ? `<span class="bo-nav-badge">${_pending[m.id]}</span>` : '';
+      menuHtml += `
+      <div class="bo-nav-item ${boCurrentMenu===m.id?'active':''} ${!hasAccess?'disabled':''}"
+           onclick="boNavigate('${m.id}')">
+        <span class="bo-nav-icon">${m.icon}</span>
+        <span>${m.label}</span>
+        ${badge}
+      </div>`;
+    });
+
+    if (g.key !== NO_SECTION) {
+      menuHtml += `</div>`;  // 섹션 닫기
+    }
   });
 
   // Platform 배지 표시
@@ -314,7 +376,6 @@ function renderBoSidebar() {
     <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">${persona.tenantId ? TENANTS.find(t=>t.id===persona.tenantId)?.name||'' : ''}</div>
   </div>`;
 
-
   document.getElementById('bo-sidebar').innerHTML = `
 <div class="bo-logo">
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -326,7 +387,7 @@ function renderBoSidebar() {
   </div>
 </div>
 ${platformBanner}
-<div class="bo-nav-section" style="flex:1">${menuHtml}</div>
+<div class="bo-nav-section" style="flex:1;overflow-y:auto">${menuHtml}</div>
 <div style="padding:14px 16px;border-top:1px solid rgba(255,255,255,0.08)">
   <a href="frontoffice.html" style="display:flex;align-items:center;gap:8px;color:rgba(255,255,255,0.45);font-size:12px;font-weight:700;text-decoration:none">
     <span>←</span> 프론트로 이동

@@ -9,18 +9,30 @@ const LEARNING_TYPES = [
 
 // Service Definitions (Process Pattern + Budget Toggle)
 let SERVICE_DEFINITIONS = [
-  { id: 'SVC-HMC-OPS',  tenantId: 'HMC', name: '운영교육 (HMC)',            desc: '사내외 집합교육 운영. 계획 수립 후 가점유 신청.',    processPattern: 'A', budgetLinked: true,  applyMode: 'holding',       linkedAccounts: ['HMC-OPS'],  status: 'active' },
-  { id: 'SVC-HMC-ETC',  tenantId: 'HMC', name: '기타교육 (HMC)',            desc: '도서·자격증 등 기타 항목.',                           processPattern: 'A', budgetLinked: true,  applyMode: 'holding',       linkedAccounts: ['HMC-ETC'],  status: 'active' },
-  { id: 'SVC-HMC-PART', tenantId: 'HMC', name: '개인참가비 지원 (HMC)',     desc: '개인 선지불 후 청구. 영수증 첨부, 승인시 즉시차감.',   processPattern: 'B', budgetLinked: true,  applyMode: 'reimbursement', linkedAccounts: ['HMC-PART'], status: 'active' },
-  { id: 'SVC-HMC-RND',  tenantId: 'HMC', name: 'R&D 교육 (HMC)',            desc: 'R&D 교육예산. 계획 필수, 가점유 후 결과 정산.',       processPattern: 'A', budgetLinked: true,  applyMode: 'holding',       linkedAccounts: ['HMC-RND'],  status: 'active' },
-  { id: 'SVC-HMC-FREE', tenantId: 'HMC', name: '무예산 학습이력 (HMC)',     desc: '무료/자비 학습 이력만 등록.',                          processPattern: 'C', budgetLinked: false, applyMode: null,            linkedAccounts: [],           status: 'active' },
-  { id: 'SVC-KIA-OPS',  tenantId: 'KIA', name: '운영교육 (KIA)',            desc: '기아 운영계정 교육. 계획 수립 후 가점유 신청.',        processPattern: 'A', budgetLinked: true,  applyMode: 'holding',       linkedAccounts: ['KIA-OPS'],  status: 'active' },
-  { id: 'SVC-KIA-PART', tenantId: 'KIA', name: '개인참가비 지원 (KIA)',     desc: '기아 개인 선지불 후 청구.',                            processPattern: 'B', budgetLinked: true,  applyMode: 'reimbursement', linkedAccounts: ['KIA-PART'], status: 'active' },
-  { id: 'SVC-HAE-OPS',  tenantId: 'HAE', name: '운영교육 (HAE)',            desc: '현대오토에버 운영계정. 계획->신청->결과 고정 프로세스.', processPattern: 'A', budgetLinked: true,  applyMode: 'holding',       linkedAccounts: ['HAE-OPS'],  status: 'active' },
-  { id: 'SVC-HAE-PART', tenantId: 'HAE', name: '개인직무 사외학습 (HAE)',   desc: '사외교육 참가비 지원. 영수증 첨부 신청.',              processPattern: 'B', budgetLinked: true,  applyMode: 'reimbursement', linkedAccounts: ['HAE-PART'], status: 'active' },
-  { id: 'SVC-HAE-CERT', tenantId: 'HAE', name: '자격증 취득 지원 (HAE)',    desc: '자격증 응시료. 선지불 후 영수증 제출.',                processPattern: 'C', budgetLinked: true,  applyMode: 'reimbursement', linkedAccounts: ['HAE-CERT'], status: 'active' },
-  { id: 'SVC-HAE-FREE', tenantId: 'HAE', name: '무예산 학습이력 (HAE)',     desc: '무료 웨비나 등 학습 이력만 등록.',                     processPattern: 'C', budgetLinked: false, applyMode: null,            linkedAccounts: [],           status: 'active' },
+  { id: 'SVC-HMC-OPS',  tenantId: 'HMC', name: '운영교육 (HMC)',            desc: '사내외 집합교육 운영. 계획 수립 후 가점유 신청.',    processPattern: 'A', budgetLinked: true,  applyMode: 'holding',       linkedAccounts: ['HMC-OPS'],  status: 'active',
+    eduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/세미나/컨퍼런스 참석'] },
+  { id: 'SVC-HMC-ETC',  tenantId: 'HMC', name: '기타교육 (HMC)',            desc: '도서·자격증 등 기타 항목.',                           processPattern: 'A', budgetLinked: true,  applyMode: 'holding',       linkedAccounts: ['HMC-ETC'],  status: 'active',
+    eduTypes: ['도서', '논문/저널', '기술자료', '학/협회비'] },
+  { id: 'SVC-HMC-PART', tenantId: 'HMC', name: '개인참가비 지원 (HMC)',     desc: '개인 선지불 후 청구. 영수증 첨부, 승인시 즉시차감.',   processPattern: 'B', budgetLinked: true,  applyMode: 'reimbursement', linkedAccounts: ['HMC-PART'], status: 'active',
+    eduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/세미나/컨퍼런스 참석', '학회 직접 발표', '도서', '논문/저널', '기술자료', '학/협회비'] },
+  { id: 'SVC-HMC-RND',  tenantId: 'HMC', name: 'R&D 교육 (HMC)',            desc: 'R&D 교육예산. 계획 필수, 가점유 후 결과 정산.',       processPattern: 'A', budgetLinked: true,  applyMode: 'holding',       linkedAccounts: ['HMC-RND'],  status: 'active',
+    eduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/세미나/컨퍼런스 참석', '학회 직접 발표', '도서', '논문/저널', '기술자료'] },
+  { id: 'SVC-HMC-FREE', tenantId: 'HMC', name: '무예산 학습이력 (HMC)',     desc: '무료/자비 학습 이력만 등록.',                          processPattern: 'C', budgetLinked: false, applyMode: null,            linkedAccounts: [],           status: 'active',
+    eduTypes: ['이러닝', '집합교육', '실시간 화상', '도서'] },
+  { id: 'SVC-KIA-OPS',  tenantId: 'KIA', name: '운영교육 (KIA)',            desc: '기아 운영계정 교육. 계획 수립 후 가점유 신청.',        processPattern: 'A', budgetLinked: true,  applyMode: 'holding',       linkedAccounts: ['KIA-OPS'],  status: 'active',
+    eduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/세미나/컨퍼런스 참석'] },
+  { id: 'SVC-KIA-PART', tenantId: 'KIA', name: '개인참가비 지원 (KIA)',     desc: '기아 개인 선지불 후 청구.',                            processPattern: 'B', budgetLinked: true,  applyMode: 'reimbursement', linkedAccounts: ['KIA-PART'], status: 'active',
+    eduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/세미나/컨퍼런스 참석', '도서'] },
+  { id: 'SVC-HAE-OPS',  tenantId: 'HAE', name: '운영교육 (HAE)',            desc: '현대오토에버 운영계정. 계획->신청->결과 고정 프로세스.', processPattern: 'A', budgetLinked: true,  applyMode: 'holding',       linkedAccounts: ['HAE-OPS'],  status: 'active',
+    eduTypes: ['이러닝', '집합교육', '실시간 화상'] },
+  { id: 'SVC-HAE-PART', tenantId: 'HAE', name: '개인직무 사외학습 (HAE)',   desc: '사외교육 참가비 지원. 영수증 첨부 신청.',              processPattern: 'B', budgetLinked: true,  applyMode: 'reimbursement', linkedAccounts: ['HAE-PART'], status: 'active',
+    eduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/세미나/컨퍼런스 참석', '도서'] },
+  { id: 'SVC-HAE-CERT', tenantId: 'HAE', name: '자격증 취득 지원 (HAE)',    desc: '자격증 응시료. 선지불 후 영수증 제출.',                processPattern: 'C', budgetLinked: true,  applyMode: 'reimbursement', linkedAccounts: ['HAE-CERT'], status: 'active',
+    eduTypes: ['기술자료', '학/협회비'] },
+  { id: 'SVC-HAE-FREE', tenantId: 'HAE', name: '무예산 학습이력 (HAE)',     desc: '무료 웨비나 등 학습 이력만 등록.',                     processPattern: 'C', budgetLinked: false, applyMode: null,            linkedAccounts: [],           status: 'active',
+    eduTypes: ['이러닝', '집합교육', '실시간 화상'] },
 ];
+
 
 
 // ─── 법인(테넌트) 마스터 ─────────────────────────────────────────────────────

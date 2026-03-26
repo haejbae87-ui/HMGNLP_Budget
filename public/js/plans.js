@@ -117,7 +117,7 @@ function renderPlanWizard() {
     ${[1, 2, 3, 4].map(n => `
     <div class="step-item flex items-center gap-2 ${s.step > n ? 'done' : s.step === n ? 'active' : ''}">
       <div class="step-circle w-8 h-8 rounded-full flex items-center justify-center text-sm font-black transition-all">${s.step > n ? '✓' : n}</div>
-      <span class="text-xs font-bold ${s.step === n ? 'text-brand' : 'text-gray-400'} hidden sm:block">${['목적 선택', '교육유형', '예산 선택', '세부 정보'][n - 1]}</span>
+      <span class="text-xs font-bold ${s.step === n ? 'text-brand' : 'text-gray-400'} hidden sm:block">${['목적 선택', '예산 선택', '교육유형', '세부 정보'][n - 1]}</span>
       ${n < 4 ? '<div class="h-px flex-1 bg-gray-200 mx-2 w-8"></div>' : ''}
     </div>`).join('')}
   </div>
@@ -193,40 +193,12 @@ function renderPlanWizard() {
     </div>
   </div>
 
-  <!-- ── Step 2: 교육유형 선택 ── -->
+  <!-- ── Step 2: 예산 선택 ── -->
   <div class="${s.step === 2 ? '' : 'hidden'}">
-    <h3 class="text-base font-black text-gray-800 mb-5">02. 교육유형 선택</h3>
-    ${s.purpose?.subtypes ? s.purpose.subtypes.map(g => `
-    <div class="mb-6">
-      <div class="mb-2">
-        <div class="text-xs font-black text-gray-700 flex items-center gap-2 mb-0.5">
-          <span class="w-1.5 h-1.5 bg-accent rounded-full inline-block"></span>${g.group}
-        </div>
-        ${g.desc ? `<div class="text-[11px] text-gray-400 pl-3.5">${g.desc}</div>` : ''}
-      </div>
-      <div class="grid ${g.items.length >= 4 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'} gap-3">
-        ${g.items.map(i => `
-        <button onclick="planState.subType='${i.id}';renderPlanWizard()" class="p-4 rounded-xl border-2 text-sm font-bold text-left leading-snug transition ${s.subType === i.id ? 'bg-gray-900 border-gray-900 text-white shadow-xl' : 'border-gray-200 text-gray-700 hover:border-accent hover:text-accent'}">${i.label}</button>`).join('')}
-      </div>
-    </div>`).join('') : `
-    <div class="p-5 bg-gray-50 rounded-2xl text-sm font-bold text-gray-500 flex items-center gap-3">
-      <span class="text-accent text-xl">✓</span> 표준 프로세스가 자동 적용됩니다.
-    </div>`}
-    <div class="flex justify-between mt-6 pt-4 border-t border-gray-100">
-      <button onclick="planPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
-      <button onclick="planNext()" ${s.purpose?.subtypes && !s.subType ? 'disabled' : ''}
-        class="px-8 py-3 rounded-xl font-black text-sm transition ${s.purpose?.subtypes && !s.subType ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-brand text-white hover:bg-blue-900 shadow-lg'}">
-        다음 →
-      </button>
-    </div>
-  </div>
-
-  <!-- ── Step 3: 예산 선택 ── -->
-  <div class="${s.step === 3 ? '' : 'hidden'}">
-    <h3 class="text-base font-black text-gray-800 mb-5">03. 예산 계정 선택</h3>
+    <h3 class="text-base font-black text-gray-800 mb-5">02. 예산 계정 선택</h3>
     <div class="space-y-4">
       ${availBudgets.length > 0 ? availBudgets.map(b => `
-      <button onclick="planState.budgetId='${b.id}';renderPlanWizard()" class="w-full p-5 rounded-2xl border-2 text-left transition-all hover:border-accent ${s.budgetId === b.id ? 'border-accent bg-blue-50 shadow-lg' : 'border-gray-200 bg-white'}">
+      <button onclick="planSelectBudget('${b.id}')" class="w-full p-5 rounded-2xl border-2 text-left transition-all hover:border-accent ${s.budgetId === b.id ? 'border-accent bg-blue-50 shadow-lg' : 'border-gray-200 bg-white'}">
         <div class="flex items-center justify-between">
           <div>
             <div class="font-black text-gray-900 text-sm ${s.budgetId === b.id ? 'text-accent' : ''}">${b.name}</div>
@@ -251,8 +223,48 @@ function renderPlanWizard() {
     </div>
     <div class="flex justify-between mt-6 pt-4 border-t border-gray-100">
       <button onclick="planPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
-      <button onclick="planNext()" ${!step3CanNext ? 'disabled' : ''}
-        class="px-8 py-3 rounded-xl font-black text-sm transition ${!step3CanNext ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-brand text-white hover:bg-blue-900 shadow-lg'}">
+      <button onclick="planNext()" ${!s.budgetId ? 'disabled' : ''}
+        class="px-8 py-3 rounded-xl font-black text-sm transition ${!s.budgetId ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-brand text-white hover:bg-blue-900 shadow-lg'}">
+        다음 →
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Step 3: 교육유형 선택 ── -->
+  <div class="${s.step === 3 ? '' : 'hidden'}">
+    <h3 class="text-base font-black text-gray-800 mb-5">03. 교육유형 선택</h3>
+    ${(() => {
+      // 선택된 예산 계정과 연결된 SERVICE_DEFINITIONS의 eduTypes 수집
+      const linked = typeof SERVICE_DEFINITIONS !== 'undefined'
+        ? SERVICE_DEFINITIONS.filter(sv =>
+            sv.tenantId === currentPersona.tenantId &&
+            sv.status === 'active' &&
+            sv.linkedAccounts.some(a => curBudget && (a === curBudget.code || a === curBudget.accountCode || a === (curBudget.account === '운영' ? 'HMC-OPS' : curBudget.account === '연구투자' ? 'HMC-RND' : curBudget.account === '참가' ? 'HMC-PART' : '')))
+          )
+        : [];
+      // eduTypes 합집합 (중복 제거)
+      const eduTypes = linked.length > 0
+        ? [...new Set(linked.flatMap(sv => sv.eduTypes || []))]
+        : [...new Set((SERVICE_DEFINITIONS || []).filter(sv => sv.tenantId === currentPersona.tenantId && sv.status === 'active').flatMap(sv => sv.eduTypes || []))];
+
+      if (eduTypes.length === 0) return `
+      <div class="p-5 bg-gray-50 rounded-2xl text-sm font-bold text-gray-500 flex items-center gap-3">
+        <span class="text-accent text-xl">✓</span> 이 예산 계정은 모든 교육유형에 사용 가능합니다.
+      </div>`;
+
+      return `
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        ${eduTypes.map(t => `
+        <button onclick="planState.eduType='${t}';renderPlanWizard()"
+          class="p-4 rounded-xl border-2 text-sm font-bold text-left transition
+                 ${s.eduType === t ? 'bg-gray-900 border-gray-900 text-white shadow-xl' : 'border-gray-200 text-gray-700 hover:border-accent hover:text-accent'}">${t}</button>
+        `).join('')}
+      </div>`;
+    })()}
+    <div class="flex justify-between mt-6 pt-4 border-t border-gray-100">
+      <button onclick="planPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
+      <button onclick="planNext()" ${!s.eduType ? 'disabled' : ''}
+        class="px-8 py-3 rounded-xl font-black text-sm transition ${!s.eduType ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-brand text-white hover:bg-blue-900 shadow-lg'}">
         다음 →
       </button>
     </div>
@@ -271,16 +283,15 @@ function renderPlanWizard() {
         <div class="bg-white rounded-xl px-4 py-3 border border-blue-100">
           <div class="text-[10px] text-blue-400 font-black uppercase tracking-wider mb-1">① 교육 목적</div>
           <div class="font-black text-sm text-gray-900">${s.purpose?.icon || ''} ${s.purpose?.label || '—'}</div>
-          ${s.subType ? (() => { const item = s.purpose?.subtypes?.flatMap(g => g.items).find(i => i.id === s.subType); return item ? `<div class="text-[11px] text-gray-500 mt-0.5">└ ${item.label}</div>` : ''; })() : ''}
         </div>
         <div class="bg-white rounded-xl px-4 py-3 border border-blue-100">
-          <div class="text-[10px] text-blue-400 font-black uppercase tracking-wider mb-1">② 교육유형</div>
-          ${s.subType ? (() => { const item = s.purpose?.subtypes?.flatMap(g => g.items).find(i => i.id === s.subType); const grp = s.purpose?.subtypes?.find(g => g.items.some(i => i.id === s.subType)); return `<div class="font-black text-sm text-gray-900">${item?.label || '—'}</div><div class="text-[11px] text-gray-400 mt-0.5">${grp?.group || ''}</div>`; })() : '<div class="text-sm text-gray-400">표준 프로세스</div>'}
-        </div>
-        <div class="bg-white rounded-xl px-4 py-3 border border-blue-100">
-          <div class="text-[10px] text-blue-400 font-black uppercase tracking-wider mb-1">③ 예산 계정</div>
+          <div class="text-[10px] text-blue-400 font-black uppercase tracking-wider mb-1">② 예산 계정</div>
           <div class="font-black text-sm ${curBudget?.account === '연구투자' ? 'text-orange-500' : 'text-accent'}">${curBudget?.name || '—'}</div>
           ${curBudget ? `<div class="text-[11px] text-gray-400 mt-0.5">잔액 ${fmt(curBudget.balance - curBudget.used)}원</div>` : ''}
+        </div>
+        <div class="bg-white rounded-xl px-4 py-3 border border-blue-100">
+          <div class="text-[10px] text-blue-400 font-black uppercase tracking-wider mb-1">③ 교육유형</div>
+          <div class="font-black text-sm text-gray-900">${s.eduType || '—'}</div>
         </div>
       </div>
     </div>
@@ -352,6 +363,14 @@ function selectPlanPurpose(id) {
   planState.purpose = PURPOSES.find(p => p.id === id);
   planState.subType = '';
   planState.budgetId = '';
+  planState.eduType = '';  // 예산 변경 시 교육유형 리 셋
+  renderPlanWizard();
+}
+
+// 예산 선택 時 교육유형 리셋
+function planSelectBudget(id) {
+  planState.budgetId = id;
+  planState.eduType = '';  // 예산상 달라지면 교육유형도 다시 선택
   renderPlanWizard();
 }
 

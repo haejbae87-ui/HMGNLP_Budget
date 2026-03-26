@@ -9,7 +9,7 @@ let _editPolicyId = null;
 const _PATTERN_META = {
   A:{ label:'패턴A: 계획→신청→결과', color:'#7C3AED', icon:'📊', flow:'plan-apply-result', applyMode:'holding',        budgetLinked:true  },
   B:{ label:'패턴B: 신청→결과',       color:'#1D4ED8', icon:'📝', flow:'apply-result',      applyMode:'holding',        budgetLinked:true  },
-  C:{ label:'패턴C: 신청 단독(후정산)',color:'#D97706', icon:'🧾', flow:'result-only',       applyMode:'reimbursement', budgetLinked:true  },
+  C:{ label:'패턴C: 결과 단독(후정산)',color:'#D97706', icon:'🧾', flow:'result-only',       applyMode:'reimbursement', budgetLinked:true  },
   D:{ label:'패턴D: 신청 단독(이력)', color:'#6B7280', icon:'📋', flow:'result-only',       applyMode:null,            budgetLinked:false },
   E:{ label:'패턴E: 신청→결과(이력+결과)', color:'#059669', icon:'✅', flow:'apply-result', applyMode:null,            budgetLinked:false },
 };
@@ -314,6 +314,27 @@ function renderPolicyWizard() {
   ${i<steps.length-1?`<div style="width:20px;height:2px;background:${i<_policyWizardStep?'#059669':'#E5E7EB'};margin-bottom:16px"></div>`:''}
 </div>`).join('');
 
+  // ── 이전 선택값 요약 배너 (step > 0일 때 표시) ─────────────────────────────
+  const _sumTenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
+  const _sumGroups  = typeof ISOLATION_GROUPS !== 'undefined' ? ISOLATION_GROUPS : [];
+  const _sumAccts   = typeof ACCOUNT_MASTER !== 'undefined' ? ACCOUNT_MASTER : [];
+  const sumTenant   = _sumTenants.find(t => t.id === d.scopeTenantId)?.name || d.scopeTenantId || '';
+  const sumGroup    = _sumGroups.find(g => g.id === d.scopeGroupId)?.name  || d.scopeGroupId  || '';
+  const sumAccts    = (d.accountCodes||[]).map(c => _sumAccts.find(a=>a.code===c)?.name||c).join(', ');
+  const sumPat      = d.processPattern ? `${_PATTERN_META[d.processPattern]?.icon||''} 패턴${d.processPattern}` : '';
+  const summaryChips = [
+    sumTenant  && `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;background:#EFF6FF;border:1px solid #BFDBFE;font-size:11px;font-weight:700;color:#1E40AF">🏢 ${sumTenant}</span>`,
+    sumGroup   && `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;background:#F5F3FF;border:1px solid #DDD6FE;font-size:11px;font-weight:700;color:#5B21B6">🛡️ ${sumGroup}</span>`,
+    sumAccts   && `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;background:#ECFDF5;border:1px solid #A7F3D0;font-size:11px;font-weight:700;color:#065F46">💳 ${sumAccts}</span>`,
+    d.name     && `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;background:#FFFBEB;border:1px solid #FDE68A;font-size:11px;font-weight:700;color:#92400E">📋 ${d.name}</span>`,
+    sumPat     && `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;background:#FEF3C7;border:1px solid #FCD34D;font-size:11px;font-weight:700;color:#B45309">${sumPat}</span>`,
+  ].filter(Boolean).join('');
+  const summaryBar = (_policyWizardStep > 0 && summaryChips) ? `
+<div style="display:flex;gap:6px;flex-wrap:wrap;padding:10px 14px;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;margin-bottom:16px">
+  <span style="font-size:10px;font-weight:900;color:#9CA3AF;white-space:nowrap;line-height:24px">현재 설정:</span>
+  ${summaryChips}
+</div>` : '';
+
   let stepContent = '';
 
   // ── Step 0: 범위 설정 (회사 → 격리그룹 → 예산계정) ────────────────────────────
@@ -363,7 +384,7 @@ function renderPolicyWizard() {
     </div>` : `
     <div style="display:grid;gap:6px">
       ${scopeGroups.map(g=>`
-      <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;
+      <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:10px;
                     border:2px solid ${scopeGroupId===g.id?g.color||'#7C3AED':'#E5E7EB'};
                     background:${scopeGroupId===g.id?(g.bg||'#F5F3FF'):'white'};cursor:pointer"
              onclick="_policyWizardData.scopeGroupId='${g.id}';_policyWizardData.accountCodes=[];_policyWizardData.budgetLinked=true;renderPolicyWizard()">
@@ -535,7 +556,7 @@ function renderPolicyWizard() {
     const budgetedPatterns = [
       { v:'A', icon:'📊', l:'패턴A: 계획→신청→결과', color:'#7C3AED', d:'고통제형. R&D·대규모 집합교육. 사전계획 필수, 예산 가점유 후 실차감.' },
       { v:'B', icon:'📝', l:'패턴B: 신청→결과',       color:'#1D4ED8', d:'자율신청형. 일반 사외교육 참가. 신청 승인 시 가점유, 결과 후 실차감.' },
-      { v:'C', icon:'🧾', l:'패턴C: 신청 단독(후정산)',color:'#D97706', d:'선지불 후정산. 개인 카드 결제 후 영수증 첨부. 승인 즉시 예산 차감.' },
+      { v:'C', icon:'🧾', l:'패턴C: 결과 단독(후정산)',color:'#D97706', d:'선지불 후정산. 개인 카드 결제 후 영수증 첨부. 승인 즉시 예산 차감.' },
     ];
     const noBudgetPatterns = [
       { v:'D', icon:'📋', l:'패턴D: 신청 단독(이력)',      color:'#6B7280', d:'무예산 이력관리. 무료 웨비나·자체세미나. 승인 시 즉시 이력 DB 적재.' },
@@ -570,7 +591,17 @@ function renderPolicyWizard() {
 
   // ── Step 5: 대상 조직 ─────────────────────────────────────────────────────────
   } else if (_policyWizardStep === 5) {
-    const tpls = VIRTUAL_ORG_TEMPLATES.filter(t => t.tenantId === persona.tenantId);
+    // scopeTenantId + scopeGroupId 기반 필터 (persona.tenantId가 아닌 정책 선택 기준)
+    const scopeTenantId = d.scopeTenantId || persona.tenantId;
+    const scopeGroupId  = d.scopeGroupId  || '';
+    const tpls = (typeof VIRTUAL_ORG_TEMPLATES !== 'undefined' ? VIRTUAL_ORG_TEMPLATES : [])
+      .filter(t => {
+        const tTenantId = t.tenantId || t.tenant_id;
+        const tGroupId  = t.isolationGroupId || t.isolation_group_id;
+        if (tTenantId !== scopeTenantId) return false;
+        if (scopeGroupId && tGroupId && tGroupId !== scopeGroupId) return false;
+        return true;
+      });
     stepContent = `
 <div>
   <label class="bo-label">가상조직 템플릿 연결 <span style="color:#EF4444">*</span></label>
@@ -721,6 +752,7 @@ function renderPolicyWizard() {
     <h1 class="bo-page-title" style="margin:0">${_editPolicyId?'정책 수정':'새 정책 만들기'}</h1>
   </div>
   <div style="display:flex;align-items:flex-start;gap:0;margin-bottom:28px;overflow-x:auto;padding-bottom:4px">${stepBar}</div>
+  ${summaryBar}
   <div class="bo-card" style="padding:24px;margin-bottom:16px">${stepContent}</div>
   <div style="display:flex;justify-content:space-between">
     <button onclick="${_policyWizardStep>0?'_policyWizardStep--;renderPolicyWizard()':'renderServicePolicy()'}"

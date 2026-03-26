@@ -18,14 +18,33 @@ function getSB() {
 // ─── 데이터 로더 함수 ─────────────────────────────────────────────────────────
 // 각 함수는 promise를 반환. 실패 시 기존 JS 데이터로 fallback.
 
+// ─── TENANTS 색상 팔레트 (DB에 없으므로 JS에서 머지) ─────────────────────────
+const _TENANT_COLORS = {
+  HMC:    { color: '#002C5F', bg: '#EFF6FF',  border: '#BFDBFE' },
+  KIA:    { color: '#05141F', bg: '#F0FDF4',  border: '#BBF7D0' },
+  HAE:    { color: '#7C3AED', bg: '#F5F3FF',  border: '#DDD6FE' },
+  HSC:    { color: '#BE123C', bg: '#FFF1F2',  border: '#FECDD3' },
+  ROTEM:  { color: '#B45309', bg: '#FFFBEB',  border: '#FDE68A' },
+  HEC:    { color: '#0369A1', bg: '#F0F9FF',  border: '#BAE6FD' },
+  HTS:    { color: '#6D28D9', bg: '#F5F3FF',  border: '#DDD6FE' },
+  GLOVIS: { color: '#0E7490', bg: '#ECFEFF',  border: '#A5F3FC' },
+  HIS:    { color: '#9D174D', bg: '#FDF2F8',  border: '#FBCFE8' },
+  KEFICO: { color: '#1D4ED8', bg: '#EFF6FF',  border: '#BFDBFE' },
+  HISC:   { color: '#374151', bg: '#F9FAFB',  border: '#E5E7EB' },
+  SYSTEM: { color: '#6B7280', bg: '#F9FAFB',  border: '#E5E7EB' },
+};
+
 async function sbLoadTenants() {
   try {
-    const { data, error } = await getSB().from('tenants').select('*').eq('active', true).order('id');
-    if (error) throw error;
-    return data;
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/tenants?select=*&active=eq.true&order=id`,
+      { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    // DB 데이터 + JS 색상 팔레트 머지
+    return data.map(t => ({ ...t, ...(_TENANT_COLORS[t.id] || _TENANT_COLORS.SYSTEM), budgetMode:'full' }));
   } catch (e) {
     console.warn('[Supabase] tenants fallback to mock:', e.message);
-    return TENANTS;  // fallback to JS mock
+    return typeof TENANTS !== 'undefined' ? TENANTS : [];
   }
 }
 
@@ -44,14 +63,26 @@ async function sbLoadAccountMaster(tenantId = null) {
 
 async function sbLoadIsolationGroups(tenantId = null) {
   try {
-    let q = getSB().from('isolation_groups').select('*').eq('status', 'active');
-    if (tenantId) q = q.eq('tenant_id', tenantId);
-    const { data, error } = await q.order('id');
-    if (error) throw error;
-    return data;
+    let url = `${SUPABASE_URL}/rest/v1/isolation_groups?select=*&status=eq.active&order=id`;
+    if (tenantId) url += `&tenant_id=eq.${tenantId}`;
+    const res = await fetch(url,
+      { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    // snake_case → camelCase 정규화 (JS 코드 전체와 호환)
+    return data.map(g => ({
+      ...g,
+      tenantId:        g.tenant_id,
+      desc:            g.descr || '',
+      ownedAccounts:   g.owned_accounts || [],
+      globalAdminKey:  g.global_admin_key || '',
+      globalAdminKeys: g.global_admin_key ? [g.global_admin_key] : [],
+      opManagerKeys:   g.op_manager_keys || [],
+      createdAt:       (g.created_at || '').slice(0, 10),
+    }));
   } catch (e) {
     console.warn('[Supabase] isolation_groups fallback:', e.message);
-    return ISOLATION_GROUPS;
+    return typeof ISOLATION_GROUPS !== 'undefined' ? ISOLATION_GROUPS : [];
   }
 }
 
@@ -238,34 +269,135 @@ function getAllowedMenuSet(roles, fallbackMenus) {
 }
 window.getAllowedMenuSet = getAllowedMenuSet;
 
+// ─── 사용자/역할 로더 → BO_PERSONAS 동적 빌드 ────────────────────────────────
+const _ROLE_CODE_TO_JS = {
+  platform_admin: 'platform_admin',
+  tenant_admin:   'tenant_global_admin',
+  budget_admin:   'budget_global_admin',
+  budget_ops:     'budget_op_manager',
+  learner:        'learner',
+};
+
+async function sbLoadPersonas() {
+  try {
+    // 1. users + user_roles 동시 로드
+    const [usersRes, rolesRes, orgsRes] = await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/users?select=*&status=eq.active`,
+        { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } }),
+      fetch(`${SUPABASE_URL}/rest/v1/user_roles?select=*`,
+        { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } }),
+      fetch(`${SUPABASE_URL}/rest/v1/organizations?select=id,name,type`,
+        { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } }),
+    ]);
+    const users    = await usersRes.json();
+    const allRoles = await rolesRes.json();
+    const orgs     = await orgsRes.json();
+
+    // 2. org 맵 (id → name)
+    const orgMap = {};
+    (orgs || []).forEach(o => { orgMap[o.id] = o.name; });
+
+    // 3. user_id별 역할 그룹화
+    const rolesByUser = {};
+    (allRoles || []).forEach(r => {
+      if (!rolesByUser[r.user_id]) rolesByUser[r.user_id] = [];
+      rolesByUser[r.user_id].push(r);
+    });
+
+    // 역할 우선순위 (level 낮을수록 높은 권한)
+    const _ROLE_LEVEL = {
+      platform_admin: 1, tenant_admin: 2, budget_admin: 3, budget_ops: 4, learner: 99
+    };
+
+    // 4. BO_PERSONAS 객체 빌드
+    const personas = {};
+    users.forEach(u => {
+      const userRoles = rolesByUser[u.id] || [];
+      if (!userRoles.length) return; // 역할 없는 사용자는 제외
+
+      // learner 전용이면 메뉴 접근 없어 BO에서 제외
+      const nonLearnerRoles = userRoles.filter(r => r.role_code !== 'learner');
+      if (!nonLearnerRoles.length) return;
+
+      // 가장 높은 권한(=level 낮은) 역할을 primary role로
+      const sorted = [...nonLearnerRoles].sort(
+        (a, b) => (_ROLE_LEVEL[a.role_code] || 99) - (_ROLE_LEVEL[b.role_code] || 99)
+      );
+      const primaryRoleCode = sorted[0].role_code;
+      const primaryRole     = _ROLE_CODE_TO_JS[primaryRoleCode] || primaryRoleCode;
+
+      // 역할별 기본 accessMenus 설정
+      const ACCESS_BY_ROLE = {
+        platform_admin:     ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'field-mgmt', 'policy-builder', 'user-mgmt', 'role-mgmt', 'reports', 'manual'],
+        tenant_global_admin:['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'policy-builder', 'user-mgmt', 'reports', 'manual'],
+        budget_global_admin:['dashboard', 'my-isolation-group', 'org-budget', 'vorg-assign', 'reports', 'manual'],
+        budget_op_manager:  ['dashboard', 'my-operations', 'org-budget', 'reports', 'manual'],
+        learner:            ['dashboard'],
+      };
+
+      const key = u.emp_no || u.id;
+      const dept = u.org_id ? (orgMap[u.org_id] || '') : '';
+      const tenantId = sorted[0].tenant_id || u.tenant_id;
+
+      personas[key] = {
+        id:          u.emp_no || u.id,
+        name:        u.name,
+        dept:        dept,
+        pos:         '',
+        role:        primaryRole,
+        roles:       sorted.map(r => _ROLE_CODE_TO_JS[r.role_code] || r.role_code),
+        roleLabel:   primaryRole,
+        tenantId:    tenantId,
+        jobType:     u.job_type || 'general',
+        status:      u.status,
+        accessMenus: ACCESS_BY_ROLE[primaryRole] || ['dashboard'],
+        _dbId:       u.id, // DB 원본 id 보존
+      };
+    });
+
+    console.log(`[Supabase] ✅ BO_PERSONAS 로드: ${Object.keys(personas).length}명`);
+    return personas;
+  } catch (e) {
+    console.warn('[Supabase] BO_PERSONAS 로드 실패 → JS mock 유지:', e.message);
+    return null; // null이면 호출처에서 기존 mock 유지
+  }
+}
+window.sbLoadPersonas = sbLoadPersonas;
+
 // ─── 초기 로딩 ───────────────────────────────────────────────────────────────
 // 앱 시작 시 전역 변수를 DB 데이터로 교체
 async function initSupabaseData() {
   console.log('[Supabase] 데이터 로딩 시작...');
   try {
-    const [tenants, accounts, groups, policies] = await Promise.all([
+    // 핸심 데이터를 병렬 로드
+    const [tenants, accounts, groups, policies, personas, vorgTemplates] = await Promise.all([
       sbLoadTenants(),
       sbLoadAccountMaster(),
       sbLoadIsolationGroups(),
-      sbLoadServicePolicies()
+      sbLoadServicePolicies(),
+      sbLoadPersonas(),
+      sbLoadVirtualOrgTemplates(),
     ]);
 
     // 전역 변수 교체
-    if (tenants && tenants.length)   window.TENANTS         = tenants;
-    if (accounts && accounts.length) window.ACCOUNT_MASTER  = accounts;
-    if (groups && groups.length)     window.ISOLATION_GROUPS = groups;
-    if (policies && policies.length) window.SERVICE_POLICIES = policies;
+    if (tenants     && tenants.length)       window.TENANTS            = tenants;
+    if (accounts    && accounts.length)      window.ACCOUNT_MASTER     = accounts;
+    if (groups      && groups.length)        window.ISOLATION_GROUPS   = groups;
+    if (policies    && policies.length)      window.SERVICE_POLICIES   = policies;
+    if (vorgTemplates && vorgTemplates.length) window.VIRTUAL_ORG_TEMPLATES = vorgTemplates;
+    // BO_PERSONAS: DB 데이터로 교체 (실패 시 null 반환 → JS mock 유지)
+    if (personas && Object.keys(personas).length > 0) {
+      // 플랫폼어드민(HMGNLP) 퍼소나는 JS mock에서 복사 (로그인 정체성 유지)
+      const pAdmin = typeof BO_PERSONAS !== 'undefined' ? BO_PERSONAS['platform_admin'] : null;
+      window.BO_PERSONAS = personas;
+      if (pAdmin) window.BO_PERSONAS['platform_admin'] = pAdmin;
+    }
 
-    console.log(`[Supabase] ✅ 로딩 완료 - 테넌트:${tenants.length}, 계정:${accounts.length}, 격리그룹:${groups.length}, 정책:${policies.length}`);
+    console.log(`[Supabase] ✅ DB 로딩 완료 - 테넌트:${tenants?.length}, 계정:${accounts?.length}, 격리그룹:${groups?.length}, 사용자:${personas ? Object.keys(personas).length : 'mock'}`);
 
     // 역할별 메뉴 권한 로드 (비동기, 완료 후 사이드바 재렌더)
     sbLoadRoleMenuPerms().then(() => {
       if (typeof renderBoSidebar === 'function') renderBoSidebar();
-    });
-
-    // 가상조직 템플릿 로드 (비동기)
-    sbLoadVirtualOrgTemplates().then(templates => {
-      if (templates && templates.length) window.VIRTUAL_ORG_TEMPLATES = templates;
     });
 
     // 교육신청 양식 템플릿 로드 (비동기)

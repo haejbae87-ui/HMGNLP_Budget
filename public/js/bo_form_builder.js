@@ -534,6 +534,7 @@ function _fbFormCard(f) {
   </span>
   <!-- 액션 버튼 -->
   <div style="display:flex;gap:4px;flex-shrink:0">
+    <button class="bo-btn-secondary bo-btn-sm" onclick="fbPreviewForm('${f.id}')">🔍 미리보기</button>
     <button class="bo-btn-secondary bo-btn-sm" onclick="fbOpenBuilderModal('${f.id}')">✏️ 수정</button>
     <button onclick="fbToggleActive('${f.id}')"
       style="padding:4px 8px;border-radius:6px;border:1.5px solid ${f.active ? '#F59E0B' : '#059669'};
@@ -1137,3 +1138,123 @@ function _fbSaveMappingFromModal() {
 function _fbEditMapping(id) {
   alert('서비스 매핑 수정 기능은 추후 오픈됩니다.');
 }
+
+// ─── 양식 미리보기 ─────────────────────────────────────────────────────────────
+window._currentPreviewForm = null;
+
+function fbPreviewForm(formId) {
+  const form = FORM_MASTER.find(f => f.id === formId);
+  if (!form) return;
+  
+  const modalId = 'fb-preview-modal';
+  let modal = document.getElementById(modalId);
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = modalId;
+    modal.className = 'bo-modal-overlay';
+    modal.style.zIndex = '9999';
+    modal.style.display = 'none';
+    modal.style.position = 'fixed';
+    modal.style.top = '0'; modal.style.left = '0'; modal.style.width = '100%'; modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+    modal.style.alignItems = 'center'; modal.style.justifyContent = 'center';
+
+    modal.innerHTML = `
+<div class="bo-modal" style="width:700px;max-width:95%;background:#fff;border-radius:12px;display:flex;flex-direction:column;max-height:90vh">
+  <div class="bo-modal-header" style="display:flex;justify-content:space-between;border-bottom:1px solid #E5E7EB;padding:20px;margin-bottom:0;flex-shrink:0">
+    <div>
+      <h3 id="fb-pv-title" style="margin:0;font-size:16px;color:#111827;font-weight:900">양식 미리보기</h3>
+      <div id="fb-pv-desc" style="font-size:11px;color:#6B7280;margin-top:4px">프론트 오피스와 백오피스 환경에서 표시될 양식 형태입니다.</div>
+    </div>
+    <button onclick="document.getElementById('${modalId}').style.display='none'" style="background:none;border:none;font-size:18px;cursor:pointer;color:#9CA3AF">✕</button>
+  </div>
+  
+  <!-- 탭 -->
+  <div style="display:flex;gap:12px;border-bottom:2px solid #E5E7EB;padding:0 20px;flex-shrink:0">
+    <button id="fb-pv-tab-front" onclick="fbRenderPreviewBody('front')"
+            style="padding:12px 16px;font-size:13px;font-weight:900;background:none;border:none;cursor:pointer;
+                   border-bottom:3px solid #059669;color:#059669;margin-bottom:-2px">🙋 Front-Office (학습자/신청자)</button>
+    <button id="fb-pv-tab-back" onclick="fbRenderPreviewBody('back')"
+            style="padding:12px 16px;font-size:13px;font-weight:800;background:none;border:none;cursor:pointer;
+                   border-bottom:3px solid transparent;color:#6B7280;margin-bottom:-2px">💼 Back-Office (결재자/담당자)</button>
+  </div>
+  
+  <!-- 렌더링 영역 -->
+  <div style="padding:20px;overflow-y:auto;flex:1;background:#F9FAFB">
+    <div id="fb-pv-body" style="background:#fff;padding:28px;border-radius:12px;border:1px solid #E5E7EB;box-shadow:0 1px 3px rgba(0,0,0,0.05);max-width:550px;margin:0 auto">
+    </div>
+  </div>
+</div>`;
+    document.body.appendChild(modal);
+  }
+  
+  window._currentPreviewForm = form;
+  document.getElementById('fb-pv-title').textContent = `[${form.name}] 양식 미리보기`;
+  
+  modal.style.display = 'flex';
+  fbRenderPreviewBody('front');
+}
+
+function fbRenderPreviewBody(viewType) {
+  const tFront = document.getElementById('fb-pv-tab-front');
+  const tBack  = document.getElementById('fb-pv-tab-back');
+  if (viewType === 'front') {
+    tFront.style.color = '#059669'; tFront.style.borderBottomColor = '#059669'; tFront.style.fontWeight = '900';
+    tBack.style.color = '#6B7280';  tBack.style.borderBottomColor = 'transparent'; tBack.style.fontWeight = '800';
+  } else {
+    tBack.style.color = '#7C3AED';  tBack.style.borderBottomColor = '#7C3AED'; tBack.style.fontWeight = '900';
+    tFront.style.color = '#6B7280'; tFront.style.borderBottomColor = 'transparent'; tFront.style.fontWeight = '800';
+  }
+
+  const form = window._currentPreviewForm;
+  const bBody = document.getElementById('fb-pv-body');
+  if (!form) return;
+
+  const fields = (form.fields || []).map(f => typeof f === 'object' ? f : { key: f, scope: 'front' });
+  
+  let html = `
+    <h4 style="margin:0 0 20px 0;font-size:18px;color:#111827;border-bottom:2px solid #111827;padding-bottom:12px;font-weight:900">📝 ${form.name}</h4>
+    <div style="display:flex;flex-direction:column;gap:18px">`;
+
+  let visibleCount = 0;
+  
+  fields.forEach(fld => {
+    // FO뷰일 때는 back scope 숨김
+    if (viewType === 'front' && fld.scope === 'back') return;
+    
+    visibleCount++;
+    const poolField = ADVANCED_FIELDS.find(x => x.key === fld.key) || {};
+    const reqStr = poolField.required ? '<span style="color:#EF4444">*</span>' : '';
+    const icon = poolField.icon || '🔸';
+    
+    // Scope 뱃지
+    const scopeBadge = (viewType === 'back') ? 
+      (fld.scope === 'front' ? `<span style="font-size:9px;background:#F0FDF4;color:#059669;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:800">FO입력</span>` : 
+       fld.scope === 'back'  ? `<span style="font-size:9px;background:#F5F3FF;color:#7C3AED;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:800">BO전용</span>` : 
+       `<span style="font-size:9px;background:#EFF6FF;color:#3B82F6;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:800">시스템</span>`) : '';
+
+    let inputHtml = `<input type="text" placeholder="${poolField.hint || fld.key + ' 입력'}" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;background:#F9FAFB" disabled>`;
+    
+    if (poolField.category === '첨부서류') {
+      inputHtml = `<div style="padding:16px;border:2px dashed #D1D5DB;border-radius:8px;text-align:center;color:#9CA3AF;font-size:12px;background:#F9FAFB;font-weight:800">⬆️ 파일 업로드 영역</div>`;
+    }
+
+    html += `
+      <div>
+        <label style="display:flex;align-items:center;font-size:13px;font-weight:800;color:#374151;margin-bottom:8px">
+          ${icon} ${fld.key} ${reqStr} ${scopeBadge}
+        </label>
+        ${inputHtml}
+      </div>
+    `;
+  });
+  
+  if (visibleCount === 0) {
+    html += `<div style="padding:40px 20px;text-align:center;color:#9CA3AF;font-size:13px;font-weight:800;background:#F3F4F6;border-radius:12px">이 표시에 해당하는 필드가 없습니다.</div>`;
+  }
+
+  html += `</div>`;
+  bBody.innerHTML = html;
+}
+window.fbPreviewForm = fbPreviewForm;
+window.fbRenderPreviewBody = fbRenderPreviewBody;

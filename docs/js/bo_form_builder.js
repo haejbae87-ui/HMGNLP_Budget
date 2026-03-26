@@ -63,47 +63,49 @@ const FORM_EDU_TYPES = {
   ],
 };
 
-// 확장된 필드 라이브러리 - 입력 주체(scope) 포함
-const ADVANCED_FIELDS = [
+// 확장된 필드 라이브러리 - 입력 주체(scope) + 필드 타입(fieldType) 포함
+// fieldType: text | textarea | date | daterange | number | user-search | file | rating | select | calc-grounds | budget-linked | system
+var ADVANCED_FIELDS = [
   // 공통 기본 필드
-  { key: '교육목적',      icon: '🎯', required: true,  scope: 'front',  category: '기본정보', hint: '학습 목표 및 기대효과' },
-  { key: '교육기간',      icon: '📅', required: true,  scope: 'front',  category: '기본정보', hint: '시작일~종료일' },
-  { key: '교육기관',      icon: '🏫', required: true,  scope: 'front',  category: '기본정보', hint: '교육 제공 기관명' },
-  { key: '과정명',        icon: '📚', required: true,  scope: 'front',  category: '기본정보', hint: '교육과정/행사명' },
-  { key: '장소',          icon: '📍', required: false, scope: 'front',  category: '기본정보', hint: '교육 장소' },
-  { key: '기대효과',      icon: '✨', required: false, scope: 'front',  category: '기본정보', hint: '참가 후 기대되는 효과' },
+  { key: '교육목적',      icon: '🎯', required: true,  scope: 'front',  category: '기본정보',     fieldType: 'textarea',      hint: '학습 목표 및 기대효과' },
+  { key: '교육기간',      icon: '📅', required: true,  scope: 'front',  category: '기본정보',     fieldType: 'daterange',     hint: '시작일~종료일' },
+  { key: '교육기관',      icon: '🏫', required: true,  scope: 'front',  category: '기본정보',     fieldType: 'text',          hint: '교육 제공 기관명' },
+  { key: '과정명',        icon: '📚', required: true,  scope: 'front',  category: '기본정보',     fieldType: 'text',          hint: '교육과정/행사명' },
+  { key: '장소',          icon: '📍', required: false, scope: 'front',  category: '기본정보',     fieldType: 'text',          hint: '교육 장소' },
+  { key: '기대효과',      icon: '✨', required: false, scope: 'front',  category: '기본정보',     fieldType: 'textarea',      hint: '참가 후 기대되는 효과' },
   // 비용 관련
-  { key: '예상비용',      icon: '💰', required: true,  scope: 'front',  category: '비용정보', hint: '예상 총 비용 (예산 잔액 연동)', budget: true },
-  { key: '교육비',        icon: '💳', required: true,  scope: 'front',  category: '비용정보', hint: '수강료/등록비' },
-  { key: '참가비',        icon: '💲', required: false, scope: 'front',  category: '비용정보', hint: '행사 참가비' },
-  { key: '강사료',        icon: '👨‍🏫', required: false, scope: 'front',  category: '비용정보', hint: '외부 강사 강의료', trigger: '강사이력서' },
-  { key: '대관비',        icon: '🏛️', required: false, scope: 'front',  category: '비용정보', hint: '장소 대관 비용' },
-  { key: '식대/용차',     icon: '🍽️', required: false, scope: 'front',  category: '비용정보', hint: '식비 및 운송비' },
-  { key: '실지출액',      icon: '🧾', required: false, scope: 'back',   category: '비용정보', hint: '승인자 확정 실지출 인정액' },
+  { key: '예상비용',      icon: '💰', required: true,  scope: 'front',  category: '비용정보',     fieldType: 'budget-linked', hint: '예상 총 비용 — 조직 예산 잔액 연동', budget: true },
+  { key: '교육비',        icon: '💳', required: true,  scope: 'front',  category: '비용정보',     fieldType: 'number',        hint: '수강료/등록비 (원 단위)' },
+  { key: '참가비',        icon: '💲', required: false, scope: 'front',  category: '비용정보',     fieldType: 'number',        hint: '행사 참가비 (원 단위)' },
+  { key: '강사료',        icon: '👨‍🏫', required: false, scope: 'front',  category: '비용정보',    fieldType: 'number',        hint: '외부 강사 강의료', trigger: '강사이력서' },
+  { key: '대관비',        icon: '🏛️', required: false, scope: 'front',  category: '비용정보',     fieldType: 'number',        hint: '장소 대관 비용' },
+  { key: '식대/용차',     icon: '🍽️', required: false, scope: 'front',  category: '비용정보',     fieldType: 'number',        hint: '식비 및 운송비' },
+  { key: '실지출액',      icon: '🧾', required: false, scope: 'back',   category: '비용정보',     fieldType: 'number',        hint: '승인자 확정 실지출 인정액' },
+  { key: '세부산출근거',  icon: '📐', required: false, scope: 'front',  category: '비용정보',     fieldType: 'calc-grounds',  hint: '세부산출근거 항목 선택 (테넌트별 자동 로드)' },
   // 인원 관련
-  { key: '수강인원',      icon: '👥', required: false, scope: 'front',  category: '인원정보', hint: '예상 수강 인원' },
-  { key: '정원',          icon: '🪑', required: false, scope: 'front',  category: '인원정보', hint: '최대 정원' },
-  { key: '참여자명단',    icon: '📋', required: false, scope: 'front',  category: '인원정보', hint: '참여자 명단 (엑셀 업로드)' },
-  { key: '강사정보',      icon: '🎤', required: false, scope: 'front',  category: '인원정보', hint: '확정 강사 정보' },
+  { key: '수강인원',      icon: '👥', required: false, scope: 'front',  category: '인원정보',     fieldType: 'number',        hint: '예상 수강 인원 (명)' },
+  { key: '정원',          icon: '🪑', required: false, scope: 'front',  category: '인원정보',     fieldType: 'number',        hint: '최대 정원 (명)' },
+  { key: '참여자명단',    icon: '📋', required: false, scope: 'front',  category: '인원정보',     fieldType: 'user-search',   hint: '참여자 검색 및 명단 구성' },
+  { key: '강사정보',      icon: '🎤', required: false, scope: 'front',  category: '인원정보',     fieldType: 'user-search',   hint: '강사 검색 — 내부 사용자 조회' },
   // 첨부 서류
-  { key: '첨부파일',      icon: '📎', required: false, scope: 'front',  category: '첨부서류', hint: '관련 서류 첨부' },
-  { key: '강사이력서',    icon: '📄', required: false, scope: 'front',  category: '첨부서류', hint: '외부강사 이력서 (강사료 선택 시 자동 활성화)' },
-  { key: '보안서약서',    icon: '🔒', required: false, scope: 'front',  category: '첨부서류', hint: '보안 서약서 서명' },
-  { key: '영수증',        icon: '🧾', required: false, scope: 'front',  category: '첨부서류', hint: '결제 영수증/증빙' },
-  { key: '수료증',        icon: '🎓', required: false, scope: 'front',  category: '첨부서류', hint: '수료증 업로드' },
-  { key: '대관확정서',    icon: '📜', required: false, scope: 'front',  category: '첨부서류', hint: '장소 대관 확정서' },
-  { key: '납품확인서',    icon: '✅', required: false, scope: 'front',  category: '첨부서류', hint: '물품 납품 확인서' },
+  { key: '첨부파일',      icon: '📎', required: false, scope: 'front',  category: '첨부서류',     fieldType: 'file',          hint: '관련 서류 첨부' },
+  { key: '강사이력서',    icon: '📄', required: false, scope: 'front',  category: '첨부서류',     fieldType: 'file',          hint: '외부강사 이력서 (강사료 선택 시 자동 활성화)' },
+  { key: '보안서약서',    icon: '🔒', required: false, scope: 'front',  category: '첨부서류',     fieldType: 'file',          hint: '보안 서약서 서명' },
+  { key: '영수증',        icon: '🧾', required: false, scope: 'front',  category: '첨부서류',     fieldType: 'file',          hint: '결제 영수증/증빙' },
+  { key: '수료증',        icon: '🎓', required: false, scope: 'front',  category: '첨부서류',     fieldType: 'file',          hint: '수료증 업로드' },
+  { key: '대관확정서',    icon: '📜', required: false, scope: 'front',  category: '첨부서류',     fieldType: 'file',          hint: '장소 대관 확정서' },
+  { key: '납품확인서',    icon: '✅', required: false, scope: 'front',  category: '첨부서류',     fieldType: 'file',          hint: '물품 납품 확인서' },
   // 결과 관련
-  { key: '수료생명단',    icon: '📝', required: false, scope: 'front',  category: '결과정보', hint: '최종 수료자 명단' },
-  { key: '학습만족도',    icon: '⭐', required: false, scope: 'front',  category: '결과정보', hint: '만족도 조사 (별점)' },
-  { key: '교육결과요약',  icon: '📊', required: false, scope: 'front',  category: '결과정보', hint: '교육 결과 요약 보고' },
+  { key: '수료생명단',    icon: '📝', required: false, scope: 'front',  category: '결과정보',     fieldType: 'user-search',   hint: '최종 수료자 명단' },
+  { key: '학습만족도',    icon: '⭐', required: false, scope: 'front',  category: '결과정보',     fieldType: 'rating',        hint: '만족도 조사 (5점 척도)' },
+  { key: '교육결과요약',  icon: '📊', required: false, scope: 'front',  category: '결과정보',     fieldType: 'textarea',      hint: '교육 결과 요약 보고' },
   // 백오피스 전용 (승인자)
-  { key: 'ERP코드',       icon: '🔗', required: false, scope: 'back',   category: '관리(승인자)', hint: 'ERP 연동 비용 코드' },
-  { key: '검토의견',      icon: '💬', required: false, scope: 'back',   category: '관리(승인자)', hint: '승인자 검토 및 의견' },
-  { key: '관리자비고',    icon: '📌', required: false, scope: 'back',   category: '관리(승인자)', hint: '관리자 내부 메모' },
+  { key: 'ERP코드',       icon: '🔗', required: false, scope: 'back',   category: '관리(승인자)', fieldType: 'text',          hint: 'ERP 연동 비용 코드' },
+  { key: '검토의견',      icon: '💬', required: false, scope: 'back',   category: '관리(승인자)', fieldType: 'textarea',      hint: '승인자 검토 및 의견' },
+  { key: '관리자비고',    icon: '📌', required: false, scope: 'back',   category: '관리(승인자)', fieldType: 'textarea',      hint: '관리자 내부 메모' },
   // 연결/시스템 필드
-  { key: '계획서연결',    icon: '🔗', required: false, scope: 'system', category: '시스템', hint: '연결된 교육계획 양식 자동 불러오기' },
-  { key: '예산계정',      icon: '💼', required: false, scope: 'system', category: '시스템', hint: '예산 계정 잔액 실시간 연동', budget: true },
+  { key: '계획서연결',    icon: '🔗', required: false, scope: 'system', category: '시스템',       fieldType: 'system',        hint: '연결된 교육계획 양식 자동 불러오기' },
+  { key: '예산계정',      icon: '💼', required: false, scope: 'system', category: '시스템',       fieldType: 'budget-linked', hint: '예산 계정 잔액 실시간 연동', budget: true },
 ];
 
 // 서비스 매핑 데이터 (테넌트별 관리)
@@ -1195,6 +1197,74 @@ function fbPreviewForm(formId) {
   fbRenderPreviewBody('front');
 }
 
+function _fbFieldInput(fld, poolField, viewType) {
+  const ft   = poolField.fieldType || 'text';
+  const hint = poolField.hint || (fld.key + ' 입력');
+  const base = 'width:100%;box-sizing:border-box;padding:12px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;background:#F9FAFB;';
+
+  // FO에서 BO전용 필드는 읽기전용 표시
+  const isReadOnly = (viewType === 'back' && fld.scope === 'front');
+  const overlay   = isReadOnly ? '' : '';
+
+  if (ft === 'textarea') {
+    return `<textarea rows="3" placeholder="${hint}" style="${base}resize:vertical" disabled></textarea>`;
+  }
+  if (ft === 'daterange') {
+    return `<div style="display:flex;gap:8px;align-items:center">
+      <input type="date" style="${base}flex:1" disabled>
+      <span style="color:#9CA3AF;font-size:12px">~</span>
+      <input type="date" style="${base}flex:1" disabled>
+    </div>`;
+  }
+  if (ft === 'date') {
+    return `<input type="date" style="${base}" disabled>`;
+  }
+  if (ft === 'number' || ft === 'budget-linked') {
+    const prefix = (ft === 'budget-linked')
+      ? `<div style="padding:8px 12px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;font-size:11px;color:#1D4ED8;font-weight:800;margin-bottom:8px">💼 조직 잔액: <b>실시간 조회</b> (연동 예정)</div>` : '';
+    return prefix + `<div style="display:flex;align-items:center;gap:0">
+      <span style="padding:12px;background:#F3F4F6;border:1.5px solid #E5E7EB;border-radius:8px 0 0 8px;font-size:13px;color:#6B7280">₩</span>
+      <input type="number" placeholder="0" style="${base}border-radius:0 8px 8px 0;border-left:none" disabled>
+    </div>`;
+  }
+  if (ft === 'file') {
+    return `<div style="padding:16px;border:2px dashed #D1D5DB;border-radius:8px;text-align:center;color:#9CA3AF;font-size:12px;background:#F9FAFB;font-weight:800">⬆️ 파일 업로드 영역</div>`;
+  }
+  if (ft === 'rating') {
+    return `<div style="display:flex;gap:6px;padding:8px 0">
+      ${[1,2,3,4,5].map(n=>`<span style="font-size:28px;color:#D1D5DB;cursor:default">☆</span>`).join('')}
+      <span style="font-size:12px;color:#9CA3AF;margin-left:8px;line-height:28px">5점 척도</span>
+    </div>`;
+  }
+  if (ft === 'user-search') {
+    return `<div style="display:flex;gap:8px">
+      <input type="text" placeholder="이름 또는 사번으로 검색..." style="${base}flex:1" disabled>
+      <button disabled style="padding:0 16px;background:#6366F1;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:not-allowed;opacity:0.6">🔍 검색</button>
+    </div>`;
+  }
+  if (ft === 'calc-grounds') {
+    return `<div style="padding:12px;border:1.5px solid #E5E7EB;border-radius:8px;background:#F9FAFB">
+      <div style="font-size:11px;color:#6B7280;margin-bottom:8px;font-weight:800">📐 선택 가능한 세부산출근거 항목 (테넌트별 자동 로드)</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${['과정비(외부위탁)','강사료(외부)','교재비','시설/기자재 임차료'].map(t=>`
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid #E5E7EB;border-radius:6px;background:#fff;cursor:default">
+          <input type="checkbox" disabled> <span style="font-size:12px">${t}</span>
+        </label>`).join('')}
+        <span style="font-size:10px;color:#9CA3AF">실제 항목은 산정기준 관리에서 불러옵니다</span>
+      </div>
+    </div>`;
+  }
+  if (ft === 'select') {
+    const opts = (poolField.options || ['선택 1','선택 2','선택 3']).map(o=>`<option>${o}</option>`).join('');
+    return `<select style="${base}" disabled><option>— 선택 —</option>${opts}</select>`;
+  }
+  if (ft === 'system') {
+    return `<div style="padding:10px 14px;background:#F0F9FF;border:1.5px solid #BAE6FD;border-radius:8px;font-size:12px;color:#0369A1;font-weight:800">🔄 시스템 자동 연결 필드</div>`;
+  }
+  // default: text
+  return `<input type="text" placeholder="${hint}" style="${base}" disabled>`;
+}
+
 function fbRenderPreviewBody(viewType) {
   const tFront = document.getElementById('fb-pv-tab-front');
   const tBack  = document.getElementById('fb-pv-tab-back');
@@ -1206,51 +1276,67 @@ function fbRenderPreviewBody(viewType) {
     tFront.style.color = '#6B7280'; tFront.style.borderBottomColor = 'transparent'; tFront.style.fontWeight = '800';
   }
 
-  const form = window._currentPreviewForm;
+  const form  = window._currentPreviewForm;
   const bBody = document.getElementById('fb-pv-body');
   if (!form) return;
 
   const fields = (form.fields || []).map(f => typeof f === 'object' ? f : { key: f, scope: 'front' });
-  
+
+  // 필드 타입 배지
+  const TYPE_BADGE = {
+    text:           { label: '텍스트',   color: '#6B7280', bg: '#F3F4F6' },
+    textarea:       { label: '장문',     color: '#059669', bg: '#F0FDF4' },
+    date:           { label: '날짜',     color: '#0369A1', bg: '#EFF6FF' },
+    daterange:      { label: '날짜범위', color: '#0369A1', bg: '#EFF6FF' },
+    number:         { label: '숫자',     color: '#D97706', bg: '#FFFBEB' },
+    'user-search':  { label: '사용자검색', color: '#6366F1', bg: '#EEF2FF' },
+    file:           { label: '파일',     color: '#9D174D', bg: '#FDF2F8' },
+    rating:         { label: '별점',     color: '#F59E0B', bg: '#FFFBEB' },
+    select:         { label: '선택',     color: '#7C3AED', bg: '#F5F3FF' },
+    'calc-grounds': { label: '산출근거', color: '#065F46', bg: '#ECFDF5' },
+    'budget-linked':{ label: '예산연동', color: '#1D4ED8', bg: '#EFF6FF' },
+    system:         { label: '시스템',   color: '#6B7280', bg: '#F3F4F6' },
+  };
+
   let html = `
     <h4 style="margin:0 0 20px 0;font-size:18px;color:#111827;border-bottom:2px solid #111827;padding-bottom:12px;font-weight:900">📝 ${form.name}</h4>
     <div style="display:flex;flex-direction:column;gap:18px">`;
 
   let visibleCount = 0;
-  
+
   fields.forEach(fld => {
-    // FO뷰일 때는 back scope 숨김
     if (viewType === 'front' && fld.scope === 'back') return;
-    
+
     visibleCount++;
     const poolField = ADVANCED_FIELDS.find(x => x.key === fld.key) || {};
-    const reqStr = poolField.required ? '<span style="color:#EF4444">*</span>' : '';
-    const icon = poolField.icon || '🔸';
-    
-    // Scope 뱃지
-    const scopeBadge = (viewType === 'back') ? 
-      (fld.scope === 'front' ? `<span style="font-size:9px;background:#F0FDF4;color:#059669;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:800">FO입력</span>` : 
-       fld.scope === 'back'  ? `<span style="font-size:9px;background:#F5F3FF;color:#7C3AED;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:800">BO전용</span>` : 
-       `<span style="font-size:9px;background:#EFF6FF;color:#3B82F6;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:800">시스템</span>`) : '';
+    const reqStr    = poolField.required ? '<span style="color:#EF4444"> *</span>' : '';
+    const icon      = poolField.icon || '🔸';
+    const ft        = poolField.fieldType || fld.fieldType || 'text';
+    const tb        = TYPE_BADGE[ft] || TYPE_BADGE.text;
 
-    let inputHtml = `<input type="text" placeholder="${poolField.hint || fld.key + ' 입력'}" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;background:#F9FAFB" disabled>`;
-    
-    if (poolField.category === '첨부서류') {
-      inputHtml = `<div style="padding:16px;border:2px dashed #D1D5DB;border-radius:8px;text-align:center;color:#9CA3AF;font-size:12px;background:#F9FAFB;font-weight:800">⬆️ 파일 업로드 영역</div>`;
+    // Scope 배지
+    let scopeBadge = '';
+    if (viewType === 'back') {
+      if (fld.scope === 'front')  scopeBadge = `<span style="font-size:9px;background:#F0FDF4;color:#059669;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:800">FO입력</span>`;
+      else if (fld.scope === 'back') scopeBadge = `<span style="font-size:9px;background:#F5F3FF;color:#7C3AED;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:800">BO전용</span>`;
+      else scopeBadge = `<span style="font-size:9px;background:#EFF6FF;color:#3B82F6;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:800">시스템</span>`;
     }
+
+    // 타입 배지
+    const typeBadge = `<span style="font-size:9px;background:${tb.bg};color:${tb.color};padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:800">${tb.label}</span>`;
 
     html += `
       <div>
         <label style="display:flex;align-items:center;font-size:13px;font-weight:800;color:#374151;margin-bottom:8px">
-          ${icon} ${fld.key} ${reqStr} ${scopeBadge}
+          ${icon} ${fld.key} ${reqStr} ${typeBadge} ${scopeBadge}
         </label>
-        ${inputHtml}
+        ${_fbFieldInput(fld, poolField, viewType)}
       </div>
     `;
   });
-  
+
   if (visibleCount === 0) {
-    html += `<div style="padding:40px 20px;text-align:center;color:#9CA3AF;font-size:13px;font-weight:800;background:#F3F4F6;border-radius:12px">이 표시에 해당하는 필드가 없습니다.</div>`;
+    html += `<div style="padding:40px 20px;text-align:center;color:#9CA3AF;font-size:13px;font-weight:800;background:#F3F4F6;border-radius:12px">이 화면에 해당하는 필드가 없습니다.</div>`;
   }
 
   html += `</div>`;

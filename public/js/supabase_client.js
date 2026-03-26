@@ -347,3 +347,61 @@ async function sbDeleteFormTemplate(formId) {
 }
 window.sbDeleteFormTemplate = sbDeleteFormTemplate;
 
+// ─── field_definitions 로더/저장/삭제 ─────────────────────────────────────────
+async function sbLoadFieldDefinitions() {
+  try {
+    const { data, error } = await getSB()
+      .from('field_definitions')
+      .select('*')
+      .eq('active', true)
+      .order('category').order('sort_order');
+    if (error) throw error;
+    if (!data || !data.length) return null;
+    // DB 컬럼명(snake_case) → ADVANCED_FIELDS 형식(camelCase) 변환
+    return data.map(r => ({
+      key:         r.key,
+      fieldType:   r.field_type,
+      category:    r.category,
+      icon:        r.icon || '',
+      scope:       r.scope,
+      required:    r.required,
+      hint:        r.hint || '',
+      options:     r.options || undefined,
+      trigger:     r.trigger_field || undefined,
+      budget:      r.budget || false,
+    }));
+  } catch (e) {
+    console.warn('[Supabase] field_definitions 로드 실패 (JS 상수 사용):', e.message);
+    return null;
+  }
+}
+window.sbLoadFieldDefinitions = sbLoadFieldDefinitions;
+
+async function sbSaveFieldDefinition(row) {
+  try {
+    const { error } = await getSB()
+      .from('field_definitions')
+      .upsert(row, { onConflict: 'id' });
+    if (error) throw error;
+    return true;
+  } catch (e) {
+    console.error('[Supabase] field_definitions 저장 실패:', e.message);
+    return false;
+  }
+}
+window.sbSaveFieldDefinition = sbSaveFieldDefinition;
+
+async function sbDeleteFieldDefinition(key) {
+  try {
+    const { error } = await getSB()
+      .from('field_definitions')
+      .delete()
+      .eq('key', key);
+    if (error) throw error;
+    return true;
+  } catch (e) {
+    console.error('[Supabase] field_definitions 삭제 실패:', e.message);
+    return false;
+  }
+}
+window.sbDeleteFieldDefinition = sbDeleteFieldDefinition;

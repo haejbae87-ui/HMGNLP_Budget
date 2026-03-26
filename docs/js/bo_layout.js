@@ -191,6 +191,7 @@ const PLATFORM_MENUS = [
   { id: 'budget-account',    icon: '💳', label: '예산 계정 관리',          section: null },
   { id: 'virtual-org',       icon: '🏗️', label: '가상조직 템플릿 관리',   section: null },
   { id: 'form-builder',      icon: '📝', label: '교육양식마법사',          section: null },
+  { id: 'field-mgmt',        icon: '⚙️', label: '입력 필드 관리',          section: null },
   { id: 'calc-grounds',      icon: '📐', label: '산정기준 관리',          section: null },
   { id: 'service-policy',    icon: '🔧', label: '서비스 정책 관리',        section: null },
   { id: 'reports',           icon: '📈', label: '통계 및 리포트',        section: '분석' },
@@ -449,6 +450,7 @@ function boNavigate(menuId) {
     : boCurrentPersona.accessMenus.includes(menuId);
   if (!allowed) return;
   boCurrentMenu = menuId;
+  sessionStorage.setItem('boLastMenu', menuId); // 현재 메뉴 기억
   renderBoSidebar();
   renderBoHeader();
   document.getElementById('bo-content').innerHTML = '';
@@ -465,6 +467,7 @@ function boNavigate(menuId) {
   if (menuId === 'budget-account')   renderBudgetAccount();
   if (menuId === 'virtual-org')      renderVirtualOrg();
   if (menuId === 'form-builder')     renderFormBuilderMenu();
+  if (menuId === 'field-mgmt')       renderFieldMgmt();
   if (menuId === 'calc-grounds')     renderCalcGrounds();
   if (menuId === 'approval-routing') renderApprovalRouting();
   if (menuId === 'service-policy')   renderServicePolicy();

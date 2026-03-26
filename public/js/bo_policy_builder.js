@@ -622,7 +622,9 @@ function renderPolicyWizard() {
 
   // ── Step 6: 단계별 양식 선택 ──────────────────────────────────────────────────
   } else if (_policyWizardStep === 6) {
-    const myForms = FORM_MASTER.filter(f => f.tenantId === persona.tenantId && f.active);
+    const _scopeTenantId = d.scopeTenantId || persona.tenantId;
+    const myForms = (typeof FORM_MASTER !== 'undefined' ? FORM_MASTER : [])
+      .filter(f => (f.tenantId === _scopeTenantId) && f.active);
     const stages = _PATTERN_STAGES[d.processPattern] || ['apply'];
     const stageLabel = { plan:'📊 계획', apply:'📝 신청', result:'📄 결과' };
     const stageColor = { plan:'#7C3AED', apply:'#1D4ED8', result:'#059669' };

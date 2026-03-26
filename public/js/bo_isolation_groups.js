@@ -73,7 +73,7 @@ function _renderPlatformAdminView(persona, personaKey) {
   const tenantSelect = `
 <div style="display:flex;align-items:center;gap:10px;padding:12px 18px;
             background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;margin-bottom:24px;flex-wrap:wrap">
-  <span style="font-size:11px;font-weight:900;color:#92400E">🏢 테넌트 선택</span>
+  <span style="font-size:11px;font-weight:900;color:#92400E">🏢 회사 선택</span>
   <select onchange="_igPlatformTenantId=this.value;renderIsolationGroups()"
     style="padding:7px 12px;border:1.5px solid #FDE68A;border-radius:8px;font-size:12px;font-weight:700;
            background:#fff;color:#92400E;cursor:pointer">
@@ -605,7 +605,7 @@ function _renderAddOpModal(persona, personaKey) {
   if (!g) { _igAddOpModal = false; return ''; }
   const candidates = Object.entries(BO_PERSONAS).filter(([k,p]) =>
     p.tenantId === g.tenantId &&
-    p.role === 'budget_op_manager' &&
+    (p.role === 'budget_op_manager' || (p.roles||[]).includes('budget_op_manager')) &&
     !g.opManagerKeys.includes(k)
   );
 

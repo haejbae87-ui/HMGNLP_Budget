@@ -128,6 +128,20 @@ const BO_PERSONAS = {
     accessMenus: ['dashboard', 'my-operations', 'org-budget', 'reports', 'manual']
   },
 
+  // 김O수: HMC 연구개발성장지원팀 (사용자 관리에서 예산운영담당자 역할 추가된 학습자)
+  hmc_op_kim: {
+    id: 'RND001', name: '김O수', dept: '연구개발성장지원팀', pos: '매니저',
+    role: 'budget_op_manager', roleLabel: '예산 운영 (일반그룹)',
+    roleClass: 'role-center', roleTag: '[운영]',
+    budgetGroup: 'general', tenantId: 'HMC',
+    isolationGroupId: 'IG-HMC-GEN',
+    scope: '연구개발성장지원팀',
+    ownedAccounts: [],
+    allowedAccounts: ['HMC-OPS'],
+    isolationGroup: 'HMC-GEN',
+    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'reports', 'manual']
+  },
+
   // ── [기아 KIA] ────────────────────────────────────────────────────────────
   // 고O현: KIA 테넌트 총괄 겸 일반예산 총괄 (단일 격리 그룹 소규모 테넌트)
   kia_tenant_admin: {

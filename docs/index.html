@@ -7,6 +7,11 @@
   <title>차세대학습플랫폼 – 통합교육이력관리</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
+    if (!sessionStorage.getItem('loggedInUser')) {
+      window.location.href = 'login.html';
+    }
+  </script>
+  <script>
     tailwind.config = {
       theme: {
         extend: {

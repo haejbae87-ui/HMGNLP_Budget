@@ -184,26 +184,19 @@ function renderGNB() {
 // 페르소나 전환 함수 (LXP 전용)
 function switchPersonaTo(key) {
   if (PERSONAS[key]) {
-    currentPersona = PERSONAS[key];
-    applyState = resetApplyState();
-    _gnbDropdownOpen = null;
-    renderGNB();
-    renderFloatingBudget();
-    navigate(currentPage);
+    sessionStorage.setItem('currentPersona', key);
+    window.location.reload();
   }
 }
 
 // 레거시 switchPersona 호환 유지
 function switchPersona() {
   const keys = Object.keys(PERSONAS);
-  const idx = keys.indexOf(Object.keys(PERSONAS).find(k => PERSONAS[k] === currentPersona));
-  const next = PERSONAS[keys[(idx + 1) % keys.length]];
-  currentPersona = next;
-  applyState = resetApplyState();
-  _gnbDropdownOpen = null;
-  renderGNB();
-  renderFloatingBudget();
-  navigate(currentPage);
+  const currentKey = Object.keys(PERSONAS).find(k => PERSONAS[k] === currentPersona) || keys[0];
+  const idx = keys.indexOf(currentKey);
+  const nextKey = keys[(idx + 1) % keys.length];
+  sessionStorage.setItem('currentPersona', nextKey);
+  window.location.reload();
 }
 
 // ─── FLOATING BUDGET WIDGET ─────────────────────────────────────────────────

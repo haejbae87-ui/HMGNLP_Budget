@@ -110,7 +110,8 @@ const MOCK_PLANS = [
 ];
 
 // ─── GLOBAL STATE ────────────────────────────────────────────────────────────
-let currentPersona = PERSONAS.hmc_team_mgr;
+const savedPersonaFo = sessionStorage.getItem('currentPersona') || 'hmc_team_mgr';
+let currentPersona = PERSONAS[savedPersonaFo] || PERSONAS.hmc_team_mgr;
 let currentPage = 'dashboard';
 // 교육신청 화면 모드: 'list' = 신청 목록, 'form' = 신청 폼
 // (navigate('apply') 진입 시 'list'로 리셋)

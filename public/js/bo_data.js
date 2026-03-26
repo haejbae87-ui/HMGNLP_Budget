@@ -466,7 +466,8 @@ let ISOLATION_GROUPS = [
   { id: 'IG-HISC-FREE', tenantId: 'HISC',   name: '예산미사용 그룹',   color: '#6B7280', bg: '#F9FAFB', desc: 'HISC 무예산 학습이력 관리 전용',globalAdminKey: 'hisc_total',        globalAdminKeys: ['hisc_total'],       opManagerKeys: [],                  ownedAccounts: ['COMMON-FREE'],                     createdBy: 'hisc_total',          status: 'active', createdAt: '2026-02-01' },
 ];
 
-let boCurrentPersona = BO_PERSONAS.platform_admin;
+const savedPersonaBo = sessionStorage.getItem('currentPersona') || 'platform_admin';
+let boCurrentPersona = BO_PERSONAS[savedPersonaBo] || BO_PERSONAS.platform_admin;
 let boCurrentMenu = 'dashboard';
 
 // ─── 가상 조직도 (Virtual Org) ───────────────────────────────────────────────

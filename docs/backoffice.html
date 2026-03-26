@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 
 <head>
@@ -6,6 +6,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Next Learning – 교육예산관리 Back Office</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    if (!sessionStorage.getItem('loggedInUser')) {
+      window.location.href = 'login.html';
+    }
+  </script>
   <script>
     tailwind.config = {
       theme: { extend: { colors: { brand: '#002C5F', accent: '#007AFF' } } }

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Next Learning - 로그인</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: { brand: '#002C5F', accent: '#007AFF' } } }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #f3f4f6; }
+    .login-container { max-width: 400px; width: 100%; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center">
+
+  <div class="login-container">
+    <div class="text-center mb-8">
+      <h1 class="text-3xl font-black text-brand tracking-tight mb-2">Next Learning</h1>
+      <p class="text-sm text-gray-500 font-medium">통합교육이력관리 시스템</p>
+    </div>
+
+    <form id="login-form">
+      <div class="mb-5">
+        <label for="emp_no" class="block text-sm font-bold text-gray-700 mb-1">아이디 (사번)</label>
+        <input type="text" id="emp_no" class="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 focus:bg-white focus:border-brand focus:ring-2 focus:ring-brand focus:ring-opacity-20 transition-colors" placeholder="HMGNLP" required />
+      </div>
+      
+      <div class="mb-6">
+        <label for="password" class="block text-sm font-bold text-gray-700 mb-1">비밀번호</label>
+        <input type="password" id="password" class="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 focus:bg-white focus:border-brand focus:ring-2 focus:ring-brand focus:ring-opacity-20 transition-colors" placeholder="1218" required />
+      </div>
+
+      <button type="submit" id="login-btn" class="w-full bg-brand hover:bg-[#001D40] text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+        <span>로그인</span>
+      </button>
+
+      <div class="mt-6 text-center text-xs text-gray-400">
+        시스템 총괄 관리자 (러닝이) ID: HMGNLP / PW: 1218
+      </div>
+    </form>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="js/supabase_client.js"></script>
+  <script src="js/login.js"></script>
+</body>
+</html>

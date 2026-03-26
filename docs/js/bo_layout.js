@@ -303,16 +303,28 @@ function renderBoSidebar() {
   const personaRoles = persona.roles || [persona.role];
 
   // ── 섹션별 그루핑 ─────────────────────────────────────────────
-  // 구조: [{sectionKey, sectionLabel, items:[{m, hasAccess}]}]
+  // 핵심 규칙: section이 명시된 항목에서 새 섹션 시작.
+  //            section:null 항목은 현재 진행중인 그룹에 계속 이어 붙임.
+  //            최초 null 항목들만 __nosec__ 그룹에.
   const groups = [];
   let current = null;
   const NO_SECTION = '__nosec__';
 
   menus.forEach(m => {
-    const sectionKey = m.section || NO_SECTION;
-    if (!current || current.key !== sectionKey) {
-      current = { key: sectionKey, label: m.section, items: [] };
-      groups.push(current);
+    if (m.section) {
+      // 새 named 섹션 시작 (이전 섹션과 다를 때만)
+      if (!current || current.label !== m.section) {
+        current = { key: m.section, label: m.section, items: [], named: true };
+        groups.push(current);
+      }
+    } else {
+      // section:null → 현재 그룹이 없거나 최초(nosec)면 nosec 그룹 생성
+      //               현재 named 그룹이 있으면 거기에 이어 붙임
+      if (!current) {
+        current = { key: NO_SECTION, label: null, items: [], named: false };
+        groups.push(current);
+      }
+      // current가 named 섹션이면 그냥 그 안에 추가 (아코디언에 포함)
     }
     const hasAccess = (typeof checkMenuAccess === 'function')
       ? checkMenuAccess(m.id, personaRoles, persona.accessMenus)

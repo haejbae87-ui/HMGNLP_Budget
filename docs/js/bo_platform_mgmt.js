@@ -826,6 +826,7 @@ const ALL_MENUS = [
   { id: 'budget-account',   label: '예산 계정 관리',          sys: 'BO', depth1: '테넌트 운영' },
   { id: 'virtual-org',      label: '가상조직 템플릿',         sys: 'BO', depth1: '테넌트 운영' },
   { id: 'form-builder',     label: '교육양식마법사',          sys: 'BO', depth1: '테넌트 운영' },
+  { id: 'field-mgmt',      label: '입력 필드 관리',           sys: 'BO', depth1: '테넌트 운영' },
   { id: 'calc-grounds',     label: '산정기준 관리',           sys: 'BO', depth1: '테넌트 운영' },
   { id: 'approval-routing', label: '결재 라우팅',            sys: 'BO', depth1: '테넌트 운영' },
   { id: 'service-policy',   label: '서비스 정책 관리',        sys: 'BO', depth1: '테넌트 운영' },

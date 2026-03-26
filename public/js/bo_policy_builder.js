@@ -215,6 +215,7 @@ function renderServicePolicy() {
     </div>
     <div style="display:flex;gap:6px;flex-shrink:0">
       <button onclick="event.stopPropagation();startPolicyWizard('${p.id}')" style="font-size:11px;padding:6px 12px;border-radius:8px;border:1.5px solid #E5E7EB;background:white;cursor:pointer;font-weight:700">✏️ 수정</button>
+      <button onclick="event.stopPropagation();deleteServicePolicy('${p.id}','${p.name}')" style="font-size:11px;padding:6px 12px;border-radius:8px;border:1.5px solid #FECACA;background:#FEF2F2;color:#DC2626;cursor:pointer;font-weight:700">🗑️ 삭제</button>
     </div>
   </div>
 </div>`;
@@ -919,3 +920,36 @@ function togglePolicyLType(t) {
   _policyWizardData.allowedLearningTypes = arr;
   renderPolicyWizard();
 }
+
+// ── 정책 삭제 ──────────────────────────────────────────────────────────────────
+async function deleteServicePolicy(policyId, policyName) {
+  if (!confirm(`정책 「${policyName}」을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return;
+  try {
+    // DB 삭제 시도 (Supabase REST)
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/service_policies?id=eq.${policyId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'apikey': SUPABASE_ANON,
+          'Authorization': `Bearer ${SUPABASE_ANON}`,
+          'Prefer': 'return=minimal',
+        }
+      }
+    );
+    if (!res.ok && res.status !== 404) {
+      const msg = await res.text();
+      throw new Error(`HTTP ${res.status}: ${msg}`);
+    }
+  } catch (e) {
+    console.warn('[서비스 정책 삭제] DB 삭제 실패 (로컬만 제거):', e.message);
+  }
+  // 로컬 배열에서도 제거
+  if (typeof SERVICE_POLICIES !== 'undefined') {
+    const idx = SERVICE_POLICIES.findIndex(p => p.id === policyId);
+    if (idx >= 0) SERVICE_POLICIES.splice(idx, 1);
+  }
+  renderServicePolicy();
+}
+window.deleteServicePolicy = deleteServicePolicy;
+

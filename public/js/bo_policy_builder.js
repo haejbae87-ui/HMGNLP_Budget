@@ -143,7 +143,7 @@ function renderServicePolicy() {
   ${isPlatform ? `
   <div style="display:flex;align-items:center;gap:8px">
     <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">회사</span>
-    <select id="pb-tenant-sel" onchange="_pbTenantFilter=this.value;_pbGroupFilter='';_pbAccountFilter=''"
+    <select id="pb-tenant-sel" onchange="_pbTenantFilter=this.value;_pbGroupFilter='';_pbAccountFilter='';renderServicePolicy()"
       style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:140px">
       <option value="">전체 회사</option>
       ${TENANTS_LIST.map(t=>`<option value="${t.id}" ${activeTenantId===t.id?'selected':''}>${t.name||t.id}</option>`).join('')}
@@ -160,7 +160,7 @@ function renderServicePolicy() {
   </div>` : `
   <div style="display:flex;align-items:center;gap:8px">
     <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">격리그룹</span>
-    <select id="pb-group-sel" onchange="_pbGroupFilter=this.value;_pbAccountFilter=''"
+    <select id="pb-group-sel" onchange="_pbGroupFilter=this.value;_pbAccountFilter='';renderServicePolicy()"
       style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:160px">
       <option value="">전체 그룹</option>
       ${availGroups.map(g=>`<option value="${g.id}" ${pbGroupId===g.id?'selected':''}>${g.name}</option>`).join('')}

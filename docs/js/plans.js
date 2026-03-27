@@ -1,5 +1,49 @@
 // ─── PLANS (교육계획) ──────────────────────────────────────────────────────
 
+// FO 정책 연동용: BO service_policies + isolation_groups DB 프리로드
+// (bo_data.js가 없는 FO에서도 utils.js._getActivePolicies()가 SERVICE_POLICIES를 사용할 수 있게)
+var SERVICE_POLICIES   = typeof SERVICE_POLICIES   !== 'undefined' ? SERVICE_POLICIES   : [];
+var ISOLATION_GROUPS   = typeof ISOLATION_GROUPS   !== 'undefined' ? ISOLATION_GROUPS   : [];
+var _foServicePoliciesLoaded = false;
+
+async function _loadFoPolicies() {
+  if (_foServicePoliciesLoaded) return;
+  if (typeof _sb !== 'function' || !_sb()) return;
+  try {
+    const [{ data: sPols }, { data: isoGrps }] = await Promise.all([
+      _sb().from('service_policies').select('*').eq('status', 'active'),
+      _sb().from('isolation_groups').select('*'),
+    ]);
+    if (sPols) {
+      sPols.forEach(row => {
+        const mapped = {
+          id: row.id, tenantId: row.tenant_id, isolationGroupId: row.isolation_group_id,
+          scopeTenantId: row.scope_tenant_id, scopeGroupId: row.scope_group_id,
+          name: row.name, purpose: row.purpose, eduTypes: row.edu_types || [],
+          accountCodes: row.account_codes || [], budgetLinked: row.budget_linked !== false,
+          processPattern: row.process_pattern, flow: row.flow,
+          stageFormIds: row.stage_form_ids,
+          approvalConfig: row.approval_config,
+          approverPersonaKey: row.approval_config?.apply?.finalApproverKey || '',
+          managerPersonaKey: row.manager_persona_key,
+          status: row.status || 'active',
+        };
+        const idx = SERVICE_POLICIES.findIndex(p => p.id === mapped.id);
+        if (idx >= 0) SERVICE_POLICIES[idx] = mapped;
+        else SERVICE_POLICIES.push(mapped);
+      });
+    }
+    if (isoGrps) {
+      isoGrps.forEach(row => {
+        const mapped = { id: row.id, tenantId: row.tenant_id, name: row.name, code: row.code || row.id, ownedAccounts: row.owned_accounts || [], globalAdminKeys: row.global_admin_keys || [] };
+        const idx = ISOLATION_GROUPS.findIndex(g => g.id === mapped.id);
+        if (idx >= 0) ISOLATION_GROUPS[idx] = mapped; else ISOLATION_GROUPS.push(mapped);
+      });
+    }
+    _foServicePoliciesLoaded = true;
+  } catch(e) { console.warn('[FO] 서비스 정책 로드 실패:', e.message); }
+}
+
 // 교육계획 수립 상태
 let planState = null;
 
@@ -21,6 +65,12 @@ function resetPlanState() {
 }
 
 function renderPlans() {
+  // FO 정책 DB 로드 (최초 1회, 완료 후 목록 자동 갱신)
+  if (!_foServicePoliciesLoaded) {
+    _loadFoPolicies().then(() => renderPlans());
+    return; // 로드 중에는 렌더 보류
+  }
+
   document.getElementById('page-plans').innerHTML = `
 <div class="max-w-5xl mx-auto space-y-6">
   <div class="flex items-center justify-between">

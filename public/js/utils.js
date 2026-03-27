@@ -28,40 +28,90 @@ const ACCOUNT_TYPE_MAP = {
   'COMMON-FREE': null
 };
 
-// ─── SERVICE_POLICIES_FO 기반 헬퍼 ────────────────────────────────────────────
+// ─── SERVICE_POLICIES (BO DB 로드) 기반 FO 헬퍼 ─────────────────────────────
+//
+// BO에서 저장한 서비스 정책(service_policies 테이블)이 SERVICE_POLICIES 배열에
+// 로드됐을 때 FO 위저드의 목적·예산·교육유형 필터링에 그대로 사용합니다.
+//
+// BO purpose key → FO PURPOSES.id 매핑 테이블
+const _BO_TO_FO_PURPOSE = {
+  'elearning_class': 'internal_edu',   // 이러닝/집합(비대면) 운영
+  'conf_seminar':    'workshop',        // 콘퍼런스/세미나/워크샵 운영
+  'misc_ops':        'etc',             // 기타 운영
+  'external_personal': 'external_personal', // 개인직무 사외학습
+};
+// FO purpose → BO purpose (역매핑, 복수 가능)
+const _FO_TO_BO_PURPOSE = {};
+Object.entries(_BO_TO_FO_PURPOSE).forEach(([bo, fo]) => {
+  if (!_FO_TO_BO_PURPOSE[fo]) _FO_TO_BO_PURPOSE[fo] = [];
+  _FO_TO_BO_PURPOSE[fo].push(bo);
+});
 
-// 페르소나의 격리그룹+테넌트에 해당하는 활성 정책 목록
-function _getActivePolicies(persona) {
-  if (typeof SERVICE_POLICIES_FO === 'undefined') return null;
-  const policies = SERVICE_POLICIES_FO.filter(p =>
-    p.tenantId === persona.tenantId &&
-    p.isolationGroup === persona.isolationGroup &&
-    p.status === 'active'
+// 페르소나 isolationGroup 코드 → ISOLATION_GROUPS id 변환 (HMC-GENERAL → IG-HMC-GEN 등)
+function _resolveIsoGroupId(persona) {
+  if (typeof ISOLATION_GROUPS === 'undefined') return null;
+  const byCode = ISOLATION_GROUPS.find(g =>
+    g.code === persona.isolationGroup ||
+    g.id   === persona.isolationGroup
   );
-  return policies.length > 0 ? policies : null;
+  return byCode?.id || null;
 }
 
-// 현재 페르소나의 allowedAccounts 기준으로 예산 목록 필터링
-// SERVICE_POLICIES_FO가 있으면 정책 기반, 없으면 기존 allowedAccounts 방식 fallback
-function getPersonaBudgets(persona, purposeId) {
-  const policies = _getActivePolicies(persona);
+// 페르소나의 격리그룹 + 테넌트에 해당하는 활성 정책 목록 (SERVICE_POLICIES 기반)
+function _getActivePolicies(persona) {
+  // 1) SERVICE_POLICIES (BO DB 로드 배열) 우선
+  if (typeof SERVICE_POLICIES !== 'undefined' && SERVICE_POLICIES.length > 0) {
+    const isoGroupId = _resolveIsoGroupId(persona);
+    const matched = SERVICE_POLICIES.filter(p => {
+      if (p.status && p.status !== 'active') return false;
+      if (p.tenantId && p.tenantId !== persona.tenantId) return false;
+      // 격리그룹 매칭: isolationGroupId 없으면 테넌트 전체로 허용
+      if (isoGroupId && p.isolationGroupId && p.isolationGroupId !== isoGroupId) return false;
+      return true;
+    });
+    if (matched.length > 0) return { source: 'db', policies: matched };
+  }
+  // 2) 레거시 SERVICE_POLICIES_FO fallback
+  if (typeof SERVICE_POLICIES_FO !== 'undefined') {
+    const policies = SERVICE_POLICIES_FO.filter(p =>
+      p.tenantId === persona.tenantId &&
+      p.isolationGroup === persona.isolationGroup &&
+      p.status === 'active'
+    );
+    if (policies.length > 0) return { source: 'fo', policies };
+  }
+  return null;
+}
 
-  if (policies) {
-    // 정책 기반: 선택된 목적(foPurpose)의 정책에서 허용된 accountType만 추출
-    const purposeFilter = purposeId
-      ? p => p.foPurpose === purposeId
-      : () => true;
-    const allowedAccountTypes = [...new Set(
-      policies.filter(purposeFilter).map(p => p.accountType)
-    )];
+// 현재 페르소나가 사용 가능한 교육 목적 필터링
+function getPersonaBudgets(persona, purposeId) {
+  const result = _getActivePolicies(persona);
+  if (result) {
+    const { source, policies } = result;
+    if (source === 'db') {
+      // BO DB: purposeId (FO) → BO purpose keys로 변환
+      const boPurposeKeys = purposeId ? (_FO_TO_BO_PURPOSE[purposeId] || [purposeId]) : null;
+      const filtered = boPurposeKeys
+        ? policies.filter(p => boPurposeKeys.includes(p.purpose))
+        : policies;
+      // 허용된 accountCodes로 persona.budgets 필터
+      const allCodes = [...new Set(filtered.flatMap(p => p.accountCodes || []))];
+      return persona.budgets.filter(b =>
+        allCodes.some(code => {
+          const acctType = ACCOUNT_TYPE_MAP[code] || null;
+          return !acctType || acctType === b.account || code === b.accountCode;
+        })
+      );
+    }
+    // FO legacy
+    const purposeFilter = purposeId ? p => p.foPurpose === purposeId : () => true;
+    const allowedAccountTypes = [...new Set(policies.filter(purposeFilter).map(p => p.accountType))];
     return persona.budgets.filter(b => allowedAccountTypes.includes(b.account));
   }
-
-  // Fallback: 기존 allowedAccounts 방식
+  // Fallback
   const allowed = persona.allowedAccounts || [];
   if (allowed.includes('*')) return persona.budgets;
   const allowedTypes = allowed.map(code => ACCOUNT_TYPE_MAP[code]).filter(Boolean);
-  // purposeId가 PURPOSES.id일 수도, accounts 배열일 수도 있어서 둘 다 처리
   const purposeAccounts = Array.isArray(purposeId) ? purposeId : null;
   return persona.budgets.filter(b =>
     (!purposeAccounts || purposeAccounts.includes(b.account)) &&
@@ -69,61 +119,73 @@ function getPersonaBudgets(persona, purposeId) {
   );
 }
 
-// HAE 학습자처럼 고정 프로세스(계획 필수) 페르소나 여부
 function isFixedPlanProcess(persona) {
   return persona.process === 'plan-apply-result';
 }
 
 // 현재 페르소나가 사용 가능한 교육 목적 필터링
-// SERVICE_POLICIES_FO 기반: 정책이 있으면 해당 목적만, 없으면 기존 방식 fallback
 function getPersonaPurposes(persona) {
   if (isFixedPlanProcess(persona)) {
     return PURPOSES.filter(p => p.id === 'external_personal');
   }
-
-  const policies = _getActivePolicies(persona);
-  if (policies) {
-    // 정책 기반: 해당 격리그룹에 활성 정책이 있는 foPurpose만 표시
+  const result = _getActivePolicies(persona);
+  if (result) {
+    const { source, policies } = result;
+    if (source === 'db') {
+      // BO purpose keys → FO PURPOSES.id 변환
+      const foPurposeIds = [...new Set(
+        policies.map(p => _BO_TO_FO_PURPOSE[p.purpose] || p.purpose).filter(Boolean)
+      )];
+      return PURPOSES.filter(p => foPurposeIds.includes(p.id));
+    }
     const activePurposeIds = [...new Set(policies.map(p => p.foPurpose))];
     return PURPOSES.filter(p => activePurposeIds.includes(p.id));
   }
-
-  // Fallback: 기존 allowedAccounts 방식
+  // Fallback
   if (!persona.allowedAccounts || persona.allowedAccounts.includes('*')) return PURPOSES;
-  const allowedTypes = (persona.allowedAccounts || [])
-    .map(code => ACCOUNT_TYPE_MAP[code]).filter(Boolean);
+  const allowedTypes = (persona.allowedAccounts || []).map(code => ACCOUNT_TYPE_MAP[code]).filter(Boolean);
   return PURPOSES.filter(p =>
     !p.accounts || p.accounts.some(acc => allowedTypes.includes(acc))
   );
 }
 
 // 선택된 목적 + 예산 계정에 허용된 교육유형 목록 반환 (Step3용)
-// SERVICE_POLICIES_FO 기반, 없으면 SERVICE_DEFINITIONS.eduTypes fallback
 function getPolicyEduTypes(persona, purposeId, budgetAccountType) {
-  const policies = _getActivePolicies(persona);
-  if (policies && purposeId && budgetAccountType) {
-    const matched = policies.filter(p =>
-      p.foPurpose === purposeId && p.accountType === budgetAccountType
-    );
-    if (matched.length > 0) {
-      return [...new Set(matched.flatMap(p => p.allowedEduTypes || []))];
+  const result = _getActivePolicies(persona);
+  if (result && purposeId) {
+    const { source, policies } = result;
+    if (source === 'db') {
+      const boPurposeKeys = _FO_TO_BO_PURPOSE[purposeId] || [purposeId];
+      // budgetAccountType → accountCode 역매핑
+      const acctCodeForType = Object.entries(ACCOUNT_TYPE_MAP).find(([, v]) => v === budgetAccountType)?.[0] || null;
+      const matched = policies.filter(p => {
+        if (!boPurposeKeys.includes(p.purpose)) return false;
+        if (acctCodeForType && p.accountCodes?.length && !p.accountCodes.includes(acctCodeForType)) return false;
+        return true;
+      });
+      if (matched.length > 0) {
+        return [...new Set(matched.flatMap(p => p.eduTypes || []))];
+      }
+    } else {
+      const matched = policies.filter(p =>
+        p.foPurpose === purposeId && p.accountType === budgetAccountType
+      );
+      if (matched.length > 0) return [...new Set(matched.flatMap(p => p.allowedEduTypes || []))];
     }
   }
-
-  // Fallback: SERVICE_DEFINITIONS.eduTypes (기존 방식)
+  // Fallback
   if (typeof SERVICE_DEFINITIONS !== 'undefined') {
     const acctCode = Object.entries(ACCOUNT_TYPE_MAP).find(([, v]) => v === budgetAccountType)?.[0];
     const linked = SERVICE_DEFINITIONS.filter(sv =>
-      sv.tenantId === persona.tenantId &&
-      sv.status === 'active' &&
+      sv.tenantId === persona.tenantId && sv.status === 'active' &&
       (!acctCode || sv.linkedAccounts.includes(acctCode))
     );
-    if (linked.length > 0) {
-      return [...new Set(linked.flatMap(sv => sv.eduTypes || []))];
-    }
+    if (linked.length > 0) return [...new Set(linked.flatMap(sv => sv.eduTypes || []))];
   }
   return [];
 }
+
+
 
 
 

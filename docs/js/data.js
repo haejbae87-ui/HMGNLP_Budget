@@ -20,11 +20,10 @@ const PERSONAS = {
     type: 'HMC_Learner', typeLabel: 'HMC 학습자·연구원',
     company: '현대자동차', tenantId: 'HMC',
     role: 'learner', jobType: '연구직',
-    allowedAccounts: ['HMC-PART', 'HMC-RND', 'COMMON-FREE'],
-    isolationGroup: 'HMC-BOTH',
-    desc: '일반예산 및 R&D교육예산 복합 학습자. R&D계정으로 계획→신청→결과, 일반예산 복수 계획 매핑 신청 가능. 무예산 이력 및 단순 결과 등록 활용.',
+    allowedAccounts: ['HMC-RND', 'COMMON-FREE'],
+    isolationGroup: 'HMC-RND',
+    desc: 'R&D교육예산 중심 연구직 학습자. R&D계정으로 계획→신청→결과 프로세스. 무예산 이력 등록 활용.',
     budgets: [
-      { id: 'b_hmc03', name: '내구기술팀 일반예산 참가계정', account: '참가', balance: 4500000, used: 500000 },
       { id: 'b_hmc04', name: '내구기술팀 R&D교육예산', account: '연구투자', balance: 45000000, used: 5000000 }
     ]
   },

@@ -8,45 +8,102 @@ var _foServicePoliciesLoaded = false;
 
 async function _loadFoPolicies() {
   if (_foServicePoliciesLoaded) return;
-  // DB 없으면 즉시 완료 처리 (무한루프 방지)
-  if (typeof _sb !== 'function' || !_sb()) {
+  if (typeof getSB !== 'function' || !getSB()) {
     _foServicePoliciesLoaded = true;
     return;
   }
+
+  // ── isolation_groups 항상 로드 (코드 매핑에 필요) ─────────────────────────
   try {
-    const [{ data: sPols }, { data: isoGrps }] = await Promise.all([
-      _sb().from('service_policies').select('*').eq('status', 'active'),
-      _sb().from('isolation_groups').select('*'),
-    ]);
-    if (sPols) {
-      sPols.forEach(row => {
-        const mapped = {
-          id: row.id, tenantId: row.tenant_id, isolationGroupId: row.isolation_group_id,
-          scopeTenantId: row.scope_tenant_id, scopeGroupId: row.scope_group_id,
-          name: row.name, purpose: row.purpose, eduTypes: row.edu_types || [],
-          targetType: row.target_type,
-          accountCodes: row.account_codes || [], budgetLinked: row.budget_linked !== false,
-          processPattern: row.process_pattern, flow: row.flow,
-          stageFormIds: row.stage_form_ids,
-          approvalConfig: row.approval_config,
-          approverPersonaKey: row.approval_config?.apply?.finalApproverKey || '',
-          managerPersonaKey: row.manager_persona_key,
-          status: row.status || 'active',
-        };
-        const idx = SERVICE_POLICIES.findIndex(p => p.id === mapped.id);
-        if (idx >= 0) SERVICE_POLICIES[idx] = mapped;
-        else SERVICE_POLICIES.push(mapped);
-      });
-    }
+    const { data: isoGrps } = await getSB().from('isolation_groups').select('*');
     if (isoGrps) {
       isoGrps.forEach(row => {
-        const mapped = { id: row.id, tenantId: row.tenant_id, name: row.name, code: row.code || row.id, ownedAccounts: row.owned_accounts || [], globalAdminKeys: row.global_admin_keys || [] };
+        const mapped = {
+          id: row.id, tenantId: row.tenant_id, name: row.name,
+          code: row.code || row.id,
+          ownedAccounts: row.owned_accounts || [],
+          globalAdminKeys: row.global_admin_keys || []
+        };
         const idx = ISOLATION_GROUPS.findIndex(g => g.id === mapped.id);
         if (idx >= 0) ISOLATION_GROUPS[idx] = mapped; else ISOLATION_GROUPS.push(mapped);
       });
     }
-  } catch(e) { console.warn('[FO] 서비스 정맠 로드 실패:', e.message); }
-  // DB 로드 성공/실패 두 경우 모두 완료 함
+  } catch(e) { console.warn('[FO] isolation_groups 로드 실패:', e.message); }
+
+  // ── 페르소나의 VOrg 템플릿 ID 결정 ──────────────────────────────────────
+  let vorgId = null;
+  if (currentPersona?.isolationGroup) {
+    try {
+      const ig = ISOLATION_GROUPS.find(g =>
+        g.code === currentPersona.isolationGroup || g.id === currentPersona.isolationGroup
+      );
+      if (ig) {
+        const { data: vorgRows } = await getSB()
+          .from('virtual_org_templates')
+          .select('id')
+          .eq('isolation_group_id', ig.id)
+          .limit(1);
+        vorgId = vorgRows?.[0]?.id || null;
+      }
+    } catch(e) { console.warn('[FO] VOrg 템플릿 조회 실패:', e.message); }
+  }
+
+  // ── ①단계: 스냅샷 API 조회 (Edge Cache 활용) ──────────────────────────────
+  let snapshotLoaded = false;
+  if (vorgId) {
+    try {
+      const supabaseUrl = typeof SUPABASE_URL !== 'undefined' ? SUPABASE_URL
+        : (typeof getSB === 'function' && getSB()?.supabaseUrl) || null;
+      const anonKey = typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : null;
+      if (supabaseUrl && anonKey) {
+        const res = await fetch(
+          `${supabaseUrl}/functions/v1/get-policy-snapshot?vorg_id=${encodeURIComponent(vorgId)}`,
+          { headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` } }
+        );
+        if (res.ok) {
+          const { policies } = await res.json();
+          if (Array.isArray(policies) && policies.length > 0) {
+            policies.forEach(p => {
+              const mapped = {
+                id: p.id, tenantId: currentPersona?.tenantId, isolationGroupId: p.isolationGroupId,
+                name: p.name, purpose: p.purpose, eduTypes: p.eduTypes || [],
+                targetType: p.targetType, accountCodes: p.accountCodes || [],
+                processPattern: p.processPattern, status: 'active',
+              };
+              const idx = SERVICE_POLICIES.findIndex(sp => sp.id === mapped.id);
+              if (idx >= 0) SERVICE_POLICIES[idx] = mapped; else SERVICE_POLICIES.push(mapped);
+            });
+            snapshotLoaded = true;
+            console.log(`[FO] 스냅샷 캐시 로드 완료 (VOrg: ${vorgId}, 정책 ${policies.length}건)`);
+          }
+        }
+      }
+    } catch(e) { console.warn('[FO] 스냅샷 API 조회 실패, DB 직접 조회로 전환:', e.message); }
+  }
+
+  // ── ②단계: 스냅샷 실패 시 직접 DB fallback ────────────────────────────────
+  if (!snapshotLoaded) {
+    try {
+      const { data: sPols } = await getSB().from('service_policies').select('*').eq('status', 'active');
+      if (sPols) {
+        sPols.forEach(row => {
+          const mapped = {
+            id: row.id, tenantId: row.tenant_id, isolationGroupId: row.isolation_group_id,
+            name: row.name, purpose: row.purpose, eduTypes: row.edu_types || [],
+            targetType: row.target_type, accountCodes: row.account_codes || [],
+            budgetLinked: row.budget_linked !== false, processPattern: row.process_pattern,
+            approvalConfig: row.approval_config,
+            approverPersonaKey: row.approval_config?.apply?.finalApproverKey || '',
+            status: row.status || 'active',
+          };
+          const idx = SERVICE_POLICIES.findIndex(p => p.id === mapped.id);
+          if (idx >= 0) SERVICE_POLICIES[idx] = mapped; else SERVICE_POLICIES.push(mapped);
+        });
+        console.log(`[FO] DB 직접 로드 완료 (정책 ${sPols.length}건)`);
+      }
+    } catch(e) { console.warn('[FO] 서비스 정맠 DB 로드 실패:', e.message); }
+  }
+
   _foServicePoliciesLoaded = true;
 }
 

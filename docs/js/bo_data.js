@@ -7,6 +7,142 @@ const LEARNING_TYPES = [
   { category: '자료 구독/구매', items: ['도서', '논문/저널', '기술자료', '학/협회비'] }
 ];
 
+// ─── 서비스 정책 → FO 연동 공유 데이터 ──────────────────────────────────────
+// BO 서비스 정책 위저드에서 설정한 정책을 FO 교육계획/신청 위저드와 연결합니다.
+// FO에서는 이 데이터를 기반으로:
+//   Step1(목적) → 해당 페르소나의 isolationGroup에 활성 정책이 있는 purpose만 표시
+//   Step2(예산) → 선택된 purpose + isolationGroup에 해당하는 accountCode 계정만 표시
+//   Step3(교육유형) → purpose + accountCode에 해당하는 allowedEduTypes만 표시
+//
+// [BO 목적 ID → FO 목적 ID 매핑]
+//   elearning_class  → internal_edu
+//   conf_seminar     → workshop
+//   misc_ops         → etc
+//   external_personal → external_personal
+
+const SERVICE_POLICIES_FO = [
+  // ── 현대자동차 (HMC) 일반예산 그룹 ──────────────────────────────────────
+  // 정책: 현대차-일반-운영-이러닝
+  {
+    id: 'POL-HMC-GEN-OPS-ELEARN',
+    name: '현대차-일반-운영-이러닝',
+    tenantId: 'HMC',
+    isolationGroup: 'HMC-GENERAL',
+    foPurpose: 'internal_edu',        // FO PURPOSES.id
+    accountCode: 'HMC-OPS',           // SERVICE_DEFINITIONS linkedAccount 코드
+    accountType: '운영',               // PERSONAS.budgets[].account 와 매칭
+    allowedEduTypes: ['이러닝'],
+    processPattern: 'A',              // 계획→신청→결과
+    status: 'active'
+  },
+  // 정책: 현대차-일반-참가-사외교육
+  {
+    id: 'POL-HMC-GEN-PART-PERSONAL',
+    name: '현대차-일반-참가-사외교육',
+    tenantId: 'HMC',
+    isolationGroup: 'HMC-GENERAL',
+    foPurpose: 'external_personal',
+    accountCode: 'HMC-PART',
+    accountType: '참가',
+    allowedEduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/컨퍼런스', '학회 직접 발표', '도서', '논문/저널', '기술자료', '어학학습비 지원', '자격증 취득지원'],
+    processPattern: 'B',              // 신청→결과
+    status: 'active'
+  },
+  // 정책: 현대차-R&D-운영-통합
+  {
+    id: 'POL-HMC-RND-OPS-ALL',
+    name: '현대차-R&D-운영-통합',
+    tenantId: 'HMC',
+    isolationGroup: 'HMC-BOTH',
+    foPurpose: 'external_personal',
+    accountCode: 'HMC-RND',
+    accountType: '연구투자',
+    allowedEduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/컨퍼런스', '학회 직접 발표', '도서', '논문/저널', '기술자료'],
+    processPattern: 'A',
+    status: 'active'
+  },
+  {
+    id: 'POL-HMC-BOTH-PART-PERSONAL',
+    name: '현대차-R&D그룹-참가-사외교육',
+    tenantId: 'HMC',
+    isolationGroup: 'HMC-BOTH',
+    foPurpose: 'external_personal',
+    accountCode: 'HMC-PART',
+    accountType: '참가',
+    allowedEduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/컨퍼런스', '도서'],
+    processPattern: 'B',
+    status: 'active'
+  },
+
+  // ── 기아 (KIA) ───────────────────────────────────────────────────────────
+  {
+    id: 'POL-KIA-GEN-OPS-ALL',
+    name: '기아-일반-운영-통합',
+    tenantId: 'KIA',
+    isolationGroup: 'KIA-GENERAL',
+    foPurpose: 'internal_edu',
+    accountCode: 'KIA-OPS',
+    accountType: '운영',
+    allowedEduTypes: ['이러닝', '집합교육', '실시간 화상'],
+    processPattern: 'A',
+    status: 'active'
+  },
+  {
+    id: 'POL-KIA-GEN-PART-PERSONAL',
+    name: '기아-일반-참가-사외교육',
+    tenantId: 'KIA',
+    isolationGroup: 'KIA-GENERAL',
+    foPurpose: 'external_personal',
+    accountCode: 'KIA-PART',
+    accountType: '참가',
+    allowedEduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/컨퍼런스', '도서'],
+    processPattern: 'B',
+    status: 'active'
+  },
+
+  // ── 현대오토에버 (HAE) — HAE-ALL 그룹 ───────────────────────────────────
+  {
+    id: 'POL-HAE-ALL-OPS-ELEARN',
+    name: 'HAE-운영-이러닝/집합',
+    tenantId: 'HAE',
+    isolationGroup: 'HAE-ALL',
+    foPurpose: 'internal_edu',
+    accountCode: 'HAE-OPS',
+    accountType: '운영',
+    allowedEduTypes: ['이러닝', '집합교육', '실시간 화상'],
+    processPattern: 'A',
+    status: 'active'
+  },
+  {
+    id: 'POL-HAE-ALL-PART-PERSONAL',
+    name: 'HAE-참가-사외교육',
+    tenantId: 'HAE',
+    isolationGroup: 'HAE-ALL',
+    foPurpose: 'external_personal',
+    accountCode: 'HAE-PART',
+    accountType: '참가',
+    allowedEduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/컨퍼런스', '도서'],
+    processPattern: 'B',
+    status: 'active'
+  },
+
+  // ── 현대제철 (HSC) ───────────────────────────────────────────────────────
+  {
+    id: 'POL-HSC-ALL-EXT-PERSONAL',
+    name: 'HSC-사외교육-개인직무',
+    tenantId: 'HSC',
+    isolationGroup: 'IG-HSC-ALL',
+    foPurpose: 'external_personal',
+    accountCode: 'HSC-EXT',
+    accountType: '사외교육',
+    allowedEduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/컨퍼런스'],
+    processPattern: 'B',
+    status: 'active'
+  },
+];
+
+
+
 // Service Definitions (Process Pattern + Budget Toggle)
 let SERVICE_DEFINITIONS = [
   { id: 'SVC-HMC-OPS',  tenantId: 'HMC', name: '운영교육 (HMC)',            desc: '사내외 집합교육 운영. 계획 수립 후 가점유 신청.',    processPattern: 'A', budgetLinked: true,  applyMode: 'holding',       linkedAccounts: ['HMC-OPS'],  status: 'active',

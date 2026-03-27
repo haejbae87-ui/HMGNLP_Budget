@@ -94,7 +94,7 @@ function renderPlanWizard() {
   const isRndPersona = currentPersona.role === 'learner' && (currentPersona.allowedAccounts || []).includes('HMC-RND');
 
   const availBudgets = s.purpose
-    ? getPersonaBudgets(currentPersona, s.purpose.accounts)
+    ? getPersonaBudgets(currentPersona, s.purpose.id)
     : [];
   const curBudget = availBudgets.find(b => b.id === s.budgetId) || null;
 
@@ -234,18 +234,10 @@ function renderPlanWizard() {
   <div class="${s.step === 3 ? '' : 'hidden'}">
     <h3 class="text-base font-black text-gray-800 mb-5">03. 교육유형 선택</h3>
     ${(() => {
-      // 선택된 예산 계정과 연결된 SERVICE_DEFINITIONS의 eduTypes 수집
-      const linked = typeof SERVICE_DEFINITIONS !== 'undefined'
-        ? SERVICE_DEFINITIONS.filter(sv =>
-            sv.tenantId === currentPersona.tenantId &&
-            sv.status === 'active' &&
-            sv.linkedAccounts.some(a => curBudget && (a === curBudget.code || a === curBudget.accountCode || a === (curBudget.account === '운영' ? 'HMC-OPS' : curBudget.account === '연구투자' ? 'HMC-RND' : curBudget.account === '참가' ? 'HMC-PART' : '')))
-          )
+      // getPolicyEduTypes: SERVICE_POLICIES_FO 기반 (없으면 SERVICE_DEFINITIONS fallback)
+      const eduTypes = typeof getPolicyEduTypes !== 'undefined' && curBudget
+        ? getPolicyEduTypes(currentPersona, s.purpose?.id, curBudget.account)
         : [];
-      // eduTypes 합집합 (중복 제거)
-      const eduTypes = linked.length > 0
-        ? [...new Set(linked.flatMap(sv => sv.eduTypes || []))]
-        : [...new Set((SERVICE_DEFINITIONS || []).filter(sv => sv.tenantId === currentPersona.tenantId && sv.status === 'active').flatMap(sv => sv.eduTypes || []))];
 
       if (eduTypes.length === 0) return `
       <div class="p-5 bg-gray-50 rounded-2xl text-sm font-bold text-gray-500 flex items-center gap-3">

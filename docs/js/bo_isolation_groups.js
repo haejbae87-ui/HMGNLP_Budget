@@ -8,6 +8,7 @@
 let _igModal = false;
 let _igEditGroupId = null;      // 편집 중인 그룹 ID
 let _igAddAdminModal = false;   // 예산총괄 추가 모달
+let _igAddAdminCandidates = []; // 예산총괄 후보 (DB 조회 결과 캐시)
 let _igAddOpModal = false;      // 예산운영 추가 모달
 let _igTargetGroupId = null;    // 액션 대상 그룹 ID
 let _igPlatformTenantId = null; // 플랫폼 총괄: 선택된 테넌트
@@ -289,7 +290,7 @@ function _renderGroupCards(groups, viewMode, persona, personaKey) {
         <span style="font-size:10px;color:#9CA3AF;margin-left:6px">${admins.length}명</span>
       </div>
       ${canEditAdmins ? `
-      <button onclick="_igAddAdminModal=true;_igTargetGroupId='${g.id}';renderIsolationGroups()"
+      <button onclick="_igOpenAdminModal('${g.id}')"
         style="font-size:11px;padding:5px 12px;border-radius:8px;border:1.5px solid #DDD6FE;
                background:#F5F3FF;color:#7C3AED;cursor:pointer;font-weight:700;white-space:nowrap">
         + 총괄 담당자 추가
@@ -560,11 +561,17 @@ function _renderAddAdminModal(persona) {
   if (!g) { _igAddAdminModal = false; return ''; }
   const tenantId = g.tenantId;
   const existing = g.globalAdminKeys || [g.globalAdminKey].filter(Boolean);
-  const candidates = Object.entries(BO_PERSONAS).filter(([k,p]) =>
+
+  // BO_PERSONAS 기반 후보 (기본)
+  const boPersonaCandidates = Object.entries(BO_PERSONAS).filter(([k,p]) =>
     p.tenantId === tenantId &&
     (p.role === 'budget_global_admin' || p.dualRole === 'budget_global_admin') &&
     !existing.includes(k)
   );
+
+  // DB 조회 결과(_igAddAdminCandidates)와 병합 - 중복 제거
+  const dbCandidates = (_igAddAdminCandidates || []).filter(([k]) => !existing.includes(k) && !boPersonaCandidates.find(([bk]) => bk === k));
+  const candidates = [...boPersonaCandidates, ...dbCandidates];
 
   return `
 <div style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center">
@@ -690,6 +697,37 @@ function _igSaveEditGroup() {
   if (!name) { alert('그룹명을 입력하세요.'); return; }
   g.name = name; g.desc = desc || ''; g.status = status || 'active';
   _igEditGroupId = null;
+  renderIsolationGroups();
+}
+
+// Supabase DB에서 budget_admin 역할 사용자를 조회하여 후보 생성 후 모달 오픈
+async function _igOpenAdminModal(groupId) {
+  _igTargetGroupId = groupId;
+  _igAddAdminCandidates = []; // 새로 초기화
+
+  // Supabase에서 budget_admin 역할 사용자 조회
+  if (typeof _sb === 'function' && _sb()) {
+    try {
+      const g = ISOLATION_GROUPS.find(x => x.id === groupId);
+      const tenantId = g?.tenantId;
+      const { data: urData } = await _sb().from('user_roles')
+        .select('user_id').eq('role_code', 'budget_admin');
+      if (urData?.length) {
+        const ids = urData.map(r => r.user_id);
+        const { data: usersData } = await _sb().from('users').select('*').in('id', ids)
+          .eq('tenant_id', tenantId);
+        if (usersData) {
+          _igAddAdminCandidates = usersData.map(u => [
+            u.id, // key
+            { name: u.name, dept: u.org_id || '', pos: u.emp_no || '', tenantId: u.tenant_id,
+              role: 'budget_global_admin', _fromDB: true }
+          ]);
+        }
+      }
+    } catch(e) { console.warn('예산총괄 DB 조회 실패:', e); }
+  }
+
+  _igAddAdminModal = true;
   renderIsolationGroups();
 }
 

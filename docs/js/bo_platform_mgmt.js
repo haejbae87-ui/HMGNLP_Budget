@@ -710,13 +710,31 @@ window._openUserModal = async function(userId) {
     });
   } else {
     document.getElementById('user-name').value = '';
-    document.getElementById('user-empno').value = '';
     document.getElementById('user-email').value = '';
-    if (tenantSel) tenantSel.value = defaultTenant;
+    if (tenantSel) tenantSel.value = _userFilterTenant || defaultTenant;
     document.getElementById('user-jobtype').value = 'general';
     document.getElementById('user-status').value = 'active';
-    await window._loadUserOrgOptions(defaultTenant, null);
+    // 사번 자동채번: 현재 테넌트에서 가장 큰 사번 숫자+1
+    const autoTenantId = _userFilterTenant || defaultTenant;
+    let nextEmpNo = '';
+    if (_sb()) {
+      try {
+        const { data: empData } = await _sb().from('users')
+          .select('emp_no').eq('tenant_id', autoTenantId);
+        const nums = (empData || [])
+          .map(u => parseInt((u.emp_no || '').replace(/\D/g, '')))
+          .filter(n => !isNaN(n) && n > 0);
+        const maxNum = nums.length ? Math.max(...nums) : 0;
+        // 접두어: 기존 사번에서 추출 (없으면 'P')
+        const sample = (empData || []).find(u => /[A-Za-z]/.test(u.emp_no || ''));
+        const prefix = sample ? (sample.emp_no || '').replace(/\d+$/, '') : 'P';
+        nextEmpNo = prefix + String(maxNum + 1).padStart(3, '0');
+      } catch(e) { nextEmpNo = 'P' + String(Date.now()).slice(-4); }
+    }
+    document.getElementById('user-empno').value = nextEmpNo;
+    await window._loadUserOrgOptions(autoTenantId, null);
   }
+
   document.getElementById('user-modal').style.display = 'flex';
 };
 

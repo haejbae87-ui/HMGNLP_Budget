@@ -23,14 +23,11 @@ function renderGNB() {
       id: 'growth',
       label: '성장',
       dropdown: [
-        // ── 기능 활성화된 메뉴
         { id: 'plans',   label: '교육계획', icon: '📊', navigate: true,
           desc: '교육계획 수립 및 R&D 계획 관리' },
         { id: 'apply',   label: '교육신청', icon: '📝', navigate: true,
           desc: '개인직무·운영교육 신청' },
-        // ── 구분선
         { divider: true },
-        // ── 기획 예정 메뉴 (비활성)
         { id: 'history-register', label: '교육이력등록', icon: '📚', navigate: false,
           desc: '수료·이수 이력 직접 등록', soon: true },
         { id: 'language-score',  label: '어학점수',    icon: '🌐', navigate: false,
@@ -38,6 +35,27 @@ function renderGNB() {
         { id: 'certificate',     label: '자격증',      icon: '🏅', navigate: false,
           desc: '자격증·면허 취득 이력 관리', soon: true },
       ],
+    },
+    // ── 결재 메뉴 ──────────────────────────────────────────────────────────
+    {
+      id: 'approval',
+      label: '결재',
+      dropdown: (() => {
+        // 리더 여부: pos에 팀장/실장/센터장/본부장/사업부장 포함 여부로 판단
+        const _isLeader = ['팀장','실장','센터장','본부장','사업부장'].some(
+          t => (currentPersona.pos || '').includes(t)
+        );
+        const items = [
+          { id: 'approval-member', label: '팀원용 결재함', icon: '📥', navigate: true,
+            desc: '내가 신청한 교육의 결재 현황 확인' },
+        ];
+        if (_isLeader) {
+          items.push({ divider: true });
+          items.push({ id: 'approval-leader', label: '리더용 결재함', icon: '👔', navigate: true,
+            desc: '팀원의 교육신청 결재 처리' });
+        }
+        return items;
+      })(),
     },
     { id: 'fo-manual', label: '📖 매뉴얼', dropdown: null },
   ];

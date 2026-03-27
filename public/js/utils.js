@@ -205,4 +205,8 @@ function navigate(page) {
   if (page === 'apply') { applyViewMode = 'list'; renderApply(); }
   if (page === 'mypage') renderMypage();
   if (page === 'fo-manual') renderFoManual();
+  if (page === 'approval-member') renderApprovalMember();
+  if (page === 'approval-leader') renderApprovalLeader();
+  renderGNB();
 }
+

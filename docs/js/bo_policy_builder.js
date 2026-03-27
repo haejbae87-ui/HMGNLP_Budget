@@ -707,9 +707,21 @@ function renderPolicyWizard() {
 
 
     // 교육유형으로 추가 필터 (목적·유형 정보가 없는 구형 양식은 숨기지 않음)
-    const _eduFiltered = _policyEduTypes.length === 0 ? _allForms : _allForms.filter(f => {
+    // BO key('seminar') ↔ 한글라벨('세미나') 양방향 매칭
+    const _eduKeyToLabel = {};
+    const _eduLabelToKey = {};
+    Object.values(_EDU_TYPE_MAP).flat().forEach(t => {
+      _eduKeyToLabel[t.id] = t.label;
+      _eduLabelToKey[t.label] = t.id;
+      (t.subs || []).forEach(s => { _eduKeyToLabel[s.id] = s.label; _eduLabelToKey[s.label] = s.id; });
+    });
+    const _expandedEduTypes = new Set(_policyEduTypes);
+    _policyEduTypes.forEach(k => { if (_eduKeyToLabel[k]) _expandedEduTypes.add(_eduKeyToLabel[k]); });
+    _policyEduTypes.forEach(k => { if (_eduLabelToKey[k]) _expandedEduTypes.add(_eduLabelToKey[k]); });
+
+    const _eduFiltered = _expandedEduTypes.size === 0 ? _allForms : _allForms.filter(f => {
       if (!f.eduType && !f.purpose) return true; // 구형 양식 허용
-      if (_policyEduTypes.includes(f.eduType)) return true;
+      if (_expandedEduTypes.has(f.eduType)) return true;
       return false;
     });
 

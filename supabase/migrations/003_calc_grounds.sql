@@ -13,7 +13,7 @@ create table if not exists calc_grounds (
   -- 예산계정 NULL이면 격리그룹/테넌트 내 전체 계정 공유
   account_code text,                        -- references account_master(code)
   name         text not null,
-  desc         text,
+  description  text,
   unit_price   bigint default 0,
   limit_type   text default 'none',         -- 'none'|'soft'|'hard'
   soft_limit   bigint default 0,
@@ -39,7 +39,7 @@ create policy "secret_write_calc_grounds" on calc_grounds for all using (true);
 -- SEED DATA: HMC 현대차 기본 항목 (기존 CALC_GROUNDS_MASTER 이전)
 -- tenant_id='HMC', isolation_group_id=NULL, account_code=NULL → HMC 전체 공유
 -- ================================================================
-insert into calc_grounds (id, tenant_id, isolation_group_id, account_code, name, desc, unit_price, limit_type, soft_limit, hard_limit, usage_scope, visible_for, sort_order) values
+insert into calc_grounds (id, tenant_id, isolation_group_id, account_code, name, description, unit_price, limit_type, soft_limit, hard_limit, usage_scope, visible_for, sort_order) values
   -- 운영계정 항목 (HMC 전체 공유)
   ('CG001', 'HMC', null, null, '식비 (조식)',           '교육 당일 조식 제공 비용. 1인 1식 기준.',       8000,    'none', 0,        0,        '{plan,apply,settle}', 'both',     1),
   ('CG002', 'HMC', null, null, '식비 (중식)',           '교육 당일 중식 제공 비용. 1인 1식 기준.',       12000,   'none', 0,        0,        '{plan,apply,settle}', 'both',     2),

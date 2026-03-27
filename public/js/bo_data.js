@@ -469,6 +469,7 @@ const BO_PERSONAS = {
     role: 'team_general', roleLabel: '팀 담당자 (LXP)',
     roleClass: 'role-team', roleTag: '[팀]',
     budgetGroup: 'general', tenantId: 'HMC',
+    isolationGroup: 'HMC-GENERAL',
     scope: '역량혁신팀',
     accessMenus: ['dashboard', 'plan-mgmt', 'allocation']
   },
@@ -477,6 +478,7 @@ const BO_PERSONAS = {
     role: 'learner', roleLabel: '일반 학습자 (LXP)',
     roleClass: 'role-team', roleTag: '[학습자]',
     budgetGroup: 'general', tenantId: 'HMC',
+    isolationGroup: 'HMC-GENERAL',
     scope: '내구기술팀',
     accessMenus: ['dashboard']
   },

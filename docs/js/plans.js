@@ -24,6 +24,7 @@ async function _loadFoPolicies() {
           id: row.id, tenantId: row.tenant_id, isolationGroupId: row.isolation_group_id,
           scopeTenantId: row.scope_tenant_id, scopeGroupId: row.scope_group_id,
           name: row.name, purpose: row.purpose, eduTypes: row.edu_types || [],
+          targetType: row.target_type,
           accountCodes: row.account_codes || [], budgetLinked: row.budget_linked !== false,
           processPattern: row.process_pattern, flow: row.flow,
           stageFormIds: row.stage_form_ids,

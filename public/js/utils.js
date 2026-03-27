@@ -81,11 +81,14 @@ function getPersonaBudgets(persona, purposeId) {
   if (result) {
     const { source, policies } = result;
     if (source === 'db') {
+      // target_type 필터
+      const targetType = (persona.role === 'learner') ? 'learner' : 'operator';
+      const byTarget = policies.filter(p => !p.targetType || p.targetType === targetType);
       // BO DB: purposeId (FO) → BO purpose keys로 변환
       const boPurposeKeys = purposeId ? (_FO_TO_BO_PURPOSE[purposeId] || [purposeId]) : null;
       const filtered = boPurposeKeys
-        ? policies.filter(p => boPurposeKeys.includes(p.purpose))
-        : policies;
+        ? byTarget.filter(p => boPurposeKeys.includes(p.purpose))
+        : byTarget;
       // 허용된 accountCodes로 persona.budgets 필터
       const allCodes = [...new Set(filtered.flatMap(p => p.accountCodes || []))];
       return persona.budgets.filter(b =>
@@ -124,9 +127,12 @@ function getPersonaPurposes(persona) {
   if (result) {
     const { source, policies } = result;
     if (source === 'db') {
+      // persona role → DB target_type 매핑 (operator 정책만 / learner 정책만)
+      const targetType = (persona.role === 'learner') ? 'learner' : 'operator';
+      const filtered = policies.filter(p => !p.targetType || p.targetType === targetType);
       // BO purpose keys → FO PURPOSES.id 변환
       const foPurposeIds = [...new Set(
-        policies.map(p => _BO_TO_FO_PURPOSE[p.purpose] || p.purpose).filter(Boolean)
+        filtered.map(p => _BO_TO_FO_PURPOSE[p.purpose] || p.purpose).filter(Boolean)
       )];
       return PURPOSES.filter(p => foPurposeIds.includes(p.id));
     }

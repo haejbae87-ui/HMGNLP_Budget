@@ -126,9 +126,9 @@ function renderBudgetAccount() {
   <div style="margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
       <span style="background:#1D4ED8;color:#fff;font-size:9px;font-weight:900;padding:3px 8px;border-radius:6px">예산 계정 관리</span>
-      <h1 class="bo-page-title" style="margin:0">예산 계정 관리 · 결재라인 설정</h1>
+    <h1 class="bo-page-title" style="margin:0">예산 계정 관리</h1>
     </div>
-    <p class="bo-page-sub">예산 계정의 속성과 계정별 금액 구간 결재라인을 한 화면에서 관리합니다.</p>
+    <p class="bo-page-sub">예산 계정의 속성을 등록·수정하고 격리그룹별로 관리합니다.</p>
   </div>
 
   <!-- 역할별 필터바 -->
@@ -143,19 +143,19 @@ function renderBudgetAccount() {
     ${isPlatform || isTenant ? `<span style="font-size:10px;color:#9CA3AF;margin-left:4px">모든 격리그룹의 계정을 조회할 수 있습니다</span>` : ''}
   </div>
 
-  <!-- 계정 목록 + 결재라인 통합 -->
+  <!-- 계정 목록 -->
   <div id="ba-content">${_baRenderContent()}</div>
-
-  <!-- 결재라인 편집 모달 (approval-routing 함수들과 공유) -->
-  <div id="ar-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
-    <div style="background:#fff;border-radius:16px;width:620px;max-height:85vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+  <!-- 계정 등록/수정 모달 -->
+  <div id="s1-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:16px;width:480px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-        <h3 id="ar-modal-title" style="font-size:15px;font-weight:800;color:#111827;margin:0">결재라인 편집</h3>
-        <button onclick="arCloseModal()" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">✕</button>
+        <h3 id="s1-modal-title" style="font-size:15px;font-weight:800;margin:0">예산 계정 신규 등록</h3>
+        <button onclick="s1CloseModal()" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">✕</button>
       </div>
-      <div id="ar-modal-body"></div>
+      <div id="s1-modal-body"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
-        <button class="bo-btn-secondary bo-btn-sm" onclick="arCloseModal()">닫기</button>
+        <button class="bo-btn-secondary bo-btn-sm" onclick="s1CloseModal()">취소</button>
+        <button class="bo-btn-primary bo-btn-sm" onclick="s1SaveAccount()">저장</button>
       </div>
     </div>
   </div>
@@ -317,7 +317,6 @@ function _baRenderAccountCard(a, group, isViewOnly) {
         ${a.active?'비활성화':'활성화'}</button>
     </div>` : ''}
   </div>
-  ${routingSection}
 </div>`;
 }
 
@@ -579,13 +578,15 @@ function s1CloseModal() { document.getElementById('s1-modal').style.display = 'n
 function s1ToggleField(code, field) {
   const a = ACCOUNT_MASTER.find(x => x.code === code);
   if (a) a[field] = !a[field];
-  document.getElementById('bm-content').innerHTML = renderStep1();
+  const el = document.getElementById('ba-content') || document.getElementById('bm-content');
+  if (el) el.innerHTML = _baRenderContent();
 }
 
 function s1ToggleActive(code) {
   const a = ACCOUNT_MASTER.find(x => x.code === code);
   if (a) a.active = !a.active;
-  document.getElementById('bm-content').innerHTML = renderStep1();
+  const el = document.getElementById('ba-content') || document.getElementById('bm-content');
+  if (el) el.innerHTML = _baRenderContent();
 }
 
 function s1SaveAccount() {
@@ -622,7 +623,8 @@ function s1SaveAccount() {
     }
   }
   s1CloseModal();
-  document.getElementById('bm-content').innerHTML = renderStep1();
+  const el = document.getElementById('ba-content') || document.getElementById('bm-content');
+  if (el) el.innerHTML = _baRenderContent();
 }
 
 

@@ -8,7 +8,11 @@ var _foServicePoliciesLoaded = false;
 
 async function _loadFoPolicies() {
   if (_foServicePoliciesLoaded) return;
-  if (typeof _sb !== 'function' || !_sb()) return;
+  // DB 없으면 즉시 완료 처리 (무한루프 방지)
+  if (typeof _sb !== 'function' || !_sb()) {
+    _foServicePoliciesLoaded = true;
+    return;
+  }
   try {
     const [{ data: sPols }, { data: isoGrps }] = await Promise.all([
       _sb().from('service_policies').select('*').eq('status', 'active'),
@@ -40,8 +44,9 @@ async function _loadFoPolicies() {
         if (idx >= 0) ISOLATION_GROUPS[idx] = mapped; else ISOLATION_GROUPS.push(mapped);
       });
     }
-    _foServicePoliciesLoaded = true;
-  } catch(e) { console.warn('[FO] 서비스 정책 로드 실패:', e.message); }
+  } catch(e) { console.warn('[FO] 서비스 정맠 로드 실패:', e.message); }
+  // DB 로드 성공/실패 두 경우 모두 완료 함
+  _foServicePoliciesLoaded = true;
 }
 
 // 교육계획 수립 상태

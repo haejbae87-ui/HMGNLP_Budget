@@ -289,7 +289,16 @@ function renderPlanWizard() {
 
   <!-- ── Step 2: 예산 선택 ── -->
   <div class="${s.step === 2 ? '' : 'hidden'}">
-    <h3 class="text-base font-black text-gray-800 mb-5">02. 예산 계정 선택</h3>
+    <h3 class="text-base font-black text-gray-800 mb-4">02. 예산 계정 선택</h3>
+    <!-- 이전 단계 선택 요약 -->
+    ${s.purpose ? `
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl px-4 py-3 mb-5 flex items-center gap-4">
+      <div class="text-[10px] font-black text-blue-400 uppercase tracking-widest whitespace-nowrap">① 교육 목적</div>
+      <div class="flex items-center gap-2">
+        <span class="text-base">${s.purpose.icon}</span>
+        <span class="text-sm font-black text-gray-800">${s.purpose.label}</span>
+      </div>
+    </div>` : ''}
     <div class="space-y-4">
       ${availBudgets.length > 0 ? availBudgets.map(b => `
       <button onclick="planSelectBudget('${b.id}')" class="w-full p-5 rounded-2xl border-2 text-left transition-all hover:border-accent ${s.budgetId === b.id ? 'border-accent bg-blue-50 shadow-lg' : 'border-gray-200 bg-white'}">
@@ -316,7 +325,16 @@ function renderPlanWizard() {
 
   <!-- ── Step 3: 교육유형 선택 ── -->
   <div class="${s.step === 3 ? '' : 'hidden'}">
-    <h3 class="text-base font-black text-gray-800 mb-5">03. 교육유형 선택</h3>
+    <h3 class="text-base font-black text-gray-800 mb-4">03. 교육유형 선택</h3>
+    <!-- 이전 단계 선택 요약 -->
+    ${(s.purpose || curBudget) ? `
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl px-4 py-3 mb-5">
+      <div class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">선택 내역</div>
+      <div class="flex flex-wrap gap-4">
+        ${s.purpose ? `<div class="flex items-center gap-2"><span class="text-[10px] font-black text-blue-300">① 목적</span><span class="text-xs font-black text-gray-800">${s.purpose.icon} ${s.purpose.label}</span></div>` : ''}
+        ${curBudget ? `<div class="flex items-center gap-2"><span class="text-[10px] font-black text-blue-300">② 예산</span><span class="text-xs font-black text-gray-800">${curBudget.name}</span></div>` : ''}
+      </div>
+    </div>` : ''}
     ${(() => {
       // getPolicyEduTypes: SERVICE_POLICIES_FO 기반 (없으면 SERVICE_DEFINITIONS fallback)
       const eduTypes = typeof getPolicyEduTypes !== 'undefined' && curBudget

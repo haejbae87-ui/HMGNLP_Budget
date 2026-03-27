@@ -8,11 +8,10 @@ const PERSONAS = {
     type: 'HMC_TeamMgr', typeLabel: 'HMC 팀담당자·실무자',
     company: '현대자동차', tenantId: 'HMC',
     role: 'team_general', jobType: '일반직',
-    allowedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC', 'COMMON-FREE'],
+    allowedAccounts: ['HMC-OPS', 'HMC-ETC', 'COMMON-FREE'],
     isolationGroup: 'HMC-GENERAL',
-    desc: '일반예산(운영/기타/참가) 활용 실무자. 운영·기타 계정으로 교육계획 수립 후, 승인된 계획 복수 매핑 신청. 무예산 개인 이력·운영 결과 등록 활용.',
+    desc: '일반예산(운영/기타) 활용 교육담당자. 운영·기타 계정으로 교육계획 수립 후, 승인된 계획 복수 매핑 신청. 무예산 개인 이력·운영 결과 등록 활용.',
     budgets: [
-      { id: 'b_hmc01', name: '역량혁신팀 일반예산 참가계정', account: '참가', balance: 8200000, used: 1800000 },
       { id: 'b_hmc02', name: '역량혁신팀 일반예산 운영계정', account: '운영', balance: 12000000, used: 3500000 }
     ]
   },

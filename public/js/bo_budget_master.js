@@ -63,8 +63,46 @@ let _baTenantId    = null; // 플랫폼총괄: 선택된 테넌트
 let _baGroupId     = null; // 선택된 격리그룹 ID
 let _baExpandedAR  = {};   // 결재라인 펼침 상태 { accountCode: bool }
 
-// ─── 진입점: 예산 계정 관리 (+ 결재라인 통합) ────────────────────────────────
-function renderBudgetAccount() {
+// ─── DB: account_master + isolation_groups 로드 후 ACCOUNT_MASTER 갱신 ───────
+async function _baLoadAccountsFromDB() {
+  if (typeof _sb !== 'function' || !_sb()) return;
+  try {
+    const [{ data: accts }, { data: igs }] = await Promise.all([
+      _sb().from('account_master').select('*'),
+      _sb().from('isolation_groups').select('id,name,tenant_id,owned_accounts,global_admin_key,op_manager_keys'),
+    ]);
+    // ACCOUNT_MASTER 동기화
+    if (accts && typeof ACCOUNT_MASTER !== 'undefined') {
+      accts.forEach(row => {
+        const mapped = {
+          code: row.code, tenantId: row.tenant_id, group: row.grp || '일반',
+          name: row.name, desc: row.descr || '', active: row.active !== false,
+          planRequired: row.plan_required !== false, carryover: row.carryover === true,
+          isSystem: row.is_system === true,
+        };
+        const idx = ACCOUNT_MASTER.findIndex(a => a.code === mapped.code);
+        if (idx >= 0) ACCOUNT_MASTER[idx] = { ...ACCOUNT_MASTER[idx], ...mapped };
+        else ACCOUNT_MASTER.push(mapped);
+      });
+    }
+    // ISOLATION_GROUPS 동기화
+    if (igs && typeof ISOLATION_GROUPS !== 'undefined') {
+      igs.forEach(row => {
+        const idx = ISOLATION_GROUPS.findIndex(g => g.id === row.id);
+        const mapped = {
+          id: row.id, tenantId: row.tenant_id, name: row.name,
+          ownedAccounts: row.owned_accounts || [],
+          globalAdminKeys: row.global_admin_key ? [row.global_admin_key] : (row.op_manager_keys || []),
+        };
+        if (idx >= 0) ISOLATION_GROUPS[idx] = { ...ISOLATION_GROUPS[idx], ...mapped };
+        else ISOLATION_GROUPS.push(mapped);
+      });
+    }
+  } catch(e) { console.warn('[BudgetAccount] DB 로드 실패:', e.message); }
+}
+
+// ─── 진입점: 예산 계정 관리 ────────────────────────────────────────────────────
+async function renderBudgetAccount() {
   const role = boCurrentPersona.role;
   const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
   const el = document.getElementById('bo-content');
@@ -144,7 +182,7 @@ function renderBudgetAccount() {
   </div>
 
   <!-- 계정 목록 -->
-  <div id="ba-content">${_baRenderContent()}</div>
+  <div id="ba-content">🔄 DB 연결 중...</div>
   <!-- 계정 등록/수정 모달 -->
   <div id="s1-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
     <div style="background:#fff;border-radius:16px;width:480px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
@@ -160,6 +198,11 @@ function renderBudgetAccount() {
     </div>
   </div>
 </div>`;
+
+  // DB 로드 후 ba-content 갱신
+  await _baLoadAccountsFromDB();
+  const baEl = document.getElementById('ba-content');
+  if (baEl) baEl.innerHTML = _baRenderContent();
 }
 
 // ── 계정 목록 + 결재라인 통합 렌더 ───────────────────────────────────────────
@@ -591,7 +634,7 @@ function s1ToggleActive(code) {
   if (el) el.innerHTML = _baRenderContent();
 }
 
-function s1SaveAccount() {
+async function s1SaveAccount() {
   // platform_admin은 _baTenantId, 나머지는 persona.tenantId
   const role = boCurrentPersona.role;
   const tenantId = (role === 'platform_admin')
@@ -610,18 +653,48 @@ function s1SaveAccount() {
     carryover: document.getElementById('s1-carry').checked,
     active: true
   };
+
+  // ── DB UPSERT ──────────────────────────────────────────────────────────────
+  if (typeof _sb === 'function' && _sb()) {
+    const dbRow = {
+      code, name, tenant_id: tenantId,
+      grp: obj.group,
+      descr: obj.desc,
+      plan_required: obj.planRequired,
+      carryover: obj.carryover,
+      active: true,
+      is_system: false,
+    };
+    const { error: upsertErr } = await _sb().from('account_master').upsert(dbRow, { onConflict: 'code' });
+    if (upsertErr) { alert('DB 저장 실패: ' + upsertErr.message); return; }
+
+    // 격리그룹 owned_accounts 업데이트 (신규 계정일 때만)
+    if (!_s1EditCode && _baGroupId) {
+      const { data: ig } = await _sb().from('isolation_groups').select('owned_accounts').eq('id', _baGroupId).single();
+      const existing = ig?.owned_accounts || [];
+      if (!existing.includes(code)) {
+        await _sb().from('isolation_groups').update({ owned_accounts: [...existing, code] }).eq('id', _baGroupId);
+      }
+    }
+  }
+
+  // ── 메모리 동기화 ──────────────────────────────────────────────────────────
   if (_s1EditCode) {
     const idx = ACCOUNT_MASTER.findIndex(x => x.code === _s1EditCode);
     if (idx > -1) ACCOUNT_MASTER[idx] = { ...ACCOUNT_MASTER[idx], ...obj };
   } else {
-    if (ACCOUNT_MASTER.find(x => x.code === code)) { alert('이미 존재하는 코드입니다.'); return; }
-    ACCOUNT_MASTER.push(obj);
-    // 현재 선택된 격리그룹의 ownedAccounts에 자동 연결
+    if (ACCOUNT_MASTER.find(x => x.code === code)) {
+      // DB UPSERT 후이므로 메모리도 업데이트
+      const idx = ACCOUNT_MASTER.findIndex(x => x.code === code);
+      if (idx >= 0) ACCOUNT_MASTER[idx] = { ...ACCOUNT_MASTER[idx], ...obj };
+      else ACCOUNT_MASTER.push(obj);
+    } else {
+      ACCOUNT_MASTER.push(obj);
+    }
+    // 격리그룹 메모리도 동기화
     if (_baGroupId && typeof ISOLATION_GROUPS !== 'undefined') {
       const grp = ISOLATION_GROUPS.find(g => g.id === _baGroupId);
-      if (grp && !grp.ownedAccounts.includes(code)) {
-        grp.ownedAccounts.push(code);
-      }
+      if (grp && !grp.ownedAccounts.includes(code)) grp.ownedAccounts.push(code);
     }
   }
   s1CloseModal();

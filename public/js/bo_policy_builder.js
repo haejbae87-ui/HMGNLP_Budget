@@ -693,58 +693,80 @@ function renderPolicyWizard() {
     }).join('');
 
     stepContent = `
-<div style="display:grid;gap:14px">
+<div style="display:grid;gap:16px">
   <!-- 교육유형 안내 -->
   <div style="padding:10px 16px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
     <span style="font-size:11px;font-weight:900;color:#92400E">🎯 교육유형 필터</span>
     ${_eduLabel}
-    <span style="font-size:10px;color:#9CA3AF">| 해당 유형의 양식만 표시됩니다</span>
+    <span style="font-size:10px;color:#9CA3AF">| 해당 유형 + 단계별 양식만 표시됩니다</span>
   </div>
-  <!-- 단계별 연결 현황 요약 -->
-  <div>
-    <div style="font-size:11px;font-weight:800;color:#374151;margin-bottom:8px">📋 단계별 연결 현황</div>
-    <div style="display:flex;gap:8px">${_summaryPanels}</div>
-  </div>
-  <!-- 탭 (완성도 배지 포함) -->
-  <div style="display:flex;gap:0;border-bottom:2px solid #E5E7EB">
-    ${stages.map(s=>`
-    <button onclick="_policyWizardData._formTab='${s}';renderPolicyWizard()"
-      style="padding:8px 16px;font-size:12px;font-weight:700;border:none;border-bottom:3px solid ${activeStageTab===s?stageColor[s]:'transparent'};background:none;cursor:pointer;color:${activeStageTab===s?stageColor[s]:'#6B7280'};display:flex;align-items:center">
-      ${stageLabel[s]} 양식${_tabBadge(s)}
-    </button>`).join('')}
-  </div>
-  <!-- 현재 탭 양식 목록 (stage 타입 일치하는 것만) -->
-  <div>
-    <div style="font-size:11px;font-weight:800;color:#374151;margin-bottom:8px">${stageLabel[activeStageTab]} 단계 양식 선택 <span style="font-size:10px;font-weight:500;color:#9CA3AF">(${_activeForms.length}개 사용 가능)</span></div>
-    ${_activeForms.length === 0 ? `
-    <div style="padding:24px;text-align:center;background:#F9FAFB;border-radius:10px;border:1px dashed #D1D5DB">
-      <div style="font-size:24px;margin-bottom:6px">📭</div>
-      <div style="font-size:12px;font-weight:700;color:#374151">사용 가능한 양식이 없습니다</div>
-      <div style="font-size:11px;color:#9CA3AF;margin-top:4px">먼저 교육양식마법사에서 "${stageLabel[activeStageTab].split(' ')[1]}" 단계 양식을 만들어 주세요</div>
-    </div>` : `
+  <!-- 완성도 경고 배너 -->
+  ${stages.some(s => (d.stageFormIds[s]||[]).length === 0 && _formsForStage(s).length > 0) ? `
+  <div style="padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;display:flex;align-items:center;gap:8px">
+    <span style="font-size:16px">⚠️</span>
+    <span style="font-size:12px;font-weight:700;color:#B91C1C">양식이 연결되지 않은 단계가 있습니다. 아래에서 모든 단계에 양식을 연결해 주세요.</span>
+  </div>` : stages.length > 0 && stages.every(s => (d.stageFormIds[s]||[]).length > 0) ? `
+  <div style="padding:10px 14px;background:#F0FDF4;border:1px solid #86EFAC;border-radius:10px;display:flex;align-items:center;gap:8px">
+    <span style="font-size:16px">✅</span>
+    <span style="font-size:12px;font-weight:700;color:#065F46">모든 단계에 양식이 연결되었습니다.</span>
+  </div>` : ''}
+  <!-- 단계별 양식 카드 (한페이지 수직 배치) -->
+  ${stages.map(s => {
+    const forms = _formsForStage(s);
+    const selected = d.stageFormIds[s] || [];
+    const ok = selected.length > 0;
+    return `
+  <div style="border:2px solid ${ok ? stageColor[s]+'60' : (forms.length > 0 ? '#FECACA' : '#E5E7EB')};border-radius:14px;overflow:hidden">
+    <!-- 단계 헤더 -->
+    <div style="padding:12px 16px;background:${ok ? stageColor[s]+'10' : (forms.length > 0 ? '#FEF2F2' : '#F9FAFB')};
+                display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid ${ok ? stageColor[s]+'30' : '#E5E7EB'}">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:13px;font-weight:900;color:${stageColor[s]}">${stageLabel[s]} 단계 양식</span>
+        ${ok
+          ? `<span style="padding:2px 9px;border-radius:20px;background:${stageColor[s]};color:white;font-size:10px;font-weight:900">${selected.length}개 연결</span>`
+          : forms.length > 0
+            ? `<span style="padding:2px 9px;border-radius:20px;background:#FEE2E2;color:#B91C1C;font-size:10px;font-weight:900">⚠ 미연결</span>`
+            : `<span style="padding:2px 9px;border-radius:20px;background:#F3F4F6;color:#9CA3AF;font-size:10px;font-weight:700">양식 없음</span>`
+        }
+      </div>
+      <span style="font-size:10px;color:#9CA3AF">${forms.length}개 선택 가능</span>
+    </div>
+    <!-- 양식 목록 -->
+    <div style="padding:12px;background:white">
+    ${forms.length === 0 ? `
+      <div style="padding:20px;text-align:center;background:#F9FAFB;border-radius:8px;border:1px dashed #D1D5DB">
+        <div style="font-size:20px;margin-bottom:4px">📭</div>
+        <div style="font-size:12px;font-weight:700;color:#374151">사용 가능한 ${stageLabel[s].split(' ')[1]} 양식이 없습니다</div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:3px">교육양식마법사에서 [${stageLabel[s].split(' ')[1]}] 타입 양식을 먼저 만들어 주세요</div>
+      </div>` : `
     <div style="display:grid;gap:6px">
-      ${_activeForms.map(f => {
-        const isSelected = _selectedIds.includes(f.id);
+      ${forms.map(f => {
+        const isSel = selected.includes(f.id);
         return `
-      <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:8px;
-                    border:1.5px solid ${isSelected?stageColor[activeStageTab]:'#E5E7EB'};
-                    background:${isSelected?stageColor[activeStageTab]+'12':'white'};cursor:pointer"
-             onclick="toggleStageForm('${activeStageTab}','${f.id}')">
-        <input type="checkbox" ${isSelected?'checked':''} style="margin:0;flex-shrink:0;width:16px;height:16px">
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;
+                    border:1.5px solid ${isSel ? stageColor[s] : '#E5E7EB'};
+                    background:${isSel ? stageColor[s]+'10' : 'white'};cursor:pointer;transition:all .13s"
+             onclick="toggleStageForm('${s}','${f.id}')">
+        <input type="checkbox" ${isSel ? 'checked' : ''} style="margin:0;flex-shrink:0;width:16px;height:16px;accent-color:${stageColor[s]}">
         <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:12px;color:${isSelected?stageColor[activeStageTab]:'#111827'}">${f.name}</div>
-          <div style="font-size:10px;color:#9CA3AF;margin-top:2px">
+          <div style="font-weight:700;font-size:12px;color:${isSel ? stageColor[s] : '#111827'}">${f.name}</div>
+          <div style="font-size:10px;color:#9CA3AF;margin-top:1px">
             ${f.purpose ? `🎯 ${f.purpose}` : ''}
-            ${f.eduType  ? ` · ${f.eduType}` : ''}
+            ${f.eduType ? ` · ${f.eduType}` : ''}
             ${f.eduSubType ? ` › ${f.eduSubType}` : ''}
             ${f.desc ? ` · ${f.desc}` : ''}
           </div>
         </div>
-        ${isSelected ? `<span style="flex-shrink:0;font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;background:${stageColor[activeStageTab]};color:white">선택됨</span>` : ''}
-      </label>`; }).join('')}
+        ${isSel ? `<span style="flex-shrink:0;font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;background:${stageColor[s]};color:white">✓ 선택</span>` : ''}
+      </label>`;
+      }).join('')}
     </div>`}
-  </div>
+    </div>
+  </div>`;
+  }).join('')}
 </div>`;
+
+
 
   // ── Step 7: 단계별 결재라인 ────────────────────────────────────────────────────
   } else if (_policyWizardStep === 7) {

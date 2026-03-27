@@ -192,6 +192,7 @@ const PLATFORM_MENUS = [
   { id: 'virtual-org',       icon: '🏗️', label: '가상조직 템플릿 관리',   section: null },
   { id: 'form-builder',      icon: '📝', label: '교육양식마법사',          section: null },
   { id: 'field-mgmt',        icon: '⚙️', label: '입력 필드 관리',          section: null },
+  { id: 'edu-type-mgmt',     icon: '🏷️', label: '교육유형 관리',          section: null },
   { id: 'calc-grounds',      icon: '📐', label: '산정기준 관리',          section: null },
   { id: 'service-policy',    icon: '🔧', label: '서비스 정책 관리',        section: null },
   { id: 'reports',           icon: '📈', label: '통계 및 리포트',        section: '분석' },
@@ -550,6 +551,7 @@ function boNavigate(menuId) {
   if (menuId === 'my-operations')    renderMyOperations();
   if (menuId === 'org-budget')       renderOrgBudget();
   if (menuId === 'isolation-groups')    renderIsolationGroups();
+  if (menuId === 'edu-type-mgmt')    renderEduTypeMgmt();
   if (menuId === 'reports')          renderBoReports();
   if (menuId === 'manual')           renderBoManual();
 }

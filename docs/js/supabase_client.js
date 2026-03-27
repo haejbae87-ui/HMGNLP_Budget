@@ -471,13 +471,64 @@ async function sbLoadFoPersonas() {
 }
 window.sbLoadFoPersonas = sbLoadFoPersonas;
 
+// ─── 교육목적/유형 DB 로더 ───────────────────────────────────────────────────
+// edu_purpose_groups + edu_type_groups + edu_type_items → EDU_PURPOSE_GROUPS / EDU_TYPE_ITEMS
+async function sbLoadEduTypes() {
+  try {
+    const sb = getSB();
+    if (!sb) return null;
+
+    const [purposeRes, groupRes, itemRes] = await Promise.all([
+      sb.from('edu_purpose_groups').select('*').eq('is_active', true).order('sort_order'),
+      sb.from('edu_type_groups').select('*').eq('is_active', true).order('sort_order'),
+      sb.from('edu_type_items').select('*').eq('is_active', true).order('sort_order'),
+    ]);
+    if (purposeRes.error) throw purposeRes.error;
+
+    const purposes = purposeRes.data || [];
+    const groups   = groupRes.data   || [];
+    const items    = itemRes.data    || [];
+
+    // 목적군별로 그룹과 아이템 계층화
+    const purposeMap = {};
+    purposes.forEach(p => {
+      purposeMap[p.id] = {
+        id: p.id, label: p.label, audience: p.audience,
+        icon: p.icon, description: p.description,
+        sort_order: p.sort_order,
+        // PURPOSES 배열 호환 구조 (subtypes)
+        subtypes: groups
+          .filter(g => g.purpose_id === p.id)
+          .map(g => ({
+            group: g.label, groupId: g.id,
+            items: items
+              .filter(i => i.group_id === g.id)
+              .map(i => ({ id: i.id, label: i.label, sort_order: i.sort_order }))
+          }))
+      };
+    });
+
+    // 플랫 목록 (정책 위저드, BO 등에서 사용)
+    const itemsFlat = {};
+    items.forEach(i => { itemsFlat[i.id] = i.label; });
+
+    console.log(`[Supabase] ✅ 교육유형 로드: 목적군 ${purposes.length}개, 세부유형 ${items.length}개`);
+    return { purposeMap, itemsFlat, purposes, groups, items };
+  } catch (e) {
+    console.warn('[Supabase] 교육유형 로드 실패 → data.js fallback:', e.message);
+    return null;
+  }
+}
+window.sbLoadEduTypes = sbLoadEduTypes;
+
+
 // ─── 초기 로딩 ───────────────────────────────────────────────────────────────
 // 앱 시작 시 전역 변수를 DB 데이터로 교체
 async function initSupabaseData() {
   console.log('[Supabase] 데이터 로딩 시작...');
   try {
     // 핸심 데이터를 병렬 로드 (FO 페르소나 포함)
-    const [tenants, accounts, groups, policies, personas, vorgTemplates, foPersonas] = await Promise.all([
+    const [tenants, accounts, groups, policies, personas, vorgTemplates, foPersonas, eduTypes] = await Promise.all([
       sbLoadTenants(),
       sbLoadAccountMaster(),
       sbLoadIsolationGroups(),
@@ -485,6 +536,7 @@ async function initSupabaseData() {
       sbLoadPersonas(),
       sbLoadVirtualOrgTemplates(),
       sbLoadFoPersonas(),
+      sbLoadEduTypes(),
     ]);
 
     // 전역 변수 교체
@@ -493,6 +545,16 @@ async function initSupabaseData() {
     if (groups      && groups.length)        window.ISOLATION_GROUPS   = groups;
     if (policies    && policies.length)      window.SERVICE_POLICIES   = policies;
     if (vorgTemplates && vorgTemplates.length) window.VIRTUAL_ORG_TEMPLATES = vorgTemplates;
+
+    // 교육목적/유형: DB 로드 성공 시 PURPOSES 배열 갱신
+    if (eduTypes && eduTypes.purposes && eduTypes.purposes.length) {
+      window.EDU_PURPOSE_GROUPS = eduTypes.purposeMap;
+      window.EDU_TYPE_ITEMS_FLAT = eduTypes.itemsFlat;
+      window.EDU_TYPES_RAW = eduTypes;
+      // PURPOSES 배열을 DB 데이터로 교체 (FO 하위호환)
+      window.PURPOSES = eduTypes.purposes.map(p => eduTypes.purposeMap[p.id]).filter(Boolean);
+      console.log('[Supabase] ✅ PURPOSES DB 전환 완료');
+    }
 
     // BO_PERSONAS: DB 데이터로 교체 (실패 시 null 반환 → JS mock 유지)
     if (personas && Object.keys(personas).length > 0) {

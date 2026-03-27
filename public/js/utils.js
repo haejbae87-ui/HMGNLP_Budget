@@ -35,10 +35,13 @@ const ACCOUNT_TYPE_MAP = {
 //
 // BO purpose key → FO PURPOSES.id 매핑 테이블
 const _BO_TO_FO_PURPOSE = {
-  'elearning_class': 'internal_edu',   // 이러닝/집합(비대면) 운영
-  'conf_seminar':    'workshop',        // 워크샵/세미나/콘퍼런스 등 운영
-  'misc_ops':        'etc',             // 기타 운영
-  'external_personal': 'external_personal', // 개인직무 사외학습
+  'elearning_class':    'internal_edu',     // 구버전 코드 호환
+  'internal_edu':       'internal_edu',     // 이러닝/집합(비대면) 운영
+  'conf_seminar':       'conf_seminar',     // 워크샵/세미나/콘퍼런스 운영
+  'workshop':           'conf_seminar',     // 구버전 코드 호환
+  'misc_ops':           'misc_ops',         // 기타운영
+  'etc':                'misc_ops',         // 구버전 코드 호환
+  'external_personal':  'external_personal',// 개인직무 사외학습
 };
 // FO purpose → BO purpose (역매핑, 복수 가능)
 const _FO_TO_BO_PURPOSE = {};
@@ -61,16 +64,28 @@ function _resolveIsoGroupId(persona) {
 function _getActivePolicies(persona) {
   if (typeof SERVICE_POLICIES === 'undefined' || SERVICE_POLICIES.length === 0) return null;
   const isoGroupId = _resolveIsoGroupId(persona);
+  // persona.allowedAccounts로 추가 매칭할 수 있는 격리그룹 ID 집합
+  const allowedAcctCodes = new Set(persona.allowedAccounts || []);
+
   const matched = SERVICE_POLICIES.filter(p => {
     if (p.status && p.status !== 'active') return false;
     if (p.tenantId && p.tenantId !== persona.tenantId) return false;
-    // 격리그룹 매칭: persona 격리그룹 코드가 DB id와 직접 일치하거나, 해석 불가면 테넌트 전체 허용
-    if (isoGroupId && p.isolationGroupId && p.isolationGroupId !== isoGroupId) return false;
+    // 격리그룹 매칭:
+    // ① 페르소나의 주 격리그룹 ID와 일치하거나
+    if (isoGroupId && p.isolationGroupId && p.isolationGroupId === isoGroupId) return true;
+    // ② 정책의 accountCodes가 persona.allowedAccounts와 교차하면 포함
+    //    (이상봉처럼 여러 격리그룹 계정을 가진 겸임 케이스)
+    if (p.accountCodes && p.accountCodes.some(c => allowedAcctCodes.has(c))) {
+      // 테넌트 범위 확인만 하고 OK
+      return true;
+    }
+    // ③ isoGroupId 미해석 + 직접 비교
     if (!isoGroupId && p.isolationGroupId) {
-      // persona.isolationGroup 값으로 DB id 직접 비교 시도
       if (persona.isolationGroup && p.isolationGroupId !== persona.isolationGroup) return false;
     }
-    return true;
+    // ④ 격리그룹 미설정 정책은 테넌트 내 전체 허용
+    if (!p.isolationGroupId) return true;
+    return false;
   });
   return matched.length > 0 ? { source: 'db', policies: matched } : null;
 }
@@ -81,9 +96,16 @@ function getPersonaBudgets(persona, purposeId) {
   if (result) {
     const { source, policies } = result;
     if (source === 'db') {
-      // target_type 필터
-      const targetType = (persona.role === 'learner') ? 'learner' : 'operator';
-      const byTarget = policies.filter(p => !p.targetType || p.targetType === targetType);
+      // target_type 필터 (team_general/team_leader는 learner + operator 모두)
+      const LEARNER_ROLES = ['learner', 'team_general', 'team_leader'];
+      const isLearnerRole = LEARNER_ROLES.includes(persona.role);
+      const isOperatorRole = !isLearnerRole || ['team_general', 'team_leader'].includes(persona.role);
+      const byTarget = policies.filter(p => {
+        if (!p.targetType) return true;
+        if (isLearnerRole  && p.targetType === 'learner')  return true;
+        if (isOperatorRole && p.targetType === 'operator') return true;
+        return false;
+      });
       // BO DB: purposeId (FO) → BO purpose keys로 변환
       const boPurposeKeys = purposeId ? (_FO_TO_BO_PURPOSE[purposeId] || [purposeId]) : null;
       const filtered = boPurposeKeys
@@ -127,9 +149,17 @@ function getPersonaPurposes(persona) {
   if (result) {
     const { source, policies } = result;
     if (source === 'db') {
-      // persona role → DB target_type 매핑 (operator 정책만 / learner 정책만)
-      const targetType = (persona.role === 'learner') ? 'learner' : 'operator';
-      const filtered = policies.filter(p => !p.targetType || p.targetType === targetType);
+      // persona role → DB target_type 매핑
+      // team_general / team_leader 등 겸임 역할은 learner + operator 정책 모두 적용
+      const LEARNER_ROLES = ['learner', 'team_general', 'team_leader'];
+      const isLearnerRole = LEARNER_ROLES.includes(persona.role);
+      const isOperatorRole = !isLearnerRole || ['team_general', 'team_leader'].includes(persona.role);
+      const filtered = policies.filter(p => {
+        if (!p.targetType) return true; // target_type 미설정 = 전체 허용
+        if (isLearnerRole  && p.targetType === 'learner')   return true;
+        if (isOperatorRole && p.targetType === 'operator')  return true;
+        return false;
+      });
       // BO purpose keys → FO PURPOSES.id 변환
       const foPurposeIds = [...new Set(
         filtered.map(p => _BO_TO_FO_PURPOSE[p.purpose] || p.purpose).filter(Boolean)

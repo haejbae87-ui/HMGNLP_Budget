@@ -200,26 +200,46 @@ const PURPOSES = [
   },
   {
     id: 'internal_edu',
-    label: '집합/이러닝 운영',
+    label: '이러닝/집합(비대면) 운영',
     desc: '사내 교육과정을 직접 개설 및 운영',
     icon: '🖥',
     accounts: ['운영', '연구투자'],
-    subtypes: null
+    subtypes: [
+      { group: '이러닝/집합 운영 유형', items: [
+        { id: 'ops_elearning', label: '이러닝' },
+        { id: 'ops_class',     label: '집합(비대면)' },
+      ]},
+    ]
   },
   {
-    id: 'workshop',
-    label: '워크샵/세미나/콘퍼런스 등 운영',
+    id: 'conf_seminar',
+    label: '워크샵/세미나/콘퍼런스 운영',
     desc: '교육담당자가 사외행사 참가를 운영·지원하는 형태',
     icon: '👥',
     accounts: ['참가', '운영', '연구투자'],
-    subtypes: null
+    subtypes: [
+      { group: '콘퍼런스/세미나 유형', items: [
+        { id: 'ops_workshop',    label: '워크샵' },
+        { id: 'ops_seminar',     label: '세미나' },
+        { id: 'ops_conference',  label: '콘퍼런스' },
+        { id: 'ops_cert_maint',  label: '자격유지' },
+        { id: 'ops_policy_link', label: '제도연계' },
+      ]},
+    ]
   },
   {
-    id: 'etc',
-    label: '기타',
-    desc: '과정개발, 교안개발, 영상제작 등',
+    id: 'misc_ops',
+    label: '기타운영',
+    desc: '과정개발, 교안개발, 교육시설 운영 등',
     icon: '📌',
     accounts: ['운영', '연구투자'],
-    subtypes: null
+    subtypes: [
+      { group: '기타운영 유형', items: [
+        { id: 'ops_course_dev',   label: '과정개발' },
+        { id: 'ops_material_dev', label: '교안개발' },
+        { id: 'ops_facility',     label: '교육시설 운영' },
+      ]},
+    ]
   },
 ];
+

@@ -45,6 +45,10 @@
   <!-- FLOATING BUDGET WIDGET -->
   <div id="floating-budget" class="floating-budget"></div>
 
+  <!-- Supabase SDK (FO에서도 DB 정책 로드를 위해 필수) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="js/supabase_client.js"></script>
+
   <!-- JS: 순서 중요 (data → utils → 각 기능 모듈 → main) -->
   <script src="js/bo_data.js?v=24"></script>
   <script src="js/data.js"></script>

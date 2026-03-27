@@ -267,29 +267,80 @@ function _renderResultForm() {
 }
 
 // ─── 교육신청 목록 뷰 ──────────────────────────────────────────────────────────
+// 신청 목록 탭 상태
+let _applyListTab = 'mine'; // 'mine' | 'team'
+
 function _renderApplyList() {
   const STATUS_CFG = {
-    '승인완료':   { color: '#059669', bg: '#F0FDF4', border: '#BBF7D0', icon: '✅', label: '승인완료'   },
-    '반려':       { color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', icon: '❌', label: '반려'       },
-    '결재진행중': { color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', icon: '⏳', label: '결재진행중' },
-    '승인대기':   { color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB', icon: '🕐', label: '승인대기'   },
+    '승인완료':   { color: '#059669', bg: '#F0FDF4', border: '#BBF7D0', icon: '✅' },
+    '반려':       { color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', icon: '❌' },
+    '결재진행중': { color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', icon: '⏳' },
+    '승인대기':   { color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB', icon: '🕐' },
   };
 
-  const rows = MOCK_HISTORY.map(h => {
+  const teamViewEnabled = currentPersona.teamViewEnabled ?? currentPersona.team_view_enabled ?? false;
+  const myHistory   = typeof MOCK_HISTORY !== 'undefined' ? MOCK_HISTORY : [];
+  const teamHistory = teamViewEnabled ? _getSampleTeamHistory() : [];
+  const history = _applyListTab === 'mine' ? myHistory : teamHistory;
+
+  // 통계
+  const statCounts = {
+    total:       history.length,
+    approved:    history.filter(h => h.applyStatus === '승인완료').length,
+    inProgress:  history.filter(h => h.applyStatus === '결재진행중').length,
+    rejected:    history.filter(h => h.applyStatus === '반려').length,
+    pending:     history.filter(h => h.applyStatus === '승인대기').length,
+  };
+
+  // Segmented tab
+  const tabBar = teamViewEnabled ? `
+  <div style="display:flex;gap:4px;background:#F3F4F6;padding:4px;border-radius:14px;margin-bottom:20px;width:fit-content">
+    <button onclick="_applyListTab='mine';_renderApplyList()" style="
+      padding:8px 20px;border-radius:10px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s;
+      background:${_applyListTab==='mine'?'#fff':'transparent'};
+      color:${_applyListTab==='mine'?'#002C5F':'#6B7280'};
+      box-shadow:${_applyListTab==='mine'?'0 1px 4px rgba(0,0,0,.12)':'none'}">
+      👤 내 신청
+    </button>
+    <button onclick="_applyListTab='team';_renderApplyList()" style="
+      padding:8px 20px;border-radius:10px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s;
+      background:${_applyListTab==='team'?'#fff':'transparent'};
+      color:${_applyListTab==='team'?'#002C5F':'#6B7280'};
+      box-shadow:${_applyListTab==='team'?'0 1px 4px rgba(0,0,0,.12)':'none'}">
+      👥 팀 신청
+    </button>
+  </div>` : '';
+
+  // 통계 카드
+  const statsBar = `
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+    ${[
+      { label:'승인완료', val: statCounts.approved,   color:'#059669', bg:'#F0FDF4', icon:'✅' },
+      { label:'진행중',   val: statCounts.inProgress, color:'#D97706', bg:'#FFFBEB', icon:'⏳' },
+      { label:'반려',     val: statCounts.rejected,   color:'#DC2626', bg:'#FEF2F2', icon:'❌' },
+      { label:'승인대기', val: statCounts.pending,    color:'#6B7280', bg:'#F9FAFB', icon:'🕐' },
+    ].map(s => `
+    <div style="background:${s.bg};border-radius:14px;padding:14px 16px;border:1.5px solid ${s.color}20">
+      <div style="font-size:11px;font-weight:700;color:${s.color};margin-bottom:6px">${s.icon} ${s.label}</div>
+      <div style="font-size:24px;font-weight:900;color:${s.color}">${s.val}<span style="font-size:13px;margin-left:2px">건</span></div>
+    </div>`).join('')}
+  </div>`;
+
+  // 목록 행
+  const rows = history.map(h => {
     const cfg = STATUS_CFG[h.applyStatus] || STATUS_CFG['승인대기'];
     const canResult = h.applyStatus === '승인완료';
+    const authorBadge = h.author ? `<span style="font-size:10px;background:#F3F4F6;color:#374151;padding:2px 8px;border-radius:10px;margin-left:6px">👤 ${h.author}</span>` : '';
     return `
     <div style="display:flex;align-items:flex-start;gap:16px;padding:18px 20px;border-radius:14px;
                 border:1.5px solid ${cfg.border};background:${cfg.bg};transition:all .15s">
-      <!-- 상태 아이콘 -->
       <div style="font-size:24px;flex-shrink:0;margin-top:2px">${cfg.icon}</div>
-      <!-- 본문 -->
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
           <span style="font-size:14px;font-weight:900;color:#111827">${h.title}</span>
-          <span style="font-size:9px;font-weight:900;padding:2px 7px;border-radius:6px;
-                background:${cfg.color}20;color:${cfg.color}">${cfg.label}</span>
+          <span style="font-size:9px;font-weight:900;padding:2px 7px;border-radius:6px;background:${cfg.color}20;color:${cfg.color}">${h.applyStatus}</span>
           ${h.resultDone ? '<span style="font-size:9px;font-weight:900;padding:2px 7px;border-radius:6px;background:#DBEAFE;color:#1D4ED8">📋 결과작성완료</span>' : ''}
+          ${authorBadge}
         </div>
         <div style="font-size:11px;color:#6B7280;display:flex;gap:12px;flex-wrap:wrap">
           <span>📅 ${h.date} ~ ${h.endDate}</span>
@@ -302,53 +353,49 @@ function _renderApplyList() {
           ⚠️ 반려 사유: 예산 잔액 부족으로 반려되었습니다. 예산 계획 수립 후 재신청 바랍니다.
         </div>` : ''}
       </div>
-      <!-- 액션 버튼 -->
       <div style="flex-shrink:0;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
         ${canResult && !h.resultDone ? `
         <button onclick="alert('교육결과 작성 기능 준비 중입니다.')"
-          style="padding:8px 14px;border-radius:8px;background:#002C5F;color:white;font-size:11px;
-                 font-weight:800;border:none;cursor:pointer;white-space:nowrap">
+          style="padding:8px 14px;border-radius:8px;background:#002C5F;color:white;font-size:11px;font-weight:800;border:none;cursor:pointer;white-space:nowrap">
           📝 결과 작성
         </button>` : ''}
         ${canResult && h.resultDone ? `
-        <button style="padding:8px 14px;border-radius:8px;background:#F3F4F6;color:#9CA3AF;
-                       font-size:11px;font-weight:800;border:none;cursor:default;white-space:nowrap">
+        <button style="padding:8px 14px;border-radius:8px;background:#F3F4F6;color:#9CA3AF;font-size:11px;font-weight:800;border:none;cursor:default;white-space:nowrap">
           ✅ 결과 제출 완료
         </button>` : ''}
       </div>
     </div>`;
   }).join('');
 
+  const emptyMsg = `<div style="padding:60px 20px;text-align:center;color:#9CA3AF;font-weight:700">
+    📭 ${_applyListTab==='mine' ? '신청 이력이 없습니다.' : '팀원의 신청 이력이 없습니다.'}<br>
+    <span style="font-size:12px">${_applyListTab==='mine' ? '위의 "교육 신청" 버튼으로 신청해보세요.' : ''}</span>
+  </div>`;
+
   document.getElementById('page-apply').innerHTML = `
-<div class="max-w-4xl mx-auto space-y-6">
-  <!-- 헤더 -->
+<div class="max-w-4xl mx-auto space-y-4">
   <div style="display:flex;align-items:flex-end;justify-content:space-between">
     <div>
       <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육 신청</div>
-      <h1 class="text-3xl font-black text-brand tracking-tight">내 교육신청 현황</h1>
+      <h1 class="text-3xl font-black text-brand tracking-tight">교육신청 현황</h1>
       <p style="font-size:12px;color:#9CA3AF;margin-top:4px">${currentPersona.name} · ${currentPersona.dept}</p>
     </div>
-    <div style="display:flex;gap:10px;align-items:center">
-      ${_applySmartButtons()}
-    </div>
+    <div style="display:flex;gap:10px;align-items:center">${_applySmartButtons()}</div>
   </div>
-
-  <!-- 요약 뱃지 -->
-  <div style="display:flex;gap:10px;flex-wrap:wrap">
-    ${Object.entries({'승인완료':'#059669','결재진행중':'#D97706','반려':'#DC2626','승인대기':'#6B7280'}).map(([k,c]) => {
-      const cnt = MOCK_HISTORY.filter(h => h.applyStatus === k).length;
-      return `<div style="padding:6px 14px;border-radius:8px;background:${c}15;border:1.5px solid ${c}40;font-size:11px;font-weight:900;color:${c}">${k} ${cnt}건</div>`;
-    }).join('')}
-  </div>
-
-  <!-- 목록 -->
+  ${tabBar}
+  ${statsBar}
   <div class="card p-6">
-    ${MOCK_HISTORY.length === 0
-      ? '<div style="padding:60px 20px;text-align:center;color:#9CA3AF;font-weight:700">📭 신청 이력이 없습니다.<br><span style="font-size:12px">위의 "교육 신청하기" 버튼으로 신청해보세요.</span></div>'
-      : `<div style="display:flex;flex-direction:column;gap:10px">${rows}</div>`
-    }
+    ${history.length === 0 ? emptyMsg : `<div style="display:flex;flex-direction:column;gap:10px">${rows}</div>`}
   </div>
 </div>`;
+}
+
+// 팀 신청 샘플 (실제에서는 DB 조회)
+function _getSampleTeamHistory() {
+  return [
+    { id:'TH001', title:'팀원 A - SDV 세미나', type:'세미나', date:'2026-03-01', endDate:'2026-03-01', hours:8, amount:300000, budget:'운영', applyStatus:'승인완료', resultDone:false, author:'김O수' },
+    { id:'TH002', title:'팀원 B - 이러닝 과정', type:'이러닝', date:'2026-03-10', endDate:'2026-03-31', hours:20, amount:150000, budget:'운영', applyStatus:'결재진행중', resultDone:false, author:'이O진' },
+  ];
 }
 
 // ─── 교육신청 폼 뷰 (기존 renderApply 로직) ──────────────────────────────────

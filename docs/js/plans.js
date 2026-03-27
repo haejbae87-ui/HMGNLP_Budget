@@ -127,39 +127,129 @@ function resetPlanState() {
   };
 }
 
+// 계획 목록 뷰 상태
+let _planViewTab = 'mine'; // 'mine' | 'team'
+
 function renderPlans() {
   // FO 정책 DB 로드 (최초 1회, 완료 후 목록 자동 갱신)
   if (!_foServicePoliciesLoaded) {
     _loadFoPolicies().then(() => renderPlans());
-    return; // 로드 중에는 렌더 보류
-  }
-
-  // 위저드 뷰
-  if (planState) {
-    renderPlanWizard();
     return;
   }
 
-  // 목록 뷰
+  // 위저드 뷰
+  if (planState) { renderPlanWizard(); return; }
+
+  // 팀 뷰 허용 여부 (persona의 teamViewEnabled 또는 team_view_enabled)
+  const teamViewEnabled = currentPersona.teamViewEnabled ?? currentPersona.team_view_enabled ?? false;
+
+  // 내 계획 (MOCK_PLANS: 실제에서는 DB 조회)
+  const myPlans    = typeof MOCK_PLANS !== 'undefined' ? MOCK_PLANS : [];
+  // 팀 계획 (현재는 샘플, 실제에서는 팀 기준 DB 조회)
+  const teamPlans  = teamViewEnabled ? _getSampleTeamPlans() : [];
+
+  const plans = _planViewTab === 'mine' ? myPlans : teamPlans;
+
+  // 통계
+  const stats = {
+    total:    plans.length,
+    active:   plans.filter(p => p.status === '진행중' || p.status === '신청중').length,
+    done:     plans.filter(p => p.status === '완료').length,
+    rejected: plans.filter(p => p.status === '반려').length,
+  };
+
+  // 탭 UI
+  const tabBar = teamViewEnabled ? `
+  <div style="display:flex;gap:4px;background:#F3F4F6;padding:4px;border-radius:14px;margin-bottom:20px;width:fit-content">
+    <button onclick="_planViewTab='mine';renderPlans()" style="
+      padding:8px 20px;border-radius:10px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s;
+      background:${_planViewTab==='mine'?'#fff':'transparent'};
+      color:${_planViewTab==='mine'?'#002C5F':'#6B7280'};
+      box-shadow:${_planViewTab==='mine'?'0 1px 4px rgba(0,0,0,.12)':'none'}">
+      👤 내 교육계획
+    </button>
+    <button onclick="_planViewTab='team';renderPlans()" style="
+      padding:8px 20px;border-radius:10px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s;
+      background:${_planViewTab==='team'?'#fff':'transparent'};
+      color:${_planViewTab==='team'?'#002C5F':'#6B7280'};
+      box-shadow:${_planViewTab==='team'?'0 1px 4px rgba(0,0,0,.12)':'none'}">
+      👥 팀 교육계획
+    </button>
+  </div>` : '';
+
+  // 통계 카드
+  const statsBar = `
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+    ${[
+      { label:'전체',   val: stats.total,    color:'#002C5F', bg:'#EFF6FF', icon:'📋' },
+      { label:'진행중', val: stats.active,   color:'#0369A1', bg:'#F0F9FF', icon:'⏳' },
+      { label:'완료',   val: stats.done,     color:'#059669', bg:'#F0FDF4', icon:'✅' },
+      { label:'반려',   val: stats.rejected, color:'#DC2626', bg:'#FEF2F2', icon:'❌' },
+    ].map(s => `
+    <div style="background:${s.bg};border-radius:14px;padding:14px 16px;border:1.5px solid ${s.color}20">
+      <div style="font-size:11px;font-weight:700;color:${s.color};margin-bottom:6px">${s.icon} ${s.label}</div>
+      <div style="font-size:24px;font-weight:900;color:${s.color}">${s.val}<span style="font-size:13px;margin-left:2px">건</span></div>
+    </div>`).join('')}
+  </div>`;
+
+  // 계획 카드 목록
+  const listHtml = plans.length > 0
+    ? plans.map(p => _renderPlanCard(p)).join('')
+    : `<div class="card p-16 text-center">
+        <div style="font-size:48px;margin-bottom:16px">📋</div>
+        <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">
+          ${_planViewTab === 'mine' ? '등록된 교육계획이 없습니다' : '팀 교육계획이 없습니다'}
+        </div>
+        <div style="font-size:12px;color:#9CA3AF;margin-bottom:20px">
+          ${_planViewTab === 'mine' ? '"교육계획 수립" 버튼으로 새 계획을 작성해보세요.' : '팀원들의 교육계획이 없거나 아직 로드되지 않았습니다.'}
+        </div>
+        ${_planViewTab === 'mine' ? `<button onclick="startPlanWizard()" style="padding:10px 24px;border-radius:12px;background:#002C5F;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer">+ 교육계획 수립하기</button>` : ''}
+      </div>`;
+
   document.getElementById('page-plans').innerHTML = `
-<div class="max-w-4xl mx-auto space-y-6">
+<div class="max-w-4xl mx-auto space-y-4">
   <div class="flex items-center justify-between">
     <div>
       <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육계획</div>
       <h1 class="text-3xl font-black text-brand tracking-tight">교육계획 수립</h1>
-      <p class="text-gray-500 text-sm mt-1">교육 신청 전 교육계획을 먼저 수립하세요.</p>
+      <p class="text-gray-500 text-sm mt-1">${currentPersona.name} · ${currentPersona.dept}</p>
     </div>
     <button onclick="startPlanWizard()" class="flex items-center gap-2 bg-brand text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-blue-900 transition shadow-lg">
       + 교육계획 수립
     </button>
   </div>
-  <div class="card p-16 text-center">
-    <div style="font-size:48px;margin-bottom:16px">📋</div>
-    <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">등록된 교육계획이 없습니다</div>
-    <div style="font-size:12px;color:#9CA3AF;margin-bottom:20px">위의 "교육계획 수립" 버튼으로 새 계획을 작성해보세요.</div>
-    <button onclick="startPlanWizard()" style="padding:10px 24px;border-radius:12px;background:#002C5F;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer">
-      + 교육계획 수립하기
-    </button>
+  ${tabBar}
+  ${statsBar}
+  <div id="plan-list">${listHtml}</div>
+</div>`;
+}
+
+// 팀 계획 샘플 (실제에서는 DB 조회로 교체)
+function _getSampleTeamPlans() {
+  return [
+    { id: 'TP001', title: '팀원 A - AI 기술 세미나', account: '운영', amount: 500000, status: '승인완료', author: '김O수', authorDept: currentPersona.dept },
+    { id: 'TP002', title: '팀원 B - 클라우드 자격증', account: '운영', amount: 800000, status: '결재진행중', author: '이O진', authorDept: currentPersona.dept },
+  ];
+}
+
+// 계획 카드 렌더러
+function _renderPlanCard(p) {
+  const statusColor = { '완료':'#059669', '신청중':'#0369A1', '결재진행중':'#D97706', '반려':'#DC2626', '승인완료':'#059669', '승인대기':'#6B7280' };
+  const statusBg    = { '완료':'#F0FDF4', '신청중':'#EFF6FF', '결재진행중':'#FFFBEB', '반려':'#FEF2F2', '승인완료':'#F0FDF4', '승인대기':'#F9FAFB' };
+  const sc = statusColor[p.status] || '#6B7280';
+  const sb = statusBg[p.status]    || '#F9FAFB';
+  const authorBadge = p.author ? `<span style="font-size:10px;background:#F3F4F6;color:#374151;padding:2px 8px;border-radius:10px;margin-left:8px">👤 ${p.author}</span>` : '';
+  return `
+<div class="card p-5 mb-3" style="border-left:4px solid ${sc}">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+    <div style="flex:1">
+      <div style="font-size:14px;font-weight:900;color:#111827;margin-bottom:6px">${p.title}${authorBadge}</div>
+      <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:#6B7280">
+        <span>💳 ${p.account}계정</span>
+        <span>💰 ${Number(p.amount||0).toLocaleString()}원</span>
+      </div>
+    </div>
+    <span style="flex-shrink:0;font-size:11px;font-weight:800;padding:4px 12px;border-radius:10px;background:${sb};color:${sc}">${p.status}</span>
   </div>
 </div>`;
 }

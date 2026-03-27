@@ -408,6 +408,8 @@ async function sbLoadFoPersonas() {
         allowedAccounts:(p.allowed_accounts || []),
         process:        p.process || null,
         desc:           p.description || '',
+        teamViewEnabled: p.team_view_enabled ?? false,
+        teamScope:       p.team_scope || 'team',
         budgets:        myBudgets,
       };
     });

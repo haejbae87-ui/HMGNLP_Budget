@@ -1,9 +1,9 @@
 // ─── PLANS (교육계획) ──────────────────────────────────────────────────────
 
 // FO 정책 연동용: BO service_policies + isolation_groups DB 프리로드
-// (bo_data.js가 없는 FO에서도 utils.js._getActivePolicies()가 SERVICE_POLICIES를 사용할 수 있게)
-var SERVICE_POLICIES   = typeof SERVICE_POLICIES   !== 'undefined' ? SERVICE_POLICIES   : [];
-var ISOLATION_GROUPS   = typeof ISOLATION_GROUPS   !== 'undefined' ? ISOLATION_GROUPS   : [];
+// var 재선언 금지 — bo_data.js에 let ISOLATION_GROUPS 선언이 있어 SyntaxError 방지
+if (typeof SERVICE_POLICIES === 'undefined') window.SERVICE_POLICIES = [];
+if (typeof ISOLATION_GROUPS === 'undefined') window.ISOLATION_GROUPS = [];
 var _foServicePoliciesLoaded = false;
 
 async function _loadFoPolicies() {

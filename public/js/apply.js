@@ -563,29 +563,28 @@ ${CHOICES.map(ch => {
 ${bc === 'rnd' ? _renderRndPlanPicker(s) : ''}`;
       }
 
-      // ── 개인직무 외: 기존 서비스 목록 유지 ───────────────────────────────────
-      const svcs = (typeof SERVICE_DEFINITIONS !== 'undefined'
-        ? SERVICE_DEFINITIONS.filter(sv => sv.tenantId === currentPersona.tenantId && sv.status === 'active')
-        : []);
-      const PC = { A:'#7C3AED', B:'#1D4ED8', C:'#059669' };
-      const PL = { A:'패턴A', B:'패턴B', C:'패턴C' };
-      return `<p class="text-sm text-gray-500 mb-4">어떤 서비스로 신청하시나요?</p>
-<div style="display:grid;gap:6px">
-${svcs.map(sv => `<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;
-   border:2px solid ${s.serviceId===sv.id?PC[sv.processPattern]:'#E5E7EB'};
-   background:${s.serviceId===sv.id?PC[sv.processPattern]+'12':'white'};cursor:pointer"
-   onclick="selectService('${sv.id}')">
-  <input type="radio" ${s.serviceId===sv.id?'checked':''} style="margin:0;flex-shrink:0">
-  <div style="flex:1">
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-      <span style="font-weight:800;font-size:12px">${sv.name}</span>
-      <span style="font-size:9px;font-weight:900;padding:1px 6px;border-radius:4px;background:${PC[sv.processPattern]}20;color:${PC[sv.processPattern]}">${PL[sv.processPattern]}</span>
-      ${sv.budgetLinked?'<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:#DBEAFE;color:#1E40AF;font-weight:700">💳 예산</span>':'<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:#F3F4F6;color:#6B7280;font-weight:700">📝 이력</span>'}
-      ${sv.applyMode==='reimbursement'?'<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:#FEF3C7;color:#92400E;font-weight:700">🧾 후정산</span>':''}
+      // ── 교육담당자 목적: DB 정책 기반 예산 계정 목록 ────────────────────────
+      const policyBudgets = getPersonaBudgets(currentPersona, s.purpose?.id);
+      if (policyBudgets.length === 0) {
+        return `<p class="text-sm text-gray-500 mb-4 font-bold"><span class="text-orange-500">⚠️</span> 이 교육 목적에 사용 가능한 예산 계정이 없습니다.<br><span class="text-xs text-gray-400">담당자에게 문의하세요.</span></p>`;
+      }
+      return `<p class="text-sm text-gray-400 mb-5">이번 교육에 사용할 예산 계정을 선택하세요.</p>
+<div style="display:grid;gap:8px">
+${policyBudgets.map(b => {
+  const active = s.budgetId === b.id;
+  const acctTypeLabel = b.account === '운영' ? '운영 계정' : b.account === '참가' ? '참가 계정' : b.account + ' 계정';
+  return `<button onclick="selectApplyBudget('${b.id}')"
+  style="text-align:left;padding:18px 20px;border-radius:14px;border:2px solid ${active?'#002C5F':'#E5E7EB'};
+         background:${active?'#EFF6FF':'white'};cursor:pointer;width:100%;transition:all .15s">
+  <div style="display:flex;align-items:center;justify-content:space-between">
+    <div>
+      <div style="font-size:14px;font-weight:900;color:${active?'#002C5F':'#111827'}">${b.name}</div>
+      <div style="font-size:11px;color:#9CA3AF;margin-top:3px">${acctTypeLabel}</div>
     </div>
-    <div style="font-size:11px;color:#9CA3AF;margin-top:1px">${sv.desc}</div>
+    ${active ? '<span style="font-size:11px;font-weight:900;padding:3px 10px;border-radius:6px;background:#DBEAFE;color:#1D4ED8">선택됨</span>' : ''}
   </div>
-</label>`).join('')}
+</button>`;
+}).join('')}
 </div>`;
     })()}
 
@@ -855,6 +854,17 @@ function selectService(id) {
   applyState.budgetId  = '';
   applyState.planId    = '';
   applyState.planIds   = [];
+  renderApply();
+}
+
+// ── 교육담당자 예산 계정 선택 (apply.js) ────────────────────────────────────
+function selectApplyBudget(budgetId) {
+  applyState.budgetId = budgetId;
+  applyState.useBudget = true;
+  applyState.planId = '';
+  applyState.planIds = [];
+  const b = (currentPersona.budgets || []).find(b => b.id === budgetId);
+  applyState.applyMode = 'holding'; // 운영계정 = 계획 선신청
   renderApply();
 }
 

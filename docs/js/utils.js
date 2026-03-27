@@ -36,7 +36,7 @@ const ACCOUNT_TYPE_MAP = {
 // BO purpose key → FO PURPOSES.id 매핑 테이블
 const _BO_TO_FO_PURPOSE = {
   'elearning_class': 'internal_edu',   // 이러닝/집합(비대면) 운영
-  'conf_seminar':    'workshop',        // 콘퍼런스/세미나/워크샵 운영
+  'conf_seminar':    'workshop',        // 워크샵/세미나/콘퍼런스 등 운영
   'misc_ops':        'etc',             // 기타 운영
   'external_personal': 'external_personal', // 개인직무 사외학습
 };

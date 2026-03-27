@@ -34,7 +34,7 @@ const _PURPOSE_MAP = {
   ],
   operator: [
     { id:'elearning_class',   label:'이러닝/집합(비대면) 운영' },
-    { id:'conf_seminar',      label:'콘퍼런스/세미나/워크샵 운영' },
+    { id:'conf_seminar',      label:'워크샵/세미나/콘퍼런스 등 운영' },
     { id:'misc_ops',          label:'기타 운영' },
   ],
 };

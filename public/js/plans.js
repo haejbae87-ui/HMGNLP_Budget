@@ -259,18 +259,8 @@ function renderPlanWizard() {
             <div class="font-black text-gray-900 text-sm ${s.budgetId === b.id ? 'text-accent' : ''}">${b.name}</div>
             <div class="text-xs text-gray-400 mt-0.5">${b.account} 계정</div>
           </div>
-          <div class="text-right">
-            <div class="font-black text-base ${b.account === '연구투자' ? 'text-orange-500' : 'text-accent'}">${fmt(b.balance - b.used)}원</div>
-            <div class="text-[10px] text-gray-400">잔액</div>
-          </div>
+          ${s.budgetId === b.id ? '<span style="font-size:11px;font-weight:900;padding:3px 10px;border-radius:6px;background:#DBEAFE;color:#1D4ED8">선택됨</span>' : ''}
         </div>
-        ${s.budgetId === b.id ? `
-        <div class="h-1.5 bg-gray-200 rounded-full mt-3 overflow-hidden">
-          <div class="h-full rounded-full ${b.account === '연구투자' ? 'bg-orange-400' : 'bg-accent'}" style="width:${Math.min((b.used/b.balance)*100,100).toFixed(0)}%"></div>
-        </div>
-        <div class="flex justify-between text-[10px] text-gray-400 mt-1">
-          <span>집행 ${fmt(b.used)}원</span><span>총 ${fmt(b.balance)}원</span>
-        </div>` : ''}
       </button>`).join('') : `
       <div class="p-5 bg-yellow-50 border-2 border-yellow-200 rounded-2xl text-sm font-bold text-yellow-700">
         ⚠️ 선택한 교육 목적에 사용 가능한 예산 계정이 없습니다.

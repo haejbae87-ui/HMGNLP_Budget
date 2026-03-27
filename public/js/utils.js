@@ -57,30 +57,22 @@ function _resolveIsoGroupId(persona) {
   return byCode?.id || null;
 }
 
-// 페르소나의 격리그룹 + 테넌트에 해당하는 활성 정책 목록 (SERVICE_POLICIES 기반)
+// 페르소나의 격리그룹 + 테넌트에 해당하는 활성 정책 목록 (SERVICE_POLICIES DB 기반 전용)
 function _getActivePolicies(persona) {
-  // 1) SERVICE_POLICIES (BO DB 로드 배열) 우선
-  if (typeof SERVICE_POLICIES !== 'undefined' && SERVICE_POLICIES.length > 0) {
-    const isoGroupId = _resolveIsoGroupId(persona);
-    const matched = SERVICE_POLICIES.filter(p => {
-      if (p.status && p.status !== 'active') return false;
-      if (p.tenantId && p.tenantId !== persona.tenantId) return false;
-      // 격리그룹 매칭: isolationGroupId 없으면 테넌트 전체로 허용
-      if (isoGroupId && p.isolationGroupId && p.isolationGroupId !== isoGroupId) return false;
-      return true;
-    });
-    if (matched.length > 0) return { source: 'db', policies: matched };
-  }
-  // 2) 레거시 SERVICE_POLICIES_FO fallback
-  if (typeof SERVICE_POLICIES_FO !== 'undefined') {
-    const policies = SERVICE_POLICIES_FO.filter(p =>
-      p.tenantId === persona.tenantId &&
-      p.isolationGroup === persona.isolationGroup &&
-      p.status === 'active'
-    );
-    if (policies.length > 0) return { source: 'fo', policies };
-  }
-  return null;
+  if (typeof SERVICE_POLICIES === 'undefined' || SERVICE_POLICIES.length === 0) return null;
+  const isoGroupId = _resolveIsoGroupId(persona);
+  const matched = SERVICE_POLICIES.filter(p => {
+    if (p.status && p.status !== 'active') return false;
+    if (p.tenantId && p.tenantId !== persona.tenantId) return false;
+    // 격리그룹 매칭: persona 격리그룹 코드가 DB id와 직접 일치하거나, 해석 불가면 테넌트 전체 허용
+    if (isoGroupId && p.isolationGroupId && p.isolationGroupId !== isoGroupId) return false;
+    if (!isoGroupId && p.isolationGroupId) {
+      // persona.isolationGroup 값으로 DB id 직접 비교 시도
+      if (persona.isolationGroup && p.isolationGroupId !== persona.isolationGroup) return false;
+    }
+    return true;
+  });
+  return matched.length > 0 ? { source: 'db', policies: matched } : null;
 }
 
 // 현재 페르소나가 사용 가능한 교육 목적 필터링

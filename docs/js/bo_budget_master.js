@@ -174,8 +174,9 @@ function _baRenderContent() {
   if (!group) return '<div style="padding:40px;text-align:center;color:#9CA3AF">그룹 정보를 찾을 수 없습니다.</div>';
 
   const role = boCurrentPersona.role;
-  // 플랫폼조잡·테넌트조잡도 계정 추가 가능, 일반 조회용엠 영진만 읽기 전용
-  const isViewOnly = false;
+  // 플랫폼총괄·테넌트총괄·예산총괄 → 계정 등록/수정 가능. 그 외 역할은 읽기 전용
+  const canEdit = ['platform_admin', 'tenant_global_admin', 'budget_global_admin'].includes(role);
+  const isViewOnly = !canEdit;
 
   // 해당 격리그룹 소유 계정
   const acctCodes = group.ownedAccounts || [];
@@ -195,16 +196,17 @@ function _baRenderContent() {
   if (allAccounts.length === 0) {
     return `
 <div style="padding:20px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;margin-bottom:16px;
-            display:flex;align-items:center;gap:10px">
+            display:flex;align-items:center;gap:12px">
   <span style="font-size:18px">🛡️</span>
-  <div>
+  <div style="flex:1">
     <div style="font-weight:800;font-size:13px;color:#C2410C">${group.name}</div>
     <div style="font-size:11px;color:#9CA3AF;margin-top:2px">${group.id}</div>
   </div>
+  ${!isViewOnly ? `<button class="bo-btn-primary bo-btn-sm" onclick="openS1Modal()">+ 계정 신규 등록</button>` : ''}
 </div>
 <div style="padding:40px;text-align:center;background:#F9FAFB;border-radius:14px;color:#9CA3AF;border:1px dashed #D1D5DB">
   <div style="font-size:13px;font-weight:700">이 격리그룹에 등록된 예산 계정이 없습니다</div>
-  ${!isViewOnly ? '<div style="font-size:11px;margin-top:6px">위 조회 결과는 ownedAccounts 기준입니다. 계정 등록은 예산총괄 담당자가 진행합니다.</div>' : ''}
+  <div style="font-size:11px;margin-top:6px;color:#9CA3AF">위 격리그룹 선택 후 계정을 신규 등록하세요.</div>
 </div>`;
   }
 

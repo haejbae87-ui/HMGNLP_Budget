@@ -364,19 +364,77 @@ async function sbLoadPersonas() {
 }
 window.sbLoadPersonas = sbLoadPersonas;
 
+// ─── FO 페르소나 DB 로더 ─────────────────────────────────────────────────────
+// fo_personas + fo_persona_budgets 테이블에서 PERSONAS 전역변수 구성
+async function sbLoadFoPersonas() {
+  try {
+    const sb = getSB();
+    if (!sb) return null;
+
+    // fo_personas + fo_persona_budgets 동시 로드
+    const [personasRes, budgetsRes] = await Promise.all([
+      sb.from('fo_personas').select('*').order('tenant_id'),
+      sb.from('fo_persona_budgets').select('*'),
+    ]);
+
+    if (personasRes.error) throw personasRes.error;
+
+    const budgets = budgetsRes.data || [];
+    const personas = {};
+
+    (personasRes.data || []).forEach(p => {
+      const myBudgets = budgets
+        .filter(b => b.persona_id === p.id)
+        .map(b => ({
+          id:      b.id,
+          name:    b.name,
+          account: b.account,
+          balance: b.balance || 0,
+          used:    b.used    || 0,
+        }));
+
+      personas[p.id] = {
+        id:             p.emp_no,
+        name:           p.name,
+        dept:           p.dept || '',
+        pos:            p.pos  || '',
+        role:           p.role,
+        jobType:        p.job_type || 'general',
+        type:           p.id,
+        typeLabel:      p.type_label || '',
+        company:        p.company,
+        tenantId:       p.tenant_id,
+        isolationGroup: p.isolation_group,
+        allowedAccounts:(p.allowed_accounts || []),
+        process:        p.process || null,
+        desc:           p.description || '',
+        budgets:        myBudgets,
+      };
+    });
+
+    console.log(`[Supabase] ✅ FO 페르소나 DB 로드: ${Object.keys(personas).length}명`);
+    return personas;
+  } catch (e) {
+    console.warn('[Supabase] FO 페르소나 로드 실패 → data.js mock 유지:', e.message);
+    return null;
+  }
+}
+window.sbLoadFoPersonas = sbLoadFoPersonas;
+
 // ─── 초기 로딩 ───────────────────────────────────────────────────────────────
 // 앱 시작 시 전역 변수를 DB 데이터로 교체
 async function initSupabaseData() {
   console.log('[Supabase] 데이터 로딩 시작...');
   try {
-    // 핸심 데이터를 병렬 로드
-    const [tenants, accounts, groups, policies, personas, vorgTemplates] = await Promise.all([
+    // 핸심 데이터를 병렬 로드 (FO 페르소나 포함)
+    const [tenants, accounts, groups, policies, personas, vorgTemplates, foPersonas] = await Promise.all([
       sbLoadTenants(),
       sbLoadAccountMaster(),
       sbLoadIsolationGroups(),
       sbLoadServicePolicies(),
       sbLoadPersonas(),
       sbLoadVirtualOrgTemplates(),
+      sbLoadFoPersonas(),
     ]);
 
     // 전역 변수 교체
@@ -385,12 +443,24 @@ async function initSupabaseData() {
     if (groups      && groups.length)        window.ISOLATION_GROUPS   = groups;
     if (policies    && policies.length)      window.SERVICE_POLICIES   = policies;
     if (vorgTemplates && vorgTemplates.length) window.VIRTUAL_ORG_TEMPLATES = vorgTemplates;
+
     // BO_PERSONAS: DB 데이터로 교체 (실패 시 null 반환 → JS mock 유지)
     if (personas && Object.keys(personas).length > 0) {
-      // 플랫폼어드민(HMGNLP) 퍼소나는 JS mock에서 복사 (로그인 정체성 유지)
       const pAdmin = typeof BO_PERSONAS !== 'undefined' ? BO_PERSONAS['platform_admin'] : null;
       window.BO_PERSONAS = personas;
       if (pAdmin) window.BO_PERSONAS['platform_admin'] = pAdmin;
+    }
+
+    // FO PERSONAS: DB 데이터로 교체 (실패 시 data.js mock 유지)
+    if (foPersonas && Object.keys(foPersonas).length > 0) {
+      window.PERSONAS = foPersonas;
+      // currentPersona 갱신: sessionStorage에 저장된 key로 재설정
+      const savedKey = sessionStorage.getItem('currentPersona') || 'hmc_team_mgr';
+      const resolved = foPersonas[savedKey] || foPersonas[Object.keys(foPersonas)[0]];
+      if (resolved) window.currentPersona = resolved;
+      // GNB 재렌더 (페르소나 드롭다운 반영)
+      if (typeof renderGnb === 'function') renderGnb();
+      console.log('[Supabase] ✅ FO PERSONAS DB 전환 완료');
     }
 
     console.log(`[Supabase] ✅ DB 로딩 완료 - 테넌트:${tenants?.length}, 계정:${accounts?.length}, 격리그룹:${groups?.length}, 사용자:${personas ? Object.keys(personas).length : 'mock'}`);

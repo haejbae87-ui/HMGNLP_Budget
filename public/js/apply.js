@@ -398,6 +398,58 @@ function _getSampleTeamHistory() {
   ];
 }
 
+// ─── 스텝 선택 내용 배너 (교육계획 위저드와 동일한 스타일) ────────────────────
+function _applySelectionBanner(s, currentStep) {
+  if (currentStep <= 1) return ''; // Step 1은 배너 불필요
+
+  const items = [];
+
+  // ① 목적 (Step 2+)
+  if (s.purpose) {
+    const purposeLabel = s.purpose.label || s.purpose.id || '';
+    items.push({ num: '①', key: '목적', value: purposeLabel, color: '#002C5F' });
+  }
+
+  // ② 예산 (Step 3+)
+  if (currentStep >= 3) {
+    let budgetLabel = '';
+    if (s.purpose?.id === 'external_personal') {
+      // 개인직무 사외학습: budgetChoice 레이블
+      const bcMap = {
+        'general':  '일반교육예산 참가계정',
+        'rnd':      'R&D교육예산 계정',
+        'hae-edu':  '전사교육예산',
+        'hae-team': '팀/프로젝트 할당예산',
+        'none':     '예산 미사용',
+      };
+      budgetLabel = s.budgetChoice ? (bcMap[s.budgetChoice] || s.budgetChoice) : '';
+    } else {
+      // 교육담당자: 선택한 예산 계정명
+      const availBudgets = s.purpose ? getPersonaBudgets(currentPersona, s.purpose.id) : [];
+      const chosen = availBudgets.find(b => b.id === s.budgetId);
+      budgetLabel = chosen ? chosen.name : (s.budgetId || '');
+    }
+    if (budgetLabel) {
+      items.push({ num: '②', key: '예산', value: budgetLabel, color: '#0369A1' });
+    }
+  }
+
+  if (items.length === 0) return '';
+
+  const itemsHtml = items.map(it => `
+    <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#374151">
+      <span style="font-size:10px;color:#6B7280;font-weight:700">${it.num} ${it.key}</span>
+      <span style="font-weight:900;padding:2px 8px;border-radius:6px;background:${it.color}14;color:${it.color};max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.value}</span>
+    </span>`).join('<span style="color:#D1D5DB;margin:0 2px">|</span>');
+
+  return `
+  <div style="background:#F0F9FF;border:1.5px solid #BAE6FD;border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+    <span style="font-size:10px;font-weight:900;color:#0369A1;white-space:nowrap">📌 선택 내용</span>
+    <span style="color:#BAE6FD;font-size:12px">|</span>
+    ${itemsHtml}
+  </div>`;
+}
+
 // ─── 교육신청 폼 뷰 (기존 renderApply 로직) ──────────────────────────────────
 function _renderApplyForm() {
   const s = applyState;
@@ -522,6 +574,7 @@ function _renderApplyForm() {
 
   <!-- Step 2: Budget -->
   <div class="card p-8 ${s.step === 2 ? '' : 'hidden'}">
+    ${_applySelectionBanner(s, 2)}
     <h2 class="text-lg font-black text-gray-800 mb-2">02. 예산 선택</h2>
 
     ${(() => {
@@ -653,6 +706,7 @@ ${policyBudgets.map(b => {
 
   <!-- Step 3: 교육유형 선택 -->
   <div class="card p-8 ${s.step === 3 ? '' : 'hidden'}">
+    ${_applySelectionBanner(s, 3)}
     <h2 class="text-lg font-black text-gray-800 mb-6">03. 교육유형 선택</h2>
     ${(() => {
       // 예산별 허용 교육유형 ID 맵

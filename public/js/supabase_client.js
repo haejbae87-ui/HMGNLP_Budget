@@ -280,87 +280,135 @@ const _ROLE_CODE_TO_JS = {
 
 async function sbLoadPersonas() {
   try {
-    // 1. users + user_roles 동시 로드
-    const [usersRes, rolesRes, orgsRes] = await Promise.all([
-      fetch(`${SUPABASE_URL}/rest/v1/users?select=*&status=eq.active`,
-        { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } }),
-      fetch(`${SUPABASE_URL}/rest/v1/user_roles?select=*`,
-        { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } }),
-      fetch(`${SUPABASE_URL}/rest/v1/organizations?select=id,name,type`,
-        { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } }),
+    const sb = getSB();
+    if (!sb) {
+      // Supabase SDK 없음 → fetch 방식
+      const [usersRes, rolesRes, orgsRes, igRes] = await Promise.all([
+        fetch(`${SUPABASE_URL}/rest/v1/users?select=*&status=eq.active`,
+          { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } }),
+        fetch(`${SUPABASE_URL}/rest/v1/user_roles?select=*`,
+          { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } }),
+        fetch(`${SUPABASE_URL}/rest/v1/organizations?select=id,name`,
+          { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } }),
+        fetch(`${SUPABASE_URL}/rest/v1/isolation_groups?select=id,code,name,owned_accounts`,
+          { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } }),
+      ]);
+      const users    = await usersRes.json();
+      const allRoles = await rolesRes.json();
+      const orgs     = await orgsRes.json();
+      const igs      = await igRes.json();
+      return _buildBoPersonas(users, allRoles, orgs, igs);
+    }
+
+    // Supabase SDK 방식 (더 안정적)
+    const [usersRes, rolesRes, orgsRes, igRes] = await Promise.all([
+      sb.from('users').select('*').eq('status', 'active'),
+      sb.from('user_roles').select('*'),
+      sb.from('organizations').select('id,name'),
+      sb.from('isolation_groups').select('id,code,name,owned_accounts'),
     ]);
-    const users    = await usersRes.json();
-    const allRoles = await rolesRes.json();
-    const orgs     = await orgsRes.json();
 
-    // 2. org 맵 (id → name)
-    const orgMap = {};
-    (orgs || []).forEach(o => { orgMap[o.id] = o.name; });
+    if (usersRes.error) throw usersRes.error;
 
-    // 3. user_id별 역할 그룹화
-    const rolesByUser = {};
-    (allRoles || []).forEach(r => {
-      if (!rolesByUser[r.user_id]) rolesByUser[r.user_id] = [];
-      rolesByUser[r.user_id].push(r);
-    });
-
-    // 역할 우선순위 (level 낮을수록 높은 권한)
-    const _ROLE_LEVEL = {
-      platform_admin: 1, tenant_admin: 2, budget_admin: 3, budget_ops: 4, learner: 99
-    };
-
-    // 4. BO_PERSONAS 객체 빌드
-    const personas = {};
-    users.forEach(u => {
-      const userRoles = rolesByUser[u.id] || [];
-      if (!userRoles.length) return; // 역할 없는 사용자는 제외
-
-      // learner 전용이면 메뉴 접근 없어 BO에서 제외
-      const nonLearnerRoles = userRoles.filter(r => r.role_code !== 'learner');
-      if (!nonLearnerRoles.length) return;
-
-      // 가장 높은 권한(=level 낮은) 역할을 primary role로
-      const sorted = [...nonLearnerRoles].sort(
-        (a, b) => (_ROLE_LEVEL[a.role_code] || 99) - (_ROLE_LEVEL[b.role_code] || 99)
-      );
-      const primaryRoleCode = sorted[0].role_code;
-      const primaryRole     = _ROLE_CODE_TO_JS[primaryRoleCode] || primaryRoleCode;
-
-      // 역할별 기본 accessMenus 설정
-      const ACCESS_BY_ROLE = {
-        platform_admin:     ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'field-mgmt', 'policy-builder', 'user-mgmt', 'role-mgmt', 'reports', 'manual'],
-        tenant_global_admin:['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'policy-builder', 'user-mgmt', 'reports', 'manual'],
-        budget_global_admin:['dashboard', 'my-isolation-group', 'org-budget', 'vorg-assign', 'reports', 'manual'],
-        budget_op_manager:  ['dashboard', 'my-operations', 'org-budget', 'reports', 'manual'],
-        learner:            ['dashboard'],
-      };
-
-      const key = u.emp_no || u.id;
-      const dept = u.org_id ? (orgMap[u.org_id] || '') : '';
-      const tenantId = sorted[0].tenant_id || u.tenant_id;
-
-      personas[key] = {
-        id:          u.emp_no || u.id,
-        name:        u.name,
-        dept:        dept,
-        pos:         '',
-        role:        primaryRole,
-        roles:       sorted.map(r => _ROLE_CODE_TO_JS[r.role_code] || r.role_code),
-        roleLabel:   primaryRole,
-        tenantId:    tenantId,
-        jobType:     u.job_type || 'general',
-        status:      u.status,
-        accessMenus: ACCESS_BY_ROLE[primaryRole] || ['dashboard'],
-        _dbId:       u.id, // DB 원본 id 보존
-      };
-    });
-
-    console.log(`[Supabase] ✅ BO_PERSONAS 로드: ${Object.keys(personas).length}명`);
-    return personas;
+    return _buildBoPersonas(
+      usersRes.data  || [],
+      rolesRes.data  || [],
+      orgsRes.data   || [],
+      igRes.data     || [],
+    );
   } catch (e) {
     console.warn('[Supabase] BO_PERSONAS 로드 실패 → JS mock 유지:', e.message);
-    return null; // null이면 호출처에서 기존 mock 유지
+    return null;
   }
+}
+
+// BO_PERSONAS 빌드 내부 함수 (fetch/sdk 공통)
+function _buildBoPersonas(users, allRoles, orgs, igs) {
+  // isolation_group 맵 (id → { code, name, ownedAccounts })
+  const igMap = {};
+  (igs || []).forEach(g => {
+    igMap[g.id] = { code: g.code, name: g.name, ownedAccounts: g.owned_accounts || [] };
+  });
+
+  // org 맵
+  const orgMap = {};
+  (orgs || []).forEach(o => { orgMap[o.id] = o.name; });
+
+  // user_id별 역할 그룹화
+  const rolesByUser = {};
+  (allRoles || []).forEach(r => {
+    if (!rolesByUser[r.user_id]) rolesByUser[r.user_id] = [];
+    rolesByUser[r.user_id].push(r);
+  });
+
+  const _ROLE_LEVEL = {
+    platform_admin: 1, tenant_admin: 2, budget_admin: 3, budget_ops: 4, learner: 99
+  };
+
+  const ACCESS_BY_ROLE = {
+    platform_admin:     ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'field-mgmt', 'policy-builder', 'user-mgmt', 'role-mgmt', 'reports', 'manual'],
+    tenant_global_admin:['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'policy-builder', 'user-mgmt', 'reports', 'manual'],
+    budget_global_admin:['dashboard', 'my-isolation-group', 'org-budget', 'vorg-assign', 'reports', 'manual'],
+    budget_op_manager:  ['dashboard', 'my-operations', 'org-budget', 'reports', 'manual'],
+    learner:            ['dashboard'],
+  };
+
+  const personas = {};
+  (users || []).forEach(u => {
+    const userRoles = rolesByUser[u.id] || [];
+    if (!userRoles.length) return;
+
+    const nonLearnerRoles = userRoles.filter(r => r.role_code !== 'learner');
+    if (!nonLearnerRoles.length) return;
+
+    const sorted = [...nonLearnerRoles].sort(
+      (a, b) => (_ROLE_LEVEL[a.role_code] || 99) - (_ROLE_LEVEL[b.role_code] || 99)
+    );
+    const primaryRoleCode = sorted[0].role_code;
+    const primaryRole     = _ROLE_CODE_TO_JS[primaryRoleCode] || primaryRoleCode;
+    const key             = u.emp_no || u.id;
+    const dept            = u.org_id ? (orgMap[u.org_id] || '') : '';
+    const tenantId        = sorted[0].tenant_id || u.tenant_id;
+
+    // isolation_group: 역할 중 scope_id가 있는 첫 번째 역할 사용
+    const roleWithScope   = sorted.find(r => r.scope_id);
+    const igId            = roleWithScope ? roleWithScope.scope_id : null;
+    const ig              = igId ? igMap[igId] : null;
+
+    // owned/allowed accounts: ig에서 자동 계산
+    const ownedAccounts   = ig ? (ig.ownedAccounts || []) : [];
+    const allowedAccounts = ownedAccounts.length ? ownedAccounts
+      : (primaryRoleCode === 'platform_admin' ? ['*'] : []);
+
+    // 여러 scope_id 지원 (한 유저가 복수 격리그룹 담당 가능)
+    const isolationGroupIds = sorted
+      .filter(r => r.scope_id)
+      .map(r => r.scope_id)
+      .filter((v, i, a) => a.indexOf(v) === i);
+
+    personas[key] = {
+      id:               u.emp_no || u.id,
+      name:             u.name,
+      dept:             dept,
+      pos:              u.pos || u.position || '',
+      role:             primaryRole,
+      roles:            sorted.map(r => _ROLE_CODE_TO_JS[r.role_code] || r.role_code),
+      roleLabel:        primaryRole,
+      tenantId:         tenantId,
+      jobType:          u.job_type || 'general',
+      status:           u.status,
+      isolationGroupId: igId,
+      isolationGroups:  isolationGroupIds,
+      isolationGroup:   ig ? ig.code : null,
+      ownedAccounts:    ownedAccounts,
+      allowedAccounts:  allowedAccounts,
+      accessMenus:      ACCESS_BY_ROLE[primaryRole] || ['dashboard'],
+      _dbId:            u.id,
+    };
+  });
+
+  console.log(`[Supabase] ✅ BO_PERSONAS 로드: ${Object.keys(personas).length}명`);
+  return personas;
 }
 window.sbLoadPersonas = sbLoadPersonas;
 

@@ -422,19 +422,21 @@ async function sbLoadFormTemplates() {
     if (error) throw error;
     // DB 컬럼명을 FORM_MASTER 구조(JS camelCase)로 변환
     const forms = (data || []).map(r => ({
-      id:          r.id,
-      tenantId:    r.tenant_id,
-      name:        r.name,
-      type:        r.type,
-      purpose:     r.purpose,
-      eduType:     r.edu_type,
-      eduSubType:  r.edu_sub_type,
-      targetUser:  r.target_user,
-      desc:        r.desc_text,
-      noticeText:  r.notice_text,
-      fields:      r.fields || [],
-      attachments: r.attachments || [],
-      active:      r.active,
+      id:               r.id,
+      tenantId:         r.tenant_id,
+      name:             r.name,
+      type:             r.type,
+      purpose:          r.purpose,
+      eduType:          r.edu_type,
+      eduSubType:       r.edu_sub_type,
+      targetUser:       r.target_user,
+      desc:             r.desc_text,
+      noticeText:       r.notice_text,
+      fields:           r.fields || [],
+      attachments:      r.attachments || [],
+      active:           r.active,
+      accountCode:      r.account_code || null,
+      isolationGroupId: r.isolation_group_id || null,
     }));
     console.log(`[Supabase] ✅ form_templates 로드: ${forms.length}건`);
     return forms;

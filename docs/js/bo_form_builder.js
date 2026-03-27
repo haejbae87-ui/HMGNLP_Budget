@@ -325,13 +325,13 @@ function _fbRenderLibrary() {
   const tenantId = (isPlatform || isTenant) ? (_fbTenantId || boCurrentPersona.tenantId) : (boCurrentPersona.tenantId || 'HMC');
   let allForms = FORM_MASTER.filter(f => f.tenantId === tenantId);
 
-  // 격리그룹 필터 적용 (isolationGroupId 없는 구형 양식은 하위호환으로 항상 표시)
+  // 격리그룹 필터 (isolationGroupId 없는 양식은 하위호환으로 표시)
   if (_fbGroupId) {
     allForms = allForms.filter(f => !f.isolationGroupId || f.isolationGroupId === _fbGroupId);
   }
-  // 예산계정 필터 적용 (accountCode 없는 구형 양식은 하위호환으로 항상 표시)
+  // 예산계정 필터 (엄격 모드: accountCode 없는 양식은 계정 선택 시 제외)
   if (_fbAccountCode) {
-    allForms = allForms.filter(f => !f.accountCode || f.accountCode === _fbAccountCode);
+    allForms = allForms.filter(f => f.accountCode === _fbAccountCode);
   }
 
   // 목적 필터 적용

@@ -48,8 +48,7 @@ async function _loadFoPolicies() {
     } catch(e) { console.warn('[FO] VOrg 템플릿 조회 실패:', e.message); }
   }
 
-  // ── ①단계: 스냅샷 API 조회 (Edge Cache 활용) ──────────────────────────────
-  let snapshotLoaded = false;
+  // ── ①단계: 스냅샷 API 조회 (Edge Cache 활용, DB 로드로 보완) ─────────────
   if (vorgId) {
     try {
       const supabaseUrl = typeof SUPABASE_URL !== 'undefined' ? SUPABASE_URL
@@ -73,16 +72,16 @@ async function _loadFoPolicies() {
               const idx = SERVICE_POLICIES.findIndex(sp => sp.id === mapped.id);
               if (idx >= 0) SERVICE_POLICIES[idx] = mapped; else SERVICE_POLICIES.push(mapped);
             });
-            snapshotLoaded = true;
-            console.log(`[FO] 스냅샷 캐시 로드 완료 (VOrg: ${vorgId}, 정책 ${policies.length}건)`);
+            console.log(`[FO] 스냅샷 원복 완료 (VOrg: ${vorgId}, 정책 ${policies.length}건 - DB로드로 보완함)`);
           }
         }
       }
     } catch(e) { console.warn('[FO] 스냅샷 API 조회 실패, DB 직접 조회로 전환:', e.message); }
   }
 
-  // ── ②단계: 스냅샷 실패 시 직접 DB fallback ────────────────────────────────
-  if (!snapshotLoaded) {
+  // ── ②단계: 항상 DB 로드 (다중 격리그룹 사용자 지원) ────────────────────────
+  // 스냅샷은 캐시 보완용 — DB 로드는 항상 실행해야 모든 정책을 받을 수 있음
+  {
     try {
       const { data: sPols } = await getSB().from('service_policies').select('*').eq('status', 'active');
       if (sPols) {
@@ -99,7 +98,7 @@ async function _loadFoPolicies() {
           const idx = SERVICE_POLICIES.findIndex(p => p.id === mapped.id);
           if (idx >= 0) SERVICE_POLICIES[idx] = mapped; else SERVICE_POLICIES.push(mapped);
         });
-        console.log(`[FO] DB 직접 로드 완료 (정책 ${sPols.length}건)`);
+        console.log(`[FO] DB 로드 완료 (정책 ${sPols.length}건, 다중그룹 코드 포함)`);
       }
     } catch(e) { console.warn('[FO] 서비스 정맠 DB 로드 실패:', e.message); }
   }

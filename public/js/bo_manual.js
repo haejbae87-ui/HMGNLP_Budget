@@ -1,4 +1,4 @@
-﻿// ─── 백오피스: 서비스 매뉴얼 (v3.0) ────────────────────────────────────────────
+// ─── 백오피스: 서비스 매뉴얼 (v3.0) ────────────────────────────────────────────
 // 대상: 차세대학습플랫폼 서비스 기획자 및 개발자
 // 내용: 멀티테넌트 교육예산 관리 시스템의 전체 구조·역할·메뉴·데이터 흐름 안내
 // 최종 업데이트: 2026-03-24 (HAE/HSC 현행화, 서비스정책 권한 확장, 개발 일정 추가)
@@ -622,33 +622,37 @@ function _manDevPlan() {
 /* ⑦ IA · 화면 구조 */
 function _manIA() {
   const screens = [
-    { area:'공통', menu:'로그인/인증', screen:'BO 로그인', type:'화면', role:'전체', note:'SSO/역할 분기' },
-    { area:'공통', menu:'레이아웃', screen:'사이드바·헤더·GNB', type:'컴포넌트', role:'전체', note:'접근권한 기반 메뉴 표시' },
-    { area:'대시보드', menu:'메인 대시보드', screen:'예산 현황 요약', type:'화면', role:'전체', note:'역할별 데이터 범위' },
-    { area:'마스터데이터', menu:'예산계정 관리', screen:'계정 목록·상세', type:'화면', role:'플랫폼·테넌트', note:'' },
-    { area:'마스터데이터', menu:'예산계정 편집', screen:'계정 생성/수정 모달', type:'모달', role:'플랫폼·테넌트', note:'' },
-    { area:'마스터데이터', menu:'격리그룹 관리', screen:'격리그룹 목록', type:'화면', role:'플랫폼·테넌트', note:'' },
-    { area:'마스터데이터', menu:'가상조직 템플릿', screen:'VOrg 템플릿 목록', type:'화면', role:'테넌트', note:'' },
-    { area:'마스터데이터', menu:'VOrg 템플릿 편집', screen:'VOrg 트리 편집', type:'화면', role:'테넌트', note:'' },
-    { area:'마스터데이터', menu:'양식 빌더', screen:'양식 목록', type:'화면', role:'전체', note:'' },
-    { area:'마스터데이터', menu:'양식 빌더 편집', screen:'양식 설계 에디터', type:'화면', role:'전체', note:'' },
-    { area:'서비스 정책', menu:'정책 목록', screen:'정책 목록 (필터 포함)', type:'화면', role:'플랫폼·테넌트·예산운영', note:'' },
-    { area:'서비스 정책', menu:'정책 생성 위저드', screen:'Step 0 범위설정', type:'화면', role:'권한별 자동고정', note:'' },
-    { area:'서비스 정책', menu:'정책 생성 위저드', screen:'Step 1 정책명·대상자', type:'화면', role:'전체', note:'' },
-    { area:'서비스 정책', menu:'정책 생성 위저드', screen:'Step 2 목적', type:'화면', role:'전체', note:'' },
-    { area:'서비스 정책', menu:'정책 생성 위저드', screen:'Step 3 교육유형', type:'화면', role:'전체', note:'' },
-    { area:'서비스 정책', menu:'정책 생성 위저드', screen:'Step 4 패턴', type:'화면', role:'전체', note:'' },
-    { area:'서비스 정책', menu:'정책 생성 위저드', screen:'Step 5 대상조직', type:'화면', role:'전체', note:'' },
-    { area:'서비스 정책', menu:'정책 생성 위저드', screen:'Step 6 양식', type:'화면', role:'전체', note:'' },
-    { area:'서비스 정책', menu:'정책 생성 위저드', screen:'Step 7 결재라인', type:'화면', role:'전체', note:'' },
-    { area:'예산 계획', menu:'계획 목록', screen:'예산계획 목록', type:'화면', role:'예산운영', note:'' },
-    { area:'예산 계획', menu:'계획 상세', screen:'계획 상세 모달', type:'모달', role:'예산운영', note:'' },
-    { area:'신청 관리', menu:'신청 목록', screen:'교육신청 목록', type:'화면', role:'예산운영·승인자', note:'' },
-    { area:'신청 관리', menu:'신청 상세', screen:'신청 상세·승인 모달', type:'모달', role:'승인자', note:'' },
-    { area:'원장', menu:'원장 목록', screen:'예산 원장 (원가차감 내역)', type:'화면', role:'예산운영·테넌트', note:'' },
-    { area:'원장', menu:'원장 상세', screen:'거래 상세 모달', type:'모달', role:'예산운영·테넌트', note:'' },
-    { area:'보고서', menu:'리포트', screen:'예산 집행 리포트', type:'화면', role:'테넌트·플랫폼', note:'' },
-    { area:'서비스 매뉴얼', menu:'매뉴얼', screen:'BO 서비스 매뉴얼', type:'화면', role:'전체', note:'' },
+    // ── 공통 ──
+    { area:'공통', menu:'로그인/인증',      screen:'BO 로그인',                       type:'화면', role:'전체',              diff:'★☆☆', note:'SSO/역할 분기' },
+    { area:'공통', menu:'레이아웃',         screen:'사이드바·헤더·GNB',               type:'컴포넌트', role:'전체',           diff:'★☆☆', note:'접근권한 기반 메뉴 표시' },
+    // ── 대시보드 ──
+    { area:'대시보드', menu:'메인 대시보드', screen:'예산 현황 요약',                   type:'화면', role:'전체',             diff:'★☆☆', note:'역할별 데이터 범위' },
+    // ── 플랫폼 총괄 ──
+    { area:'플랫폼총괄', menu:'사용자 관리', screen:'사용자 목록·편집',                 type:'화면', role:'플랫폼관리자',      diff:'★★☆', note:'' },
+    { area:'플랫폼총괄', menu:'역할 관리',   screen:'역할 목록·메뉴권한',               type:'화면', role:'플랫폼관리자',      diff:'★★☆', note:'' },
+    { area:'플랫폼총괄', menu:'역할별 메뉴관한', screen:'메뉴별 체크박스 권한표',       type:'화면', role:'플랫폼관리자',      diff:'★★★', note:'role_menu_permissions 연동' },
+    { area:'플랫폼총괄', menu:'격리그룹 관리', screen:'격리그룹 목록·설정',             type:'화면', role:'플랫폼·테넌트',     diff:'★★☆', note:'' },
+    { area:'플랫폼총괄', menu:'양식 빌더',   screen:'양식 목록',                        type:'화면', role:'전체',             diff:'★☆☆', note:'' },
+    { area:'플랫폼총괄', menu:'양식 빌더',   screen:'양식 설계 에디터',                 type:'화면', role:'전체',             diff:'★★★', note:'fields jsonb 편집' },
+    { area:'플랫폼총괄', menu:'입력 필드 관리', screen:'커스텀 필드 목록·생성',         type:'화면', role:'플랫폼관리자',      diff:'★★☆', note:'form_templates.fields 연동' },
+    { area:'플랫폼총괄', menu:'교육유형 관리', screen:'교육 목적군·유형·세부유형 트리',  type:'화면', role:'플랫폼관리자',      diff:'★★★', note:'edu_type CRUD DB 연동' },
+    // ── 테넌트 운영 ──
+    { area:'테넌트운영', menu:'예산계정 관리', screen:'계정 목록·상세',                  type:'화면', role:'플랫폼·테넌트',    diff:'★★☆', note:'' },
+    { area:'테넌트운영', menu:'예산계정 편집', screen:'계정 생성/수정 모달',             type:'모달', role:'플랫폼·테넌트',    diff:'★☆☆', note:'' },
+    { area:'테넌트운영', menu:'가상조직 템플릿', screen:'VOrg 템플릿 목록',              type:'화면', role:'테넌트',           diff:'★★☆', note:'' },
+    { area:'테넌트운영', menu:'VOrg 템플릿 편집', screen:'VOrg 트리 편집',              type:'화면', role:'테넌트',           diff:'★★★', note:'tree jsonb + allowedJobTypes' },
+    { area:'테넌트운영', menu:'산정기준 관리', screen:'산정기준 목록·편집',              type:'화면', role:'테넌트',           diff:'★★☆', note:'' },
+    { area:'테넌트운영', menu:'서비스 정책',  screen:'정책 목록 (필터 포함)',            type:'화면', role:'플랫폼·테넌트·예산운영', diff:'★★★', note:'' },
+    { area:'테넌트운영', menu:'서비스 정책',  screen:'정책 생성 위저드 (Step 0~7)',      type:'화면', role:'전체',             diff:'★★★', note:'8단계 멀티스텝 위저드' },
+    { area:'테넌트운영', menu:'결제 라우팅',  screen:'결재선 설정',                      type:'화면', role:'테넌트',           diff:'★★★', note:'' },
+    // ── 운영 업무 ──
+    { area:'운영업무', menu:'계획 관리',      screen:'교육계획 목록·상세',               type:'화면', role:'예산운영',         diff:'★★☆', note:'' },
+    { area:'운영업무', menu:'예산 배정',      screen:'배정 현황·배정 모달',              type:'화면', role:'예산운영',         diff:'★★★', note:'' },
+    { area:'운영업무', menu:'내 업무',        screen:'내 운영 현황',                     type:'화면', role:'예산운영',         diff:'★☆☆', note:'' },
+    { area:'운영업무', menu:'조직 예산현황',  screen:'계층별 예산 집행현황',             type:'화면', role:'예산운영',         diff:'★★☆', note:'' },
+    // ── 분석/기타 ──
+    { area:'분석', menu:'통계 및 리포트',     screen:'예산 집행 리포트',                 type:'화면', role:'테넌트·플랫폼',    diff:'★★☆', note:'' },
+    { area:'기타', menu:'서비스 매뉴얼',      screen:'BO 서비스 매뉴얼',                 type:'화면', role:'전체',             diff:'★☆☆', note:'' },
   ];
   const screenCount = screens.filter(s=>s.type==='화면').length;
   const modalCount  = screens.filter(s=>s.type==='모달').length;
@@ -658,29 +662,29 @@ function _manIA() {
     { label:'백오피스 (BO)', indent:0, icon:'⚙️', bold:true },
     { label:'로그인 / 인증', indent:1, icon:'🔐', bold:false },
     { label:'대시보드', indent:1, icon:'📊', bold:true },
-    { label:'마스터데이터 관리', indent:1, icon:'🗄️', bold:true },
-    { label:'예산계정 관리 (목록·편집)', indent:2, icon:'└', bold:false },
+    { label:'플랫폼 총괄', indent:1, icon:'🌐', bold:true },
+    { label:'사용자 관리 (목록·편집)', indent:2, icon:'└', bold:false },
+    { label:'역할 관리 / 역할별 메뉴권한', indent:2, icon:'└', bold:false },
     { label:'격리그룹 관리 (목록·설정)', indent:2, icon:'└', bold:false },
-    { label:'가상조직(VOrg) 템플릿 관리', indent:2, icon:'└', bold:false },
     { label:'양식 빌더 (목록·에디터)', indent:2, icon:'└', bold:false },
+    { label:'입력 필드 관리', indent:2, icon:'└', bold:false },
+    { label:'교육유형 관리 (트리)', indent:2, icon:'└', bold:false },
+    { label:'테넌트 운영', indent:1, icon:'🏢', bold:true },
+    { label:'예산계정 관리 (목록·편집)', indent:2, icon:'└', bold:false },
+    { label:'가상조직(VOrg) 템플릿 관리', indent:2, icon:'└', bold:false },
+    { label:'산정기준 관리', indent:2, icon:'└', bold:false },
     { label:'서비스 정책 관리', indent:1, icon:'🔧', bold:true },
     { label:'정책 목록 (격리그룹·계정 필터)', indent:2, icon:'└', bold:false },
     { label:'정책 생성 위저드 (8단계)', indent:2, icon:'└', bold:false },
-    { label:'Step 0 범위설정', indent:3, icon:'△', bold:false },
-    { label:'Step 1 정책명·대상자', indent:3, icon:'△', bold:false },
-    { label:'Step 2 목적', indent:3, icon:'△', bold:false },
-    { label:'Step 3 교육유형', indent:3, icon:'△', bold:false },
-    { label:'Step 4 패턴', indent:3, icon:'△', bold:false },
-    { label:'Step 5 대상조직', indent:3, icon:'△', bold:false },
-    { label:'Step 6 양식', indent:3, icon:'△', bold:false },
-    { label:'Step 7 결재라인', indent:3, icon:'△', bold:false },
-    { label:'예산 계획 관리', indent:1, icon:'📋', bold:true },
-    { label:'계획 목록·상세', indent:2, icon:'└', bold:false },
-    { label:'신청 관리', indent:1, icon:'📝', bold:true },
-    { label:'신청 목록·승인', indent:2, icon:'└', bold:false },
-    { label:'예산 원장', indent:1, icon:'📒', bold:true },
-    { label:'원장 목록·거래 상세', indent:2, icon:'└', bold:false },
-    { label:'보고서', indent:1, icon:'📈', bold:true },
+    { label:'Step 0 범위설정 ~ Step 7 결재라인', indent:3, icon:'△', bold:false },
+    { label:'결제 라우팅 설정', indent:2, icon:'└', bold:false },
+    { label:'운영 업무', indent:1, icon:'📋', bold:true },
+    { label:'계획 관리·상세', indent:2, icon:'└', bold:false },
+    { label:'예산 배정 현황·모달', indent:2, icon:'└', bold:false },
+    { label:'내 업무', indent:2, icon:'└', bold:false },
+    { label:'조직 예산현황', indent:2, icon:'└', bold:false },
+    { label:'분석', indent:1, icon:'📈', bold:true },
+    { label:'통계 및 리포트', indent:2, icon:'└', bold:false },
     { label:'서비스 매뉴얼', indent:1, icon:'📖', bold:false },
   ];
 
@@ -712,6 +716,7 @@ function _manIA() {
         <th style="padding:8px 12px;text-align:left;border:1px solid #E5E7EB;font-weight:900">메뉴</th>
         <th style="padding:8px 12px;text-align:left;border:1px solid #E5E7EB;font-weight:900">화면명</th>
         <th style="padding:8px 12px;text-align:center;border:1px solid #E5E7EB;font-weight:900">유형</th>
+        <th style="padding:8px 12px;text-align:center;border:1px solid #E5E7EB;font-weight:900">난이도</th>
         <th style="padding:8px 12px;text-align:left;border:1px solid #E5E7EB;font-weight:900">접근역할</th>
         <th style="padding:8px 12px;text-align:left;border:1px solid #E5E7EB;font-weight:900">비고</th>
       </tr></thead>
@@ -722,6 +727,7 @@ function _manIA() {
         <td style="padding:7px 12px;border:1px solid #E5E7EB;text-align:center">
           <span style="padding:2px 8px;border-radius:5px;font-weight:800;background:${s.type==='화면'?'#DBEAFE':s.type==='모달'?'#EDE9FE':'#F3F4F6'};color:${s.type==='화면'?'#1D4ED8':s.type==='모달'?'#7C3AED':'#6B7280'}">${s.type}</span>
         </td>
+        <td style="padding:7px 12px;border:1px solid #E5E7EB;text-align:center;font-size:12px;color:${s.diff==='★★★'?'#DC2626':s.diff==='★★☆'?'#D97706':'#6B7280'}">${s.diff||'—'}</td>
         <td style="padding:7px 12px;border:1px solid #E5E7EB;font-size:11px;color:#6B7280">${s.role}</td>
         <td style="padding:7px 12px;border:1px solid #E5E7EB;font-size:11px;color:#9CA3AF">${s.note}</td>
       </tr>`).join('')}</tbody>

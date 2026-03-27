@@ -92,10 +92,13 @@ function _renderPlatformAdminView(persona, personaKey) {
       <h1 class="bo-page-title">🛡️ 격리그룹 관리</h1>
       <p class="bo-page-sub">테넌트별 예산 격리그룹을 생성하고, 예산총괄·운영담당자를 복수로 지정합니다.</p>
     </div>
-    <button onclick="_igModal=true;renderIsolationGroups()" class="bo-btn-primary"
-      style="display:flex;align-items:center;gap:6px;padding:10px 18px;white-space:nowrap">
-      <span style="font-size:16px">+</span> 새 격리그룹 만들기
-    </button>
+    <div style="display:flex;gap:8px;align-items:center">
+      ${typeof pgGuideBtn === 'function' ? pgGuideBtn('isolation-groups') : ''}
+      <button onclick="_igModal=true;renderIsolationGroups()" class="bo-btn-primary"
+        style="display:flex;align-items:center;gap:6px;padding:10px 18px;white-space:nowrap">
+        <span style="font-size:16px">+</span> 새 격리그룹 만들기
+      </button>
+    </div>
   </div>
   ${tenantSelect}
   <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;

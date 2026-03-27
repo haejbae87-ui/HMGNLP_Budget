@@ -1906,83 +1906,10 @@ function getPersonaAccountBudgets(persona) {
 // approverPersonaKey: 최종 승인자 persona key
 // managerPersonaKey: 정책 관리자 persona key
 
-var SERVICE_POLICIES = [
-  {
-    id: 'POL-HMC-GEN-001',
-    tenantId: 'HMC',
-    name: '현대차 일반교육 사외신청 정책',
-    flow: 'plan-apply-result',
-    budgetLinked: true,
-    accountCodes: ['HMC-OPS', 'HMC-PART', 'HMC-ETC'],
-    vorgTemplateId: 'TPL_GEN_01',
-    formIds: ['FM003', 'FM007'],
-    allowedLearningTypes: ['사외집합', '세미나', '워크숍', '이러닝'],
-    managerPersonaKey: 'hmc_total_general',
-    approverPersonaKey: 'hmc_total_general',
-    status: 'active',
-    createdAt: '2026-01-01'
-  },
-  {
-    id: 'POL-HMC-RND-001',
-    tenantId: 'HMC',
-    name: '현대차 R&D 사외교육 정책',
-    flow: 'plan-apply-result',
-    budgetLinked: true,
-    accountCodes: ['HMC-RND'],
-    vorgTemplateId: 'TPL_RND_01',
-    formIds: ['FM001', 'FM002', 'FM006'],
-    allowedLearningTypes: ['사외집합', '해외학회', '세미나', '자격증'],
-    managerPersonaKey: 'hmc_total_rnd',
-    approverPersonaKey: 'hmc_total_rnd',
-    status: 'active',
-    createdAt: '2026-01-01'
-  },
-  {
-    id: 'POL-KIA-GEN-001',
-    tenantId: 'KIA',
-    name: '기아 사외교육 신청 정책',
-    flow: 'apply-result',
-    budgetLinked: true,
-    accountCodes: ['KIA-OPS', 'KIA-PART', 'KIA-ETC'],
-    vorgTemplateId: 'TPL_KIA_GEN_01',
-    formIds: ['FM005'],
-    allowedLearningTypes: ['사외집합', '세미나', '이러닝'],
-    managerPersonaKey: 'kia_total_general',
-    approverPersonaKey: 'kia_hq_general',
-    status: 'active',
-    createdAt: '2026-01-01'
-  },
-  {
-    id: 'POL-KIA-FREE-001',
-    tenantId: 'KIA',
-    name: '기아 무예산 학습이력 등록 정책',
-    flow: 'result-only',
-    budgetLinked: false,
-    accountCodes: [],
-    vorgTemplateId: 'TPL_KIA_GEN_01',
-    formIds: ['FM005'],
-    allowedLearningTypes: ['도서', '세미나', '이러닝'],
-    managerPersonaKey: 'kia_total_general',
-    approverPersonaKey: 'kia_hq_general',
-    status: 'active',
-    createdAt: '2026-01-15'
-  },
-  {
-    id: 'POL-HAE-GEN-001',
-    tenantId: 'HAE',
-    name: '오토에버 교육신청 정책',
-    flow: 'apply-result',
-    budgetLinked: true,
-    accountCodes: ['HAE-OPS', 'HAE-PART', 'HAE-CERT'],
-    vorgTemplateId: 'TPL_HAE_GEN_01',
-    formIds: ['FM010', 'FM012'],
-    allowedLearningTypes: ['사외집합', '자격증', '이러닝'],
-    managerPersonaKey: 'hae_total',
-    approverPersonaKey: 'hae_total',
-    status: 'active',
-    createdAt: '2026-01-01'
-  }
-];
+// SERVICE_POLICIES : Supabase service_policies 테이블 실시간 로드
+// ⚠ mock 데이터 제거됨 - renderServicePolicy() 호출 시 DB에서 자동 채워짐
+var SERVICE_POLICIES = [];
+
 
 // 헬퍼: 현재 페르소나가 승인자인 정책 목록
 function getPoliciesWhereApprover(persona) {

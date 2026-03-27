@@ -86,7 +86,7 @@ let _pbGroupFilter   = '';
 let _pbAccountFilter = '';
 
 // ── 정책 목록 메인 화면 ───────────────────────────────────────────────────────
-function renderServicePolicy() {
+async function renderServicePolicy() {
   const persona    = boCurrentPersona;
   const role       = persona.role;
   const isPlatform = role === 'platform_admin';
@@ -95,12 +95,43 @@ function renderServicePolicy() {
   const isBudgetAdmin = role === 'budget_global_admin';
   const el = document.getElementById('bo-content');
 
+  // DB 재로드: Supabase에서 service_policies를 불러와 메모리와 병합
+  if (typeof _sb === 'function' && _sb()) {
+    try {
+      const { data: dbPolicies } = await _sb().from('service_policies').select('*');
+      if (dbPolicies && dbPolicies.length > 0) {
+        dbPolicies.forEach(row => {
+          const mapped = {
+            id: row.id, tenantId: row.tenant_id, name: row.name, desc: row.descr,
+            isolationGroupId: row.isolation_group_id, scopeTenantId: row.scope_tenant_id,
+            scopeGroupId: row.scope_group_id, targetType: row.target_type, purpose: row.purpose,
+            eduTypes: row.edu_types || [], selectedEduItem: row.selected_edu_item,
+            processPattern: row.process_pattern, flow: row.flow,
+            budgetLinked: row.budget_linked !== false, applyMode: row.apply_mode,
+            accountCodes: row.account_codes || [], vorgTemplateId: row.vorg_template_id,
+            stageFormIds: row.stage_form_ids || { plan:[], apply:[], result:[] },
+            formSets: row.stage_form_ids,
+            approvalConfig: row.approval_config || { plan:{thresholds:[],finalApproverKey:''}, apply:{thresholds:[],finalApproverKey:''}, result:{thresholds:[],finalApproverKey:''} },
+            approverPersonaKey: row.approval_config?.apply?.finalApproverKey || '',
+            approvalThresholds: row.approval_config?.apply?.thresholds || [],
+            managerPersonaKey: row.manager_persona_key,
+            status: row.status || 'active', createdAt: (row.created_at||'').slice(0,10),
+          };
+          const idx = SERVICE_POLICIES.findIndex(p => p.id === mapped.id);
+          if (idx >= 0) SERVICE_POLICIES[idx] = mapped;
+          else SERVICE_POLICIES.push(mapped);
+        });
+      }
+    } catch(e) { console.warn('[renderServicePolicy] DB 재로드 실패:', e.message); }
+  }
+
   const activeTenantId = isPlatform ? (_pbTenantFilter || '') : (persona.tenantId || '');
   const activeGroupId  = (typeof boGetActiveGroupId === 'function') ? boGetActiveGroupId() : null;
   const autoGroupId    = (isBudgetOp || isBudgetAdmin) ? (persona.isolationGroupId || activeGroupId || '') : null;
   const pbGroupId      = autoGroupId || _pbGroupFilter || activeGroupId || '';
 
   let myPolicies = SERVICE_POLICIES.filter(p => {
+
     const tenantMatch = activeTenantId ? p.tenantId === activeTenantId : true;
     if (!tenantMatch) return false;
     if (isBudgetOp || isBudgetAdmin) {
@@ -229,10 +260,14 @@ function renderServicePolicy() {
       <h1 class="bo-page-title">🔧 서비스 정책 관리</h1>
       <p class="bo-page-sub">교육 서비스 흐름, 예산 연동, 결재라인을 하나의 정책으로 통합 관리</p>
     </div>
-    <button onclick="startPolicyWizard(null)" class="bo-btn-primary" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
-      <span style="font-size:16px">+</span> 새 정책 만들기
-    </button>
+    <div style="display:flex;gap:8px;align-items:center">
+      ${typeof pgGuideBtn === 'function' ? pgGuideBtn('service-policy') : ''}
+      <button onclick="startPolicyWizard(null)" class="bo-btn-primary" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
+        <span style="font-size:16px">+</span> 새 정책 만들기
+      </button>
+    </div>
   </div>
+
   ${filterBar}
   <div>
     <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">정책 목록 (${myPolicies.length}개)</div>
@@ -783,57 +818,72 @@ function renderPolicyWizard() {
     stepContent = `
 <div style="display:grid;gap:16px">
   <div style="padding:12px 16px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;font-size:12px;color:#92400E">
-    💡 각 단계(계획/신청/결과)별로 결재라인을 별도 설정할 수 있습니다. 단계별 결재자를 다르게 지정하거나 금액 구간을 독립 설정하세요.
+    💡 각 단계(계획/신청/결과)별로 결재라인을 아래에서 한 번에 설정하세요. 최종 결재자는 필수입니다.
   </div>
-  <div style="display:flex;gap:0;border-bottom:2px solid #E5E7EB">
-    ${stages.map(s=>`
-    <button onclick="_policyWizardData._approvalTab='${s}';renderPolicyWizard()"
-      style="padding:8px 16px;font-size:12px;font-weight:700;border:none;border-bottom:3px solid ${activeStage===s?stageColor[s]:'transparent'};background:none;cursor:pointer;color:${activeStage===s?stageColor[s]:'#6B7280'}">
-      ${stageLabel[s]} 결재
-    </button>`).join('')}
-  </div>
-  <div style="display:grid;gap:12px">
-    <div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <label class="bo-label" style="margin:0">${stageLabel[activeStage]} 금액 구간별 결재자</label>
-        <button onclick="_addStageThreshold('${activeStage}')" style="font-size:11px;padding:6px 12px;border-radius:8px;border:1.5px solid ${stageColor[activeStage]};color:${stageColor[activeStage]};background:white;cursor:pointer;font-weight:700">+ 구간 추가</button>
+  <!-- 단계별 결재 카드 (수직 배치) -->
+  ${stages.map(s => {
+    const c = d.approvalConfig[s] || { thresholds:[], finalApproverKey:'' };
+    const hasFinal = !!c.finalApproverKey;
+    return `
+  <div style="border:2px solid ${hasFinal ? stageColor[s]+'60' : '#FECACA'};border-radius:14px;overflow:hidden">
+    <!-- 단계 헤더 -->
+    <div style="padding:12px 16px;background:${hasFinal ? stageColor[s]+'10' : '#FEF2F2'};
+         display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid ${hasFinal ? stageColor[s]+'30' : '#E5E7EB'}">
+      <span style="font-size:13px;font-weight:900;color:${stageColor[s]}">${stageLabel[s]} 결재라인</span>
+      ${hasFinal
+        ? `<span style="padding:2px 9px;border-radius:20px;background:${stageColor[s]};color:white;font-size:10px;font-weight:900">✓ 설정됨</span>`
+        : `<span style="padding:2px 9px;border-radius:20px;background:#FEE2E2;color:#B91C1C;font-size:10px;font-weight:900">⚠ 최종 결재자 미설정</span>`
+      }
+    </div>
+    <!-- 내용 -->
+    <div style="padding:14px 16px;background:white;display:grid;gap:12px">
+      <!-- 금액 구간 -->
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <label style="font-size:11px;font-weight:800;color:#374151">${stageLabel[s]} 금액 구간별 결재자</label>
+          <button onclick="_addStageThreshold('${s}')" style="font-size:11px;padding:5px 12px;border-radius:8px;border:1.5px solid ${stageColor[s]};color:${stageColor[s]};background:white;cursor:pointer;font-weight:700">+ 구간 추가</button>
+        </div>
+        <div style="display:grid;gap:8px">
+          ${c.thresholds.length === 0 ? `
+          <div style="padding:14px;text-align:center;background:#F9FAFB;border-radius:8px;color:#9CA3AF;font-size:11px">
+            구간 없음 — 모든 신청이 최종 결재자에게 바로 배달됩니다.
+          </div>` :
+          c.thresholds.map((t,i) => `
+          <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;padding:10px 12px;background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:8px">
+            <div>
+              <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">최대 금액 (원)</label>
+              <input type="number" value="${t.maxAmt||''}" placeholder="예: 1000000"
+                onchange="_policyWizardData.approvalConfig['${s}'].thresholds[${i}].maxAmt=Number(this.value)"
+                style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;box-sizing:border-box"/>
+              <div style="font-size:10px;color:#9CA3AF;margin-top:2px">${t.maxAmt?(t.maxAmt/10000)+'만원 이하':'금액 입력'}</div>
+            </div>
+            <div>
+              <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">결재 담당자</label>
+              <select onchange="_policyWizardData.approvalConfig['${s}'].thresholds[${i}].approverKey=this.value"
+                style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:7px 8px;font-size:12px;font-weight:700">
+                <option value="">— 선택 —</option>
+                ${tenantPersonas.map(({key,p})=>`<option value="${key}" ${t.approverKey===key?'selected':''}>${p.name} (${p.dept})</option>`).join('')}
+              </select>
+            </div>
+            <button onclick="_removeStageThreshold('${s}',${i})" style="padding:7px 10px;border-radius:8px;border:1.5px solid #FCA5A5;color:#DC2626;background:white;cursor:pointer;font-size:11px;font-weight:700;height:34px">삭제</button>
+          </div>`).join('')}
+        </div>
       </div>
-      <div id="threshold-list-${activeStage}" style="display:grid;gap:8px">
-        ${cfg.thresholds.length === 0 ? `
-        <div style="padding:20px;text-align:center;background:#F9FAFB;border-radius:10px;color:#9CA3AF;font-size:12px">
-          구간 없음 — 모든 신청이 최종 결재자에게 바로 배달됩니다.<br>
-          <button onclick="_addStageThreshold('${activeStage}')" style="margin-top:10px;font-size:12px;padding:6px 14px;border-radius:8px;border:1.5px solid ${stageColor[activeStage]};color:${stageColor[activeStage]};background:white;cursor:pointer;font-weight:700">+ 구간 추가</button>
-        </div>` :
-        cfg.thresholds.map((t,i) => `
-        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;padding:12px 14px;background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:10px">
-          <div>
-            <label style="font-size:11px;font-weight:700;color:#6B7280;display:block;margin-bottom:4px">최대 금액 (원)</label>
-            <input type="number" value="${t.maxAmt||''}" placeholder="예: 1000000"
-              onchange="_policyWizardData.approvalConfig['${activeStage}'].thresholds[${i}].maxAmt=Number(this.value)"
-              style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;box-sizing:border-box"/>
-            <div style="font-size:10px;color:#9CA3AF;margin-top:3px">${t.maxAmt?(t.maxAmt/10000)+'만원 이하':'금액 입력'}</div>
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:700;color:#6B7280;display:block;margin-bottom:4px">결재 담당자</label>
-            <select onchange="_policyWizardData.approvalConfig['${activeStage}'].thresholds[${i}].approverKey=this.value"
-              style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700">
-              <option value="">— 선택 —</option>
-              ${tenantPersonas.map(({key,p})=>`<option value="${key}" ${t.approverKey===key?'selected':''}>${p.name} (${p.dept})</option>`).join('')}
-            </select>
-          </div>
-          <button onclick="_removeStageThreshold('${activeStage}',${i})" style="padding:8px 12px;border-radius:8px;border:1.5px solid #FCA5A5;color:#DC2626;background:white;cursor:pointer;font-size:12px;font-weight:700;height:38px">삭제</button>
-        </div>`).join('')}
+      <!-- 최종 결재자 -->
+      <div>
+        <label class="bo-label">${stageLabel[s]} 최종 결재자 <span style="color:#EF4444">*</span></label>
+        <select id="wiz-final-approver-${s}"
+          onchange="_policyWizardData.approvalConfig['${s}'].finalApproverKey=this.value;renderPolicyWizard()"
+          style="width:100%;border:1.5px solid ${hasFinal ? stageColor[s] : '#FCA5A5'};border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700">
+          <option value="">— 선택 —</option>
+          ${tenantPersonas.map(({key,p})=>`<option value="${key}" ${c.finalApproverKey===key?'selected':''}>${p.name} (${p.dept} · ${p.roleLabel})</option>`).join('')}
+        </select>
       </div>
     </div>
-    <div>
-      <label class="bo-label">${stageLabel[activeStage]} 최종 결재자 <span style="color:#EF4444">*</span></label>
-      <select id="wiz-final-approver-${activeStage}"
-        onchange="_policyWizardData.approvalConfig['${activeStage}'].finalApproverKey=this.value"
-        style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700">
-        <option value="">— 선택 —</option>
-        ${tenantPersonas.map(({key,p})=>`<option value="${key}" ${cfg.finalApproverKey===key?'selected':''}>${p.name} (${p.dept} · ${p.roleLabel})</option>`).join('')}
-      </select>
-    </div>
+  </div>`;
+  }).join('')}
+  <!-- 정책 관리자 / 상태 -->
+  <div style="border:1.5px solid #E5E7EB;border-radius:14px;padding:16px;background:white;display:grid;gap:12px">
     <div>
       <label class="bo-label">정책 관리자</label>
       <select id="wiz-manager" style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700">
@@ -854,6 +904,7 @@ function renderPolicyWizard() {
     </div>
   </div>
 </div>`;
+
   }
 
   el.innerHTML = `

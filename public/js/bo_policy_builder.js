@@ -657,6 +657,31 @@ function renderPolicyWizard() {
 
   // ── Step 6: 단계별 양식 선택 ──────────────────────────────────────────────────
   } else if (_policyWizardStep === 6) {
+    // DB에서 form_templates 로드하여 FORM_MASTER와 병합 (최초 1회 또는 비어있을 때)
+    const _scopeGrpForLoad = d.scopeTenantId || persona.tenantId;
+    if (typeof _sb === 'function' && _sb() && typeof FORM_MASTER !== 'undefined') {
+      (async () => {
+        try {
+          const { data: dbForms } = await _sb().from('form_templates').select('*').eq('active', true);
+          if (dbForms && dbForms.length > 0) {
+            let changed = false;
+            dbForms.forEach(row => {
+              const mapped = {
+                id: row.id, tenantId: row.tenant_id, isolationGroupId: row.isolation_group_id,
+                accountCode: row.account_code, type: row.type, name: row.name, desc: row.description || row.desc || '',
+                purpose: row.purpose, eduType: row.edu_type, active: row.active !== false,
+                fields: row.fields || [],
+              };
+              const idx = FORM_MASTER.findIndex(f => f.id === mapped.id);
+              if (idx >= 0) { FORM_MASTER[idx] = mapped; }
+              else { FORM_MASTER.push(mapped); changed = true; }
+            });
+            if (changed) renderPolicyWizard(); // DB 로드 후 양식 목록 갱신
+          }
+        } catch(e) { console.warn('[PolicyWizard:Step6] form_templates 로드 실패:', e.message); }
+      })();
+    }
+
     const _scopeTenantId = d.scopeTenantId || persona.tenantId;
     const _scopeGroupId  = d.scopeGroupId  || '';
     const _scopeAcctCode = (d.accountCodes||[])[0] || '';
@@ -672,11 +697,14 @@ function renderPolicyWizard() {
     // 기준 양식 풀 (텐넌트+격리그룹+계정)
     const _allForms = (typeof FORM_MASTER !== 'undefined' ? FORM_MASTER : [])
       .filter(f => {
-        if (f.tenantId !== _scopeTenantId || !f.active) return false;
+        if (!f.active) return false;
+        // tenantId 매칭: scopeTenantId 없으면 통과, 있으면 정확 매칭 (단 DB UUID와 코드가 다를 수 있어 양쪽 허용)
+        if (_scopeTenantId && f.tenantId && f.tenantId !== _scopeTenantId) return false;
         if (_scopeGroupId && f.isolationGroupId && f.isolationGroupId !== _scopeGroupId) return false;
         if (_scopeAcctCode && f.accountCode && f.accountCode !== _scopeAcctCode) return false;
         return true;
       });
+
 
     // 교육유형으로 추가 필터 (목적·유형 정보가 없는 구형 양식은 숨기지 않음)
     const _eduFiltered = _policyEduTypes.length === 0 ? _allForms : _allForms.filter(f => {

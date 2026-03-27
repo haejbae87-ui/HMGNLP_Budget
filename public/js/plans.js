@@ -76,52 +76,32 @@ function renderPlans() {
     return; // 로드 중에는 렌더 보류
   }
 
+  // 위저드 뷰
+  if (planState) {
+    renderPlanWizard();
+    return;
+  }
+
+  // 목록 뷰
   document.getElementById('page-plans').innerHTML = `
-<div class="max-w-5xl mx-auto space-y-6">
+<div class="max-w-4xl mx-auto space-y-6">
   <div class="flex items-center justify-between">
     <div>
       <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육계획</div>
-      <h1 class="text-3xl font-black text-brand tracking-tight">교육계획</h1>
+      <h1 class="text-3xl font-black text-brand tracking-tight">교육계획 수립</h1>
       <p class="text-gray-500 text-sm mt-1">교육 신청 전 교육계획을 먼저 수립하세요.</p>
     </div>
     <button onclick="startPlanWizard()" class="flex items-center gap-2 bg-brand text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-blue-900 transition shadow-lg">
-      ＋ 교육계획 수립
+      + 교육계획 수립
     </button>
   </div>
-
-  <!-- 계획 수립 위저드 (숨김 상태) -->
-  <div id="plan-wizard" class="hidden"></div>
-
-  <!-- Existing plans list -->
-  <div class="card overflow-hidden">
-    <div class="p-6 border-b border-gray-100 flex items-center justify-between">
-      <h3 class="font-black text-sm text-gray-700 uppercase tracking-wider">등록된 교육계획</h3>
-      <span class="text-xs text-gray-400 font-bold">${MOCK_PLANS.length}건</span>
-    </div>
-    <table class="w-full text-sm">
-      <thead class="bg-gray-50"><tr class="text-xs font-black text-gray-500 uppercase">
-        <th class="px-6 py-3 text-left">계획명</th>
-        <th class="px-4 py-3 text-left">예산 계정</th>
-        <th class="px-4 py-3 text-right">계획액</th>
-        <th class="px-4 py-3 text-center">교육신청</th>
-        <th class="px-4 py-3 text-center">상태</th>
-      </tr></thead>
-      <tbody class="divide-y divide-gray-50">
-        ${MOCK_PLANS.map(p => `
-        <tr class="hover:bg-gray-50 transition">
-          <td class="px-6 py-4">
-            <div class="font-bold text-gray-900">${p.title}</div>
-            <div class="text-[10px] text-gray-400">${p.id}</div>
-          </td>
-          <td class="px-4 py-4"><span class="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">${p.account}</span></td>
-          <td class="px-4 py-4 text-right font-black text-gray-900">${fmt(p.amount)}원</td>
-          <td class="px-4 py-4 text-center">
-            <button onclick="startApplyFromPlan('${p.id}')" class="text-xs font-black text-white bg-accent px-4 py-1.5 rounded-lg hover:bg-blue-600 transition">교육신청 →</button>
-          </td>
-          <td class="px-4 py-4 text-center"><span class="badge bg-green-100 text-green-700">승인완료</span></td>
-        </tr>`).join('')}
-      </tbody>
-    </table>
+  <div class="card p-16 text-center">
+    <div style="font-size:48px;margin-bottom:16px">📋</div>
+    <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">등록된 교육계획이 없습니다</div>
+    <div style="font-size:12px;color:#9CA3AF;margin-bottom:20px">위의 "교육계획 수립" 버튼으로 새 계획을 작성해보세요.</div>
+    <button onclick="startPlanWizard()" style="padding:10px 24px;border-radius:12px;background:#002C5F;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer">
+      + 교육계획 수립하기
+    </button>
   </div>
 </div>`;
 }
@@ -130,15 +110,12 @@ function renderPlans() {
 
 function startPlanWizard() {
   planState = resetPlanState();
-  renderPlanWizard();
-  const wizard = document.getElementById('plan-wizard');
-  wizard.classList.remove('hidden');
-  setTimeout(() => wizard.scrollIntoView({ behavior: 'smooth' }), 50);
+  renderPlans(); // planState가 있으면 위저드 뷰 렌더
 }
 
 function closePlanWizard() {
   planState = null;
-  document.getElementById('plan-wizard').classList.add('hidden');
+  renderPlans(); // 목록 뷰로 복귀
 }
 
 function renderPlanWizard() {
@@ -153,31 +130,35 @@ function renderPlanWizard() {
     : [];
   const curBudget = availBudgets.find(b => b.id === s.budgetId) || null;
 
-  // Step 3 다음 버튼 조건
-  const step3CanNext = s.budgetId !== '';
+  // ── 스탭 지시자 (apply.js 동일 구조) ──────────────────────────────────────
+  const stepLabels = ['목적 선택', '예산 선택', '교육유형', '세부 정보'];
+  const stepper = [1,2,3,4].map(n => `
+  <div class="step-item flex items-center gap-2 ${s.step > n ? 'done' : s.step === n ? 'active' : ''}">
+    <div class="step-circle w-8 h-8 rounded-full flex items-center justify-center text-sm font-black transition-all">${s.step > n ? '✓' : n}</div>
+    <span class="text-xs font-bold ${s.step === n ? 'text-brand' : 'text-gray-400'} hidden sm:block">${stepLabels[n-1]}</span>
+    ${n < 4 ? '<div class="h-px flex-1 bg-gray-200 mx-2 w-8"></div>' : ''}
+  </div>`).join('');
 
-  document.getElementById('plan-wizard').innerHTML = `
-<div class="card p-8 fade-in">
+  document.getElementById('page-plans').innerHTML = `
+<div class="max-w-4xl mx-auto space-y-6">
   <!-- 헤더 -->
-  <div class="flex items-center justify-between mb-6">
+  <div class="flex items-center justify-between">
     <div>
-      <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">교육계획 수립</div>
-      <h2 class="text-xl font-black text-gray-900">새 교육계획 작성</h2>
+      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육계획</div>
+      <h1 class="text-3xl font-black text-brand tracking-tight">교육계획 수립</h1>
     </div>
-    <button onclick="closePlanWizard()" class="text-gray-400 hover:text-gray-600 font-bold text-2xl leading-none transition">✕</button>
+    <button onclick="closePlanWizard()" style="padding:8px 18px;border-radius:10px;background:white;border:1.5px solid #E5E7EB;font-size:12px;font-weight:800;color:#374151;cursor:pointer">← 목록으로</button>
   </div>
 
-  <!-- Stepper -->
-  <div class="flex items-center gap-2 mb-8 pb-6 border-b border-gray-100">
-    ${[1, 2, 3, 4].map(n => `
-    <div class="step-item flex items-center gap-2 ${s.step > n ? 'done' : s.step === n ? 'active' : ''}">
-      <div class="step-circle w-8 h-8 rounded-full flex items-center justify-center text-sm font-black transition-all">${s.step > n ? '✓' : n}</div>
-      <span class="text-xs font-bold ${s.step === n ? 'text-brand' : 'text-gray-400'} hidden sm:block">${['목적 선택', '예산 선택', '교육유형', '세부 정보'][n - 1]}</span>
-      ${n < 4 ? '<div class="h-px flex-1 bg-gray-200 mx-2 w-8"></div>' : ''}
-    </div>`).join('')}
+  <!-- 스탭 카드 (apply.js 동일) -->
+  <div class="card p-5">
+    <div class="flex items-center gap-2">${stepper}</div>
   </div>
 
-  <!-- ── Step 1: 교육 목적 ── -->
+  <!-- 콘텐츠 카드 -->
+  <div class="card p-8">
+
+  <!-- Step 1 content -->
   <div class="${s.step === 1 ? '' : 'hidden'}">
     <h3 class="text-base font-black text-gray-800 mb-5">01. 교육 목적 선택</h3>
 
@@ -389,7 +370,8 @@ function renderPlanWizard() {
           계획 저장 ✓
         </button>
       </div>
-    </div>
+  </div>
+
   </div>
 </div>`;
 }

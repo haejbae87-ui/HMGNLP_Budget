@@ -210,14 +210,6 @@ async function renderRoleMgmt() {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// 사용자 조회 패널
-// ──────────────────────────────────────────────────────────────────────────────
-window._rmViewUsers = async function(roleId, roleName) {
-  const panel = document.getElementById('rm-users-panel');
-  if (!panel) return;
-  panel.style.display = 'block';
-  panel.innerHTML = `<p style="color:#9CA3AF;font-size:12px">조회 중...</p>`;
-// ──────────────────────────────────────────────────────────────────────────────
 // 역할별 담당자 인라인 관리 패널
 // ──────────────────────────────────────────────────────────────────────────────
 window._rmViewUsers = async function(roleCode, roleName) {
@@ -488,5 +480,6 @@ window._saveNewRole = async function() {
     renderRoleMgmt();
   } catch(e) { alert('저장 실패: ' + e.message); }
 };
+
 
 

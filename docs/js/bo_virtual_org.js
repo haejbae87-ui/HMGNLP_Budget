@@ -295,13 +295,6 @@ function _renderVirtualOrgFull(filterBar) {
                 return p ? `<span style="font-size:10px;background:#EFF6FF;color:#1D4ED8;padding:2px 8px;border-radius:6px;font-weight:700">👤 ${p.name} (${p.dept})</span>` : '';
               }).join(' ')
             : `<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:6px;font-weight:700">👤 담당자 미지정</span>`;
-          const coopBadges = (g.cooperators||[]).map(c => {
-            const tc  = c.coopType === '재경협조처' ? '#92400E' : '#1D4ED8';
-            const tbg = c.coopType === '재경협조처' ? '#FEF3C7' : '#EFF6FF';
-            const icon = c.coopType === '재경협조처' ? '💰' : '📚';
-            const req  = c.required === '선택' ? '⚪' : '🔴';
-            return `<span style="font-size:10px;background:${tbg};color:${tc};padding:2px 8px;border-radius:6px;font-weight:700">${req}${icon} ${c.teamName}</span>`;
-          }).join(' ');
           return `
         <li style="margin-bottom:16px">
           <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:12px 16px;margin-bottom:8px">
@@ -311,12 +304,10 @@ function _renderVirtualOrgFull(filterBar) {
                 <span style="font-weight:800;color:#111827;font-size:14px">${g.name}</span>
                 <span style="font-size:11px;background:#E5E7EB;color:#374151;font-weight:700;padding:2px 8px;border-radius:20px">팀 ${g.teams.length}개</span>
                 ${mgrBadge}
-                ${coopBadges}
               </div>
               <div style="display:flex;gap:6px">
                 <button class="bo-btn-secondary bo-btn-sm" onclick="voOpenEditGroup(${gIdx})" style="font-size:11px">✏️ 수정</button>
                 <button class="bo-btn-secondary bo-btn-sm" onclick="voOpenAddTeam(${gIdx})" style="font-size:11px">+ 팀 매핑</button>
-                <button class="bo-btn-secondary bo-btn-sm" onclick="voOpenCoopModal(${gIdx})" style="font-size:11px;color:#7C3AED;border-color:#7C3AED">🤝 협조처</button>
                 <button class="bo-btn-secondary bo-btn-sm" onclick="voRemoveGroup(${gIdx})" style="font-size:11px;color:#EF4444;border-color:#EF4444">삭제</button>
               </div>
             </div>
@@ -997,9 +988,9 @@ async function voOpenAddTeam(groupIdx) {
   document.getElementById('vo-team-modal').style.display = 'flex';
 
   try {
-    if (typeof getSB === 'function' && getSB()) {
+    if (typeof _sb === 'function' && _sb()) {
       // DB에서 해당 회사(tenant) 조직 전체 로드
-      const { data: orgs, error } = await getSB()
+      const { data: orgs, error } = await _sb()
         .from('organizations')
         .select('id, name, type, parent_id, tenant_id')
         .eq('tenant_id', tenantId)
@@ -1189,7 +1180,7 @@ function voConfirmAddTeams() {
   });
 
   voCloseModal('vo-team-modal');
-  _voMyTemplates = _voGetTemplatesByGroup(_voGroupId, _voTenantId);
+  _voMyTemplates = _voGetTemplatesByScope(_voTenantId, _voServiceType);
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
   _voAutoSave(activeTpl);  // ★ DB 자동 저장
 }

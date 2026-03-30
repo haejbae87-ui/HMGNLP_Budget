@@ -1,58 +1,58 @@
 // ─── 역할 관리: 테넌트별 독립 역할 계층 ─────────────────────────────────────
-// bo_platform_mgmt.js의 renderRoleMgmt를 덮어써서 테넌트별 분리 버전으로 교체
+// bo_roles.js — 테넌트별 독립 역할 계층(총괄 → 운영)을 관리합니다.
 
 // ──────────────────────────────────────────────────────────────────────────────
 // 테넌트별 역할 목업 데이터 (DB 미연결 시 fallback)
 // ──────────────────────────────────────────────────────────────────────────────
 const TENANT_ROLES_MOCK = [
   // ── HMC (현대자동차) ──────────────────────────────────────────────────────
-  { id: 'HMC_tenant_admin',   code: 'HMC_tenant_admin',   name: 'HMC 테넌트 총괄관리자', description: '현대자동차 BO 전체 관리',       parent_role_id: null,             tenant_id: 'HMC' },
-  { id: 'HMC_budget_gen',     code: 'HMC_budget_gen',     name: 'HMC 일반예산 총괄관리자', description: 'HMC 일반교육예산 총괄 관리',   parent_role_id: 'HMC_tenant_admin', tenant_id: 'HMC' },
-  { id: 'HMC_budget_rnd',     code: 'HMC_budget_rnd',     name: 'HMC R&D예산 총괄관리자', description: 'HMC R&D교육예산 총괄 관리',    parent_role_id: 'HMC_tenant_admin', tenant_id: 'HMC' },
-  { id: 'HMC_ops_gen_1',      code: 'HMC_ops_gen_1',      name: 'HMC 일반예산 운영담당자①', description: 'GPS 가상조직 예산 운영',      parent_role_id: 'HMC_budget_gen',   tenant_id: 'HMC' },
-  { id: 'HMC_ops_gen_2',      code: 'HMC_ops_gen_2',      name: 'HMC 일반예산 운영담당자②', description: 'ETC 가상조직 예산 운영',      parent_role_id: 'HMC_budget_gen',   tenant_id: 'HMC' },
-  { id: 'HMC_ops_rnd_1',      code: 'HMC_ops_rnd_1',      name: 'HMC R&D예산 운영담당자①', description: 'R&D 가상조직 예산 운영',       parent_role_id: 'HMC_budget_rnd',   tenant_id: 'HMC' },
+  { id: 'HMC_tenant_admin',   code: 'HMC_tenant_admin',   name: 'HMC 테넌트 총괄관리자',    description: '현대자동차 BO 전체 관리',        parent_role_id: null,               tenant_id: 'HMC' },
+  { id: 'HMC_budget_gen',     code: 'HMC_budget_gen',     name: 'HMC 일반예산 총괄관리자',   description: 'HMC 일반교육예산 총괄 관리',     parent_role_id: 'HMC_tenant_admin', tenant_id: 'HMC' },
+  { id: 'HMC_budget_rnd',     code: 'HMC_budget_rnd',     name: 'HMC R&D예산 총괄관리자',    description: 'HMC R&D교육예산 총괄 관리',      parent_role_id: 'HMC_tenant_admin', tenant_id: 'HMC' },
+  { id: 'HMC_ops_gen_1',      code: 'HMC_ops_gen_1',      name: 'HMC 일반예산 운영담당자①',  description: 'HMC GPS 가상조직 예산 운영',     parent_role_id: 'HMC_budget_gen',   tenant_id: 'HMC' },
+  { id: 'HMC_ops_gen_2',      code: 'HMC_ops_gen_2',      name: 'HMC 일반예산 운영담당자②',  description: 'HMC ETC 가상조직 예산 운영',     parent_role_id: 'HMC_budget_gen',   tenant_id: 'HMC' },
+  { id: 'HMC_ops_rnd_1',      code: 'HMC_ops_rnd_1',      name: 'HMC R&D예산 운영담당자①',   description: 'HMC R&D 가상조직 예산 운영',     parent_role_id: 'HMC_budget_rnd',   tenant_id: 'HMC' },
   // ── KIA (기아자동차) ──────────────────────────────────────────────────────
-  { id: 'KIA_tenant_admin',   code: 'KIA_tenant_admin',   name: 'KIA 테넌트 총괄관리자',   description: '기아자동차 BO 전체 관리',      parent_role_id: null,               tenant_id: 'KIA' },
-  { id: 'KIA_budget_admin',   code: 'KIA_budget_admin',   name: 'KIA 예산 총괄관리자',     description: 'KIA 교육예산 총괄 관리',       parent_role_id: 'KIA_tenant_admin', tenant_id: 'KIA' },
-  { id: 'KIA_ops_1',          code: 'KIA_ops_1',          name: 'KIA 예산 운영담당자①',    description: 'KIA 본사 가상조직 예산 운영',   parent_role_id: 'KIA_budget_admin', tenant_id: 'KIA' },
-  { id: 'KIA_ops_2',          code: 'KIA_ops_2',          name: 'KIA 예산 운영담당자②',    description: 'KIA 생산 가상조직 예산 운영',   parent_role_id: 'KIA_budget_admin', tenant_id: 'KIA' },
-  // ── HAE (현대건설) ────────────────────────────────────────────────────────
-  { id: 'HAE_tenant_admin',   code: 'HAE_tenant_admin',   name: 'HAE 테넌트 총괄관리자',   description: '현대건설 BO 전체 관리',        parent_role_id: null,               tenant_id: 'HAE' },
-  { id: 'HAE_budget_admin',   code: 'HAE_budget_admin',   name: 'HAE 예산 총괄관리자',     description: 'HAE 교육예산 총괄 관리',       parent_role_id: 'HAE_tenant_admin', tenant_id: 'HAE' },
-  { id: 'HAE_ops_1',          code: 'HAE_ops_1',          name: 'HAE 예산 운영담당자',     description: 'HAE 가상조직 예산 운영',        parent_role_id: 'HAE_budget_admin', tenant_id: 'HAE' },
+  { id: 'KIA_tenant_admin',   code: 'KIA_tenant_admin',   name: 'KIA 테넌트 총괄관리자',     description: '기아자동차 BO 전체 관리',        parent_role_id: null,               tenant_id: 'KIA' },
+  { id: 'KIA_budget_admin',   code: 'KIA_budget_admin',   name: 'KIA 예산 총괄관리자',       description: 'KIA 교육예산 총괄 관리',         parent_role_id: 'KIA_tenant_admin', tenant_id: 'KIA' },
+  { id: 'KIA_ops_1',          code: 'KIA_ops_1',          name: 'KIA 예산 운영담당자①',      description: 'KIA 본사 가상조직 예산 운영',    parent_role_id: 'KIA_budget_admin', tenant_id: 'KIA' },
+  { id: 'KIA_ops_2',          code: 'KIA_ops_2',          name: 'KIA 예산 운영담당자②',      description: 'KIA 생산 가상조직 예산 운영',    parent_role_id: 'KIA_budget_admin', tenant_id: 'KIA' },
+  // ── HAE (현대오토에버) ────────────────────────────────────────────────────
+  { id: 'HAE_tenant_admin',   code: 'HAE_tenant_admin',   name: 'HAE 테넌트 총괄관리자',     description: '현대오토에버 BO 전체 관리',      parent_role_id: null,               tenant_id: 'HAE' },
+  { id: 'HAE_budget_admin',   code: 'HAE_budget_admin',   name: 'HAE 예산 총괄관리자',       description: 'HAE 교육예산 총괄 관리',         parent_role_id: 'HAE_tenant_admin', tenant_id: 'HAE' },
+  { id: 'HAE_ops_1',          code: 'HAE_ops_1',          name: 'HAE 예산 운영담당자',       description: 'HAE 가상조직 예산 운영',          parent_role_id: 'HAE_budget_admin', tenant_id: 'HAE' },
   // ── ROTEM (현대로템) ──────────────────────────────────────────────────────
-  { id: 'ROTEM_tenant_admin', code: 'ROTEM_tenant_admin', name: '로템 테넌트 총괄관리자',  description: '현대로템 BO 전체 관리',         parent_role_id: null,               tenant_id: 'ROTEM' },
-  { id: 'ROTEM_budget_admin', code: 'ROTEM_budget_admin', name: '로템 예산 총괄관리자',    description: '로템 교육예산 총괄 관리',       parent_role_id: 'ROTEM_tenant_admin', tenant_id: 'ROTEM' },
-  { id: 'ROTEM_ops_1',        code: 'ROTEM_ops_1',        name: '로템 예산 운영담당자',    description: '로템 가상조직 예산 운영',        parent_role_id: 'ROTEM_budget_admin', tenant_id: 'ROTEM' },
+  { id: 'ROTEM_tenant_admin', code: 'ROTEM_tenant_admin', name: '로템 테넌트 총괄관리자',    description: '현대로템 BO 전체 관리',           parent_role_id: null,               tenant_id: 'ROTEM' },
+  { id: 'ROTEM_budget_admin', code: 'ROTEM_budget_admin', name: '로템 예산 총괄관리자',      description: '로템 교육예산 총괄 관리',         parent_role_id: 'ROTEM_tenant_admin', tenant_id: 'ROTEM' },
+  { id: 'ROTEM_ops_1',        code: 'ROTEM_ops_1',        name: '로템 예산 운영담당자',      description: '로템 가상조직 예산 운영',          parent_role_id: 'ROTEM_budget_admin', tenant_id: 'ROTEM' },
   // ── HEC (현대엔지니어링) ──────────────────────────────────────────────────
-  { id: 'HEC_tenant_admin',   code: 'HEC_tenant_admin',   name: '엔지 테넌트 총괄관리자',  description: '현대엔지니어링 BO 전체 관리',   parent_role_id: null,               tenant_id: 'HEC' },
-  { id: 'HEC_budget_admin',   code: 'HEC_budget_admin',   name: '엔지 예산 총괄관리자',    description: '엔지 교육예산 총괄 관리',       parent_role_id: 'HEC_tenant_admin', tenant_id: 'HEC' },
-  { id: 'HEC_ops_1',          code: 'HEC_ops_1',          name: '엔지 예산 운영담당자',    description: '엔지 가상조직 예산 운영',        parent_role_id: 'HEC_budget_admin', tenant_id: 'HEC' },
+  { id: 'HEC_tenant_admin',   code: 'HEC_tenant_admin',   name: '엔지 테넌트 총괄관리자',    description: '현대엔지니어링 BO 전체 관리',    parent_role_id: null,               tenant_id: 'HEC' },
+  { id: 'HEC_budget_admin',   code: 'HEC_budget_admin',   name: '엔지 예산 총괄관리자',      description: '엔지 교육예산 총괄 관리',         parent_role_id: 'HEC_tenant_admin', tenant_id: 'HEC' },
+  { id: 'HEC_ops_1',          code: 'HEC_ops_1',          name: '엔지 예산 운영담당자',      description: '엔지 가상조직 예산 운영',          parent_role_id: 'HEC_budget_admin', tenant_id: 'HEC' },
   // ── HSC (현대제철) ────────────────────────────────────────────────────────
-  { id: 'HSC_tenant_admin',   code: 'HSC_tenant_admin',   name: '제철 테넌트 총괄관리자',  description: '현대제철 BO 전체 관리',         parent_role_id: null,               tenant_id: 'HSC' },
-  { id: 'HSC_budget_admin',   code: 'HSC_budget_admin',   name: '제철 예산 총괄관리자',    description: '제철 교육예산 총괄 관리',       parent_role_id: 'HSC_tenant_admin', tenant_id: 'HSC' },
-  { id: 'HSC_ops_1',          code: 'HSC_ops_1',          name: '제철 예산 운영담당자',    description: '제철 가상조직 예산 운영',        parent_role_id: 'HSC_budget_admin', tenant_id: 'HSC' },
+  { id: 'HSC_tenant_admin',   code: 'HSC_tenant_admin',   name: '제철 테넌트 총괄관리자',    description: '현대제철 BO 전체 관리',           parent_role_id: null,               tenant_id: 'HSC' },
+  { id: 'HSC_budget_admin',   code: 'HSC_budget_admin',   name: '제철 예산 총괄관리자',      description: '제철 교육예산 총괄 관리',         parent_role_id: 'HSC_tenant_admin', tenant_id: 'HSC' },
+  { id: 'HSC_ops_1',          code: 'HSC_ops_1',          name: '제철 예산 운영담당자',      description: '제철 가상조직 예산 운영',          parent_role_id: 'HSC_budget_admin', tenant_id: 'HSC' },
   // ── HTS (현대트랜시스) ────────────────────────────────────────────────────
-  { id: 'HTS_tenant_admin',   code: 'HTS_tenant_admin',   name: '트랜시 테넌트 총괄관리자', description: '현대트랜시스 BO 전체 관리',    parent_role_id: null,               tenant_id: 'HTS' },
-  { id: 'HTS_budget_admin',   code: 'HTS_budget_admin',   name: '트랜시 예산 총괄관리자',   description: '트랜시 교육예산 총괄 관리',    parent_role_id: 'HTS_tenant_admin', tenant_id: 'HTS' },
-  { id: 'HTS_ops_1',          code: 'HTS_ops_1',          name: '트랜시 예산 운영담당자',   description: '트랜시 가상조직 예산 운영',     parent_role_id: 'HTS_budget_admin', tenant_id: 'HTS' },
+  { id: 'HTS_tenant_admin',   code: 'HTS_tenant_admin',   name: '트랜시 테넌트 총괄관리자',  description: '현대트랜시스 BO 전체 관리',       parent_role_id: null,               tenant_id: 'HTS' },
+  { id: 'HTS_budget_admin',   code: 'HTS_budget_admin',   name: '트랜시 예산 총괄관리자',    description: '트랜시 교육예산 총괄 관리',       parent_role_id: 'HTS_tenant_admin', tenant_id: 'HTS' },
+  { id: 'HTS_ops_1',          code: 'HTS_ops_1',          name: '트랜시 예산 운영담당자',    description: '트랜시 가상조직 예산 운영',        parent_role_id: 'HTS_budget_admin', tenant_id: 'HTS' },
   // ── GLOVIS (현대글로비스) ─────────────────────────────────────────────────
-  { id: 'GLOVIS_tenant_admin',code: 'GLOVIS_tenant_admin',name: '글로비스 테넌트 총괄관리자', description: '현대글로비스 BO 전체 관리',  parent_role_id: null,               tenant_id: 'GLOVIS' },
-  { id: 'GLOVIS_budget_admin',code: 'GLOVIS_budget_admin',name: '글로비스 예산 총괄관리자',   description: '글로비스 교육예산 총괄 관리', parent_role_id: 'GLOVIS_tenant_admin', tenant_id: 'GLOVIS' },
-  { id: 'GLOVIS_ops_1',       code: 'GLOVIS_ops_1',       name: '글로비스 예산 운영담당자',   description: '글로비스 가상조직 예산 운영', parent_role_id: 'GLOVIS_budget_admin', tenant_id: 'GLOVIS' },
+  { id: 'GLOVIS_tenant_admin',code: 'GLOVIS_tenant_admin',name: '글로비스 테넌트 총괄관리자', description: '현대글로비스 BO 전체 관리',       parent_role_id: null,               tenant_id: 'GLOVIS' },
+  { id: 'GLOVIS_budget_admin',code: 'GLOVIS_budget_admin',name: '글로비스 예산 총괄관리자',   description: '글로비스 교육예산 총괄 관리',     parent_role_id: 'GLOVIS_tenant_admin', tenant_id: 'GLOVIS' },
+  { id: 'GLOVIS_ops_1',       code: 'GLOVIS_ops_1',       name: '글로비스 예산 운영담당자',   description: '글로비스 가상조직 예산 운영',     parent_role_id: 'GLOVIS_budget_admin', tenant_id: 'GLOVIS' },
   // ── HIS (현대차증권) ──────────────────────────────────────────────────────
-  { id: 'HIS_tenant_admin',   code: 'HIS_tenant_admin',   name: '차증권 테넌트 총괄관리자', description: '현대차증권 BO 전체 관리',       parent_role_id: null,               tenant_id: 'HIS' },
-  { id: 'HIS_budget_admin',   code: 'HIS_budget_admin',   name: '차증권 예산 총괄관리자',   description: '차증권 교육예산 총괄 관리',     parent_role_id: 'HIS_tenant_admin', tenant_id: 'HIS' },
-  { id: 'HIS_ops_1',          code: 'HIS_ops_1',          name: '차증권 예산 운영담당자',   description: '차증권 가상조직 예산 운영',      parent_role_id: 'HIS_budget_admin', tenant_id: 'HIS' },
+  { id: 'HIS_tenant_admin',   code: 'HIS_tenant_admin',   name: '차증권 테넌트 총괄관리자',  description: '현대차증권 BO 전체 관리',         parent_role_id: null,               tenant_id: 'HIS' },
+  { id: 'HIS_budget_admin',   code: 'HIS_budget_admin',   name: '차증권 예산 총괄관리자',    description: '차증권 교육예산 총괄 관리',       parent_role_id: 'HIS_tenant_admin', tenant_id: 'HIS' },
+  { id: 'HIS_ops_1',          code: 'HIS_ops_1',          name: '차증권 예산 운영담당자',    description: '차증권 가상조직 예산 운영',        parent_role_id: 'HIS_budget_admin', tenant_id: 'HIS' },
   // ── KEFICO ────────────────────────────────────────────────────────────────
-  { id: 'KEFICO_tenant_admin',code: 'KEFICO_tenant_admin',name: '케피코 테넌트 총괄관리자', description: 'KEFICO BO 전체 관리',          parent_role_id: null,               tenant_id: 'KEFICO' },
-  { id: 'KEFICO_budget_admin',code: 'KEFICO_budget_admin',name: '케피코 예산 총괄관리자',   description: '케피코 교육예산 총괄 관리',     parent_role_id: 'KEFICO_tenant_admin', tenant_id: 'KEFICO' },
-  { id: 'KEFICO_ops_1',       code: 'KEFICO_ops_1',       name: '케피코 예산 운영담당자',   description: '케피코 가상조직 예산 운영',      parent_role_id: 'KEFICO_budget_admin', tenant_id: 'KEFICO' },
+  { id: 'KEFICO_tenant_admin',code: 'KEFICO_tenant_admin',name: '케피코 테넌트 총괄관리자',  description: 'KEFICO BO 전체 관리',             parent_role_id: null,               tenant_id: 'KEFICO' },
+  { id: 'KEFICO_budget_admin',code: 'KEFICO_budget_admin',name: '케피코 예산 총괄관리자',    description: '케피코 교육예산 총괄 관리',       parent_role_id: 'KEFICO_tenant_admin', tenant_id: 'KEFICO' },
+  { id: 'KEFICO_ops_1',       code: 'KEFICO_ops_1',       name: '케피코 예산 운영담당자',    description: '케피코 가상조직 예산 운영',        parent_role_id: 'KEFICO_budget_admin', tenant_id: 'KEFICO' },
   // ── HISC (ISC) ────────────────────────────────────────────────────────────
-  { id: 'HISC_tenant_admin',  code: 'HISC_tenant_admin',  name: 'ISC 테넌트 총괄관리자',   description: 'ISC BO 전체 관리',             parent_role_id: null,               tenant_id: 'HISC' },
-  { id: 'HISC_budget_admin',  code: 'HISC_budget_admin',  name: 'ISC 예산 총괄관리자',     description: 'ISC 교육예산 총괄 관리',       parent_role_id: 'HISC_tenant_admin', tenant_id: 'HISC' },
-  { id: 'HISC_ops_1',         code: 'HISC_ops_1',         name: 'ISC 예산 운영담당자',     description: 'ISC 가상조직 예산 운영',        parent_role_id: 'HISC_budget_admin', tenant_id: 'HISC' },
+  { id: 'HISC_tenant_admin',  code: 'HISC_tenant_admin',  name: 'ISC 테넌트 총괄관리자',    description: 'ISC BO 전체 관리',                parent_role_id: null,               tenant_id: 'HISC' },
+  { id: 'HISC_budget_admin',  code: 'HISC_budget_admin',  name: 'ISC 예산 총괄관리자',      description: 'ISC 교육예산 총괄 관리',          parent_role_id: 'HISC_tenant_admin', tenant_id: 'HISC' },
+  { id: 'HISC_ops_1',         code: 'HISC_ops_1',         name: 'ISC 예산 운영담당자',      description: 'ISC 가상조직 예산 운영',           parent_role_id: 'HISC_budget_admin', tenant_id: 'HISC' },
 ];
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -83,11 +83,16 @@ async function renderRoleMgmt() {
     tenantRoles = TENANT_ROLES_MOCK.filter(r => r.tenant_id === selTenantId);
   }
 
-  // 사용자 배정 수 (DB에서 조회, 없으면 0)
+  // ── Bug Fix: role_code 기준으로 배정인원 카운트 ──────────────────────────
   let allUserRoles = [];
-  try { allUserRoles = await _sbGet('user_roles') || []; } catch(e) {}
-  function countByRole(id) {
-    return new Set(allUserRoles.filter(r => r.role_id === id || r.role_code === id).map(r => r.user_id)).size;
+  try {
+    if (_sb()) {
+      const { data } = await _sb().from('user_roles').select('role_code,user_id').eq('tenant_id', selTenantId);
+      allUserRoles = data || [];
+    }
+  } catch(e) {}
+  function countByRole(roleCode) {
+    return new Set(allUserRoles.filter(r => r.role_code === roleCode).map(r => r.user_id)).size;
   }
 
   // ── 역할 계층 트리 재귀 렌더링 ─────────────────────────────────────────
@@ -102,6 +107,9 @@ async function renderRoleMgmt() {
       renderedIds.add(r.code);
       const color = levelColors[Math.min(depth, levelColors.length - 1)];
       const cnt = countByRole(r.code);
+      // cntId: 배정/해제 시 즉시 숫자 업데이트용
+      const cntId = 'rm-cnt-' + r.code.replace(/[^a-z0-9]/gi, '_');
+      const safeName = r.name.replace(/'/g, "&#39;");
       const indent = depth * 32;
       html += `
       <div style="display:flex;align-items:stretch;border-bottom:1px solid #F1F5F9">
@@ -117,13 +125,13 @@ async function renderRoleMgmt() {
           </div>
           <!-- 설명 -->
           <div style="flex:1;font-size:12px;color:#64748B">${r.description || '-'}</div>
-          <!-- 배정 인원 -->
+          <!-- 배정 인원 (id 속성으로 즉시 업데이트 가능) -->
           <div style="text-align:center;min-width:52px;flex-shrink:0">
-            <div style="font-size:18px;font-weight:900;color:#0F172A">${cnt}</div>
+            <div id="${cntId}" style="font-size:18px;font-weight:900;color:#0F172A">${cnt}</div>
             <div style="font-size:9px;color:#94A3B8">배정 인원</div>
           </div>
-          <!-- 사용자 조회 버튼 -->
-          <button onclick="_rmViewUsers('\','${r.name}')"
+          <!-- 사용자 조회 버튼 (Bug Fix: r.code 올바르게 전달) -->
+          <button onclick="_rmViewUsers('${r.code}','${safeName}')"
             style="padding:5px 10px;border:1px solid #CBD5E1;border-radius:6px;background:#fff;
                    font-size:11px;font-weight:700;cursor:pointer;color:#374151;flex-shrink:0">
             사용자 조회
@@ -160,7 +168,7 @@ async function renderRoleMgmt() {
     </div>`;
 
   el.innerHTML = `
-<div class="bo-fade" style="max-width:980px">
+<div class="bo-fade" style="max-width:1320px">
   <!-- 헤더 -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
     <div>
@@ -192,20 +200,25 @@ async function renderRoleMgmt() {
     </div>
   </div>
 
-  <!-- 트리 테이블 -->
-  <div style="background:white;border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">
-    <!-- 테이블 헤더 -->
-    <div style="display:flex;align-items:center;padding:8px 18px;background:#1E293B">
-      <div style="min-width:140px;font-size:10px;font-weight:800;color:#94A3B8;letter-spacing:.08em;text-transform:uppercase">역할명 / 코드</div>
-      <div style="flex:1;font-size:10px;font-weight:800;color:#94A3B8;letter-spacing:.08em;text-transform:uppercase;padding-left:16px">설명</div>
-      <div style="min-width:52px;font-size:10px;font-weight:800;color:#94A3B8;text-align:center">배정인원</div>
-      <div style="width:80px"></div>
+  <!-- 2컬럼 레이아웃: 역할 트리(좌) + 담당자 패널(우) -->
+  <div style="display:grid;grid-template-columns:1fr 400px;gap:16px;align-items:start">
+    <!-- 왼쪽: 역할 트리 테이블 -->
+    <div id="rm-tree-wrap">
+      <div style="background:white;border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">
+        <!-- 테이블 헤더 -->
+        <div style="display:flex;align-items:center;padding:8px 18px;background:#1E293B">
+          <div style="min-width:140px;font-size:10px;font-weight:800;color:#94A3B8;letter-spacing:.08em;text-transform:uppercase">역할명 / 코드</div>
+          <div style="flex:1;font-size:10px;font-weight:800;color:#94A3B8;letter-spacing:.08em;text-transform:uppercase;padding-left:16px">설명</div>
+          <div style="min-width:52px;font-size:10px;font-weight:800;color:#94A3B8;text-align:center">배정인원</div>
+          <div style="width:80px"></div>
+        </div>
+        ${treeHtml}
+      </div>
     </div>
-    ${treeHtml}
-  </div>
 
-  <!-- 사용자 목록 패널 -->
-  <div id="rm-users-panel" style="display:none;margin-top:14px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:16px"></div>
+    <!-- 오른쪽: 담당자 패널 (사용자 조회 버튼 클릭 시 나타남) -->
+    <div id="rm-users-panel" style="display:none;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:16px;position:sticky;top:16px"></div>
+  </div>
 </div>`;
 }
 
@@ -213,20 +226,16 @@ async function renderRoleMgmt() {
 // 역할별 담당자 인라인 관리 패널
 // ──────────────────────────────────────────────────────────────────────────────
 window._rmViewUsers = async function(roleCode, roleName) {
-  // 이미 열린 패널이 있으면 닫기 (토글)
-  const existing = document.getElementById('rm-users-panel');
-  if (existing && existing.dataset.role === roleCode) {
-    existing.style.display = existing.style.display === 'none' ? 'block' : 'none';
+  const panel = document.getElementById('rm-users-panel');
+  if (!panel) return;
+  // 같은 역할 재클릭 시 토글 닫기
+  if (panel.dataset.role === roleCode && panel.style.display !== 'none') {
+    panel.style.display = 'none';
     return;
   }
-  // 패널 위치: 역할 트리 아래
-  let panel = document.getElementById('rm-users-panel');
-  if (!panel) { panel = document.createElement('div'); panel.id = 'rm-users-panel'; }
   panel.dataset.role = roleCode;
-  panel.style.cssText = 'margin-top:14px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:20px;display:block';
+  panel.style.display = 'block';
   panel.innerHTML = '<p style="color:#9CA3AF;font-size:12px">조회 중...</p>';
-  document.querySelector('[style*="max-width:980px"]')?.appendChild(panel);
-
   await _rmRefreshPanel(roleCode, roleName, panel);
 };
 
@@ -235,7 +244,7 @@ async function _rmRefreshPanel(roleCode, roleName, panel) {
 
   const tenantId = window._rmFilterTenant;
 
-  // ① 현재 배정된 user_id 목록
+  // ① 현재 배정된 user_id 목록 (role_code 기준 — Bug Fix)
   let urList = [];
   try {
     if (_sb()) {
@@ -245,7 +254,7 @@ async function _rmRefreshPanel(roleCode, roleName, panel) {
   } catch(e) {}
   const assignedIds = new Set(urList.map(r => r.user_id));
 
-  // ② 배정된 사용자 상세 (users 테이블 실제 컬럼: id, tenant_id, emp_no, name, email, org_id, job_type)
+  // ② 배정된 사용자 상세
   let assignedUsers = [];
   if (assignedIds.size) {
     try {
@@ -265,14 +274,14 @@ async function _rmRefreshPanel(roleCode, roleName, panel) {
       tenantUsers = data || [];
     }
   } catch(e) {}
-  // DB에 없으면 mock fallback (bo_data.js의 MOCK_USERS 활용)
   if (!tenantUsers.length && typeof MOCK_BO_USERS !== 'undefined') {
     tenantUsers = (MOCK_BO_USERS || []).filter(u => u.tenant_id === tenantId);
   }
-  // 전역에 캐시 (검색 시 재사용)
-  window._rmTenantUsers  = tenantUsers;
-  window._rmAssignedIds  = assignedIds;
-  window._rmCurrentRole  = roleCode;
+
+  // 전역 캐시 (검색 시 재사용)
+  window._rmTenantUsers    = tenantUsers;
+  window._rmAssignedIds    = assignedIds;
+  window._rmCurrentRole    = roleCode;
   window._rmCurrentRoleName = roleName;
 
   const assignedHtml = assignedUsers.length ? assignedUsers.map(u => `
@@ -281,14 +290,14 @@ async function _rmRefreshPanel(roleCode, roleName, panel) {
       <span style="font-size:15px">👤</span>
       <div>
         <div>${u.name || '(이름없음)'}</div>
-        <div style="font-size:10px;color:#94A3B8;font-weight:400">${u.emp_no||u.id||''} · ${u.job_type||''}</div>
+        <div style="font-size:10px;color:#94A3B8;font-weight:400">${u.emp_no||u.id||''} · ${u.job_type||'general'}</div>
       </div>
       <button onclick="_rmRemoveUser('${roleCode}','${u.id}','${roleName}')"
         style="margin-left:auto;padding:2px 8px;background:#FEF2F2;border:1px solid #FECACA;border-radius:5px;
                color:#DC2626;font-size:10px;font-weight:700;cursor:pointer">✕ 해제</button>
     </div>`).join('') : `<p style="color:#94A3B8;font-size:12px;margin:0">아직 배정된 담당자가 없습니다.</p>`;
 
-  // ④ 미배정 사용자 목록 렌더링 (초기 전체 표시)
+  // ④ 미배정 사용자 목록
   const availableHtml = _rmBuildAvailableHtml(tenantUsers, assignedIds, roleCode, roleName);
 
   panel.innerHTML = `
@@ -330,17 +339,18 @@ async function _rmRefreshPanel(roleCode, roleName, panel) {
 
 /** 배정 가능한 사용자 목록 HTML 생성 (클라이언트 필터 공용) */
 function _rmBuildAvailableHtml(users, assignedIds, roleCode, roleName) {
+  const safeName = (roleName || '').replace(/'/g, "&#39;");
   const candidates = users.filter(u => !assignedIds.has(u.id));
   if (!candidates.length) return '';
   return candidates.map(u => `
     <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid #F1F5F9;
-         border-radius:7px;background:#FAFAFA;hover:background:#F0F9FF" data-name="${(u.name||'').toLowerCase()}" data-empno="${(u.emp_no||'').toLowerCase()}">
+         border-radius:7px;background:#FAFAFA" data-name="${(u.name||'').toLowerCase()}" data-empno="${(u.emp_no||'').toLowerCase()}">
       <span style="font-size:14px">👤</span>
       <div style="flex:1">
         <div style="font-size:12px;font-weight:700;color:#1E293B">${u.name || '(이름없음)'}</div>
-        <div style="font-size:10px;color:#94A3B8">${u.emp_no || u.id || ''} · ${u.job_type || ''}</div>
+        <div style="font-size:10px;color:#94A3B8">${u.emp_no || u.id || ''} · ${u.job_type || 'general'}</div>
       </div>
-      <button onclick="_rmAssignUser('${roleCode}','${u.id}','${roleName}')"
+      <button onclick="_rmAssignUser('${roleCode}','${u.id}','${safeName}')"
         style="padding:4px 12px;background:#0B132B;color:#fff;border:none;border-radius:5px;
                font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0">+ 배정</button>
     </div>`).join('');
@@ -366,23 +376,28 @@ window._rmFilterUsers = function(q) {
     : '<p style="font-size:11px;color:#94A3B8;text-align:center;padding:12px">검색 결과가 없습니다</p>';
 };
 
+// ── 배정 (Bug Fix: tenant_id 포함, 카운트 즉시 업데이트) ─────────────────
 window._rmAssignUser = async function(roleCode, userId, roleName) {
   try {
     if (_sb()) {
-      // user_roles 테이블 unique constraint: (user_id, role_code, scope_id)
+      const tenantId = window._rmFilterTenant;
       const { error } = await _sb().from('user_roles').upsert(
-        { role_code: roleCode, user_id: userId, scope_id: 'role_assignment' },
+        { role_code: roleCode, user_id: userId, scope_id: 'role_assignment', tenant_id: tenantId },
         { onConflict: 'user_id,role_code,scope_id' }
       );
       if (error) throw error;
     }
+    // 즉시 카운트 업데이트 (전체 재렌더 없이)
+    const cntId = 'rm-cnt-' + roleCode.replace(/[^a-z0-9]/gi, '_');
+    const cntEl = document.getElementById(cntId);
+    if (cntEl) cntEl.textContent = String(parseInt(cntEl.textContent || '0') + 1);
+    // 패널 새로고침
     const panel = document.getElementById('rm-users-panel');
     await _rmRefreshPanel(roleCode, roleName, panel);
-    renderRoleMgmt();
   } catch(e) { alert('배정 실패: ' + e.message); }
 };
 
-
+// ── 해제 (카운트 즉시 업데이트) ─────────────────────────────────────────
 window._rmRemoveUser = async function(roleCode, userId, roleName) {
   if (!confirm('이 담당자의 역할 배정을 해제하시겠습니까?')) return;
   try {
@@ -391,9 +406,12 @@ window._rmRemoveUser = async function(roleCode, userId, roleName) {
         .delete().eq('role_code', roleCode).eq('user_id', userId);
       if (error) throw error;
     }
+    // 즉시 카운트 업데이트
+    const cntId = 'rm-cnt-' + roleCode.replace(/[^a-z0-9]/gi, '_');
+    const cntEl = document.getElementById(cntId);
+    if (cntEl) cntEl.textContent = String(Math.max(0, parseInt(cntEl.textContent || '0') - 1));
     const panel = document.getElementById('rm-users-panel');
     await _rmRefreshPanel(roleCode, roleName, panel);
-    renderRoleMgmt();
   } catch(e) { alert('해제 실패: ' + e.message); }
 };
 
@@ -488,6 +506,3 @@ window._saveNewRole = async function() {
     renderRoleMgmt();
   } catch(e) { alert('저장 실패: ' + e.message); }
 };
-
-
-

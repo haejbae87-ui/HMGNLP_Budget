@@ -33,14 +33,15 @@ async function _voSaveToDB(tpl) {
     const sb = typeof _sb === 'function' ? _sb() : null;
     if (!sb) { console.warn('[VOrg] Supabase client not ready'); return false; }
     const payload = {
-      id:          tpl.id,
-      tenant_id:   tpl.tenantId,
-      name:        tpl.name,
-      purpose:     tpl.purpose || 'edu_support',
-      service_type: tpl.serviceType || 'budget',
-      owner_role_id: tpl.ownerRoleId || null,
-      tree_data:   tpl.tree,
-      updated_at:  new Date().toISOString()
+      id:            tpl.id,
+      tenant_id:     tpl.tenantId,
+      name:          tpl.name,
+      purpose:       tpl.purpose || 'edu_support',
+      service_type:  Array.isArray(tpl.serviceTypes) ? tpl.serviceTypes.join(',') : (tpl.serviceType || 'edu_support'),
+      owner_role_id: (Array.isArray(tpl.ownerRoleIds) && tpl.ownerRoleIds.length > 0) ? tpl.ownerRoleIds[0] : (tpl.ownerRoleId || null),
+      owner_role_ids: Array.isArray(tpl.ownerRoleIds) ? tpl.ownerRoleIds : (tpl.ownerRoleId ? [tpl.ownerRoleId] : []),
+      tree_data:     tpl.tree,
+      updated_at:    new Date().toISOString()
     };
     const { error } = await sb.from('virtual_org_templates').upsert(payload, { onConflict: 'id' });
     if (error) throw error;
@@ -341,41 +342,42 @@ function _renderVirtualOrgFull(filterBar) {
 
 <!-- 가상교육조직 생성 모달 -->
 <div id="vo-tpl-create-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:16px;width:420px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+  <div style="background:#fff;border-radius:16px;width:480px;max-height:90vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
     <div style="display:flex;justify-content:space-between;margin-bottom:18px">
       <h3 style="font-size:15px;font-weight:800;margin:0">신규 가상교육조직 생성</h3>
       <button onclick="voCloseModal('vo-tpl-create-modal')" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">✕</button>
     </div>
     <div style="margin-bottom:14px">
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">제도유형 <span style="color:#EF4444">*</span></label>
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px">제도유형 <span style="color:#EF4444">*</span> <span style="font-size:10px;font-weight:400;color:#94A3B8">(복수 선택 가능)</span></label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <label id="vo-purpose-btn-edu" onclick="_voSelectPurpose('edu_support')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid #3B82F6;border-radius:10px;cursor:pointer;background:#EFF6FF">
+        <div id="vo-purpose-btn-edu" onclick="_voTogglePurpose('edu_support')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid #3B82F6;border-radius:10px;cursor:pointer;background:#EFF6FF;user-select:none">
           <span style="font-size:18px">📚</span>
           <div><div style="font-size:12px;font-weight:800;color:#1D4ED8">교육지원</div><div style="font-size:10px;color:#64748B">예산 교육지원 조직</div></div>
-        </label>
-        <label id="vo-purpose-btn-lang" onclick="_voSelectPurpose('language')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid #E5E7EB;border-radius:10px;cursor:pointer;background:#F9FAFB">
+        </div>
+        <div id="vo-purpose-btn-lang" onclick="_voTogglePurpose('language')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid #E5E7EB;border-radius:10px;cursor:pointer;background:#F9FAFB;user-select:none">
           <span style="font-size:18px">🌐</span>
           <div><div style="font-size:12px;font-weight:800;color:#374151">어학</div><div style="font-size:10px;color:#64748B">어학연수 지원 조직</div></div>
-        </label>
-        <label id="vo-purpose-btn-cert" onclick="_voSelectPurpose('cert')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid #E5E7EB;border-radius:10px;cursor:pointer;background:#F9FAFB">
+        </div>
+        <div id="vo-purpose-btn-cert" onclick="_voTogglePurpose('cert')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid #E5E7EB;border-radius:10px;cursor:pointer;background:#F9FAFB;user-select:none">
           <span style="font-size:18px">🏆</span>
           <div><div style="font-size:12px;font-weight:800;color:#374151">자격증</div><div style="font-size:10px;color:#64748B">자격증 취득 지원</div></div>
-        </label>
-        <label id="vo-purpose-btn-badge" onclick="_voSelectPurpose('badge')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid #E5E7EB;border-radius:10px;cursor:pointer;background:#F9FAFB">
+        </div>
+        <div id="vo-purpose-btn-badge" onclick="_voTogglePurpose('badge')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid #E5E7EB;border-radius:10px;cursor:pointer;background:#F9FAFB;user-select:none">
           <span style="font-size:18px">🎖️</span>
           <div><div style="font-size:12px;font-weight:800;color:#374151">뱃지</div><div style="font-size:10px;color:#64748B">배지 발급 조직</div></div>
-        </label>
+        </div>
       </div>
-      <input type="hidden" id="vo-tpl-purpose" value="edu_support">
     </div>
     <div style="margin-bottom:14px">
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px">담당 역할 <span style="font-size:10px;font-weight:400;color:#94A3B8">(커맰 제도유형에 해당하는 역할만 표시)</span></label>
+      <div id="vo-tpl-roles-box" style="border:1.5px solid #E5E7EB;border-radius:8px;padding:10px;max-height:160px;overflow-y:auto;font-size:12px;color:#9CA3AF">
+        제도유형을 먼저 선택하세요
+      </div>
+    </div>
+    <div style="margin-bottom:24px">
       <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">가상조직명 *</label>
       <input id="vo-tpl-name" type="text" placeholder="예) HMC 일반교육예산 가상조직"
         style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;outline:none">
-    </div>
-    <div style="margin-bottom:24px">
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">담당 역할 맵핑</label>
-      <select id="vo-tpl-owner" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;outline:none;background:#fff;cursor:pointer"></select>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="bo-btn-secondary bo-btn-sm" onclick="voCloseModal('vo-tpl-create-modal')">취소</button>
@@ -558,18 +560,30 @@ async function voOpenCreateTemplate() {
 }
 
 function voConfirmCreateTemplate() {
-  const name    = document.getElementById('vo-tpl-name').value.trim();
-  const purpose = document.getElementById('vo-tpl-purpose')?.value || 'edu_support';
-  const ownerId = document.getElementById('vo-tpl-owner')?.value || null;
+  const name = document.getElementById('vo-tpl-name').value.trim();
   if (!name) { alert('가상조직명을 입력해주세요.'); return; }
+  const selectedTypes = [..._voSelectedPurposes];
+  if (selectedTypes.length === 0) { alert('제도유형을 하나 이상 선택해주세요.'); return; }
+  // 체크된 역할들 수집
+  const checkedRoles = [...document.querySelectorAll('.vo-role-chk:checked')].map(cb => cb.value);
   const id   = 'TPL_' + Date.now();
-  const tree = { label: name, hqs: [] };  // 구조유형 제거: 모두 hqs 형태
-  const newTpl = { id, tenantId: _voTenantId, serviceType: _voServiceType, purpose, ownerRoleId: ownerId, name, tree };
-  _voMyTemplates.push(newTpl);   // 로콜에 먼저 반영
+  const tree = { label: name, hqs: [] };
+  const newTpl = {
+    id,
+    tenantId:     _voTenantId,
+    serviceType:  selectedTypes[0],       // 주 제도유형 (역호환성)
+    serviceTypes: selectedTypes,           // 전체 멀티 제도유형
+    purpose:      selectedTypes[0],
+    ownerRoleId:  checkedRoles[0] || null, // 단일참조 역호환성
+    ownerRoleIds: checkedRoles,            // 멀티 역할
+    name,
+    tree
+  };
+  _voMyTemplates.push(newTpl);
   _voActiveTemplateId = id;
   voCloseModal('vo-tpl-create-modal');
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
-  _voAutoSave(newTpl);             // DB 저장
+  _voAutoSave(newTpl); // DB 저장
 }
 
 // ── 가상조직 이름 수정 ──────────────────────────────────────────────────

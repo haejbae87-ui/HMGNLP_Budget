@@ -465,6 +465,16 @@ window._openRoleModal = async function(parentCode) {
           style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #CBD5E1;
                  border-radius:6px;font-size:12px;box-sizing:border-box">
       </label>
+      <label style="font-size:11px;font-weight:700;color:#64748B">용도 (타입)
+        <select id="_rm_service_type"
+          style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #CBD5E1;
+                 border-radius:6px;font-size:12px;background:#fff;cursor:pointer">
+          <option value="budget">지원제도 (예산)</option>
+          <option value="cert">자격증</option>
+          <option value="language">어학점수</option>
+          <option value="badge">뱃지</option>
+        </select>
+      </label>
       <label style="font-size:11px;font-weight:700;color:#64748B">상위 역할
         <select id="_rm_parent"
           style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #CBD5E1;
@@ -493,12 +503,14 @@ window._saveNewRole = async function() {
   const name    = document.getElementById('_rm_name')?.value.trim();
   const desc    = document.getElementById('_rm_desc')?.value.trim();
   const parent  = document.getElementById('_rm_parent')?.value || null;
+  const sType   = document.getElementById('_rm_service_type')?.value || 'budget';
   if (!code || !name) { alert('역할 코드와 이름은 필수입니다.'); return; }
 
   const payload = {
     code, name, description: desc,
     parent_role_id: parent || null,
     tenant_id: window._rmFilterTenant || null,
+    service_type: sType,
     is_system: false, level: 10
   };
   try {

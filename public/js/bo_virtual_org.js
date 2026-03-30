@@ -109,7 +109,7 @@ async function renderVirtualOrg() {
           name:        row.name,
           purpose:     row.purpose || 'edu_support',
           serviceType: row.service_type || 'edu_support',
-          ownerRoleId: row.owner_role_id || null, // 담당 역할 맵핑
+          ownerRoleId: row.owner_role_id || null,
           tree:        row.tree_data || { hqs: [] },
         })).filter(t => {
           if ((t.serviceType || 'edu_support') !== _voServiceType) return false;

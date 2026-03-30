@@ -442,7 +442,7 @@ window._openRoleModal = async function(parentCode, editRoleCode = null) {
   let initName = '';
   let initDesc = '';
   let initParent = parentCode || '';
-  let initService = 'budget';
+  let initService = ['all']; // 기본값: 전체
   let isReadOnlyCode = '';
 
   if (editRoleCode) {
@@ -453,7 +453,9 @@ window._openRoleModal = async function(parentCode, editRoleCode = null) {
       initName = target.name || '';
       initDesc = target.description || '';
       initParent = target.parent_role_id || '';
-      initService = target.service_type || 'budget';
+      // service_type: 'all', 단일값, 또는 콤마구분 복수값 처리
+      const st = target.service_type || 'all';
+      initService = st.split(',').map(s => s.trim());
       isReadOnlyCode = 'readonly style="background:#F3F4F6;color:#9CA3AF" title="코드 수정 불가"';
     }
   }
@@ -528,7 +530,10 @@ window._saveNewRole = async function() {
   const name    = document.getElementById('_rm_name')?.value.trim();
   const desc    = document.getElementById('_rm_desc')?.value.trim();
   const parent  = document.getElementById('_rm_parent')?.value || null;
-  const sType   = document.getElementById('_rm_service_type')?.value || 'edu_support';
+  // 체크된 제도유형 수집 (all 체크 시 단독, 아니한 경우 콤마 구분)
+  const stVals = ['all','edu_support','language','cert','badge']
+    .filter(v => document.getElementById('_rm_st_'+v)?.checked);
+  const sType = stVals.includes('all') ? 'all' : (stVals.join(',') || 'all');
   if (!code || !name) { alert('역할 코드와 이름은 필수입니다.'); return; }
 
   const payload = {

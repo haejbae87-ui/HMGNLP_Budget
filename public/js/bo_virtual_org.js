@@ -84,6 +84,116 @@ async function _voLoadRolesCheckboxes(selectedPurposes) {
   }
 }
 
+// ── 수정 모달 전용 멀티선택 ────────────────────────────────────────────────────
+let _voEditSelectedPurposes = new Set(['edu_support']);
+
+window._voEditTogglePurpose = async function(purpose) {
+  if (_voEditSelectedPurposes.has(purpose)) {
+    if (_voEditSelectedPurposes.size <= 1) return;
+    _voEditSelectedPurposes.delete(purpose);
+  } else {
+    _voEditSelectedPurposes.add(purpose);
+  }
+  const btnMap = { edu_support:'edu', language:'lang', cert:'cert', badge:'badge' };
+  Object.entries(btnMap).forEach(([val, key]) => {
+    const el = document.getElementById('vo-edit-btn-' + key);
+    if (!el) return;
+    const active = _voEditSelectedPurposes.has(val);
+    el.style.border     = active ? '2px solid #3B82F6' : '2px solid #E5E7EB';
+    el.style.background = active ? '#EFF6FF' : '#F9FAFB';
+    const titleEl = el.querySelector('div > div:first-child');
+    if (titleEl) titleEl.style.color = active ? '#1D4ED8' : '#374151';
+  });
+  await _voLoadEditRolesCheckboxes([..._voEditSelectedPurposes], window._voEditCurrentRoleIds || []);
+};
+
+async function _voLoadEditRolesCheckboxes(selectedPurposes, preChecked) {
+  const box = document.getElementById('vo-edit-roles-box');
+  if (!box) return;
+  if (!selectedPurposes || selectedPurposes.length === 0) {
+    box.innerHTML = '<span style="color:#9CA3AF;font-size:12px">제도유형을 먼저 선택하세요</span>';
+    return;
+  }
+  box.innerHTML = '<span style="color:#9CA3AF;font-size:12px">로딩 중...</span>';
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    let roles = [];
+    if (sb) {
+      const { data } = await sb.from('roles').select('code,name,service_type').eq('tenant_id', _voTenantId);
+      if (data) roles = data;
+    }
+    const filtered = roles.filter(r => {
+      const st = r.service_type || 'all';
+      if (st === 'all') return true;
+      return st.split(',').some(s => selectedPurposes.includes(s.trim()));
+    });
+    if (!filtered.length) {
+      box.innerHTML = '<span style="color:#9CA3AF;font-size:12px">해당 제도유형의 역할이 없습니다</span>';
+      return;
+    }
+    box.innerHTML = filtered.map(r => `
+      <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;cursor:pointer;border-radius:4px;font-size:12px">
+        <input type="checkbox" class="vo-edit-role-chk" value="${r.code}"
+          ${(preChecked||[]).includes(r.code) ? 'checked' : ''}
+          style="width:14px;height:14px;accent-color:#1D4ED8">
+        <span style="font-weight:600;color:#374151">${r.name}</span>
+        <span style="color:#9CA3AF;font-size:10px">(${r.code})</span>
+      </label>`).join('');
+  } catch(e) {
+    box.innerHTML = '<span style="color:#EF4444;font-size:12px">로드 실패</span>';
+  }
+}
+
+async function voOpenEditTemplate(tplId) {
+  const tpl = _voMyTemplates.find(t => t.id === tplId);
+  if (!tpl) return;
+  document.getElementById('vo-tpl-edit-id').value = tplId;
+  document.getElementById('vo-tpl-edit-name').value = tpl.name || '';
+  // 기존 제도유형 복원
+  const existTypes = Array.isArray(tpl.serviceTypes) && tpl.serviceTypes.length
+    ? tpl.serviceTypes
+    : [(tpl.serviceType || tpl.purpose || 'edu_support')];
+  _voEditSelectedPurposes = new Set(existTypes);
+  // 기존 역할 복원
+  const existRoles = Array.isArray(tpl.ownerRoleIds) && tpl.ownerRoleIds.length
+    ? tpl.ownerRoleIds
+    : (tpl.ownerRoleId ? [tpl.ownerRoleId] : []);
+  window._voEditCurrentRoleIds = existRoles;
+  // 카드 스타일 초기화
+  const btnMap = { edu_support:'edu', language:'lang', cert:'cert', badge:'badge' };
+  Object.entries(btnMap).forEach(([val, key]) => {
+    const btn = document.getElementById('vo-edit-btn-' + key);
+    if (!btn) return;
+    const active = _voEditSelectedPurposes.has(val);
+    btn.style.border     = active ? '2px solid #3B82F6' : '2px solid #E5E7EB';
+    btn.style.background = active ? '#EFF6FF' : '#F9FAFB';
+    const titleEl = btn.querySelector('div > div:first-child');
+    if (titleEl) titleEl.style.color = active ? '#1D4ED8' : '#374151';
+  });
+  await _voLoadEditRolesCheckboxes([..._voEditSelectedPurposes], existRoles);
+  document.getElementById('vo-tpl-edit-modal').style.display = 'flex';
+}
+
+async function voConfirmEditTemplate() {
+  const tplId   = document.getElementById('vo-tpl-edit-id')?.value;
+  const newName = document.getElementById('vo-tpl-edit-name')?.value.trim();
+  if (!newName) { alert('이름을 입력해주세요.'); return; }
+  const selectedTypes = [..._voEditSelectedPurposes];
+  if (!selectedTypes.length) { alert('제도유형을 하나 이상 선택해주세요.'); return; }
+  const checkedRoles = [...document.querySelectorAll('.vo-edit-role-chk:checked')].map(cb => cb.value);
+  const tpl = _voMyTemplates.find(t => t.id === tplId);
+  if (!tpl) return;
+  tpl.name         = newName;
+  tpl.serviceType  = selectedTypes[0];
+  tpl.serviceTypes = selectedTypes;
+  tpl.purpose      = selectedTypes[0];
+  tpl.ownerRoleId  = checkedRoles[0] || null;
+  tpl.ownerRoleIds = checkedRoles;
+  voCloseModal('vo-tpl-edit-modal');
+  document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
+  await _voAutoSave(tpl);
+}
+
 
 // ─── DB 저장 헬퍼 (_sb() 직접 사용) ─────────────────────────────────────────
 async function _voSaveToDB(tpl) {
@@ -436,22 +546,48 @@ function _renderVirtualOrgFull(filterBar) {
   </div>
 </div>
 
-<!-- 가상조직 이름 수정 모달 -->
+<!-- 가상조직 설정 수정 모달 -->
 <div id="vo-tpl-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:16px;width:400px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+  <div style="background:#fff;border-radius:16px;width:480px;max-height:90vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
     <div style="display:flex;justify-content:space-between;margin-bottom:18px">
-      <h3 style="font-size:15px;font-weight:800;margin:0">✏️ 가상조직 기본설정 수정</h3>
+      <h3 style="font-size:15px;font-weight:800;margin:0">✏️ 가상조직 설정 수정</h3>
       <button onclick="voCloseModal('vo-tpl-edit-modal')" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">✕</button>
     </div>
     <input type="hidden" id="vo-tpl-edit-id">
+    <!-- 제도유형 멀티선택 -->
     <div style="margin-bottom:14px">
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px">제도유형 <span style="color:#EF4444">*</span> <span style="font-size:10px;font-weight:400;color:#94A3B8">(복수 선택 가능)</span></label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div id="vo-edit-btn-edu" onclick="_voEditTogglePurpose('edu_support')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid #E5E7EB;border-radius:10px;cursor:pointer;background:#F9FAFB;user-select:none">
+          <span style="font-size:18px">📚</span>
+          <div><div style="font-size:12px;font-weight:800;color:#374151">교육지원</div><div style="font-size:10px;color:#64748B">예산 교육지원 조직</div></div>
+        </div>
+        <div id="vo-edit-btn-lang" onclick="_voEditTogglePurpose('language')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid #E5E7EB;border-radius:10px;cursor:pointer;background:#F9FAFB;user-select:none">
+          <span style="font-size:18px">🌐</span>
+          <div><div style="font-size:12px;font-weight:800;color:#374151">어학</div><div style="font-size:10px;color:#64748B">어학연수 지원 조직</div></div>
+        </div>
+        <div id="vo-edit-btn-cert" onclick="_voEditTogglePurpose('cert')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid #E5E7EB;border-radius:10px;cursor:pointer;background:#F9FAFB;user-select:none">
+          <span style="font-size:18px">🏆</span>
+          <div><div style="font-size:12px;font-weight:800;color:#374151">자격증</div><div style="font-size:10px;color:#64748B">자격증 취득 지원</div></div>
+        </div>
+        <div id="vo-edit-btn-badge" onclick="_voEditTogglePurpose('badge')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid #E5E7EB;border-radius:10px;cursor:pointer;background:#F9FAFB;user-select:none">
+          <span style="font-size:18px">🎖️</span>
+          <div><div style="font-size:12px;font-weight:800;color:#374151">밓지</div><div style="font-size:10px;color:#64748B">배지 발급 조직</div></div>
+        </div>
+      </div>
+    </div>
+    <!-- 담당 역할 체크박스 -->
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px">담당 역할 <span style="font-size:10px;font-weight:400;color:#94A3B8">(선택한 제도유형 해당 역할)</span></label>
+      <div id="vo-edit-roles-box" style="border:1.5px solid #E5E7EB;border-radius:8px;padding:10px;max-height:140px;overflow-y:auto;font-size:12px;color:#9CA3AF">
+        제도유형을 먼저 선택하세요
+      </div>
+    </div>
+    <!-- 가상조직명 -->
+    <div style="margin-bottom:24px">
       <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">가상조직명 *</label>
       <input id="vo-tpl-edit-name" type="text" placeholder="새 이름 입력"
         style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;outline:none">
-    </div>
-    <div style="margin-bottom:24px">
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">담당 역할 맵핑</label>
-      <select id="vo-tpl-edit-owner" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;outline:none;background:#fff;cursor:pointer"></select>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="bo-btn-secondary bo-btn-sm" onclick="voCloseModal('vo-tpl-edit-modal')">취소</button>

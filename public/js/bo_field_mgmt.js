@@ -27,9 +27,35 @@ async function renderFieldMgmt() {
     ${tenants.map(t => `<option value="${t.id}" ${t.id===_fmTenantId?'selected':''}>${t.name}</option>`).join('')}
   </select>` : `<span style="font-size:13px;font-weight:800;color:#111827">🏢 ${tenantName}</span>`;
 
-  // purpose=edu_support 인 템플릿의 가상조직 그룹 수집
-  const eduOrgs = (typeof VIRTUAL_EDU_ORGS !== 'undefined' ? VIRTUAL_EDU_ORGS : [])
-    .filter(tpl => tpl.tenantId === _fmTenantId && tpl.purpose === 'edu_support');
+  // purpose=edu_support 인 템플릿을 DB 또는 목업에서 로드
+  let eduOrgs = [];
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (sb) {
+      const { data } = await sb
+        .from('virtual_org_templates')
+        .select('id,name,purpose,service_type,tree_data,tenant_id')
+        .eq('tenant_id', _fmTenantId)
+        .or('service_type.ilike.%edu_support%,purpose.eq.edu_support,purpose.eq.교육지원');
+      if (data && data.length) {
+        eduOrgs = data.map(row => ({
+          id:       row.id,
+          tenantId: row.tenant_id,
+          name:     row.name,
+          purpose:  row.service_type || row.purpose,
+          tree:     row.tree_data || { hqs: [] }
+        }));
+      }
+    }
+  } catch(e) {
+    console.warn('[FieldMgmt] DB 로드 실패, 목업 사용:', e.message);
+  }
+  // DB가 비어있으면 목업 폴백
+  if (!eduOrgs.length) {
+    eduOrgs = (typeof VIRTUAL_EDU_ORGS !== 'undefined' ? VIRTUAL_EDU_ORGS : [])
+      .filter(tpl => tpl.tenantId === _fmTenantId &&
+        (tpl.purpose === 'edu_support' || tpl.purpose === '교육지원' || (tpl.service_type||'').includes('edu_support')));
+  }
 
   // 모든 그룹(본부/센터) 추출
   let allGroups = [];

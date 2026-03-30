@@ -12,10 +12,9 @@ let _voCoopGroupIdx     = null;
 let _voServiceType      = 'budget'; // 기본 제도 유형
 let _voTenantId         = null;
 
-// 용도 카드 선택 토글
+// 용도 카드 선택 토글 (레거시 단일선택 - 하위호환)
 window._voSelectPurpose = function(purpose) {
-  document.getElementById('vo-tpl-purpose').value = purpose;
-  const map = { edu_support:'edu', language:'lang', certificate:'cert', badge:'badge' };
+  const map = { edu_support:'edu', language:'lang', cert:'cert', badge:'badge' };
   ['edu','lang','cert','badge'].forEach(k => {
     const el = document.getElementById(`vo-purpose-btn-${k}`);
     if (!el) return;
@@ -24,6 +23,66 @@ window._voSelectPurpose = function(purpose) {
     el.style.background = active ? '#EFF6FF' : '#F9FAFB';
   });
 };
+
+// ── 신규 생성 모달 멀티선택 전용 ──────────────────────────────────────────────
+let _voSelectedPurposes = new Set(['edu_support']);
+
+window._voTogglePurpose = async function(purpose) {
+  if (_voSelectedPurposes.has(purpose)) {
+    if (_voSelectedPurposes.size <= 1) return; // 최소 1개 유지
+    _voSelectedPurposes.delete(purpose);
+  } else {
+    _voSelectedPurposes.add(purpose);
+  }
+  const btnMap = { edu_support:'edu', language:'lang', cert:'cert', badge:'badge' };
+  Object.entries(btnMap).forEach(([val, key]) => {
+    const el = document.getElementById('vo-purpose-btn-' + key);
+    if (!el) return;
+    const active = _voSelectedPurposes.has(val);
+    el.style.border     = active ? '2px solid #3B82F6' : '2px solid #E5E7EB';
+    el.style.background = active ? '#EFF6FF' : '#F9FAFB';
+    const titleEl = el.querySelector('div > div:first-child');
+    if (titleEl) titleEl.style.color = active ? '#1D4ED8' : '#374151';
+  });
+  await _voLoadRolesCheckboxes([..._voSelectedPurposes]);
+};
+
+async function _voLoadRolesCheckboxes(selectedPurposes) {
+  const box = document.getElementById('vo-tpl-roles-box');
+  if (!box) return;
+  if (!selectedPurposes || selectedPurposes.length === 0) {
+    box.innerHTML = '<span style="color:#9CA3AF;font-size:12px">제도유형을 먼저 선택하세요</span>';
+    return;
+  }
+  box.innerHTML = '<span style="color:#9CA3AF;font-size:12px">로딩 중...</span>';
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    let roles = [];
+    if (sb) {
+      const { data } = await sb.from('roles').select('code,name,service_type').eq('tenant_id', _voTenantId);
+      if (data) roles = data;
+    } else if (typeof TENANT_ROLES_MOCK !== 'undefined') {
+      roles = TENANT_ROLES_MOCK.filter(r => r.tenant_id === _voTenantId);
+    }
+    const filtered = roles.filter(r => {
+      const st = r.service_type || 'all';
+      if (st === 'all') return true;
+      return st.split(',').some(s => selectedPurposes.includes(s.trim()));
+    });
+    if (!filtered.length) {
+      box.innerHTML = '<span style="color:#9CA3AF;font-size:12px">해당 제도유형의 역할이 없습니다</span>';
+      return;
+    }
+    box.innerHTML = filtered.map(r => `
+      <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;cursor:pointer;border-radius:4px;font-size:12px">
+        <input type="checkbox" class="vo-role-chk" value="${r.code}" style="width:14px;height:14px;accent-color:#1D4ED8">
+        <span style="font-weight:600;color:#374151">${r.name}</span>
+        <span style="color:#9CA3AF;font-size:10px">(${r.code})</span>
+      </label>`).join('');
+  } catch(e) {
+    box.innerHTML = '<span style="color:#EF4444;font-size:12px">로드 실패</span>';
+  }
+}
 
 
 // ─── DB 저장 헬퍼 (_sb() 직접 사용) ─────────────────────────────────────────
@@ -554,8 +613,20 @@ async function _voLoadRolesOptions(selectedVal) {
 async function voOpenCreateTemplate() {
   const el = document.getElementById('vo-tpl-name');
   if (el) el.value = '';
-  const ownerSel = document.getElementById('vo-tpl-owner');
-  if (ownerSel) ownerSel.innerHTML = await _voLoadRolesOptions('');
+  // 제도유형 선택 초기화 - edu_support 하나만 선택된 상태로
+  _voSelectedPurposes = new Set(['edu_support']);
+  const btnMap = { edu_support:'edu', language:'lang', cert:'cert', badge:'badge' };
+  Object.entries(btnMap).forEach(([val, key]) => {
+    const btn = document.getElementById('vo-purpose-btn-' + key);
+    if (!btn) return;
+    const active = val === 'edu_support';
+    btn.style.border     = active ? '2px solid #3B82F6' : '2px solid #E5E7EB';
+    btn.style.background = active ? '#EFF6FF' : '#F9FAFB';
+    const titleEl = btn.querySelector('div > div:first-child');
+    if (titleEl) titleEl.style.color = active ? '#1D4ED8' : '#374151';
+  });
+  // 초기 제도유형(edu_support)에 맞는 역할 로드
+  await _voLoadRolesCheckboxes(['edu_support']);
   document.getElementById('vo-tpl-create-modal').style.display = 'flex';
 }
 

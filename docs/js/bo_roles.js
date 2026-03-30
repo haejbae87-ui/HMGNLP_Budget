@@ -369,9 +369,10 @@ window._rmFilterUsers = function(q) {
 window._rmAssignUser = async function(roleCode, userId, roleName) {
   try {
     if (_sb()) {
+      // user_roles 테이블 unique constraint: (user_id, role_code, scope_id)
       const { error } = await _sb().from('user_roles').upsert(
-        { role_code: roleCode, user_id: userId },
-        { onConflict: 'role_code,user_id' }
+        { role_code: roleCode, user_id: userId, scope_id: 'role_assignment' },
+        { onConflict: 'user_id,role_code,scope_id' }
       );
       if (error) throw error;
     }
@@ -380,6 +381,7 @@ window._rmAssignUser = async function(roleCode, userId, roleName) {
     renderRoleMgmt();
   } catch(e) { alert('배정 실패: ' + e.message); }
 };
+
 
 window._rmRemoveUser = async function(roleCode, userId, roleName) {
   if (!confirm('이 담당자의 역할 배정을 해제하시겠습니까?')) return;

@@ -240,7 +240,7 @@ function _manMenus() {
       impl:'계정 생성 시 UUID 발급. isolationGroup은 DB 쿼리 필터로 구현.',
     },
     {
-      icon:'🏢', id:'virtual-org', name:'가상조직 템플릿 관리',
+      icon:'🏢', id:'virtual-org', name:'가상교육조직 관리',
       roles:'budget_global_admin',
       desc:`실제 조직도와 독립된 <strong>예산 집행용 가상 조직</strong>을 템플릿으로 정의합니다.<br>
             VOrg 관리자·협력팀·직무유형 제한(생산직/사무직) 설정 가능. 격리그룹별로 독립 관리.`,

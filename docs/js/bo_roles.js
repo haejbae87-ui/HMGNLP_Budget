@@ -1,4 +1,4 @@
-﻿// ─── 역할 관리: 테넌트별 독립 역할 계층 ─────────────────────────────────────
+// ─── 역할 관리: 테넌트별 독립 역할 계층 ─────────────────────────────────────
 // bo_platform_mgmt.js의 renderRoleMgmt를 덮어써서 테넌트별 분리 버전으로 교체
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -233,7 +233,9 @@ window._rmViewUsers = async function(roleCode, roleName) {
 async function _rmRefreshPanel(roleCode, roleName, panel) {
   panel.innerHTML = '<p style="color:#9CA3AF;font-size:12px">조회 중...</p>';
 
-  // 현재 배정된 사용자 조회
+  const tenantId = window._rmFilterTenant;
+
+  // ① 현재 배정된 user_id 목록
   let urList = [];
   try {
     if (_sb()) {
@@ -241,46 +243,68 @@ async function _rmRefreshPanel(roleCode, roleName, panel) {
       urList = data || [];
     }
   } catch(e) {}
+  const assignedIds = new Set(urList.map(r => r.user_id));
 
-  // 사용자 상세 정보 조회
+  // ② 배정된 사용자 상세 (users 테이블 실제 컬럼: id, tenant_id, emp_no, name, email, org_id, job_type)
   let assignedUsers = [];
-  if (urList.length) {
-    const ids = urList.map(r => r.user_id);
+  if (assignedIds.size) {
     try {
       if (_sb()) {
-        const { data } = await _sb().from('users').select('*').in('id', ids);
+        const { data } = await _sb().from('users').select('id,name,emp_no,email,job_type').in('id', [...assignedIds]);
         assignedUsers = data || [];
       }
     } catch(e) {}
-    if (!assignedUsers.length) assignedUsers = urList.map(r => ({ id: r.user_id, name: r.user_id }));
+    if (!assignedUsers.length) assignedUsers = [...assignedIds].map(id => ({ id, name: id }));
   }
 
+  // ③ 테넌트 전체 사용자 로드 (클라이언트 필터용)
+  let tenantUsers = [];
+  try {
+    if (_sb()) {
+      const { data } = await _sb().from('users').select('id,name,emp_no,email,job_type').eq('tenant_id', tenantId);
+      tenantUsers = data || [];
+    }
+  } catch(e) {}
+  // DB에 없으면 mock fallback (bo_data.js의 MOCK_USERS 활용)
+  if (!tenantUsers.length && typeof MOCK_BO_USERS !== 'undefined') {
+    tenantUsers = (MOCK_BO_USERS || []).filter(u => u.tenant_id === tenantId);
+  }
+  // 전역에 캐시 (검색 시 재사용)
+  window._rmTenantUsers  = tenantUsers;
+  window._rmAssignedIds  = assignedIds;
+  window._rmCurrentRole  = roleCode;
+  window._rmCurrentRoleName = roleName;
+
   const assignedHtml = assignedUsers.length ? assignedUsers.map(u => `
-    <div id="rm-user-${u.id}" style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:white;
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:white;
          border:1.5px solid #E2E8F0;border-radius:8px;font-size:12px;font-weight:700;color:#374151">
-      <span style="font-size:16px">👤</span>
+      <span style="font-size:15px">👤</span>
       <div>
         <div>${u.name || '(이름없음)'}</div>
-        <div style="font-size:10px;color:#94A3B8;font-weight:400">${u.sabun || u.emp_no || u.id || ''} ${u.dept_name||u.org_name||''}</div>
+        <div style="font-size:10px;color:#94A3B8;font-weight:400">${u.emp_no||u.id||''} · ${u.job_type||''}</div>
       </div>
       <button onclick="_rmRemoveUser('${roleCode}','${u.id}','${roleName}')"
         style="margin-left:auto;padding:2px 8px;background:#FEF2F2;border:1px solid #FECACA;border-radius:5px;
                color:#DC2626;font-size:10px;font-weight:700;cursor:pointer">✕ 해제</button>
     </div>`).join('') : `<p style="color:#94A3B8;font-size:12px;margin:0">아직 배정된 담당자가 없습니다.</p>`;
 
+  // ④ 미배정 사용자 목록 렌더링 (초기 전체 표시)
+  const availableHtml = _rmBuildAvailableHtml(tenantUsers, assignedIds, roleCode, roleName);
+
   panel.innerHTML = `
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
     <div>
       <span style="font-size:14px;font-weight:800;color:#0F172A">👥 ${roleName}</span>
       <span style="font-size:11px;color:#64748B;margin-left:8px">담당자 관리</span>
+      <span style="font-size:10px;font-weight:700;color:#3B82F6;margin-left:6px;background:#EFF6FF;padding:2px 8px;border-radius:10px">${tenantId} · 사용자 ${tenantUsers.length}명</span>
     </div>
     <button onclick="document.getElementById('rm-users-panel').style.display='none'"
       style="padding:4px 10px;background:#F1F5F9;border:none;border-radius:6px;font-size:11px;cursor:pointer;color:#64748B">✕ 닫기</button>
   </div>
 
-  <!-- 현재 담당자 목록 -->
-  <div style="margin-bottom:14px">
-    <div style="font-size:11px;font-weight:700;color:#64748B;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">
+  <!-- 현재 담당자 -->
+  <div style="margin-bottom:16px">
+    <div style="font-size:10px;font-weight:800;color:#64748B;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">
       현재 담당자 (${assignedUsers.length}명)
     </div>
     <div id="rm-assigned-list" style="display:flex;gap:8px;flex-wrap:wrap">
@@ -288,73 +312,58 @@ async function _rmRefreshPanel(roleCode, roleName, panel) {
     </div>
   </div>
 
-  <!-- 담당자 검색→추가 -->
-  <div style="background:white;border:1.5px solid #E2E8F0;border-radius:8px;padding:14px">
-    <div style="font-size:11px;font-weight:700;color:#64748B;margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em">
-      담당자 추가
+  <!-- 담당자 추가 (전체 목록 + 실시간 필터) -->
+  <div style="background:white;border:1.5px solid #E2E8F0;border-radius:10px;padding:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <span style="font-size:10px;font-weight:800;color:#64748B;text-transform:uppercase;letter-spacing:.06em">담당자 추가</span>
+      <span style="font-size:10px;color:#94A3B8">이름 또는 사번 입력 시 실시간 필터</span>
     </div>
-    <div style="display:flex;gap:8px">
-      <input id="rm-search-input" placeholder="이름 또는 사번으로 검색"
-        style="flex:1;padding:8px 12px;border:1.5px solid #CBD5E1;border-radius:6px;font-size:12px"
-        onkeydown="if(event.key==='Enter') _rmSearchUser('${roleCode}', '${roleName}')">
-      <button onclick="_rmSearchUser('${roleCode}','${roleName}')"
-        style="padding:8px 16px;background:#0B132B;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">
-        검색
-      </button>
+    <input id="rm-filter-input" placeholder="이름 또는 사번으로 즉시 필터"
+      style="width:100%;padding:8px 12px;border:1.5px solid #CBD5E1;border-radius:6px;font-size:12px;
+             box-sizing:border-box;margin-bottom:10px"
+      oninput="_rmFilterUsers(this.value)">
+    <div id="rm-user-list" style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto">
+      ${availableHtml || '<p style="font-size:11px;color:#94A3B8;text-align:center;padding:12px">배정 가능한 사용자가 없습니다</p>'}
     </div>
-    <div id="rm-search-results" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"></div>
   </div>`;
 }
 
-window._rmSearchUser = async function(roleCode, roleName) {
-  const q = document.getElementById('rm-search-input')?.value.trim();
-  const resEl = document.getElementById('rm-search-results');
-  if (!q || !resEl) return;
-  resEl.innerHTML = '<span style="font-size:11px;color:#9CA3AF">조회 중...</span>';
-
-  let users = [];
-  try {
-    if (_sb()) {
-      const tenantId = window._rmFilterTenant;
-      let query = _sb().from('users').select('*');
-      if (tenantId) query = query.eq('tenant_id', tenantId);
-      // 이름 또는 사번으로 검색
-      query = query.or(`name.ilike.%${q}%,sabun.ilike.%${q}%,emp_no.ilike.%${q}%`);
-      const { data } = await query.limit(20);
-      users = data || [];
-    }
-  } catch(e) {}
-
-  // 이미 배정된 사용자 재조회
-  let alreadyIds = new Set();
-  try {
-    if (_sb()) {
-      const { data } = await _sb().from('user_roles').select('user_id').eq('role_code', roleCode);
-      (data||[]).forEach(r => alreadyIds.add(r.user_id));
-    }
-  } catch(e) {}
-
-  if (!users.length) {
-    resEl.innerHTML = '<span style="font-size:11px;color:#9CA3AF">검색 결과가 없습니다</span>';
-    return;
-  }
-
-  resEl.innerHTML = users.map(u => {
-    const isAssigned = alreadyIds.has(u.id);
-    return `
-    <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:white;
-         border:1.5px solid ${isAssigned?'#BBF7D0':'#E2E8F0'};border-radius:8px;font-size:12px;font-weight:700;color:#374151">
-      <div>
-        <div>${u.name || '(이름없음)'}</div>
-        <div style="font-size:10px;color:#94A3B8;font-weight:400">${u.sabun||u.emp_no||u.id||''} ${u.dept_name||u.org_name||''}</div>
+/** 배정 가능한 사용자 목록 HTML 생성 (클라이언트 필터 공용) */
+function _rmBuildAvailableHtml(users, assignedIds, roleCode, roleName) {
+  const candidates = users.filter(u => !assignedIds.has(u.id));
+  if (!candidates.length) return '';
+  return candidates.map(u => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid #F1F5F9;
+         border-radius:7px;background:#FAFAFA;hover:background:#F0F9FF" data-name="${(u.name||'').toLowerCase()}" data-empno="${(u.emp_no||'').toLowerCase()}">
+      <span style="font-size:14px">👤</span>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:700;color:#1E293B">${u.name || '(이름없음)'}</div>
+        <div style="font-size:10px;color:#94A3B8">${u.emp_no || u.id || ''} · ${u.job_type || ''}</div>
       </div>
-      ${isAssigned
-        ? `<span style="font-size:10px;font-weight:700;color:#059669">✓ 배정됨</span>`
-        : `<button onclick="_rmAssignUser('${roleCode}','${u.id}','${roleName}')"
-             style="padding:3px 10px;background:#0B132B;color:#fff;border:none;border-radius:5px;
-                    font-size:10px;font-weight:700;cursor:pointer">+ 배정</button>`}
-    </div>`;
-  }).join('');
+      <button onclick="_rmAssignUser('${roleCode}','${u.id}','${roleName}')"
+        style="padding:4px 12px;background:#0B132B;color:#fff;border:none;border-radius:5px;
+               font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0">+ 배정</button>
+    </div>`).join('');
+}
+
+/** 실시간 클라이언트 필터 */
+window._rmFilterUsers = function(q) {
+  const list = document.getElementById('rm-user-list');
+  if (!list) return;
+  const kw = (q || '').toLowerCase().trim();
+  const users = window._rmTenantUsers || [];
+  const assignedIds = window._rmAssignedIds || new Set();
+  const roleCode = window._rmCurrentRole;
+  const roleName = window._rmCurrentRoleName;
+  const filtered = kw
+    ? users.filter(u => !assignedIds.has(u.id) && (
+        (u.name || '').toLowerCase().includes(kw) ||
+        (u.emp_no || '').toLowerCase().includes(kw)
+      ))
+    : users.filter(u => !assignedIds.has(u.id));
+  list.innerHTML = filtered.length
+    ? _rmBuildAvailableHtml(filtered, assignedIds, roleCode, roleName)
+    : '<p style="font-size:11px;color:#94A3B8;text-align:center;padding:12px">검색 결과가 없습니다</p>';
 };
 
 window._rmAssignUser = async function(roleCode, userId, roleName) {
@@ -368,10 +377,6 @@ window._rmAssignUser = async function(roleCode, userId, roleName) {
     }
     const panel = document.getElementById('rm-users-panel');
     await _rmRefreshPanel(roleCode, roleName, panel);
-    // 검색 초기화
-    const si = document.getElementById('rm-search-input'); if (si) si.value = '';
-    const sr = document.getElementById('rm-search-results'); if (sr) sr.innerHTML = '';
-    // 배정 인원 수 업데이트 (트리 재렌더 없이)
     renderRoleMgmt();
   } catch(e) { alert('배정 실패: ' + e.message); }
 };
@@ -389,6 +394,7 @@ window._rmRemoveUser = async function(roleCode, userId, roleName) {
     renderRoleMgmt();
   } catch(e) { alert('해제 실패: ' + e.message); }
 };
+
 
 
 // ──────────────────────────────────────────────────────────────────────────────

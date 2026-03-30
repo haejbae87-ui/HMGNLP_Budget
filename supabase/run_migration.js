@@ -137,6 +137,21 @@ async function migrate() {
   `, 'virtual_edu_orgs 테이블');
 
   await runSQL(`
+    create table if not exists virtual_org_templates (
+      id text primary key, tenant_id text, name text not null,
+      purpose text default 'edu_support', service_type text default 'budget',
+      tree_data jsonb, updated_at timestamptz default now(),
+      created_at timestamptz default now()
+    );
+    alter table virtual_org_templates enable row level security;
+    do $$ begin
+      if not exists (select from pg_policies where tablename='virtual_org_templates' and policyname='allow_all_virtual_org_templates') then
+        create policy "allow_all_virtual_org_templates" on virtual_org_templates for all using (true) with check (true);
+      end if;
+    end $$;
+  `, 'virtual_org_templates 테이블');
+
+  await runSQL(`
     create table if not exists plans (
       id text primary key, tenant_id text, account_code text, domain_id text,
       applicant_id text, applicant_name text, edu_name text not null, edu_type text,

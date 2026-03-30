@@ -1,4 +1,4 @@
-﻿// ─── Tenant Admin: 예산 기초 관리 (7탭) ──────────────────────────────────────
+// ─── Tenant Admin: 예산 기초 관리 (7탭) ──────────────────────────────────────
 // Step1:계정마스터CRUD  Step2:조직-계정매핑  Step3:양식빌더(FORM_MASTER)
 // Step4:양식접근권한    Step5:양식-예산-계획룰  Step6:공지관리  +가상조직+권한
 
@@ -101,275 +101,278 @@ async function _baLoadAccountsFromDB() {
   } catch(e) { console.warn('[BudgetAccount] DB 로드 실패:', e.message); }
 }
 
-// ─── 진입점: 예산 계정 관리 ────────────────────────────────────────────────────
-async function renderBudgetAccount() {
-  const role = boCurrentPersona.role;
-  const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
-  const el = document.getElementById('bo-content');
+// ─── 진입점: 예산 계정 관리 (가상교육조직 템플릿 종속) ──────────────────────────
+let _baTplId = null;   // 선택된 virtual_org_template id
+let _baTplList = [];   // 로드된 템플릿 목록 캐시
+let _baAccountList = []; // 로드된 계정 목록 캐시
 
-  // 테넌트 초기값
+async function renderBudgetAccount() {
+  const role    = boCurrentPersona.role;
+  const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
+  const el      = document.getElementById('bo-content');
+
   if (!_baTenantId) {
     _baTenantId = (role === 'platform_admin')
       ? (tenants[0]?.id || 'HMC')
       : boCurrentPersona.tenantId || 'HMC';
   }
   const tenantName = tenants.find(t => t.id === _baTenantId)?.name || _baTenantId;
+  const isPlatform = role === 'platform_admin' || role === 'tenant_global_admin';
 
-  // 교육지원도메인 목록 (현재 테넌트)
-  const groups = typeof EDU_SUPPORT_DOMAINS !== 'undefined'
-    ? EDU_SUPPORT_DOMAINS.filter(g => g.tenantId === _baTenantId) : [];
-  if (!_baGroupId || !groups.find(g => g.id === _baGroupId)) {
-    _baGroupId = groups[0]?.id || null;
+  // ── 1. 템플릿 목록 로드 ──
+  _baTplList = [];
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (sb) {
+      const { data } = await sb
+        .from('virtual_org_templates')
+        .select('id,name,service_type,purpose')
+        .eq('tenant_id', _baTenantId);
+      if (data) _baTplList = data;
+    }
+  } catch(e) { console.warn('[BudgetAccount] 템플릿 로드 실패:', e.message); }
+
+  if (!_baTplId || !_baTplList.find(t => t.id === _baTplId)) {
+    _baTplId = _baTplList[0]?.id || null;
   }
 
-  // ── 역할별 필터바 ──────────────────────────────────────────────────────────
-  const isPlatform = role === 'platform_admin';
-  const isTenant   = role === 'tenant_global_admin';
-  const isBudget   = role === 'budget_global_admin';
+  // ── 2. 계정 목록 로드 ──
+  _baAccountList = [];
+  if (_baTplId) {
+    try {
+      const sb = typeof _sb === 'function' ? _sb() : null;
+      if (sb) {
+        const { data } = await sb
+          .from('budget_accounts')
+          .select('*')
+          .eq('virtual_org_template_id', _baTplId)
+          .eq('tenant_id', _baTenantId);
+        if (data) _baAccountList = data;
+      }
+    } catch(e) { console.warn('[BudgetAccount] 계정 로드 실패:', e.message); }
+  }
 
-  // 플랫폼총괄: 테넌트 셀렉트 + 격리그룹 셀렉트
-  const tenantSelect = isPlatform ? `
-  <div style="display:flex;align-items:center;gap:6px">
-    <label style="font-size:11px;font-weight:700;color:#92400E;white-space:nowrap">회사</label>
-    <select onchange="_baTenantId=this.value;_baGroupId=null;renderBudgetAccount()"
-      style="padding:7px 12px;border:1.5px solid #FDE68A;border-radius:8px;font-size:12px;
-             font-weight:700;background:#FFFBEB;color:#92400E;cursor:pointer">
-      ${tenants.map(t => `<option value="${t.id}" ${t.id===_baTenantId?'selected':''}>${t.name}</option>`).join('')}
-    </select>
-  </div>` : `
-  <div style="display:flex;align-items:center;gap:6px">
-    <span style="font-size:11px;font-weight:700;color:#374151">🏢</span>
-    <span style="font-size:12px;font-weight:800;color:#111827">${tenantName}</span>
-  </div>`;
+  // ── 3. 셀렉트 HTML ──
+  const tenantSelect = isPlatform
+    ? `<select onchange="_baTenantId=this.value;_baTplId=null;renderBudgetAccount()"
+        style="padding:7px 12px;border:1.5px solid #FDE68A;border-radius:8px;font-size:12px;font-weight:700;background:#FFFBEB;color:#92400E;cursor:pointer">
+        ${tenants.map(t=>`<option value="${t.id}" ${t.id===_baTenantId?'selected':''}>${t.name}</option>`).join('')}
+      </select>`
+    : `<span style="font-size:13px;font-weight:800;color:#111827">🏢 ${tenantName}</span>`;
 
-  // 격리그룹 셀렉트 (플랫폼·테넌트총괄: 전체 보기 / 예산총괄: 본인 담당만)
-  const personaKey = Object.keys(BO_PERSONAS).find(k => BO_PERSONAS[k] === boCurrentPersona) || '';
-  const visibleGroups = isBudget
-    ? groups.filter(g => (g.globalAdminKeys||[]).includes(personaKey))
-    : groups;
+  const tplSelect = _baTplList.length
+    ? `<select onchange="_baTplId=this.value;renderBudgetAccount()"
+        style="padding:7px 12px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:12px;font-weight:700;background:#EFF6FF;color:#1D4ED8;cursor:pointer;min-width:220px">
+        ${_baTplList.map(t=>`<option value="${t.id}" ${t.id===_baTplId?'selected':''}>${t.name}</option>`).join('')}
+      </select>`
+    : `<span style="font-size:12px;color:#9CA3AF">등록된 가상교육조직 템플릿이 없습니다</span>`;
 
-  const groupSelect = visibleGroups.length > 0 ? `
-  <div style="display:flex;align-items:center;gap:6px">
-    <label style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">격리그룹</label>
-    <select onchange="_baGroupId=this.value;renderBudgetAccount()"
-      style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;
-             font-weight:700;background:white;cursor:pointer;min-width:200px">
-      ${visibleGroups.map(g => `<option value="${g.id}" ${g.id===_baGroupId?'selected':''}>${g.name}</option>`).join('')}
-    </select>
-  </div>` : `<span style="font-size:11px;color:#9CA3AF">등록된 교육지원도메인이 없습니다</span>`;
+  // ── 4. 계정 카드 HTML ──
+  const canEdit = ['platform_admin','tenant_global_admin','budget_global_admin'].includes(role);
+  const curTpl  = _baTplList.find(t => t.id === _baTplId);
+
+  const accountsHtml = _baTplId && curTpl ? `
+    <div style="padding:16px 20px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:12px;
+                margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div>
+        <div style="font-weight:900;font-size:14px;color:#1D4ED8">📋 ${curTpl.name}</div>
+        <div style="font-size:10px;color:#9CA3AF;margin-top:2px">${_baAccountList.length}개 계정</div>
+      </div>
+      ${canEdit ? `<button class="bo-btn-primary bo-btn-sm" onclick="openS1Modal()">+ 계정 신규 등록</button>` : ''}
+    </div>
+    ${_baAccountList.length ? _baAccountList.map(a => _baRenderAccountCard(a, canEdit)).join('') : `
+    <div style="padding:48px;text-align:center;background:#F9FAFB;border:2px dashed #E5E7EB;border-radius:14px;color:#9CA3AF">
+      <div style="font-size:36px;margin-bottom:10px">💳</div>
+      <div style="font-size:13px;font-weight:700;color:#64748B">이 템플릿에 등록된 예산 계정이 없습니다</div>
+      ${canEdit ? `<div style="font-size:11px;margin-top:4px">위 '+ 계정 신규 등록' 버튼으로 추가하세요</div>` : ''}
+    </div>`}` : `
+    <div style="padding:48px;text-align:center;background:#F9FAFB;border-radius:14px;color:#9CA3AF">
+      <div style="font-size:36px;margin-bottom:10px">🏗️</div>
+      <div style="font-size:13px;font-weight:700;color:#64748B">
+        ${_baTplList.length ? '가상교육조직 템플릿을 선택하세요' : '가상 교육 조직 관리에서 템플릿을 먼저 만들어주세요'}
+      </div>
+    </div>`;
 
   el.innerHTML = `
-<div class="bo-fade">
-  ${typeof boIsolationGroupBanner==='function' ? boIsolationGroupBanner() : ''}
-  <div style="margin-bottom:20px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
-      <span style="background:#1D4ED8;color:#fff;font-size:9px;font-weight:900;padding:3px 8px;border-radius:6px">예산 계정 관리</span>
-    <h1 class="bo-page-title" style="margin:0">예산 계정 관리</h1>
+<div class="bo-fade" style="padding:24px;max-width:1000px">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="background:#1D4ED8;color:#fff;font-size:9px;font-weight:900;padding:3px 8px;border-radius:6px">교육지원제도 설정</span>
+        <h1 style="font-size:20px;font-weight:900;color:#111827;margin:0">💳 예산 계정 관리</h1>
+      </div>
+      <p style="font-size:12px;color:#64748B;margin:0">가상교육조직 템플릿별로 예산 계정을 등록·관리합니다.</p>
     </div>
-    <p class="bo-page-sub">예산 계정의 속성을 등록·수정하고 교육지원도메인별로 관리합니다.</p>
-  </div>
-
-  <!-- 역할별 필터바 -->
-  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 18px;
-              background:#F8FAFF;border:1.5px solid #E0E7FF;border-radius:14px;margin-bottom:20px">
-    ${tenantSelect}
-    <span style="color:#D1D5DB;font-size:16px">|</span>
-    ${groupSelect}
-    <button onclick="renderBudgetAccount()"
-      style="padding:7px 16px;background:#1D4ED8;color:#fff;border:none;border-radius:8px;
-             font-size:12px;font-weight:800;cursor:pointer;margin-left:4px">🔍 조회</button>
-    ${isPlatform || isTenant ? `<span style="font-size:10px;color:#9CA3AF;margin-left:4px">모든 교육지원도메인의 계정을 조회할 수 있습니다</span>` : ''}
-  </div>
-
-  <!-- 계정 목록 -->
-  <div id="ba-content">🔄 DB 연결 중...</div>
-  <!-- 계정 등록/수정 모달 -->
-  <div id="s1-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
-    <div style="background:#fff;border-radius:16px;width:480px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-        <h3 id="s1-modal-title" style="font-size:15px;font-weight:800;margin:0">예산 계정 신규 등록</h3>
-        <button onclick="s1CloseModal()" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">✕</button>
-      </div>
-      <div id="s1-modal-body"></div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
-        <button class="bo-btn-secondary bo-btn-sm" onclick="s1CloseModal()">취소</button>
-        <button class="bo-btn-primary bo-btn-sm" onclick="s1SaveAccount()">저장</button>
-      </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      ${tenantSelect}
+      ${tplSelect}
     </div>
   </div>
-</div>`;
-
-  // DB 로드 후 ba-content 갱신
-  await _baLoadAccountsFromDB();
-  const baEl = document.getElementById('ba-content');
-  if (baEl) baEl.innerHTML = _baRenderContent();
-}
-
-// ── 계정 목록 + 결재라인 통합 렌더 ───────────────────────────────────────────
-function _baRenderContent() {
-  if (!_baGroupId) {
-    return `<div style="padding:40px;text-align:center;background:#F9FAFB;border-radius:14px;color:#9CA3AF">
-      <div style="font-size:14px;font-weight:700">교육지원도메인을 선택하세요</div>
-    </div>`;
-  }
-  const group = typeof EDU_SUPPORT_DOMAINS !== 'undefined'
-    ? EDU_SUPPORT_DOMAINS.find(g => g.id === _baGroupId) : null;
-  if (!group) return '<div style="padding:40px;text-align:center;color:#9CA3AF">그룹 정보를 찾을 수 없습니다.</div>';
-
-  const role = boCurrentPersona.role;
-  // 플랫폼총괄·테넌트총괄·예산총괄 → 계정 등록/수정 가능. 그 외 역할은 읽기 전용
-  const canEdit = ['platform_admin', 'tenant_global_admin', 'budget_global_admin'].includes(role);
-  const isViewOnly = !canEdit;
-
-  // 해당 격리그룹 소유 계정
-  const acctCodes = group.ownedAccounts || [];
-  const isFreeGroup = acctCodes.includes('COMMON-FREE');
-
-  let allAccounts;
-  if (isFreeGroup) {
-    // 예산미사용 격리그룹: COMMON-FREE(isSystem) 1개만 표시
-    allAccounts = typeof ACCOUNT_MASTER !== 'undefined'
-      ? ACCOUNT_MASTER.filter(a => a.code === 'COMMON-FREE' && a.active) : [];
-  } else {
-    // 일반 예산 교육지원도메인: ownedAccounts 계정만 표시 (COMMON-FREE 제외)
-    allAccounts = typeof ACCOUNT_MASTER !== 'undefined'
-      ? ACCOUNT_MASTER.filter(a => acctCodes.includes(a.code) && a.active && a.code !== 'COMMON-FREE') : [];
-  }
-
-  if (allAccounts.length === 0) {
-    return `
-<div style="padding:20px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;margin-bottom:16px;
-            display:flex;align-items:center;gap:12px">
-  <span style="font-size:18px">🛡️</span>
-  <div style="flex:1">
-    <div style="font-weight:800;font-size:13px;color:#C2410C">${group.name}</div>
-    <div style="font-size:11px;color:#9CA3AF;margin-top:2px">${group.id}</div>
-  </div>
-  ${!isViewOnly ? `<button class="bo-btn-primary bo-btn-sm" onclick="openS1Modal()">+ 계정 신규 등록</button>` : ''}
+  <div id="ba-content">${accountsHtml}</div>
 </div>
-<div style="padding:40px;text-align:center;background:#F9FAFB;border-radius:14px;color:#9CA3AF;border:1px dashed #D1D5DB">
-  <div style="font-size:13px;font-weight:700">이 교육지원도메인에 등록된 예산 계정이 없습니다</div>
-  <div style="font-size:11px;margin-top:6px;color:#9CA3AF">위 격리그룹 선택 후 계정을 신규 등록하세요.</div>
-</div>`;
-  }
 
-  const groupHeader = `
-<div style="padding:16px 20px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:12px;
-            margin-bottom:16px;display:flex;align-items:center;gap:12px">
-  <span style="font-size:22px">🛡️</span>
-  <div style="flex:1">
-    <div style="font-weight:900;font-size:14px;color:#1D4ED8">${group.name}</div>
-    <div style="font-size:10px;color:#9CA3AF;margin-top:2px">${group.id} · ${allAccounts.length}개 계정</div>
+<!-- 계정 등록/수정 모달 -->
+<div id="s1-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;width:500px;max-height:90vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h3 id="s1-modal-title" style="font-size:15px;font-weight:800;margin:0">예산 계정 신규 등록</h3>
+      <button onclick="s1CloseModal()" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">✕</button>
+    </div>
+    <div id="s1-modal-body"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+      <button class="bo-btn-secondary bo-btn-sm" onclick="s1CloseModal()">취소</button>
+      <button class="bo-btn-primary bo-btn-sm" onclick="s1SaveAccount()">저장</button>
+    </div>
   </div>
-  ${!isViewOnly ? `<button class="bo-btn-primary bo-btn-sm" onclick="openS1Modal()">+ 계정 신규 등록</button>` : ''}
 </div>`;
-
-  const accountCards = allAccounts.map(a => _baRenderAccountCard(a, group, isViewOnly)).join('');
-  return groupHeader + accountCards;
 }
 
-// ── 계정 카드 (결재라인 인라인 포함) ─────────────────────────────────────────
-function _baRenderAccountCard(a, group, isViewOnly) {
-  const isSystem = a.isSystem;
-  const typeColor = a.group === 'R&D' ? { bg:'#FFF7ED', border:'#FED7AA', text:'#C2410C', badge:'R&D' }
-    : { bg:'#EFF6FF', border:'#BFDBFE', text:'#1D4ED8', badge:'일반' };
-
-  // 결재라인 조회 (해당 계정 코드 포함하는 routing)
-  const routings = typeof APPROVAL_ROUTING !== 'undefined'
-    ? APPROVAL_ROUTING.filter(r => r.tenantId === (group?.tenantId||boCurrentPersona.tenantId) && r.accountCodes.includes(a.code))
-    : [];
-  const hasRouting = routings.length > 0;
-  const expanded = _baExpandedAR[a.code] || false;
-
-  const routingSection = `
-<div style="border-top:1px solid #F3F4F6;margin-top:14px;padding-top:12px">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${expanded?'10px':'0'}">
-    <div style="display:flex;align-items:center;gap:8px">
-      <span style="font-size:11px;font-weight:900;color:#D97706">⚡ 결재라인</span>
-      ${hasRouting
-        ? `<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:#FEF3C7;color:#92400E;font-weight:700">${routings.length}개 설정됨</span>`
-        : `<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:#FEF2F2;color:#EF4444;font-weight:700">⚠️ 미설정</span>`}
-    </div>
-    <div style="display:flex;gap:6px;align-items:center">
-      ${!isViewOnly && !isSystem ? `<button onclick="arOpenNewModalForAccount('${a.code}')"
-        style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid #FDE68A;
-               background:#FFFBEB;color:#D97706;cursor:pointer;font-weight:700">+ 결재라인 추가</button>` : ''}
-      ${hasRouting ? `<button onclick="_baToggleAR('${a.code}')"
-        style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid #E5E7EB;
-               background:white;cursor:pointer;font-weight:700;color:#6B7280">
-        ${expanded ? '▲ 접기' : '▼ 펼치기'}</button>` : ''}
-    </div>
-  </div>
-  ${expanded && hasRouting ? routings.map(r => `
-  <div style="margin-top:8px;padding:12px 14px;background:#FFFBEB;border-radius:10px;border:1px solid #FDE68A">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <span style="font-size:12px;font-weight:800;color:#92400E">${r.name}</span>
-      ${!isViewOnly ? `<button onclick="arOpenEditModal('${r.id}')"
-        style="font-size:10px;padding:3px 8px;border-radius:6px;border:1px solid #FDE68A;
-               background:white;color:#D97706;cursor:pointer;font-weight:700">편집</button>` : ''}
-    </div>
-    <div style="display:flex;flex-direction:column;gap:4px">
-      ${r.ranges.map((range, i) => `
-      <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;
-                  background:${i%2===0?'#FFF':'#FEFCE8'};border-radius:7px;border:1px solid #FEF3C7">
-        <span style="font-size:10px;font-weight:700;color:#92400E;min-width:140px">${range.label}</span>
-        <div style="display:flex;align-items:center;gap:4px;flex:1;flex-wrap:wrap">
-          ${range.approvers.map((ap, j) =>
-            `<span style="background:#FEF3C7;color:#92400E;padding:3px 10px;border-radius:14px;font-size:11px;font-weight:800">${ap}</span>` +
-            (j < range.approvers.length-1 ? '<span style="color:#D97706;font-size:12px">→</span>' : '')
-          ).join('')}
-        </div>
-        <span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;flex-shrink:0;
-          background:${range.approvers.length===1?'#F0FDF4':range.approvers.length===2?'#FFFBEB':'#FEF2F2'};
-          color:${range.approvers.length===1?'#059669':range.approvers.length===2?'#D97706':'#DC2626'}">
-          ${range.approvers.length}단계</span>
-      </div>`).join('')}
-    </div>
-  </div>`).join('') : ''}
-</div>`;
-
+// ── 계정 카드 렌더 ──────────────────────────────────────────────────────────
+function _baRenderAccountCard(a, canEdit) {
+  const typeColors = {
+    training: { bg:'#EFF6FF', border:'#BFDBFE', text:'#1D4ED8', label:'교육훈련' },
+    language:  { bg:'#F0FDF4', border:'#BBF7D0', text:'#059669', label:'어학' },
+    cert:      { bg:'#FFF7ED', border:'#FED7AA', text:'#C2410C', label:'자격증' },
+    badge:     { bg:'#F5F3FF', border:'#DDD6FE', text:'#7C3AED', label:'배지' },
+  };
+  const tc = typeColors[a.account_type] || typeColors.training;
   return `
-<div class="bo-card" style="padding:18px 22px;margin-bottom:12px;
-  border-left:4px solid ${isSystem?'#F59E0B':typeColor.border}">
+<div class="bo-card" style="padding:18px 22px;margin-bottom:12px;border-left:4px solid ${tc.border}">
   <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
     <div style="flex:1">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
         <code style="background:#F3F4F6;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:900">${a.code}</code>
-        ${isSystem ? '<span style="background:#FEF3C7;color:#92400E;font-size:9px;font-weight:800;padding:2px 7px;border-radius:5px">SYSTEM</span>' : ''}
-        <span style="font-size:10px;padding:2px 8px;border-radius:6px;font-weight:700;
-          background:${typeColor.bg};color:${typeColor.text};border:1px solid ${typeColor.border}">${typeColor.badge}</span>
+        <span style="font-size:10px;padding:2px 8px;border-radius:6px;font-weight:700;background:${tc.bg};color:${tc.text};border:1px solid ${tc.border}">${tc.label}</span>
         <span style="font-size:13px;font-weight:800;color:#111827">${a.name}</span>
-        <span style="font-size:10px;padding:2px 7px;border-radius:5px;font-weight:700;
-          background:${a.active?'#D1FAE5':'#F3F4F6'};color:${a.active?'#065F46':'#9CA3AF'}">
-          ${a.active?'✅ 활성':'⏸️ 비활성'}</span>
+        <span style="font-size:10px;padding:2px 7px;border-radius:5px;font-weight:700;background:${a.active?'#D1FAE5':'#F3F4F6'};color:${a.active?'#065F46':'#9CA3AF'}">${a.active?'✅ 활성':'⏸️ 비활성'}</span>
       </div>
-      <div style="font-size:11px;color:#6B7280">${a.purpose || a.desc || ''}</div>
-      <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap">
-        <span style="font-size:10px;color:#374151">
-          📋 사전계획: <strong style="color:${a.planRequired?'#1D4ED8':'#9CA3AF'}">${a.planRequired?'필수':'미적용'}</strong>
-        </span>
-        <span style="font-size:10px;color:#374151">
-          🔄 이월: <strong style="color:${a.carryover?'#059669':'#9CA3AF'}">${a.carryover?'허용':'불허'}</strong>
-        </span>
-        ${a.manager ? `<span style="font-size:10px;color:#374151">👤 담당: <strong>${a.manager}</strong></span>` : ''}
-      </div>
+      <div style="font-size:11px;color:#6B7280">${a.description || ''}</div>
+      ${a.limit_amount ? `<div style="font-size:11px;color:#374151;margin-top:6px">💰 한도: <strong>${(a.limit_amount/10000).toLocaleString()}만원</strong></div>` : ''}
     </div>
-    ${!isViewOnly && !isSystem ? `
+    ${canEdit ? `
     <div style="display:flex;gap:6px;flex-shrink:0">
-      <button class="bo-btn-secondary bo-btn-sm" onclick="openS1Modal('${a.code}')">수정</button>
-      <button class="bo-btn-secondary bo-btn-sm" onclick="s1ToggleActive('${a.code}')"
-        style="color:${a.active?'#F59E0B':'#059669'};border-color:${a.active?'#F59E0B':'#059669'}">
-        ${a.active?'비활성화':'활성화'}</button>
+      <button class="bo-btn-secondary bo-btn-sm" onclick="openS1Modal('${a.id}')">수정</button>
     </div>` : ''}
   </div>
 </div>`;
 }
 
-// ── 결재라인 펼침 토글 ──────────────────────────────────────────────────────
+
+
+// ── 계정 목록 + 결재라인 통합 렌더 (구버전 - 하위 호환용 stub) ─────────────────
+function _baRenderContent() {
+  return document.getElementById('ba-content')?.innerHTML || '';
+}
+
+
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 예산 계정 CRUD (budget_accounts 테이블 기반)
+// ─────────────────────────────────────────────────────────────────────────────
+let _s1EditId = null; // 수정 시 budget_accounts.id
+
+function openS1Modal(id) {
+  _s1EditId = id || null;
+  const a    = id ? (_baAccountList.find(x => x.id === id) || null) : null;
+  document.getElementById('s1-modal-title').textContent = id ? '예산 계정 수정' : '예산 계정 신규 등록';
+  document.getElementById('s1-modal-body').innerHTML = `
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div>
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정코드 *</label>
+      <input id="s1-code" type="text" placeholder="예) EDU-001" value="${a?.code||''}"
+        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+    </div>
+    <div>
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정유형</label>
+      <select id="s1-type" style="width:100%;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+        <option value="training" ${a?.account_type==='training'?'selected':''}>교육훈련</option>
+        <option value="language" ${a?.account_type==='language'?'selected':''}>어학</option>
+        <option value="cert"     ${a?.account_type==='cert'    ?'selected':''}>자격증</option>
+        <option value="badge"    ${a?.account_type==='badge'   ?'selected':''}>배지</option>
+      </select>
+    </div>
+  </div>
+  <div style="margin-bottom:12px">
+    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정명 *</label>
+    <input id="s1-name" type="text" placeholder="예) 교육훈련비" value="${a?.name||''}"
+      style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+  </div>
+  <div style="margin-bottom:12px">
+    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">연간 한도 (원)</label>
+    <input id="s1-limit" type="number" placeholder="0" value="${a?.limit_amount||0}"
+      style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+  </div>
+  <div style="margin-bottom:14px">
+    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">설명</label>
+    <input id="s1-desc" type="text" placeholder="예) 집합교육 및 이러닝 비용" value="${a?.description||''}"
+      style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+  </div>`;
+  document.getElementById('s1-modal').style.display = 'flex';
+}
+
+function s1CloseModal() {
+  document.getElementById('s1-modal').style.display = 'none';
+}
+
+async function s1SaveAccount() {
+  const code  = document.getElementById('s1-code').value.trim();
+  const name  = document.getElementById('s1-name').value.trim();
+  if (!code || !name) { alert('계정코드와 계정명은 필수입니다.'); return; }
+  if (!_baTplId)      { alert('템플릿을 먼저 선택하세요.'); return; }
+
+  const role     = boCurrentPersona.role;
+  const tenantId = role === 'platform_admin' ? (_baTenantId || 'HMC') : (boCurrentPersona.tenantId || 'HMC');
+  const payload  = {
+    tenant_id: tenantId,
+    virtual_org_template_id: _baTplId,
+    code, name,
+    account_type: document.getElementById('s1-type').value,
+    limit_amount: parseInt(document.getElementById('s1-limit').value || '0', 10),
+    description: document.getElementById('s1-desc').value.trim(),
+    active: true,
+    updated_at: new Date().toISOString(),
+  };
+
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (!sb) { alert('DB 연결이 없습니다.'); return; }
+    if (_s1EditId) {
+      const { error } = await sb.from('budget_accounts').update(payload).eq('id', _s1EditId);
+      if (error) throw error;
+    } else {
+      payload.id = 'BA-' + Date.now();
+      const { error } = await sb.from('budget_accounts').insert(payload);
+      if (error) throw error;
+    }
+    s1CloseModal();
+    await renderBudgetAccount();
+  } catch(e) {
+    alert('저장 실패: ' + e.message);
+  }
+}
+
+
+
+
+
+
+
+
+// ── 결재라인 펼침 토글 (하위 호환 stub) ───────────────────────────────────
 function _baToggleAR(code) {
   _baExpandedAR[code] = !(_baExpandedAR[code] || false);
-  document.getElementById('ba-content').innerHTML = _baRenderContent();
 }
+
+
+
+
+
+
+
+
+
 
 // ── 특정 계정으로 결재라인 추가 모달 열기 ────────────────────────────────────
 function arOpenNewModalForAccount(accountCode) {

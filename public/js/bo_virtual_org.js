@@ -38,6 +38,7 @@ async function _voSaveToDB(tpl) {
       name:        tpl.name,
       purpose:     tpl.purpose || 'edu_support',
       service_type: tpl.serviceType || 'budget',
+      owner_role_id: tpl.ownerRoleId || null,
       tree_data:   tpl.tree,
       updated_at:  new Date().toISOString()
     };

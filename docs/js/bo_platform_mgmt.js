@@ -1,4 +1,4 @@
-﻿// ─── 플랫폼 관리 메뉴: 테넌트/조직/사용자/역할 ─────────────────────────────
+// ─── 플랫폼 관리 메뉴: 테넌트/조직/사용자/역할 ─────────────────────────────
 // Supabase에서 실시간 데이터 로드, 실패 시 mock fallback
 
 // ── 공통 헬퍼 ──────────────────────────────────────────────────────────────
@@ -893,145 +893,184 @@ window._viewRoleUsers = async function(roleCode) {
   </div>`;
 };
 
-// ══════════════════════════════════════════════════════════════════════════════
-// ⑤ 역할별 메뉴 권한 관리
-// ══════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════
+// ⑤ 역할별 메뉴 권한 관리 (테넌트별 분리 버전)
+// ════════════════════════════════════════════════════════════════════════════
 
-// 전체 메뉴 정의 (PLATFORM_MENUS와 동기화)
+// 메뉴 정의 목록 (bo_layout.js PLATFORM_MENUS와 동기화)
 const ALL_MENUS = [
-  { id: 'dashboard',        label: '대시보드',             sys: 'BO', depth1: '공통' },
-  { id: 'platform-monitor', label: '전사 예산 모니터링',     sys: 'BO', depth1: '플랫폼 총괄' },
-  { id: 'platform-roles',   label: '관리자 권한 매핑',       sys: 'BO', depth1: '플랫폼 총괄' },
-  { id: 'tenant-mgmt',      label: '테넌트/회사 관리',       sys: 'BO', depth1: '플랫폼 총괄' },
-  { id: 'org-mgmt',         label: '조직 관리',              sys: 'BO', depth1: '플랫폼 총괄' },
-  { id: 'user-mgmt',        label: '사용자 관리',            sys: 'BO', depth1: '플랫폼 총괄' },
-  { id: 'role-mgmt',        label: '역할 관리',              sys: 'BO', depth1: '플랫폼 총괄' },
-  { id: 'role-menu-perms',  label: '역할별 메뉴 권한',        sys: 'BO', depth1: '플랫폼 총괄' },
-  { id: 'isolation-groups', label: '교육지원도메인 관리',          sys: 'BO', depth1: '테넌트 운영' },
-  { id: 'budget-account',   label: '예산 계정 관리',          sys: 'BO', depth1: '테넌트 운영' },
-  { id: 'virtual-org',      label: '가상조직 템플릿',         sys: 'BO', depth1: '테넌트 운영' },
-  { id: 'form-builder',     label: '교육양식마법사',          sys: 'BO', depth1: '테넌트 운영' },
-  { id: 'field-mgmt',      label: '입력 필드 관리',           sys: 'BO', depth1: '테넌트 운영' },
-  { id: 'calc-grounds',     label: '산정기준 관리',           sys: 'BO', depth1: '테넌트 운영' },
-  { id: 'approval-routing', label: '결재 라우팅',            sys: 'BO', depth1: '테넌트 운영' },
-  { id: 'service-policy',   label: '서비스 정책 관리',        sys: 'BO', depth1: '테넌트 운영' },
-  { id: 'plan-mgmt',        label: '계획 관리',              sys: 'BO', depth1: '운영 업무' },
-  { id: 'allocation',       label: '예산 배정',              sys: 'BO', depth1: '운영 업무' },
-  { id: 'my-operations',    label: '내 업무',                sys: 'BO', depth1: '운영 업무' },
-  { id: 'org-budget',       label: '조직 예산 현황',          sys: 'BO', depth1: '운영 업무' },
-  { id: 'reports',          label: '통계 및 리포트',          sys: 'BO', depth1: '분석' },
-  { id: 'manual',           label: '서비스 매뉴얼',          sys: 'BO', depth1: '기타' },
+  { id: 'dashboard',        label: '대시보드',              depth1: '공통' },
+  { id: 'platform-monitor', label: '전사 예산 모니터링',     depth1: '플랫폼' },
+  { id: 'tenant-mgmt',      label: '테넌트/회사 관리',       depth1: '플랫폼' },
+  { id: 'platform-roles',   label: '관리자 권한 매핑',       depth1: '플랫폼' },
+  { id: 'org-mgmt',         label: '조직 관리',              depth1: '테넌트' },
+  { id: 'user-mgmt',        label: '사용자 관리',            depth1: '테넌트' },
+  { id: 'role-mgmt',        label: '역할 관리',              depth1: '테넌트' },
+  { id: 'role-menu-perms',  label: '역할별 메뉴 권한',        depth1: '테넌트' },
+  { id: 'isolation-groups', label: '교육지원도메인 관리',      depth1: '테넌트' },
+  { id: 'virtual-org',      label: '가상조직 템플릿 관리',    depth1: '교육제도' },
+  { id: 'budget-account',   label: '예산 계정 관리',          depth1: '교육제도' },
+  { id: 'calc-grounds',     label: '산정기준 관리',           depth1: '교육제도' },
+  { id: 'form-builder',     label: '교육양식마법사',          depth1: '교육제도' },
+  { id: 'field-mgmt',       label: '입력 필드 관리',          depth1: '교육제도' },
+  { id: 'service-policy',   label: '서비스 정책 관리',        depth1: '교육제도' },
+  { id: 'plan-mgmt',        label: '교육계획 관리',           depth1: '교육제도' },
+  { id: 'allocation',       label: '예산 배정 및 관리',       depth1: '교육제도' },
+  { id: 'my-operations',    label: '나의 운영 업무',           depth1: '교육제도' },
+  { id: 'org-budget',       label: '조직 예산 현황',          depth1: '교육제도' },
+  { id: 'approval-routing', label: '결재 라우팅',             depth1: '교육제도' },
+  { id: 'reports',          label: '통계 및 리포트',           depth1: '현황/통계' },
+  { id: 'manual',           label: '서비스 매뉴얼',            depth1: '기타' },
 ];
 
-const MANAGED_ROLES = [
-  { code: 'platform_admin', label: '플랫폼총괄관리자', color: '#7C3AED' },
-  { code: 'tenant_admin',   label: '테넌트총괄관리자', color: '#1D4ED8' },
-  { code: 'budget_admin',   label: '예산총괄관리자',   color: '#059669' },
-  { code: 'budget_ops',     label: '예산운영담당자',   color: '#D97706' },
-  { code: 'learner',        label: '학습자',           color: '#6B7280' },
-];
+// 역할 컬럼 색상 (계층별)
+const ROLE_LEVEL_COLORS = ['#7C3AED','#4F46E5','#0369A1','#059669','#D97706','#BE123C'];
 
 async function renderRoleMenuPerms() {
   const el = document.getElementById('bo-content');
   el.innerHTML = '<div class="bo-fade" style="padding:20px"><p style="color:#9CA3AF">로딩 중...</p></div>';
 
-  // DB에서 현재 권한 로드
+  const persona = boCurrentPersona;
+  const isPlatform = persona.role === 'platform_admin';
+  const tenants = typeof TENANTS !== 'undefined' ? TENANTS.filter(t => t.id !== 'SYSTEM') : [];
+
+  // 테넌트 필터 (역할관리 화면과 동기화)
+  if (!window._rmpFilterTenant) {
+    window._rmpFilterTenant = isPlatform ? (tenants[0]?.id || 'HMC') : (persona.tenantId || 'HMC');
+  }
+  const selTenantId = window._rmpFilterTenant;
+
+  // 해당 테넌트 역할 목록 DB 조회
+  let tenantRoles = [];
+  try {
+    tenantRoles = await _sbGet('roles', { tenant_id: selTenantId }) || [];
+  } catch(e) { tenantRoles = []; }
+  // fallback mock
+  if (!tenantRoles.length && typeof TENANT_ROLES_MOCK !== 'undefined') {
+    tenantRoles = TENANT_ROLES_MOCK.filter(r => r.tenant_id === selTenantId);
+  }
+  // 계층 정렬 (level 오름차순, 없으면 부모→자식)
+  tenantRoles.sort((a,b) => (a.level||99) - (b.level||99));
+
+  // 현재 권한 로드
   let currentPerms = {};
   if (_sb()) {
-    const { data } = await _sb().from('role_menu_permissions').select('role_code, menu_id');
-    (data || []).forEach(({ role_code, menu_id }) => {
-      if (!currentPerms[role_code]) currentPerms[role_code] = new Set();
-      currentPerms[role_code].add(menu_id);
-    });
-  } else {
-    // 폴백: window._roleMenuPerms 사용
-    Object.entries(window._roleMenuPerms || {}).forEach(([rc, set]) => {
-      currentPerms[rc] = new Set(set);
-    });
+    const roleCodes = tenantRoles.map(r => r.code);
+    if (roleCodes.length) {
+      try {
+        const { data } = await _sb().from('role_menu_permissions')
+          .select('role_code, menu_id').in('role_code', roleCodes);
+        (data || []).forEach(({ role_code, menu_id }) => {
+          if (!currentPerms[role_code]) currentPerms[role_code] = new Set();
+          currentPerms[role_code].add(menu_id);
+        });
+      } catch(e) {}
+    }
   }
 
   function isChecked(roleCode, menuId) {
     return currentPerms[roleCode]?.has(menuId) ? 'checked' : '';
   }
 
+  const tenantCtrl = isPlatform ? `
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:11px;font-weight:700;color:#64748B">테넌트 선택</span>
+      <select onchange="window._rmpFilterTenant=this.value;renderRoleMenuPerms()"
+        style="padding:6px 12px;border:1.5px solid #CBD5E1;border-radius:6px;font-size:12px;font-weight:700;color:#1E293B;cursor:pointer;background:#fff">
+        ${tenants.map(t => `<option value="${t.id}" ${t.id===selTenantId?'selected':''}>${t.name||t.id}</option>`).join('')}
+      </select>
+    </div>` : `<span style="font-size:12px;font-weight:700;color:#1D4ED8">🏢 ${tenants.find(t=>t.id===selTenantId)?.name||selTenantId}</span>`;
+
+  // 역할 헤더 컬럼 (현재 선택 테넌트 역할만)
+  const roleHeaders = tenantRoles.map((r, i) => {
+    const color = ROLE_LEVEL_COLORS[Math.min(i, ROLE_LEVEL_COLORS.length-1)];
+    return `<th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:800;color:${color};min-width:100px;white-space:nowrap">${r.name}</th>`;
+  }).join('');
+
+  const roleCheckboxes = (menuId) => tenantRoles.map((r, i) => {
+    const color = ROLE_LEVEL_COLORS[Math.min(i, ROLE_LEVEL_COLORS.length-1)];
+    return `<td style="padding:8px;text-align:center">
+      <input type="checkbox" data-role="${r.code}" data-menu="${menuId}"
+        ${isChecked(r.code, menuId)}
+        style="width:15px;height:15px;cursor:pointer;accent-color:${color}"
+        onchange="_onPermChange(this)"/>
+    </td>`;
+  }).join('');
+
   el.innerHTML = `
-<div class="bo-fade" style="max-width:1100px">
+<div class="bo-fade" style="max-width:1200px">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
     <div>
-      <h1 style="font-size:20px;font-weight:900;color:#111827;margin:0">🔑 역할별 메뉴 권한 관리</h1>
-      <p style="font-size:12px;color:#6B7280;margin:4px 0 0">역할별로 접근 가능한 메뉴를 DB에서 직접 관리합니다. 저장 즉시 반영됩니다.</p>
+      <h1 style="font-size:18px;font-weight:800;color:#0F172A;margin:0">🔑 역할별 메뉴 권한 관리</h1>
+      <p style="font-size:12px;color:#64748B;margin:4px 0 0">테넌트별 역할에 대한 메뉴 접근 권한을 설정합니다.</p>
     </div>
-    <button onclick="_saveRoleMenuPerms()" style="padding:10px 20px;background:#4F46E5;color:white;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer">💾 변경사항 저장</button>
+    <div style="display:flex;align-items:center;gap:10px">
+      ${tenantCtrl}
+      <button onclick="_saveRoleMenuPerms()"
+        style="padding:8px 18px;background:#0B132B;color:white;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">
+        💾 변경사항 저장
+      </button>
+    </div>
   </div>
 
-  <div style="background:white;border:1.5px solid #E5E7EB;border-radius:14px;overflow:auto">
-    <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
+  ${tenantRoles.length === 0 ? `
+    <div style="padding:60px;text-align:center;color:#94A3B8;background:white;border-radius:10px;border:1px solid #E2E8F0">
+      <div style="font-size:32px;margin-bottom:12px">🔑</div>
+      <div style="font-size:14px;font-weight:700">이 테넌트에 역할이 없습니다</div>
+      <div style="font-size:12px;margin-top:6px">역할 관리 메뉴에서 먼저 역할을 생성하세요</div>
+    </div>` : `
+  <div style="background:white;border:1px solid #E2E8F0;border-radius:10px;overflow:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead>
-        <tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB">
-          <th style="padding:12px 10px;text-align:center;font-weight:900;color:#6B7280;width:70px">구분</th>
-          <th style="padding:12px 10px;text-align:left;font-weight:900;color:#6B7280;width:120px">1 Depth</th>
-          <th style="padding:12px 16px;text-align:left;font-weight:900;color:#374151;min-width:160px">2 Depth (메뉴)</th>
-          ${MANAGED_ROLES.map(r => `
-          <th style="padding:12px 8px;text-align:center;font-weight:900;color:${r.color};min-width:110px">
-            ${r.label}
-          </th>`).join('')}
+        <tr style="background:#1E293B">
+          <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:800;color:#94A3B8;width:100px;white-space:nowrap">1Depth 카테고리</th>
+          <th style="padding:10px 16px;text-align:left;font-size:10px;font-weight:800;color:#94A3B8;min-width:160px">2Depth 메뉴</th>
+          ${roleHeaders}
         </tr>
       </thead>
       <tbody>
         ${ALL_MENUS.map((m, i) => `
-        <tr style="border-bottom:1px solid #F3F4F6;background:${i%2?'#FAFAFA':'white'}">
-          <td style="padding:9px 10px;text-align:center;font-size:11px;color:#6B7280;font-weight:700">
-            <span style="background:#E5E7EB;padding:2px 6px;border-radius:4px">${m.sys}</span>
+        <tr style="border-bottom:1px solid #F1F5F9;background:${i%2?'#F8FAFC':'white'}">
+          <td style="padding:8px 12px;font-size:11px;font-weight:700;color:#64748B">${m.depth1}</td>
+          <td style="padding:8px 16px;font-weight:600;color:#374151">
+            ${m.label}
+            <span style="font-size:9px;color:#CBD5E1;margin-left:4px;font-family:monospace">${m.id}</span>
           </td>
-          <td style="padding:9px 10px;color:#4B5563;font-size:11px;font-weight:700">${m.depth1}</td>
-          <td style="padding:9px 16px;font-weight:600;color:#374151">${m.label}
-            <span style="font-size:9px;color:#9CA3AF;margin-left:4px">${m.id}</span>
-          </td>
-          ${MANAGED_ROLES.map(r => `
-          <td style="padding:9px 8px;text-align:center">
-            <input type="checkbox" data-role="${r.code}" data-menu="${m.id}"
-              ${isChecked(r.code, m.id)}
-              style="width:16px;height:16px;cursor:pointer;accent-color:${r.color}"
-              onchange="_onPermChange(this)"/>
-          </td>`).join('')}
+          ${roleCheckboxes(m.id)}
         </tr>`).join('')}
       </tbody>
     </table>
-  </div>
+  </div>`}
   <p id="perm-save-msg" style="margin-top:12px;font-size:12px;color:#059669;display:none;text-align:center;font-weight:700"></p>
 </div>`;
 }
 
-// 체크박스 변경 즉시 메모리 반영 (저장은 버튼 클릭)
+// 체크박스 변경 즉시 메모리 반영
 window._onPermChange = function(cb) {
-  const role = cb.dataset.role;
-  const menu = cb.dataset.menu;
   if (!window._pendingPermChanges) window._pendingPermChanges = [];
-  window._pendingPermChanges.push({ role, menu, checked: cb.checked });
+  window._pendingPermChanges.push({ role: cb.dataset.role, menu: cb.dataset.menu, checked: cb.checked });
   document.getElementById('perm-save-msg').style.display = 'none';
 };
 
+// 저장: 현재 테넌트 역할의 체크 상태 전체 재저장
 window._saveRoleMenuPerms = async function() {
   if (!_sb()) { alert('DB 연결이 필요합니다.'); return; }
   const checks = document.querySelectorAll('[data-role][data-menu]');
   if (!checks.length) return;
 
-  // 현재 체크 상태 전체 수집
   const toInsert = [];
-  const allRoleCodes = MANAGED_ROLES.map(r => r.code);
-
+  const roleCodes = new Set();
   checks.forEach(cb => {
+    roleCodes.add(cb.dataset.role);
     if (cb.checked) toInsert.push({ role_code: cb.dataset.role, menu_id: cb.dataset.menu });
   });
 
   try {
-    // 관리 대상 role 전체 삭제 후 재삽입
-    await _sb().from('role_menu_permissions').delete().in('role_code', allRoleCodes);
+    await _sb().from('role_menu_permissions').delete().in('role_code', [...roleCodes]);
     if (toInsert.length) {
       const { error } = await _sb().from('role_menu_permissions').insert(toInsert);
       if (error) throw error;
     }
-    // 메모리 캐시 업데이트
     window._pendingPermChanges = [];
     if (typeof sbLoadRoleMenuPerms === 'function') {
       await sbLoadRoleMenuPerms();
@@ -1043,3 +1082,5 @@ window._saveRoleMenuPerms = async function() {
     alert('저장 실패: ' + e.message);
   }
 };
+
+

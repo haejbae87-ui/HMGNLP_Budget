@@ -112,7 +112,12 @@ async function renderRoleMgmt() {
       const safeName = r.name.replace(/'/g, "&#39;");
       const indent = depth * 32;
       html += `
-      <div style="display:flex;align-items:stretch;border-bottom:1px solid #F1F5F9">
+      <div style="display:flex;align-items:stretch;border-bottom:1px solid #F1F5F9;transition:all 0.2s"
+           draggable="true" 
+           ondragstart="event.dataTransfer.setData('text/plain', '${r.code}'); event.dataTransfer.effectAllowed='move';"
+           ondragover="event.preventDefault(); this.style.backgroundColor='#F1F5F9';"
+           ondragleave="this.style.backgroundColor='';"
+           ondrop="event.preventDefault(); this.style.backgroundColor=''; _rmDropRole(event, '${r.code}')">
         ${indent > 0 ? `
         <div style="width:${indent}px;flex-shrink:0;display:flex;align-items:center;justify-content:flex-end;padding-right:4px">
           <div style="width:20px;height:1px;background:#D1D5DB"></div>
@@ -122,7 +127,7 @@ async function renderRoleMgmt() {
           <div style="padding:7px 12px;border-radius:8px;background:${color}15;border:1.5px solid ${color}30;min-width:140px;text-align:center;flex-shrink:0">
             <div style="font-size:12px;font-weight:800;color:${color};line-height:1.3">
               ${r.name}
-              <button onclick="event.stopPropagation(); _rmEditRoleName('${r.code}', '${safeName}')" title="역할명 수정"
+              <button onclick="event.stopPropagation(); _openRoleModal(null, '${r.code}')" title="역할 정보 수정"
                 style="border:none;background:none;cursor:pointer;font-size:11px;padding:0 0 0 4px;opacity:0.6">✏️</button>
             </div>
             <div style="font-size:9px;color:${color};opacity:.65;margin-top:2px;font-family:monospace">${r.code}</div>
@@ -424,7 +429,7 @@ window._rmRemoveUser = async function(roleCode, userId, roleName) {
 // ──────────────────────────────────────────────────────────────────────────────
 // 역할 추가/수정 모달
 // ──────────────────────────────────────────────────────────────────────────────
-window._openRoleModal = async function(parentCode) {
+window._openRoleModal = async function(parentCode, editRoleCode = null) {
   // 현재 테넌트 역할 목록 로드 (부모 선택 드롭다운용)
   let roles = [];
   try { roles = await _sbGet('roles', { tenant_id: window._rmFilterTenant }) || []; } catch(e) {}
@@ -432,13 +437,33 @@ window._openRoleModal = async function(parentCode) {
     roles = TENANT_ROLES_MOCK.filter(r => r.tenant_id === window._rmFilterTenant);
   }
 
+  let mode = '추가';
+  let suggCode = window._rmFilterTenant + '_';
+  let initName = '';
+  let initDesc = '';
+  let initParent = parentCode || '';
+  let initService = 'budget';
+  let isReadOnlyCode = '';
+
+  if (editRoleCode) {
+    mode = '수정';
+    const target = roles.find(r => r.code === editRoleCode);
+    if (target) {
+      suggCode = target.code;
+      initName = target.name || '';
+      initDesc = target.description || '';
+      initParent = target.parent_role_id || '';
+      initService = target.service_type || 'budget';
+      isReadOnlyCode = 'readonly style="background:#F3F4F6;color:#9CA3AF" title="코드 수정 불가"';
+    }
+  }
+
   const parentOptions = [
     `<option value="">── 없음 (최상위 역할)</option>`,
-    ...roles.map(r => `<option value="${r.code}" ${r.code === parentCode ? 'selected' : ''}>${r.name} (${r.code})</option>`)
+    ...roles.filter(r => r.code !== editRoleCode).map(r => `<option value="${r.code}" ${r.code === initParent ? 'selected' : ''}>${r.name} (${r.code})</option>`)
   ].join('');
 
   const tenantId = window._rmFilterTenant || '';
-  const suggCode = tenantId + '_';
 
   // 기존 모달 제거
   document.getElementById('_roleModal')?.remove();
@@ -448,22 +473,32 @@ window._openRoleModal = async function(parentCode) {
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center';
   modal.innerHTML = `
   <div style="background:#fff;border-radius:14px;padding:28px 32px;width:480px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.25)">
-    <h3 style="font-size:16px;font-weight:800;margin:0 0 20px;color:#0F172A">🔐 역할 추가</h3>
+    <h3 style="font-size:16px;font-weight:800;margin:0 0 20px;color:#0F172A">🔐 역할 ${mode}</h3>
     <div style="display:grid;gap:14px">
       <label style="font-size:11px;font-weight:700;color:#64748B">역할 코드
-        <input id="_rm_code" value="${suggCode}" placeholder="예: HMC_budget_gen"
+        <input id="_rm_code" value="${suggCode}" placeholder="예: HMC_budget_gen" ${isReadOnlyCode}
           style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #CBD5E1;
                  border-radius:6px;font-size:12px;box-sizing:border-box">
       </label>
       <label style="font-size:11px;font-weight:700;color:#64748B">역할 이름
-        <input id="_rm_name" placeholder="예: HMC 일반예산 총괄관리자"
+        <input id="_rm_name" value="${initName}" placeholder="예: HMC 일반예산 총괄관리자"
           style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #CBD5E1;
                  border-radius:6px;font-size:12px;box-sizing:border-box">
       </label>
       <label style="font-size:11px;font-weight:700;color:#64748B">역할 설명
-        <input id="_rm_desc" placeholder="역할 범위를 간략히 설명하세요"
+        <input id="_rm_desc" value="${initDesc}" placeholder="역할 범위를 간략히 설명하세요"
           style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #CBD5E1;
                  border-radius:6px;font-size:12px;box-sizing:border-box">
+      </label>
+      <label style="font-size:11px;font-weight:700;color:#64748B">용도 (타입)
+        <select id="_rm_service_type"
+          style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #CBD5E1;
+                 border-radius:6px;font-size:12px;background:#fff;cursor:pointer">
+          <option value="budget" ${initService==='budget'?'selected':''}>지원제도 (예산)</option>
+          <option value="cert" ${initService==='cert'?'selected':''}>자격증</option>
+          <option value="language" ${initService==='language'?'selected':''}>어학점수</option>
+          <option value="badge" ${initService==='badge'?'selected':''}>뱃지</option>
+        </select>
       </label>
       <label style="font-size:11px;font-weight:700;color:#64748B">상위 역할
         <select id="_rm_parent"
@@ -493,12 +528,14 @@ window._saveNewRole = async function() {
   const name    = document.getElementById('_rm_name')?.value.trim();
   const desc    = document.getElementById('_rm_desc')?.value.trim();
   const parent  = document.getElementById('_rm_parent')?.value || null;
+  const sType   = document.getElementById('_rm_service_type')?.value || 'budget';
   if (!code || !name) { alert('역할 코드와 이름은 필수입니다.'); return; }
 
   const payload = {
     code, name, description: desc,
     parent_role_id: parent || null,
     tenant_id: window._rmFilterTenant || null,
+    service_type: sType,
     is_system: false, level: 10
   };
   try {
@@ -511,22 +548,23 @@ window._saveNewRole = async function() {
   } catch(e) { alert('저장 실패: ' + e.message); }
 };
 
-// ── 역할명 수정 기능 ──────────────────────────────────────────────────────────
-window._rmEditRoleName = async function(roleCode, currentName) {
-  const newName = prompt('새로운 역할명을 입력하세요:', currentName);
-  if (!newName || newName.trim() === currentName) return;
+// ── 역할 부모(상위) Drag & Drop ──────────────────────────────────────────────────────────
+window._rmDropRole = async function(event, targetParentCode) {
+  const sourceCode = event.dataTransfer.getData('text/plain');
+  if (!sourceCode || sourceCode === targetParentCode) return;
+  
+  if (!confirm(`'${sourceCode}' 역할의 그룹(상위)을 '${targetParentCode}'(으)로 변경하시겠습니까?\\n(저장 버튼 누를 필요 없이 즉시 DB에 적용됩니다)`)) return;
 
   try {
     if (typeof _sb === 'function' && _sb()) {
-      const { error } = await _sb().from('roles').update({ name: newName.trim() }).eq('code', roleCode);
+      const { error } = await _sb().from('roles').update({ parent_role_id: targetParentCode }).eq('code', sourceCode);
       if (error) throw error;
     } else {
-      // Mock 업데이트
-      const role = TENANT_ROLES_MOCK.find(r => r.code === roleCode);
-      if (role) role.name = newName.trim();
+      const role = TENANT_ROLES_MOCK.find(r => r.code === sourceCode);
+      if (role) role.parent_role_id = targetParentCode;
     }
     renderRoleMgmt(); // 성공 시 리렌더링
-  } catch(e) { 
-    alert('역할명 수정 중 오류가 발생했습니다.\\n' + e.message);
+  } catch(e) {
+    alert("역할 그룹 변경 중 오류가 발생했습니다.\\n" + e.message);
   }
 };

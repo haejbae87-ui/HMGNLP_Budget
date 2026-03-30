@@ -38,6 +38,7 @@ async function _voSaveToDB(tpl) {
       name:        tpl.name,
       purpose:     tpl.purpose || 'edu_support',
       service_type: tpl.serviceType || 'budget',
+      owner_role_id: tpl.ownerRoleId || null,
       tree_data:   tpl.tree,
       updated_at:  new Date().toISOString()
     };
@@ -106,8 +107,16 @@ async function renderVirtualOrg() {
           name:        row.name,
           purpose:     row.purpose || 'edu_support',
           serviceType: row.service_type || 'budget',
+          ownerRoleId: row.owner_role_id || null, // 담당 역할 맵핑
           tree:        row.tree_data || { hqs: [] },
-        })).filter(t => (t.serviceType || 'budget') === _voServiceType);
+        })).filter(t => {
+          if ((t.serviceType || 'budget') !== _voServiceType) return false;
+          // 조회 권한 필터
+          if (role === 'platform_admin' || role === 'tenant_global_admin') return true;
+          if (!t.ownerRoleId) return true; // 담당 역할 미지정이면 모두 보임
+          const myCode = boCurrentPersona.roleCode || `${_voTenantId}_${role.replace('_global_admin', '_admin')}`;
+          return t.ownerRoleId === myCode;
+        });
       } else { _voMyTemplates = []; }
     } else { _voMyTemplates = []; }
   } catch(e) {
@@ -348,7 +357,7 @@ function _renderVirtualOrgFull(filterBar) {
         </label>
         <label id="vo-purpose-btn-cert" onclick="_voSelectPurpose('certificate')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid #E5E7EB;border-radius:10px;cursor:pointer;background:#F9FAFB">
           <span style="font-size:18px">🏆</span>
-          <div><div style="font-size:12px;font-weight:800;color:#374151">자겝증</div><div style="font-size:10px;color:#64748B">자격증 취득 지원</div></div>
+          <div><div style="font-size:12px;font-weight:800;color:#374151">자격증</div><div style="font-size:10px;color:#64748B">자격증 취득 지원</div></div>
         </label>
         <label id="vo-purpose-btn-badge" onclick="_voSelectPurpose('badge')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid #E5E7EB;border-radius:10px;cursor:pointer;background:#F9FAFB">
           <span style="font-size:18px">🎖️</span>
@@ -357,10 +366,14 @@ function _renderVirtualOrgFull(filterBar) {
       </div>
       <input type="hidden" id="vo-tpl-purpose" value="edu_support">
     </div>
-    <div style="margin-bottom:24px">
+    <div style="margin-bottom:14px">
       <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">가상조직명 *</label>
       <input id="vo-tpl-name" type="text" placeholder="예) HMC 일반교육예산 가상조직"
         style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;outline:none">
+    </div>
+    <div style="margin-bottom:24px">
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">담당 역할 맵핑</label>
+      <select id="vo-tpl-owner" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;outline:none;background:#fff;cursor:pointer"></select>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="bo-btn-secondary bo-btn-sm" onclick="voCloseModal('vo-tpl-create-modal')">취소</button>
@@ -373,14 +386,18 @@ function _renderVirtualOrgFull(filterBar) {
 <div id="vo-tpl-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:16px;width:400px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
     <div style="display:flex;justify-content:space-between;margin-bottom:18px">
-      <h3 style="font-size:15px;font-weight:800;margin:0">✏️ 가상조직 이름 수정</h3>
+      <h3 style="font-size:15px;font-weight:800;margin:0">✏️ 가상조직 기본설정 수정</h3>
       <button onclick="voCloseModal('vo-tpl-edit-modal')" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">✕</button>
     </div>
     <input type="hidden" id="vo-tpl-edit-id">
-    <div style="margin-bottom:24px">
+    <div style="margin-bottom:14px">
       <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">가상조직명 *</label>
       <input id="vo-tpl-edit-name" type="text" placeholder="새 이름 입력"
         style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;outline:none">
+    </div>
+    <div style="margin-bottom:24px">
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">담당 역할 맵핑</label>
+      <select id="vo-tpl-edit-owner" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;outline:none;background:#fff;cursor:pointer"></select>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="bo-btn-secondary bo-btn-sm" onclick="voCloseModal('vo-tpl-edit-modal')">취소</button>
@@ -388,47 +405,7 @@ function _renderVirtualOrgFull(filterBar) {
     </div>
   </div>
 </div>
-    <!-- 용도 선택 -->
-    <div style="margin-bottom:14px">
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">용도 <span style="color:#EF4444">*</span></label>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <label id="vo-purpose-btn-edu" onclick="_voSelectPurpose('edu_support')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid #3B82F6;border-radius:10px;cursor:pointer;background:#EFF6FF">
-          <span style="font-size:18px">📚</span>
-          <div><div style="font-size:12px;font-weight:800;color:#1D4ED8">교육지원</div><div style="font-size:10px;color:#64748B">예산 교육지원 조직</div></div>
-        </label>
-        <label id="vo-purpose-btn-lang" onclick="_voSelectPurpose('language')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid #E5E7EB;border-radius:10px;cursor:pointer;background:#F9FAFB">
-          <span style="font-size:18px">🌐</span>
-          <div><div style="font-size:12px;font-weight:800;color:#374151">어학</div><div style="font-size:10px;color:#64748B">어학연수 지원 조직</div></div>
-        </label>
-        <label id="vo-purpose-btn-cert" onclick="_voSelectPurpose('certificate')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid #E5E7EB;border-radius:10px;cursor:pointer;background:#F9FAFB">
-          <span style="font-size:18px">🏆</span>
-          <div><div style="font-size:12px;font-weight:800;color:#374151">자격증</div><div style="font-size:10px;color:#64748B">자격증 취득 지원</div></div>
-        </label>
-        <label id="vo-purpose-btn-badge" onclick="_voSelectPurpose('badge')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid #E5E7EB;border-radius:10px;cursor:pointer;background:#F9FAFB">
-          <span style="font-size:18px">🎖️</span>
-          <div><div style="font-size:12px;font-weight:800;color:#374151">뱃지</div><div style="font-size:10px;color:#64748B">배지 발급 조직</div></div>
-        </label>
-      </div>
-      <input type="hidden" id="vo-tpl-purpose" value="edu_support">
-    </div>
-    <div style="margin-bottom:14px">
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">구조 유형</label>
-      <select id="vo-tpl-type" style="width:100%;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;outline:none">
-        <option value="general">일반 형태 (본부/팀)</option>
-        <option value="rnd">R&D 형태 (센터/팀)</option>
-      </select>
-    </div>
-    <div style="margin-bottom:24px">
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">템플릿명 *</label>
-      <input id="vo-tpl-name" type="text" placeholder="예) 전사 공통 교육예산 템플릿"
-        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;outline:none">
-    </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button class="bo-btn-secondary bo-btn-sm" onclick="voCloseModal('vo-tpl-create-modal')">취소</button>
-      <button class="bo-btn-primary bo-btn-sm" onclick="voConfirmCreateTemplate()">생성</button>
-    </div>
-  </div>
-</div>
+
 
 <!-- 그룹 생성/수정 모달 (단순화: 담당자 연결 제거) -->
 <div id="vo-group-create-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
@@ -550,22 +527,43 @@ function voSelectTemplate(id) {
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
 }
 
-function voOpenCreateTemplate() {
+// ── 담당 역할 옵션 로드 유틸리티 ────────────────────────────────────────────────
+async function _voLoadRolesOptions(selectedVal) {
+  let opts = '<option value="">── 담당 역할 없음 (모두 접근 가능) ──</option>';
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    let roles = [];
+    if (sb) {
+      const { data } = await sb.from('roles').select('code, name').eq('tenant_id', _voTenantId);
+      if (data) roles = data;
+    } else if (typeof TENANT_ROLES_MOCK !== 'undefined') {
+      roles = TENANT_ROLES_MOCK.filter(r => r.tenant_id === _voTenantId);
+    }
+    roles.forEach(r => {
+      opts += `<option value="${r.code}" ${r.code === selectedVal ? 'selected' : ''}>${r.name} (${r.code})</option>`;
+    });
+  } catch(e) {}
+  return opts;
+}
+
+// ── 템플릿 생성 / 수정 ───────────────────────────────────────────────────
+async function voOpenCreateTemplate() {
   const el = document.getElementById('vo-tpl-name');
   if (el) el.value = '';
-  const t = document.getElementById('vo-tpl-type');
-  if (t) t.value = 'general';
+  const ownerSel = document.getElementById('vo-tpl-owner');
+  if (ownerSel) ownerSel.innerHTML = await _voLoadRolesOptions('');
   document.getElementById('vo-tpl-create-modal').style.display = 'flex';
 }
 
 function voConfirmCreateTemplate() {
   const name    = document.getElementById('vo-tpl-name').value.trim();
   const purpose = document.getElementById('vo-tpl-purpose')?.value || 'edu_support';
+  const ownerId = document.getElementById('vo-tpl-owner')?.value || null;
   if (!name) { alert('가상조직명을 입력해주세요.'); return; }
   const id   = 'TPL_' + Date.now();
   const tree = { label: name, hqs: [] };  // 구조유형 제거: 모두 hqs 형태
-  const newTpl = { id, tenantId: _voTenantId, serviceType: _voServiceType, purpose, name, tree };
-  _voMyTemplates.push(newTpl);   // 로컀에 먼저 반영
+  const newTpl = { id, tenantId: _voTenantId, serviceType: _voServiceType, purpose, ownerRoleId: ownerId, name, tree };
+  _voMyTemplates.push(newTpl);   // 로콜에 먼저 반영
   _voActiveTemplateId = id;
   voCloseModal('vo-tpl-create-modal');
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
@@ -573,23 +571,28 @@ function voConfirmCreateTemplate() {
 }
 
 // ── 가상조직 이름 수정 ──────────────────────────────────────────────────
-function voOpenEditTemplate(tplId) {
+async function voOpenEditTemplate(tplId) {
   const tpl = _voMyTemplates.find(t => t.id === tplId);
   if (!tpl) return;
   document.getElementById('vo-tpl-edit-id').value  = tplId;
   document.getElementById('vo-tpl-edit-name').value = tpl.name;
+  const ownerSel = document.getElementById('vo-tpl-edit-owner');
+  if (ownerSel) ownerSel.innerHTML = await _voLoadRolesOptions(tpl.ownerRoleId || '');
   document.getElementById('vo-tpl-edit-modal').style.display = 'flex';
 }
 
 async function voConfirmEditTemplate() {
   const tplId   = document.getElementById('vo-tpl-edit-id')?.value;
   const newName = document.getElementById('vo-tpl-edit-name')?.value.trim();
+  const ownerId = document.getElementById('vo-tpl-edit-owner')?.value || null;
   if (!newName) { alert('이름을 입력해주세요.'); return; }
   const tpl = _voMyTemplates.find(t => t.id === tplId);
   if (!tpl) return;
   tpl.name = newName;
+  tpl.ownerRoleId = ownerId;
   voCloseModal('vo-tpl-edit-modal');
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
+  // owner_role_id 도 DB에 저장되도록 upsert
   await _voAutoSave(tpl);
 }
 

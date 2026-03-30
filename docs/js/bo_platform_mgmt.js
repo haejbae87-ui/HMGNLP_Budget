@@ -1,4 +1,4 @@
-// ─── 플랫폼 관리 메뉴: 테넌트/조직/사용자/역할 ─────────────────────────────
+﻿// ─── 플랫폼 관리 메뉴: 테넌트/조직/사용자/역할 ─────────────────────────────
 // Supabase에서 실시간 데이터 로드, 실패 시 mock fallback
 
 // ── 공통 헬퍼 ──────────────────────────────────────────────────────────────
@@ -771,45 +771,112 @@ async function renderRoleMgmt() {
   const el = document.getElementById('bo-content');
   el.innerHTML = '<div class="bo-fade" style="padding:20px"><p style="color:#9CA3AF">로딩 중...</p></div>';
 
-  const roles = await _sbGet('roles') || [
-    {code:'learner',name:'학습자',descr:'기본 역할. 모든 사용자에게 자동 부여',level:99},
-    {code:'platform_admin',name:'플랫폼총괄관리자',descr:'전체 플랫폼 설정·권한 관리',level:1},
-    {code:'tenant_admin',name:'테넌트총괄관리자',descr:'소속 회사 전체 관리',level:2},
-    {code:'budget_admin',name:'예산총괄관리자',descr:'격리그룹·예산계정 총괄',level:3},
-    {code:'budget_ops',name:'예산운영담당자',descr:'특정 격리그룹 내 예산 운영',level:4},
+  const persona = boCurrentPersona;
+  const isPlatform = persona.role === 'platform_admin';
+  const tenants = typeof TENANTS !== 'undefined' ? TENANTS.filter(t => t.id !== 'SYSTEM') : [];
+
+  // 현재 테넌트 필터 결정
+  if (!window._rmFilterTenant) {
+    window._rmFilterTenant = isPlatform ? (tenants[0]?.id || '') : (persona.tenantId || '');
+  }
+  const selTenantId = window._rmFilterTenant;
+
+  // 해당 테넌트 역할만 조회
+  const allRoles = await _sbGet('roles') || [
+    // fallback mock
+    { id: 'platform_admin', code: 'platform_admin', name: '플랫폼총괄관리자', description: '전체 플랫폼 설정·권한 관리', parent_role_id: null, tenant_id: null, is_system: true },
+    { id: 'hmc_tenant_admin', code: 'hmc_tenant_admin', name: 'HMC 테넌트총괄관리자', description: 'HMC 소속 회사 전체 관리', parent_role_id: null, tenant_id: 'HMC', is_system: false },
+    { id: 'hmc_budget_admin', code: 'hmc_budget_admin', name: 'HMC 예산총괄관리자(일반)', description: 'HMC 일반예산 총괄', parent_role_id: 'hmc_tenant_admin', tenant_id: 'HMC', is_system: false },
+    { id: 'hmc_budget_rnd', code: 'hmc_budget_rnd', name: 'HMC 예산총괄관리자(R&D)', description: 'HMC R&D예산 총괄', parent_role_id: 'hmc_tenant_admin', tenant_id: 'HMC', is_system: false },
+    { id: 'hmc_budget_ops1', code: 'hmc_budget_ops1', name: 'HMC 예산운영담당자(A팀)', description: '일반예산 A팀 운영', parent_role_id: 'hmc_budget_admin', tenant_id: 'HMC', is_system: false },
+    { id: 'hmc_budget_ops2', code: 'hmc_budget_ops2', name: 'HMC 예산운영담당자(B팀)', description: '일반예산 B팀 운영', parent_role_id: 'hmc_budget_admin', tenant_id: 'HMC', is_system: false },
   ];
 
-  // 역할별 사용자 수
+  const tenantRoles = allRoles.filter(r => r.tenant_id === selTenantId);
   const allUserRoles = await _sbGet('user_roles') || [];
-  function countByRole(code) { return new Set(allUserRoles.filter(r=>r.role_code===code).map(r=>r.user_id)).size; }
+
+  function countByRole(id) {
+    return new Set(allUserRoles.filter(r => r.role_id === id || r.role_code === id).map(r => r.user_id)).size;
+  }
+
+  // 역할 트리 재귀 렌더링 (들여쓰기 포함)
+  const renderedIds = new Set();
+  function buildTree(parentId, depth = 0) {
+    const children = tenantRoles.filter(r => (r.parent_role_id || null) === parentId);
+    if (!children.length) return '';
+    let html = '';
+    const levelColors = ['#4F46E5', '#0369A1', '#059669', '#D97706', '#7C3AED'];
+    children.forEach(r => {
+      renderedIds.add(r.id);
+      const color = levelColors[Math.min(depth, levelColors.length - 1)];
+      const indent = depth * 28;
+      const cnt = countByRole(r.id);
+      html += `
+      <div style="display:flex;align-items:center;gap:0;border-bottom:1px solid #F1F5F9">
+        ${indent > 0 ? `<div style="width:${indent}px;flex-shrink:0;border-left:2px solid #E2E8F0;margin-left:12px;border-bottom:1px solid #E2E8F0;height:24px"></div>` : ''}
+        <div style="flex:1;display:flex;align-items:center;gap:16px;padding:14px 18px;background:${depth===0?'#F8FAFC':'#fff'}">
+          <div style="padding:8px 14px;border-radius:8px;background:${color}18;border:1px solid ${color}30;min-width:110px;text-align:center">
+            <div style="font-size:12px;font-weight:800;color:${color}">${r.name}</div>
+            <div style="font-size:10px;color:${color};opacity:.7;margin-top:1px">${r.code}</div>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:12px;color:#6B7280">${r.description || '설명 없음'}</div>
+          </div>
+          <div style="text-align:center;min-width:56px">
+            <div style="font-size:20px;font-weight:900;color:#111827">${cnt}</div>
+            <div style="font-size:10px;color:#9CA3AF">배정 인원</div>
+          </div>
+          <button onclick="_viewRoleUsers('${r.id}')"
+            style="padding:6px 12px;border:1px solid #E2E8F0;border-radius:6px;background:#fff;font-size:11px;font-weight:700;cursor:pointer;color:#374151">
+            사용자 조회
+          </button>
+        </div>
+      </div>`;
+      html += buildTree(r.id, depth + 1);
+    });
+    return html;
+  }
+
+  let treeHtml = buildTree(null, 0);
+  // 부모가 현재 테넌트 외부인 경우도 추가
+  tenantRoles.forEach(r => { if (!renderedIds.has(r.id)) treeHtml += buildTree(r.parent_role_id, 0); });
+
+  if (!treeHtml) treeHtml = `<div style="padding:40px;text-align:center;color:#9CA3AF;font-size:13px">이 테넌트에 등록된 역할이 없습니다.</div>`;
+
+  const tenantSelect = isPlatform ? `
+    <select onchange="window._rmFilterTenant=this.value;renderRoleMgmt()"
+      style="padding:6px 12px;border:1.5px solid #CBD5E1;border-radius:6px;font-size:12px;font-weight:700;color:#1E293B;cursor:pointer">
+      ${tenants.map(t => `<option value="${t.id}" ${t.id === selTenantId ? 'selected' : ''}>${t.name || t.id}</option>`).join('')}
+    </select>` : `<span style="font-size:13px;font-weight:800;color:#1E293B">${selTenantId} 역할 현황</span>`;
 
   el.innerHTML = `
 <div class="bo-fade" style="max-width:960px">
-  <div style="margin-bottom:24px">
-    <h1 style="font-size:20px;font-weight:900;color:#111827;margin:0">🔐 역할 관리</h1>
-    <p style="font-size:12px;color:#6B7280;margin:4px 0 0">플랫폼에서 사용하는 역할 정의 및 배정 현황입니다.</p>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+    <div>
+      <h1 style="font-size:18px;font-weight:800;color:#0F172A;margin:0">🔐 역할 관리</h1>
+      <p style="font-size:12px;color:#64748B;margin:4px 0 0">테넌트별 독립 역할 계층 구조를 관리합니다.</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      ${tenantSelect}
+      <button onclick="_openRoleModal()"
+        style="padding:8px 16px;background:#0B132B;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">
+        + 역할 추가
+      </button>
+    </div>
   </div>
-  <div style="display:grid;gap:12px">
-    ${roles.sort((a,b)=>a.level-b.level).map(r=>`
-    <div style="background:white;border:1.5px solid #E5E7EB;border-radius:14px;padding:18px 22px;display:flex;align-items:center;gap:18px">
-      <div style="padding:10px 14px;border-radius:10px;background:${_roleBg(r.code)};min-width:120px;text-align:center">
-        <div style="font-size:13px;font-weight:900;color:${_roleColor(r.code)}">${r.name}</div>
-        <div style="font-size:10px;color:${_roleColor(r.code)};opacity:.7;margin-top:2px">Lv.${r.level}</div>
-      </div>
-      <div style="flex:1">
-        <div style="font-size:12px;color:#374151;font-weight:600">${r.code}</div>
-        <div style="font-size:12px;color:#6B7280;margin-top:2px">${r.descr||''}</div>
-      </div>
-      <div style="text-align:center;min-width:70px">
-        <div style="font-size:22px;font-weight:900;color:#111827">${countByRole(r.code)}</div>
-        <div style="font-size:10px;color:#9CA3AF">배정 인원</div>
-      </div>
-      <button onclick="_viewRoleUsers('${r.code}')" style="padding:8px 14px;border:1.5px solid #E5E7EB;border-radius:8px;background:white;font-size:11px;font-weight:700;cursor:pointer;color:#374151">사용자 조회</button>
-    </div>`).join('')}
+  <div style="background:white;border:1px solid #E2E8F0;border-radius:10px;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:16px;padding:10px 18px;background:#F8FAFC;border-bottom:2px solid #334155">
+      <div style="min-width:110px;font-size:11px;font-weight:800;color:#334155">역할명 / 코드</div>
+      <div style="flex:1;font-size:11px;font-weight:800;color:#334155">설명</div>
+      <div style="min-width:56px;font-size:11px;font-weight:800;color:#334155;text-align:center">배정인원</div>
+      <div style="width:80px"></div>
+    </div>
+    ${treeHtml}
   </div>
-  <div id="role-users-panel" style="display:none;margin-top:20px;background:#F9FAFB;border-radius:12px;padding:16px"></div>
+  <div id="role-users-panel" style="display:none;margin-top:16px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:16px"></div>
 </div>`;
 }
+
 
 window._viewRoleUsers = async function(roleCode) {
   const panel = document.getElementById('role-users-panel');
@@ -840,7 +907,7 @@ const ALL_MENUS = [
   { id: 'user-mgmt',        label: '사용자 관리',            sys: 'BO', depth1: '플랫폼 총괄' },
   { id: 'role-mgmt',        label: '역할 관리',              sys: 'BO', depth1: '플랫폼 총괄' },
   { id: 'role-menu-perms',  label: '역할별 메뉴 권한',        sys: 'BO', depth1: '플랫폼 총괄' },
-  { id: 'isolation-groups', label: '격리그룹 관리',          sys: 'BO', depth1: '테넌트 운영' },
+  { id: 'isolation-groups', label: '교육지원도메인 관리',          sys: 'BO', depth1: '테넌트 운영' },
   { id: 'budget-account',   label: '예산 계정 관리',          sys: 'BO', depth1: '테넌트 운영' },
   { id: 'virtual-org',      label: '가상조직 템플릿',         sys: 'BO', depth1: '테넌트 운영' },
   { id: 'form-builder',     label: '교육양식마법사',          sys: 'BO', depth1: '테넌트 운영' },

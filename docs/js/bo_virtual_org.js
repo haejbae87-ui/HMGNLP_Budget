@@ -53,8 +53,8 @@ function renderVirtualOrg() {
 
   // 격리그룹 초기화
   const personaKey = Object.keys(BO_PERSONAS).find(k => BO_PERSONAS[k] === boCurrentPersona) || '';
-  const allGroups  = typeof ISOLATION_GROUPS !== 'undefined'
-    ? ISOLATION_GROUPS.filter(g => g.tenantId === _voTenantId) : [];
+  const allGroups  = typeof EDU_SUPPORT_DOMAINS !== 'undefined'
+    ? EDU_SUPPORT_DOMAINS.filter(g => g.tenantId === _voTenantId) : [];
   const visGroups  = (role === 'budget_global_admin')
     ? allGroups.filter(g => (g.globalAdminKeys||[]).includes(personaKey))
     : allGroups;
@@ -114,11 +114,11 @@ function renderVirtualOrg() {
 // ─── 격리그룹 기준 템플릿 조회 ────────────────────────────────────────────────
 function _voGetTemplatesByGroup(groupId, tenantId) {
   if (!groupId) {
-    return typeof VIRTUAL_ORG_TEMPLATES !== 'undefined'
-      ? VIRTUAL_ORG_TEMPLATES.filter(t => t.tenantId === tenantId) : [];
+    return typeof VIRTUAL_EDU_ORGS !== 'undefined'
+      ? VIRTUAL_EDU_ORGS.filter(t => t.tenantId === tenantId) : [];
   }
-  return typeof VIRTUAL_ORG_TEMPLATES !== 'undefined'
-    ? VIRTUAL_ORG_TEMPLATES.filter(t => t.isolationGroupId === groupId) : [];
+  return typeof VIRTUAL_EDU_ORGS !== 'undefined'
+    ? VIRTUAL_EDU_ORGS.filter(t => t.domainId === groupId) : [];
 }
 
 // ─── 내부 리렌더 (필터바 유지) ────────────────────────────────────────────────
@@ -460,9 +460,9 @@ function voConfirmCreateTemplate() {
   const currentGroupId = _voGroupId;
   const newTpl = {
     id, tenantId: _voTenantId || boCurrentPersona.tenantId,
-    isolationGroupId: currentGroupId || null, name, tree
+    domainId: currentGroupId || null, name, tree
   };
-  VIRTUAL_ORG_TEMPLATES.push(newTpl);
+  VIRTUAL_EDU_ORGS.push(newTpl);
   _voActiveTemplateId = id;
   _voMyTemplates = _voGetTemplatesByGroup(_voGroupId, _voTenantId);
   voCloseModal('vo-tpl-create-modal');
@@ -472,9 +472,9 @@ function voConfirmCreateTemplate() {
 
 function voRemoveTemplate(id) {
   if (!confirm('이 템플릿을 삭제하시겠습니까? (연결된 예산 정책도 무효화될 수 있습니다.)')) return;
-  const idx = VIRTUAL_ORG_TEMPLATES.findIndex(t => t.id === id);
+  const idx = VIRTUAL_EDU_ORGS.findIndex(t => t.id === id);
   if (idx > -1) {
-    VIRTUAL_ORG_TEMPLATES.splice(idx, 1);
+    VIRTUAL_EDU_ORGS.splice(idx, 1);
     if (_voActiveTemplateId === id) _voActiveTemplateId = null;
     _voMyTemplates = _voGetTemplatesByGroup(_voGroupId, _voTenantId);
     document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
@@ -522,7 +522,7 @@ let _voSelectedMgrKeys = [];
 // 담당자 피커 렌더 (검색+체크박스)
 function _voRenderMgrPicker(selectedKeys, filter = '') {
   const myGroup = _voGroupId
-    ? (typeof ISOLATION_GROUPS !== 'undefined' ? ISOLATION_GROUPS.find(g => g.id === _voGroupId) : null)
+    ? (typeof EDU_SUPPORT_DOMAINS !== 'undefined' ? EDU_SUPPORT_DOMAINS.find(g => g.id === _voGroupId) : null)
     : null;
   const opManagerKeys = myGroup ? (myGroup.opManagerKeys || []) : [];
 

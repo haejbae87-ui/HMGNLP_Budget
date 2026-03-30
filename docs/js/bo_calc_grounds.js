@@ -34,7 +34,7 @@ function _cgVisibleBadge(val = 'both') {
 function _cgGetItems(tenantId, groupId, accountCode) {
   return CALC_GROUNDS_MASTER.filter(g => {
     if (g.tenantId && g.tenantId !== tenantId) return false;
-    if (g.isolationGroupId && g.isolationGroupId !== groupId) return false;
+    if (g.domainId && g.domainId !== groupId) return false;
     if (g.accountCode && g.accountCode !== accountCode) return false;
     return true;
   });
@@ -46,8 +46,8 @@ function renderCalcGrounds() {
   const tenantName = (typeof TENANTS !== 'undefined' ? TENANTS.find(t => t.id === tenantId) : null)?.name || tenantId;
 
   // 이 테넌트에 속한 격리그룹
-  const myGroups = (typeof ISOLATION_GROUPS !== 'undefined')
-    ? ISOLATION_GROUPS.filter(g => g.tenantId === tenantId)
+  const myGroups = (typeof EDU_SUPPORT_DOMAINS !== 'undefined')
+    ? EDU_SUPPORT_DOMAINS.filter(g => g.tenantId === tenantId)
     : [];
 
   if (!_cgFilterGroup && myGroups.length) _cgFilterGroup = myGroups[0].id;
@@ -139,7 +139,7 @@ function renderCalcGrounds() {
 function cgOnGroupChange(groupId) {
   _cgFilterGroup = groupId;
   const tenantId = boCurrentPersona.tenantId || 'HMC';
-  const g = ISOLATION_GROUPS.find(g => g.id === groupId);
+  const g = EDU_SUPPORT_DOMAINS.find(g => g.id === groupId);
   _cgFilterAccount = g?.ownedAccounts?.[0] || null;
   // acct select 새로 채우기
   const sel = document.getElementById('cg-sel-acct');
@@ -165,7 +165,7 @@ function _renderCgTable(tenantId, groupId, accountCode) {
   // 범위 뱃지
   const scopeLabel = item => {
     if (item.accountCode) return `<span style="font-size:9px;background:#FDF2F8;color:#9D174D;padding:1px 5px;border-radius:4px;font-weight:800">계정전용</span>`;
-    if (item.isolationGroupId) return `<span style="font-size:9px;background:#F5F3FF;color:#7C3AED;padding:1px 5px;border-radius:4px;font-weight:800">그룹공유</span>`;
+    if (item.domainId) return `<span style="font-size:9px;background:#F5F3FF;color:#7C3AED;padding:1px 5px;border-radius:4px;font-weight:800">그룹공유</span>`;
     return `<span style="font-size:9px;background:#F3F4F6;color:#6B7280;padding:1px 5px;border-radius:4px;font-weight:800">테넌트공유</span>`;
   };
 
@@ -251,7 +251,7 @@ function cgOpenModal(id) {
   _cgEditId = id || null;
   const item = id ? CALC_GROUNDS_MASTER.find(g => g.id === id) : null;
   const tenantId = boCurrentPersona.tenantId || 'HMC';
-  const myGroups = ISOLATION_GROUPS.filter(g => g.tenantId === tenantId);
+  const myGroups = EDU_SUPPORT_DOMAINS.filter(g => g.tenantId === tenantId);
 
   document.getElementById('cg-modal-title').textContent = id ? '산출 근거 항목 수정' : '산출 근거 항목 추가';
   document.getElementById('cg-modal-body').innerHTML = _cgModalBody(item, tenantId, myGroups);
@@ -265,9 +265,9 @@ function _cgModalBody(item, tenantId, myGroups) {
   const visFor = item?.visibleFor || 'both';
 
   // 그룹+계정 드롭다운 (계층 지정)
-  const groupOpts = myGroups.map(g => `<option value="${g.id}" ${item?.isolationGroupId===g.id?'selected':''}>${g.name} (${g.id})</option>`).join('');
+  const groupOpts = myGroups.map(g => `<option value="${g.id}" ${item?.domainId===g.id?'selected':''}>${g.name} (${g.id})</option>`).join('');
   
-  const selectedGrpId = item?.isolationGroupId || _cgFilterGroup;
+  const selectedGrpId = item?.domainId || _cgFilterGroup;
   const selectedGrp   = myGroups.find(g => g.id === selectedGrpId);
   const acctOpts      = (selectedGrp?.ownedAccounts||[]).map(code =>
     `<option value="${code}" ${item?.accountCode===code?'selected':''}>${code}</option>`
@@ -398,7 +398,7 @@ function _cgModalBody(item, tenantId, myGroups) {
 
 function cgOnModalGroupChange(groupId) {
   const tenantId = boCurrentPersona.tenantId || 'HMC';
-  const g = (typeof ISOLATION_GROUPS !== 'undefined' ? ISOLATION_GROUPS.find(x => x.id === groupId) : null);
+  const g = (typeof EDU_SUPPORT_DOMAINS !== 'undefined' ? EDU_SUPPORT_DOMAINS.find(x => x.id === groupId) : null);
   const acctSel = document.getElementById('cg-acct');
   if (acctSel) {
     const accts = g?.ownedAccounts || [];
@@ -445,7 +445,7 @@ function cgSaveItem() {
     visibleFor:    document.querySelector('input[name="cg-visible"]:checked')?.value || 'both',
     active:        true,
     tenantId,
-    isolationGroupId: groupId || undefined,
+    domainId: groupId || undefined,
     accountCode:   accountCode || undefined,
     sortOrder:     Number(document.getElementById('cg-order')?.value) || 99,
   };
@@ -468,12 +468,12 @@ function cgToggleActive(id) {
 }
 
 // ─── 헬퍼: 양식 미리보기 및 FO 신청화면에서 세부산출근거 항목 가져오기 ─────────
-// tenantId, isolationGroupId, accountCode 계층 순으로 항목 조합
+// tenantId, domainId, accountCode 계층 순으로 항목 조합
 function sbGetCalcGroundsForForm(tenantId, groupId, accountCode) {
   return CALC_GROUNDS_MASTER.filter(g => {
     if (g.active === false) return false;
     if (g.tenantId && g.tenantId !== tenantId) return false;
-    if (g.isolationGroupId && g.isolationGroupId !== groupId) return false;
+    if (g.domainId && g.domainId !== groupId) return false;
     if (g.accountCode && g.accountCode !== accountCode) return false;
     return true;
   });

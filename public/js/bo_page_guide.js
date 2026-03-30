@@ -19,7 +19,7 @@ const PAGE_GUIDE_DATA = {
                 '저장된 정책은 DB service_policies 테이블에 저장',
                 '삭제된 정책은 연결된 계획·신청에 영향 없음 (스냅샷 보존)'] },
       { icon: '🗄️', label: 'DB 힌트', color: '#0369A1',
-        items: ['service_policies: id, tenant_id, isolation_group_id, account_codes[], purpose, edu_types[]',
+        items: ['service_policies: id, tenant_id, domain_id, account_codes[], purpose, edu_types[]',
                 'stage_form_ids: {plan, apply, result} → form_templates.id',
                 'approval_config: {plan/apply/result: {thresholds[], finalApproverKey}}'] }
     ]
@@ -37,7 +37,7 @@ const PAGE_GUIDE_DATA = {
         items: ['그룹 간 계정 공유 불가 (격리 원칙)',
                 '총괄 담당자는 budget_admin 역할을 가진 사용자만 지정 가능'] },
       { icon: '🗄️', label: 'DB 힌트', color: '#0369A1',
-        items: ['isolation_groups: id, tenant_id, name, global_admin_keys[], owned_accounts[]',
+        items: ['edu_support_domains: id, tenant_id, name, global_admin_keys[], owned_accounts[]',
                 'user_roles: user_id, role_code(budget_admin|budget_ops), scope_id'] }
     ]
   },
@@ -54,7 +54,7 @@ const PAGE_GUIDE_DATA = {
         items: ['양식 type(plan/apply/result)이 정책 Stage 연결의 필수 조건',
                 '비활성(active:false) 양식은 정책 위저드에서 표시 안 됨'] },
       { icon: '🗄️', label: 'DB 힌트', color: '#0369A1',
-        items: ['form_templates: id, tenant_id, isolation_group_id, account_code, type(plan|apply|result)',
+        items: ['form_templates: id, tenant_id, domain_id, account_code, type(plan|apply|result)',
                 'purpose, edu_type, active, fields[]'] }
     ]
   },
@@ -69,7 +69,7 @@ const PAGE_GUIDE_DATA = {
       { icon: '📏', label: '정책', color: '#059669',
         items: ['템플릿은 격리그룹과 1:N 관계', '동일 팀이 여러 템플릿에 포함 가능'] },
       { icon: '🗄️', label: 'DB 힌트', color: '#0369A1',
-        items: ['virtual_org_templates: id, tenant_id, name, isolation_group_id',
+        items: ['virtual_edu_orgs: id, tenant_id, name, domain_id',
                 'virtual_org_nodes: id, template_id, org_id, parent_node_id, allowed_job_types[]'] }
     ]
   },

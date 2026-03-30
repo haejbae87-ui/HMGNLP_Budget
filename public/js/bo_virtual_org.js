@@ -3,11 +3,15 @@
 // 기능추가: 플랫폼총괄·테넌트총괄 역할별 필터바 (테넌트/격리그룹 선택)
 
 let _voActiveTemplateId = null;
-let _voMyTemplates      = [];      // ★ 전역으로 이동 (기존 로컬변수 버그 수정)
+let _voMyTemplates      = [];
 let _voCurrentGroup     = null;
 let _voSelectedTeams    = new Set();
 let _voEditGroupIdx     = null;
 let _voCoopGroupIdx     = null;
+
+let _voServiceType      = 'budget'; // 기본 제도 유형
+let _voTenantId         = null;
+
 
 // ─── 자동 저장 헬퍼 (변경 즉시 DB에 upsert) ──────────────────────────────────
 async function _voAutoSave(tpl) {
@@ -30,9 +34,6 @@ async function _voAutoSave(tpl) {
   } catch(e) { console.warn('[VOrg] DB 저장 실패 (로컬 반영은 유지):', e.message); }
 }
 
-// 역할별 필터 상태
-let _voTenantId  = null;
-let _voGroupId   = null;
 
 // ─── 활성 템플릿 헬퍼 ─────────────────────────────────────────────────────────
 function _voGetActiveTpl() {
@@ -51,20 +52,17 @@ function renderVirtualOrg() {
       : boCurrentPersona.tenantId || 'HMC';
   }
 
-  // 격리그룹 초기화
-  const personaKey = Object.keys(BO_PERSONAS).find(k => BO_PERSONAS[k] === boCurrentPersona) || '';
-  const allGroups  = typeof ISOLATION_GROUPS !== 'undefined'
-    ? ISOLATION_GROUPS.filter(g => g.tenantId === _voTenantId) : [];
-  const visGroups  = (role === 'budget_global_admin')
-    ? allGroups.filter(g => (g.globalAdminKeys||[]).includes(personaKey))
-    : allGroups;
+  // 제도 분류 마스터 데이터 (임시)
+  const serviceTypes = [
+    { id: 'budget', name: '교육예산 지원제도' },
+    { id: 'cert', name: '자격증 취득지원제도' }
+  ];
 
-  if (!_voGroupId || !visGroups.find(g => g.id === _voGroupId)) {
-    _voGroupId = visGroups[0]?.id || null;
-  }
+  if (!_voServiceType) _voServiceType = 'budget';
 
-  // 현재 격리그룹에 속한 템플릿
-  _voMyTemplates = _voGetTemplatesByGroup(_voGroupId, _voTenantId);
+  // 현재 조건(테넌트, 제도유형, 내 역할)에 맞는 템플릿 로드
+  _voMyTemplates = _voGetTemplatesByScope(_voTenantId, _voServiceType);
+  
   if (!_voActiveTemplateId || !_voMyTemplates.find(t => t.id === _voActiveTemplateId)) {
     _voActiveTemplateId = _voMyTemplates[0]?.id || null;
   }
@@ -87,22 +85,22 @@ function renderVirtualOrg() {
     <span style="font-size:12px;font-weight:800;color:#111827">${tenantName}</span>
   </div>`;
 
-  // ── 격리그룹 셀렉트 ────────────────────────────────────────────────────────
-  const groupSelect = visGroups.length > 0 ? `
+  // ── 제도 유형 셀렉트 (격리그룹 대신) ────────────────────────────────────────────────────────
+  const serviceTypeSelect = `
   <div style="display:flex;align-items:center;gap:6px">
-    <label style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">격리그룹</label>
-    <select onchange="_voGroupId=this.value;renderVirtualOrg()"
-      style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:white;cursor:pointer;min-width:200px">
-      ${visGroups.map(g => `<option value="${g.id}" ${g.id===_voGroupId?'selected':''}>${g.name}</option>`).join('')}
+    <label style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">제도 유형</label>
+    <select onchange="_voServiceType=this.value;renderVirtualOrg()"
+      style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:white;cursor:pointer;min-width:180px">
+      ${serviceTypes.map(s => `<option value="${s.id}" ${s.id===_voServiceType?'selected':''}>${s.name}</option>`).join('')}
     </select>
-  </div>` : `<span style="font-size:11px;color:#9CA3AF">등록된 격리그룹이 없습니다</span>`;
+  </div>`;
 
   const filterBar = (isPlatform || isTenant || role === 'budget_global_admin') ? `
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 18px;
               background:#F8FAFF;border:1.5px solid #E0E7FF;border-radius:14px;margin-bottom:20px">
     ${tenantSelect}
     <span style="color:#D1D5DB;font-size:16px">|</span>
-    ${groupSelect}
+    ${serviceTypeSelect}
     <button onclick="renderVirtualOrg()"
       style="padding:7px 16px;background:#1D4ED8;color:#fff;border:none;border-radius:8px;
              font-size:12px;font-weight:800;cursor:pointer">🔍 조회</button>
@@ -111,20 +109,26 @@ function renderVirtualOrg() {
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull(filterBar);
 }
 
-// ─── 격리그룹 기준 템플릿 조회 ────────────────────────────────────────────────
-function _voGetTemplatesByGroup(groupId, tenantId) {
-  if (!groupId) {
-    return typeof VIRTUAL_ORG_TEMPLATES !== 'undefined'
-      ? VIRTUAL_ORG_TEMPLATES.filter(t => t.tenantId === tenantId) : [];
+// ─── 역할/제도 기준 템플릿 조회 ────────────────────────────────────────────────
+function _voGetTemplatesByScope(tenantId, serviceType) {
+  if (typeof VIRTUAL_EDU_ORGS === 'undefined') return [];
+  
+  let list = VIRTUAL_EDU_ORGS.filter(t => t.tenantId === tenantId && (t.serviceType || 'budget') === serviceType);
+  
+  const role = boCurrentPersona.role;
+  if (role === 'platform_admin' || role === 'tenant_global_admin') {
+    return list; // 전부 조회 가능
   }
-  return typeof VIRTUAL_ORG_TEMPLATES !== 'undefined'
-    ? VIRTUAL_ORG_TEMPLATES.filter(t => t.isolationGroupId === groupId) : [];
+  
+  // 담당자 역할 ID 매핑 (예: HMC_budget_admin)
+  const myRoleId = `${tenantId}_${role.replace('_global_admin', '_admin')}`; 
+  return list.filter(t => t.ownerRoleId === myRoleId);
 }
 
 // ─── 내부 리렌더 (필터바 유지) ────────────────────────────────────────────────
 function _voRerender() {
   // 상태변수 유지하고 다시 풀렌더
-  _voMyTemplates = _voGetTemplatesByGroup(_voGroupId, _voTenantId);
+  _voMyTemplates = _voGetTemplatesByScope(_voTenantId, _voServiceType);
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull(_voCachedFilterBar || '');
 }
 
@@ -436,10 +440,9 @@ function _renderVirtualOrgFull(filterBar) {
 </div>`;
 }
 
-// ── 템플릿 관련 ────────────────────────────────────────────────────────────────
 function voSelectTemplate(id) {
   _voActiveTemplateId = id;
-  _voMyTemplates = _voGetTemplatesByGroup(_voGroupId, _voTenantId);
+  _voMyTemplates = _voGetTemplatesByScope(_voTenantId, _voServiceType);
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
 }
 
@@ -457,26 +460,31 @@ function voConfirmCreateTemplate() {
   if (!name) { alert('템플릿명을 입력해주세요.'); return; }
   const id   = 'TPL_' + Date.now();
   const tree = type === 'rnd' ? { label: name, centers: [] } : { label: name, hqs: [] };
-  const currentGroupId = _voGroupId;
+  
+  const role = boCurrentPersona.role;
+  const ownerRoleId = `${_voTenantId}_${role.replace('_global_admin', '_admin')}`;
+
   const newTpl = {
-    id, tenantId: _voTenantId || boCurrentPersona.tenantId,
-    isolationGroupId: currentGroupId || null, name, tree
+    id, tenantId: _voTenantId,
+    serviceType: _voServiceType,
+    ownerRoleId: ownerRoleId,
+    name, tree
   };
-  VIRTUAL_ORG_TEMPLATES.push(newTpl);
+  VIRTUAL_EDU_ORGS.push(newTpl);
   _voActiveTemplateId = id;
-  _voMyTemplates = _voGetTemplatesByGroup(_voGroupId, _voTenantId);
+  _voMyTemplates = _voGetTemplatesByScope(_voTenantId, _voServiceType);
   voCloseModal('vo-tpl-create-modal');
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
   _voAutoSave(newTpl);  // ★ DB 자동 저장
 }
 
 function voRemoveTemplate(id) {
-  if (!confirm('이 템플릿을 삭제하시겠습니까? (연결된 예산 정책도 무효화될 수 있습니다.)')) return;
-  const idx = VIRTUAL_ORG_TEMPLATES.findIndex(t => t.id === id);
+  if (!confirm('이 템플릿을 삭제하시겠습니까? (연결된 정책도 무효화될 수 있습니다.)')) return;
+  const idx = VIRTUAL_EDU_ORGS.findIndex(t => t.id === id);
   if (idx > -1) {
-    VIRTUAL_ORG_TEMPLATES.splice(idx, 1);
+    VIRTUAL_EDU_ORGS.splice(idx, 1);
     if (_voActiveTemplateId === id) _voActiveTemplateId = null;
-    _voMyTemplates = _voGetTemplatesByGroup(_voGroupId, _voTenantId);
+    _voMyTemplates = _voGetTemplatesByScope(_voTenantId, _voServiceType);
     document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
   }
 }
@@ -521,10 +529,14 @@ let _voSelectedMgrKeys = [];
 
 // 담당자 피커 렌더 (검색+체크박스)
 function _voRenderMgrPicker(selectedKeys, filter = '') {
-  const myGroup = _voGroupId
-    ? (typeof ISOLATION_GROUPS !== 'undefined' ? ISOLATION_GROUPS.find(g => g.id === _voGroupId) : null)
-    : null;
-  const opManagerKeys = myGroup ? (myGroup.opManagerKeys || []) : [];
+  // 이제 격리그룹에 종속되지 않으므로, 테넌트 전체의 운영담당자(budget_ops/hq 등)를 모두 후보로 로드
+  const allPersonas = Object.keys(BO_PERSONAS);
+  const candidatesKeys = allPersonas.filter(k => {
+    const p = BO_PERSONAS[k];
+    if (!p || p.tenantId !== _voTenantId) return false;
+    // 임시로 운영 관련 역할인 persona만 허용
+    return p.role === 'budget_op_manager' || p.role === 'budget_hq' || p.role === 'budget_global_admin';
+  });
 
   // 칩 영역
   const chips = document.getElementById('vo-mgr-chips');
@@ -548,14 +560,8 @@ function _voRenderMgrPicker(selectedKeys, filter = '') {
   const listEl = document.getElementById('vo-mgr-list');
   if (!listEl) return;
 
-  if (opManagerKeys.length === 0) {
-    listEl.innerHTML = `<div style="padding:14px 16px;font-size:11px;color:#9CA3AF;text-align:center">
-      격리그룹 관리에서 운영담당자를 먼저 등록해주세요</div>`;
-    return;
-  }
-
   const lf = filter.toLowerCase();
-  const candidates = opManagerKeys.filter(k => {
+  const candidates = candidatesKeys.filter(k => {
     const p = BO_PERSONAS[k];
     if (!p) return false;
     if (!lf) return true;
@@ -629,7 +635,7 @@ function voConfirmCreateGroup() {
     });
   }
   voCloseModal('vo-group-create-modal');
-  _voMyTemplates = _voGetTemplatesByGroup(_voGroupId, _voTenantId);
+  _voMyTemplates = _voGetTemplatesByScope(_voTenantId, _voServiceType);
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
   _voAutoSave(_voGetActiveTpl());  // ★ DB 자동 저장
 }
@@ -715,7 +721,7 @@ function voAddCoopTeam() {
 
 function voSaveCoopModal() {
   voCloseModal('vo-coop-modal');
-  _voMyTemplates = _voGetTemplatesByGroup(_voGroupId, _voTenantId);
+  _voMyTemplates = _voGetTemplatesByScope(_voTenantId, _voServiceType);
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
   _voAutoSave(_voGetActiveTpl());  // ★ DB 자동 저장
 }
@@ -731,7 +737,7 @@ function voToggleJobType(groupIdx, teamIdx, jobType) {
   const idx = team.allowedJobTypes.indexOf(jobType);
   if (idx >= 0) team.allowedJobTypes.splice(idx, 1);
   else team.allowedJobTypes.push(jobType);
-  _voMyTemplates = _voGetTemplatesByGroup(_voGroupId, _voTenantId);
+  _voMyTemplates = _voGetTemplatesByScope(_voTenantId, _voServiceType);
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
 }
 
@@ -744,7 +750,7 @@ function voSelectAllJobTypes(groupIdx, teamIdx) {
   const allTypes = getTenantJobTypes(boCurrentPersona.tenantId);
   const allSelected = allTypes.every(jt => (team.allowedJobTypes||[]).includes(jt));
   team.allowedJobTypes = allSelected ? [] : [...allTypes];
-  _voMyTemplates = _voGetTemplatesByGroup(_voGroupId, _voTenantId);
+  _voMyTemplates = _voGetTemplatesByScope(_voTenantId, _voServiceType);
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
 }
 
@@ -755,7 +761,7 @@ function voRemoveGroup(groupIdx) {
   const list  = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
   if (!confirm(`"${list[groupIdx].name}" 그룹을 삭제하시겠습니까?`)) return;
   list.splice(groupIdx, 1);
-  _voMyTemplates = _voGetTemplatesByGroup(_voGroupId, _voTenantId);
+  _voMyTemplates = _voGetTemplatesByScope(_voTenantId, _voServiceType);
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
 }
 

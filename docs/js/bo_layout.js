@@ -6,9 +6,9 @@ let _boPlatformSelectedTenantId = null; // 플랫폼 총괄: 선택된 테넌트
 function boGetMyGroups(persona) {
   if (!persona) persona = boCurrentPersona;
   const ids = persona.isolationGroups ||
-    (persona.isolationGroupId ? [persona.isolationGroupId] : []);
-  return (typeof ISOLATION_GROUPS !== 'undefined')
-    ? ids.map(id => ISOLATION_GROUPS.find(g => g.id === id)).filter(Boolean)
+    (persona.domainId ? [persona.domainId] : []);
+  return (typeof EDU_SUPPORT_DOMAINS !== 'undefined')
+    ? ids.map(id => EDU_SUPPORT_DOMAINS.find(g => g.id === id)).filter(Boolean)
     : [];
 }
 
@@ -30,7 +30,7 @@ function boGetActiveGroupId() {
 // 활성 격리그룹 객체 반환
 function boGetActiveGroup() {
   const id = boGetActiveGroupId();
-  return id ? (ISOLATION_GROUPS||[]).find(g => g.id === id) : null;
+  return id ? (EDU_SUPPORT_DOMAINS||[]).find(g => g.id === id) : null;
 }
 
 // 격리그룹 스위치 (셀렉트박스 선택 + 조회 버튼 콜백)
@@ -46,7 +46,7 @@ function boPlatformSelectTenant(tenantId) {
   // 그룹 셀렉트 갱신
   const groupSel = document.getElementById('bo-group-select');
   if (!groupSel) return;
-  const groups = (ISOLATION_GROUPS||[]).filter(g => g.tenantId === tenantId);
+  const groups = (EDU_SUPPORT_DOMAINS||[]).filter(g => g.tenantId === tenantId);
   groupSel.innerHTML = `<option value="">전체 그룹 (${groups.length}개)</option>` +
     groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
 }
@@ -62,7 +62,7 @@ function boApplyGroupFilter() {
 function boIsolationGroupFilter(arr, field) {
   const activeId = boGetActiveGroupId();
   if (!activeId || !arr) return arr || [];
-  const f = field || 'isolationGroupId';
+  const f = field || 'domainId';
   return arr.filter(item => !item[f] || item[f] === activeId);
 }
 
@@ -75,7 +75,7 @@ function boRenderGroupContextBar() {
   if (role === 'platform_admin') {
     const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
     const selTenantId = _boPlatformSelectedTenantId || (tenants[0]?.id || '');
-    const filteredGroups = (ISOLATION_GROUPS||[]).filter(g => g.tenantId === selTenantId);
+    const filteredGroups = (EDU_SUPPORT_DOMAINS||[]).filter(g => g.tenantId === selTenantId);
     const activeId = _boActiveIsolationGroupId;
     return `
 <div style="display:flex;align-items:center;gap:10px;padding:12px 18px;background:#FFFBEB;
@@ -103,7 +103,7 @@ function boRenderGroupContextBar() {
     </button>
   </div>
   ${activeId ? `<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:4px;font-weight:700">
-    📊 현재: ${(ISOLATION_GROUPS||[]).find(g=>g.id===activeId)?.name || activeId}
+    📊 현재: ${(EDU_SUPPORT_DOMAINS||[]).find(g=>g.id===activeId)?.name || activeId}
   </span>` : '<span style="font-size:10px;color:#9CA3AF">전체 그룹 데이터 표시 중</span>'}
 </div>`;
   }
@@ -111,7 +111,7 @@ function boRenderGroupContextBar() {
   // ② 테넌트 총괄: 소속 테넌트의 모든 격리그룹을 탭/배지로 표시 (필터 없음, 전체 동시 조회)
   if (role === 'tenant_global_admin') {
     const tenantId = persona.tenantId;
-    const allGroups = (ISOLATION_GROUPS||[]).filter(g => g.tenantId === tenantId);
+    const allGroups = (EDU_SUPPORT_DOMAINS||[]).filter(g => g.tenantId === tenantId);
     if (!allGroups.length) return '';
     return `
 <div style="padding:12px 18px;background:#F0FDF4;border:1px solid #A7F3D0;border-radius:12px;margin-bottom:20px">

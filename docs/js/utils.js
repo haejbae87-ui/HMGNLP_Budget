@@ -50,10 +50,10 @@ Object.entries(_BO_TO_FO_PURPOSE).forEach(([bo, fo]) => {
   _FO_TO_BO_PURPOSE[fo].push(bo);
 });
 
-// 페르소나 isolationGroup 코드 → ISOLATION_GROUPS id 변환 (HMC-GENERAL → IG-HMC-GEN 등)
+// 페르소나 isolationGroup 코드 → EDU_SUPPORT_DOMAINS id 변환 (HMC-GENERAL → IG-HMC-GEN 등)
 function _resolveIsoGroupId(persona) {
-  if (typeof ISOLATION_GROUPS === 'undefined') return null;
-  const byCode = ISOLATION_GROUPS.find(g =>
+  if (typeof EDU_SUPPORT_DOMAINS === 'undefined') return null;
+  const byCode = EDU_SUPPORT_DOMAINS.find(g =>
     g.code === persona.isolationGroup ||
     g.id   === persona.isolationGroup
   );
@@ -72,7 +72,7 @@ function _getActivePolicies(persona) {
     if (p.tenantId && p.tenantId !== persona.tenantId) return false;
     // 격리그룹 매칭:
     // ① 페르소나의 주 격리그룹 ID와 일치하거나
-    if (isoGroupId && p.isolationGroupId && p.isolationGroupId === isoGroupId) return true;
+    if (isoGroupId && p.domainId && p.domainId === isoGroupId) return true;
     // ② 정책의 accountCodes가 persona.allowedAccounts와 교차하면 포함
     //    (이상봉처럼 여러 격리그룹 계정을 가진 겸임 케이스)
     if (p.accountCodes && p.accountCodes.some(c => allowedAcctCodes.has(c))) {
@@ -80,11 +80,11 @@ function _getActivePolicies(persona) {
       return true;
     }
     // ③ isoGroupId 미해석 + 직접 비교
-    if (!isoGroupId && p.isolationGroupId) {
-      if (persona.isolationGroup && p.isolationGroupId !== persona.isolationGroup) return false;
+    if (!isoGroupId && p.domainId) {
+      if (persona.isolationGroup && p.domainId !== persona.isolationGroup) return false;
     }
     // ④ 격리그룹 미설정 정책은 테넌트 내 전체 허용
-    if (!p.isolationGroupId) return true;
+    if (!p.domainId) return true;
     return false;
   });
   return matched.length > 0 ? { source: 'db', policies: matched } : null;

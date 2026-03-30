@@ -63,7 +63,7 @@ async function sbLoadAccountMaster(tenantId = null) {
 
 async function sbLoadIsolationGroups(tenantId = null) {
   try {
-    let url = `${SUPABASE_URL}/rest/v1/isolation_groups?select=*&status=eq.active&order=id`;
+    let url = `${SUPABASE_URL}/rest/v1/edu_support_domains?select=*&status=eq.active&order=id`;
     if (tenantId) url += `&tenant_id=eq.${tenantId}`;
     const res = await fetch(url,
       { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } });
@@ -81,8 +81,8 @@ async function sbLoadIsolationGroups(tenantId = null) {
       createdAt:       (g.created_at || '').slice(0, 10),
     }));
   } catch (e) {
-    console.warn('[Supabase] isolation_groups fallback:', e.message);
-    return typeof ISOLATION_GROUPS !== 'undefined' ? ISOLATION_GROUPS : [];
+    console.warn('[Supabase] edu_support_domains fallback:', e.message);
+    return typeof EDU_SUPPORT_DOMAINS !== 'undefined' ? EDU_SUPPORT_DOMAINS : [];
   }
 }
 
@@ -90,7 +90,7 @@ async function sbLoadServicePolicies(filters = {}) {
   try {
     let q = getSB().from('service_policies').select('*').eq('status', 'active');
     if (filters.tenantId)         q = q.eq('tenant_id', filters.tenantId);
-    if (filters.isolationGroupId) q = q.eq('isolation_group_id', filters.isolationGroupId);
+    if (filters.domainId) q = q.eq('domain_id', filters.domainId);
     if (filters.accountCode)      q = q.contains('account_codes', [filters.accountCode]);
     const { data, error } = await q.order('created_at', { ascending: false });
     if (error) throw error;
@@ -148,20 +148,20 @@ async function sbLoadApplications(filters = {}) {
 // ─── 가상조직 템플릿 로더 ─────────────────────────────────────────────────────
 async function sbLoadVirtualOrgTemplates(filters = {}) {
   try {
-    let q = getSB().from('virtual_org_templates').select('*');
+    let q = getSB().from('virtual_edu_orgs').select('*');
     if (filters.tenantId)          q = q.eq('tenant_id', filters.tenantId);
-    if (filters.isolationGroupId)  q = q.eq('isolation_group_id', filters.isolationGroupId);
+    if (filters.domainId)  q = q.eq('domain_id', filters.domainId);
     const { data, error } = await q.order('created_at');
     if (error) throw error;
     // DB 컬럼(snake_case) → JS mock 형식(camelCase) 정규화
     return (data || []).map(t => ({
       ...t,
       tenantId: t.tenant_id,
-      isolationGroupId: t.isolation_group_id,
+      domainId: t.domain_id,
     }));
   } catch (e) {
-    console.warn('[Supabase] virtual_org_templates fallback:', e.message);
-    return typeof VIRTUAL_ORG_TEMPLATES !== 'undefined' ? VIRTUAL_ORG_TEMPLATES : [];
+    console.warn('[Supabase] virtual_edu_orgs fallback:', e.message);
+    return typeof VIRTUAL_EDU_ORGS !== 'undefined' ? VIRTUAL_EDU_ORGS : [];
   }
 }
 window.sbLoadVirtualOrgTemplates = sbLoadVirtualOrgTemplates;
@@ -171,13 +171,13 @@ async function sbSaveVirtualOrgTemplate(tplObj) {
     const row = {
       id: tplObj.id,
       tenant_id: tplObj.tenantId,
-      isolation_group_id: tplObj.isolationGroupId || null,
+      domain_id: tplObj.domainId || null,
       name: tplObj.name,
       tree: tplObj.tree,
     };
     // JS SDK 대신 fetch 직접 호출 (getSB() 초기화 타이밍 문제 우회)
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/virtual_org_templates`,
+      `${SUPABASE_URL}/rest/v1/virtual_edu_orgs`,
       {
         method : 'POST',
         headers: {
@@ -195,7 +195,7 @@ async function sbSaveVirtualOrgTemplate(tplObj) {
     }
     return true;
   } catch(e) {
-    console.error('[Supabase] virtual_org_templates 저장 실패:', e.message);
+    console.error('[Supabase] virtual_edu_orgs 저장 실패:', e.message);
     return false;
   }
 }
@@ -203,11 +203,11 @@ window.sbSaveVirtualOrgTemplate = sbSaveVirtualOrgTemplate;
 
 async function sbDeleteVirtualOrgTemplate(id) {
   try {
-    const { error } = await getSB().from('virtual_org_templates').delete().eq('id', id);
+    const { error } = await getSB().from('virtual_edu_orgs').delete().eq('id', id);
     if(error) throw error;
     return true;
   } catch(e) {
-    console.error('[Supabase] virtual_org_templates 삭제 실패:', e.message);
+    console.error('[Supabase] virtual_edu_orgs 삭제 실패:', e.message);
     return false;
   }
 }
@@ -290,7 +290,7 @@ async function sbLoadPersonas() {
           { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } }),
         fetch(`${SUPABASE_URL}/rest/v1/organizations?select=id,name`,
           { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } }),
-        fetch(`${SUPABASE_URL}/rest/v1/isolation_groups?select=id,code,name,owned_accounts`,
+        fetch(`${SUPABASE_URL}/rest/v1/edu_support_domains?select=id,code,name,owned_accounts`,
           { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } }),
       ]);
       const users    = await usersRes.json();
@@ -305,7 +305,7 @@ async function sbLoadPersonas() {
       sb.from('users').select('*').eq('status', 'active'),
       sb.from('user_roles').select('*'),
       sb.from('organizations').select('id,name'),
-      sb.from('isolation_groups').select('id,code,name,owned_accounts'),
+      sb.from('edu_support_domains').select('id,code,name,owned_accounts'),
     ]);
 
     if (usersRes.error) throw usersRes.error;
@@ -381,7 +381,7 @@ function _buildBoPersonas(users, allRoles, orgs, igs) {
       : (primaryRoleCode === 'platform_admin' ? ['*'] : []);
 
     // 여러 scope_id 지원 (한 유저가 복수 격리그룹 담당 가능)
-    const isolationGroupIds = sorted
+    const domainIds = sorted
       .filter(r => r.scope_id)
       .map(r => r.scope_id)
       .filter((v, i, a) => a.indexOf(v) === i);
@@ -397,8 +397,8 @@ function _buildBoPersonas(users, allRoles, orgs, igs) {
       tenantId:         tenantId,
       jobType:          u.job_type || 'general',
       status:           u.status,
-      isolationGroupId: igId,
-      isolationGroups:  isolationGroupIds,
+      domainId: igId,
+      isolationGroups:  domainIds,
       isolationGroup:   ig ? ig.code : null,
       ownedAccounts:    ownedAccounts,
       allowedAccounts:  allowedAccounts,
@@ -542,9 +542,9 @@ async function initSupabaseData() {
     // 전역 변수 교체
     if (tenants     && tenants.length)       window.TENANTS            = tenants;
     if (accounts    && accounts.length)      window.ACCOUNT_MASTER     = accounts;
-    if (groups      && groups.length)        window.ISOLATION_GROUPS   = groups;
+    if (groups      && groups.length)        window.EDU_SUPPORT_DOMAINS   = groups;
     if (policies    && policies.length)      window.SERVICE_POLICIES   = policies;
-    if (vorgTemplates && vorgTemplates.length) window.VIRTUAL_ORG_TEMPLATES = vorgTemplates;
+    if (vorgTemplates && vorgTemplates.length) window.VIRTUAL_EDU_ORGS = vorgTemplates;
 
     // 교육목적/유형: DB 로드 성공 시 PURPOSES 배열 갱신
     if (eduTypes && eduTypes.purposes && eduTypes.purposes.length) {
@@ -618,7 +618,7 @@ async function sbLoadFormTemplates() {
       attachments:      r.attachments || [],
       active:           r.active,
       accountCode:      r.account_code || null,
-      isolationGroupId: r.isolation_group_id || null,
+      domainId: r.domain_id || null,
     }));
     console.log(`[Supabase] ✅ form_templates 로드: ${forms.length}건`);
     return forms;

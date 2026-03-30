@@ -127,10 +127,13 @@ async function main() {
   const roleRows = [];
   for (const p of PERSONAS) {
     for (const rc of p.roles) {
+      const isSystemRole = rc === 'learner' || rc === 'platform_admin';
+      const rId = isSystemRole ? `SYS_${rc}` : `${p.tenant_id}_${rc}`;
+      
       roleRows.push({
         user_id: p.id,
-        role_code: rc,
-        tenant_id: p.tenant_id,
+        role_id: rId,
+        tenant_id: isSystemRole ? null : p.tenant_id,
         scope_id: (rc === 'budget_admin' || rc === 'budget_ops') ? p.scope : null
       });
     }

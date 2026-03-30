@@ -12,7 +12,7 @@ function renderMyOperations() {
   // 자신이 승인자인 정책 (격리그룹 기준 필터 우선)
   const myPolicies = SERVICE_POLICIES.filter(p => {
     // 격리그룹 필터
-    if (activeGroupId && p.isolationGroupId && p.isolationGroupId !== activeGroupId) return false;
+    if (activeGroupId && p.domainId && p.domainId !== activeGroupId) return false;
     if (p.tenantId !== persona.tenantId) return false;
     if (p.approverPersonaKey === personaKey) return true;
     return (p.approvalThresholds||[]).some(t => t.approverKey === personaKey);

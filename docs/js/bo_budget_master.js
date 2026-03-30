@@ -63,13 +63,13 @@ let _baTenantId    = null; // 플랫폼총괄: 선택된 테넌트
 let _baGroupId     = null; // 선택된 격리그룹 ID
 let _baExpandedAR  = {};   // 결재라인 펼침 상태 { accountCode: bool }
 
-// ─── DB: account_master + isolation_groups 로드 후 ACCOUNT_MASTER 갱신 ───────
+// ─── DB: account_master + edu_support_domains 로드 후 ACCOUNT_MASTER 갱신 ───────
 async function _baLoadAccountsFromDB() {
   if (typeof _sb !== 'function' || !_sb()) return;
   try {
     const [{ data: accts }, { data: igs }] = await Promise.all([
       _sb().from('account_master').select('*'),
-      _sb().from('isolation_groups').select('id,name,tenant_id,owned_accounts,global_admin_key,op_manager_keys'),
+      _sb().from('edu_support_domains').select('id,name,tenant_id,owned_accounts,global_admin_key,op_manager_keys'),
     ]);
     // ACCOUNT_MASTER 동기화
     if (accts && typeof ACCOUNT_MASTER !== 'undefined') {
@@ -85,17 +85,17 @@ async function _baLoadAccountsFromDB() {
         else ACCOUNT_MASTER.push(mapped);
       });
     }
-    // ISOLATION_GROUPS 동기화
-    if (igs && typeof ISOLATION_GROUPS !== 'undefined') {
+    // EDU_SUPPORT_DOMAINS 동기화
+    if (igs && typeof EDU_SUPPORT_DOMAINS !== 'undefined') {
       igs.forEach(row => {
-        const idx = ISOLATION_GROUPS.findIndex(g => g.id === row.id);
+        const idx = EDU_SUPPORT_DOMAINS.findIndex(g => g.id === row.id);
         const mapped = {
           id: row.id, tenantId: row.tenant_id, name: row.name,
           ownedAccounts: row.owned_accounts || [],
           globalAdminKeys: row.global_admin_key ? [row.global_admin_key] : (row.op_manager_keys || []),
         };
-        if (idx >= 0) ISOLATION_GROUPS[idx] = { ...ISOLATION_GROUPS[idx], ...mapped };
-        else ISOLATION_GROUPS.push(mapped);
+        if (idx >= 0) EDU_SUPPORT_DOMAINS[idx] = { ...EDU_SUPPORT_DOMAINS[idx], ...mapped };
+        else EDU_SUPPORT_DOMAINS.push(mapped);
       });
     }
   } catch(e) { console.warn('[BudgetAccount] DB 로드 실패:', e.message); }
@@ -116,8 +116,8 @@ async function renderBudgetAccount() {
   const tenantName = tenants.find(t => t.id === _baTenantId)?.name || _baTenantId;
 
   // 격리그룹 목록 (현재 테넌트)
-  const groups = typeof ISOLATION_GROUPS !== 'undefined'
-    ? ISOLATION_GROUPS.filter(g => g.tenantId === _baTenantId) : [];
+  const groups = typeof EDU_SUPPORT_DOMAINS !== 'undefined'
+    ? EDU_SUPPORT_DOMAINS.filter(g => g.tenantId === _baTenantId) : [];
   if (!_baGroupId || !groups.find(g => g.id === _baGroupId)) {
     _baGroupId = groups[0]?.id || null;
   }
@@ -212,8 +212,8 @@ function _baRenderContent() {
       <div style="font-size:14px;font-weight:700">격리그룹을 선택하세요</div>
     </div>`;
   }
-  const group = typeof ISOLATION_GROUPS !== 'undefined'
-    ? ISOLATION_GROUPS.find(g => g.id === _baGroupId) : null;
+  const group = typeof EDU_SUPPORT_DOMAINS !== 'undefined'
+    ? EDU_SUPPORT_DOMAINS.find(g => g.id === _baGroupId) : null;
   if (!group) return '<div style="padding:40px;text-align:center;color:#9CA3AF">그룹 정보를 찾을 수 없습니다.</div>';
 
   const role = boCurrentPersona.role;
@@ -670,10 +670,10 @@ async function s1SaveAccount() {
 
     // 격리그룹 owned_accounts 업데이트 (신규 계정일 때만)
     if (!_s1EditCode && _baGroupId) {
-      const { data: ig } = await _sb().from('isolation_groups').select('owned_accounts').eq('id', _baGroupId).single();
+      const { data: ig } = await _sb().from('edu_support_domains').select('owned_accounts').eq('id', _baGroupId).single();
       const existing = ig?.owned_accounts || [];
       if (!existing.includes(code)) {
-        await _sb().from('isolation_groups').update({ owned_accounts: [...existing, code] }).eq('id', _baGroupId);
+        await _sb().from('edu_support_domains').update({ owned_accounts: [...existing, code] }).eq('id', _baGroupId);
       }
     }
   }
@@ -692,8 +692,8 @@ async function s1SaveAccount() {
       ACCOUNT_MASTER.push(obj);
     }
     // 격리그룹 메모리도 동기화
-    if (_baGroupId && typeof ISOLATION_GROUPS !== 'undefined') {
-      const grp = ISOLATION_GROUPS.find(g => g.id === _baGroupId);
+    if (_baGroupId && typeof EDU_SUPPORT_DOMAINS !== 'undefined') {
+      const grp = EDU_SUPPORT_DOMAINS.find(g => g.id === _baGroupId);
       if (grp && !grp.ownedAccounts.includes(code)) grp.ownedAccounts.push(code);
     }
   }
@@ -967,7 +967,7 @@ function renderStep3() {
         const acc = accounts.find(a => a.code === code);
         if (!acc) return '';
         const accCards = accGrouped[code].map(r => {
-            const tpl = VIRTUAL_ORG_TEMPLATES.find(t => t.id === r.templateId) || { name: r.templateId || '전체(미지정)' };
+            const tpl = VIRTUAL_EDU_ORGS.find(t => t.id === r.templateId) || { name: r.templateId || '전체(미지정)' };
             const applyForm = r.formId ? (FORM_MASTER.find(f => f.id === r.formId) || { name: r.formId }) : null;
             const planForm = r.planFormId ? FORM_MASTER.find(f => f.id === r.planFormId) : null;
             const resultForm = r.resultFormId ? FORM_MASTER.find(f => f.id === r.resultFormId) : null;
@@ -1087,7 +1087,7 @@ function s3DeleteRule(ruleId) {
 
 function _s3ModalBody(rule) {
     const tenantId = boCurrentPersona.tenantId || _s3Tenant;
-    const templates = VIRTUAL_ORG_TEMPLATES.filter(t => t.tenantId === tenantId);
+    const templates = VIRTUAL_EDU_ORGS.filter(t => t.tenantId === tenantId);
     const accounts = getPersonaAccounts(boCurrentPersona);
     const applyForms = getTenantForms(tenantId, 'apply');
     const planForms = getTenantForms(tenantId, 'plan');

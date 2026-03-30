@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Supabase Schema Migration via Management API
  * node supabase/run_migration.js
  */
@@ -71,19 +71,19 @@ async function migrate() {
   `, 'account_master 테이블');
 
   await runSQL(`
-    create table if not exists isolation_groups (
+    create table if not exists edu_support_domains (
       id text primary key, tenant_id text, name text not null,
       color text default '#6B7280', bg text default '#F9FAFB', descr text,
       owned_accounts text[], global_admin_key text, op_manager_keys text[],
       status text default 'active', created_at timestamptz default now()
     );
-    alter table isolation_groups enable row level security;
+    alter table edu_support_domains enable row level security;
     do $$ begin
-      if not exists (select from pg_policies where tablename='isolation_groups' and policyname='allow_all_isolation_groups') then
-        create policy "allow_all_isolation_groups" on isolation_groups for all using (true) with check (true);
+      if not exists (select from pg_policies where tablename='edu_support_domains' and policyname='allow_all_edu_support_domains') then
+        create policy "allow_all_edu_support_domains" on edu_support_domains for all using (true) with check (true);
       end if;
     end $$;
-  `, 'isolation_groups 테이블');
+  `, 'edu_support_domains 테이블');
 
   await runSQL(`
     create table if not exists account_budgets (
@@ -102,12 +102,12 @@ async function migrate() {
 
   await runSQL(`
     create table if not exists service_policies (
-      id text primary key, tenant_id text, isolation_group_id text,
+      id text primary key, tenant_id text, domain_id text,
       scope_tenant_id text, scope_group_id text,
       name text not null, descr text, target_type text, purpose text,
       edu_types text[], selected_edu_item jsonb,
       process_pattern text, flow text, budget_linked boolean default true, apply_mode text,
-      account_codes text[], vorg_template_id text,
+      account_codes text[], virtual_edu_org_id text,
       stage_form_ids jsonb, approval_config jsonb,
       manager_persona_key text, status text default 'active',
       created_at timestamptz default now()
@@ -121,21 +121,24 @@ async function migrate() {
   `, 'service_policies 테이블');
 
   await runSQL(`
-    create table if not exists virtual_org_templates (
-      id text primary key, tenant_id text, isolation_group_id text,
-      name text not null, tree jsonb, created_at timestamptz default now()
+    create table if not exists virtual_edu_orgs (
+      id text primary key, tenant_id text,
+      name text not null, tree jsonb,
+      service_type text default 'budget', 
+      owner_role_id uuid,
+      created_at timestamptz default now()
     );
-    alter table virtual_org_templates enable row level security;
+    alter table virtual_edu_orgs enable row level security;
     do $$ begin
-      if not exists (select from pg_policies where tablename='virtual_org_templates' and policyname='allow_all_virtual_org') then
-        create policy "allow_all_virtual_org" on virtual_org_templates for all using (true) with check (true);
+      if not exists (select from pg_policies where tablename='virtual_edu_orgs' and policyname='allow_all_virtual_edu_orgs') then
+        create policy "allow_all_virtual_edu_orgs" on virtual_edu_orgs for all using (true) with check (true);
       end if;
     end $$;
-  `, 'virtual_org_templates 테이블');
+  `, 'virtual_edu_orgs 테이블');
 
   await runSQL(`
     create table if not exists plans (
-      id text primary key, tenant_id text, account_code text, isolation_group_id text,
+      id text primary key, tenant_id text, account_code text, domain_id text,
       applicant_id text, applicant_name text, edu_name text not null, edu_type text,
       amount bigint default 0, status text default 'pending', policy_id text, detail jsonb,
       created_at timestamptz default now()
@@ -150,7 +153,7 @@ async function migrate() {
 
   await runSQL(`
     create table if not exists applications (
-      id text primary key, tenant_id text, plan_id text, account_code text, isolation_group_id text,
+      id text primary key, tenant_id text, plan_id text, account_code text, domain_id text,
       applicant_id text, applicant_name text, dept text, edu_name text not null, edu_type text,
       amount bigint default 0, status text default 'pending', policy_id text, detail jsonb,
       created_at timestamptz default now()

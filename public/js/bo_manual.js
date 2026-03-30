@@ -473,7 +473,7 @@ function _manTech() {
         { name:'ACCOUNT_MASTER',       file:'bo_data.js', desc:'예산 계정: code, name, tenantId, type(ops/etc/rnd), 6단계 설정' },
         { name:'CALC_GROUNDS_MASTER',  file:'bo_data.js', desc:'산출근거: usageScope[], visibleFor, softLimit, hardLimit, unitPrice' },
         { name:'APPROVAL_ROUTING',     file:'bo_data.js', desc:'계정별 결재라인: tenantId, accountCodes[], ranges[]{max,approvers[]}' },
-        { name:'VIRTUAL_ORG_TEMPLATES',file:'bo_data.js', desc:'가상조직: tree(hqs/centers/teams), manager, cooperators, jobTypes' },
+        { name:'VIRTUAL_EDU_ORGS',file:'bo_data.js', desc:'가상조직: tree(hqs/centers/teams), manager, cooperators, jobTypes' },
         { name:'applyState',           file:'apply.js',   desc:'FO신청 상태: step, budgetChoice(general/rnd/none), planId, serviceId' },
         { name:'planState',            file:'plans.js',   desc:'FO계획 상태: step, type, account, calcGrounds[], hardLimitViolated' },
       ].map(d => `
@@ -515,7 +515,7 @@ function _manDevPlan() {
       phase:'Phase 1', title:'기반 인프라 & 인증', weeks:'1~2주', color:'#6366F1',
       items:[
         { task:'SSO/IAM 연동 (OAuth2/SAML)', detail:'현대차그룹 통합계정 연동, 역할 자동 매핑', days:5 },
-        { task:'멀티테넌트 DB 스키마 설계', detail:'isolationGroupId 기반 Row-Level Security 설정', days:5 },
+        { task:'멀티테넌트 DB 스키마 설계', detail:'domainId 기반 Row-Level Security 설정', days:5 },
         { task:'API Gateway 기본 구조', detail:'테넌트 컨텍스트 헤더 주입, 권한 미들웨어', days:3 },
       ]
     },
@@ -740,21 +740,21 @@ function _manIA() {
 function _manDbSchema() {
   const tables = [
     { name:'tenants', layer:'L1 테넌트', color:'#1D4ED8', bg:'#DBEAFE', desc:'회사·법인 단위. 모든 데이터의 최상위 격리 기준', cols:['id PK','name','short_name','active','created_at'] },
-    { name:'isolation_groups', layer:'L2 격리그룹', color:'#16A34A', bg:'#D1FAE5', desc:'테넌트 내 예산계정 격리 그룹 (일반교육예산, R&D 등)', cols:['id PK','tenant_id FK','name','owned_accounts[]','op_manager_keys[]','global_admin_key','status'] },
+    { name:'edu_support_domains', layer:'L2 격리그룹', color:'#16A34A', bg:'#D1FAE5', desc:'테넌트 내 예산계정 격리 그룹 (일반교육예산, R&D 등)', cols:['id PK','tenant_id FK','name','owned_accounts[]','op_manager_keys[]','global_admin_key','status'] },
     { name:'organizations', layer:'L3 조직', color:'#B45309', bg:'#FEF3C7', desc:'HR 조직 트리 (본부>센터>실>팀). parent_id 자기참조', cols:['id PK','tenant_id FK','parent_id FK(self)','name','type','order_seq'] },
     { name:'users', layer:'L4 사용자', color:'#7C3AED', bg:'#EDE9FE', desc:'시스템 사용자. 조직 소속 + 직군(job_type) 구분', cols:['id PK','tenant_id FK','emp_no','name','email','org_id FK','job_type','status'] },
     { name:'roles', layer:'L4 역할', color:'#7C3AED', bg:'#EDE9FE', desc:'역할 정의 (platform_admin, tenant_admin 등)', cols:['code PK','name','descr','level'] },
     { name:'user_roles', layer:'L4 역할', color:'#7C3AED', bg:'#EDE9FE', desc:'사용자-역할 N:M 매핑. scope_id로 적용 범위 제한', cols:['id PK','user_id FK','role_code FK','tenant_id FK','scope_id'] },
     { name:'role_menu_permissions', layer:'L4 역할', color:'#7C3AED', bg:'#EDE9FE', desc:'역할별 접근 가능 메뉴 ID 목록', cols:['role_code FK','menu_id'] },
-    { name:'service_policies', layer:'L5 서비스구성', color:'#0369A1', bg:'#E0F2FE', desc:'서비스 정책. 예산계정·양식·가상조직·결재선을 묶는 허브', cols:['id PK','tenant_id FK','isolation_group_id FK','name','target_type','purpose','account_codes[]','vorg_template_id FK','stage_form_ids jsonb','approval_config jsonb','status'] },
-    { name:'virtual_org_templates', layer:'L5 서비스구성', color:'#0369A1', bg:'#E0F2FE', desc:'가상 조직도 템플릿. tree jsonb에 본부/센터/실/팀 저장', cols:['id PK','tenant_id FK','isolation_group_id FK','name','tree jsonb'] },
+    { name:'service_policies', layer:'L5 서비스구성', color:'#0369A1', bg:'#E0F2FE', desc:'서비스 정책. 예산계정·양식·가상조직·결재선을 묶는 허브', cols:['id PK','tenant_id FK','domain_id FK','name','target_type','purpose','account_codes[]','virtual_edu_org_id FK','stage_form_ids jsonb','approval_config jsonb','status'] },
+    { name:'virtual_edu_orgs', layer:'L5 서비스구성', color:'#0369A1', bg:'#E0F2FE', desc:'가상 조직도 템플릿. tree jsonb에 본부/센터/실/팀 저장', cols:['id PK','tenant_id FK','domain_id FK','name','tree jsonb'] },
     { name:'form_templates', layer:'L5 서비스구성', color:'#0369A1', bg:'#E0F2FE', desc:'교육신청 양식. fields jsonb에 입력 필드 구성', cols:['id PK','tenant_id FK','name','type(plan/apply/result)','purpose','target_user','fields jsonb','attachments jsonb','active'] },
-    { name:'plans', layer:'L6 예산실행', color:'#9D174D', bg:'#FCE7F3', desc:'교육계획. 정책 기반으로 생성. status: draft→submitted→approved', cols:['id PK','tenant_id FK','account_code','isolation_group_id FK','policy_id FK','edu_name','amount','status','detail jsonb'] },
+    { name:'plans', layer:'L6 예산실행', color:'#9D174D', bg:'#FCE7F3', desc:'교육계획. 정책 기반으로 생성. status: draft→submitted→approved', cols:['id PK','tenant_id FK','account_code','domain_id FK','policy_id FK','edu_name','amount','status','detail jsonb'] },
     { name:'ledger', layer:'L6 예산실행', color:'#9D174D', bg:'#FCE7F3', desc:'예산 원장. 모든 예산 변동을 tx_type으로 순차 기록', cols:['id PK','tenant_id FK','account_code','application_id FK','tx_type','amount','balance_after','memo'] },
   ];
 
   const fkRows = [
-    ['isolation_groups','tenant_id','tenants.id','격리그룹 → 회사'],
+    ['edu_support_domains','tenant_id','tenants.id','격리그룹 → 회사'],
     ['organizations','tenant_id','tenants.id','조직 → 회사'],
     ['organizations','parent_id','organizations.id','상위조직 (자기참조)'],
     ['users','tenant_id','tenants.id','사용자 → 회사'],
@@ -763,19 +763,19 @@ function _manDbSchema() {
     ['user_roles','role_code','roles.code','역할 코드 참조'],
     ['role_menu_permissions','role_code','roles.code','역할 → 메뉴권한'],
     ['service_policies','tenant_id','tenants.id','정책 → 회사'],
-    ['service_policies','isolation_group_id','isolation_groups.id','정책 → 격리그룹'],
-    ['service_policies','vorg_template_id','virtual_org_templates.id','정책 → 가상조직'],
-    ['virtual_org_templates','isolation_group_id','isolation_groups.id','가상조직 → 격리그룹'],
+    ['service_policies','domain_id','edu_support_domains.id','정책 → 격리그룹'],
+    ['service_policies','virtual_edu_org_id','virtual_edu_orgs.id','정책 → 가상조직'],
+    ['virtual_edu_orgs','domain_id','edu_support_domains.id','가상조직 → 격리그룹'],
     ['form_templates','tenant_id','tenants.id','양식 → 회사'],
     ['plans','tenant_id','tenants.id','계획 → 회사'],
-    ['plans','isolation_group_id','isolation_groups.id','계획 → 격리그룹'],
+    ['plans','domain_id','edu_support_domains.id','계획 → 격리그룹'],
     ['plans','policy_id','service_policies.id','계획 → 서비스 정책'],
     ['ledger','tenant_id','tenants.id','원장 → 회사'],
     ['ledger','application_id','plans.id','원장 → 신청(계획)'],
   ];
 
   const jsonbRows = [
-    ['virtual_org_templates','tree','본부/센터/실/팀 계층 + allowedJobTypes + budget'],
+    ['virtual_edu_orgs','tree','본부/센터/실/팀 계층 + allowedJobTypes + budget'],
     ['service_policies','approval_config','단계별 결재선 (임계금액·결재자 키)'],
     ['service_policies','stage_form_ids','단계별 양식 ID {plan, apply, result}'],
     ['service_policies','selected_edu_item','선택된 교육 세부 항목'],
@@ -881,7 +881,7 @@ function _manDbSchema() {
   <div>
     <h3 style="font-size:13px;font-weight:900;color:#374151;margin:0 0 10px">🔄 데이터 생성 순서 (관리자 기준)</h3>
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">
-      ${['tenants','isolation_groups','organizations','users + user_roles','virtual_org_templates','form_templates','service_policies','plans','ledger'].map((step,i,arr) => `
+      ${['tenants','edu_support_domains','organizations','users + user_roles','virtual_edu_orgs','form_templates','service_policies','plans','ledger'].map((step,i,arr) => `
       <div style="text-align:center">
         <div style="background:#EFF6FF;border:1.5px solid #93C5FD;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:800;color:#1D4ED8;white-space:nowrap">${step}</div>
       </div>

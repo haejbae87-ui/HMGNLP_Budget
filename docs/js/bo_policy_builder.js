@@ -103,12 +103,12 @@ async function renderServicePolicy() {
         dbPolicies.forEach(row => {
           const mapped = {
             id: row.id, tenantId: row.tenant_id, name: row.name, desc: row.descr,
-            isolationGroupId: row.isolation_group_id, scopeTenantId: row.scope_tenant_id,
+            domainId: row.domain_id, scopeTenantId: row.scope_tenant_id,
             scopeGroupId: row.scope_group_id, targetType: row.target_type, purpose: row.purpose,
             eduTypes: row.edu_types || [], selectedEduItem: row.selected_edu_item,
             processPattern: row.process_pattern, flow: row.flow,
             budgetLinked: row.budget_linked !== false, applyMode: row.apply_mode,
-            accountCodes: row.account_codes || [], vorgTemplateId: row.vorg_template_id,
+            accountCodes: row.account_codes || [], virtualEduOrgId: row.virtual_edu_org_id,
             stageFormIds: row.stage_form_ids || { plan:[], apply:[], result:[] },
             formSets: row.stage_form_ids,
             approvalConfig: row.approval_config || { plan:{thresholds:[],finalApproverKey:''}, apply:{thresholds:[],finalApproverKey:''}, result:{thresholds:[],finalApproverKey:''} },
@@ -127,7 +127,7 @@ async function renderServicePolicy() {
 
   const activeTenantId = isPlatform ? (_pbTenantFilter || '') : (persona.tenantId || '');
   const activeGroupId  = (typeof boGetActiveGroupId === 'function') ? boGetActiveGroupId() : null;
-  const autoGroupId    = (isBudgetOp || isBudgetAdmin) ? (persona.isolationGroupId || activeGroupId || '') : null;
+  const autoGroupId    = (isBudgetOp || isBudgetAdmin) ? (persona.domainId || activeGroupId || '') : null;
   const pbGroupId      = autoGroupId || _pbGroupFilter || activeGroupId || '';
 
   let myPolicies = SERVICE_POLICIES.filter(p => {
@@ -135,13 +135,13 @@ async function renderServicePolicy() {
     const tenantMatch = activeTenantId ? p.tenantId === activeTenantId : true;
     if (!tenantMatch) return false;
     if (isBudgetOp || isBudgetAdmin) {
-      if (pbGroupId && p.isolationGroupId) { if (p.isolationGroupId !== pbGroupId) return false; }
+      if (pbGroupId && p.domainId) { if (p.domainId !== pbGroupId) return false; }
       else {
         const myAccts = persona.ownedAccounts || [];
         if (!myAccts.includes('*') && !myAccts.some(a => p.accountCodes?.includes(a))) return false;
       }
     } else {
-      if (pbGroupId && p.isolationGroupId && p.isolationGroupId !== pbGroupId) return false;
+      if (pbGroupId && p.domainId && p.domainId !== pbGroupId) return false;
       if (activeTenantId && p.tenantId !== activeTenantId) return false;
     }
     if (_pbAccountFilter && !(p.accountCodes || []).includes(_pbAccountFilter)) return false;
@@ -150,12 +150,12 @@ async function renderServicePolicy() {
 
   const TENANTS_LIST = typeof TENANTS !== 'undefined' ? TENANTS
     : [...new Set(SERVICE_POLICIES.map(p=>p.tenantId))].map(id=>({id,name:id}));
-  const availGroups = (typeof ISOLATION_GROUPS !== 'undefined' ? ISOLATION_GROUPS : [])
+  const availGroups = (typeof EDU_SUPPORT_DOMAINS !== 'undefined' ? EDU_SUPPORT_DOMAINS : [])
     .filter(g => !activeTenantId || g.tenantId === activeTenantId);
   const availAccounts = (() => {
     // 격리그룹을 선택한 경우 해당 그룹의 ownedAccounts만 표시
     if (pbGroupId) {
-      const grp = (typeof ISOLATION_GROUPS !== 'undefined' ? ISOLATION_GROUPS : []).find(g => g.id === pbGroupId);
+      const grp = (typeof EDU_SUPPORT_DOMAINS !== 'undefined' ? EDU_SUPPORT_DOMAINS : []).find(g => g.id === pbGroupId);
       const owned = grp?.ownedAccounts || [];
       if (owned.length) {
         return ACCOUNT_MASTER.filter(a => a.active && owned.includes(a.code));
@@ -186,7 +186,7 @@ async function renderServicePolicy() {
     <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">격리그룹</span>
     <div style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid #C4B5FD;border-radius:10px;background:#F5F3FF;min-width:140px">
       <span style="font-size:12px">🔒</span>
-      <span style="font-size:13px;font-weight:800;color:#7C3AED">${(typeof ISOLATION_GROUPS!=='undefined'?ISOLATION_GROUPS:[]).find(g=>g.id===pbGroupId)?.name||pbGroupId||'전체'}</span>
+      <span style="font-size:13px;font-weight:800;color:#7C3AED">${(typeof EDU_SUPPORT_DOMAINS!=='undefined'?EDU_SUPPORT_DOMAINS:[]).find(g=>g.id===pbGroupId)?.name||pbGroupId||'전체'}</span>
     </div>
   </div>` : `
   <div style="display:flex;align-items:center;gap:8px">
@@ -305,14 +305,14 @@ function startPolicyWizard(policyId) {
       id: 'POL-' + Date.now(),
       tenantId: boCurrentPersona.tenantId,
       scopeTenantId: boCurrentPersona.tenantId || '',
-      scopeGroupId: boCurrentPersona.isolationGroupId || '',
+      scopeGroupId: boCurrentPersona.domainId || '',
       name: '', desc: '',
       targetType: '',
       purpose: '',
       eduTypes: [], selectedEduItem: null, eduSubTypes: {},
       processPattern: '', flow: 'apply-result',
       budgetLinked: true, applyMode: 'holding',
-      accountCodes: [], vorgTemplateId: '',
+      accountCodes: [], virtualEduOrgId: '',
       stageFormIds: { plan:[], apply:[], result:[] },
       approvalConfig: {
         plan:   { thresholds: [], finalApproverKey: '' },
@@ -351,7 +351,7 @@ function renderPolicyWizard() {
 
   // ── 이전 선택값 요약 배너 (step > 0일 때 표시) ─────────────────────────────
   const _sumTenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
-  const _sumGroups  = typeof ISOLATION_GROUPS !== 'undefined' ? ISOLATION_GROUPS : [];
+  const _sumGroups  = typeof EDU_SUPPORT_DOMAINS !== 'undefined' ? EDU_SUPPORT_DOMAINS : [];
   const _sumAccts   = typeof ACCOUNT_MASTER !== 'undefined' ? ACCOUNT_MASTER : [];
   const sumTenant   = _sumTenants.find(t => t.id === d.scopeTenantId)?.name || d.scopeTenantId || '';
   const sumGroup    = _sumGroups.find(g => g.id === d.scopeGroupId)?.name  || d.scopeGroupId  || '';
@@ -381,9 +381,9 @@ function renderPolicyWizard() {
     const _TENANTS_LIST = typeof TENANTS !== 'undefined' ? TENANTS
       : [...new Set((typeof SERVICE_POLICIES!=='undefined'?SERVICE_POLICIES:[]).map(p=>p.tenantId))].map(id=>({id,name:id}));
     const scopeTenantId = d.scopeTenantId || (isTenant||isBudgetOp ? persona.tenantId : '');
-    const scopeGroups = (typeof ISOLATION_GROUPS!=='undefined' ? ISOLATION_GROUPS : [])
+    const scopeGroups = (typeof EDU_SUPPORT_DOMAINS!=='undefined' ? EDU_SUPPORT_DOMAINS : [])
       .filter(g => scopeTenantId ? g.tenantId === scopeTenantId : true);
-    const scopeGroupId = d.scopeGroupId || (isBudgetOp ? (persona.isolationGroupId||'') : '');
+    const scopeGroupId = d.scopeGroupId || (isBudgetOp ? (persona.domainId||'') : '');
     const scopeGroup   = scopeGroups.find(g => g.id === scopeGroupId);
     const scopeAccts   = scopeGroupId
       ? ACCOUNT_MASTER.filter(a => a.active && (scopeGroup?.ownedAccounts||[]).includes(a.code))
@@ -629,10 +629,10 @@ function renderPolicyWizard() {
     // scopeTenantId + scopeGroupId 기반 필터 (persona.tenantId가 아닌 정책 선택 기준)
     const scopeTenantId = d.scopeTenantId || persona.tenantId;
     const scopeGroupId  = d.scopeGroupId  || '';
-    const tpls = (typeof VIRTUAL_ORG_TEMPLATES !== 'undefined' ? VIRTUAL_ORG_TEMPLATES : [])
+    const tpls = (typeof VIRTUAL_EDU_ORGS !== 'undefined' ? VIRTUAL_EDU_ORGS : [])
       .filter(t => {
         const tTenantId = t.tenantId || t.tenant_id;
-        const tGroupId  = t.isolationGroupId || t.isolation_group_id;
+        const tGroupId  = t.domainId || t.domain_id;
         if (tTenantId !== scopeTenantId) return false;
         if (scopeGroupId && tGroupId && tGroupId !== scopeGroupId) return false;
         return true;
@@ -642,9 +642,9 @@ function renderPolicyWizard() {
   <label class="bo-label">가상조직 템플릿 연결 <span style="color:#EF4444">*</span></label>
   <div style="display:grid;gap:8px">
     ${tpls.map(t=>`
-    <label style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:10px;border:2px solid ${d.vorgTemplateId===t.id?'#059669':'#E5E7EB'};background:${d.vorgTemplateId===t.id?'#F0FDF4':'white'};cursor:pointer"
-           onclick="_policyWizardData.vorgTemplateId='${t.id}';renderPolicyWizard()">
-      <input type="radio" ${d.vorgTemplateId===t.id?'checked':''} style="margin:0">
+    <label style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:10px;border:2px solid ${d.virtualEduOrgId===t.id?'#059669':'#E5E7EB'};background:${d.virtualEduOrgId===t.id?'#F0FDF4':'white'};cursor:pointer"
+           onclick="_policyWizardData.virtualEduOrgId='${t.id}';renderPolicyWizard()">
+      <input type="radio" ${d.virtualEduOrgId===t.id?'checked':''} style="margin:0">
       <div>
         <div style="font-weight:700;font-size:13px">🏢 ${t.name}</div>
         <div style="font-size:11px;color:#6B7280">
@@ -667,7 +667,7 @@ function renderPolicyWizard() {
             let changed = false;
             dbForms.forEach(row => {
               const mapped = {
-                id: row.id, tenantId: row.tenant_id, isolationGroupId: row.isolation_group_id,
+                id: row.id, tenantId: row.tenant_id, domainId: row.domain_id,
                 accountCode: row.account_code, type: row.type, name: row.name, desc: row.description || row.desc || '',
                 purpose: row.purpose, eduType: row.edu_type, active: row.active !== false,
                 fields: row.fields || [],
@@ -700,7 +700,7 @@ function renderPolicyWizard() {
         if (!f.active) return false;
         // tenantId 매칭: scopeTenantId 없으면 통과, 있으면 정확 매칭 (단 DB UUID와 코드가 다를 수 있어 양쪽 허용)
         if (_scopeTenantId && f.tenantId && f.tenantId !== _scopeTenantId) return false;
-        if (_scopeGroupId && f.isolationGroupId && f.isolationGroupId !== _scopeGroupId) return false;
+        if (_scopeGroupId && f.domainId && f.domainId !== _scopeGroupId) return false;
         if (_scopeAcctCode && f.accountCode && f.accountCode !== _scopeAcctCode) return false;
         return true;
       });
@@ -1088,7 +1088,7 @@ async function savePolicy() {
     const dbRow = {
       id:                  d.id,
       tenant_id:           d.tenantId || d.scopeTenantId,
-      isolation_group_id:  d.isolationGroupId || d.scopeGroupId || null,
+      domain_id:  d.domainId || d.scopeGroupId || null,
       scope_tenant_id:     d.scopeTenantId || null,
       scope_group_id:      d.scopeGroupId || null,
       name:                d.name,
@@ -1102,7 +1102,7 @@ async function savePolicy() {
       budget_linked:       d.budgetLinked !== false,
       apply_mode:          d.applyMode || null,
       account_codes:       d.accountCodes || [],
-      vorg_template_id:    d.vorgTemplateId || null,
+      virtual_edu_org_id:    d.virtualEduOrgId || null,
       stage_form_ids:      d.stageFormIds || d.formSets || null,
       approval_config:     d.approvalConfig || null,
       manager_persona_key: d.managerPersonaKey || null,

@@ -69,7 +69,7 @@ function renderMyIsolationGroups() { renderIsolationGroups(); }
 function _renderPlatformAdminView(persona, personaKey) {
   const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
   const selTenantId = _igGetTenantId();
-  const myGroups = ISOLATION_GROUPS.filter(g => g.tenantId === selTenantId);
+  const myGroups = EDU_SUPPORT_DOMAINS.filter(g => g.tenantId === selTenantId);
 
   const tenantSelect = `
 <div style="display:flex;align-items:center;gap:10px;padding:12px 18px;
@@ -114,7 +114,7 @@ function _renderPlatformAdminView(persona, personaKey) {
 //    격리그룹 생성 + 예산총괄(복수) + 예산운영(복수) 매핑
 // ══════════════════════════════════════════════════════════════════════════════
 function _renderTenantAdminView(persona, personaKey) {
-  const myGroups = ISOLATION_GROUPS.filter(g => g.tenantId === persona.tenantId);
+  const myGroups = EDU_SUPPORT_DOMAINS.filter(g => g.tenantId === persona.tenantId);
   const cards = _renderGroupCards(myGroups, 'tenant', persona, personaKey);
 
   return `
@@ -159,7 +159,7 @@ function _renderTenantAdminView(persona, personaKey) {
 //    자신이 globalAdminKeys에 포함된 그룹만 표시 + 예산운영 담당자 복수 매핑
 // ══════════════════════════════════════════════════════════════════════════════
 function _renderBudgetAdminView(persona, personaKey) {
-  const myGroups = ISOLATION_GROUPS.filter(g =>
+  const myGroups = EDU_SUPPORT_DOMAINS.filter(g =>
     g.tenantId === persona.tenantId &&
     (g.globalAdminKeys || [g.globalAdminKey]).includes(personaKey)
   );
@@ -333,13 +333,13 @@ function _renderGroupCards(groups, viewMode, persona, personaKey) {
 
 // ── 가상조직 배정 현황 조회 헬퍼 ─────────────────────────────────────────────
 // opKey: 운영담당자 persona key
-// isolationGroupId: 격리그룹 ID (해당 그룹의 템플릿만 조회)
-function _igGetVOrgAssignments(opKey, isolationGroupId) {
-  if (typeof VIRTUAL_ORG_TEMPLATES === 'undefined') return [];
+// domainId: 격리그룹 ID (해당 그룹의 템플릿만 조회)
+function _igGetVOrgAssignments(opKey, domainId) {
+  if (typeof VIRTUAL_EDU_ORGS === 'undefined') return [];
   const results = [];
-  const templates = isolationGroupId
-    ? VIRTUAL_ORG_TEMPLATES.filter(t => t.isolationGroupId === isolationGroupId)
-    : VIRTUAL_ORG_TEMPLATES;
+  const templates = domainId
+    ? VIRTUAL_EDU_ORGS.filter(t => t.domainId === domainId)
+    : VIRTUAL_EDU_ORGS;
   templates.forEach(tpl => {
     const nodes = [
       ...(tpl.tree?.hqs     || []),
@@ -514,7 +514,7 @@ function _renderCreateGroupModal(persona) {
 // 모달: 그룹 수정 (이름/설명/계정)
 // ══════════════════════════════════════════════════════════════════════════════
 function _renderEditGroupModal(persona) {
-  const g = ISOLATION_GROUPS.find(x => x.id === _igEditGroupId);
+  const g = EDU_SUPPORT_DOMAINS.find(x => x.id === _igEditGroupId);
   if (!g) { _igEditGroupId = null; return ''; }
   return `
 <div style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center">
@@ -560,7 +560,7 @@ function _renderEditGroupModal(persona) {
 // 모달: 예산총괄 담당자 추가 (검색 필터 UI)
 // ══════════════════════════════════════════════════════════════════════════════
 function _renderAddAdminModal(persona) {
-  const g = ISOLATION_GROUPS.find(x => x.id === _igTargetGroupId);
+  const g = EDU_SUPPORT_DOMAINS.find(x => x.id === _igTargetGroupId);
   if (!g) { _igAddAdminModal = false; return ''; }
   const tenantId = g.tenantId;
   const existing = g.globalAdminKeys || [g.globalAdminKey].filter(Boolean);
@@ -611,7 +611,7 @@ function _renderAddAdminModal(persona) {
 // 모달: 예산운영 담당자 추가 (검색 필터 UI)
 // ══════════════════════════════════════════════════════════════════════════════
 function _renderAddOpModal(persona, personaKey) {
-  const g = ISOLATION_GROUPS.find(x => x.id === _igTargetGroupId);
+  const g = EDU_SUPPORT_DOMAINS.find(x => x.id === _igTargetGroupId);
   if (!g) { _igAddOpModal = false; return ''; }
   const candidates = Object.entries(BO_PERSONAS).filter(([k,p]) =>
     p.tenantId === g.tenantId &&
@@ -681,7 +681,7 @@ function _saveNewIsolationGroup() {
     status: 'active',
     createdAt: new Date().toISOString().slice(0,10)
   };
-  ISOLATION_GROUPS.push(newGroup);
+  EDU_SUPPORT_DOMAINS.push(newGroup);
 
   const tenantName = tenants.find(t => t.id === tenantId)?.name || tenantId;
   const adminNames = adminKeys.map(k => BO_PERSONAS[k]?.name||k).join(', ') || '(미선임)';
@@ -692,7 +692,7 @@ function _saveNewIsolationGroup() {
 }
 
 function _igSaveEditGroup() {
-  const g = ISOLATION_GROUPS.find(x => x.id === _igEditGroupId);
+  const g = EDU_SUPPORT_DOMAINS.find(x => x.id === _igEditGroupId);
   if (!g) return;
   const name = document.getElementById('ig-edit-name')?.value?.trim();
   const desc = document.getElementById('ig-edit-desc')?.value?.trim();
@@ -711,7 +711,7 @@ async function _igOpenAdminModal(groupId) {
   // Supabase에서 budget_admin 역할 사용자 조회
   if (typeof _sb === 'function' && _sb()) {
     try {
-      const g = ISOLATION_GROUPS.find(x => x.id === groupId);
+      const g = EDU_SUPPORT_DOMAINS.find(x => x.id === groupId);
       const tenantId = g?.tenantId;
       const { data: urData } = await _sb().from('user_roles')
         .select('user_id').eq('role_code', 'budget_admin');
@@ -737,7 +737,7 @@ async function _igOpenAdminModal(groupId) {
 function _igConfirmAddAdmin() {
   const selected = [...document.querySelectorAll('input[name="ig-admin-candidate"]:checked')].map(el => el.value);
   if (!selected.length) { alert('추가할 담당자를 선택하세요.'); return; }
-  const g = ISOLATION_GROUPS.find(x => x.id === _igTargetGroupId);
+  const g = EDU_SUPPORT_DOMAINS.find(x => x.id === _igTargetGroupId);
   if (!g) return;
   if (!g.globalAdminKeys) g.globalAdminKeys = g.globalAdminKey ? [g.globalAdminKey] : [];
   selected.forEach(k => { if (!g.globalAdminKeys.includes(k)) g.globalAdminKeys.push(k); });
@@ -751,7 +751,7 @@ function _igConfirmAddAdmin() {
 function _igConfirmAddOp() {
   const selected = [...document.querySelectorAll('input[name="ig-op-candidate"]:checked')].map(el => el.value);
   if (!selected.length) { alert('추가할 운영 담당자를 선택하세요.'); return; }
-  const g = ISOLATION_GROUPS.find(x => x.id === _igTargetGroupId);
+  const g = EDU_SUPPORT_DOMAINS.find(x => x.id === _igTargetGroupId);
   if (!g) return;
   selected.forEach(k => { if (!g.opManagerKeys.includes(k)) g.opManagerKeys.push(k); });
   const names = selected.map(k => BO_PERSONAS[k]?.name||k).join(', ');
@@ -761,7 +761,7 @@ function _igConfirmAddOp() {
 }
 
 function _igRemoveAdmin(groupId, adminKey) {
-  const g = ISOLATION_GROUPS.find(x => x.id === groupId);
+  const g = EDU_SUPPORT_DOMAINS.find(x => x.id === groupId);
   const p = BO_PERSONAS[adminKey];
   if (!g) return;
   if (!confirm(`${p?.name||adminKey}를 이 격리그룹의 예산총괄 담당자에서 제거하시겠습니까?`)) return;
@@ -771,13 +771,13 @@ function _igRemoveAdmin(groupId, adminKey) {
 }
 
 function _igRemoveOpManager(groupId, opKey) {
-  const g = ISOLATION_GROUPS.find(x => x.id === groupId);
+  const g = EDU_SUPPORT_DOMAINS.find(x => x.id === groupId);
   const p = BO_PERSONAS[opKey];
   if (!g) return;
   if (!confirm(`${p?.name||opKey}를 이 격리그룹의 예산운영 담당자에서 제거하시겠습니까?\n\n가상조직 노드 배정도 초기화됩니다.`)) return;
   g.opManagerKeys = g.opManagerKeys.filter(k => k !== opKey);
-  if (typeof VIRTUAL_ORG_TEMPLATES !== 'undefined') {
-    VIRTUAL_ORG_TEMPLATES.forEach(tpl => {
+  if (typeof VIRTUAL_EDU_ORGS !== 'undefined') {
+    VIRTUAL_EDU_ORGS.forEach(tpl => {
       const nodes = [...(tpl.tree?.hqs||[]), ...(tpl.tree?.centers||[])];
       nodes.forEach(n => { if (n.managerPersonaKey === opKey) n.managerPersonaKey = ''; });
     });

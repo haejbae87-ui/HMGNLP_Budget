@@ -6,9 +6,9 @@ let _boPlatformSelectedTenantId = null; // 플랫폼 총괄: 선택된 테넌트
 function boGetMyGroups(persona) {
   if (!persona) persona = boCurrentPersona;
   const ids = persona.isolationGroups ||
-    (persona.isolationGroupId ? [persona.isolationGroupId] : []);
-  return (typeof ISOLATION_GROUPS !== 'undefined')
-    ? ids.map(id => ISOLATION_GROUPS.find(g => g.id === id)).filter(Boolean)
+    (persona.domainId ? [persona.domainId] : []);
+  return (typeof EDU_SUPPORT_DOMAINS !== 'undefined')
+    ? ids.map(id => EDU_SUPPORT_DOMAINS.find(g => g.id === id)).filter(Boolean)
     : [];
 }
 
@@ -30,7 +30,7 @@ function boGetActiveGroupId() {
 // 활성 격리그룹 객체 반환
 function boGetActiveGroup() {
   const id = boGetActiveGroupId();
-  return id ? (ISOLATION_GROUPS||[]).find(g => g.id === id) : null;
+  return id ? (EDU_SUPPORT_DOMAINS||[]).find(g => g.id === id) : null;
 }
 
 // 격리그룹 스위치 (셀렉트박스 선택 + 조회 버튼 콜백)
@@ -46,7 +46,7 @@ function boPlatformSelectTenant(tenantId) {
   // 그룹 셀렉트 갱신
   const groupSel = document.getElementById('bo-group-select');
   if (!groupSel) return;
-  const groups = (ISOLATION_GROUPS||[]).filter(g => g.tenantId === tenantId);
+  const groups = (EDU_SUPPORT_DOMAINS||[]).filter(g => g.tenantId === tenantId);
   groupSel.innerHTML = `<option value="">전체 그룹 (${groups.length}개)</option>` +
     groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
 }
@@ -62,7 +62,7 @@ function boApplyGroupFilter() {
 function boIsolationGroupFilter(arr, field) {
   const activeId = boGetActiveGroupId();
   if (!activeId || !arr) return arr || [];
-  const f = field || 'isolationGroupId';
+  const f = field || 'domainId';
   return arr.filter(item => !item[f] || item[f] === activeId);
 }
 
@@ -75,7 +75,7 @@ function boRenderGroupContextBar() {
   if (role === 'platform_admin') {
     const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
     const selTenantId = _boPlatformSelectedTenantId || (tenants[0]?.id || '');
-    const filteredGroups = (ISOLATION_GROUPS||[]).filter(g => g.tenantId === selTenantId);
+    const filteredGroups = (EDU_SUPPORT_DOMAINS||[]).filter(g => g.tenantId === selTenantId);
     const activeId = _boActiveIsolationGroupId;
     return `
 <div style="display:flex;align-items:center;gap:10px;padding:12px 18px;background:#FFFBEB;
@@ -103,7 +103,7 @@ function boRenderGroupContextBar() {
     </button>
   </div>
   ${activeId ? `<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:4px;font-weight:700">
-    📊 현재: ${(ISOLATION_GROUPS||[]).find(g=>g.id===activeId)?.name || activeId}
+    📊 현재: ${(EDU_SUPPORT_DOMAINS||[]).find(g=>g.id===activeId)?.name || activeId}
   </span>` : '<span style="font-size:10px;color:#9CA3AF">전체 그룹 데이터 표시 중</span>'}
 </div>`;
   }
@@ -111,7 +111,7 @@ function boRenderGroupContextBar() {
   // ② 테넌트 총괄: 소속 테넌트의 모든 격리그룹을 탭/배지로 표시 (필터 없음, 전체 동시 조회)
   if (role === 'tenant_global_admin') {
     const tenantId = persona.tenantId;
-    const allGroups = (ISOLATION_GROUPS||[]).filter(g => g.tenantId === tenantId);
+    const allGroups = (EDU_SUPPORT_DOMAINS||[]).filter(g => g.tenantId === tenantId);
     if (!allGroups.length) return '';
     return `
 <div style="padding:12px 18px;background:#F0FDF4;border:1px solid #A7F3D0;border-radius:12px;margin-bottom:20px">
@@ -177,80 +177,95 @@ function boRenderGroupContextBar() {
 // ─── 구버전 호환 별칭 (기존 boIsolationGroupBanner 호출부 호환) ───────────────
 function boIsolationGroupBanner() { return boRenderGroupContextBar(); }
 
+// GNB (대분류) 정의
+const GNB_CATE = {
+  PLATFORM: '플랫폼',
+  TENANT: '테넌트',
+  RESOURCE: '교육자원',
+  OPERATION: '교육운영',
+  GROWTH: '성장제도',
+  STATS: '현황/통계',
+  ETC: '기타'
+};
+
 // Platform Admin 전용 메뉴
 const PLATFORM_MENUS = [
-  { id: 'dashboard',         icon: '📊', label: '대시보드',              section: null },
-  { id: 'platform-monitor',  icon: '🖥️',  label: '전사 예산 모니터링',    section: '플랫폼 총괄' },
-  { id: 'tenant-mgmt',       icon: '🏢', label: '테넌트/회사 관리',       section: null },
-  { id: 'org-mgmt',          icon: '🗂️', label: '조직 관리',              section: null },
-  { id: 'user-mgmt',         icon: '👤', label: '사용자 관리',            section: null },
-  { id: 'role-mgmt',         icon: '🔐', label: '역할 관리',              section: null },
-  { id: 'role-menu-perms',   icon: '🔑', label: '역할별 메뉴 권한',        section: null },
-  { id: 'platform-roles',    icon: '🛠️', label: '관리자 권한 매핑',       section: null },
-  { id: 'isolation-groups',  icon: '🛡️', label: '격리그룹 관리',          section: '테넌트 운영' },
-  { id: 'budget-account',    icon: '💳', label: '예산 계정 관리',          section: null },
-  { id: 'virtual-org',       icon: '🏗️', label: '가상조직 템플릿 관리',   section: null },
-  { id: 'form-builder',      icon: '📝', label: '교육양식마법사',          section: null },
-  { id: 'field-mgmt',        icon: '⚙️', label: '입력 필드 관리',          section: null },
-  { id: 'edu-type-mgmt',     icon: '🏷️', label: '교육유형 관리',          section: null },
-  { id: 'calc-grounds',      icon: '📐', label: '산정기준 관리',          section: null },
-  { id: 'service-policy',    icon: '🔧', label: '서비스 정책 관리',        section: null },
-  { id: 'reports',           icon: '📈', label: '통계 및 리포트',        section: '분석' },
-  { id: 'manual',            icon: '📖', label: '서비스 매뉴얼',          section: null },
+  { id: 'dashboard',         icon: '📊', label: '대시보드',              section: null, gnb: GNB_CATE.PLATFORM },
+  { id: 'platform-monitor',  icon: '🖥️',  label: '전사 예산 모니터링',    section: '플랫폼 총괄', gnb: GNB_CATE.PLATFORM },
+  { id: 'tenant-mgmt',       icon: '🏢', label: '테넌트/회사 관리',       section: null, gnb: GNB_CATE.PLATFORM },
+  { id: 'platform-roles',    icon: '🛠️', label: '관리자 권한 매핑',       section: null, gnb: GNB_CATE.PLATFORM },
+  
+  { id: 'org-mgmt',          icon: '🗂️', label: '조직 관리',              section: null, gnb: GNB_CATE.TENANT },
+  { id: 'isolation-groups',  icon: '🛡️', label: '교육지원도메인 관리',      section: '테넌트 운영', gnb: GNB_CATE.TENANT },
+  { id: 'user-mgmt',         icon: '👤', label: '사용자 관리',            section: null, gnb: GNB_CATE.TENANT },
+  { id: 'role-mgmt',         icon: '🔐', label: '역할 관리',              section: null, gnb: GNB_CATE.TENANT },
+  { id: 'role-menu-perms',   icon: '🔑', label: '역할별 메뉴 권한',        section: null, gnb: GNB_CATE.TENANT },
+  
+  { id: 'virtual-org',       icon: '🏗️', label: '가상조직 템플릿 관리',   section: null, gnb: GNB_CATE.RESOURCE },
+  { id: 'calc-grounds',      icon: '📐', label: '산정기준 관리',          section: null, gnb: GNB_CATE.RESOURCE },
+  { id: 'edu-type-mgmt',     icon: '🏷️', label: '교육유형 관리',          section: null, gnb: GNB_CATE.RESOURCE },
+  
+  { id: 'budget-account',    icon: '💳', label: '예산 계정 관리',          section: null, gnb: GNB_CATE.OPERATION },
+  { id: 'form-builder',      icon: '📝', label: '교육양식마법사',          section: null, gnb: GNB_CATE.OPERATION },
+  { id: 'field-mgmt',        icon: '⚙️', label: '입력 필드 관리',          section: null, gnb: GNB_CATE.OPERATION },
+  { id: 'service-policy',    icon: '🔧', label: '서비스 정책 관리',        section: null, gnb: GNB_CATE.OPERATION },
+  
+  { id: 'reports',           icon: '📈', label: '통계 및 리포트',        section: '분석', gnb: GNB_CATE.STATS },
+  { id: 'manual',            icon: '📖', label: '서비스 매뉴얼',          section: null, gnb: GNB_CATE.ETC },
 ];
 
 // Tenant Admin 메뉴 (테넌트 총괄 전용)
 const TENANT_ADMIN_MENUS = [
-  { id: 'dashboard',        icon: '📊', label: '대시보드',              section: null },
-  { id: 'isolation-groups', icon: '🛡️', label: '격리그룹 관리',         section: '테넌트 관리' },
-  { id: 'budget-account',   icon: '💳', label: '예산 계정 관리',         section: null },
-  { id: 'virtual-org',      icon: '🏢', label: '가상조직 템플릿 관리',  section: null },
-  { id: 'form-builder',     icon: '📝', label: '교육양식마법사',         section: null },
-  { id: 'calc-grounds',     icon: '📐', label: '산정기준 관리',         section: null },
-  { id: 'service-policy',   icon: '🔧', label: '서비스 정책 관리',       section: null },
-  { id: 'reports',          icon: '📈', label: '전사 통계 리포트',       section: '분석' },
-  { id: 'manual',           icon: '📖', label: '서비스 매뉴얼',          section: null },
+  { id: 'dashboard',        icon: '📊', label: '대시보드',              section: null, gnb: GNB_CATE.PLATFORM },
+  { id: 'isolation-groups', icon: '🛡️', label: '교육지원도메인 관리',      section: '테넌트 관리', gnb: GNB_CATE.TENANT },
+  { id: 'virtual-org',      icon: '🏢', label: '가상조직 템플릿 관리',  section: null, gnb: GNB_CATE.RESOURCE },
+  { id: 'calc-grounds',     icon: '📐', label: '산정기준 관리',         section: null, gnb: GNB_CATE.RESOURCE },
+  { id: 'budget-account',   icon: '💳', label: '예산 계정 관리',         section: null, gnb: GNB_CATE.OPERATION },
+  { id: 'form-builder',     icon: '📝', label: '교육양식마법사',         section: null, gnb: GNB_CATE.OPERATION },
+  { id: 'service-policy',   icon: '🔧', label: '서비스 정책 관리',       section: null, gnb: GNB_CATE.OPERATION },
+  { id: 'reports',          icon: '📈', label: '전사 통계 리포트',       section: '분석', gnb: GNB_CATE.STATS },
+  { id: 'manual',           icon: '📖', label: '서비스 매뉴얼',          section: null, gnb: GNB_CATE.ETC },
 ];
 
 // 예산 총괄 메뉴 (Budget Global Admin)
 const BUDGET_ADMIN_MENUS = [
-  { id: 'dashboard',           icon: '📊', label: '대시보드',              section: null },
-  { id: 'isolation-groups',    icon: '🛡️', label: '격리그룹 관리',    section: '그룹 설정' },
-  { id: 'budget-account',      icon: '💳', label: '예산 계정 관리',          section: '예산·설정' },
-  { id: 'virtual-org',         icon: '🏢', label: '가상조직 템플릿 관리',   section: null },
-  { id: 'form-builder',        icon: '📝', label: '교육신청양식마법사',    section: null },
-  { id: 'calc-grounds',        icon: '📐', label: '세부산출근거 관리',       section: null },
-  { id: 'service-policy',      icon: '🔧', label: '서비스 정책 관리',        section: null },
-  { id: 'plan-mgmt',           icon: '📋', label: '교육계획 관리',           section: '운영 메뉴' },
-  { id: 'allocation',          icon: '💰', label: '예산 배정 및 관리',       section: null },
-  { id: 'my-operations',       icon: '📥', label: '나의 운영 업무',           section: null },
-  { id: 'reports',             icon: '📈', label: '통계 및 리포트',          section: '분석' },
-  { id: 'manual',              icon: '📖', label: '서비스 매뉴얼',           section: null },
+  { id: 'dashboard',           icon: '📊', label: '대시보드',              section: null, gnb: GNB_CATE.PLATFORM },
+  { id: 'isolation-groups',    icon: '🛡️', label: '교육지원도메인 관리',    section: '그룹 설정', gnb: GNB_CATE.TENANT },
+  { id: 'virtual-org',         icon: '🏢', label: '가상조직 템플릿 관리',   section: null, gnb: GNB_CATE.RESOURCE },
+  { id: 'calc-grounds',        icon: '📐', label: '세부산출근거 관리',       section: null, gnb: GNB_CATE.RESOURCE },
+  { id: 'budget-account',      icon: '💳', label: '예산 계정 관리',          section: '예산·설정', gnb: GNB_CATE.OPERATION },
+  { id: 'form-builder',        icon: '📝', label: '교육신청양식마법사',    section: null, gnb: GNB_CATE.OPERATION },
+  { id: 'service-policy',      icon: '🔧', label: '서비스 정책 관리',        section: null, gnb: GNB_CATE.OPERATION },
+  { id: 'plan-mgmt',           icon: '📋', label: '교육계획 관리',           section: '운영 메뉴', gnb: GNB_CATE.GROWTH },
+  { id: 'allocation',          icon: '💰', label: '예산 배정 및 관리',       section: null, gnb: GNB_CATE.GROWTH },
+  { id: 'my-operations',       icon: '📥', label: '나의 운영 업무',           section: null, gnb: GNB_CATE.GROWTH },
+  { id: 'reports',             icon: '📈', label: '통계 및 리포트',          section: '분석', gnb: GNB_CATE.STATS },
+  { id: 'manual',              icon: '📖', label: '서비스 매뉴얼',           section: null, gnb: GNB_CATE.ETC },
 ];
 
 // 예산 운영 메뉴 (Budget Operation Manager)
 const BUDGET_OP_MENUS = [
-  { id: 'dashboard',       icon: '📊', label: '대시보드',              section: null },
-  { id: 'my-operations',  icon: '📥', label: '나의 운영 업무',           section: '운영 업무' },
-  { id: 'service-policy', icon: '🔧', label: '서비스 정책 관리',        section: null },
-  { id: 'org-budget',      icon: '💰', label: '조직 예산 현황',          section: null },
-  { id: 'reports',         icon: '📈', label: '통계 및 리포트',          section: '분석' },
+  { id: 'dashboard',       icon: '📊', label: '대시보드',              section: null, gnb: GNB_CATE.PLATFORM },
+  { id: 'service-policy', icon: '🔧', label: '서비스 정책 관리',        section: null, gnb: GNB_CATE.OPERATION },
+  { id: 'my-operations',  icon: '📥', label: '나의 운영 업무',           section: '운영 업무', gnb: GNB_CATE.GROWTH },
+  { id: 'org-budget',      icon: '💰', label: '조직 예산 현황',          section: null, gnb: GNB_CATE.GROWTH },
+  { id: 'reports',         icon: '📈', label: '통계 및 리포트',          section: '분석', gnb: GNB_CATE.STATS },
 ];
 
 // 겸임용 통합 메뉴 (Tenant Admin + Budget Admin 겸임)
 const TENANT_DUAL_MENUS = [
-  { id: 'dashboard',        icon: '📊', label: '대시보드',              section: null },
-  { id: 'isolation-groups',    icon: '🛡️', label: '격리그룹 관리',    section: '테넌트 관리' },
-  { id: 'budget-account',   icon: '💳', label: '예산 계정 관리',          section: '예산·설정' },
-  { id: 'virtual-org',      icon: '🏢', label: '가상조직 템플릿 관리',   section: null },
-  { id: 'form-builder',     icon: '📝', label: '교육신청양식마법사',    section: null },
-  { id: 'calc-grounds',     icon: '📐', label: '세부산출근거 관리',       section: null },
-  { id: 'service-policy',   icon: '🔧', label: '서비스 정책 관리',        section: null },
-  { id: 'plan-mgmt',        icon: '📋', label: '교육계획 관리',           section: '운영 메뉴' },
-  { id: 'allocation',       icon: '💰', label: '예산 배정 및 관리',       section: null },
-  { id: 'my-operations',   icon: '📥', label: '나의 운영 업무',           section: null },
-  { id: 'reports',          icon: '📈', label: '통계 및 리포트',          section: '분석' },
-  { id: 'manual',           icon: '📖', label: '서비스 매뉴얼',           section: null },
+  { id: 'dashboard',        icon: '📊', label: '대시보드',              section: null, gnb: GNB_CATE.PLATFORM },
+  { id: 'isolation-groups', icon: '🛡️', label: '교육지원도메인 관리',      section: '테넌트 관리', gnb: GNB_CATE.TENANT },
+  { id: 'virtual-org',      icon: '🏢', label: '가상조직 템플릿 관리',   section: null, gnb: GNB_CATE.RESOURCE },
+  { id: 'calc-grounds',     icon: '📐', label: '세부산출근거 관리',       section: null, gnb: GNB_CATE.RESOURCE },
+  { id: 'budget-account',   icon: '💳', label: '예산 계정 관리',          section: '예산·설정', gnb: GNB_CATE.OPERATION },
+  { id: 'form-builder',     icon: '📝', label: '교육신청양식마법사',    section: null, gnb: GNB_CATE.OPERATION },
+  { id: 'service-policy',   icon: '🔧', label: '서비스 정책 관리',        section: null, gnb: GNB_CATE.OPERATION },
+  { id: 'plan-mgmt',        icon: '📋', label: '교육계획 관리',           section: '운영 메뉴', gnb: GNB_CATE.GROWTH },
+  { id: 'allocation',       icon: '💰', label: '예산 배정 및 관리',       section: null, gnb: GNB_CATE.GROWTH },
+  { id: 'my-operations',   icon: '📥', label: '나의 운영 업무',           section: null, gnb: GNB_CATE.GROWTH },
+  { id: 'reports',          icon: '📈', label: '통계 및 리포트',          section: '분석', gnb: GNB_CATE.STATS },
+  { id: 'manual',           icon: '📖', label: '서비스 매뉴얼',           section: null, gnb: GNB_CATE.ETC },
 ];
 
 // 레거시 호환용 (platform_admin 이외 기존 flow 지원)
@@ -271,7 +286,13 @@ function _getMenus(persona) {
   return TENANT_MENUS; // 레거시 fallback
 }
 
-function renderBoLayout() { renderBoSidebar(); renderBoHeader(); }
+let boCurrentGnb = GNB_CATE.PLATFORM; // 현재 선택된 GNB 탭 저장용 전역 변수
+
+function renderBoLayout() {
+  renderBoHeader();
+  renderBoGnb();
+  renderBoSidebar();
+}
 
 // 섹션 접기 상태 관리 (세션 스토리지로 유지)
 function _boGetCollapsedSections() {
@@ -296,9 +317,57 @@ function boToggleSection(sectionKey) {
   }
 }
 
+function renderBoGnb() {
+  const persona = boCurrentPersona;
+  const allMenus = _getMenus(persona);
+  const personaRoles = persona.roles || [persona.role];
+  
+  // 권한 있는 메뉴들에 속한 GNB 목록 추출
+  const availableGnbs = [...new Set(allMenus.filter(m => {
+    return (typeof checkMenuAccess === 'function')
+      ? checkMenuAccess(m.id, personaRoles, persona.accessMenus)
+      : (persona.accessMenus || []).includes(m.id);
+  }).map(m => m.gnb))];
+
+  if (!availableGnbs.includes(boCurrentGnb) && availableGnbs.length > 0) {
+    boCurrentGnb = availableGnbs[0];
+  }
+
+  let html = '';
+  availableGnbs.forEach(gnb => {
+    const isActive = (gnb === boCurrentGnb);
+    html += `<div class="gnb-item ${isActive ? 'active' : ''}" onclick="boSwitchGnb('${gnb}')">${gnb}</div>`;
+  });
+
+  const el = document.getElementById('bo-gnb');
+  if(el) el.innerHTML = html;
+}
+
+function boSwitchGnb(gnbCate) {
+  boCurrentGnb = gnbCate;
+  const persona = boCurrentPersona;
+  const allMenus = _getMenus(persona);
+  const personaRoles = persona.roles || [persona.role];
+  
+  // 선택한 GNB 카테고리 내에서 사용 가능한 첫 번째 메뉴 찾기
+  const firstMenu = allMenus.find(m => m.gnb === gnbCate && ((typeof checkMenuAccess === 'function')
+      ? checkMenuAccess(m.id, personaRoles, persona.accessMenus)
+      : (persona.accessMenus || []).includes(m.id)));
+      
+  if (firstMenu) boNavigate(firstMenu.id);
+  else {
+    renderBoGnb();
+    renderBoSidebar();
+  }
+}
+
 function renderBoSidebar() {
   const persona  = boCurrentPersona;
-  const menus    = _getMenus(persona);
+  let menus    = _getMenus(persona);
+  
+  // 현재 선택된 GNB 탭의 하위 메뉴들만 필터링
+  menus = menus.filter(m => m.gnb === boCurrentGnb);
+  
   const isPlatform = persona.role === 'platform_admin';
   const collapsed  = _boGetCollapsedSections();
   const personaRoles = persona.roles || [persona.role];
@@ -390,20 +459,11 @@ function renderBoSidebar() {
   </div>`;
 
   document.getElementById('bo-sidebar').innerHTML = `
-<div class="bo-logo">
-  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-    <div style="background:rgba(255,255,255,0.15);border-radius:8px;padding:5px 7px;font-size:14px">🏢</div>
-    <div>
-      <div class="bo-logo-title">Next Learning</div>
-      <div class="bo-logo-sub">Back Office</div>
-    </div>
-  </div>
-</div>
-${platformBanner}
-<div class="bo-nav-section" style="flex:1;overflow-y:auto">${menuHtml}</div>
-<div style="padding:14px 16px;border-top:1px solid rgba(255,255,255,0.08)">
-  <a href="frontoffice.html" style="display:flex;align-items:center;gap:8px;color:rgba(255,255,255,0.45);font-size:12px;font-weight:700;text-decoration:none">
-    <span>←</span> 프론트로 이동
+<div class="bo-nav-section" style="flex:1;overflow-y:auto;margin-top:10px">${menuHtml}</div>
+<div style="padding:14px 16px;border-top:1px solid var(--border)">
+  <a href="frontoffice.html" style="display:flex;align-items:center;gap:8px;color:var(--text-sub);font-size:12px;font-weight:700;text-decoration:none" 
+     onmouseover="this.style.color='var(--text-main)'" onmouseout="this.style.color='var(--text-sub)'">
+    <span>←</span> LXP 프론트로 돌아가기
   </a>
 </div>`;
 }
@@ -444,7 +504,7 @@ function renderBoHeader() {
     <span style="font-size:10px;color:#9CA3AF;font-weight:600">${currentGroup?.label||''}</span>
     <span style="font-size:9px;color:#9CA3AF">\u25bc</span>
   </button>
-  <div id="persona-switcher-panel" style="display:none;position:fixed;top:56px;right:16px;z-index:500;
+  <div id="persona-switcher-panel" style="display:none;position:fixed;top:48px;right:16px;z-index:500;
        background:white;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.2);
        border:1px solid #E5E7EB;padding:12px;width:580px;max-height:70vh;overflow-y:auto">
     <div style="font-size:10px;font-weight:900;color:#9CA3AF;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">\ud14c\ub10c\ud2b8\ubcc4 \uc811\uc18d\uc790 \uc804\ud658</div>
@@ -477,18 +537,15 @@ function renderBoHeader() {
 </div>`;
 
   document.getElementById('bo-header').innerHTML = `
-<div style="display:flex;align-items:center;justify-content:space-between;height:100%;padding:0 16px">
-  <div style="display:flex;align-items:center;gap:10px">
-    <a href="frontoffice.html"
-      style="display:flex;align-items:center;gap:5px;background:linear-gradient(135deg,#002C5F,#0050A8);color:#fff;text-decoration:none;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;border:1.5px solid #0050A8;white-space:nowrap;transition:all .15s"
-      onmouseover="this.style.opacity='.8'"
-      onmouseout="this.style.opacity='1'"
-      title="LXP \ud559\uc2b5\uc790 \ud654\uba74(\ud504\ub860\ud2b8 \uc624\ud53c\uc2a4)\uc73c\ub85c \uc774\ub3d9">
-      \ud83c\udf93 LXP \ud504\ub860\ud2b8
-    </a>
-    <div style="font-size:11px;color:#9CA3AF;font-weight:700;border-left:1px solid #E5E7EB;padding-left:10px">\ubc31\uc624\ud53c\uc2a4 / ${menuLabel}</div>
-  </div>
-  <div style="display:flex;align-items:center;gap:8px">
+<div style="display:flex;align-items:center;height:100%">
+  <!-- Left: Logo -->
+  <a href="#" onclick="boNavigate('dashboard')" style="display:flex;align-items:center;gap:8px;text-decoration:none;margin-right:40px">
+    <div style="background:var(--brand);color:white;border-radius:8px;padding:4px 6px;font-size:14px">🏢</div>
+    <div style="font-weight:900;color:var(--brand);font-size:16px;letter-spacing:-0.4px">Next Learning <span style="font-weight:700;color:var(--text-xs);font-size:13px;margin-left:4px">Back Office</span></div>
+  </a>
+  
+  <!-- Right: Title and Switcher -->
+  <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
     <span style="font-size:10px;font-weight:700;color:#9CA3AF;white-space:nowrap">\uc811\uc18d\uc790 \uc804\ud658:</span>
     ${switcher}
   </div>
@@ -524,9 +581,13 @@ function boNavigate(menuId) {
     : boCurrentPersona.accessMenus.includes(menuId);
   if (!allowed) return;
   boCurrentMenu = menuId;
+  const targetMenuDef = _getMenus(boCurrentPersona).find(m => m.id === menuId);
+  if (targetMenuDef && targetMenuDef.gnb) {
+    boCurrentGnb = targetMenuDef.gnb; // 메뉴 선택 시 부모 GNB도 동기화
+  }
+  
   sessionStorage.setItem('boLastMenu', menuId); // 현재 메뉴 기억
-  renderBoSidebar();
-  renderBoHeader();
+  renderBoLayout();
   document.getElementById('bo-content').innerHTML = '';
 
   if (menuId === 'dashboard')        renderBoDashboard();

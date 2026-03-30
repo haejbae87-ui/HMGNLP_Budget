@@ -12,8 +12,8 @@ create table if not exists tenants (
   created_at timestamptz default now()
 );
 
--- 2. 격리그룹
-create table if not exists isolation_groups (
+-- 2. 교육지원도메인 (구 격리그룹)
+create table if not exists edu_support_domains (
   id text primary key,
   tenant_id text references tenants(id),
   name text not null,
@@ -56,7 +56,7 @@ create table if not exists account_budgets (
 create table if not exists service_policies (
   id text primary key,
   tenant_id text references tenants(id),
-  isolation_group_id text references isolation_groups(id),
+  domain_id text references edu_support_domains(id),
   scope_tenant_id text,
   scope_group_id text,
   name text not null,
@@ -70,7 +70,7 @@ create table if not exists service_policies (
   budget_linked boolean default true,
   apply_mode text,
   account_codes text[],
-  vorg_template_id text,
+  virtual_edu_org_id text,
   stage_form_ids jsonb,    -- {plan:[], apply:[], result:[]}
   approval_config jsonb,
   manager_persona_key text,
@@ -78,13 +78,14 @@ create table if not exists service_policies (
   created_at timestamptz default now()
 );
 
--- 6. 가상조직 템플릿
-create table if not exists virtual_org_templates (
+-- 6. 가상교육조직 (마스터)
+create table if not exists virtual_edu_orgs (
   id text primary key,
   tenant_id text references tenants(id),
-  isolation_group_id text references isolation_groups(id),
   name text not null,
   tree jsonb,              -- 가상조직 트리 전체
+  service_type text default 'budget',
+  owner_role_id uuid,      -- 소유 동적 역할 ID
   created_at timestamptz default now()
 );
 
@@ -104,7 +105,7 @@ create table if not exists plans (
   id text primary key,
   tenant_id text references tenants(id),
   account_code text references account_master(code),
-  isolation_group_id text,
+  domain_id text,
   applicant_id text,
   applicant_name text,
   edu_name text not null,
@@ -122,7 +123,7 @@ create table if not exists applications (
   tenant_id text references tenants(id),
   plan_id text references plans(id),
   account_code text references account_master(code),
-  isolation_group_id text,
+  domain_id text,
   applicant_id text,
   applicant_name text,
   dept text,
@@ -164,11 +165,11 @@ create table if not exists approval_routing (
 -- Row Level Security (RLS) 설정
 -- ================================================================
 alter table tenants enable row level security;
-alter table isolation_groups enable row level security;
+alter table edu_support_domains enable row level security;
 alter table account_master enable row level security;
 alter table account_budgets enable row level security;
 alter table service_policies enable row level security;
-alter table virtual_org_templates enable row level security;
+alter table virtual_edu_orgs enable row level security;
 alter table form_master enable row level security;
 alter table plans enable row level security;
 alter table applications enable row level security;
@@ -178,11 +179,11 @@ alter table approval_routing enable row level security;
 -- 개발/테스트용: service_role 은 RLS 우회 (기본값)
 -- anon key의 경우 읽기 전용 정책 추가 (필요 시)
 create policy "anon_read_tenants" on tenants for select using (true);
-create policy "anon_read_isolation_groups" on isolation_groups for select using (true);
+create policy "anon_read_edu_support_domains" on edu_support_domains for select using (true);
 create policy "anon_read_account_master" on account_master for select using (true);
 create policy "anon_read_account_budgets" on account_budgets for select using (true);
 create policy "anon_read_service_policies" on service_policies for select using (true);
-create policy "anon_read_virtual_org" on virtual_org_templates for select using (true);
+create policy "anon_read_virtual_edu_org" on virtual_edu_orgs for select using (true);
 create policy "anon_read_form_master" on form_master for select using (true);
 create policy "anon_read_plans" on plans for select using (true);
 create policy "anon_read_applications" on applications for select using (true);
@@ -191,11 +192,11 @@ create policy "anon_read_approval_routing" on approval_routing for select using 
 
 -- service_role 쓰기 정책 (앱에서 secret key 사용 시)
 create policy "secret_write_all" on tenants for all using (true);
-create policy "secret_write_isolation_groups" on isolation_groups for all using (true);
+create policy "secret_write_edu_support_domains" on edu_support_domains for all using (true);
 create policy "secret_write_account_master" on account_master for all using (true);
 create policy "secret_write_account_budgets" on account_budgets for all using (true);
 create policy "secret_write_service_policies" on service_policies for all using (true);
-create policy "secret_write_virtual_org" on virtual_org_templates for all using (true);
+create policy "secret_write_virtual_edu_org" on virtual_edu_orgs for all using (true);
 create policy "secret_write_form_master" on form_master for all using (true);
 create policy "secret_write_plans" on plans for all using (true);
 create policy "secret_write_applications" on applications for all using (true);

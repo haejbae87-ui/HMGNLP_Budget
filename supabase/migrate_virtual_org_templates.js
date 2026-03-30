@@ -1,4 +1,4 @@
-// virtual_org_templates 목 데이터 → Supabase DB 마이그레이션
+// virtual_edu_orgs 목 데이터 → Supabase DB 마이그레이션
 const https = require('https');
 const KEY = process.env.SUPABASE_SECRET_KEY;
 const HOST = 'wihsojhucgmcdfpufonf.supabase.co';
@@ -7,7 +7,8 @@ const TEMPLATES = [
   {
     id: 'TPL_GEN_01',
     tenant_id: 'HMC',
-    isolation_group_id: 'IG-HMC-GEN',
+    service_type: 'budget',
+    owner_role_id: 'HMC_budget_admin',
     name: '현대자동차 일반교육예산 템플릿 1',
     tree: {
       label: '일반 교육예산 조직',
@@ -35,7 +36,8 @@ const TEMPLATES = [
   {
     id: 'TPL_RND_01',
     tenant_id: 'HMC',
-    isolation_group_id: 'IG-HMC-RND',
+    service_type: 'budget',
+    owner_role_id: 'HMC_budget_admin',
     name: '현대차 R&D교육예산 템플릿 1',
     tree: {
       label: 'R&D 교육예산 조직',
@@ -63,7 +65,8 @@ const TEMPLATES = [
   {
     id: 'TPL_KIA_GEN_01',
     tenant_id: 'KIA',
-    isolation_group_id: 'IG-KIA-GEN',
+    service_type: 'budget',
+    owner_role_id: 'KIA_budget_admin',
     name: '기아 일반교육예산 템플릿 1',
     tree: {
       label: '기아 일반 교육예산 조직',
@@ -82,7 +85,8 @@ const TEMPLATES = [
   {
     id: 'TPL_HAE_GEN_01',
     tenant_id: 'HAE',
-    isolation_group_id: 'IG-HAE-ALL',
+    service_type: 'budget',
+    owner_role_id: 'HAE_budget_admin',
     name: '현대오토에버 교육예산 템플릿 1',
     tree: {
       label: '오토에버 교육예산 조직',
@@ -108,7 +112,8 @@ const TEMPLATES = [
   {
     id: 'TPL_HSC_ALL_01',
     tenant_id: 'HSC',
-    isolation_group_id: 'IG-HSC-ALL',
+    service_type: 'budget',
+    owner_role_id: 'HSC_budget_admin',
     name: '현대제철 전사예산 템플릿 1',
     tree: {
       label: '현대제철 전사 교육예산 조직',
@@ -197,13 +202,13 @@ const TEMPLATES = [
 ];
 
 (async () => {
-  console.log(`\n🚀 virtual_org_templates 마이그레이션 시작 (${TEMPLATES.length}개 템플릿)\n`);
+  console.log(`\n🚀 virtual_edu_orgs 마이그레이션 시작 (${TEMPLATES.length}개 템플릿)\n`);
 
   const body = JSON.stringify(TEMPLATES);
   const result = await new Promise((resolve, reject) => {
     const opt = {
       hostname: HOST,
-      path: '/rest/v1/virtual_org_templates',
+      path: '/rest/v1/virtual_edu_orgs',
       method: 'POST',
       headers: {
         'apikey': KEY, 'Authorization': 'Bearer ' + KEY,

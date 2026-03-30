@@ -172,7 +172,7 @@ function renderVorgManagerOverview() {
     const pct = allocated>0 ? Math.min(((spent+reserved)/allocated)*100,100) : 0;
     const pctColor = pct>=95?'#EF4444':pct>=80?'#F59E0B':'#059669';
 
-    // 하위 팀 현황 (VIRTUAL_ORG_TEMPLATES teams)
+    // 하위 팀 현황 (VIRTUAL_EDU_ORGS teams)
     const subTeams = vorg.teams||[];
     const teamRows = subTeams.map(rt => {
       const rb=rt.budget||{}, ra=rb.allocated||0, rs=rb.deducted||0, rr=rb.holding||0;
@@ -236,7 +236,7 @@ function renderAbDetail(ab) {
   const alertColor = pct >= 95 ? '#EF4444' : pct >= 80 ? '#F59E0B' : '#059669';
 
   const isRnd = ab.accountCode.includes('RND');
-  const tpl = VIRTUAL_ORG_TEMPLATES.find(t => t.tenantId === ab.tenantId && (isRnd ? t.tree.centers : t.tree.hqs));
+  const tpl = VIRTUAL_EDU_ORGS.find(t => t.tenantId === ab.tenantId && (isRnd ? t.tree.centers : t.tree.hqs));
   const vGroups = tpl ? (isRnd ? tpl.tree.centers : tpl.tree.hqs) : [];
   const groupedRows = [];
   const usedTdIds = new Set();
@@ -556,7 +556,7 @@ function renderTeamDist() {
   if (!ab) return acctSelectHtml + `<div style="padding:30px;text-align:center;color:#9CA3AF">계정을 선택하세요.</div>`;
 
   const isRnd = ab.accountCode.includes('RND');
-  const tpl = VIRTUAL_ORG_TEMPLATES.find(t=>t.tenantId===ab.tenantId&&(isRnd?t.tree.centers:t.tree.hqs));
+  const tpl = VIRTUAL_EDU_ORGS.find(t=>t.tenantId===ab.tenantId&&(isRnd?t.tree.centers:t.tree.hqs));
   const vGroups = tpl ? (isRnd?tpl.tree.centers:tpl.tree.hqs) : [];
 
   // 배분 테이블 행 (가상조직 헤더 + 실제팀 입력행)

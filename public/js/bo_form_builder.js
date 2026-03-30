@@ -152,14 +152,14 @@ function renderFormBuilderMenu() {
   }
   // 격리그룹 초기화
   if (!_fbGroupId) {
-    const groups = typeof ISOLATION_GROUPS !== 'undefined'
-      ? ISOLATION_GROUPS.filter(g => g.tenantId === _fbTenantId) : [];
+    const groups = typeof EDU_SUPPORT_DOMAINS !== 'undefined'
+      ? EDU_SUPPORT_DOMAINS.filter(g => g.tenantId === _fbTenantId) : [];
     _fbGroupId = groups[0]?.id || null;
   }
   // 계정 초기화
   if (!_fbAccountCode) {
-    const grp = typeof ISOLATION_GROUPS !== 'undefined'
-      ? ISOLATION_GROUPS.find(g => g.id === _fbGroupId) : null;
+    const grp = typeof EDU_SUPPORT_DOMAINS !== 'undefined'
+      ? EDU_SUPPORT_DOMAINS.find(g => g.id === _fbGroupId) : null;
     const accs = grp?.ownedAccounts || [];
     _fbAccountCode = accs[0] || null;
   }
@@ -175,8 +175,8 @@ function _fbRenderPage() {
   const tenantName = tenants.find(t => t.id === _fbTenantId)?.name || _fbTenantId || '';
 
   // 격리그룹 목록
-  const groups = typeof ISOLATION_GROUPS !== 'undefined'
-    ? ISOLATION_GROUPS.filter(g => g.tenantId === _fbTenantId) : [];
+  const groups = typeof EDU_SUPPORT_DOMAINS !== 'undefined'
+    ? EDU_SUPPORT_DOMAINS.filter(g => g.tenantId === _fbTenantId) : [];
   // 선택된 격리그룹의 예산 계정
   const selGroup = groups.find(g => g.id === _fbGroupId);
   const accounts = selGroup ? (selGroup.ownedAccounts || []).map(code => {
@@ -325,9 +325,9 @@ function _fbRenderLibrary() {
   const tenantId = (isPlatform || isTenant) ? (_fbTenantId || boCurrentPersona.tenantId) : (boCurrentPersona.tenantId || 'HMC');
   let allForms = FORM_MASTER.filter(f => f.tenantId === tenantId);
 
-  // 격리그룹 필터 (isolationGroupId 없는 양식은 하위호환으로 표시)
+  // 격리그룹 필터 (domainId 없는 양식은 하위호환으로 표시)
   if (_fbGroupId) {
-    allForms = allForms.filter(f => !f.isolationGroupId || f.isolationGroupId === _fbGroupId);
+    allForms = allForms.filter(f => !f.domainId || f.domainId === _fbGroupId);
   }
   // 예산계정 필터 (엄격 모드: accountCode 없는 양식은 계정 선택 시 제외)
   if (_fbAccountCode) {
@@ -696,7 +696,7 @@ function _fbAdvancedModalBody(form) {
 ${(_fbGroupId || _fbAccountCode) ? `
 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;background:#F5F3FF;border:1.5px solid #DDD6FE;border-radius:10px;margin-bottom:14px">
   <span style="font-size:10px;font-weight:900;color:#5B21B6">📌 분류 범위</span>
-  ${_fbGroupId ? (() => { const g = (typeof ISOLATION_GROUPS!=='undefined'?ISOLATION_GROUPS:[]).find(x=>x.id===_fbGroupId); return `<span style="font-size:11px;font-weight:700;background:#EDE9FE;color:#5B21B6;padding:2px 8px;border-radius:6px">🛡️ ${g?.name||_fbGroupId}</span>`; })() : ''}
+  ${_fbGroupId ? (() => { const g = (typeof EDU_SUPPORT_DOMAINS!=='undefined'?EDU_SUPPORT_DOMAINS:[]).find(x=>x.id===_fbGroupId); return `<span style="font-size:11px;font-weight:700;background:#EDE9FE;color:#5B21B6;padding:2px 8px;border-radius:6px">🛡️ ${g?.name||_fbGroupId}</span>`; })() : ''}
   ${_fbAccountCode ? (() => { const a = (typeof ACCOUNT_MASTER!=='undefined'?ACCOUNT_MASTER:[]).find(x=>x.code===_fbAccountCode); return `<span style="font-size:11px;font-weight:700;background:#DBEAFE;color:#1E40AF;padding:2px 8px;border-radius:6px">💳 ${a?.name||_fbAccountCode}</span>`; })() : ''}
   <span style="font-size:10px;color:#9CA3AF">이 양식은 위 범위에만 표시됩니다</span>
 </div>` : ''}
@@ -1038,7 +1038,7 @@ async function fbSaveForm() {
   const formId = _fbEditId || ('FM' + Date.now());
   const formData = {
     id: formId, tenantId,
-    isolationGroupId: _fbGroupId   || null,   // 격리그룹 범위
+    domainId: _fbGroupId   || null,   // 격리그룹 범위
     accountCode:      _fbAccountCode || null,  // 예산계정 범위
     type, name, desc, active: true,
     fields: [..._fbTempFields],

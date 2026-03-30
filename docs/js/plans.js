@@ -1,9 +1,9 @@
 // ─── PLANS (교육계획) ──────────────────────────────────────────────────────
 
-// FO 정책 연동용: BO service_policies + isolation_groups DB 프리로드
-// var 재선언 금지 — bo_data.js에 let ISOLATION_GROUPS 선언이 있어 SyntaxError 방지
+// FO 정책 연동용: BO service_policies + edu_support_domains DB 프리로드
+// var 재선언 금지 — bo_data.js에 let EDU_SUPPORT_DOMAINS 선언이 있어 SyntaxError 방지
 if (typeof SERVICE_POLICIES === 'undefined') window.SERVICE_POLICIES = [];
-if (typeof ISOLATION_GROUPS === 'undefined') window.ISOLATION_GROUPS = [];
+if (typeof EDU_SUPPORT_DOMAINS === 'undefined') window.EDU_SUPPORT_DOMAINS = [];
 var _foServicePoliciesLoaded = false;
 
 async function _loadFoPolicies() {
@@ -13,9 +13,9 @@ async function _loadFoPolicies() {
     return;
   }
 
-  // ── isolation_groups 항상 로드 (코드 매핑에 필요) ─────────────────────────
+  // ── edu_support_domains 항상 로드 (코드 매핑에 필요) ─────────────────────────
   try {
-    const { data: isoGrps } = await getSB().from('isolation_groups').select('*');
+    const { data: isoGrps } = await getSB().from('edu_support_domains').select('*');
     if (isoGrps) {
       isoGrps.forEach(row => {
         const mapped = {
@@ -24,24 +24,24 @@ async function _loadFoPolicies() {
           ownedAccounts: row.owned_accounts || [],
           globalAdminKeys: row.global_admin_keys || []
         };
-        const idx = ISOLATION_GROUPS.findIndex(g => g.id === mapped.id);
-        if (idx >= 0) ISOLATION_GROUPS[idx] = mapped; else ISOLATION_GROUPS.push(mapped);
+        const idx = EDU_SUPPORT_DOMAINS.findIndex(g => g.id === mapped.id);
+        if (idx >= 0) EDU_SUPPORT_DOMAINS[idx] = mapped; else EDU_SUPPORT_DOMAINS.push(mapped);
       });
     }
-  } catch(e) { console.warn('[FO] isolation_groups 로드 실패:', e.message); }
+  } catch(e) { console.warn('[FO] edu_support_domains 로드 실패:', e.message); }
 
   // ── 페르소나의 VOrg 템플릿 ID 결정 ──────────────────────────────────────
   let vorgId = null;
   if (currentPersona?.isolationGroup) {
     try {
-      const ig = ISOLATION_GROUPS.find(g =>
+      const ig = EDU_SUPPORT_DOMAINS.find(g =>
         g.code === currentPersona.isolationGroup || g.id === currentPersona.isolationGroup
       );
       if (ig) {
         const { data: vorgRows } = await getSB()
-          .from('virtual_org_templates')
+          .from('virtual_edu_orgs')
           .select('id')
-          .eq('isolation_group_id', ig.id)
+          .eq('domain_id', ig.id)
           .limit(1);
         vorgId = vorgRows?.[0]?.id || null;
       }
@@ -64,7 +64,7 @@ async function _loadFoPolicies() {
           if (Array.isArray(policies) && policies.length > 0) {
             policies.forEach(p => {
               const mapped = {
-                id: p.id, tenantId: currentPersona?.tenantId, isolationGroupId: p.isolationGroupId,
+                id: p.id, tenantId: currentPersona?.tenantId, domainId: p.domainId,
                 name: p.name, purpose: p.purpose, eduTypes: p.eduTypes || [],
                 targetType: p.targetType, accountCodes: p.accountCodes || [],
                 processPattern: p.processPattern, status: 'active',
@@ -87,7 +87,7 @@ async function _loadFoPolicies() {
       if (sPols) {
         sPols.forEach(row => {
           const mapped = {
-            id: row.id, tenantId: row.tenant_id, isolationGroupId: row.isolation_group_id,
+            id: row.id, tenantId: row.tenant_id, domainId: row.domain_id,
             name: row.name, purpose: row.purpose, eduTypes: row.edu_types || [],
             targetType: row.target_type, accountCodes: row.account_codes || [],
             budgetLinked: row.budget_linked !== false, processPattern: row.process_pattern,

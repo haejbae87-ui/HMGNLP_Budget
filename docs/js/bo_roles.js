@@ -217,26 +217,187 @@ window._rmViewUsers = async function(roleId, roleName) {
   if (!panel) return;
   panel.style.display = 'block';
   panel.innerHTML = `<p style="color:#9CA3AF;font-size:12px">조회 중...</p>`;
-  let urList = [];
-  try { urList = await _sbGet('user_roles', { role_id: roleId }) || []; } catch(e) {}
-  if (!urList.length) {
-    panel.innerHTML = `<p style="text-align:center;color:#9CA3AF;font-size:12px;padding:16px">
-      <strong>${roleName}</strong>에 배정된 사용자가 없습니다.</p>`;
+// ──────────────────────────────────────────────────────────────────────────────
+// 역할별 담당자 인라인 관리 패널
+// ──────────────────────────────────────────────────────────────────────────────
+window._rmViewUsers = async function(roleCode, roleName) {
+  // 이미 열린 패널이 있으면 닫기 (토글)
+  const existing = document.getElementById('rm-users-panel');
+  if (existing && existing.dataset.role === roleCode) {
+    existing.style.display = existing.style.display === 'none' ? 'block' : 'none';
     return;
   }
-  const ids = urList.map(r => r.user_id);
-  let users = [];
-  try { users = await _sbGet('users', { id: ids }) || []; } catch(e) {}
-  panel.innerHTML = `
-    <div style="font-size:12px;font-weight:800;color:#374151;margin-bottom:10px">${roleName} 배정 사용자 (${urList.length}명)</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      ${(users.length ? users : urList).map(u => `
-        <span style="padding:5px 12px;background:white;border:1.5px solid #E2E8F0;border-radius:6px;font-size:12px;font-weight:700;color:#374151">
-          ${u.name || u.user_id || u.id || '(이름없음)'}
-          <span style="color:#94A3B8;font-weight:400;font-size:11px"> ${u.tenant_id ? `(${u.tenant_id})` : ''}</span>
-        </span>`).join('')}
-    </div>`;
+  // 패널 위치: 역할 트리 아래
+  let panel = document.getElementById('rm-users-panel');
+  if (!panel) { panel = document.createElement('div'); panel.id = 'rm-users-panel'; }
+  panel.dataset.role = roleCode;
+  panel.style.cssText = 'margin-top:14px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:20px;display:block';
+  panel.innerHTML = '<p style="color:#9CA3AF;font-size:12px">조회 중...</p>';
+  document.querySelector('[style*="max-width:980px"]')?.appendChild(panel);
+
+  await _rmRefreshPanel(roleCode, roleName, panel);
 };
+
+async function _rmRefreshPanel(roleCode, roleName, panel) {
+  panel.innerHTML = '<p style="color:#9CA3AF;font-size:12px">조회 중...</p>';
+
+  // 현재 배정된 사용자 조회
+  let urList = [];
+  try {
+    if (_sb()) {
+      const { data } = await _sb().from('user_roles').select('*').eq('role_code', roleCode);
+      urList = data || [];
+    }
+  } catch(e) {}
+
+  // 사용자 상세 정보 조회
+  let assignedUsers = [];
+  if (urList.length) {
+    const ids = urList.map(r => r.user_id);
+    try {
+      if (_sb()) {
+        const { data } = await _sb().from('users').select('*').in('id', ids);
+        assignedUsers = data || [];
+      }
+    } catch(e) {}
+    if (!assignedUsers.length) assignedUsers = urList.map(r => ({ id: r.user_id, name: r.user_id }));
+  }
+
+  const assignedHtml = assignedUsers.length ? assignedUsers.map(u => `
+    <div id="rm-user-${u.id}" style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:white;
+         border:1.5px solid #E2E8F0;border-radius:8px;font-size:12px;font-weight:700;color:#374151">
+      <span style="font-size:16px">👤</span>
+      <div>
+        <div>${u.name || '(이름없음)'}</div>
+        <div style="font-size:10px;color:#94A3B8;font-weight:400">${u.sabun || u.emp_no || u.id || ''} ${u.dept_name||u.org_name||''}</div>
+      </div>
+      <button onclick="_rmRemoveUser('${roleCode}','${u.id}','${roleName}')"
+        style="margin-left:auto;padding:2px 8px;background:#FEF2F2;border:1px solid #FECACA;border-radius:5px;
+               color:#DC2626;font-size:10px;font-weight:700;cursor:pointer">✕ 해제</button>
+    </div>`).join('') : `<p style="color:#94A3B8;font-size:12px;margin:0">아직 배정된 담당자가 없습니다.</p>`;
+
+  panel.innerHTML = `
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div>
+      <span style="font-size:14px;font-weight:800;color:#0F172A">👥 ${roleName}</span>
+      <span style="font-size:11px;color:#64748B;margin-left:8px">담당자 관리</span>
+    </div>
+    <button onclick="document.getElementById('rm-users-panel').style.display='none'"
+      style="padding:4px 10px;background:#F1F5F9;border:none;border-radius:6px;font-size:11px;cursor:pointer;color:#64748B">✕ 닫기</button>
+  </div>
+
+  <!-- 현재 담당자 목록 -->
+  <div style="margin-bottom:14px">
+    <div style="font-size:11px;font-weight:700;color:#64748B;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">
+      현재 담당자 (${assignedUsers.length}명)
+    </div>
+    <div id="rm-assigned-list" style="display:flex;gap:8px;flex-wrap:wrap">
+      ${assignedHtml}
+    </div>
+  </div>
+
+  <!-- 담당자 검색→추가 -->
+  <div style="background:white;border:1.5px solid #E2E8F0;border-radius:8px;padding:14px">
+    <div style="font-size:11px;font-weight:700;color:#64748B;margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em">
+      담당자 추가
+    </div>
+    <div style="display:flex;gap:8px">
+      <input id="rm-search-input" placeholder="이름 또는 사번으로 검색"
+        style="flex:1;padding:8px 12px;border:1.5px solid #CBD5E1;border-radius:6px;font-size:12px"
+        onkeydown="if(event.key==='Enter') _rmSearchUser('${roleCode}', '${roleName}')">
+      <button onclick="_rmSearchUser('${roleCode}','${roleName}')"
+        style="padding:8px 16px;background:#0B132B;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">
+        검색
+      </button>
+    </div>
+    <div id="rm-search-results" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"></div>
+  </div>`;
+}
+
+window._rmSearchUser = async function(roleCode, roleName) {
+  const q = document.getElementById('rm-search-input')?.value.trim();
+  const resEl = document.getElementById('rm-search-results');
+  if (!q || !resEl) return;
+  resEl.innerHTML = '<span style="font-size:11px;color:#9CA3AF">조회 중...</span>';
+
+  let users = [];
+  try {
+    if (_sb()) {
+      const tenantId = window._rmFilterTenant;
+      let query = _sb().from('users').select('*');
+      if (tenantId) query = query.eq('tenant_id', tenantId);
+      // 이름 또는 사번으로 검색
+      query = query.or(`name.ilike.%${q}%,sabun.ilike.%${q}%,emp_no.ilike.%${q}%`);
+      const { data } = await query.limit(20);
+      users = data || [];
+    }
+  } catch(e) {}
+
+  // 이미 배정된 사용자 재조회
+  let alreadyIds = new Set();
+  try {
+    if (_sb()) {
+      const { data } = await _sb().from('user_roles').select('user_id').eq('role_code', roleCode);
+      (data||[]).forEach(r => alreadyIds.add(r.user_id));
+    }
+  } catch(e) {}
+
+  if (!users.length) {
+    resEl.innerHTML = '<span style="font-size:11px;color:#9CA3AF">검색 결과가 없습니다</span>';
+    return;
+  }
+
+  resEl.innerHTML = users.map(u => {
+    const isAssigned = alreadyIds.has(u.id);
+    return `
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:white;
+         border:1.5px solid ${isAssigned?'#BBF7D0':'#E2E8F0'};border-radius:8px;font-size:12px;font-weight:700;color:#374151">
+      <div>
+        <div>${u.name || '(이름없음)'}</div>
+        <div style="font-size:10px;color:#94A3B8;font-weight:400">${u.sabun||u.emp_no||u.id||''} ${u.dept_name||u.org_name||''}</div>
+      </div>
+      ${isAssigned
+        ? `<span style="font-size:10px;font-weight:700;color:#059669">✓ 배정됨</span>`
+        : `<button onclick="_rmAssignUser('${roleCode}','${u.id}','${roleName}')"
+             style="padding:3px 10px;background:#0B132B;color:#fff;border:none;border-radius:5px;
+                    font-size:10px;font-weight:700;cursor:pointer">+ 배정</button>`}
+    </div>`;
+  }).join('');
+};
+
+window._rmAssignUser = async function(roleCode, userId, roleName) {
+  try {
+    if (_sb()) {
+      const { error } = await _sb().from('user_roles').upsert(
+        { role_code: roleCode, user_id: userId },
+        { onConflict: 'role_code,user_id' }
+      );
+      if (error) throw error;
+    }
+    const panel = document.getElementById('rm-users-panel');
+    await _rmRefreshPanel(roleCode, roleName, panel);
+    // 검색 초기화
+    const si = document.getElementById('rm-search-input'); if (si) si.value = '';
+    const sr = document.getElementById('rm-search-results'); if (sr) sr.innerHTML = '';
+    // 배정 인원 수 업데이트 (트리 재렌더 없이)
+    renderRoleMgmt();
+  } catch(e) { alert('배정 실패: ' + e.message); }
+};
+
+window._rmRemoveUser = async function(roleCode, userId, roleName) {
+  if (!confirm('이 담당자의 역할 배정을 해제하시겠습니까?')) return;
+  try {
+    if (_sb()) {
+      const { error } = await _sb().from('user_roles')
+        .delete().eq('role_code', roleCode).eq('user_id', userId);
+      if (error) throw error;
+    }
+    const panel = document.getElementById('rm-users-panel');
+    await _rmRefreshPanel(roleCode, roleName, panel);
+    renderRoleMgmt();
+  } catch(e) { alert('해제 실패: ' + e.message); }
+};
+
 
 // ──────────────────────────────────────────────────────────────────────────────
 // 역할 추가/수정 모달
@@ -327,4 +488,5 @@ window._saveNewRole = async function() {
     renderRoleMgmt();
   } catch(e) { alert('저장 실패: ' + e.message); }
 };
+
 

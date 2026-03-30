@@ -9,7 +9,7 @@ let _voSelectedTeams    = new Set();
 let _voEditGroupIdx     = null;
 let _voCoopGroupIdx     = null;
 
-let _voServiceType      = 'budget'; // 기본 제도 유형
+let _voServiceType      = 'edu_support'; // 기본 제도 유형
 let _voTenantId         = null;
 
 // 용도 카드 선택 토글 (레거시 단일선택 - 하위호환)

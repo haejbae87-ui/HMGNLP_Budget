@@ -1,4 +1,4 @@
-// ─── 플랫폼 관리 메뉴: 테넌트/조직/사용자/역할 ─────────────────────────────
+﻿// ─── 플랫폼 관리 메뉴: 테넌트/조직/사용자/역할 ─────────────────────────────
 // Supabase에서 실시간 데이터 로드, 실패 시 mock fallback
 
 // ── 공통 헬퍼 ──────────────────────────────────────────────────────────────
@@ -907,7 +907,7 @@ const ALL_MENUS = [
   { id: 'user-mgmt',        label: '사용자 관리',            sys: 'BO', depth1: '플랫폼 총괄' },
   { id: 'role-mgmt',        label: '역할 관리',              sys: 'BO', depth1: '플랫폼 총괄' },
   { id: 'role-menu-perms',  label: '역할별 메뉴 권한',        sys: 'BO', depth1: '플랫폼 총괄' },
-  { id: 'isolation-groups', label: '격리그룹 관리',          sys: 'BO', depth1: '테넌트 운영' },
+  { id: 'isolation-groups', label: '교육지원도메인 관리',          sys: 'BO', depth1: '테넌트 운영' },
   { id: 'budget-account',   label: '예산 계정 관리',          sys: 'BO', depth1: '테넌트 운영' },
   { id: 'virtual-org',      label: '가상조직 템플릿',         sys: 'BO', depth1: '테넌트 운영' },
   { id: 'form-builder',     label: '교육양식마법사',          sys: 'BO', depth1: '테넌트 운영' },

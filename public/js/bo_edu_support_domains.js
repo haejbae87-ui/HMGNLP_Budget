@@ -1,7 +1,7 @@
-// ─── 통합 격리그룹 관리 ───────────────────────────────────────────────────────
+﻿// ─── 통합 교육지원도메인 관리 ───────────────────────────────────────────────────────
 // 역할별 통합 뷰:
 //   platform_admin      → 테넌트 선택 + 전체 격리그룹 CRUD + 총괄/운영 담당자 복수 매핑
-//   tenant_global_admin → 내 테넌트 격리그룹 생성 + 총괄/운영 담당자 복수 매핑
+//   tenant_global_admin → 내 테넌트 교육지원도메인 생성 + 총괄/운영 담당자 복수 매핑
 //   budget_global_admin → 내 담당 그룹만 표시 + 운영 담당자 복수 매핑
 // renderMyIsolationGroups()는 budget_global_admin 전용 진입점 (동일 함수로 리다이렉트)
 
@@ -64,7 +64,7 @@ function renderMyIsolationGroups() { renderIsolationGroups(); }
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ① 플랫폼 총괄 뷰
-//    테넌트 선택 → 해당 테넌트 격리그룹 목록 + 전체 CRUD + 담당자 복수 매핑
+//    테넌트 선택 → 해당 테넌트 교육지원도메인 목록 + 전체 CRUD + 담당자 복수 매핑
 // ══════════════════════════════════════════════════════════════════════════════
 function _renderPlatformAdminView(persona, personaKey) {
   const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
@@ -89,14 +89,14 @@ function _renderPlatformAdminView(persona, personaKey) {
 <div class="bo-fade">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
     <div>
-      <h1 class="bo-page-title">🛡️ 격리그룹 관리</h1>
-      <p class="bo-page-sub">테넌트별 예산 격리그룹을 생성하고, 예산총괄·운영담당자를 복수로 지정합니다.</p>
+      <h1 class="bo-page-title">🛡️ 교육지원도메인 관리</h1>
+      <p class="bo-page-sub">테넌트별 예산 교육지원도메인을 생성하고, 예산총괄·운영담당자를 복수로 지정합니다.</p>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
       ${typeof pgGuideBtn === 'function' ? pgGuideBtn('isolation-groups') : ''}
       <button onclick="_igModal=true;renderIsolationGroups()" class="bo-btn-primary"
         style="display:flex;align-items:center;gap:6px;padding:10px 18px;white-space:nowrap">
-        <span style="font-size:16px">+</span> 새 격리그룹 만들기
+        <span style="font-size:16px">+</span> 새 교육지원도메인 만들기
       </button>
     </div>
   </div>
@@ -111,7 +111,7 @@ function _renderPlatformAdminView(persona, personaKey) {
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ② 테넌트 총괄 뷰
-//    격리그룹 생성 + 예산총괄(복수) + 예산운영(복수) 매핑
+//    교육지원도메인 생성 + 예산총괄(복수) + 예산운영(복수) 매핑
 // ══════════════════════════════════════════════════════════════════════════════
 function _renderTenantAdminView(persona, personaKey) {
   const myGroups = EDU_SUPPORT_DOMAINS.filter(g => g.tenantId === persona.tenantId);
@@ -121,12 +121,12 @@ function _renderTenantAdminView(persona, personaKey) {
 <div class="bo-fade">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
     <div>
-      <h1 class="bo-page-title">🛡️ 격리그룹 관리</h1>
-      <p class="bo-page-sub">격리그룹을 생성하고 <strong>예산총괄 담당자</strong>와 <strong>예산운영 담당자</strong>를 복수로 지정합니다.</p>
+      <h1 class="bo-page-title">🛡️ 교육지원도메인 관리</h1>
+      <p class="bo-page-sub">교육지원도메인을 생성하고 <strong>예산총괄 담당자</strong>와 <strong>예산운영 담당자</strong>를 복수로 지정합니다.</p>
     </div>
     <button onclick="_igModal=true;renderIsolationGroups()" class="bo-btn-primary"
       style="display:flex;align-items:center;gap:6px;padding:10px 18px;white-space:nowrap">
-      <span style="font-size:16px">+</span> 새 격리그룹 만들기
+      <span style="font-size:16px">+</span> 새 교육지원도메인 만들기
     </button>
   </div>
 
@@ -134,7 +134,7 @@ function _renderTenantAdminView(persona, personaKey) {
   <div style="display:flex;gap:0;margin-bottom:20px;border-radius:12px;overflow:hidden;border:1px solid #FDE68A">
     <div style="flex:1;padding:12px 16px;background:#FEF3C7">
       <div style="font-size:10px;font-weight:900;color:#92400E;margin-bottom:3px">① 테넌트 총괄 (현재 역할)</div>
-      <div style="font-size:11px;color:#78350F">✅ <strong>격리그룹 생성</strong> + <strong>예산총괄 복수 지정</strong> + <strong>예산운영 복수 지정</strong></div>
+      <div style="font-size:11px;color:#78350F">✅ <strong>교육지원도메인 생성</strong> + <strong>예산총괄 복수 지정</strong> + <strong>예산운영 복수 지정</strong></div>
     </div>
     <div style="width:1px;background:#FDE68A"></div>
     <div style="flex:1;padding:12px 16px;background:#fafafa">
@@ -149,7 +149,7 @@ function _renderTenantAdminView(persona, personaKey) {
   </div>
 
   <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;
-              letter-spacing:.05em;margin-bottom:12px">격리그룹 목록 (${myGroups.length}개)</div>
+              letter-spacing:.05em;margin-bottom:12px">교육지원도메인 목록 (${myGroups.length}개)</div>
   ${cards}
 </div>`;
 }
@@ -167,11 +167,11 @@ function _renderBudgetAdminView(persona, personaKey) {
   if (myGroups.length === 0) {
     return `
 <div class="bo-fade">
-  <h1 class="bo-page-title">🔒 내 격리그룹 관리</h1>
-  <p class="bo-page-sub">자신이 예산총괄도 지정된 격리그룹의 운영담당자를 관리합니다.</p>
+  <h1 class="bo-page-title">🔒 내 교육지원도메인 관리</h1>
+  <p class="bo-page-sub">자신이 예산총괄도 지정된 교육지원도메인의 운영담당자를 관리합니다.</p>
   <div style="padding:50px;text-align:center;background:#F9FAFB;border-radius:14px;border:1px solid #E5E7EB">
     <div style="font-size:32px;margin-bottom:8px">🛡️</div>
-    <div style="font-weight:700;font-size:14px;color:#374151">배정된 격리그룹이 없습니다</div>
+    <div style="font-weight:700;font-size:14px;color:#374151">배정된 교육지원도메인이 없습니다</div>
     <div style="font-size:12px;color:#9CA3AF;margin-top:6px">테넌트 총괄 담당자에게 격리그룹 배정을 요청하세요</div>
   </div>
 </div>`;
@@ -182,8 +182,8 @@ function _renderBudgetAdminView(persona, personaKey) {
   return `
 <div class="bo-fade">
   <div style="margin-bottom:20px">
-    <h1 class="bo-page-title">🔒 내 격리그룹 관리</h1>
-    <p class="bo-page-sub">내가 예산총괄로 지정된 격리그룹의 <strong>운영담당자를 등록</strong>하고 가상조직 노드에 배정합니다.</p>
+    <h1 class="bo-page-title">🔒 내 교육지원도메인 관리</h1>
+    <p class="bo-page-sub">내가 예산총괄로 지정된 교육지원도메인의 <strong>운영담당자를 등록</strong>하고 가상조직 노드에 배정합니다.</p>
   </div>
   ${cards}
 </div>`;
@@ -192,7 +192,7 @@ function _renderBudgetAdminView(persona, personaKey) {
 // ── 공통 그룹 카드 렌더러 ──────────────────────────────────────────────────────
 function _renderGroupCards(groups, viewMode, persona, personaKey) {
   if (!groups.length) {
-    return '<div style="padding:40px;text-align:center;color:#9CA3AF;background:#F9FAFB;border-radius:12px">생성된 격리그룹이 없습니다.</div>';
+    return '<div style="padding:40px;text-align:center;color:#9CA3AF;background:#F9FAFB;border-radius:12px">생성된 교육지원도메인이 없습니다.</div>';
   }
 
   return groups.map(g => {
@@ -429,7 +429,7 @@ function _igCreateModalChangeTenant(tenantId) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 모달: 새 격리그룹 생성
+// 모달: 새 교육지원도메인 생성
 // ══════════════════════════════════════════════════════════════════════════════
 function _renderCreateGroupModal(persona) {
   const isPlatform = persona.role === 'platform_admin';
@@ -465,7 +465,7 @@ function _renderCreateGroupModal(persona) {
 <div style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center">
   <div style="background:white;border-radius:20px;width:560px;max-height:90vh;overflow-y:auto;padding:28px;box-shadow:0 25px 50px rgba(0,0,0,.25)">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-      <h3 style="font-weight:900;font-size:17px;margin:0">🛡️ 새 격리그룹 만들기</h3>
+      <h3 style="font-weight:900;font-size:17px;margin:0">🛡️ 새 교육지원도메인 만들기</h3>
       <button onclick="_igModal=false;_igNewModalTenantId=null;renderIsolationGroups()"
         style="border:none;background:none;cursor:pointer;font-size:20px;color:#6B7280">✕</button>
     </div>
@@ -480,7 +480,7 @@ function _renderCreateGroupModal(persona) {
       </div>
       <div>
         <label class="bo-label">그룹 설명</label>
-        <textarea id="ig-desc" rows="2" placeholder="이 격리그룹의 관리 범위를 설명하세요."
+        <textarea id="ig-desc" rows="2" placeholder="이 교육지원도메인의 관리 범위를 설명하세요."
           style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:10px 14px;
                  font-size:12px;resize:none;box-sizing:border-box"></textarea>
       </div>
@@ -503,7 +503,7 @@ function _renderCreateGroupModal(persona) {
         style="padding:10px 20px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-weight:700;cursor:pointer">
         취소</button>
       <button onclick="_saveNewIsolationGroup()" class="bo-btn-primary" style="padding:10px 24px">
-        ✅ 격리그룹 생성
+        ✅ 교육지원도메인 생성
       </button>
     </div>
   </div>
@@ -520,7 +520,7 @@ function _renderEditGroupModal(persona) {
 <div style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center">
   <div style="background:white;border-radius:20px;width:480px;padding:28px;box-shadow:0 25px 50px rgba(0,0,0,.25)">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-      <h3 style="font-weight:900;font-size:17px;margin:0">✏️ 격리그룹 수정</h3>
+      <h3 style="font-weight:900;font-size:17px;margin:0">✏️ 교육지원도메인 수정</h3>
       <button onclick="_igEditGroupId=null;renderIsolationGroups()"
         style="border:none;background:none;cursor:pointer;font-size:20px;color:#6B7280">✕</button>
     </div>
@@ -764,7 +764,7 @@ function _igRemoveAdmin(groupId, adminKey) {
   const g = EDU_SUPPORT_DOMAINS.find(x => x.id === groupId);
   const p = BO_PERSONAS[adminKey];
   if (!g) return;
-  if (!confirm(`${p?.name||adminKey}를 이 격리그룹의 예산총괄 담당자에서 제거하시겠습니까?`)) return;
+  if (!confirm(`${p?.name||adminKey}를 이 교육지원도메인의 예산총괄 담당자에서 제거하시겠습니까?`)) return;
   g.globalAdminKeys = (g.globalAdminKeys||[g.globalAdminKey]).filter(k => k !== adminKey);
   g.globalAdminKey  = g.globalAdminKeys[0] || '';
   renderIsolationGroups();
@@ -774,7 +774,7 @@ function _igRemoveOpManager(groupId, opKey) {
   const g = EDU_SUPPORT_DOMAINS.find(x => x.id === groupId);
   const p = BO_PERSONAS[opKey];
   if (!g) return;
-  if (!confirm(`${p?.name||opKey}를 이 격리그룹의 예산운영 담당자에서 제거하시겠습니까?\n\n가상조직 노드 배정도 초기화됩니다.`)) return;
+  if (!confirm(`${p?.name||opKey}를 이 교육지원도메인의 예산운영 담당자에서 제거하시겠습니까?\n\n가상조직 노드 배정도 초기화됩니다.`)) return;
   g.opManagerKeys = g.opManagerKeys.filter(k => k !== opKey);
   if (typeof VIRTUAL_EDU_ORGS !== 'undefined') {
     VIRTUAL_EDU_ORGS.forEach(tpl => {
@@ -784,3 +784,4 @@ function _igRemoveOpManager(groupId, opKey) {
   }
   renderIsolationGroups();
 }
+

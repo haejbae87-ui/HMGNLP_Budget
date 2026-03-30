@@ -1,4 +1,4 @@
-// ─── Tenant Admin: 예산 기초 관리 (7탭) ──────────────────────────────────────
+﻿// ─── Tenant Admin: 예산 기초 관리 (7탭) ──────────────────────────────────────
 // Step1:계정마스터CRUD  Step2:조직-계정매핑  Step3:양식빌더(FORM_MASTER)
 // Step4:양식접근권한    Step5:양식-예산-계획룰  Step6:공지관리  +가상조직+권한
 
@@ -115,7 +115,7 @@ async function renderBudgetAccount() {
   }
   const tenantName = tenants.find(t => t.id === _baTenantId)?.name || _baTenantId;
 
-  // 격리그룹 목록 (현재 테넌트)
+  // 교육지원도메인 목록 (현재 테넌트)
   const groups = typeof EDU_SUPPORT_DOMAINS !== 'undefined'
     ? EDU_SUPPORT_DOMAINS.filter(g => g.tenantId === _baTenantId) : [];
   if (!_baGroupId || !groups.find(g => g.id === _baGroupId)) {
@@ -156,7 +156,7 @@ async function renderBudgetAccount() {
              font-weight:700;background:white;cursor:pointer;min-width:200px">
       ${visibleGroups.map(g => `<option value="${g.id}" ${g.id===_baGroupId?'selected':''}>${g.name}</option>`).join('')}
     </select>
-  </div>` : `<span style="font-size:11px;color:#9CA3AF">등록된 격리그룹이 없습니다</span>`;
+  </div>` : `<span style="font-size:11px;color:#9CA3AF">등록된 교육지원도메인이 없습니다</span>`;
 
   el.innerHTML = `
 <div class="bo-fade">
@@ -166,7 +166,7 @@ async function renderBudgetAccount() {
       <span style="background:#1D4ED8;color:#fff;font-size:9px;font-weight:900;padding:3px 8px;border-radius:6px">예산 계정 관리</span>
     <h1 class="bo-page-title" style="margin:0">예산 계정 관리</h1>
     </div>
-    <p class="bo-page-sub">예산 계정의 속성을 등록·수정하고 격리그룹별로 관리합니다.</p>
+    <p class="bo-page-sub">예산 계정의 속성을 등록·수정하고 교육지원도메인별로 관리합니다.</p>
   </div>
 
   <!-- 역할별 필터바 -->
@@ -178,7 +178,7 @@ async function renderBudgetAccount() {
     <button onclick="renderBudgetAccount()"
       style="padding:7px 16px;background:#1D4ED8;color:#fff;border:none;border-radius:8px;
              font-size:12px;font-weight:800;cursor:pointer;margin-left:4px">🔍 조회</button>
-    ${isPlatform || isTenant ? `<span style="font-size:10px;color:#9CA3AF;margin-left:4px">모든 격리그룹의 계정을 조회할 수 있습니다</span>` : ''}
+    ${isPlatform || isTenant ? `<span style="font-size:10px;color:#9CA3AF;margin-left:4px">모든 교육지원도메인의 계정을 조회할 수 있습니다</span>` : ''}
   </div>
 
   <!-- 계정 목록 -->
@@ -209,7 +209,7 @@ async function renderBudgetAccount() {
 function _baRenderContent() {
   if (!_baGroupId) {
     return `<div style="padding:40px;text-align:center;background:#F9FAFB;border-radius:14px;color:#9CA3AF">
-      <div style="font-size:14px;font-weight:700">격리그룹을 선택하세요</div>
+      <div style="font-size:14px;font-weight:700">교육지원도메인을 선택하세요</div>
     </div>`;
   }
   const group = typeof EDU_SUPPORT_DOMAINS !== 'undefined'
@@ -231,7 +231,7 @@ function _baRenderContent() {
     allAccounts = typeof ACCOUNT_MASTER !== 'undefined'
       ? ACCOUNT_MASTER.filter(a => a.code === 'COMMON-FREE' && a.active) : [];
   } else {
-    // 일반 예산 격리그룹: ownedAccounts 계정만 표시 (COMMON-FREE 제외)
+    // 일반 예산 교육지원도메인: ownedAccounts 계정만 표시 (COMMON-FREE 제외)
     allAccounts = typeof ACCOUNT_MASTER !== 'undefined'
       ? ACCOUNT_MASTER.filter(a => acctCodes.includes(a.code) && a.active && a.code !== 'COMMON-FREE') : [];
   }
@@ -248,7 +248,7 @@ function _baRenderContent() {
   ${!isViewOnly ? `<button class="bo-btn-primary bo-btn-sm" onclick="openS1Modal()">+ 계정 신규 등록</button>` : ''}
 </div>
 <div style="padding:40px;text-align:center;background:#F9FAFB;border-radius:14px;color:#9CA3AF;border:1px dashed #D1D5DB">
-  <div style="font-size:13px;font-weight:700">이 격리그룹에 등록된 예산 계정이 없습니다</div>
+  <div style="font-size:13px;font-weight:700">이 교육지원도메인에 등록된 예산 계정이 없습니다</div>
   <div style="font-size:11px;margin-top:6px;color:#9CA3AF">위 격리그룹 선택 후 계정을 신규 등록하세요.</div>
 </div>`;
   }
@@ -1331,6 +1331,7 @@ function renderPermissions() {
   </table>
 </div>`;
 }
+
 
 
 

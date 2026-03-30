@@ -1,4 +1,4 @@
-// ─── 역할 관리: 테넌트별 독립 역할 계층 ─────────────────────────────────────
+﻿// ─── 역할 관리: 테넌트별 독립 역할 계층 ─────────────────────────────────────
 // bo_platform_mgmt.js의 renderRoleMgmt를 덮어써서 테넌트별 분리 버전으로 교체
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -99,9 +99,9 @@ async function renderRoleMgmt() {
     if (!children.length) return '';
     let html = '';
     children.forEach(r => {
-      renderedIds.add(r.id);
+      renderedIds.add(r.code);
       const color = levelColors[Math.min(depth, levelColors.length - 1)];
-      const cnt = countByRole(r.id);
+      const cnt = countByRole(r.code);
       const indent = depth * 32;
       html += `
       <div style="display:flex;align-items:stretch;border-bottom:1px solid #F1F5F9">
@@ -123,21 +123,21 @@ async function renderRoleMgmt() {
             <div style="font-size:9px;color:#94A3B8">배정 인원</div>
           </div>
           <!-- 사용자 조회 버튼 -->
-          <button onclick="_rmViewUsers('${r.id}','${r.name}')"
+          <button onclick="_rmViewUsers('\','${r.name}')"
             style="padding:5px 10px;border:1px solid #CBD5E1;border-radius:6px;background:#fff;
                    font-size:11px;font-weight:700;cursor:pointer;color:#374151;flex-shrink:0">
             사용자 조회
           </button>
         </div>
       </div>`;
-      html += buildTree(r.id, depth + 1);
+      html += buildTree(r.code, depth + 1);
     });
     return html;
   }
 
   let treeHtml = buildTree(null, 0);
   // 부모가 목록 밖에 있는 고아 노드 처리
-  tenantRoles.filter(r => !renderedIds.has(r.id)).forEach(r => { treeHtml += buildTree(r.parent_role_id, 0); });
+  tenantRoles.filter(r => !renderedIds.has(r.code)).forEach(r => { treeHtml += buildTree(r.parent_role_id, 0); });
   if (!treeHtml) {
     treeHtml = `<div style="padding:48px;text-align:center;color:#94A3B8">
       <div style="font-size:32px;margin-bottom:12px">🔐</div>
@@ -239,22 +239,92 @@ window._rmViewUsers = async function(roleId, roleName) {
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
-// 역할 수정 모달 (bo_roles.js 자체 보조 기능 유지)
+// 역할 추가/수정 모달
 // ──────────────────────────────────────────────────────────────────────────────
-window._openRoleModal = async function(id) {
-  // 기본적인 프롬프트 방식 (헤비 모달 미구현 시 간이 대응)
-  const name = prompt('역할명을 입력하세요 (테넌트 코드 포함 권장)', id ? '' : `${window._rmFilterTenant || ''} `);
-  if (!name) return;
-  const desc = prompt('역할 설명:', '');
-  const parentCode = prompt('상위 역할 코드 (없으면 빈칸):', '');
+window._openRoleModal = async function(parentCode) {
+  // 현재 테넌트 역할 목록 로드 (부모 선택 드롭다운용)
+  let roles = [];
+  try { roles = await _sbGet('roles', { tenant_id: window._rmFilterTenant }) || []; } catch(e) {}
+  if (!roles.length && typeof TENANT_ROLES_MOCK !== 'undefined') {
+    roles = TENANT_ROLES_MOCK.filter(r => r.tenant_id === window._rmFilterTenant);
+  }
+
+  const parentOptions = [
+    `<option value="">── 없음 (최상위 역할)</option>`,
+    ...roles.map(r => `<option value="${r.code}" ${r.code === parentCode ? 'selected' : ''}>${r.name} (${r.code})</option>`)
+  ].join('');
+
+  const tenantId = window._rmFilterTenant || '';
+  const suggCode = tenantId + '_';
+
+  // 기존 모달 제거
+  document.getElementById('_roleModal')?.remove();
+
+  const modal = document.createElement('div');
+  modal.id = '_roleModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML = `
+  <div style="background:#fff;border-radius:14px;padding:28px 32px;width:480px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+    <h3 style="font-size:16px;font-weight:800;margin:0 0 20px;color:#0F172A">🔐 역할 추가</h3>
+    <div style="display:grid;gap:14px">
+      <label style="font-size:11px;font-weight:700;color:#64748B">역할 코드
+        <input id="_rm_code" value="${suggCode}" placeholder="예: HMC_budget_gen"
+          style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #CBD5E1;
+                 border-radius:6px;font-size:12px;box-sizing:border-box">
+      </label>
+      <label style="font-size:11px;font-weight:700;color:#64748B">역할 이름
+        <input id="_rm_name" placeholder="예: HMC 일반예산 총괄관리자"
+          style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #CBD5E1;
+                 border-radius:6px;font-size:12px;box-sizing:border-box">
+      </label>
+      <label style="font-size:11px;font-weight:700;color:#64748B">역할 설명
+        <input id="_rm_desc" placeholder="역할 범위를 간략히 설명하세요"
+          style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #CBD5E1;
+                 border-radius:6px;font-size:12px;box-sizing:border-box">
+      </label>
+      <label style="font-size:11px;font-weight:700;color:#64748B">상위 역할
+        <select id="_rm_parent"
+          style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #CBD5E1;
+                 border-radius:6px;font-size:12px;background:#fff;cursor:pointer">
+          ${parentOptions}
+        </select>
+      </label>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:22px;justify-content:flex-end">
+      <button onclick="document.getElementById('_roleModal').remove()"
+        style="padding:8px 18px;border:1.5px solid #E2E8F0;border-radius:6px;background:#fff;
+               font-size:12px;font-weight:700;cursor:pointer;color:#64748B">취소</button>
+      <button onclick="_saveNewRole()"
+        style="padding:8px 18px;background:#0B132B;color:#fff;border:none;border-radius:6px;
+               font-size:12px;font-weight:700;cursor:pointer">저장</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+
+  // 배경 클릭 시 닫기
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+};
+
+window._saveNewRole = async function() {
+  const code    = document.getElementById('_rm_code')?.value.trim();
+  const name    = document.getElementById('_rm_name')?.value.trim();
+  const desc    = document.getElementById('_rm_desc')?.value.trim();
+  const parent  = document.getElementById('_rm_parent')?.value || null;
+  if (!code || !name) { alert('역할 코드와 이름은 필수입니다.'); return; }
+
   const payload = {
-    id: (window._rmFilterTenant + '_' + name.replace(/\s/g,'_').toLowerCase()).substring(0, 60),
-    code: (window._rmFilterTenant + '_' + name.replace(/\s/g,'_').toLowerCase()).substring(0, 60),
-    name, description: desc, parent_role_id: parentCode || null,
-    tenant_id: window._rmFilterTenant, is_system: false
+    code, name, description: desc,
+    parent_role_id: parent || null,
+    tenant_id: window._rmFilterTenant || null,
+    is_system: false, level: 10
   };
   try {
-    await _sbUpsert('roles', payload, 'id');
+    if (_sb()) {
+      const { error } = await _sb().from('roles').upsert(payload, { onConflict: 'code' });
+      if (error) throw error;
+    }
+    document.getElementById('_roleModal')?.remove();
     renderRoleMgmt();
   } catch(e) { alert('저장 실패: ' + e.message); }
 };
+

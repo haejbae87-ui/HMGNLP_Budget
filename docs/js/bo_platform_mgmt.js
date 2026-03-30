@@ -908,7 +908,7 @@ const ALL_MENUS = [
   { id: 'role-mgmt',        label: '역할 관리',              depth1: '테넌트' },
   { id: 'role-menu-perms',  label: '역할별 메뉴 권한',        depth1: '테넌트' },
   { id: 'isolation-groups', label: '교육지원도메인 관리',      depth1: '테넌트' },
-  { id: 'virtual-org',      label: '가상조직 템플릿 관리',    depth1: '교육제도' },
+  { id: 'virtual-org',      label: '가상교육조직 관리',           depth1: '교육제도' },
   { id: 'budget-account',   label: '예산 계정 관리',          depth1: '교육제도' },
   { id: 'calc-grounds',     label: '산정기준 관리',           depth1: '교육제도' },
   { id: 'form-builder',     label: '교육양식마법사',          depth1: '교육제도' },

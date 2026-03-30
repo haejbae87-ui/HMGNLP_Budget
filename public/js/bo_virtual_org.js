@@ -86,10 +86,12 @@ async function renderVirtualOrg() {
       : boCurrentPersona.tenantId || 'HMC';
   }
   const serviceTypes = [
-    { id: 'budget', name: '교육예산 지원제도' },
-    { id: 'cert',   name: '자격증 취득지원제도' }
+    { id: 'edu_support', name: '교육지원' },
+    { id: 'language',   name: '어학' },
+    { id: 'cert',       name: '자격증' },
+    { id: 'badge',      name: '뱃지' }
   ];
-  if (!_voServiceType) _voServiceType = 'budget';
+  if (!_voServiceType) _voServiceType = 'edu_support';
 
   // DB 우선 로드 (mock 데이터 미사용)
   try {
@@ -106,11 +108,11 @@ async function renderVirtualOrg() {
           tenantId:    row.tenant_id,
           name:        row.name,
           purpose:     row.purpose || 'edu_support',
-          serviceType: row.service_type || 'budget',
+          serviceType: row.service_type || 'edu_support',
           ownerRoleId: row.owner_role_id || null, // 담당 역할 맵핑
           tree:        row.tree_data || { hqs: [] },
         })).filter(t => {
-          if ((t.serviceType || 'budget') !== _voServiceType) return false;
+          if ((t.serviceType || 'edu_support') !== _voServiceType) return false;
           // 조회 권한 필터
           if (role === 'platform_admin' || role === 'tenant_global_admin') return true;
           if (!t.ownerRoleId) return true; // 담당 역할 미지정이면 모두 보임
@@ -345,7 +347,7 @@ function _renderVirtualOrgFull(filterBar) {
       <button onclick="voCloseModal('vo-tpl-create-modal')" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">✕</button>
     </div>
     <div style="margin-bottom:14px">
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">용도 <span style="color:#EF4444">*</span></label>
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">제도유형 <span style="color:#EF4444">*</span></label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <label id="vo-purpose-btn-edu" onclick="_voSelectPurpose('edu_support')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid #3B82F6;border-radius:10px;cursor:pointer;background:#EFF6FF">
           <span style="font-size:18px">📚</span>
@@ -355,7 +357,7 @@ function _renderVirtualOrgFull(filterBar) {
           <span style="font-size:18px">🌐</span>
           <div><div style="font-size:12px;font-weight:800;color:#374151">어학</div><div style="font-size:10px;color:#64748B">어학연수 지원 조직</div></div>
         </label>
-        <label id="vo-purpose-btn-cert" onclick="_voSelectPurpose('certificate')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid #E5E7EB;border-radius:10px;cursor:pointer;background:#F9FAFB">
+        <label id="vo-purpose-btn-cert" onclick="_voSelectPurpose('cert')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid #E5E7EB;border-radius:10px;cursor:pointer;background:#F9FAFB">
           <span style="font-size:18px">🏆</span>
           <div><div style="font-size:12px;font-weight:800;color:#374151">자격증</div><div style="font-size:10px;color:#64748B">자격증 취득 지원</div></div>
         </label>

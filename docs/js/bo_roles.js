@@ -490,13 +490,13 @@ window._openRoleModal = async function(parentCode, editRoleCode = null) {
           style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #CBD5E1;
                  border-radius:6px;font-size:12px;box-sizing:border-box">
       </label>
-      <label style="font-size:11px;font-weight:700;color:#64748B">용도 (타입)
+      <label style="font-size:11px;font-weight:700;color:#64748B">제도유형
         <select id="_rm_service_type"
           style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #CBD5E1;
                  border-radius:6px;font-size:12px;background:#fff;cursor:pointer">
-          <option value="budget" ${initService==='budget'?'selected':''}>지원제도 (예산)</option>
+          <option value="edu_support" ${initService==='edu_support'?'selected':''}>교육지원</option>
+          <option value="language" ${initService==='language'?'selected':''}>어학</option>
           <option value="cert" ${initService==='cert'?'selected':''}>자격증</option>
-          <option value="language" ${initService==='language'?'selected':''}>어학점수</option>
           <option value="badge" ${initService==='badge'?'selected':''}>뱃지</option>
         </select>
       </label>
@@ -528,7 +528,7 @@ window._saveNewRole = async function() {
   const name    = document.getElementById('_rm_name')?.value.trim();
   const desc    = document.getElementById('_rm_desc')?.value.trim();
   const parent  = document.getElementById('_rm_parent')?.value || null;
-  const sType   = document.getElementById('_rm_service_type')?.value || 'budget';
+  const sType   = document.getElementById('_rm_service_type')?.value || 'edu_support';
   if (!code || !name) { alert('역할 코드와 이름은 필수입니다.'); return; }
 
   const payload = {

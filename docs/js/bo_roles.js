@@ -120,7 +120,11 @@ async function renderRoleMgmt() {
         <div style="flex:1;display:flex;align-items:center;gap:16px;padding:12px 18px;background:${depth===0?'#F8FAFC':'#fff'}">
           <!-- 역할 뱃지 -->
           <div style="padding:7px 12px;border-radius:8px;background:${color}15;border:1.5px solid ${color}30;min-width:140px;text-align:center;flex-shrink:0">
-            <div style="font-size:12px;font-weight:800;color:${color};line-height:1.3">${r.name}</div>
+            <div style="font-size:12px;font-weight:800;color:${color};line-height:1.3">
+              ${r.name}
+              <button onclick="event.stopPropagation(); _rmEditRoleName('${r.code}', '${safeName}')" title="역할명 수정"
+                style="border:none;background:none;cursor:pointer;font-size:11px;padding:0 0 0 4px;opacity:0.6">✏️</button>
+            </div>
             <div style="font-size:9px;color:${color};opacity:.65;margin-top:2px;font-family:monospace">${r.code}</div>
           </div>
           <!-- 설명 -->
@@ -505,4 +509,24 @@ window._saveNewRole = async function() {
     document.getElementById('_roleModal')?.remove();
     renderRoleMgmt();
   } catch(e) { alert('저장 실패: ' + e.message); }
+};
+
+// ── 역할명 수정 기능 ──────────────────────────────────────────────────────────
+window._rmEditRoleName = async function(roleCode, currentName) {
+  const newName = prompt('새로운 역할명을 입력하세요:', currentName);
+  if (!newName || newName.trim() === currentName) return;
+
+  try {
+    if (typeof _sb === 'function' && _sb()) {
+      const { error } = await _sb().from('roles').update({ name: newName.trim() }).eq('code', roleCode);
+      if (error) throw error;
+    } else {
+      // Mock 업데이트
+      const role = TENANT_ROLES_MOCK.find(r => r.code === roleCode);
+      if (role) role.name = newName.trim();
+    }
+    renderRoleMgmt(); // 성공 시 리렌더링
+  } catch(e) { 
+    alert('역할명 수정 중 오류가 발생했습니다.\\n' + e.message);
+  }
 };

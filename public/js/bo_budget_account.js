@@ -212,12 +212,12 @@ async function _bamLoadBudgetAccountsList(tplId) {
     window._baAccountList = data || [];
     
     if (!window._baAccountList.length) {
-      listEl.innerHTML = \`
+      listEl.innerHTML = `
       <div style="padding:40px;text-align:center;background:#F9FAFB;border-radius:14px;border:1px dashed #D1D5DB;margin-top:16px">
         <div style="font-size:32px;margin-bottom:8px">💳</div>
         <div style="font-size:13px;font-weight:700;color:#6B7280">이 템플릿에 등록된 예산 계정이 없습니다</div>
         <div style="font-size:11px;color:#9CA3AF;margin-top:4px">위 '+ 계정 신규 등록' 버튼으로 추가하세요</div>
-      </div>\`;
+      </div>`;
       return;
     }
     
@@ -230,7 +230,7 @@ async function _bamLoadBudgetAccountsList(tplId) {
       listEl.innerHTML = '<div style="padding:20px;text-align:center;color:#EF4444">카드 렌더링 함수(_baRenderAccountCard)를 찾을 수 없습니다.</div>';
     }
   } catch(e) {
-    listEl.innerHTML = \`<div style="padding:20px;text-align:center;color:#EF4444">로드 실패: \${e.message}</div>\`;
+    listEl.innerHTML = `<div style="padding:20px;text-align:center;color:#EF4444">로드 실패: ${e.message}</div>`;
   }
 }
 

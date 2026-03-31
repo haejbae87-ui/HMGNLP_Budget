@@ -200,18 +200,18 @@ const PLATFORM_MENUS = [
   { id: 'role-menu-perms',   icon: '🔑', label: '역할별 메뉴 권한',        section: null, gnb: GNB_CATE.TENANT },
   // 교육제도 ─ 기준설정
   { id: 'virtual-org',        icon: '🏗️', label: '가상 교육 조직 관리',  section: '교육제도 기준설정', gnb: GNB_CATE.PROGRAM },
+  // 교육지원제도 ─ 기준정보
   { id: 'budget-account',     icon: '💳', label: '예산계정 관리',        section: '교육지원제도 기준정보', gnb: GNB_CATE.PROGRAM },
-  { id: 'cert-mapping',       icon: '📜', label: '자격증 맵핑',          section: '자격증 지원 기준정보', gnb: GNB_CATE.PROGRAM },
-  // 교육제도 ─ 지원제도 설정
-
   { id: 'form-builder',       icon: '📝', label: '교육양식 마법사',         section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'calc-grounds',       icon: '📐', label: '세부산출근거 관리',       section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'service-policy',     icon: '🔧', label: '서비스 정책관리',         section: null, gnb: GNB_CATE.PROGRAM },
-  // 교육제도 ─ 지원제도 운영
-  { id: 'plan-mgmt',          icon: '📋', label: '교육계획 관리',            section: '교육지원제도 운영', gnb: GNB_CATE.PROGRAM },
+  // 교육지원제도 ─ 운영관리
+  { id: 'plan-mgmt',          icon: '📋', label: '교육계획 관리',            section: '교육지원제도 운영관리', gnb: GNB_CATE.PROGRAM },
   { id: 'my-operations',      icon: '📥', label: '교육신청 관리',            section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'org-budget',         icon: '📊', label: '교육결과 관리',            section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'allocation',         icon: '💰', label: '예산 배정 및 관리',       section: null, gnb: GNB_CATE.PROGRAM },
+  // 자격증 지원관리
+  { id: 'cert-mapping',       icon: '📜', label: '자격증 맵핑',          section: '자격증 지원관리', gnb: GNB_CATE.PROGRAM },
   // 통계·기타
   { id: 'reports',            icon: '📈', label: '통계 및 리포트',           section: null, gnb: GNB_CATE.STATS },
   { id: 'manual',             icon: '📖', label: '서비스 매뉴얼',           section: null, gnb: GNB_CATE.ETC },
@@ -225,15 +225,14 @@ const TENANT_ADMIN_MENUS = [
   { id: 'role-mgmt',        icon: '🔐', label: '역할 관리',              section: '테넌트 설정', gnb: GNB_CATE.TENANT },
   { id: 'virtual-org',      icon: '🏗️', label: '가상 교육 조직 관리',   section: '교육제도 기준설정', gnb: GNB_CATE.PROGRAM },
   { id: 'budget-account',   icon: '💳', label: '예산계정 관리',         section: '교육지원제도 기준정보', gnb: GNB_CATE.PROGRAM },
-  { id: 'cert-mapping',     icon: '📜', label: '자격증 맵핑',           section: '자격증 지원 기준정보', gnb: GNB_CATE.PROGRAM },
-
   { id: 'form-builder',     icon: '📝', label: '교육양식 마법사',         section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'calc-grounds',     icon: '📐', label: '세부산출근거 관리',       section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'service-policy',   icon: '🔧', label: '서비스 정책관리',         section: null, gnb: GNB_CATE.PROGRAM },
-  { id: 'plan-mgmt',        icon: '📋', label: '교육계획 관리',            section: '교육지원제도 운영', gnb: GNB_CATE.PROGRAM },
+  { id: 'plan-mgmt',        icon: '📋', label: '교육계획 관리',            section: '교육지원제도 운영관리', gnb: GNB_CATE.PROGRAM },
   { id: 'my-operations',    icon: '📥', label: '교육신청 관리',            section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'org-budget',       icon: '📊', label: '교육결과 관리',            section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'allocation',       icon: '💰', label: '예산 배정 및 관리',       section: null, gnb: GNB_CATE.PROGRAM },
+  { id: 'cert-mapping',     icon: '📜', label: '자격증 맵핑',           section: '자격증 지원관리', gnb: GNB_CATE.PROGRAM },
   { id: 'reports',          icon: '📈', label: '전사 통계 리포트',         section: null, gnb: GNB_CATE.STATS },
   { id: 'manual',           icon: '📖', label: '서비스 매뉴얼',           section: null, gnb: GNB_CATE.ETC },
 ];
@@ -243,15 +242,14 @@ const BUDGET_ADMIN_MENUS = [
   { id: 'dashboard',        icon: '📊', label: '대시보드',              section: null, gnb: GNB_CATE.PLATFORM },
   { id: 'virtual-org',      icon: '🏗️', label: '가상 교육 조직 관리',  section: '교육제도 기준설정', gnb: GNB_CATE.PROGRAM },
   { id: 'budget-account',   icon: '💳', label: '예산계정 관리',         section: '교육지원제도 기준정보', gnb: GNB_CATE.PROGRAM },
-  { id: 'cert-mapping',     icon: '📜', label: '자격증 맵핑',           section: '자격증 지원 기준정보', gnb: GNB_CATE.PROGRAM },
-
   { id: 'form-builder',     icon: '📝', label: '교육양식 마법사',        section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'calc-grounds',     icon: '📐', label: '세부산출근거 관리',      section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'service-policy',   icon: '🔧', label: '서비스 정책관리',        section: null, gnb: GNB_CATE.PROGRAM },
-  { id: 'plan-mgmt',        icon: '📋', label: '교육계획 관리',           section: '교육지원제도 운영', gnb: GNB_CATE.PROGRAM },
+  { id: 'plan-mgmt',        icon: '📋', label: '교육계획 관리',           section: '교육지원제도 운영관리', gnb: GNB_CATE.PROGRAM },
   { id: 'my-operations',    icon: '📥', label: '교육신청 관리',           section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'org-budget',       icon: '📊', label: '교육결과 관리',           section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'allocation',       icon: '💰', label: '예산 배정 및 관리',      section: null, gnb: GNB_CATE.PROGRAM },
+  { id: 'cert-mapping',     icon: '📜', label: '자격증 맵핑',           section: '자격증 지원관리', gnb: GNB_CATE.PROGRAM },
   { id: 'reports',          icon: '📈', label: '통계 및 리포트',          section: null, gnb: GNB_CATE.STATS },
   { id: 'manual',           icon: '📖', label: '서비스 매뉴얼',           section: null, gnb: GNB_CATE.ETC },
 ];
@@ -275,15 +273,14 @@ const TENANT_DUAL_MENUS = [
   { id: 'role-mgmt',        icon: '🔐', label: '역할 관리',              section: '테넌트 설정', gnb: GNB_CATE.TENANT },
   { id: 'virtual-org',      icon: '🏗️', label: '가상 교육 조직 관리',  section: '교육제도 기준설정', gnb: GNB_CATE.PROGRAM },
   { id: 'budget-account',   icon: '💳', label: '예산계정 관리',         section: '교육지원제도 기준정보', gnb: GNB_CATE.PROGRAM },
-  { id: 'cert-mapping',     icon: '📜', label: '자격증 맵핑',           section: '자격증 지원 기준정보', gnb: GNB_CATE.PROGRAM },
-
   { id: 'form-builder',     icon: '📝', label: '교육양식 마법사',         section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'calc-grounds',     icon: '📐', label: '세부산출근거 관리',       section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'service-policy',   icon: '🔧', label: '서비스 정책관리',         section: null, gnb: GNB_CATE.PROGRAM },
-  { id: 'plan-mgmt',        icon: '📋', label: '교육계획 관리',            section: '교육지원제도 운영', gnb: GNB_CATE.PROGRAM },
+  { id: 'plan-mgmt',        icon: '📋', label: '교육계획 관리',            section: '교육지원제도 운영관리', gnb: GNB_CATE.PROGRAM },
   { id: 'my-operations',    icon: '📥', label: '교육신청 관리',            section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'org-budget',       icon: '📊', label: '교육결과 관리',            section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'allocation',       icon: '💰', label: '예산 배정 및 관리',       section: null, gnb: GNB_CATE.PROGRAM },
+  { id: 'cert-mapping',     icon: '📜', label: '자격증 맵핑',           section: '자격증 지원관리', gnb: GNB_CATE.PROGRAM },
   { id: 'reports',          icon: '📈', label: '통계 및 리포트',           section: null, gnb: GNB_CATE.STATS },
   { id: 'manual',           icon: '📖', label: '서비스 매뉴얼',           section: null, gnb: GNB_CATE.ETC },
 ];

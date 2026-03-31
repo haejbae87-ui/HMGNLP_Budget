@@ -1,7 +1,7 @@
-// ─── 백오피스: 서비스 매뉴얼 (v3.0) ────────────────────────────────────────────
+// ─── 백오피스: 서비스 매뉴얼 (v4.0) ────────────────────────────────────────────
 // 대상: 차세대학습플랫폼 서비스 기획자 및 개발자
 // 내용: 멀티테넌트 교육예산 관리 시스템의 전체 구조·역할·메뉴·데이터 흐름 안내
-// 최종 업데이트: 2026-03-24 (HAE/HSC 현행화, 서비스정책 권한 확장, 개발 일정 추가)
+// 최종 업데이트: 2026-03-30 (가상교육조직 템플릿 종속 구조 전환, 교육지원 도메인 제거, 메뉴 최신화)
 
 function renderBoManual() {
   const el = document.getElementById('bo-content');
@@ -9,12 +9,12 @@ function renderBoManual() {
 <div class="bo-fade" style="max-width:960px">
   <div style="background:linear-gradient(135deg,#312E81,#6366F1);border-radius:16px;padding:28px 32px;color:#fff;margin-bottom:28px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-      <span style="background:rgba(255,255,255,.2);padding:3px 10px;border-radius:6px;font-size:9px;font-weight:900;letter-spacing:.1em">BACK-OFFICE MANUAL v2.0</span>
+      <span style="background:rgba(255,255,255,.2);padding:3px 10px;border-radius:6px;font-size:9px;font-weight:900;letter-spacing:.1em">BACK-OFFICE MANUAL v4.0</span>
     </div>
     <h1 style="font-size:22px;font-weight:900;margin:0 0 8px">백오피스 서비스 매뉴얼</h1>
     <p style="font-size:13px;color:rgba(255,255,255,.8);margin:0;line-height:1.6">
       차세대학습플랫폼(NLP) 서비스 기획자·개발자를 위한 멀티테넌트 교육예산 관리 시스템 안내서<br>
-      예산 정책 설계부터 결재 자동 라우팅까지 전체 흐름을 다룹니다. | 2026-03-24 v3.0
+      예산 정책 설계부터 결재 자동 라우팅까지 전체 흐름을 다룹니다. | 2026-03-30 v4.0
     </p>
   </div>
 

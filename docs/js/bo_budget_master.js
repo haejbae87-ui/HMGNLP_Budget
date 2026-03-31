@@ -273,15 +273,27 @@ function _baRenderContent() {
 // ─────────────────────────────────────────────────────────────────────────────
 let _s1EditId = null; // 수정 시 budget_accounts.id
 
+function _s1GenCode() {
+  const seq = String(Date.now()).slice(-4);
+  const tenantId = boCurrentPersona?.tenantId || 'HMC';
+  return tenantId + '-' + seq;
+}
+
 function openS1Modal(id) {
   _s1EditId = id || null;
   const a    = id ? (_baAccountList.find(x => x.id === id) || null) : null;
+  const autoCode = a?.code || _s1GenCode();
   document.getElementById('s1-modal-title').textContent = id ? '예산 계정 수정' : '예산 계정 신규 등록';
   document.getElementById('s1-modal-body').innerHTML = `
+  <div style="margin-bottom:12px">
+    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정코드 (자동채번)</label>
+    <input id="s1-code" type="text" value="${autoCode}" readonly
+      style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;background:#F9FAFB;color:#6B7280">
+  </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
     <div>
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정코드 *</label>
-      <input id="s1-code" type="text" placeholder="예) EDU-001" value="${a?.code||''}"
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정명 *</label>
+      <input id="s1-name" type="text" placeholder="예) 교육훈련비" value="${a?.name||''}"
         style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
     </div>
     <div>
@@ -293,11 +305,6 @@ function openS1Modal(id) {
         <option value="badge"    ${a?.account_type==='badge'   ?'selected':''}>배지</option>
       </select>
     </div>
-  </div>
-  <div style="margin-bottom:12px">
-    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정명 *</label>
-    <input id="s1-name" type="text" placeholder="예) 교육훈련비" value="${a?.name||''}"
-      style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
   </div>
   <div style="margin-bottom:12px">
     <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">연간 한도 (원)</label>
@@ -559,30 +566,58 @@ function renderStep1() {
 </div>`;
 }
 
-function _s1GenCode() {
-  const seq = String(Date.now()).slice(-4);
-  const tenantId = boCurrentPersona.tenantId || 'HMC';
-  return tenantId + '-' + seq;
-}
-
 function _s1ModalBody(code) {
   const a = code ? ACCOUNT_MASTER.find(x => x.code === code) : null;
-  const autoCode = a?.code || _s1GenCode();
+  const tenantId = boCurrentPersona.tenantId || 'HMG';
   const inp = (id, ph, val = '') => `<input id="${id}" type="text" placeholder="${ph}" value="${val}"
     style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;outline:none">`;
   return `
-  <div style="margin-bottom:12px">
-    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정코드 (자동채번)</label>
-    <input id="s1-code" type="text" value="${autoCode}" readonly
-      style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;background:#F9FAFB;color:#6B7280">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div>
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정코드 *</label>
+      ${inp('s1-code', '예) HMG-OPS', a?.code || tenantId + '-')}
+    </div>
+    <div>
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">구분</label>
+      <select id="s1-group" style="width:100%;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+        <option value="일반" ${a?.group === '일반' ? 'selected' : ''}>일반</option>
+        <option value="R&D" ${a?.group === 'R&D' ? 'selected' : ''}>R&D</option>
+      </select>
+    </div>
   </div>
   <div style="margin-bottom:12px">
     <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정명 *</label>
-    ${inp('s1-name', '예) 교육훈련비', a?.name || '')}
+    ${inp('s1-name', '예) 일반-운영계정', a?.name || '')}
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div>
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">총괄 담당자</label>
+      ${inp('s1-manager', '예) 홍길동', a?.manager || '')}
+    </div>
+    <div>
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">부담당자</label>
+      ${inp('s1-submanager', '예) 김철수', a?.subManager || '')}
+    </div>
   </div>
   <div style="margin-bottom:14px">
     <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">용도 설명</label>
-    ${inp('s1-desc', '예) 사내 집합교육 및 이러닝 운영비', a?.desc || '')}
+    ${inp('s1-desc', '예) 사내 집합/이러닝 운영비', a?.desc || '')}
+  </div>
+  <div style="display:flex;gap:24px">
+    <label class="bo-toggle-wrap" style="gap:10px">
+      <label class="bo-toggle blue"><input type="checkbox" id="s1-plan" ${a?.planRequired !== false ? 'checked' : ''}><span class="bo-toggle-slider"></span></label>
+      <div>
+        <div style="font-size:12px;font-weight:800;color:#374151">사전계획 필수</div>
+        <div style="font-size:10px;color:#9CA3AF">ON: 신청 전 교육계획서 제출 강제</div>
+      </div>
+    </label>
+    <label class="bo-toggle-wrap" style="gap:10px">
+      <label class="bo-toggle green"><input type="checkbox" id="s1-carry" ${a?.carryover ? 'checked' : ''}><span class="bo-toggle-slider"></span></label>
+      <div>
+        <div style="font-size:12px;font-weight:800;color:#374151">이월 허용</div>
+        <div style="font-size:10px;color:#9CA3AF">연말 잔액 익년도 이월</div>
+      </div>
+    </label>
   </div>`;
 }
 
@@ -610,18 +645,22 @@ function s1ToggleActive(code) {
 }
 
 async function s1SaveAccount() {
+  // platform_admin은 _baTenantId, 나머지는 persona.tenantId
   const role = boCurrentPersona.role;
   const tenantId = (role === 'platform_admin')
     ? (_baTenantId || 'HMC')
     : (boCurrentPersona.tenantId || _baTenantId || 'HMC');
   const code = document.getElementById('s1-code').value.trim();
   const name = document.getElementById('s1-name').value.trim();
-  if (!code || !name) { alert('계정명은 필수입니다.'); return; }
-  const desc = document.getElementById('s1-desc')?.value.trim() || '';
+  if (!code || !name) { alert('코드와 계정명은 필수입니다.'); return; }
   const obj = {
     code, name, tenantId,
-    group: '일반',
-    desc,
+    group: document.getElementById('s1-group').value,
+    desc: document.getElementById('s1-desc').value.trim(),
+    manager: document.getElementById('s1-manager').value.trim(),
+    subManager: document.getElementById('s1-submanager').value.trim(),
+    planRequired: document.getElementById('s1-plan').checked,
+    carryover: document.getElementById('s1-carry').checked,
     active: true
   };
 
@@ -629,8 +668,10 @@ async function s1SaveAccount() {
   if (typeof _sb === 'function' && _sb()) {
     const dbRow = {
       code, name, tenant_id: tenantId,
-      grp: '일반',
-      descr: desc,
+      grp: obj.group,
+      descr: obj.desc,
+      plan_required: obj.planRequired,
+      carryover: obj.carryover,
       active: true,
       is_system: false,
     };
@@ -652,13 +693,15 @@ async function s1SaveAccount() {
     const idx = ACCOUNT_MASTER.findIndex(x => x.code === _s1EditCode);
     if (idx > -1) ACCOUNT_MASTER[idx] = { ...ACCOUNT_MASTER[idx], ...obj };
   } else {
-    const existing = ACCOUNT_MASTER.find(x => x.code === code);
-    if (existing) {
+    if (ACCOUNT_MASTER.find(x => x.code === code)) {
+      // DB UPSERT 후이므로 메모리도 업데이트
       const idx = ACCOUNT_MASTER.findIndex(x => x.code === code);
       if (idx >= 0) ACCOUNT_MASTER[idx] = { ...ACCOUNT_MASTER[idx], ...obj };
+      else ACCOUNT_MASTER.push(obj);
     } else {
       ACCOUNT_MASTER.push(obj);
     }
+    // 격리그룹 메모리도 동기화
     if (_baGroupId && typeof EDU_SUPPORT_DOMAINS !== 'undefined') {
       const grp = EDU_SUPPORT_DOMAINS.find(g => g.id === _baGroupId);
       if (grp && !grp.ownedAccounts.includes(code)) grp.ownedAccounts.push(code);

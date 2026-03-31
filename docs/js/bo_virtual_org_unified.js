@@ -954,7 +954,7 @@ async function _vuShowOrgPicker(title) {
     const sb = typeof _sb === 'function' ? _sb() : null;
     if (sb) {
       const { data } = await sb.from('organizations')
-        .select('id,name,parent_id,org_type,tenant_id')
+        .select('id,name,parent_id,type,tenant_id')
         .eq('tenant_id', _vuTenantId)
         .order('name');
       if (data) rawOrgs = data;
@@ -978,7 +978,7 @@ async function _vuShowOrgPicker(title) {
     const deptSet = new Map();
     Object.values(BO_PERSONAS).forEach(p => {
       if (p.tenantId === _vuTenantId && p.dept) {
-        deptSet.set(p.dept, { id: 'ORG-' + p.dept, name: p.dept, org_type: 'team', parent_id: null, children: [] });
+        deptSet.set(p.dept, { id: 'ORG-' + p.dept, name: p.dept, type: 'team', parent_id: null, children: [] });
       }
     });
     _vuOrgPickerData = [...deptSet.values()];
@@ -1005,7 +1005,7 @@ function _vuBuildOrgTreeHtml(nodes, depth, q) {
       office:       { icon:'📋', color:'#065F46', bg:'#ECFDF5', border:'#A7F3D0' },
       division:     { icon:'🏭', color:'#92400E', bg:'#FFFBEB', border:'#FDE68A' },
       team:         { icon:'👥', color:'#374151', bg:'#F9FAFB', border:'#E5E7EB' }
-    }[node.org_type] || { icon:'👥', color:'#374151', bg:'#F9FAFB', border:'#E5E7EB' };
+    }[node.type] || { icon:'👥', color:'#374151', bg:'#F9FAFB', border:'#E5E7EB' };
 
     const indent = depth * 20;
 
@@ -1020,7 +1020,7 @@ function _vuBuildOrgTreeHtml(nodes, depth, q) {
         <span style="font-size:14px">${st.icon}</span>
         <span style="font-size:13px;font-weight:600;color:#374151;flex:1">${node.name}</span>
         <span style="font-size:10px;color:${st.color};background:${st.bg};border:1px solid ${st.border};
-              padding:1px 7px;border-radius:5px;font-weight:700">${node.org_type || '팀'}</span>
+              padding:1px 7px;border-radius:5px;font-weight:700">${node.type || '팀'}</span>
       </label>
       ${childHtml ? `<div style="padding-left:4px">${childHtml}</div>` : ''}
     </div>`;

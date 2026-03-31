@@ -624,8 +624,16 @@ async function _vuConfirmHeadManagerRole() {
       const { data: ur } = await sb.from('user_roles').select('user_id').eq('role_code', roleCode);
       const ids = (ur || []).map(r => r.user_id);
       if (ids.length) {
-        const { data: us } = await sb.from('users').select('id,name,emp_no,dept').in('id', ids);
-        users = us || [];
+        const { data: us, error: usErr } = await sb.from('users').select('id,name,emp_no,org_id').in('id', ids);
+        if (usErr) console.warn('사용자 조회 오류:', usErr.message);
+        // org_id로 조직명 가져오기
+        const orgIds = (us || []).map(u => u.org_id).filter(Boolean);
+        let orgMap = {};
+        if (orgIds.length) {
+          const { data: orgs } = await sb.from('organizations').select('id,name').in('id', orgIds);
+          (orgs || []).forEach(o => { orgMap[o.id] = o.name; });
+        }
+        users = (us || []).map(u => ({ ...u, dept: orgMap[u.org_id] || '' }));
       }
     }
   } catch(e) { console.warn('사용자 로드 실패:', e.message); }
@@ -1083,8 +1091,16 @@ async function _vuShowUserPicker(title, roleFilter) {
         const { data: ur } = await sb.from('user_roles').select('user_id').in('role_code', lookupCodes);
         const ids = (ur || []).map(r => r.user_id);
         if (ids.length) {
-          const { data: us } = await sb.from('users').select('id,name,emp_no,dept').in('id', ids);
-          _vuUserPickerData = (us || []).map(u => ({ key: u.id, name: u.name, dept: u.dept, pos: u.emp_no, role: '' }));
+          const { data: us, error: usErr } = await sb.from('users').select('id,name,emp_no,org_id').in('id', ids);
+          if (usErr) console.warn('운영담당자 조회 오류:', usErr.message);
+          // org_id로 조직명 가져오기
+          const orgIds = (us || []).map(u => u.org_id).filter(Boolean);
+          let orgMap = {};
+          if (orgIds.length) {
+            const { data: orgs } = await sb.from('organizations').select('id,name').in('id', orgIds);
+            (orgs || []).forEach(o => { orgMap[o.id] = o.name; });
+          }
+          _vuUserPickerData = (us || []).map(u => ({ key: u.id, name: u.name, dept: orgMap[u.org_id] || '', pos: u.emp_no, role: '' }));
         }
       }
     } catch(e) { console.warn('운영담당자 로드 실패:', e.message); }

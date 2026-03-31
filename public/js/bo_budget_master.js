@@ -273,15 +273,27 @@ function _baRenderContent() {
 // ─────────────────────────────────────────────────────────────────────────────
 let _s1EditId = null; // 수정 시 budget_accounts.id
 
+function _s1GenCode() {
+  const seq = String(Date.now()).slice(-4);
+  const tenantId = boCurrentPersona?.tenantId || 'HMC';
+  return tenantId + '-' + seq;
+}
+
 function openS1Modal(id) {
   _s1EditId = id || null;
   const a    = id ? (_baAccountList.find(x => x.id === id) || null) : null;
+  const autoCode = a?.code || _s1GenCode();
   document.getElementById('s1-modal-title').textContent = id ? '예산 계정 수정' : '예산 계정 신규 등록';
   document.getElementById('s1-modal-body').innerHTML = `
+  <div style="margin-bottom:12px">
+    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정코드 (자동채번)</label>
+    <input id="s1-code" type="text" value="${autoCode}" readonly
+      style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;background:#F9FAFB;color:#6B7280">
+  </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
     <div>
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정코드 *</label>
-      <input id="s1-code" type="text" placeholder="예) EDU-001" value="${a?.code||''}"
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정명 *</label>
+      <input id="s1-name" type="text" placeholder="예) 교육훈련비" value="${a?.name||''}"
         style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
     </div>
     <div>
@@ -293,11 +305,6 @@ function openS1Modal(id) {
         <option value="badge"    ${a?.account_type==='badge'   ?'selected':''}>배지</option>
       </select>
     </div>
-  </div>
-  <div style="margin-bottom:12px">
-    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정명 *</label>
-    <input id="s1-name" type="text" placeholder="예) 교육훈련비" value="${a?.name||''}"
-      style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
   </div>
   <div style="margin-bottom:12px">
     <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">연간 한도 (원)</label>

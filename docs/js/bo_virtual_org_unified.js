@@ -140,7 +140,7 @@ async function renderVirtualOrgUnified() {
         <span style="font-size:10px;padding:3px 10px;border-radius:6px;font-weight:700;background:${(purposeColors[purpose]||purposeColors.edu_support).bg};color:${(purposeColors[purpose]||purposeColors.edu_support).text}">${(purposeColors[purpose]||purposeColors.edu_support).label}</span>
         <button onclick="voOpenEditTemplate('${curTpl.id}')" style="margin-left:auto;padding:5px 12px;border:1.5px solid #E5E7EB;border-radius:7px;background:#fff;font-size:11px;font-weight:700;cursor:pointer;color:#6B7280">⚙ 설정 수정</button>
       </div>
-      <div style="display:flex;gap:0">
+      <div id="vu-tab-buttons" style="display:flex;gap:0">
         ${tabs.map((tab, i) => `
         <button onclick="_vuSwitchTab(${i})"
           style="padding:10px 18px;font-size:12px;font-weight:${_vuActiveTab===i?900:600};
@@ -195,6 +195,18 @@ function _vuSwitchTab(idx) {
   const tabs = _vuGetTabs(curTpl.purpose);
   const el = document.getElementById('vu-tab-content');
   if (el) el.innerHTML = _vuRenderTabContent(tabs[idx]?.key, curTpl);
+  
+  // 탭 버튼 밑줄 UI 갱신
+  const tabContainer = document.getElementById('vu-tab-buttons');
+  if (tabContainer) {
+    const btns = tabContainer.querySelectorAll('button');
+    btns.forEach((btn, i) => {
+      btn.style.fontWeight = i === idx ? '900' : '600';
+      btn.style.color = i === idx ? '#1D4ED8' : '#6B7280';
+      btn.style.borderBottom = i === idx ? '3px solid #1D4ED8' : '3px solid transparent';
+    });
+  }
+
   // 예산 탭이면 자동 로딩
   if (tabs[idx]?.key === 'budget') {
     _baTplId = curTpl.id;
@@ -789,6 +801,7 @@ async function _vuShowOrgPicker(title) {
 
   // DB에서 조직 데이터 로드
   _vuOrgPickerData = [];
+  let rawOrgs = [];
   try {
     const sb = typeof _sb === 'function' ? _sb() : null;
     if (sb) {
@@ -796,16 +809,28 @@ async function _vuShowOrgPicker(title) {
         .select('id,name,parent_id,org_type,tenant_id')
         .eq('tenant_id', _vuTenantId)
         .order('name');
-      if (data) _vuOrgPickerData = data;
+      if (data) rawOrgs = data;
     }
   } catch(e) { console.warn('조직도 로드 실패:', e.message); }
 
-  // DB에 없으면 BO_PERSONAS에서 부서 목록 추출
-  if (!_vuOrgPickerData.length && typeof BO_PERSONAS !== 'undefined') {
+  if (rawOrgs.length > 0) {
+    const orgMap = {};
+    rawOrgs.forEach(o => { orgMap[o.id] = { ...o, children: [] }; });
+    const roots = [];
+    rawOrgs.forEach(o => {
+      if (o.parent_id && orgMap[o.parent_id]) {
+        orgMap[o.parent_id].children.push(orgMap[o.id]);
+      } else {
+        roots.push(orgMap[o.id]);
+      }
+    });
+    _vuOrgPickerData = roots;
+  } else if (typeof BO_PERSONAS !== 'undefined') {
+    // 폴백 로직
     const deptSet = new Map();
     Object.values(BO_PERSONAS).forEach(p => {
       if (p.tenantId === _vuTenantId && p.dept) {
-        deptSet.set(p.dept, { id: 'ORG-' + p.dept, name: p.dept, org_type: 'team', parent_id: null });
+        deptSet.set(p.dept, { id: 'ORG-' + p.dept, name: p.dept, org_type: 'team', parent_id: null, children: [] });
       }
     });
     _vuOrgPickerData = [...deptSet.values()];
@@ -816,23 +841,56 @@ async function _vuShowOrgPicker(title) {
 
 function _vuFilterOrgs(q) { _vuRenderOrgList(q); }
 
+function _vuBuildOrgTreeHtml(nodes, depth, q) {
+  let html = '';
+  nodes.forEach(node => {
+    const matchSelf = q === '' || node.name.toLowerCase().includes(q);
+    let childHtml = '';
+    if (node.children && node.children.length > 0) {
+      childHtml = _vuBuildOrgTreeHtml(node.children, depth + 1, q);
+    }
+    if (!matchSelf && !childHtml) return;
+
+    const st = {
+      headquarters: { icon:'🏢', color:'#1E40AF', bg:'#EFF6FF', border:'#BFDBFE' },
+      center:       { icon:'🔬', color:'#6D28D9', bg:'#F5F3FF', border:'#DDD6FE' },
+      office:       { icon:'📋', color:'#065F46', bg:'#ECFDF5', border:'#A7F3D0' },
+      division:     { icon:'🏭', color:'#92400E', bg:'#FFFBEB', border:'#FDE68A' },
+      team:         { icon:'👥', color:'#374151', bg:'#F9FAFB', border:'#E5E7EB' }
+    }[node.org_type] || { icon:'👥', color:'#374151', bg:'#F9FAFB', border:'#E5E7EB' };
+
+    const indent = depth * 20;
+
+    html += `
+    <div style="margin-bottom:5px">
+      <label style="display:flex;align-items:center;gap:9px;padding:9px 14px;padding-left:${14+indent}px;
+             border-radius:9px;cursor:pointer;background:#fff;border:1px solid #E5E7EB;
+             transition:all 0.15s;user-select:none"
+             onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='#fff'">
+        <input type="checkbox" class="vu-org-chk" value="${node.id}" data-name="${node.name}"
+          style="width:15px;height:15px;accent-color:#1D4ED8;margin:0;flex-shrink:0">
+        <span style="font-size:14px">${st.icon}</span>
+        <span style="font-size:13px;font-weight:600;color:#374151;flex:1">${node.name}</span>
+        <span style="font-size:10px;color:${st.color};background:${st.bg};border:1px solid ${st.border};
+              padding:1px 7px;border-radius:5px;font-weight:700">${node.org_type || '팀'}</span>
+      </label>
+      ${childHtml ? `<div style="padding-left:4px">${childHtml}</div>` : ''}
+    </div>`;
+  });
+  return html;
+}
+
 function _vuRenderOrgList(query) {
   const listEl = document.getElementById('vu-org-list');
-  const q = query.toLowerCase();
-  const filtered = q ? _vuOrgPickerData.filter(o => o.name.toLowerCase().includes(q)) : _vuOrgPickerData;
-  if (!filtered.length) {
+  const q = query.toLowerCase().trim();
+  
+  const html = _vuBuildOrgTreeHtml(_vuOrgPickerData, 0, q);
+  
+  if (!html) {
     listEl.innerHTML = '<div style="padding:20px;text-align:center;color:#9CA3AF;font-size:12px">결과가 없습니다</div>';
     return;
   }
-  listEl.innerHTML = filtered.map(o => `
-    <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;transition:background .1s;border:1px solid #F3F4F6;margin-bottom:4px"
-      onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='#fff'">
-      <input type="checkbox" class="vu-org-chk" value="${o.id}" data-name="${o.name}" style="width:16px;height:16px;accent-color:#1D4ED8">
-      <div>
-        <div style="font-size:13px;font-weight:700;color:#111827">${o.name}</div>
-        <div style="font-size:10px;color:#9CA3AF">${o.org_type || '팀'}</div>
-      </div>
-    </label>`).join('');
+  listEl.innerHTML = html;
 }
 
 function _vuConfirmOrgPick() {

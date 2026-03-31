@@ -1129,16 +1129,46 @@ function _vuRenderUserList(query) {
     listEl.innerHTML = '<div style="padding:20px;text-align:center;color:#9CA3AF;font-size:12px">결과가 없습니다</div>';
     return;
   }
+
+  // 현재 템플릿 내 모든 가상조직에서 각 사용자의 기존 맵핑 조회
+  const curTpl = _vuTplList.find(t => t.id === _vuTplId);
+  const hqs = curTpl?.tree?.hqs || curTpl?.tree?.centers || [];
+  const currentGi = window._vuPickerGi; // 현재 선택 중인 가상조직 인덱스
+
+  // 사용자별 기존 맵핑 맵 생성 { userId: [{orgName, orgIdx}] }
+  const mappingMap = {};
+  hqs.forEach((g, gi) => {
+    const managers = g.managers || [];
+    managers.forEach(m => {
+      const uid = m.id || m.key;
+      if (!mappingMap[uid]) mappingMap[uid] = [];
+      if (gi !== currentGi) { // 현재 조직은 제외 (다른 조직만 표시)
+        mappingMap[uid].push({ orgName: g.name, orgIdx: gi });
+      }
+    });
+  });
+
   const isSingle = window._vuPickerMode === 'head_manager';
-  listEl.innerHTML = filtered.map(u => `
-    <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;transition:background .1s;border:1px solid #F3F4F6;margin-bottom:4px"
-      onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='#fff'">
-      <input type="${isSingle ? 'radio' : 'checkbox'}" name="vu-user-sel" class="vu-user-chk" value="${u.key}" data-name="${u.name}" data-dept="${u.dept||''}" style="width:16px;height:16px;accent-color:#1D4ED8">
+  listEl.innerHTML = filtered.map(u => {
+    const existing = mappingMap[u.key] || [];
+    const mappingBadge = existing.length
+      ? '<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:3px">' +
+        existing.map(e =>
+          '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#DBEAFE;color:#1E40AF;font-weight:600">📌 ' + e.orgName + '</span>'
+        ).join('') +
+        '</div>'
+      : '';
+    return `
+    <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;transition:background .1s;border:1px solid ${existing.length ? '#BFDBFE' : '#F3F4F6'};margin-bottom:4px;background:${existing.length ? '#F8FAFF' : '#fff'}"
+      onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='${existing.length ? '#F8FAFF' : '#fff'}'">
+      <input type="${isSingle ? 'radio' : 'checkbox'}" name="vu-user-sel" class="vu-user-chk" value="${u.key}" data-name="${u.name}" data-dept="${u.dept||''}" style="width:16px;height:16px;accent-color:#1D4ED8;margin-top:2px">
       <div style="flex:1">
         <div style="font-size:13px;font-weight:700;color:#111827">${u.name} <span style="font-size:10px;color:#9CA3AF">${u.pos || ''}</span></div>
-        <div style="font-size:10px;color:#6B7280">${u.dept || ''} · ${u.roleTag || u.role || ''}</div>
+        <div style="font-size:10px;color:#6B7280">${u.dept || ''}</div>
+        ${mappingBadge}
       </div>
-    </label>`).join('');
+    </label>`;
+  }).join('');
 }
 
 function _vuConfirmUserPick() {

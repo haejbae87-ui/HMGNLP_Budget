@@ -43,17 +43,19 @@ async function renderVirtualOrgUnified() {
     if (sb) {
       const { data } = await sb
         .from('virtual_org_templates')
-        .select('id,name,purpose,service_type,tree_data,tenant_id,owner_role_ids')
+        .select('id,name,purpose,service_type,tree_data,tenant_id,owner_role_ids,head_manager_role,head_manager_user')
         .eq('tenant_id', _vuTenantId);
       if (data && data.length) {
         _vuTplList = data.map(row => ({
-          id:            row.id,
-          tenantId:      row.tenant_id,
-          name:          row.name,
-          purpose:       row.service_type || row.purpose || 'edu_support',
-          serviceTypes:  (row.service_type || row.purpose || 'edu_support').split(',').map(s=>s.trim()),
-          ownerRoleIds:  row.owner_role_ids || [],
-          tree:          row.tree_data || { hqs: [] },
+          id:               row.id,
+          tenantId:         row.tenant_id,
+          name:             row.name,
+          purpose:          row.service_type || row.purpose || 'edu_support',
+          serviceTypes:     (row.service_type || row.purpose || 'edu_support').split(',').map(s=>s.trim()),
+          ownerRoleIds:     row.owner_role_ids || [],
+          tree:             row.tree_data || { hqs: [] },
+          headManagerRole:  row.head_manager_role || null,
+          headManagerUser:  row.head_manager_user || null,
         }));
       }
     }
@@ -947,6 +949,15 @@ async function _vuShowOrgPicker(title) {
   listEl.innerHTML = '<div style="padding:20px;text-align:center;color:#9CA3AF">로딩 중...</div>';
   document.getElementById('vu-org-picker').style.display = 'flex';
 
+  // 현재 그룹에 이미 매핑된 org ID 수집 (기매핑 표시용)
+  _vuMappedOrgIds = new Set();
+  const _curTpl = _vuTplList.find(t => t.id === window._vuPickerTplId);
+  const _curGrp = _curTpl ? (_curTpl.tree?.hqs || [])[window._vuPickerGi] : null;
+  if (_curGrp) {
+    const existing = window._vuPickerMode === 'coop' ? (_curGrp.coopTeams || []) : (_curGrp.teams || []);
+    existing.forEach(t => _vuMappedOrgIds.add(t.id));
+  }
+
   // DB에서 조직 데이터 로드
   _vuOrgPickerData = [];
   let rawOrgs = [];
@@ -987,7 +998,10 @@ async function _vuShowOrgPicker(title) {
   _vuRenderOrgList('');
 }
 
+
 function _vuFilterOrgs(q) { _vuRenderOrgList(q); }
+
+let _vuMappedOrgIds = new Set(); // 현재 그룹에 이미 맵핑된 org IDs
 
 function _vuBuildOrgTreeHtml(nodes, depth, q) {
   let html = '';
@@ -1000,33 +1014,71 @@ function _vuBuildOrgTreeHtml(nodes, depth, q) {
     if (!matchSelf && !childHtml) return;
 
     const st = {
-      headquarters: { icon:'🏢', color:'#1E40AF', bg:'#EFF6FF', border:'#BFDBFE' },
-      center:       { icon:'🔬', color:'#6D28D9', bg:'#F5F3FF', border:'#DDD6FE' },
-      office:       { icon:'📋', color:'#065F46', bg:'#ECFDF5', border:'#A7F3D0' },
-      division:     { icon:'🏭', color:'#92400E', bg:'#FFFBEB', border:'#FDE68A' },
-      team:         { icon:'👥', color:'#374151', bg:'#F9FAFB', border:'#E5E7EB' }
-    }[node.type] || { icon:'👥', color:'#374151', bg:'#F9FAFB', border:'#E5E7EB' };
+      headquarters: { icon:'🏢', color:'#1E40AF', bg:'#EFF6FF', border:'#BFDBFE', label:'본부' },
+      center:       { icon:'🔬', color:'#6D28D9', bg:'#F5F3FF', border:'#DDD6FE', label:'센터' },
+      office:       { icon:'📋', color:'#065F46', bg:'#ECFDF5', border:'#A7F3D0', label:'실' },
+      division:     { icon:'🏭', color:'#92400E', bg:'#FFFBEB', border:'#FDE68A', label:'사업부' },
+      team:         { icon:'👥', color:'#374151', bg:'#F9FAFB', border:'#E5E7EB', label:'팀' }
+    }[node.type] || { icon:'👥', color:'#374151', bg:'#F9FAFB', border:'#E5E7EB', label:node.type||'팀' };
 
     const indent = depth * 20;
+    const isMapped = _vuMappedOrgIds.has(node.id);
+    const hasChildren = node.children && node.children.length > 0;
+
+    // 이미 매핑된 경우 다른 스타일
+    const rowBg  = isMapped ? '#F0FDF4' : '#fff';
+    const rowBdr = isMapped ? '1.5px solid #6EE7B7' : '1px solid #E5E7EB';
+
+    // 상위 노드 선택 시 하위 자동 체크용 data 속성
+    const childIds = hasChildren ? _vuCollectChildIds(node.children) : [];
+    const childIdsAttr = childIds.length ? `data-child-ids="${childIds.join(',')}"` : '';
 
     html += `
-    <div style="margin-bottom:5px">
+    <div style="margin-bottom:5px" data-org-id="${node.id}">
       <label style="display:flex;align-items:center;gap:9px;padding:9px 14px;padding-left:${14+indent}px;
-             border-radius:9px;cursor:pointer;background:#fff;border:1px solid #E5E7EB;
+             border-radius:9px;cursor:pointer;background:${rowBg};border:${rowBdr};
              transition:all 0.15s;user-select:none"
-             onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='#fff'">
+             onmouseover="if(!${isMapped})this.style.background='#F9FAFB'" onmouseout="if(!${isMapped})this.style.background='${rowBg}'">
         <input type="checkbox" class="vu-org-chk" value="${node.id}" data-name="${node.name}"
-          style="width:15px;height:15px;accent-color:#1D4ED8;margin:0;flex-shrink:0">
+          ${isMapped ? 'checked disabled' : ''}
+          ${childIdsAttr}
+          onchange="if(this.checked)_vuCheckChildren(this)"
+          style="width:15px;height:15px;accent-color:#1D4ED8;margin:0;flex-shrink:0${isMapped?';opacity:0.5':''}">
         <span style="font-size:14px">${st.icon}</span>
-        <span style="font-size:13px;font-weight:600;color:#374151;flex:1">${node.name}</span>
+        <span style="font-size:13px;font-weight:${isMapped?'800':'600'};color:${isMapped?'#059669':'#374151'};flex:1">
+          ${node.name}${hasChildren ? ` <span style="font-size:10px;color:#9CA3AF;font-weight:400">(${node.children.length}개 하위)</span>` : ''}
+        </span>
+        ${isMapped ? '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;background:#D1FAE5;color:#059669;white-space:nowrap">✓ 매핑됨</span>' : ''}
         <span style="font-size:10px;color:${st.color};background:${st.bg};border:1px solid ${st.border};
-              padding:1px 7px;border-radius:5px;font-weight:700">${node.type || '팀'}</span>
+              padding:1px 7px;border-radius:5px;font-weight:700;white-space:nowrap">${st.label}</span>
       </label>
-      ${childHtml ? `<div style="padding-left:4px">${childHtml}</div>` : ''}
+      ${childHtml ? `<div style="border-left:2px solid #E5E7EB;margin-left:${26+indent}px;padding-left:4px">${childHtml}</div>` : ''}
     </div>`;
   });
   return html;
 }
+
+// 하위 노드의 모든 ID를 재귀적으로 수집
+function _vuCollectChildIds(nodes) {
+  const ids = [];
+  nodes.forEach(n => {
+    ids.push(n.id);
+    if (n.children && n.children.length) ids.push(..._vuCollectChildIds(n.children));
+  });
+  return ids;
+}
+
+// 상위 체크박스 클릭 시 하위 모두 체크
+function _vuCheckChildren(checkbox) {
+  const childIds = checkbox.dataset.childIds;
+  if (!childIds) return;
+  childIds.split(',').forEach(id => {
+    const child = document.querySelector(`.vu-org-chk[value="${id}"]`);
+    if (child && !child.disabled) child.checked = checkbox.checked;
+  });
+}
+
+
 
 function _vuRenderOrgList(query) {
   const listEl = document.getElementById('vu-org-list');

@@ -1,6 +1,25 @@
 // ─── 역할 관리: 테넌트별 독립 역할 계층 ─────────────────────────────────────
 // bo_roles.js — 테넌트별 독립 역할 계층(총괄 → 운영)을 관리합니다.
 
+// 제도유형 뱃지 렌더링 (역할 목록에서 사용)
+function _rmServiceBadge(st) {
+  if (!st || st === 'all' || st === '') return '';
+  const map = {
+    edu_support: { label:'교육지원', bg:'#EFF6FF', color:'#1D4ED8', border:'#BFDBFE', icon:'📘' },
+    language:    { label:'어학',     bg:'#F0FDF4', color:'#059669', border:'#BBF7D0', icon:'🌐' },
+    cert:        { label:'자격증',   bg:'#FFF7ED', color:'#C2410C', border:'#FED7AA', icon:'📜' },
+    badge:       { label:'뱃지',     bg:'#F5F3FF', color:'#7C3AED', border:'#DDD6FE', icon:'🏅' },
+  };
+  const types = st.split(',').map(s => s.trim()).filter(s => map[s]);
+  if (!types.length) return '';
+  return '<div style="display:flex;gap:3px;margin-top:4px;justify-content:center;flex-wrap:wrap">' +
+    types.map(t => {
+      const m = map[t];
+      return '<span style="font-size:8px;font-weight:800;padding:1px 6px;border-radius:4px;background:' + m.bg + ';color:' + m.color + ';border:1px solid ' + m.border + '">' + m.icon + ' ' + m.label + '</span>';
+    }).join('') +
+    '</div>';
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // 테넌트별 역할 목업 데이터 (DB 미연결 시 fallback)
 // ──────────────────────────────────────────────────────────────────────────────
@@ -133,6 +152,7 @@ async function renderRoleMgmt() {
                 style="border:none;background:none;cursor:pointer;font-size:11px;padding:0 0 0 2px;opacity:0.6;color:#EF4444">🗑️</button>
             </div>
             <div style="font-size:9px;color:${color};opacity:.65;margin-top:2px;font-family:monospace">${r.code}</div>
+            ${_rmServiceBadge(r.service_type)}
           </div>
           <!-- 설명 -->
           <div style="flex:1;font-size:12px;color:#64748B">${r.description || '-'}</div>
@@ -497,14 +517,15 @@ window._openRoleModal = async function(parentCode, editRoleCode = null) {
           style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #CBD5E1;
                  border-radius:6px;font-size:12px;box-sizing:border-box">
       </label>
-      <label style="font-size:11px;font-weight:700;color:#64748B">제도유형
+      <label style="font-size:11px;font-weight:700;color:#64748B">제도유형 <span style="font-size:9px;color:#9CA3AF;font-weight:400">(선택사항)</span>
         <select id="_rm_service_type"
           style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #CBD5E1;
                  border-radius:6px;font-size:12px;background:#fff;cursor:pointer">
-          <option value="edu_support" ${initService==='edu_support'?'selected':''}>교육지원</option>
-          <option value="language" ${initService==='language'?'selected':''}>어학</option>
-          <option value="cert" ${initService==='cert'?'selected':''}>자격증</option>
-          <option value="badge" ${initService==='badge'?'selected':''}>뱃지</option>
+          <option value="" ${!initService[0] || initService[0]==='all' || initService[0]===''?'selected':''}>── 선택 안함 (제도 무관)</option>
+          <option value="edu_support" ${initService.includes('edu_support')?'selected':''}>교육지원</option>
+          <option value="language" ${initService.includes('language')?'selected':''}>어학</option>
+          <option value="cert" ${initService.includes('cert')?'selected':''}>자격증</option>
+          <option value="badge" ${initService.includes('badge')?'selected':''}>뱃지</option>
         </select>
       </label>
       <div style="font-size:11px;font-weight:700;color:#64748B;margin-top:2px">
@@ -556,10 +577,8 @@ window._saveNewRole = async function() {
   const name    = document.getElementById('_rm_name')?.value.trim();
   const desc    = document.getElementById('_rm_desc')?.value.trim();
   const parent  = document.getElementById('_rm_parent')?.value || null;
-  // 체크된 제도유형 수집 (all 체크 시 단독, 아니한 경우 콤마 구분)
-  const stVals = ['all','edu_support','language','cert','badge']
-    .filter(v => document.getElementById('_rm_st_'+v)?.checked);
-  const sType = stVals.includes('all') ? 'all' : (stVals.join(',') || 'all');
+  // 제도유형 (select 방식)
+  const sType = document.getElementById('_rm_service_type')?.value || '';
   const roleLevelType = document.querySelector('input[name="_rm_lv"]:checked')?.value || 'head';
   if (!code || !name) { alert('역할 코드와 이름은 필수입니다.'); return; }
 

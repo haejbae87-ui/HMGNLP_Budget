@@ -240,6 +240,8 @@ function _vuTabInfo(tpl) {
   const purposeLabels = { edu_support:'교육지원', language:'어학', cert:'자격증', badge:'배지', '교육지원':'교육지원' };
   const types = tpl.serviceTypes || [tpl.purpose];
   const roleIds = tpl.ownerRoleIds || [];
+  const headRole = tpl.headManagerRole || null;
+  const headUser = tpl.headManagerUser || null;
   return `
 <div style="max-width:640px">
   <h3 style="font-size:14px;font-weight:900;color:#111827;margin:0 0 16px">📋 기본정보</h3>
@@ -254,20 +256,40 @@ function _vuTabInfo(tpl) {
         ${types.map(t => {
           const colors = { edu_support:'#1D4ED8', language:'#059669', cert:'#C2410C', badge:'#7C3AED' };
           const bgs    = { edu_support:'#EFF6FF', language:'#F0FDF4', cert:'#FFF7ED', badge:'#F5F3FF' };
-          return `<span style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;background:${bgs[t]||'#F3F4F6'};color:${colors[t]||'#374151'};border:1.5px solid ${colors[t]||'#E5E7EB'}30">
-            ${purposeLabels[t] || t}</span>`;
+          return `<span style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;background:${bgs[t]||'#F3F4F6'};color:${colors[t]||'#374151'};border:1.5px solid ${colors[t]||'#E5E7EB'}30">${purposeLabels[t] || t}</span>`;
         }).join('')}
       </div>
     </div>
-    <div>
+    <div style="margin-bottom:0">
       <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px">맵핑 역할</label>
       <div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 0">
         ${roleIds.length ? roleIds.map(r => `<code style="background:#F3F4F6;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700">${r}</code>`).join('') : '<span style="color:#9CA3AF;font-size:12px">미설정</span>'}
       </div>
     </div>
   </div>
+
+  <!-- ── 총괄담당자 설정 ── -->
+  <div class="bo-card" style="padding:20px;margin-top:12px;border-left:4px solid #C2410C">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span style="font-size:13px;font-weight:800;color:#C2410C">👑 총괄담당자 설정</span>
+      <button onclick="_vuOpenHeadManagerSelector('${tpl.id}')" style="padding:5px 12px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;color:#C2410C">${headUser ? '변경' : '+ 설정'}</button>
+    </div>
+    ${headRole ? `
+    <div style="margin-bottom:8px">
+      <span style="font-size:10px;font-weight:700;color:#9CA3AF;display:block;margin-bottom:4px">담당 역할</span>
+      <code style="background:#FFF7ED;border:1px solid #FED7AA;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;color:#C2410C">${headRole.name} (${headRole.code})</code>
+    </div>` : ''}
+    ${headUser ? `
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="padding:7px 14px;background:#fff;border:1.5px solid #C2410C;border-radius:8px;font-size:13px;font-weight:700;color:#C2410C;display:flex;align-items:center;gap:6px">
+        👑 ${headUser.name} <span style="font-size:10px;color:#9CA3AF">${headUser.dept||''}</span>
+        <button onclick="_vuClearHeadManagerInfo('${tpl.id}')" style="border:none;background:none;color:#C2410C;cursor:pointer;font-size:10px">✕</button>
+      </span>
+    </div>` : '<span style="font-size:12px;color:#9CA3AF">총괄담당자가 설정되지 않았습니다.<br><small>💡 총괄담당자 설정 후 협조처·담당자 탭에서 운영담당자를 추가할 수 있습니다.</small></span>'}
+  </div>
+
   <div style="margin-top:12px;text-align:right">
-    <button onclick="voOpenEditTemplate('${tpl.id}')" class="bo-btn-primary bo-btn-sm">⚙ 설정 수정</button>
+    <button onclick="voOpenEditTemplate('${tpl.id}')" class="bo-btn-secondary bo-btn-sm">⚙ 설정 수정</button>
   </div>
 </div>`;
 }
@@ -321,13 +343,16 @@ function _vuTabOrg(tpl) {
 // ═══ 탭③: 협조처·담당자 ═════════════════════════════════════════════════════
 function _vuTabCoop(tpl) {
   const groups = tpl.tree?.hqs || tpl.tree?.centers || [];
+  const headUser = tpl.headManagerUser || null;
+  const headRole = tpl.headManagerRole || null;
   return `
 <div>
-  <h3 style="font-size:14px;font-weight:900;color:#111827;margin:0 0 16px">🤝 협조처·담당자 관리</h3>
+  <h3 style="font-size:14px;font-weight:900;color:#111827;margin:0 0 4px">🤝 협조처·담당자 관리</h3>
+  ${headRole ? `<p style="font-size:11px;color:#6B7280;margin:0 0 16px">총괄담당자 역할: <code style="background:#FFF7ED;color:#C2410C;padding:2px 8px;border-radius:4px;font-size:10px">${headRole.name}</code> ${headUser ? '· 담당자: <b>'+headUser.name+'</b>' : ''}</p>` : '<p style="font-size:11px;color:#EF4444;margin:0 0 16px">⚠ 기본정보 탭에서 총괄담당자를 먼저 설정하세요</p>'}
   ${groups.length ? groups.map((g, gi) => {
     const coopTeams = g.coopTeams || [];
-    const headMgr   = g.headManager;
     const managers   = g.managers || [];
+    const hasHeadRole = !!headRole;
     return `
   <div class="bo-card" style="padding:16px 20px;margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
@@ -350,29 +375,14 @@ function _vuTabCoop(tpl) {
         </span>`).join('') || '<span style="font-size:11px;color:#9CA3AF">등록된 협조처가 없습니다</span>'}
       </div>
     </div>
-    <!-- 총괄담당자 -->
-    <div style="margin-bottom:14px;padding:12px;background:#FFF7ED;border-radius:10px;border:1px solid #FED7AA">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <span style="font-size:11px;font-weight:800;color:#C2410C">👑 총괄담당자</span>
-        ${headMgr ? '' : '<button onclick="_vuAddHeadManager(\''+tpl.id+'\','+gi+')" style="margin-left:auto;padding:4px 10px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;color:#C2410C">+ 총괄담당자 설정</button>'}
-      </div>
-      ${headMgr ? `
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="padding:6px 14px;background:#fff;border:1.5px solid #C2410C;border-radius:8px;font-size:12px;font-weight:700;color:#C2410C;display:flex;align-items:center;gap:6px">
-          👑 ${headMgr.name} <span style="font-size:10px;color:#9CA3AF">${headMgr.dept || ''}</span>
-          <button onclick="_vuRemoveHeadManager('${tpl.id}',${gi})" style="border:none;background:none;color:#C2410C;cursor:pointer;font-size:10px;padding:0">✕</button>
-        </span>
-        <button onclick="_vuAddHeadManager('${tpl.id}',${gi})" style="padding:4px 10px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;color:#C2410C">변경</button>
-      </div>` : '<span style="font-size:11px;color:#9CA3AF">설정된 총괄담당자가 없습니다</span>'}
-    </div>
-    <!-- 운영담당자 -->
+    <!-- 운영담당자 (총괄 역할 하위 사용자) -->
     <div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <span style="font-size:11px;font-weight:800;color:#059669">👤 운영담당자</span>
         <span style="font-size:10px;padding:2px 7px;border-radius:5px;background:#D1FAE5;color:#065F46;font-weight:700">${managers.length}명</span>
-        <button onclick="_vuAddManager('${tpl.id}',${gi})" style="margin-left:auto;padding:4px 10px;background:#F0FDF4;border:1px solid #A7F3D0;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;color:#059669">+ 운영담당자 추가</button>
+        ${hasHeadRole ? `<button onclick="_vuAddManager('${tpl.id}',${gi})" style="margin-left:auto;padding:4px 10px;background:#F0FDF4;border:1px solid #A7F3D0;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;color:#059669">+ 운영담당자 추가</button>` : '<span style="margin-left:auto;font-size:10px;color:#9CA3AF">기본정보에서 총괄담당자 설정 필요</span>'}
       </div>
-      ${headMgr ? '<div style="font-size:10px;color:#6B7280;margin-bottom:6px;padding-left:4px">💡 총괄담당자 하위의 운영담당 권한 사용자가 표시됩니다</div>' : ''}
+      ${hasHeadRole ? '<div style="font-size:10px;color:#6B7280;margin-bottom:6px;padding-left:2px">💡 총괄담당자 역할의 하위 운영 권한을 가진 사용자를 선택합니다</div>' : ''}
       <div style="display:flex;flex-wrap:wrap;gap:6px">
         ${managers.map((m,mi) => `
         <span style="padding:5px 10px;background:#F0FDF4;border:1px solid #A7F3D0;border-radius:7px;font-size:11px;font-weight:600;color:#065F46;display:flex;align-items:center;gap:4px">
@@ -541,18 +551,32 @@ function _vuRemoveCoop(tplId, gi, ci) {
   _vuSwitchTab(_vuActiveTab);
 }
 
+// 운영담당자 추가 - 기본정보의 총괄담당자 역할 하위 사용자만 필터링
 function _vuAddManager(tplId, gi) {
+  const tpl = _vuTplList.find(t => t.id === tplId);
+  if (!tpl) return;
+  const headRole = tpl.headManagerRole;
+  if (!headRole) {
+    alert('기본정보 탭에서 총괄담당자를 먼저 설정해주세요.');
+    return;
+  }
   window._vuPickerTplId = tplId;
   window._vuPickerGi = gi;
   window._vuPickerMode = 'manager';
+  // 총괄담당자 역할 코드를 기준으로 하위 운영담당자 필터링
+  window._vuHeadRoleCode = headRole.code;
   _vuShowUserPicker('운영담당자 추가', 'op_manager');
 }
 
-function _vuAddHeadManager(tplId, gi) {
-  window._vuPickerTplId = tplId;
-  window._vuPickerGi = gi;
-  window._vuPickerMode = 'head_manager';
-  _vuShowUserPicker('총괄담당자 추가', 'head_manager');
+// 기본정보 총괄담당자 클리어
+function _vuClearHeadManagerInfo(tplId) {
+  if (!confirm('총괄담당자 설정을 초기화하시겠습니까?')) return;
+  const tpl = _vuTplList.find(t => t.id === tplId);
+  if (!tpl) return;
+  tpl.headManagerRole = null;
+  tpl.headManagerUser = null;
+  _vuAutoSaveTplMeta(tpl);
+  _vuSwitchTab(_vuActiveTab);
 }
 
 function _vuRemoveManager(tplId, gi, mi) {
@@ -561,16 +585,6 @@ function _vuRemoveManager(tplId, gi, mi) {
   const g = (tpl.tree?.hqs || [])[gi];
   if (!g || !g.managers) return;
   g.managers.splice(mi, 1);
-  _vuAutoSave(tpl);
-  _vuSwitchTab(_vuActiveTab);
-}
-
-function _vuRemoveHeadManager(tplId, gi) {
-  const tpl = _vuTplList.find(t => t.id === tplId);
-  if (!tpl) return;
-  const g = (tpl.tree?.hqs || [])[gi];
-  if (!g) return;
-  g.headManager = null;
   _vuAutoSave(tpl);
   _vuSwitchTab(_vuActiveTab);
 }
@@ -599,7 +613,7 @@ function _vuRemoveCert(tplId, gi, ci) {
   _vuSwitchTab(_vuActiveTab);
 }
 
-// ── DB 자동저장 ─────────────────────────────────────────────────────────────
+// ── DB 자동저장 (tree_data) ─────────────────────────────────────────────────
 async function _vuAutoSave(tpl) {
   try {
     const sb = typeof _sb === 'function' ? _sb() : null;
@@ -612,6 +626,140 @@ async function _vuAutoSave(tpl) {
     console.warn('[VOU] 자동저장 실패:', e.message);
   }
 }
+
+// ── DB 자동저장 (메타 필드: headManagerRole, headManagerUser) ──────────────
+async function _vuAutoSaveTplMeta(tpl) {
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (!sb || !tpl) return;
+    await sb.from('virtual_org_templates').update({
+      head_manager_role: tpl.headManagerRole || null,
+      head_manager_user: tpl.headManagerUser || null,
+      updated_at: new Date().toISOString(),
+    }).eq('id', tpl.id);
+  } catch(e) {
+    console.warn('[VOU] 메타 저장 실패:', e.message);
+  }
+}
+
+// ── 총괄담당자 선택 (1단계: 역할 → 2단계: 사용자) ─────────────────────────
+async function _vuOpenHeadManagerSelector(tplId) {
+  window._vuHeadSelectorTplId = tplId;
+  // 기존 모달 제거
+  document.getElementById('vu-head-mgr-modal')?.remove();
+
+  // 역할 목록 로드
+  let roles = [];
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (sb) {
+      const { data } = await sb.from('roles').select('code,name,parent_role_id,service_type').eq('tenant_id', _vuTenantId);
+      if (data) roles = data;
+    }
+  } catch(e) { console.warn('역할 로드 실패:', e.message); }
+  if (!roles.length && typeof TENANT_ROLES_MOCK !== 'undefined') {
+    roles = TENANT_ROLES_MOCK.filter(r => r.tenant_id === _vuTenantId);
+  }
+
+  const modal = document.createElement('div');
+  modal.id = 'vu-head-mgr-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9500;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML = `
+  <div style="background:#fff;border-radius:16px;width:540px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">
+    <div style="padding:20px 24px;border-bottom:1px solid #E5E7EB">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <h3 style="font-size:14px;font-weight:800;margin:0;color:#C2410C">👑 총괄담당자 설정</h3>
+        <button onclick="document.getElementById('vu-head-mgr-modal').remove()" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">✕</button>
+      </div>
+      <p style="font-size:11px;color:#6B7280;margin:0">1단계: 총괄 역할 선택 → 2단계: 해당 역할의 담당자 선택</p>
+    </div>
+    <div id="vu-head-step" style="padding:16px 20px;overflow-y:auto;flex:1">
+      <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:8px">관리자 역할 선택 (총괄 관리 권한)</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${roles.map(r => `
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:8px;cursor:pointer"
+               onmouseover="this.style.borderColor='#FED7AA';this.style.background='#FFF7ED'" onmouseout="this.style.borderColor='#E5E7EB';this.style.background='#fff'">
+          <input type="radio" name="vu-head-role" value="${r.code}" data-name="${r.name.replace(/'/g,'&#39;')}" style="accent-color:#C2410C;width:15px;height:15px">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#111827">${r.name}</div>
+            <div style="font-size:10px;color:#9CA3AF;font-family:monospace">${r.code}</div>
+          </div>
+        </label>`).join('')}
+      </div>
+    </div>
+    <div style="padding:12px 24px;border-top:1px solid #E5E7EB;display:flex;gap:8px;justify-content:flex-end">
+      <button class="bo-btn-secondary bo-btn-sm" onclick="document.getElementById('vu-head-mgr-modal').remove()">취소</button>
+      <button class="bo-btn-primary bo-btn-sm" onclick="_vuConfirmHeadManagerRole()" style="background:#C2410C;border-color:#C2410C">다음: 담당자 선택 →</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+}
+
+async function _vuConfirmHeadManagerRole() {
+  const sel = document.querySelector('input[name="vu-head-role"]:checked');
+  if (!sel) { alert('역할을 선택하세요.'); return; }
+  const roleCode = sel.value;
+  const roleName = sel.dataset.name;
+  const tplId = window._vuHeadSelectorTplId;
+
+  // 해당 역할에 배정된 사용자 로드 (user_roles + users join)
+  let users = [];
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (sb) {
+      const { data: ur } = await sb.from('user_roles').select('user_id').eq('role_code', roleCode);
+      const ids = (ur || []).map(r => r.user_id);
+      if (ids.length) {
+        const { data: us } = await sb.from('users').select('id,name,emp_no,dept').in('id', ids);
+        users = us || [];
+      }
+    }
+  } catch(e) { console.warn('사용자 로드 실패:', e.message); }
+
+  // BO_PERSONAS 폴백
+  if (!users.length && typeof BO_PERSONAS !== 'undefined') {
+    Object.entries(BO_PERSONAS).forEach(([key, p]) => {
+      if (p.tenantId === _vuTenantId) users.push({ id: key, name: p.name, dept: p.dept, pos: p.pos });
+    });
+  }
+
+  // 2단계 UI로 교체
+  const step = document.getElementById('vu-head-step');
+  if (!step) return;
+  step.innerHTML = `
+    <div style="margin-bottom:10px;padding:8px 12px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;font-size:11px;color:#C2410C;font-weight:700">
+      선택된 역할: ${roleName} (${roleCode})
+    </div>
+    <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:8px">담당자 선택 (역할에 배정된 사용자)</div>
+    ${users.length ? users.map(u => `
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:8px;cursor:pointer;margin-bottom:6px"
+           onmouseover="this.style.borderColor='#FED7AA'" onmouseout="this.style.borderColor='#E5E7EB'">
+      <input type="radio" name="vu-head-user" value="${u.id}" data-name="${(u.name||'').replace(/'/g,'&#39;')}" data-dept="${u.dept||''}" style="accent-color:#C2410C;width:15px;height:15px">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#111827">${u.name} <span style="font-size:10px;color:#9CA3AF">${u.pos||''}</span></div>
+        <div style="font-size:10px;color:#6B7280">${u.dept||''} · ${u.emp_no||u.id||''}</div>
+      </div>
+    </label>`).join('') : '<div style="padding:20px;text-align:center;color:#9CA3AF;font-size:12px">이 역할에 배정된 사용자가 없습니다</div>'}`;
+
+  // 버튼 교체
+  const footer = step.nextElementSibling;
+  if (footer) footer.innerHTML = `
+    <button class="bo-btn-secondary bo-btn-sm" onclick="_vuOpenHeadManagerSelector('${tplId}')">← 이전</button>
+    <button class="bo-btn-primary bo-btn-sm" onclick="_vuSaveHeadManager('${tplId}','${roleCode}','${roleName}')" style="background:#C2410C;border-color:#C2410C">저장</button>`;
+}
+
+async function _vuSaveHeadManager(tplId, roleCode, roleName) {
+  const sel = document.querySelector('input[name="vu-head-user"]:checked');
+  if (!sel) { alert('담당자를 선택하세요.'); return; }
+  const tpl = _vuTplList.find(t => t.id === tplId);
+  if (!tpl) return;
+  tpl.headManagerRole = { code: roleCode, name: roleName };
+  tpl.headManagerUser = { id: sel.value, name: sel.dataset.name, dept: sel.dataset.dept };
+  _vuAutoSaveTplMeta(tpl);
+  document.getElementById('vu-head-mgr-modal')?.remove();
+  _vuSwitchTab(_vuActiveTab);
+}
+
 
 // ── 신규 생성 모달 ──────────────────────────────────────────────────────────
 function _vuCreateModal() {
@@ -948,27 +1096,42 @@ async function _vuShowUserPicker(title, roleFilter) {
   listEl.innerHTML = '<div style="padding:20px;text-align:center;color:#9CA3AF">로딩 중...</div>';
   document.getElementById('vu-user-picker').style.display = 'flex';
 
-  // BO_PERSONAS에서 사용자 목록 추출
   _vuUserPickerData = [];
-  if (typeof BO_PERSONAS !== 'undefined') {
+
+  // op_manager일 경우: headRole 하위 역할에서 사용자 필터링
+  if (roleFilter === 'op_manager' && window._vuHeadRoleCode) {
+    const headCode = window._vuHeadRoleCode;
+    try {
+      const sb = typeof _sb === 'function' ? _sb() : null;
+      if (sb) {
+        // headRole 하위 역할(parent_role_id = headCode) 조회
+        const { data: childRoles } = await sb.from('roles').select('code,name').eq('parent_role_id', headCode);
+        const opCodes = (childRoles || []).map(r => r.code);
+        // 하위 역할이 없으면 headRole 자체 코드로 fallback
+        const lookupCodes = opCodes.length ? opCodes : [headCode];
+        // user_roles에서 해당 역할들에 배정된 사용자 ID 조회
+        const { data: ur } = await sb.from('user_roles').select('user_id').in('role_code', lookupCodes);
+        const ids = (ur || []).map(r => r.user_id);
+        if (ids.length) {
+          const { data: us } = await sb.from('users').select('id,name,emp_no,dept').in('id', ids);
+          _vuUserPickerData = (us || []).map(u => ({ key: u.id, name: u.name, dept: u.dept, pos: u.emp_no, role: '' }));
+        }
+      }
+    } catch(e) { console.warn('운영담당자 로드 실패:', e.message); }
+  }
+
+  // DB에 데이터가 없으면 BO_PERSONAS 폴백
+  if (!_vuUserPickerData.length && typeof BO_PERSONAS !== 'undefined') {
     Object.entries(BO_PERSONAS).forEach(([key, p]) => {
       if (p.tenantId === _vuTenantId || !p.tenantId) {
-        // 운영담당자일때: 총괄담당자의 하위 사용자 필터
-        const tpl = _vuTplList.find(t => t.id === window._vuPickerTplId);
-        const g = tpl ? (tpl.tree?.hqs || [])[window._vuPickerGi] : null;
-        if (roleFilter === 'op_manager' && g?.headManager) {
-          // 총괄담당자가 설정되어 있으면, 관련 역할의 사용자만 표시
-          if (p.role === 'budget_op' || p.role === 'budget_admin' || p.role === 'tenant_admin') {
-            _vuUserPickerData.push({ key, name: p.name, dept: p.dept, pos: p.pos, role: p.role, roleTag: p.roleTag });
-          }
-        } else {
-          _vuUserPickerData.push({ key, name: p.name, dept: p.dept, pos: p.pos, role: p.role, roleTag: p.roleTag });
-        }
+        _vuUserPickerData.push({ key, name: p.name, dept: p.dept, pos: p.pos, role: p.role, roleTag: p.roleTag });
       }
     });
   }
+
   _vuRenderUserList('');
 }
+
 
 function _vuFilterUsers(q) { _vuRenderUserList(q); }
 

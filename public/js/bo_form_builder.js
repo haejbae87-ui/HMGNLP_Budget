@@ -150,18 +150,17 @@ function renderFormBuilderMenu() {
   if (!_fbTenantId) {
     _fbTenantId = isPlatform ? (tenants[0]?.id || 'HMC') : (boCurrentPersona.tenantId || 'HMC');
   }
-  // 격리그룹 초기화
+  // 가상교육조직 템플릿 초기화
   if (!_fbGroupId) {
-    const groups = typeof EDU_SUPPORT_DOMAINS !== 'undefined'
-      ? EDU_SUPPORT_DOMAINS.filter(g => g.tenantId === _fbTenantId) : [];
-    _fbGroupId = groups[0]?.id || null;
+    const tpls = typeof VIRTUAL_ORG_TEMPLATES !== 'undefined'
+      ? VIRTUAL_ORG_TEMPLATES.filter(t => t.tenant_id === _fbTenantId) : [];
+    _fbGroupId = tpls[0]?.id || null;
   }
-  // 계정 초기화
-  if (!_fbAccountCode) {
-    const grp = typeof EDU_SUPPORT_DOMAINS !== 'undefined'
-      ? EDU_SUPPORT_DOMAINS.find(g => g.id === _fbGroupId) : null;
-    const accs = grp?.ownedAccounts || [];
-    _fbAccountCode = accs[0] || null;
+  // 계정 초기화 (가상교육조직 하위 예산계정)
+  if (!_fbAccountCode && _fbGroupId) {
+    const accs = typeof _baAccountList !== 'undefined'
+      ? _baAccountList.filter(a => a.virtual_org_template_id === _fbGroupId) : [];
+    _fbAccountCode = accs[0]?.code || null;
   }
 
   document.getElementById('bo-content').innerHTML = _fbRenderPage();
@@ -174,15 +173,14 @@ function _fbRenderPage() {
   const tenants    = typeof TENANTS !== 'undefined' ? TENANTS : [];
   const tenantName = tenants.find(t => t.id === _fbTenantId)?.name || _fbTenantId || '';
 
-  // 격리그룹 목록
-  const groups = typeof EDU_SUPPORT_DOMAINS !== 'undefined'
-    ? EDU_SUPPORT_DOMAINS.filter(g => g.tenantId === _fbTenantId) : [];
-  // 선택된 격리그룹의 예산 계정
+  // 가상교육조직 템플릿 목록
+  const groups = typeof VIRTUAL_ORG_TEMPLATES !== 'undefined'
+    ? VIRTUAL_ORG_TEMPLATES.filter(t => t.tenant_id === _fbTenantId) : [];
+  // 선택된 가상교육조직의 예산 계정
   const selGroup = groups.find(g => g.id === _fbGroupId);
-  const accounts = selGroup ? (selGroup.ownedAccounts || []).map(code => {
-    const acc = typeof ACCOUNT_MASTER !== 'undefined' ? ACCOUNT_MASTER.find(a => a.code === code) : null;
-    return { code, name: acc?.name || code };
-  }) : [];
+  const accounts = (typeof _baAccountList !== 'undefined' && _fbGroupId)
+    ? _baAccountList.filter(a => a.virtual_org_template_id === _fbGroupId).map(a => ({ code: a.code, name: a.name || a.code }))
+    : [];
 
   // ── 필터바 (플랫폼·테넌트총괄에게만 표시) ──────────────────────────────────
   // 행 1: 데이터 범위 필터 (tenant/group/account)
@@ -204,10 +202,10 @@ function _fbRenderPage() {
     </div>
     <span style="color:#D1D5DB">|</span>`}
     <div style="display:flex;align-items:center;gap:6px">
-      <label style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">격리그룹</label>
+      <label style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">가상교육조직</label>
       <select onchange="_fbGroupId=this.value;_fbAccountCode=null;_fbPurposeFilter='';_fbEduTypeFilter='';renderFormBuilderMenu()"
         style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:160px">
-        <option value="">— 그룹 선택 —</option>
+        <option value="">— 조직 선택 —</option>
         ${groups.map(g => `<option value="${g.id}" ${g.id===_fbGroupId?'selected':''}>${g.name}</option>`).join('')}
       </select>
     </div>
@@ -325,7 +323,7 @@ function _fbRenderLibrary() {
   const tenantId = (isPlatform || isTenant) ? (_fbTenantId || boCurrentPersona.tenantId) : (boCurrentPersona.tenantId || 'HMC');
   let allForms = FORM_MASTER.filter(f => f.tenantId === tenantId);
 
-  // 격리그룹 필터 (domainId 없는 양식은 하위호환으로 표시)
+  // 가상교육조직 필터 (virtual_org_template_id 없는 양식은 하위호환으로 표시)
   if (_fbGroupId) {
     allForms = allForms.filter(f => !f.domainId || f.domainId === _fbGroupId);
   }
@@ -692,11 +690,11 @@ function _fbAdvancedModalBody(form) {
   const categories = [...new Set(ADVANCED_FIELDS.map(f => f.category))];
 
   return `
-<!-- 범위 배지 (현재 선택된 격리그룹 / 계정) -->
+<!-- 범위 배지 (현재 선택된 가상교육조직 / 계정) -->
 ${(_fbGroupId || _fbAccountCode) ? `
 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;background:#F5F3FF;border:1.5px solid #DDD6FE;border-radius:10px;margin-bottom:14px">
   <span style="font-size:10px;font-weight:900;color:#5B21B6">📌 분류 범위</span>
-  ${_fbGroupId ? (() => { const g = (typeof EDU_SUPPORT_DOMAINS!=='undefined'?EDU_SUPPORT_DOMAINS:[]).find(x=>x.id===_fbGroupId); return `<span style="font-size:11px;font-weight:700;background:#EDE9FE;color:#5B21B6;padding:2px 8px;border-radius:6px">🛡️ ${g?.name||_fbGroupId}</span>`; })() : ''}
+  ${_fbGroupId ? (() => { const g = (typeof VIRTUAL_ORG_TEMPLATES!=='undefined'?VIRTUAL_ORG_TEMPLATES:[]).find(x=>x.id===_fbGroupId); return `<span style="font-size:11px;font-weight:700;background:#EDE9FE;color:#5B21B6;padding:2px 8px;border-radius:6px">🏢 ${g?.name||_fbGroupId}</span>`; })() : ''}
   ${_fbAccountCode ? (() => { const a = (typeof ACCOUNT_MASTER!=='undefined'?ACCOUNT_MASTER:[]).find(x=>x.code===_fbAccountCode); return `<span style="font-size:11px;font-weight:700;background:#DBEAFE;color:#1E40AF;padding:2px 8px;border-radius:6px">💳 ${a?.name||_fbAccountCode}</span>`; })() : ''}
   <span style="font-size:10px;color:#9CA3AF">이 양식은 위 범위에만 표시됩니다</span>
 </div>` : ''}

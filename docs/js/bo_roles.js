@@ -445,6 +445,7 @@ window._openRoleModal = async function(parentCode, editRoleCode = null) {
   let initDesc = '';
   let initParent = parentCode || '';
   let initService = ['all']; // 기본값: 전체
+  let initLevelType = 'head'; // 기본값: 총괄
   let isReadOnlyCode = '';
 
   if (editRoleCode) {
@@ -458,9 +459,11 @@ window._openRoleModal = async function(parentCode, editRoleCode = null) {
       // service_type: 'all', 단일값, 또는 콤마구분 복수값 처리
       const st = target.service_type || 'all';
       initService = st.split(',').map(s => s.trim());
+      initLevelType = target.role_level_type || 'head';
       isReadOnlyCode = 'readonly style="background:#F3F4F6;color:#9CA3AF" title="코드 수정 불가"';
     }
   }
+
 
   const parentOptions = [
     `<option value="">── 없음 (최상위 역할)</option>`,
@@ -504,6 +507,27 @@ window._openRoleModal = async function(parentCode, editRoleCode = null) {
           <option value="badge" ${initService==='badge'?'selected':''}>뱃지</option>
         </select>
       </label>
+      <div style="font-size:11px;font-weight:700;color:#64748B;margin-top:2px">
+        역할구분
+        <div style="display:flex;gap:10px;margin-top:6px">
+          <label style="display:flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid #CBD5E1;border-radius:7px;cursor:pointer;font-weight:600;font-size:12px"
+                 id="_rm_lv_head_lbl"
+                 onmouseover="this.style.borderColor='#0369A1'" onmouseout="this.style.borderColor=document.getElementById('_rm_lv_head').checked?'#0369A1':'#CBD5E1'">
+            <input type="radio" name="_rm_lv" id="_rm_lv_head" value="head"
+              ${initLevelType === 'head' ? 'checked' : ''}
+              onchange="document.getElementById('_rm_lv_head_lbl').style.background=this.checked?'#EFF6FF':'#fff';document.getElementById('_rm_lv_ops_lbl').style.background='#fff';document.getElementById('_rm_lv_head_lbl').style.borderColor=this.checked?'#0369A1':'#CBD5E1';document.getElementById('_rm_lv_ops_lbl').style.borderColor='#CBD5E1'"
+              style="accent-color:#0369A1"> 👑 총괄
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid #CBD5E1;border-radius:7px;cursor:pointer;font-weight:600;font-size:12px"
+                 id="_rm_lv_ops_lbl"
+                 onmouseover="this.style.borderColor='#059669'" onmouseout="this.style.borderColor=document.getElementById('_rm_lv_ops').checked?'#059669':'#CBD5E1'">
+            <input type="radio" name="_rm_lv" id="_rm_lv_ops" value="ops"
+              ${initLevelType === 'ops' ? 'checked' : ''}
+              onchange="document.getElementById('_rm_lv_ops_lbl').style.background=this.checked?'#ECFDF5':'#fff';document.getElementById('_rm_lv_head_lbl').style.background='#fff';document.getElementById('_rm_lv_ops_lbl').style.borderColor=this.checked?'#059669':'#CBD5E1';document.getElementById('_rm_lv_head_lbl').style.borderColor='#CBD5E1'"
+              style="accent-color:#059669"> 🔧 운영
+          </label>
+        </div>
+      </div>
       <label style="font-size:11px;font-weight:700;color:#64748B">상위 역할
         <select id="_rm_parent"
           style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #CBD5E1;
@@ -536,6 +560,7 @@ window._saveNewRole = async function() {
   const stVals = ['all','edu_support','language','cert','badge']
     .filter(v => document.getElementById('_rm_st_'+v)?.checked);
   const sType = stVals.includes('all') ? 'all' : (stVals.join(',') || 'all');
+  const roleLevelType = document.querySelector('input[name="_rm_lv"]:checked')?.value || 'head';
   if (!code || !name) { alert('역할 코드와 이름은 필수입니다.'); return; }
 
   const payload = {
@@ -543,6 +568,7 @@ window._saveNewRole = async function() {
     parent_role_id: parent || null,
     tenant_id: window._rmFilterTenant || null,
     service_type: sType,
+    role_level_type: roleLevelType,
     is_system: false, level: 10
   };
   try {

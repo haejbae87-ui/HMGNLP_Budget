@@ -645,23 +645,58 @@ async function _vuAutoSaveTplMeta(tpl) {
 }
 
 // ── 총괄담당자 선택 (1단계: 역할 → 2단계: 사용자) ─────────────────────────
+const _purposeToServiceType = {
+  'edu_support':'edu_support', '교육지원':'edu_support',
+  'cert':'cert', '자격증':'cert',
+  'language':'language', '어학':'language',
+  'badge':'badge', '배지':'badge',
+};
+const _serviceColors = { edu_support:'#1D4ED8', cert:'#C2410C', language:'#059669', badge:'#7C3AED', all:'#6B7280' };
+const _serviceLabels = { edu_support:'교육지원', cert:'자격증', language:'어학', badge:'배지', all:'공통' };
+
 async function _vuOpenHeadManagerSelector(tplId) {
   window._vuHeadSelectorTplId = tplId;
-  // 기존 모달 제거
   document.getElementById('vu-head-mgr-modal')?.remove();
 
-  // 역할 목록 로드
+  // 현재 템플릿의 service_type 파악
+  const tpl = _vuTplList.find(t => t.id === tplId);
+  const tplSvcType = _purposeToServiceType[tpl?.purpose] || tpl?.purpose || null;
+  const purposeLabel = _serviceLabels[tplSvcType] || tplSvcType || '전체';
+  const purposeColor = _serviceColors[tplSvcType] || '#6B7280';
+
+  // 역할 목록 로드 - 템플릿 service_type 또는 'all'인 역할만
   let roles = [];
   try {
     const sb = typeof _sb === 'function' ? _sb() : null;
     if (sb) {
-      const { data } = await sb.from('roles').select('code,name,parent_role_id,service_type').eq('tenant_id', _vuTenantId);
-      if (data) roles = data;
+      const { data } = await sb
+        .from('roles')
+        .select('code,name,parent_role_id,service_type,level')
+        .eq('tenant_id', _vuTenantId)
+        .order('level');
+      if (data) {
+        roles = data.filter(r => {
+          if (!r.service_type || r.service_type === 'all') return true;
+          return r.service_type === tplSvcType;
+        });
+      }
     }
   } catch(e) { console.warn('역할 로드 실패:', e.message); }
-  if (!roles.length && typeof TENANT_ROLES_MOCK !== 'undefined') {
-    roles = TENANT_ROLES_MOCK.filter(r => r.tenant_id === _vuTenantId);
-  }
+
+  const rolesHtml = roles.length ? roles.map(r => {
+    const sc = _serviceColors[r.service_type] || '#6B7280';
+    const sl = _serviceLabels[r.service_type] || r.service_type || '';
+    return `
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:8px;cursor:pointer"
+           onmouseover="this.style.borderColor='#FED7AA';this.style.background='#FFF7ED'" onmouseout="this.style.borderColor='#E5E7EB';this.style.background='#fff'">
+      <input type="radio" name="vu-head-role" value="${r.code}" data-name="${r.name.replace(/'/g,'&#39;')}" style="accent-color:#C2410C;width:15px;height:15px">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:#111827">${r.name}</div>
+        <div style="font-size:10px;color:#9CA3AF;font-family:monospace">${r.code}</div>
+      </div>
+      ${sl ? `<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;background:${sc}18;color:${sc};border:1px solid ${sc}40;white-space:nowrap">${sl}</span>` : ''}
+    </label>`;
+  }).join('') : `<div style="padding:30px;text-align:center;color:#9CA3AF;font-size:12px">💡 ${purposeLabel} 용도에 맞는 역할이 없습니다<br><small>역할 관리 화면에서 제도유형을 설정해주세요</small></div>`;
 
   const modal = document.createElement('div');
   modal.id = 'vu-head-mgr-modal';
@@ -670,24 +705,17 @@ async function _vuOpenHeadManagerSelector(tplId) {
   <div style="background:#fff;border-radius:16px;width:540px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">
     <div style="padding:20px 24px;border-bottom:1px solid #E5E7EB">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <h3 style="font-size:14px;font-weight:800;margin:0;color:#C2410C">👑 총괄담당자 설정</h3>
+        <div style="display:flex;align-items:center;gap:8px">
+          <h3 style="font-size:14px;font-weight:800;margin:0;color:#C2410C">👑 총괄담당자 설정</h3>
+          <span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:10px;background:${purposeColor}18;color:${purposeColor};border:1px solid ${purposeColor}40">${purposeLabel} 역할</span>
+        </div>
         <button onclick="document.getElementById('vu-head-mgr-modal').remove()" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">✕</button>
       </div>
       <p style="font-size:11px;color:#6B7280;margin:0">1단계: 총괄 역할 선택 → 2단계: 해당 역할의 담당자 선택</p>
     </div>
     <div id="vu-head-step" style="padding:16px 20px;overflow-y:auto;flex:1">
-      <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:8px">관리자 역할 선택 (총괄 관리 권한)</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${roles.map(r => `
-        <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:8px;cursor:pointer"
-               onmouseover="this.style.borderColor='#FED7AA';this.style.background='#FFF7ED'" onmouseout="this.style.borderColor='#E5E7EB';this.style.background='#fff'">
-          <input type="radio" name="vu-head-role" value="${r.code}" data-name="${r.name.replace(/'/g,'&#39;')}" style="accent-color:#C2410C;width:15px;height:15px">
-          <div>
-            <div style="font-size:13px;font-weight:700;color:#111827">${r.name}</div>
-            <div style="font-size:10px;color:#9CA3AF;font-family:monospace">${r.code}</div>
-          </div>
-        </label>`).join('')}
-      </div>
+      <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:8px">관리자 역할 선택 (${purposeLabel} 관리 권한)</div>
+      <div style="display:flex;flex-direction:column;gap:6px">${rolesHtml}</div>
     </div>
     <div style="padding:12px 24px;border-top:1px solid #E5E7EB;display:flex;gap:8px;justify-content:flex-end">
       <button class="bo-btn-secondary bo-btn-sm" onclick="document.getElementById('vu-head-mgr-modal').remove()">취소</button>
@@ -696,6 +724,7 @@ async function _vuOpenHeadManagerSelector(tplId) {
   </div>`;
   document.body.appendChild(modal);
 }
+
 
 async function _vuConfirmHeadManagerRole() {
   const sel = document.querySelector('input[name="vu-head-role"]:checked');

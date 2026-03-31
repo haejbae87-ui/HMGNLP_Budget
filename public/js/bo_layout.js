@@ -202,8 +202,6 @@ const PLATFORM_MENUS = [
   { id: 'virtual-org',        icon: '🏗️', label: '가상 교육 조직 관리',  section: '교육제도 기준설정', gnb: GNB_CATE.PROGRAM },
   // 교육제도 ─ 지원제도 설정
 
-  { id: 'budget-account',     icon: '💳', label: '예산 계정 관리',         section: null, gnb: GNB_CATE.PROGRAM },
-  { id: 'field-mgmt',         icon: '🏢', label: '교육지원 조직 관리',     section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'form-builder',       icon: '📝', label: '교육양식 마법사',         section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'calc-grounds',       icon: '📐', label: '세부산출근거 관리',       section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'service-policy',     icon: '🔧', label: '서비스 정책관리',         section: null, gnb: GNB_CATE.PROGRAM },
@@ -225,8 +223,6 @@ const TENANT_ADMIN_MENUS = [
   { id: 'role-mgmt',        icon: '🔐', label: '역할 관리',              section: '테넌트 설정', gnb: GNB_CATE.TENANT },
   { id: 'virtual-org',      icon: '🏗️', label: '가상 교육 조직 관리',   section: '교육제도 기준설정', gnb: GNB_CATE.PROGRAM },
 
-  { id: 'budget-account',   icon: '💳', label: '예산 계정 관리',         section: null, gnb: GNB_CATE.PROGRAM },
-  { id: 'field-mgmt',       icon: '🏢', label: '교육지원 조직 관리',     section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'form-builder',     icon: '📝', label: '교육양식 마법사',         section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'calc-grounds',     icon: '📐', label: '세부산출근거 관리',       section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'service-policy',   icon: '🔧', label: '서비스 정책관리',         section: null, gnb: GNB_CATE.PROGRAM },
@@ -243,8 +239,6 @@ const BUDGET_ADMIN_MENUS = [
   { id: 'dashboard',        icon: '📊', label: '대시보드',              section: null, gnb: GNB_CATE.PLATFORM },
   { id: 'virtual-org',      icon: '🏗️', label: '가상 교육 조직 관리',  section: '교육제도 기준설정', gnb: GNB_CATE.PROGRAM },
 
-  { id: 'budget-account',   icon: '💳', label: '예산 계정 관리',        section: null, gnb: GNB_CATE.PROGRAM },
-  { id: 'field-mgmt',       icon: '🏢', label: '교육지원 조직 관리',    section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'form-builder',     icon: '📝', label: '교육양식 마법사',        section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'calc-grounds',     icon: '📐', label: '세부산출근거 관리',      section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'service-policy',   icon: '🔧', label: '서비스 정책관리',        section: null, gnb: GNB_CATE.PROGRAM },
@@ -275,8 +269,6 @@ const TENANT_DUAL_MENUS = [
   { id: 'role-mgmt',        icon: '🔐', label: '역할 관리',              section: '테넌트 설정', gnb: GNB_CATE.TENANT },
   { id: 'virtual-org',      icon: '🏗️', label: '가상 교육 조직 관리',  section: '교육제도 기준설정', gnb: GNB_CATE.PROGRAM },
 
-  { id: 'budget-account',   icon: '💳', label: '예산 계정 관리',         section: null, gnb: GNB_CATE.PROGRAM },
-  { id: 'field-mgmt',       icon: '🏢', label: '교육지원 조직 관리',     section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'form-builder',     icon: '📝', label: '교육양식 마법사',         section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'calc-grounds',     icon: '📐', label: '세부산출근거 관리',       section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'service-policy',   icon: '🔧', label: '서비스 정책관리',         section: null, gnb: GNB_CATE.PROGRAM },
@@ -607,10 +599,10 @@ function boNavigate(menuId) {
   if (menuId === 'role-mgmt')        renderRoleMgmt();
   if (menuId === 'role-menu-perms')  renderRoleMenuPerms();
   // 예산·양식 설정 5개 독립 메뉴
-  if (menuId === 'budget-account')   renderBudgetAccount();
-  if (menuId === 'virtual-org')      renderVirtualOrg();
+  if (menuId === 'budget-account')   renderVirtualOrgUnified(); // 통합 화면으로 리다이렉트
+  if (menuId === 'virtual-org')      renderVirtualOrgUnified();
   if (menuId === 'form-builder')     renderFormBuilderMenu();
-  if (menuId === 'field-mgmt')       renderFieldMgmt();
+  if (menuId === 'field-mgmt')       renderVirtualOrgUnified(); // 통합 화면으로 리다이렉트
   if (menuId === 'calc-grounds')     renderCalcGrounds();
   if (menuId === 'approval-routing') renderApprovalRouting();
   if (menuId === 'service-policy')   renderServicePolicy();

@@ -150,29 +150,32 @@ function _cmRenderContent(tpl) {
         <p style="font-size:12px;color:#64748B;margin:0">가상조직 단위로 지원 대상 자격증을 등록합니다.</p>
       </div>
       
-      ${groups.length ? groups.map((g, gi) => {
-        const certs = g.certMappings || [];
-        return \`
-        <div style="padding:16px 20px;margin-bottom:12px;border:1px solid #E5E7EB;border-radius:12px;background:#FAFAFA">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-            <div style="display:flex;align-items:center;gap:8px">
-              <span style="font-size:16px">🏢</span>
-              <span style="font-size:14px;font-weight:800;color:#111827">\${g.name}</span>
-              <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#FFF7ED;color:#C2410C;font-weight:700">\${certs.length}개 자격증</span>
-            </div>
-            <button onclick="_cmAddCert('\${tpl.id}',\${gi})" class="bo-btn-secondary bo-btn-sm" style="color:#C2410C;border-color:#FED7AA;background:#FFF">+ 자격증 추가</button>
-          </div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px">
-            \${certs.map((c,ci) => \`
-            <span style="padding:5px 12px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;font-size:11px;font-weight:600;color:#C2410C;display:flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(194,65,12,.05)">
-              📜 \${c.name || c}
-              <button onclick="_cmRemoveCert('\${tpl.id}',\${gi},\${ci})" style="border:none;background:none;color:#C2410C;cursor:pointer;font-size:10px;padding:0;margin-left:4px;opacity:0.6" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">✕</button>
-            </span>\`).join('') || '<span style="font-size:11px;color:#9CA3AF;padding:4px 0">맵핑된 자격증이 없습니다. 위 버튼을 눌러 추가하세요.</span>'}
-          </div>
-        </div>\`;
-      }).join('') : '<div style="padding:40px;text-align:center;color:#9CA3AF;font-size:13px;font-weight:700;background:#F9FAFB;border-radius:8px;border:1px dashed #E5E7EB">가상조직이 등록되지 않았습니다.<br><small style="font-weight:400;margin-top:4px;display:block">가상 교육 조직 관리 메뉴에서 조직을 먼저 구성하세요.</small></div>'}
+      ${groups.length ? groups.map((g, gi) => _cmRenderGroupCard(tpl, g, gi)).join('') : '<div style="padding:40px;text-align:center;color:#9CA3AF;font-size:13px;font-weight:700;background:#F9FAFB;border-radius:8px;border:1px dashed #E5E7EB">가상조직이 등록되지 않았습니다.<br><small style="font-weight:400;margin-top:4px;display:block">가상 교육 조직 관리 메뉴에서 조직을 먼저 구성하세요.</small></div>'}
     </div>
   `;
+}
+
+// 그룹(조직) 카드 렌더링 (중첩 백틱 회피용 별도 함수)
+function _cmRenderGroupCard(tpl, g, gi) {
+  const certs = g.certMappings || [];
+  const certBadges = certs.map((c, ci) =>
+    '<span style="padding:5px 12px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;font-size:11px;font-weight:600;color:#C2410C;display:flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(194,65,12,.05)">' +
+    '📜 ' + (c.name || c) +
+    ' <button onclick="_cmRemoveCert(\'' + tpl.id + '\',' + gi + ',' + ci + ')" style="border:none;background:none;color:#C2410C;cursor:pointer;font-size:10px;padding:0;margin-left:4px;opacity:0.6" onmouseover="this.style.opacity=\'1\'" onmouseout="this.style.opacity=\'0.6\'">✕</button>' +
+    '</span>'
+  ).join('') || '<span style="font-size:11px;color:#9CA3AF;padding:4px 0">맵핑된 자격증이 없습니다. 위 버튼을 눌러 추가하세요.</span>';
+
+  return '<div style="padding:16px 20px;margin-bottom:12px;border:1px solid #E5E7EB;border-radius:12px;background:#FAFAFA">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">' +
+    '<div style="display:flex;align-items:center;gap:8px">' +
+    '<span style="font-size:16px">🏢</span>' +
+    '<span style="font-size:14px;font-weight:800;color:#111827">' + g.name + '</span>' +
+    '<span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#FFF7ED;color:#C2410C;font-weight:700">' + certs.length + '개 자격증</span>' +
+    '</div>' +
+    '<button onclick="_cmAddCert(\'' + tpl.id + '\',' + gi + ')" class="bo-btn-secondary bo-btn-sm" style="color:#C2410C;border-color:#FED7AA;background:#FFF">+ 자격증 추가</button>' +
+    '</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:6px">' + certBadges + '</div>' +
+    '</div>';
 }
 
 // ── 자격증 맵핑 액션 ────────────────────────────────────────────────────────

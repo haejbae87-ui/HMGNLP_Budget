@@ -110,7 +110,7 @@ async function renderVirtualOrgUnified() {
       <div draggable="true"
         data-tpl-id="${t.id}"
         data-tpl-idx="${idx}"
-        onclick="_vuSelectTpl('${t.id}')"
+        onclick="if(!_vuIsDragging)_vuSelectTpl('${t.id}')"
         ondragstart="_vuDragStart(event,'${t.id}')"
         ondragover="_vuDragOver(event)"
         ondragleave="_vuDragLeave(event)"
@@ -1152,10 +1152,13 @@ function _vuConfirmUserPick() {
 // ═══ 드래그앤드롭 - 템플릿 목록 순서 변경 ═══════════════════════════════════
 
 let _vuDragSrcId = null;  // 드래그 시작한 템플릿 ID
+let _vuIsDragging = false; // 드래그 중 onclick 이벤트 차단용
 
 function _vuDragStart(e, tplId) {
   _vuDragSrcId = tplId;
+  _vuIsDragging = false; // 아직은 false, dragover에서 이동이 시작되면 true
   e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', tplId);
   // 드래그 중인 카드 시각 처리
   setTimeout(() => {
     const el = document.querySelector(`[data-tpl-id="${tplId}"]`);
@@ -1165,7 +1168,9 @@ function _vuDragStart(e, tplId) {
 
 function _vuDragOver(e) {
   e.preventDefault();
+  e.stopPropagation();
   e.dataTransfer.dropEffect = 'move';
+  _vuIsDragging = true; // 실제로 드래그가 위치 이동 중임을 표시
   const el = e.currentTarget;
   // 드롭 대상 강조
   el.style.border = '1.5px dashed #1D4ED8';
@@ -1182,33 +1187,93 @@ function _vuDragLeave(e) {
 
 async function _vuDrop(e, targetId) {
   e.preventDefault();
-  if (!_vuDragSrcId || _vuDragSrcId === targetId) {
-    // 드래그 원복
-    const el = document.querySelector(`[data-tpl-id="${_vuDragSrcId}"]`);
-    if (el) { el.style.opacity = '1'; el.style.cursor = 'grab'; }
-    _vuDragSrcId = null;
+  e.stopPropagation();
+
+  // 원복처리 및 플래그 초기화는 setTimeout으로 onclick 이후에 실행
+  const src = _vuDragSrcId;
+  _vuDragSrcId = null;
+
+  // 원래 카드 스타일 복원
+  document.querySelectorAll('[data-tpl-id]').forEach(el => {
+    el.style.opacity = '1';
+    el.style.cursor = 'grab';
+    const id = el.dataset.tplId;
+    const isActive = id === _vuTplId;
+    el.style.border = `1.5px solid ${isActive ? '#BFDBFE' : '#F3F4F6'}`;
+    el.style.background = isActive ? '#EFF6FF' : '#fff';
+  });
+
+  if (!src || src === targetId) {
+    setTimeout(() => { _vuIsDragging = false; }, 200);
     return;
   }
 
   // 배열 순서 변경
-  const fromIdx = _vuTplList.findIndex(t => t.id === _vuDragSrcId);
+  const fromIdx = _vuTplList.findIndex(t => t.id === src);
   const toIdx   = _vuTplList.findIndex(t => t.id === targetId);
-  if (fromIdx === -1 || toIdx === -1) { _vuDragSrcId = null; return; }
+  if (fromIdx === -1 || toIdx === -1) {
+    setTimeout(() => { _vuIsDragging = false; }, 200);
+    return;
+  }
 
   const [moved] = _vuTplList.splice(fromIdx, 1);
   _vuTplList.splice(toIdx, 0, moved);
 
-  // DB에 sort_order 업데이트
+  // 리스트 DOM만 부분 갱신 (전체 리렌더링 하지 않음)
+  _vuRenderTplListOnly();
+
+  // onclick 이벤트가 끝난 후 플래그 해제
+  setTimeout(() => { _vuIsDragging = false; }, 200);
+
+  // DB에 sort_order 비동기 업데이트
   try {
     const sb = typeof _sb === 'function' ? _sb() : null;
     if (sb) {
-      const updates = _vuTplList.map((t, i) =>
+      await Promise.all(_vuTplList.map((t, i) =>
         sb.from('virtual_org_templates').update({ sort_order: i }).eq('id', t.id)
-      );
-      await Promise.all(updates);
+      ));
     }
-  } catch(e) { console.warn('순서 저장 실패:', e.message); }
+  } catch(err) { console.warn('순서 저장 실패:', err.message); }
+}
 
-  _vuDragSrcId = null;
-  renderVirtualOrgUnified();  // 리스트 다시 렌더링
+// 리스트 컨테이너만 부분 갱신 (우측 상세 패널은 유지)
+function _vuRenderTplListOnly() {
+  const container = document.getElementById('vu-tpl-list-container');
+  if (!container) { renderVirtualOrgUnified(); return; }
+
+  const purposeColors = {
+    edu_support: { bg:'#EFF6FF', text:'#1D4ED8', label:'교육지원' },
+    language:    { bg:'#F0FDF4', text:'#059669', label:'어학' },
+    cert:        { bg:'#FFF7ED', text:'#C2410C', label:'자격증' },
+    badge:       { bg:'#F5F3FF', text:'#7C3AED', label:'배지' },
+    '교육지원':   { bg:'#EFF6FF', text:'#1D4ED8', label:'교육지원' },
+  };
+
+  container.innerHTML = _vuTplList.map((t, idx) => {
+    const pc = purposeColors[t.purpose] || purposeColors.edu_support;
+    const isActive = t.id === _vuTplId;
+    return `
+    <div draggable="true"
+      data-tpl-id="${t.id}"
+      data-tpl-idx="${idx}"
+      onclick="if(!_vuIsDragging)_vuSelectTpl('${t.id}')"
+      ondragstart="_vuDragStart(event,'${t.id}')"
+      ondragover="_vuDragOver(event)"
+      ondragleave="_vuDragLeave(event)"
+      ondrop="_vuDrop(event,'${t.id}')"
+      style="padding:12px 14px;border-radius:10px;margin-bottom:6px;cursor:grab;transition:all .12s;
+             background:${isActive ? '#EFF6FF' : '#fff'};
+             border:1.5px solid ${isActive ? '#BFDBFE' : '#F3F4F6'};
+             ${isActive ? 'box-shadow:0 2px 8px rgba(29,78,216,.08)' : ''}
+             user-select:none;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <span style="color:#CBD5E1;font-size:12px;cursor:grab" title="드래그하여 순서 변경">⠿⠿</span>
+        <div style="font-size:13px;font-weight:${isActive ? 900 : 600};color:${isActive ? '#1D4ED8' : '#374151'};flex:1">${t.name}</div>
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;padding-left:18px">
+        <span style="font-size:9px;padding:2px 7px;border-radius:5px;font-weight:700;background:${pc.bg};color:${pc.text}">${pc.label}</span>
+        <span style="font-size:9px;padding:2px 7px;border-radius:5px;font-weight:700;background:#F3F4F6;color:#6B7280">${(t.tree?.hqs || t.tree?.centers || []).length}개 조직</span>
+      </div>
+    </div>`;
+  }).join('');
 }

@@ -230,12 +230,14 @@ async function renderBudgetAccount() {
 // ── 계정 카드 렌더 ──────────────────────────────────────────────────────────
 function _baRenderAccountCard(a, canEdit) {
   const typeColors = {
-    training: { bg:'#EFF6FF', border:'#BFDBFE', text:'#1D4ED8', label:'교육훈련' },
-    language:  { bg:'#F0FDF4', border:'#BBF7D0', text:'#059669', label:'어학' },
-    cert:      { bg:'#FFF7ED', border:'#FED7AA', text:'#C2410C', label:'자격증' },
-    badge:     { bg:'#F5F3FF', border:'#DDD6FE', text:'#7C3AED', label:'배지' },
+    sap:        { bg:'#EFF6FF', border:'#BFDBFE', text:'#1D4ED8', label:'🔗 SAP 연동' },
+    standalone: { bg:'#F0FDF4', border:'#BBF7D0', text:'#059669', label:'📋 자체관리' },
+    training:   { bg:'#EFF6FF', border:'#BFDBFE', text:'#1D4ED8', label:'교육훈련' },
+    language:   { bg:'#F0FDF4', border:'#BBF7D0', text:'#059669', label:'어학' },
+    cert:       { bg:'#FFF7ED', border:'#FED7AA', text:'#C2410C', label:'자격증' },
+    badge:      { bg:'#F5F3FF', border:'#DDD6FE', text:'#7C3AED', label:'배지' },
   };
-  const tc = typeColors[a.account_type] || typeColors.training;
+  const tc = typeColors[a.account_type] || typeColors.sap;
   return `
 <div class="bo-card" style="padding:18px 22px;margin-bottom:12px;border-left:4px solid ${tc.border}">
   <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
@@ -247,7 +249,6 @@ function _baRenderAccountCard(a, canEdit) {
         <span style="font-size:10px;padding:2px 7px;border-radius:5px;font-weight:700;background:${a.active?'#D1FAE5':'#F3F4F6'};color:${a.active?'#065F46':'#9CA3AF'}">${a.active?'✅ 활성':'⏸️ 비활성'}</span>
       </div>
       <div style="font-size:11px;color:#6B7280">${a.description || ''}</div>
-      ${a.limit_amount ? `<div style="font-size:11px;color:#374151;margin-top:6px">💰 한도: <strong>${(a.limit_amount/10000).toLocaleString()}만원</strong></div>` : ''}
     </div>
     ${canEdit ? `
     <div style="display:flex;gap:6px;flex-shrink:0">
@@ -290,33 +291,50 @@ function openS1Modal(id) {
     <input id="s1-code" type="text" value="${autoCode}" readonly
       style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;background:#F9FAFB;color:#6B7280">
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-    <div>
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정명 *</label>
-      <input id="s1-name" type="text" placeholder="예) 교육훈련비" value="${a?.name||''}"
-        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
-    </div>
-    <div>
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정유형</label>
-      <select id="s1-type" style="width:100%;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
-        <option value="training" ${a?.account_type==='training'?'selected':''}>교육훈련</option>
-        <option value="language" ${a?.account_type==='language'?'selected':''}>어학</option>
-        <option value="cert"     ${a?.account_type==='cert'    ?'selected':''}>자격증</option>
-        <option value="badge"    ${a?.account_type==='badge'   ?'selected':''}>배지</option>
-      </select>
-    </div>
+  <div style="margin-bottom:12px">
+    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정명 *</label>
+    <input id="s1-name" type="text" placeholder="예) 교육훈련비" value="${a?.name||''}"
+      style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
   </div>
   <div style="margin-bottom:12px">
-    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">연간 한도 (원)</label>
-    <input id="s1-limit" type="number" placeholder="0" value="${a?.limit_amount||0}"
+    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">용도 설명</label>
+    <input id="s1-desc" type="text" placeholder="예) 사내 집합/이러닝 운영비" value="${a?.description||''}"
       style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
   </div>
-  <div style="margin-bottom:14px">
-    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">설명</label>
-    <input id="s1-desc" type="text" placeholder="예) 집합교육 및 이러닝 비용" value="${a?.description||''}"
-      style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+  <div style="margin-bottom:12px">
+    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px">연동 방식</label>
+    <div style="display:flex;gap:12px">
+      <label style="display:flex;align-items:center;gap:8px;padding:10px 16px;border:1.5px solid ${(!a?.integration_type || a?.integration_type === 'sap') ? '#1D4ED8' : '#E5E7EB'};border-radius:10px;cursor:pointer;background:${(!a?.integration_type || a?.integration_type === 'sap') ? '#EFF6FF' : '#fff'};flex:1">
+        <input type="radio" name="s1-integration" value="sap" ${(!a?.integration_type || a?.integration_type === 'sap') ? 'checked' : ''} onchange="_s1ToggleIntegration()" style="accent-color:#1D4ED8">
+        <div>
+          <div style="font-size:12px;font-weight:800;color:#1D4ED8">🔗 SAP 연동</div>
+          <div style="font-size:10px;color:#6B7280">ERP 예산관리와 실시간 연동</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;padding:10px 16px;border:1.5px solid ${a?.integration_type === 'standalone' ? '#059669' : '#E5E7EB'};border-radius:10px;cursor:pointer;background:${a?.integration_type === 'standalone' ? '#F0FDF4' : '#fff'};flex:1">
+        <input type="radio" name="s1-integration" value="standalone" ${a?.integration_type === 'standalone' ? 'checked' : ''} onchange="_s1ToggleIntegration()" style="accent-color:#059669">
+        <div>
+          <div style="font-size:12px;font-weight:800;color:#059669">📋 자체관리 (미연동)</div>
+          <div style="font-size:10px;color:#6B7280">시스템 내 독립 예산 관리</div>
+        </div>
+      </label>
+    </div>
   </div>`;
   document.getElementById('s1-modal').style.display = 'flex';
+}
+
+function _s1ToggleIntegration() {
+  const radios = document.querySelectorAll('input[name="s1-integration"]');
+  radios.forEach(r => {
+    const label = r.closest('label');
+    if (r.checked) {
+      label.style.borderColor = r.value === 'sap' ? '#1D4ED8' : '#059669';
+      label.style.background = r.value === 'sap' ? '#EFF6FF' : '#F0FDF4';
+    } else {
+      label.style.borderColor = '#E5E7EB';
+      label.style.background = '#fff';
+    }
+  });
 }
 
 function s1CloseModal() {
@@ -326,17 +344,17 @@ function s1CloseModal() {
 async function s1SaveAccount() {
   const code  = document.getElementById('s1-code').value.trim();
   const name  = document.getElementById('s1-name').value.trim();
-  if (!code || !name) { alert('계정코드와 계정명은 필수입니다.'); return; }
+  if (!code || !name) { alert('계정명은 필수입니다.'); return; }
   if (!_baTplId)      { alert('템플릿을 먼저 선택하세요.'); return; }
 
   const role     = boCurrentPersona.role;
   const tenantId = role === 'platform_admin' ? (_baTenantId || 'HMC') : (boCurrentPersona.tenantId || 'HMC');
+  const integration = document.querySelector('input[name="s1-integration"]:checked')?.value || 'sap';
   const payload  = {
     tenant_id: tenantId,
     virtual_org_template_id: _baTplId,
     code, name,
-    account_type: document.getElementById('s1-type').value,
-    limit_amount: parseInt(document.getElementById('s1-limit').value || '0', 10),
+    account_type: integration, // sap or standalone
     description: document.getElementById('s1-desc').value.trim(),
     active: true,
     updated_at: new Date().toISOString(),
@@ -354,7 +372,12 @@ async function s1SaveAccount() {
       if (error) throw error;
     }
     s1CloseModal();
-    await renderBudgetAccount();
+    // 독립 메뉴(bo_budget_account.js)에서 호출된 경우
+    if (typeof _bamLoadBudgetAccountsList === 'function' && window._bamSelectedTplId) {
+      _bamLoadBudgetAccountsList(window._bamSelectedTplId);
+    } else {
+      await renderBudgetAccount();
+    }
   } catch(e) {
     alert('저장 실패: ' + e.message);
   }

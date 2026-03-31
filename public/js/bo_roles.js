@@ -129,6 +129,8 @@ async function renderRoleMgmt() {
               ${r.name}
               <button onclick="event.stopPropagation(); _openRoleModal(null, '${r.code}')" title="역할 정보 수정"
                 style="border:none;background:none;cursor:pointer;font-size:11px;padding:0 0 0 4px;opacity:0.6">✏️</button>
+              <button onclick="event.stopPropagation(); _deleteRole('${r.code}', ${cnt})" title="역할 삭제"
+                style="border:none;background:none;cursor:pointer;font-size:11px;padding:0 0 0 2px;opacity:0.6;color:#EF4444">🗑️</button>
             </div>
             <div style="font-size:9px;color:${color};opacity:.65;margin-top:2px;font-family:monospace">${r.code}</div>
           </div>
@@ -573,3 +575,32 @@ window._rmDropRole = async function(event, targetParentCode) {
     alert("역할 그룹 변경 중 오류가 발생했습니다.\\n" + e.message);
   }
 };
+
+// ── 역할 삭제 기능 ────────────────────────────────────────────────────────────
+window._deleteRole = async function(roleCode, cnt) {
+  if (cnt > 0) {
+    alert('삭제할 수 없습니다. 배정인원 (' + cnt + '명)을 먼저 제거해주세요.');
+    return;
+  }
+  if (!confirm('정말 [' + roleCode + '] 역할을 삭제하시겠습니까?\\n(하위 역할이 있다면 삭제되지 않을 수 있습니다)')) {
+    return;
+  }
+  
+  try {
+    if (typeof _sb === 'function' && _sb()) {
+      const { error } = await _sb().from('roles').delete().eq('code', roleCode);
+      if (error) {
+        if (error.code === '23503') throw new Error('하위 역할 또는 연관된 데이터가 있어 삭제할 수 없습니다.');
+        throw error;
+      }
+    } else {
+      // Mock data handling (not complete, but for UI feedback)
+      console.log('Mock deleted role:', roleCode);
+    }
+    alert('역할이 삭제되었습니다.');
+    renderRoleMgmt(); // 성공 시 리렌더링
+  } catch(e) {
+    alert("역할 삭제 실패: " + e.message);
+  }
+};
+

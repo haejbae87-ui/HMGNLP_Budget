@@ -146,7 +146,7 @@ let _fbAccountList = [];
 async function _fbLoadDbData() {
   if (typeof _sb !== 'function' || !_sb()) return;
   try {
-    const p1 = _sb().from('virtual_org_templates').select('id,name,tenant_id').eq('tenant_id', _fbTenantId);
+    const p1 = _sb().from('virtual_org_templates').select('id,name,tenant_id,service_type').eq('tenant_id', _fbTenantId).eq('service_type', 'edu_support');
     const p2 = _sb().from('budget_accounts').select('code,name,virtual_org_template_id').eq('tenant_id', _fbTenantId);
     const [res1, res2] = await Promise.all([p1, p2]);
     if (res1.data) _fbTplList = res1.data;

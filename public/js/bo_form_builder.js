@@ -9,56 +9,56 @@ const FORM_TARGET_TYPES = {
 };
 
 const FORM_SERVICE_TYPES = {
-  individual:  { label: '개인직무 사외학습', target: 'learner', icon: '🙋', color: '#059669' },
-  group:       { label: '집합/이러닝 운영',  target: 'manager', icon: '🏫', color: '#7C3AED' },
-  seminar:     { label: '컨퍼런스/세미나/워크샵', target: 'manager', icon: '🎤', color: '#0369A1' },
-  etc:         { label: '기타 항목 관리',    target: 'manager', icon: '📦', color: '#D97706' },
+  individual: { label: '개인직무 사외학습', target: 'learner', icon: '🙋', color: '#059669' },
+  group: { label: '집합/이러닝 운영', target: 'manager', icon: '🏫', color: '#7C3AED' },
+  seminar: { label: '컨퍼런스/세미나/워크샵', target: 'manager', icon: '🎤', color: '#0369A1' },
+  etc: { label: '기타 항목 관리', target: 'manager', icon: '📦', color: '#D97706' },
 };
 
 const FORM_STAGE_TYPES = {
-  plan:   { label: '교육계획 (Plan)',   icon: '📋', color: '#7C3AED', bg: '#F5F3FF' },
-  apply:  { label: '교육신청 (Apply)',  icon: '📄', color: '#059669', bg: '#F0FDF4' },
+  plan: { label: '교육계획 (Plan)', icon: '📋', color: '#7C3AED', bg: '#F5F3FF' },
+  apply: { label: '교육신청 (Apply)', icon: '📄', color: '#059669', bg: '#F0FDF4' },
   result: { label: '교육결과 (Result)', icon: '📝', color: '#D97706', bg: '#FFFBEB' },
 };
 
 const PROCESS_PATTERNS = {
-  A: { label: '패턴 A', desc: '계획 → 신청 → 결과', stages: ['plan','apply','result'], color: '#7C3AED' },
-  B: { label: '패턴 B', desc: '신청 → 결과',         stages: ['apply','result'],       color: '#059669' },
-  C: { label: '패턴 C', desc: '신청 단독 (후정산)',    stages: ['apply'],               color: '#0369A1' },
+  A: { label: '패턴 A', desc: '계획 → 신청 → 결과', stages: ['plan', 'apply', 'result'], color: '#7C3AED' },
+  B: { label: '패턴 B', desc: '신청 → 결과', stages: ['apply', 'result'], color: '#059669' },
+  C: { label: '패턴 C', desc: '신청 단독 (후정산)', stages: ['apply'], color: '#0369A1' },
 };
 
 // 폼 목적 (purpose) 정의 ────────────────────────────────────────────────────────────
 const FORM_PURPOSE_TYPES = {
-  individual: { label: '개인직무 사외학습',               icon: '🙋', color: '#059669', bg: '#F0FDF4', targetUser: 'learner' },
-  elearning:  { label: '이러닝/집합(비대면) 운영',       icon: '🏢', color: '#7C3AED', bg: '#F5F3FF', targetUser: 'admin' },
-  seminar:    { label: '콘퍼런스/세미나/워크숍 등 운영', icon: '🎤', color: '#0369A1', bg: '#EFF6FF', targetUser: 'admin' },
-  etc:        { label: '기타 운영',                       icon: '📦', color: '#D97706', bg: '#FFFBEB', targetUser: 'admin' },
+  individual: { label: '개인직무 사외학습', icon: '🙋', color: '#059669', bg: '#F0FDF4', targetUser: 'learner' },
+  elearning: { label: '이러닝/집합(비대면) 운영', icon: '🏢', color: '#7C3AED', bg: '#F5F3FF', targetUser: 'admin' },
+  seminar: { label: '콘퍼런스/세미나/워크숍 등 운영', icon: '🎤', color: '#0369A1', bg: '#EFF6FF', targetUser: 'admin' },
+  etc: { label: '기타 운영', icon: '📦', color: '#D97706', bg: '#FFFBEB', targetUser: 'admin' },
 };
 
 // 교육유형 + 세부유형 2-depth 맵 ──────────────────────────────────────────────────────
 const FORM_EDU_TYPES = {
   individual: [
-    { type: '정규교육',        sub: ['이러닝', '집합', '라이브'] },
+    { type: '정규교육', sub: ['이러닝', '집합', '라이브'] },
     { type: '학술 및 연구활동', sub: ['학회/세미나/컨퍼런스', '학회 직접 발표', '연수'] },
-    { type: '지식자원학습',    sub: ['도서', '논문/저널', '기술자료(DB구독·자료구매)'] },
-    { type: '역량개발지원',    sub: ['어학학습비 지원', '자격증 취득지원', '학협회비'] },
-    { type: '기타',            sub: ['교육출강(사/내외)', '팀빌딩'] },
+    { type: '지식자원학습', sub: ['도서', '논문/저널', '기술자료(DB구독·자료구매)'] },
+    { type: '역량개발지원', sub: ['어학학습비 지원', '자격증 취득지원', '학협회비'] },
+    { type: '기타', sub: ['교육출강(사/내외)', '팀빌딩'] },
   ],
   elearning: [
-    { type: '이러닝',   sub: [] },
+    { type: '이러닝', sub: [] },
     { type: '집합(비대면)', sub: [] },
   ],
   seminar: [
     { type: '콘퍼런스', sub: [] },
-    { type: '세미나',    sub: [] },
-    { type: '팀빌딩',   sub: [] },
-    { type: '자격유지',  sub: [] },
-    { type: '제도연계',  sub: [] },
+    { type: '세미나', sub: [] },
+    { type: '팀빌딩', sub: [] },
+    { type: '자격유지', sub: [] },
+    { type: '제도연계', sub: [] },
   ],
   etc: [
-    { type: '과정개발',   sub: [] },
-    { type: '교안개발',   sub: [] },
-    { type: '영상제작',   sub: [] },
+    { type: '과정개발', sub: [] },
+    { type: '교안개발', sub: [] },
+    { type: '영상제작', sub: [] },
     { type: '교육시설운영', sub: [] },
   ],
 };
@@ -67,45 +67,45 @@ const FORM_EDU_TYPES = {
 // fieldType: text | textarea | date | daterange | number | user-search | file | rating | select | calc-grounds | budget-linked | system
 var ADVANCED_FIELDS = [
   // 공통 기본 필드
-  { key: '교육목적',      icon: '🎯', required: true,  scope: 'front',  category: '기본정보',     fieldType: 'textarea',      hint: '학습 목표 및 기대효과' },
-  { key: '교육기간',      icon: '📅', required: true,  scope: 'front',  category: '기본정보',     fieldType: 'daterange',     hint: '시작일~종료일' },
-  { key: '교육기관',      icon: '🏫', required: true,  scope: 'front',  category: '기본정보',     fieldType: 'text',          hint: '교육 제공 기관명' },
-  { key: '과정명',        icon: '📚', required: true,  scope: 'front',  category: '기본정보',     fieldType: 'text',          hint: '교육과정/행사명' },
-  { key: '장소',          icon: '📍', required: false, scope: 'front',  category: '기본정보',     fieldType: 'text',          hint: '교육 장소' },
-  { key: '기대효과',      icon: '✨', required: false, scope: 'front',  category: '기본정보',     fieldType: 'textarea',      hint: '참가 후 기대되는 효과' },
+  { key: '교육목적', icon: '🎯', required: true, scope: 'front', category: '기본정보', fieldType: 'textarea', hint: '학습 목표 및 기대효과' },
+  { key: '교육기간', icon: '📅', required: true, scope: 'front', category: '기본정보', fieldType: 'daterange', hint: '시작일~종료일' },
+  { key: '교육기관', icon: '🏫', required: true, scope: 'front', category: '기본정보', fieldType: 'text', hint: '교육 제공 기관명' },
+  { key: '과정명', icon: '📚', required: true, scope: 'front', category: '기본정보', fieldType: 'text', hint: '교육과정/행사명' },
+  { key: '장소', icon: '📍', required: false, scope: 'front', category: '기본정보', fieldType: 'text', hint: '교육 장소' },
+  { key: '기대효과', icon: '✨', required: false, scope: 'front', category: '기본정보', fieldType: 'textarea', hint: '참가 후 기대되는 효과' },
   // 비용 관련
-  { key: '예상비용',      icon: '💰', required: true,  scope: 'front',  category: '비용정보',     fieldType: 'budget-linked', hint: '예상 총 비용 — 조직 예산 잔액 연동', budget: true },
-  { key: '교육비',        icon: '💳', required: true,  scope: 'front',  category: '비용정보',     fieldType: 'number',        hint: '수강료/등록비 (원 단위)' },
-  { key: '참가비',        icon: '💲', required: false, scope: 'front',  category: '비용정보',     fieldType: 'number',        hint: '행사 참가비 (원 단위)' },
-  { key: '강사료',        icon: '👨‍🏫', required: false, scope: 'front',  category: '비용정보',    fieldType: 'number',        hint: '외부 강사 강의료', trigger: '강사이력서' },
-  { key: '대관비',        icon: '🏛️', required: false, scope: 'front',  category: '비용정보',     fieldType: 'number',        hint: '장소 대관 비용' },
-  { key: '식대/용차',     icon: '🍽️', required: false, scope: 'front',  category: '비용정보',     fieldType: 'number',        hint: '식비 및 운송비' },
-  { key: '실지출액',      icon: '🧾', required: false, scope: 'back',   category: '비용정보',     fieldType: 'number',        hint: '승인자 확정 실지출 인정액' },
-  { key: '세부산출근거',  icon: '📐', required: false, scope: 'front',  category: '비용정보',     fieldType: 'calc-grounds',  hint: '세부산출근거 항목 선택 (테넌트별 자동 로드)' },
+  { key: '예상비용', icon: '💰', required: true, scope: 'front', category: '비용정보', fieldType: 'budget-linked', hint: '예상 총 비용 — 조직 예산 잔액 연동', budget: true },
+  { key: '교육비', icon: '💳', required: true, scope: 'front', category: '비용정보', fieldType: 'number', hint: '수강료/등록비 (원 단위)' },
+  { key: '참가비', icon: '💲', required: false, scope: 'front', category: '비용정보', fieldType: 'number', hint: '행사 참가비 (원 단위)' },
+  { key: '강사료', icon: '👨‍🏫', required: false, scope: 'front', category: '비용정보', fieldType: 'number', hint: '외부 강사 강의료', trigger: '강사이력서' },
+  { key: '대관비', icon: '🏛️', required: false, scope: 'front', category: '비용정보', fieldType: 'number', hint: '장소 대관 비용' },
+  { key: '식대/용차', icon: '🍽️', required: false, scope: 'front', category: '비용정보', fieldType: 'number', hint: '식비 및 운송비' },
+  { key: '실지출액', icon: '🧾', required: false, scope: 'back', category: '비용정보', fieldType: 'number', hint: '승인자 확정 실지출 인정액' },
+  { key: '세부산출근거', icon: '📐', required: false, scope: 'front', category: '비용정보', fieldType: 'calc-grounds', hint: '세부산출근거 항목 선택 (테넌트별 자동 로드)' },
   // 인원 관련
-  { key: '수강인원',      icon: '👥', required: false, scope: 'front',  category: '인원정보',     fieldType: 'number',        hint: '예상 수강 인원 (명)' },
-  { key: '정원',          icon: '🪑', required: false, scope: 'front',  category: '인원정보',     fieldType: 'number',        hint: '최대 정원 (명)' },
-  { key: '참여자명단',    icon: '📋', required: false, scope: 'front',  category: '인원정보',     fieldType: 'user-search',   hint: '참여자 검색 및 명단 구성' },
-  { key: '강사정보',      icon: '🎤', required: false, scope: 'front',  category: '인원정보',     fieldType: 'user-search',   hint: '강사 검색 — 내부 사용자 조회' },
+  { key: '수강인원', icon: '👥', required: false, scope: 'front', category: '인원정보', fieldType: 'number', hint: '예상 수강 인원 (명)' },
+  { key: '정원', icon: '🪑', required: false, scope: 'front', category: '인원정보', fieldType: 'number', hint: '최대 정원 (명)' },
+  { key: '참여자명단', icon: '📋', required: false, scope: 'front', category: '인원정보', fieldType: 'user-search', hint: '참여자 검색 및 명단 구성' },
+  { key: '강사정보', icon: '🎤', required: false, scope: 'front', category: '인원정보', fieldType: 'user-search', hint: '강사 검색 — 내부 사용자 조회' },
   // 첨부 서류
-  { key: '첨부파일',      icon: '📎', required: false, scope: 'front',  category: '첨부서류',     fieldType: 'file',          hint: '관련 서류 첨부' },
-  { key: '강사이력서',    icon: '📄', required: false, scope: 'front',  category: '첨부서류',     fieldType: 'file',          hint: '외부강사 이력서 (강사료 선택 시 자동 활성화)' },
-  { key: '보안서약서',    icon: '🔒', required: false, scope: 'front',  category: '첨부서류',     fieldType: 'file',          hint: '보안 서약서 서명' },
-  { key: '영수증',        icon: '🧾', required: false, scope: 'front',  category: '첨부서류',     fieldType: 'file',          hint: '결제 영수증/증빙' },
-  { key: '수료증',        icon: '🎓', required: false, scope: 'front',  category: '첨부서류',     fieldType: 'file',          hint: '수료증 업로드' },
-  { key: '대관확정서',    icon: '📜', required: false, scope: 'front',  category: '첨부서류',     fieldType: 'file',          hint: '장소 대관 확정서' },
-  { key: '납품확인서',    icon: '✅', required: false, scope: 'front',  category: '첨부서류',     fieldType: 'file',          hint: '물품 납품 확인서' },
+  { key: '첨부파일', icon: '📎', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '관련 서류 첨부' },
+  { key: '강사이력서', icon: '📄', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '외부강사 이력서 (강사료 선택 시 자동 활성화)' },
+  { key: '보안서약서', icon: '🔒', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '보안 서약서 서명' },
+  { key: '영수증', icon: '🧾', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '결제 영수증/증빙' },
+  { key: '수료증', icon: '🎓', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '수료증 업로드' },
+  { key: '대관확정서', icon: '📜', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '장소 대관 확정서' },
+  { key: '납품확인서', icon: '✅', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '물품 납품 확인서' },
   // 결과 관련
-  { key: '수료생명단',    icon: '📝', required: false, scope: 'front',  category: '결과정보',     fieldType: 'user-search',   hint: '최종 수료자 명단' },
-  { key: '학습만족도',    icon: '⭐', required: false, scope: 'front',  category: '결과정보',     fieldType: 'rating',        hint: '만족도 조사 (5점 척도)' },
-  { key: '교육결과요약',  icon: '📊', required: false, scope: 'front',  category: '결과정보',     fieldType: 'textarea',      hint: '교육 결과 요약 보고' },
+  { key: '수료생명단', icon: '📝', required: false, scope: 'front', category: '결과정보', fieldType: 'user-search', hint: '최종 수료자 명단' },
+  { key: '학습만족도', icon: '⭐', required: false, scope: 'front', category: '결과정보', fieldType: 'rating', hint: '만족도 조사 (5점 척도)' },
+  { key: '교육결과요약', icon: '📊', required: false, scope: 'front', category: '결과정보', fieldType: 'textarea', hint: '교육 결과 요약 보고' },
   // 백오피스 전용 (승인자)
-  { key: 'ERP코드',       icon: '🔗', required: false, scope: 'back',   category: '관리(승인자)', fieldType: 'text',          hint: 'ERP 연동 비용 코드' },
-  { key: '검토의견',      icon: '💬', required: false, scope: 'back',   category: '관리(승인자)', fieldType: 'textarea',      hint: '승인자 검토 및 의견' },
-  { key: '관리자비고',    icon: '📌', required: false, scope: 'back',   category: '관리(승인자)', fieldType: 'textarea',      hint: '관리자 내부 메모' },
+  { key: 'ERP코드', icon: '🔗', required: false, scope: 'back', category: '관리(승인자)', fieldType: 'text', hint: 'ERP 연동 비용 코드' },
+  { key: '검토의견', icon: '💬', required: false, scope: 'back', category: '관리(승인자)', fieldType: 'textarea', hint: '승인자 검토 및 의견' },
+  { key: '관리자비고', icon: '📌', required: false, scope: 'back', category: '관리(승인자)', fieldType: 'textarea', hint: '관리자 내부 메모' },
   // 연결/시스템 필드
-  { key: '계획서연결',    icon: '🔗', required: false, scope: 'system', category: '시스템',       fieldType: 'system',        hint: '연결된 교육계획 양식 자동 불러오기' },
-  { key: '예산계정',      icon: '💼', required: false, scope: 'system', category: '시스템',       fieldType: 'budget-linked', hint: '예산 계정 잔액 실시간 연동', budget: true },
+  { key: '계획서연결', icon: '🔗', required: false, scope: 'system', category: '시스템', fieldType: 'system', hint: '연결된 교육계획 양식 자동 불러오기' },
+  { key: '예산계정', icon: '💼', required: false, scope: 'system', category: '시스템', fieldType: 'budget-linked', hint: '예산 계정 잔액 실시간 연동', budget: true },
 ];
 
 // 서비스 매핑 데이터 (테넌트별 관리)
@@ -127,15 +127,15 @@ let SERVICE_MAPPINGS = [
 ];
 
 // 현재 탭 상태
-let _fbCurrentTab   = 'library'; // 'library' | 'library' | 'mapping'
-let _fbEditId       = null;
-let _fbTempFields   = []; // { key, scope:'front'|'back', order }
-let _fbBuilderMode  = 'create'; // 'create' | 'edit'
+let _fbCurrentTab = 'library'; // 'library' | 'library' | 'mapping'
+let _fbEditId = null;
+let _fbTempFields = []; // { key, scope:'front'|'back', order }
+let _fbBuilderMode = 'create'; // 'create' | 'edit'
 
 // ─── 역할별 필터 상태 ─────────────────────────────────────────────────────────
-let _fbTenantId      = null;
-let _fbGroupId       = null;
-let _fbAccountCode   = null;
+let _fbTenantId = null;
+let _fbGroupId = null;
+let _fbAccountCode = null;
 let _fbPurposeFilter = '';   // '' = 전체
 let _fbEduTypeFilter = '';   // '' = 전체
 
@@ -151,14 +151,14 @@ async function _fbLoadDbData() {
     const [res1, res2] = await Promise.all([p1, p2]);
     if (res1.data) _fbTplList = res1.data;
     if (res2.data) _fbAccountList = res2.data;
-  } catch(e) { console.warn('[FormBuilder] DB 데이터 로드 실패:', e); }
+  } catch (e) { console.warn('[FormBuilder] DB 데이터 로드 실패:', e); }
 }
 
 async function renderFormBuilderMenu() {
-  const role    = boCurrentPersona.role;
+  const role = boCurrentPersona.role;
   const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
   const isPlatform = role === 'platform_admin';
-  const isTenant   = role === 'tenant_global_admin';
+  const isTenant = role === 'tenant_global_admin';
 
   // 테넌트 초기화
   if (!_fbTenantId) {
@@ -181,10 +181,10 @@ async function renderFormBuilderMenu() {
 }
 
 function _fbRenderPage() {
-  const role      = boCurrentPersona.role;
+  const role = boCurrentPersona.role;
   const isPlatform = role === 'platform_admin';
-  const isTenant   = role === 'tenant_global_admin';
-  const tenants    = typeof TENANTS !== 'undefined' ? TENANTS : [];
+  const isTenant = role === 'tenant_global_admin';
+  const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
   const tenantName = tenants.find(t => t.id === _fbTenantId)?.name || _fbTenantId || '';
 
   // 가상교육조직 템플릿 목록
@@ -195,79 +195,72 @@ function _fbRenderPage() {
     ? _fbAccountList.filter(a => a.virtual_org_template_id === _fbGroupId).map(a => ({ code: a.code, name: a.name || a.code }))
     : [];
 
-  // ── 필터바 (플랫폼·테넌트총괄에게만 표시) ──────────────────────────────────
+  // ── 필터바 ── 서비스 정책관리와 동일 스타일
   // 행 1: 데이터 범위 필터 (tenant/group/account)
   const filterBar = (isPlatform || isTenant) ? `
-  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:13px 18px;
-              background:#F8FAFF;border:1.5px solid #E0E7FF;border-radius:14px 14px 0 0;margin-bottom:0">
-    ${ isPlatform ? `
+  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:14px 20px;
+              background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:12px 12px 0 0;margin-bottom:0">
+    ${isPlatform ? `
     <div style="display:flex;align-items:center;gap:6px">
-      <label style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">회사</label>
+      <label style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap">회사</label>
       <select onchange="_fbTenantId=this.value;_fbGroupId=null;_fbAccountCode=null;_fbPurposeFilter='';_fbEduTypeFilter='';renderFormBuilderMenu()"
-        style="padding:7px 12px;border:1.5px solid #FDE68A;border-radius:8px;font-size:12px;font-weight:700;background:#FFFBEB;color:#92400E;cursor:pointer">
-        ${tenants.map(t => `<option value="${t.id}" ${t.id===_fbTenantId?'selected':''}>${t.name}</option>`).join('')}
+        style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer">
+        ${tenants.map(t => `<option value="${t.id}" ${t.id === _fbTenantId ? 'selected' : ''}>${t.name}</option>`).join('')}
       </select>
-    </div>
-    <span style="color:#D1D5DB">|</span>` : `
+    </div>` : `
     <div style="display:flex;align-items:center;gap:6px">
-      <span style="font-size:14px">🏢</span>
+      <span style="font-size:12px;font-weight:700;color:#374151">회사</span>
       <span style="font-size:12px;font-weight:800;color:#111827">${tenantName}</span>
-    </div>
-    <span style="color:#D1D5DB">|</span>`}
+    </div>`}
     <div style="display:flex;align-items:center;gap:6px">
-      <label style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">가상교육조직</label>
+      <label style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap">가상교육조직</label>
       <select onchange="_fbGroupId=this.value;_fbAccountCode=null;_fbPurposeFilter='';_fbEduTypeFilter='';renderFormBuilderMenu()"
         style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:160px">
-        <option value="">— 조직 선택 —</option>
-        ${groups.map(g => `<option value="${g.id}" ${g.id===_fbGroupId?'selected':''}>${g.name}</option>`).join('')}
+        <option value="">전체 조직</option>
+        ${groups.map(g => `<option value="${g.id}" ${g.id === _fbGroupId ? 'selected' : ''}>${g.name}</option>`).join('')}
       </select>
     </div>
-    <span style="color:#D1D5DB">|</span>
     <div style="display:flex;align-items:center;gap:6px">
-      <label style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">예산계정</label>
+      <label style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap">예산계정</label>
       <select onchange="_fbAccountCode=this.value;_fbPurposeFilter='';_fbEduTypeFilter='';renderFormBuilderMenu()"
         style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:160px">
-        <option value="">— 계정 선택 —</option>
-        ${accounts.map(a => `<option value="${a.code}" ${a.code===_fbAccountCode?'selected':''}>${a.name}</option>`).join('')}
+        <option value="">전체 계정</option>
+        ${accounts.map(a => `<option value="${a.code}" ${a.code === _fbAccountCode ? 'selected' : ''}>${a.name}</option>`).join('')}
       </select>
     </div>
   </div>` : '';
 
-  // 행 2: 목적/교육유형 필터 (모든 역할 공통, 계정 선택 시만 활성화)
+  // 행 2: 목적/교육유형/조회/초기화
   const eduTypesForPurpose = _fbPurposeFilter ? (FORM_EDU_TYPES[_fbPurposeFilter] || []) : [];
   const filterBar2 = `
-  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:11px 18px;
-              background:#F0F4FF;border:1.5px solid #E0E7FF;border-top:1px solid #C7D2FE;
-              border-radius:${(isPlatform||isTenant)?'0 0 14px 14px':'14px'};margin-bottom:20px">
-    <span style="font-size:11px;font-weight:700;color:#4B5563">🔍 세부 필터</span>
+  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:14px 20px;
+              background:#F9FAFB;border:1.5px solid #E5E7EB;border-top:${(isPlatform || isTenant) ? '1px dashed #D1D5DB' : 'none'};
+              border-radius:${(isPlatform || isTenant) ? '0 0 12px 12px' : '12px'};margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:6px">
-      <label style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">목적</label>
+      <label style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap">목적</label>
       <select onchange="_fbPurposeFilter=this.value;_fbEduTypeFilter='';renderFormBuilderMenu()"
-        style="padding:7px 12px;border:1.5px solid #C4B5FD;border-radius:8px;font-size:12px;font-weight:700;background:#EDE9FE;color:#5B21B6;cursor:pointer;min-width:170px">
-        <option value="">📊 전체 목적</option>
-        ${Object.entries(FORM_PURPOSE_TYPES).map(([k,v]) =>
-          `<option value="${k}" ${_fbPurposeFilter===k?'selected':''}>${v.icon} ${v.label}</option>`
-        ).join('')}
+        style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:170px">
+        <option value="">전체 목적</option>
+        ${Object.entries(FORM_PURPOSE_TYPES).map(([k, v]) =>
+    `<option value="${k}" ${_fbPurposeFilter === k ? 'selected' : ''}>${v.icon} ${v.label}</option>`
+  ).join('')}
       </select>
     </div>
-    <span style="color:#D1D5DB">|</span>
     <div style="display:flex;align-items:center;gap:6px">
-      <label style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">교육유형</label>
+      <label style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap">교육유형</label>
       <select onchange="_fbEduTypeFilter=this.value;renderFormBuilderMenu()"
         style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:160px"
         ${!_fbPurposeFilter ? 'disabled' : ''}>
-        <option value="">— 전체 교육유형 —</option>
+        <option value="">전체 교육유형</option>
         ${eduTypesForPurpose.map(t =>
-          `<option value="${t.type}" ${_fbEduTypeFilter===t.type?'selected':''}>${t.type}</option>`
-        ).join('')}
+    `<option value="${t.type}" ${_fbEduTypeFilter === t.type ? 'selected' : ''}>${t.type}</option>`
+  ).join('')}
       </select>
     </div>
-    <span style="color:#D1D5DB">|</span>
     <button onclick="renderFormBuilderMenu()"
-      style="padding:7px 16px;background:#1D4ED8;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">🔍 조회</button>
-    ${(_fbPurposeFilter||_fbEduTypeFilter||(isPlatform&&_fbAccountCode)||(isTenant&&_fbAccountCode)) ? `
+      style="padding:8px 18px;background:#1D4ED8;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">🔍 조회</button>
     <button onclick="_fbPurposeFilter='';_fbEduTypeFilter='';renderFormBuilderMenu()"
-      style="padding:7px 12px;background:#F3F4F6;color:#6B7280;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✕ 필터 완전 초기화</button>` : ''}
+      style="padding:8px 14px;background:#fff;color:#6B7280;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">초기화</button>
   </div>`;
 
   return `
@@ -314,8 +307,8 @@ function _fbRenderPage() {
 function _fbTabBtn(id, label) {
   const active = _fbCurrentTab === id;
   return `<button onclick="_fbSwitchTab('${id}')" style="
-    padding:10px 20px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:${active?'900':'600'};
-    color:${active?'#7C3AED':'#6B7280'};border-bottom:${active?'3px solid #7C3AED':'3px solid transparent'};
+    padding:10px 20px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:${active ? '900' : '600'};
+    color:${active ? '#7C3AED' : '#6B7280'};border-bottom:${active ? '3px solid #7C3AED' : '3px solid transparent'};
     margin-bottom:-2px;transition:all .15s">${label}</button>`;
 }
 
@@ -328,9 +321,9 @@ function _fbSwitchTab(tab) {
 // ① 양식 라이브러리 탭 - 목적→교육유형→세부유형→단계 계층 구조
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function _fbRenderLibrary() {
-  const role       = boCurrentPersona.role;
+  const role = boCurrentPersona.role;
   const isPlatform = role === 'platform_admin';
-  const isTenant   = role === 'tenant_global_admin';
+  const isTenant = role === 'tenant_global_admin';
 
   // 필터 기준 테넌트 결정
   const tenantId = (isPlatform || isTenant) ? (_fbTenantId || boCurrentPersona.tenantId) : (boCurrentPersona.tenantId || 'HMC');
@@ -365,7 +358,7 @@ function _fbRenderLibrary() {
   const totalByStage = stage => allForms.filter(f => f.type === stage).length;
   const summaryBar = `
 <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
-  ${Object.entries(FORM_STAGE_TYPES).map(([k,v]) => `
+  ${Object.entries(FORM_STAGE_TYPES).map(([k, v]) => `
   <div style="display:flex;align-items:center;gap:6px;padding:6px 14px;background:${v.bg};
               border-radius:20px;border:1.5px solid ${v.color}20">
     <span style="font-size:13px">${v.icon}</span>
@@ -379,123 +372,87 @@ function _fbRenderLibrary() {
   </div>
 </div>`;
 
-  // 목적별 계층 렌더링
-  const purposeBlocks = Object.entries(FORM_PURPOSE_TYPES).map(([purposeKey, pInfo]) => {
-    const eduTypes = FORM_EDU_TYPES[purposeKey] || [];
+  // ── 테이블 렌더링 ──
+  const headerStyle = 'padding:10px 14px;font-size:11px;font-weight:800;color:#6B7280;text-align:left;border-bottom:2px solid #E5E7EB;white-space:nowrap';
+  const tableHeader = `
+<tr>
+  <th style="${headerStyle};text-align:center;width:50px">NO.</th>
+  <th style="${headerStyle}">양식명</th>
+  <th style="${headerStyle};width:100px">단계</th>
+  <th style="${headerStyle}">목적</th>
+  <th style="${headerStyle}">교육유형</th>
+  <th style="${headerStyle};width:70px;text-align:center">필드수</th>
+  <th style="${headerStyle};width:70px;text-align:center">상태</th>
+  <th style="${headerStyle};width:200px;text-align:center">관리</th>
+</tr>`;
 
-    // 이 목적에 해당하는 양식 전부
-    const purposeForms = allForms.filter(f => f.purpose === purposeKey);
-    // 분류 미지정 양식도 포함 (purpose 없는 것들을 첫 번째 목적 블록에서 별도 처리)
-    const unclassified = purposeKey === Object.keys(FORM_PURPOSE_TYPES)[0]
-      ? allForms.filter(f => !f.purpose) : [];
+  const formRows = allForms.map((f, idx) => {
+    const s = FORM_STAGE_TYPES[f.type] || FORM_STAGE_TYPES.apply;
+    const fields = (f.fields || []);
+    const purposeLabel = FORM_PURPOSE_TYPES[f.purpose]?.label || f.purpose || '—';
+    const eduTypeLabel = f.eduType || '—';
+    const statusBg = f.active ? '#D1FAE5' : '#F3F4F6';
+    const statusColor = f.active ? '#065F46' : '#9CA3AF';
+    const statusLabel = f.active ? '활성' : '비활성';
+    const safeId = String(f.id || '').replace(/'/g, "\\'");
+    const safeName = String(f.name || '').replace(/'/g, "\\'");
 
-    if (purposeForms.length === 0 && unclassified.length === 0) return ''; // 빈 목적 숨김
-
-    // 교육유형이 있는 목적: 유형별 그룹화
-    let eduTypeBlocks = '';
-    if (eduTypes.length > 0) {
-      eduTypeBlocks = eduTypes.map(et => {
-        // 세부유형이 있는 경우: 세부유형별 그룹화
-        if (et.sub.length > 0) {
-          const subBlocks = et.sub.map(sub => {
-            const subForms = purposeForms.filter(f => f.eduType === et.type && f.eduSubType === sub);
-            if (subForms.length === 0) return '';
-            return `
-<div style="margin-left:16px;margin-bottom:12px">
-  <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-    <span style="font-size:9px;font-weight:900;background:#F3F4F6;color:#374151;padding:2px 8px;border-radius:10px">${sub}</span>
-    ${_fbStageMiniSet(subForms)}
-  </div>
-  <div style="margin-left:4px">${subForms.map(f => _fbFormCard(f)).join('')}</div>
-</div>`;
-          }).join('');
-
-          // 세부유형 미지정 양식
-          const unsubForms = purposeForms.filter(f => f.eduType === et.type && !f.eduSubType);
-          const unsubBlock = unsubForms.length > 0 ? `
-<div style="margin-left:16px;margin-bottom:12px">
-  <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-    <span style="font-size:9px;font-weight:900;background:#F9FAFB;color:#9CA3AF;padding:2px 8px;border-radius:10px">세부유형 미지정</span>
-    ${_fbStageMiniSet(unsubForms)}
-  </div>
-  <div style="margin-left:4px">${unsubForms.map(f => _fbFormCard(f)).join('')}</div>
-</div>` : '';
-
-          if (!subBlocks && !unsubBlock) return '';
-          const typeForms = purposeForms.filter(f => f.eduType === et.type);
-          return `
-<div style="margin-bottom:14px;padding:12px 14px;background:#F9FAFB;border-radius:10px;border-left:3px solid #7C3AED40">
-  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-    <span style="font-size:11px;font-weight:900;color:#7C3AED">📂 ${et.type}</span>
-    ${_fbStageMiniSet(typeForms)}
-  </div>
-  ${subBlocks}${unsubBlock}
-</div>`;
-
-        } else {
-          // 세부유형 없는 교육유형: 바로 양식 카드
-          const typeForms = purposeForms.filter(f => f.eduType === et.type);
-          if (typeForms.length === 0) return '';
-          return `
-<div style="margin-bottom:10px;padding:10px 14px;background:#F9FAFB;border-radius:10px;border-left:3px solid #7C3AED40">
-  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-    <span style="font-size:11px;font-weight:900;color:#7C3AED">📂 ${et.type}</span>
-    ${_fbStageMiniSet(typeForms)}
-  </div>
-  ${typeForms.map(f => _fbFormCard(f)).join('')}
-</div>`;
-        }
-      }).join('');
-
-      // 교육유형 미지정 양식
-      const untyped = purposeForms.filter(f => !f.eduType);
-      const untypedBlock = untyped.length > 0 ? `
-<div style="margin-bottom:10px;padding:10px 14px;background:#F9FAFB;border-radius:10px;border-left:3px dashed #D1D5DB">
-  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-    <span style="font-size:11px;font-weight:700;color:#9CA3AF">📂 교육유형 미지정</span>
-    ${_fbStageMiniSet(untyped)}
-  </div>
-  ${untyped.map(f => _fbFormCard(f)).join('')}
-</div>` : '';
-
-      eduTypeBlocks = eduTypeBlocks + untypedBlock;
-
-    } else {
-      // 교육유형 정의 없는 목적: 바로 양식 나열
-      eduTypeBlocks = purposeForms.map(f => _fbFormCard(f)).join('');
-    }
-
-    // 분류 미지정 블록 (purpose 없음)
-    const unclassifiedBlock = unclassified.length > 0 ? `
-<div style="margin-bottom:10px">
-  <div style="font-size:10px;font-weight:700;color:#9CA3AF;margin-bottom:6px">📋 분류 미지정</div>
-  ${unclassified.map(f => _fbFormCard(f)).join('')}
-</div>` : '';
+    // 서비스 정책 연결 여부
+    const mappedPolicy = (typeof SERVICE_POLICIES !== 'undefined') ? SERVICE_POLICIES.find(p => {
+      const list1 = p.formIds || [];
+      const list2 = p.stage_form_ids ? Object.values(p.stage_form_ids) : [];
+      const list3 = p.formSets ? Object.values(p.formSets) : [];
+      const list4 = p.stageFormIds ? Object.values(p.stageFormIds) : [];
+      return [...list1, ...list2, ...list3, ...list4].includes(f.id);
+    }) : null;
+    const isMapped = !!mappedPolicy;
 
     return `
-<div style="margin-bottom:28px">
-  <!-- 목적 헤더 -->
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:12px 16px;
-              background:${pInfo.bg};border-radius:12px;border:1.5px solid ${pInfo.color}30">
-    <span style="font-size:16px">${pInfo.icon}</span>
-    <div style="flex:1">
-      <div style="font-size:13px;font-weight:900;color:${pInfo.color}">${pInfo.label}</div>
+<tr style="border-bottom:1px solid #F3F4F6;cursor:pointer;transition:background .12s"
+    onmouseover="this.style.background='#F8FAFF'" onmouseout="this.style.background=''"
+    onclick="event.stopPropagation();fbOpenBuilderModal('${safeId}')">
+  <td style="padding:11px 14px;text-align:center;color:#9CA3AF;font-size:12px">${idx + 1}</td>
+  <td style="padding:11px 14px">
+    <div style="font-weight:800;font-size:13px;color:#111827;margin-bottom:2px">${f.name}</div>
+    ${f.desc ? `<div style="font-size:10px;color:#9CA3AF">${f.desc}</div>` : ''}
+    ${isMapped ? `<span style="font-size:9px;color:#059669;background:#ecfdf5;padding:1px 6px;border-radius:4px">🔒 ${mappedPolicy.name}</span>` : ''}
+  </td>
+  <td style="padding:11px 14px">
+    <span style="font-size:10px;font-weight:900;padding:3px 8px;border-radius:6px;background:${s.bg};color:${s.color};white-space:nowrap">${s.icon} ${s.label.split('(')[0].trim()}</span>
+  </td>
+  <td style="padding:11px 14px;font-size:12px;color:#374151">${purposeLabel}</td>
+  <td style="padding:11px 14px;font-size:12px;color:#374151">${eduTypeLabel}${f.eduSubType ? ` / ${f.eduSubType}` : ''}</td>
+  <td style="padding:11px 14px;text-align:center;font-size:11px;color:#6B7280">📋 ${fields.length}</td>
+  <td style="padding:11px 14px;text-align:center">
+    <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:5px;background:${statusBg};color:${statusColor}">${statusLabel}</span>
+  </td>
+  <td style="padding:11px 14px;text-align:center">
+    <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap">
+      <button onclick="event.stopPropagation();fbPreviewForm('${safeId}')" style="font-size:10px;padding:4px 8px;border-radius:6px;border:1.5px solid #D1D5DB;background:white;cursor:pointer;font-weight:700;color:#374151">🔍 미리보기</button>
+      <button onclick="event.stopPropagation();fbOpenBuilderModal('${safeId}')" style="font-size:10px;padding:4px 8px;border-radius:6px;border:1.5px solid #D1D5DB;background:white;cursor:pointer;font-weight:700;color:#374151">✏️ 수정</button>
+      <button onclick="event.stopPropagation();fbToggleActive('${safeId}')" style="font-size:10px;padding:4px 8px;border-radius:6px;border:1.5px solid ${f.active ? '#F59E0B' : '#059669'};background:white;cursor:pointer;font-weight:700;color:${f.active ? '#F59E0B' : '#059669'}">${f.active ? '비활성화' : '활성화'}</button>
+      <button ${isMapped ? `disabled title="${mappedPolicy.name} 정책 연결"` : `onclick="event.stopPropagation();fbDeleteForm('${safeId}')"`}
+        style="font-size:10px;padding:4px 8px;border-radius:6px;border:1.5px solid ${isMapped ? '#E5E7EB' : '#FECACA'};background:${isMapped ? '#F9FAFB' : '#FEF2F2'};color:${isMapped ? '#9CA3AF' : '#DC2626'};cursor:${isMapped ? 'not-allowed' : 'pointer'};font-weight:700">🗑️</button>
     </div>
-    ${_fbStageMiniSet([...purposeForms, ...unclassified])}
-  </div>
-  ${eduTypeBlocks}
-  ${unclassifiedBlock}
-</div>`;
+  </td>
+</tr>`;
   }).join('');
 
-  // 어떤 목적에도 속하지 않는 양식 처리 (purpose 필드 없음, 첫 블록에서 이미 처리됐으니 여기선 skip)
-
-  return addBtn + summaryBar + (purposeBlocks || `
+  const tableHtml = allForms.length > 0 ? `
+<div style="font-size:12px;font-weight:700;color:#6B7280;margin-bottom:8px">양식 목록 (${allForms.length}개)</div>
+<div style="overflow-x:auto;border:1px solid #E5E7EB;border-radius:12px;background:#fff">
+  <table style="width:100%;border-collapse:collapse">
+    <thead>${tableHeader}</thead>
+    <tbody>${formRows}</tbody>
+  </table>
+</div>` : `
 <div style="padding:40px;text-align:center;background:#F9FAFB;border-radius:16px;border:1px dashed #D1D5DB">
   <div style="font-size:32px;margin-bottom:8px">📭</div>
   <div style="font-size:14px;font-weight:700;color:#374151">등록된 양식이 없습니다</div>
   <div style="font-size:12px;color:#9CA3AF;margin-top:4px">새 양식 만들기 버튼으로 첫 양식을 추가하세요</div>
-</div>`);
+</div>`;
+
+  return addBtn + summaryBar + tableHtml;
 }
 
 // 단계별 미니 배지 세트 (계획N / 신청N / 결과N)
@@ -503,12 +460,12 @@ function _fbStageMiniSet(forms) {
   return Object.entries(FORM_STAGE_TYPES).map(([k, v]) => {
     const cnt = forms.filter(f => f.type === k).length;
     if (cnt === 0) return '';
-    return `<span style="font-size:9px;padding:2px 7px;border-radius:8px;background:${v.bg};color:${v.color};font-weight:800;border:1px solid ${v.color}30">${v.icon.trim()} ${v.label.split('(')[0].replace('교육','').trim()} ${cnt}</span>`;
+    return `<span style="font-size:9px;padding:2px 7px;border-radius:8px;background:${v.bg};color:${v.color};font-weight:800;border:1px solid ${v.color}30">${v.icon.trim()} ${v.label.split('(')[0].replace('교육', '').trim()} ${cnt}</span>`;
   }).join(' ');
 }
 
 function _fbFormCard(f) {
-  const s      = FORM_STAGE_TYPES[f.type] || FORM_STAGE_TYPES.apply;
+  const s = FORM_STAGE_TYPES[f.type] || FORM_STAGE_TYPES.apply;
   const fields = (f.fields || []);
   const fieldNames = fields.map(fld => typeof fld === 'object' ? fld.key : fld).join(', ');
 
@@ -521,7 +478,7 @@ function _fbFormCard(f) {
     return [...list1, ...list2, ...list3, ...list4].includes(f.id);
   }) : null;
   const mappedLegacy = (typeof SERVICE_MAPPINGS !== 'undefined') ? SERVICE_MAPPINGS.find(m => Object.values(m.formSets || {}).includes(f.id)) : null;
-  
+
   const isMapped = mappedPolicy || mappedLegacy;
   const mapName = mappedPolicy ? mappedPolicy.name : (mappedLegacy ? mappedLegacy.name : '');
 
@@ -540,7 +497,7 @@ function _fbFormCard(f) {
   <!-- 양식명 -->
   <span style="flex:1;font-size:12px;font-weight:800;color:#111827;overflow:hidden;
                text-overflow:ellipsis;white-space:nowrap;cursor:default"
-        title="${f.name}${f.desc ? ' — '+f.desc : ''}">
+        title="${f.name}${f.desc ? ' — ' + f.desc : ''}">
     ${f.name}
     ${isMapped ? ` <span style="font-size:10px;color:#059669;background:#ecfdf5;padding:2px 6px;border-radius:4px;vertical-align:middle;margin-left:6px" title="이 양식은 [${mapName}] 정책에 연동되어 있습니다.">[🔒 ${mapName} 연결됨]</span>` : ''}
   </span>
@@ -574,13 +531,13 @@ function _fbFormCard(f) {
 
 async function fbDeleteForm(formId) {
   if (!confirm('정말로 이 양식을 삭제하시겠습니까? (삭제 후 복구 불가)')) return;
-  
+
   // 1) 메모리 삭제
   if (typeof FORM_MASTER !== 'undefined') {
     const idx = FORM_MASTER.findIndex(x => x.id === formId);
     if (idx > -1) FORM_MASTER.splice(idx, 1);
   }
-  
+
   // 2) DB 삭제
   if (typeof sbDeleteFormTemplate === 'function') {
     const ok = await sbDeleteFormTemplate(formId);
@@ -598,13 +555,13 @@ async function fbDeleteForm(formId) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function _fbRenderMapping() {
   const tenantId = boCurrentPersona.tenantId || 'HMC';
-  const myMaps   = SERVICE_MAPPINGS.filter(m => m.tenantId === tenantId);
-  const myForms  = FORM_MASTER.filter(f => f.tenantId === tenantId && f.active);
+  const myMaps = SERVICE_MAPPINGS.filter(m => m.tenantId === tenantId);
+  const myForms = FORM_MASTER.filter(f => f.tenantId === tenantId && f.active);
 
   const mapCard = (m) => {
     const st = FORM_SERVICE_TYPES[m.serviceType] || {};
-    const pt = PROCESS_PATTERNS[m.pattern]  || {};
-    const tg = FORM_TARGET_TYPES[m.target]  || {};
+    const pt = PROCESS_PATTERNS[m.pattern] || {};
+    const tg = FORM_TARGET_TYPES[m.target] || {};
     const formSet = m.formSets || {};
 
     const stageRow = (stage, fId) => {
@@ -616,20 +573,20 @@ function _fbRenderMapping() {
       </div>`;
     };
 
-    return `<div class="bo-card" style="padding:20px;margin-bottom:12px;border-left:4px solid ${st.color||'#E5E7EB'}">
+    return `<div class="bo-card" style="padding:20px;margin-bottom:12px;border-left:4px solid ${st.color || '#E5E7EB'}">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
         <div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
-            <span style="font-size:11px;font-weight:900;color:${st.color};background:${st.color}15;padding:2px 8px;border-radius:6px">${st.icon||''} ${st.label||''}</span>
-            <span style="font-size:11px;font-weight:900;color:${tg.color};background:${tg.bg};padding:2px 8px;border-radius:6px">${tg.icon||''} ${tg.label||''}</span>
-            <span style="font-size:11px;font-weight:900;color:${pt.color};background:${pt.color}15;padding:2px 8px;border-radius:6px">${pt.label||''}: ${pt.desc||''}</span>
+            <span style="font-size:11px;font-weight:900;color:${st.color};background:${st.color}15;padding:2px 8px;border-radius:6px">${st.icon || ''} ${st.label || ''}</span>
+            <span style="font-size:11px;font-weight:900;color:${tg.color};background:${tg.bg};padding:2px 8px;border-radius:6px">${tg.icon || ''} ${tg.label || ''}</span>
+            <span style="font-size:11px;font-weight:900;color:${pt.color};background:${pt.color}15;padding:2px 8px;border-radius:6px">${pt.label || ''}: ${pt.desc || ''}</span>
           </div>
           <div style="font-size:15px;font-weight:900;color:#111827">${m.name}</div>
-          <div style="font-size:11px;color:#6B7280;margin-top:2px">${m.desc||''}</div>
+          <div style="font-size:11px;color:#6B7280;margin-top:2px">${m.desc || ''}</div>
         </div>
         <button onclick="_fbEditMapping('${m.id}')" class="bo-btn-secondary bo-btn-sm">✏️ 수정</button>
       </div>
-      <div style="display:grid;grid-template-columns:${pt.stages.includes('plan')?'1fr ':''} 1fr ${pt.stages.includes('result')?'1fr':''};gap:8px">
+      <div style="display:grid;grid-template-columns:${pt.stages.includes('plan') ? '1fr ' : ''} 1fr ${pt.stages.includes('result') ? '1fr' : ''};gap:8px">
         ${pt.stages.map(stage => stageRow(stage, formSet[stage])).join('')}
       </div>
     </div>`;
@@ -644,7 +601,7 @@ function _fbRenderMapping() {
 
 <!-- 프로세스 패턴 안내 -->
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">
-  ${Object.entries(PROCESS_PATTERNS).map(([k,v]) => `
+  ${Object.entries(PROCESS_PATTERNS).map(([k, v]) => `
   <div class="bo-card" style="padding:14px;border-top:3px solid ${v.color}">
     <div style="font-size:11px;font-weight:900;color:${v.color};margin-bottom:4px">${v.label}</div>
     <div style="font-size:12px;font-weight:700;color:#111827">${v.desc}</div>
@@ -654,7 +611,7 @@ function _fbRenderMapping() {
 <!-- 서비스 매핑 목록 -->
 <div style="font-size:13px;font-weight:900;color:#374151;margin-bottom:12px">📋 등록된 서비스 매핑 (${myMaps.length}개)</div>
 ${myMaps.length ? myMaps.map(mapCard).join('') :
-  `<div style="padding:40px;text-align:center;background:#F9FAFB;border-radius:16px;border:1px dashed #D1D5DB">
+      `<div style="padding:40px;text-align:center;background:#F9FAFB;border-radius:16px;border:1px dashed #D1D5DB">
     <div style="font-size:32px;margin-bottom:8px">🔗</div>
     <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:4px">아직 서비스 매핑이 없습니다</div>
     <div style="font-size:11px;color:#9CA3AF;margin-bottom:12px">양식을 만든 후 서비스 프로세스와 연결하세요</div>
@@ -686,18 +643,18 @@ function fbOpenBuilderModal(formId) {
 function fbCloseModal() { document.getElementById('fb-field-modal').style.display = 'none'; }
 
 function _fbAdvancedModalBody(form) {
-  const nameVal    = form?.name    || '';
-  const typeVal    = form?.type    || 'apply';
-  const descVal    = form?.desc    || '';
+  const nameVal = form?.name || '';
+  const typeVal = form?.type || 'apply';
+  const descVal = form?.desc || '';
   const purposeVal = form?.purpose || '';
   const eduTypeVal = form?.eduType || '';
-  const eduSubVal  = form?.eduSubType || '';
+  const eduSubVal = form?.eduSubType || '';
 
   // 목적 연동 교육유형 목록
   const eduTypesMap = purposeVal ? (FORM_EDU_TYPES[purposeVal] || []) : [];
-  const selEduType  = eduTypesMap.find(t => t.type === eduTypeVal) || null;
+  const selEduType = eduTypesMap.find(t => t.type === eduTypeVal) || null;
   // 사용대상: 기존 form.purpose에서 유추하거나 form.targetUser에서 읽음
-  const targetUser  = form?.targetUser || (purposeVal ? (FORM_PURPOSE_TYPES[purposeVal]?.targetUser || '') : '');
+  const targetUser = form?.targetUser || (purposeVal ? (FORM_PURPOSE_TYPES[purposeVal]?.targetUser || '') : '');
 
   // 카테고리별 필드 그룹
   const categories = [...new Set(ADVANCED_FIELDS.map(f => f.category))];
@@ -707,8 +664,8 @@ function _fbAdvancedModalBody(form) {
 ${(_fbGroupId || _fbAccountCode) ? `
 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;background:#F5F3FF;border:1.5px solid #DDD6FE;border-radius:10px;margin-bottom:14px">
   <span style="font-size:10px;font-weight:900;color:#5B21B6">📌 분류 범위</span>
-  ${_fbGroupId ? (() => { const g = _fbTplList.find(x=>x.id===_fbGroupId); return `<span style="font-size:11px;font-weight:700;background:#EDE9FE;color:#5B21B6;padding:2px 8px;border-radius:6px">🏢 ${g?.name||_fbGroupId}</span>`; })() : ''}
-  ${_fbAccountCode ? (() => { const a = _fbAccountList.find(x=>x.code===_fbAccountCode); return `<span style="font-size:11px;font-weight:700;background:#DBEAFE;color:#1E40AF;padding:2px 8px;border-radius:6px">💳 ${a?.name||_fbAccountCode}</span>`; })() : ''}
+  ${_fbGroupId ? (() => { const g = _fbTplList.find(x => x.id === _fbGroupId); return `<span style="font-size:11px;font-weight:700;background:#EDE9FE;color:#5B21B6;padding:2px 8px;border-radius:6px">🏢 ${g?.name || _fbGroupId}</span>`; })() : ''}
+  ${_fbAccountCode ? (() => { const a = _fbAccountList.find(x => x.code === _fbAccountCode); return `<span style="font-size:11px;font-weight:700;background:#DBEAFE;color:#1E40AF;padding:2px 8px;border-radius:6px">💳 ${a?.name || _fbAccountCode}</span>`; })() : ''}
   <span style="font-size:10px;color:#9CA3AF">이 양식은 위 범위에만 표시됩니다</span>
 </div>` : ''}
 <!-- 사용대상 선택 (학습자용 / 교육담당자용) -->
@@ -717,20 +674,20 @@ ${(_fbGroupId || _fbAccountCode) ? `
   <div style="display:flex;gap:8px">
     <label id="fb-target-learner-lbl" onclick="_fbOnTargetUserChange('learner')"
       style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;cursor:pointer;
-             border:2px solid ${targetUser==='learner'?'#059669':'#E5E7EB'};
-             background:${targetUser==='learner'?'#F0FDF4':'#F9FAFB'}">
-      <input type="radio" name="fb-target-user" value="learner" ${targetUser==='learner'?'checked':''}
+             border:2px solid ${targetUser === 'learner' ? '#059669' : '#E5E7EB'};
+             background:${targetUser === 'learner' ? '#F0FDF4' : '#F9FAFB'}">
+      <input type="radio" name="fb-target-user" value="learner" ${targetUser === 'learner' ? 'checked' : ''}
              style="accent-color:#059669;width:14px;height:14px">
-      <span style="font-size:12px;font-weight:800;color:${targetUser==='learner'?'#059669':'#6B7280'}">🙋 학습자용</span>
+      <span style="font-size:12px;font-weight:800;color:${targetUser === 'learner' ? '#059669' : '#6B7280'}">🙋 학습자용</span>
       <span style="font-size:10px;color:#9CA3AF">(개인 신청)</span>
     </label>
     <label id="fb-target-admin-lbl" onclick="_fbOnTargetUserChange('admin')"
       style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;cursor:pointer;
-             border:2px solid ${targetUser==='admin'?'#7C3AED':'#E5E7EB'};
-             background:${targetUser==='admin'?'#F5F3FF':'#F9FAFB'}">
-      <input type="radio" name="fb-target-user" value="admin" ${targetUser==='admin'?'checked':''}
+             border:2px solid ${targetUser === 'admin' ? '#7C3AED' : '#E5E7EB'};
+             background:${targetUser === 'admin' ? '#F5F3FF' : '#F9FAFB'}">
+      <input type="radio" name="fb-target-user" value="admin" ${targetUser === 'admin' ? 'checked' : ''}
              style="accent-color:#7C3AED;width:14px;height:14px">
-      <span style="font-size:12px;font-weight:800;color:${targetUser==='admin'?'#7C3AED':'#6B7280'}">🏢 교육담당자용</span>
+      <span style="font-size:12px;font-weight:800;color:${targetUser === 'admin' ? '#7C3AED' : '#6B7280'}">🏢 교육담당자용</span>
       <span style="font-size:10px;color:#9CA3AF">(운영 관리)</span>
     </label>
   </div>
@@ -740,9 +697,9 @@ ${(_fbGroupId || _fbAccountCode) ? `
   <div>
     <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">단계 *</label>
     <select id="fb-type" style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-      ${Object.entries(FORM_STAGE_TYPES).map(([k,v]) =>
-        `<option value="${k}" ${typeVal===k?'selected':''}>${v.icon} ${v.label.split(' ')[0]}</option>`
-      ).join('')}
+      ${Object.entries(FORM_STAGE_TYPES).map(([k, v]) =>
+    `<option value="${k}" ${typeVal === k ? 'selected' : ''}>${v.icon} ${v.label.split(' ')[0]}</option>`
+  ).join('')}
     </select>
   </div>
   <div>
@@ -751,22 +708,22 @@ ${(_fbGroupId || _fbAccountCode) ? `
       style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
       <option value="">— 선택 —</option>
       ${Object.entries(FORM_PURPOSE_TYPES)
-        .filter(([k,v]) => !targetUser || v.targetUser === targetUser)
-        .map(([k,v]) =>
-          `<option value="${k}" ${purposeVal===k?'selected':''}>${v.icon} ${v.label}</option>`
-        ).join('')}
+      .filter(([k, v]) => !targetUser || v.targetUser === targetUser)
+      .map(([k, v]) =>
+        `<option value="${k}" ${purposeVal === k ? 'selected' : ''}>${v.icon} ${v.label}</option>`
+      ).join('')}
     </select>
   </div>
 </div>
 <!-- 행 2: 교육유형 + 세부유형 (목적 선택 시 표시) -->
-<div id="fb-edutypes-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;${(purposeVal&&eduTypesMap.length>0)?'':'display:none'}"
-  class="${(purposeVal&&eduTypesMap.length>0)?'':'d-none'}">
+<div id="fb-edutypes-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;${(purposeVal && eduTypesMap.length > 0) ? '' : 'display:none'}"
+  class="${(purposeVal && eduTypesMap.length > 0) ? '' : 'd-none'}">
   <div>
     <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">교육유형</label>
     <select id="fb-edu-type" onchange="_fbOnEduTypeChange(this.value)"
       style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
       <option value="">— 선택 —</option>
-      ${eduTypesMap.map(t => `<option value="${t.type}" ${eduTypeVal===t.type?'selected':''}>${t.type}</option>`).join('')}
+      ${eduTypesMap.map(t => `<option value="${t.type}" ${eduTypeVal === t.type ? 'selected' : ''}>${t.type}</option>`).join('')}
     </select>
   </div>
   <div id="fb-sub-col">
@@ -775,7 +732,7 @@ ${(_fbGroupId || _fbAccountCode) ? `
     <select id="fb-edu-sub"
       style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
       <option value="">— 선택 —</option>
-      ${selEduType.sub.map(s => `<option value="${s}" ${eduSubVal===s?'selected':''}>${s}</option>`).join('')}
+      ${selEduType.sub.map(s => `<option value="${s}" ${eduSubVal === s ? 'selected' : ''}>${s}</option>`).join('')}
     </select>` : '<div></div>'}
   </div>
 </div>
@@ -817,18 +774,18 @@ ${(_fbGroupId || _fbAccountCode) ? `
           <div style="font-size:9px;font-weight:900;color:${catColor};text-transform:uppercase;margin-bottom:6px;letter-spacing:.05em">${cat}</div>
           <div style="display:flex;flex-wrap:wrap;gap:5px">
             ${catFields.map(f => {
-              const isSelected = _fbTempFields.some(tf => (typeof tf === 'object' ? tf.key : tf) === f.key);
-              const scopeStyle = f.scope === 'back' ? 'border:1.5px dashed #FBB6CE;color:#9D174D;background:#FDF2F8' :
-                                 f.scope === 'system' ? 'border:1.5px dashed #BFDBFE;color:#0369A1;background:#EFF6FF' :
-                                 'border:1.5px solid #E5E7EB;color:#374151;background:white';
-              return `<span onclick="fbToggleField('${f.key}')" id="fbf-${f.key}"
-                title="${f.hint||''} ${f.budget ? '💰예산연동' : ''}"
+          const isSelected = _fbTempFields.some(tf => (typeof tf === 'object' ? tf.key : tf) === f.key);
+          const scopeStyle = f.scope === 'back' ? 'border:1.5px dashed #FBB6CE;color:#9D174D;background:#FDF2F8' :
+            f.scope === 'system' ? 'border:1.5px dashed #BFDBFE;color:#0369A1;background:#EFF6FF' :
+              'border:1.5px solid #E5E7EB;color:#374151;background:white';
+          return `<span onclick="fbToggleField('${f.key}')" id="fbf-${f.key}"
+                title="${f.hint || ''} ${f.budget ? '💰예산연동' : ''}"
                 class="fb-field-chip ${isSelected ? 'selected' : ''}"
                 style="${scopeStyle};${isSelected ? 'opacity:.45;text-decoration:line-through;' : ''}">
                 ${f.icon} ${f.key}${f.required ? '<sup style=color:#EF4444>*</sup>' : ''}
                 ${f.budget ? '<span style="font-size:7px;vertical-align:super;color:#D97706">💰</span>' : ''}
               </span>`;
-            }).join('')}
+        }).join('')}
           </div>
         </div>`;
       }).join('')}
@@ -860,7 +817,7 @@ ${(_fbGroupId || _fbAccountCode) ? `
         <span style="font-weight:400;color:#9CA3AF">(신청자에게 안내)</span>
       </label>
       <div id="fb-attach-list" style="min-height:60px;margin-bottom:6px">
-        ${(form?.attachments||[]).map((a,i)=>`
+        ${(form?.attachments || []).map((a, i) => `
         <div id="fb-attach-row-${i}" style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
           <input type="text" value="${a}" data-attach-idx="${i}"
             style="flex:1;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;font-size:12px"
@@ -877,13 +834,13 @@ ${(_fbGroupId || _fbAccountCode) ? `
 function _fbPreviewHTML() {
   if (!_fbTempFields.length) return '<div style="text-align:center;color:#D1D5DB;padding:30px;font-size:12px">← 왼쪽에서 필드를 클릭하여 추가</div>';
   return _fbTempFields.map((f, i) => {
-    const key   = typeof f === 'object' ? f.key : f;
+    const key = typeof f === 'object' ? f.key : f;
     const scope = typeof f === 'object' ? f.scope : 'front';
-    const meta  = ADVANCED_FIELDS.find(a => a.key === key) || { icon: '📝' };
+    const meta = ADVANCED_FIELDS.find(a => a.key === key) || { icon: '📝' };
     const scopeLabel = scope === 'back' ? '🔒 백오피스 전용' : scope === 'system' ? '⚙️ 시스템' : '🔓 프론트';
     const scopeColor = scope === 'back' ? '#9D174D' : scope === 'system' ? '#0369A1' : '#374151';
     return `<div style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:#F9FAFB;border-radius:8px;margin-bottom:5px;border:1px solid #E5E7EB">
-      <span style="color:#D1D5DB;font-weight:700;font-size:10px;min-width:16px">${i+1}</span>
+      <span style="color:#D1D5DB;font-weight:700;font-size:10px;min-width:16px">${i + 1}</span>
       <span style="font-size:12px;flex:1">${meta.icon} ${key}</span>
       <span style="font-size:9px;font-weight:700;color:${scopeColor};background:${scopeColor}15;padding:1px 6px;border-radius:5px;cursor:pointer"
         onclick="fbCycleScope(${i})" title="클릭하여 입력 주체 변경">${scopeLabel}</span>
@@ -938,8 +895,8 @@ function fbRemoveAttach(idx) {
 
 function fbCycleScope(idx) {
   const current = typeof _fbTempFields[idx] === 'object' ? _fbTempFields[idx].scope : 'front';
-  const order   = ['front', 'back', 'system'];
-  const next    = order[(order.indexOf(current) + 1) % order.length];
+  const order = ['front', 'back', 'system'];
+  const next = order[(order.indexOf(current) + 1) % order.length];
   if (typeof _fbTempFields[idx] === 'object') _fbTempFields[idx].scope = next;
   else _fbTempFields[idx] = { key: _fbTempFields[idx], scope: next };
   _fbRefreshPreview();
@@ -981,12 +938,12 @@ function _fbOnPurposeChange(purposeKey) {
 // 사용대상 변경 시 목적 드롭다운 필터링
 function _fbOnTargetUserChange(targetUser) {
   // 라디오 버튼 시각적 업데이트
-  ['learner','admin'].forEach(t => {
+  ['learner', 'admin'].forEach(t => {
     const lbl = document.getElementById(`fb-target-${t}-lbl`);
     if (!lbl) return;
     const isActive = t === targetUser;
-    const color    = t === 'learner' ? '#059669' : '#7C3AED';
-    lbl.style.border     = `2px solid ${isActive ? color : '#E5E7EB'}`;
+    const color = t === 'learner' ? '#059669' : '#7C3AED';
+    lbl.style.border = `2px solid ${isActive ? color : '#E5E7EB'}`;
     lbl.style.background = isActive ? (t === 'learner' ? '#F0FDF4' : '#F5F3FF') : '#F9FAFB';
     const span = lbl.querySelector('span');
     if (span) span.style.color = isActive ? color : '#6B7280';
@@ -997,8 +954,8 @@ function _fbOnTargetUserChange(targetUser) {
   const currentPurpose = purposeSel.value;
   purposeSel.innerHTML = '<option value="">— 선택 —</option>' +
     Object.entries(FORM_PURPOSE_TYPES)
-      .filter(([k,v]) => v.targetUser === targetUser)
-      .map(([k,v]) => `<option value="${k}">${v.icon} ${v.label}</option>`)
+      .filter(([k, v]) => v.targetUser === targetUser)
+      .map(([k, v]) => `<option value="${k}">${v.icon} ${v.label}</option>`)
       .join('');
   // 이전 선택이 새 목록에 있으면 복원
   if (FORM_PURPOSE_TYPES[currentPurpose]?.targetUser === targetUser) {
@@ -1030,14 +987,14 @@ function _fbOnEduTypeChange(typeVal) {
 
 async function fbSaveForm() {
   const tenantId = boCurrentPersona.tenantId || 'HMC';
-  const type       = document.getElementById('fb-type').value;
-  const name       = document.getElementById('fb-name').value.trim();
-  const desc       = document.getElementById('fb-desc').value.trim();
-  const purpose    = document.getElementById('fb-purpose')?.value || '';
-  const eduType    = document.getElementById('fb-edu-type')?.value || '';
+  const type = document.getElementById('fb-type').value;
+  const name = document.getElementById('fb-name').value.trim();
+  const desc = document.getElementById('fb-desc').value.trim();
+  const purpose = document.getElementById('fb-purpose')?.value || '';
+  const eduType = document.getElementById('fb-edu-type')?.value || '';
   const eduSubType = document.getElementById('fb-edu-sub')?.value || '';
   const noticeText = document.getElementById('fb-notice')?.value.trim() || '';
-  const targetUser  = document.querySelector('input[name="fb-target-user"]:checked')?.value || '';
+  const targetUser = document.querySelector('input[name="fb-target-user"]:checked')?.value || '';
 
   // 첨부파일 목록 수집
   const attachInputs = document.querySelectorAll('#fb-attach-list input[data-attach-idx]');
@@ -1049,8 +1006,8 @@ async function fbSaveForm() {
   const formId = _fbEditId || ('FM' + Date.now());
   const formData = {
     id: formId, tenantId,
-    domainId: _fbGroupId   || null,   // 격리그룹 범위
-    accountCode:      _fbAccountCode || null,  // 예산계정 범위
+    domainId: _fbGroupId || null,   // 격리그룹 범위
+    accountCode: _fbAccountCode || null,  // 예산계정 범위
     type, name, desc, active: true,
     fields: [..._fbTempFields],
     purpose, eduType, eduSubType, targetUser, noticeText, attachments
@@ -1088,7 +1045,7 @@ function fbToggleActive(formId) {
 // ── 서비스 매핑 관련 ──────────────────────────────────────────────────────────
 function _fbOpenMappingModal() {
   const tenantId = boCurrentPersona.tenantId || 'HMC';
-  const myForms  = FORM_MASTER.filter(f => f.tenantId === tenantId && f.active);
+  const myForms = FORM_MASTER.filter(f => f.tenantId === tenantId && f.active);
 
   const formOpts = (stage) => {
     const stageForms = myForms.filter(f => f.type === stage);
@@ -1109,18 +1066,18 @@ function _fbOpenMappingModal() {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">서비스 유형 *</label>
         <select id="svc-type" style="width:100%;padding:8px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-          ${Object.entries(FORM_SERVICE_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}
+          ${Object.entries(FORM_SERVICE_TYPES).map(([k, v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}
         </select></div>
       <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">대상자 *</label>
         <select id="svc-target" style="width:100%;padding:8px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-          ${Object.entries(FORM_TARGET_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}
+          ${Object.entries(FORM_TARGET_TYPES).map(([k, v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}
         </select></div>
     </div>
     <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">서비스명 *</label>
       <input id="svc-name" type="text" placeholder="예) 개인직무 사외학습 지원" style="width:100%;box-sizing:border-box;padding:8px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px"></div>
     <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">프로세스 패턴 *</label>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-        ${Object.entries(PROCESS_PATTERNS).map(([k,v])=>`
+        ${Object.entries(PROCESS_PATTERNS).map(([k, v]) => `
         <label style="display:flex;align-items:center;gap:6px;padding:8px;border:1.5px solid #E5E7EB;border-radius:8px;cursor:pointer">
           <input type="radio" name="svc-pattern" value="${k}"> <div><div style="font-size:11px;font-weight:900;color:${v.color}">${v.label}</div><div style="font-size:10px;color:#9CA3AF">${v.desc}</div></div>
         </label>`).join('')}
@@ -1157,8 +1114,8 @@ function _fbSaveMappingFromModal() {
     target: document.getElementById('svc-target').value,
     desc: document.getElementById('svc-desc').value,
     formSets: {
-      plan:   document.getElementById('svc-plan').value  || undefined,
-      apply:  document.getElementById('svc-apply').value || undefined,
+      plan: document.getElementById('svc-plan').value || undefined,
+      apply: document.getElementById('svc-apply').value || undefined,
       result: document.getElementById('svc-result').value || undefined,
     }
   });
@@ -1177,7 +1134,7 @@ window._currentPreviewForm = null;
 function fbPreviewForm(formId) {
   const form = FORM_MASTER.find(f => f.id === formId);
   if (!form) return;
-  
+
   const modalId = 'fb-preview-modal';
   let modal = document.getElementById(modalId);
   if (!modal) {
@@ -1219,22 +1176,22 @@ function fbPreviewForm(formId) {
 </div>`;
     document.body.appendChild(modal);
   }
-  
+
   window._currentPreviewForm = form;
   document.getElementById('fb-pv-title').textContent = `[${form.name}] 양식 미리보기`;
-  
+
   modal.style.display = 'flex';
   fbRenderPreviewBody('front');
 }
 
 function _fbFieldInput(fld, poolField, viewType) {
-  const ft   = poolField.fieldType || 'text';
+  const ft = poolField.fieldType || 'text';
   const hint = poolField.hint || (fld.key + ' 입력');
   const base = 'width:100%;box-sizing:border-box;padding:12px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;background:#F9FAFB;';
 
   // FO에서 BO전용 필드는 읽기전용 표시
   const isReadOnly = (viewType === 'back' && fld.scope === 'front');
-  const overlay   = isReadOnly ? '' : '';
+  const overlay = isReadOnly ? '' : '';
 
   if (ft === 'textarea') {
     return `<textarea rows="3" placeholder="${hint}" style="${base}resize:vertical" disabled></textarea>`;
@@ -1262,7 +1219,7 @@ function _fbFieldInput(fld, poolField, viewType) {
   }
   if (ft === 'rating') {
     return `<div style="display:flex;gap:6px;padding:8px 0">
-      ${[1,2,3,4,5].map(n=>`<span style="font-size:28px;color:#D1D5DB;cursor:default">☆</span>`).join('')}
+      ${[1, 2, 3, 4, 5].map(n => `<span style="font-size:28px;color:#D1D5DB;cursor:default">☆</span>`).join('')}
       <span style="font-size:12px;color:#9CA3AF;margin-left:8px;line-height:28px">5점 척도</span>
     </div>`;
   }
@@ -1276,7 +1233,7 @@ function _fbFieldInput(fld, poolField, viewType) {
     return `<div style="padding:12px;border:1.5px solid #E5E7EB;border-radius:8px;background:#F9FAFB">
       <div style="font-size:11px;color:#6B7280;margin-bottom:8px;font-weight:800">📐 선택 가능한 세부산출근거 항목 (테넌트별 자동 로드)</div>
       <div style="display:flex;flex-direction:column;gap:6px">
-        ${['과정비(외부위탁)','강사료(외부)','교재비','시설/기자재 임차료'].map(t=>`
+        ${['과정비(외부위탁)', '강사료(외부)', '교재비', '시설/기자재 임차료'].map(t => `
         <label style="display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid #E5E7EB;border-radius:6px;background:#fff;cursor:default">
           <input type="checkbox" disabled> <span style="font-size:12px">${t}</span>
         </label>`).join('')}
@@ -1285,7 +1242,7 @@ function _fbFieldInput(fld, poolField, viewType) {
     </div>`;
   }
   if (ft === 'select') {
-    const opts = (poolField.options || ['선택 1','선택 2','선택 3']).map(o=>`<option>${o}</option>`).join('');
+    const opts = (poolField.options || ['선택 1', '선택 2', '선택 3']).map(o => `<option>${o}</option>`).join('');
     return `<select style="${base}" disabled><option>— 선택 —</option>${opts}</select>`;
   }
   if (ft === 'system') {
@@ -1297,16 +1254,16 @@ function _fbFieldInput(fld, poolField, viewType) {
 
 function fbRenderPreviewBody(viewType) {
   const tFront = document.getElementById('fb-pv-tab-front');
-  const tBack  = document.getElementById('fb-pv-tab-back');
+  const tBack = document.getElementById('fb-pv-tab-back');
   if (viewType === 'front') {
     tFront.style.color = '#059669'; tFront.style.borderBottomColor = '#059669'; tFront.style.fontWeight = '900';
-    tBack.style.color = '#6B7280';  tBack.style.borderBottomColor = 'transparent'; tBack.style.fontWeight = '800';
+    tBack.style.color = '#6B7280'; tBack.style.borderBottomColor = 'transparent'; tBack.style.fontWeight = '800';
   } else {
-    tBack.style.color = '#7C3AED';  tBack.style.borderBottomColor = '#7C3AED'; tBack.style.fontWeight = '900';
+    tBack.style.color = '#7C3AED'; tBack.style.borderBottomColor = '#7C3AED'; tBack.style.fontWeight = '900';
     tFront.style.color = '#6B7280'; tFront.style.borderBottomColor = 'transparent'; tFront.style.fontWeight = '800';
   }
 
-  const form  = window._currentPreviewForm;
+  const form = window._currentPreviewForm;
   const bBody = document.getElementById('fb-pv-body');
   if (!form) return;
 
@@ -1314,18 +1271,18 @@ function fbRenderPreviewBody(viewType) {
 
   // 필드 타입 배지
   const TYPE_BADGE = {
-    text:           { label: '텍스트',   color: '#6B7280', bg: '#F3F4F6' },
-    textarea:       { label: '장문',     color: '#059669', bg: '#F0FDF4' },
-    date:           { label: '날짜',     color: '#0369A1', bg: '#EFF6FF' },
-    daterange:      { label: '날짜범위', color: '#0369A1', bg: '#EFF6FF' },
-    number:         { label: '숫자',     color: '#D97706', bg: '#FFFBEB' },
-    'user-search':  { label: '사용자검색', color: '#6366F1', bg: '#EEF2FF' },
-    file:           { label: '파일',     color: '#9D174D', bg: '#FDF2F8' },
-    rating:         { label: '별점',     color: '#F59E0B', bg: '#FFFBEB' },
-    select:         { label: '선택',     color: '#7C3AED', bg: '#F5F3FF' },
+    text: { label: '텍스트', color: '#6B7280', bg: '#F3F4F6' },
+    textarea: { label: '장문', color: '#059669', bg: '#F0FDF4' },
+    date: { label: '날짜', color: '#0369A1', bg: '#EFF6FF' },
+    daterange: { label: '날짜범위', color: '#0369A1', bg: '#EFF6FF' },
+    number: { label: '숫자', color: '#D97706', bg: '#FFFBEB' },
+    'user-search': { label: '사용자검색', color: '#6366F1', bg: '#EEF2FF' },
+    file: { label: '파일', color: '#9D174D', bg: '#FDF2F8' },
+    rating: { label: '별점', color: '#F59E0B', bg: '#FFFBEB' },
+    select: { label: '선택', color: '#7C3AED', bg: '#F5F3FF' },
     'calc-grounds': { label: '산출근거', color: '#065F46', bg: '#ECFDF5' },
-    'budget-linked':{ label: '예산연동', color: '#1D4ED8', bg: '#EFF6FF' },
-    system:         { label: '시스템',   color: '#6B7280', bg: '#F3F4F6' },
+    'budget-linked': { label: '예산연동', color: '#1D4ED8', bg: '#EFF6FF' },
+    system: { label: '시스템', color: '#6B7280', bg: '#F3F4F6' },
   };
 
   let html = `
@@ -1339,15 +1296,15 @@ function fbRenderPreviewBody(viewType) {
 
     visibleCount++;
     const poolField = ADVANCED_FIELDS.find(x => x.key === fld.key) || {};
-    const reqStr    = poolField.required ? '<span style="color:#EF4444"> *</span>' : '';
-    const icon      = poolField.icon || '🔸';
-    const ft        = poolField.fieldType || fld.fieldType || 'text';
-    const tb        = TYPE_BADGE[ft] || TYPE_BADGE.text;
+    const reqStr = poolField.required ? '<span style="color:#EF4444"> *</span>' : '';
+    const icon = poolField.icon || '🔸';
+    const ft = poolField.fieldType || fld.fieldType || 'text';
+    const tb = TYPE_BADGE[ft] || TYPE_BADGE.text;
 
     // Scope 배지
     let scopeBadge = '';
     if (viewType === 'back') {
-      if (fld.scope === 'front')  scopeBadge = `<span style="font-size:9px;background:#F0FDF4;color:#059669;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:800">FO입력</span>`;
+      if (fld.scope === 'front') scopeBadge = `<span style="font-size:9px;background:#F0FDF4;color:#059669;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:800">FO입력</span>`;
       else if (fld.scope === 'back') scopeBadge = `<span style="font-size:9px;background:#F5F3FF;color:#7C3AED;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:800">BO전용</span>`;
       else scopeBadge = `<span style="font-size:9px;background:#EFF6FF;color:#3B82F6;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:800">시스템</span>`;
     }

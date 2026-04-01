@@ -616,7 +616,7 @@ async function renderUserMgmt() {
       <!-- 회사 / 직군 -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div><label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:3px">회사 *</label>
-          <select id="user-tenant" onchange="_loadUserOrgOptions(this.value)"
+          <select id="user-tenant" onchange="_loadUserOrgOptions(this.value); window._loadUserRoleOptions(this.value)"
             style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-size:13px">
             ${tenants.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}
           </select></div>
@@ -635,12 +635,8 @@ async function renderUserMgmt() {
       <!-- 역할 -->
       <div><label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:6px">역할 부여
         <span style="font-weight:400;color:#6B7280">(학습자는 기본 부여)</span></label>
-        <div style="display:grid;gap:6px">
-          ${['platform_admin','tenant_admin','budget_admin','budget_ops'].map(code=>`
-          <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;cursor:pointer">
-            <input type="checkbox" name="user-role" value="${code}" style="width:14px;height:14px"/>
-            <span style="font-size:12px;font-weight:700;color:#374151">${_roleName(code)}</span>
-          </label>`).join('')}
+        <div id="user-role-container" style="display:grid;gap:6px">
+          <!-- 역할 목록이 동적 로드됩니다. -->
         </div>
       </div>
       <!-- 상태 -->
@@ -684,6 +680,33 @@ window._loadUserOrgOptions = async function(tenantId, selectedOrgId) {
   });
 };
 
+// 회사 변경 시 역할 체크박스를 동적 로드
+window._loadUserRoleOptions = async function(tenantId, selectedRoleCodes = []) {
+  const container = document.getElementById('user-role-container');
+  if (!container) return;
+  container.innerHTML = '<span style="font-size:12px;color:#9CA3AF">역할을 불러오는 중...</span>';
+  if (!tenantId || !_sb()) return;
+
+  const roles = await _sbGet('roles', { tenant_id: tenantId }) || [];
+  // 학습자 권한(_learner로 끝나거나 '학습자' 포함)은 숨김 처리 (기본 부여)
+  const selectableRoles = roles.filter(r => !r.code.endsWith('_learner') && !r.name.includes('학습자'));
+
+  if (!selectableRoles.length) {
+    container.innerHTML = '<span style="font-size:12px;color:#9CA3AF">선택 가능한 역할이 없습니다.</span>';
+    return;
+  }
+
+  container.innerHTML = selectableRoles.map(r => `
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;cursor:pointer">
+      <input type="checkbox" name="user-role" value="${r.code}" ${selectedRoleCodes.includes(r.code)?'checked':''} style="width:14px;height:14px;accent-color:#4F46E5"/>
+      <div>
+        <span style="font-size:12px;font-weight:800;color:#111827;display:block">${r.name}</span>
+        ${r.description ? `<span style="font-size:10px;color:#6B7280;display:block">${r.description}</span>` : ''}
+      </div>
+    </label>
+  `).join('');
+};
+
 window._openUserModal = async function(userId) {
   document.getElementById('user-edit-id').value = userId || '';
   document.getElementById('user-modal-title').textContent = userId ? '사용자 수정' : '사용자 등록';
@@ -704,10 +727,8 @@ window._openUserModal = async function(userId) {
     await window._loadUserOrgOptions(u.tenant_id, u.org_id);
     // 역할 체크
     const roles = await _sbGet('user_roles', { user_id: userId }) || [];
-    roles.forEach(r => {
-      const cb = document.querySelector(`[name="user-role"][value="${r.role_code}"]`);
-      if (cb) cb.checked = true;
-    });
+    const roleCodes = roles.map(r => r.role_code);
+    await window._loadUserRoleOptions(u.tenant_id, roleCodes);
   } else {
     document.getElementById('user-name').value = '';
     document.getElementById('user-email').value = '';
@@ -733,6 +754,7 @@ window._openUserModal = async function(userId) {
     }
     document.getElementById('user-empno').value = nextEmpNo;
     await window._loadUserOrgOptions(autoTenantId, null);
+    await window._loadUserRoleOptions(autoTenantId, []);
   }
 
   document.getElementById('user-modal').style.display = 'flex';
@@ -755,7 +777,13 @@ window._saveUser = async function() {
       status: document.getElementById('user-status').value
     }, 'id');
     if (_sb()) await _sb().from('user_roles').delete().eq('user_id', id);
-    const rolesToSave = [{ user_id:id, role_code:'learner', tenant_id:tenantId, scope_id:null }];
+    
+    // 테넌트 고유 학습자 권한 찾기 (fallback으로 tenantId_learner)
+    const allRoles = await _sbGet('roles', { tenant_id: tenantId }) || [];
+    const learnerRole = allRoles.find(r => r.code.endsWith('_learner') || r.name.includes('학습자'));
+    const learnerRoleCode = learnerRole ? learnerRole.code : (tenantId + '_learner');
+
+    const rolesToSave = [{ user_id:id, role_code:learnerRoleCode, tenant_id:tenantId, scope_id:null }];
     document.querySelectorAll('[name="user-role"]:checked').forEach(cb => {
       rolesToSave.push({ user_id:id, role_code:cb.value, tenant_id:tenantId, scope_id:null });
     });

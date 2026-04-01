@@ -308,8 +308,10 @@ async function renderServicePolicy() {
     const pat  = _patternFromPolicy(p);
     const pm   = _PATTERN_META[pat] || _PATTERN_META['B'];
     const purposeLabel = [...(_PURPOSE_MAP.learner||[]),...(_PURPOSE_MAP.operator||[])].find(x=>x.id===p.purpose)?.label || p.purpose || '';
+    const safeId   = (p.id   ||'').replace(/'/g,"\\'");
+    const safeName = (p.name ||'').replace(/'/g,"\\'");
     return `
-<div class="bo-card" style="padding:20px;margin-bottom:14px;cursor:pointer" onclick="startPolicyWizard('${p.id}')">
+<div class="bo-card" style="padding:20px;margin-bottom:14px;cursor:pointer" onclick="startPolicyWizard('${safeId}')">
   <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
     <div style="flex:1">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
@@ -328,12 +330,13 @@ async function renderServicePolicy() {
       </div>
     </div>
     <div style="display:flex;gap:6px;flex-shrink:0">
-      <button onclick="event.stopPropagation();startPolicyWizard('${p.id}')" style="font-size:11px;padding:6px 12px;border-radius:8px;border:1.5px solid #E5E7EB;background:white;cursor:pointer;font-weight:700">✏️ 수정</button>
-      <button onclick="event.stopPropagation();deleteServicePolicy('${p.id}','${p.name}')" style="font-size:11px;padding:6px 12px;border-radius:8px;border:1.5px solid #FECACA;background:#FEF2F2;color:#DC2626;cursor:pointer;font-weight:700">🗑️ 삭제</button>
+      <button onclick="event.stopPropagation();startPolicyWizard('${safeId}')" style="font-size:11px;padding:6px 12px;border-radius:8px;border:1.5px solid #E5E7EB;background:white;cursor:pointer;font-weight:700">✏️ 수정</button>
+      <button onclick="event.stopPropagation();deleteServicePolicy('${safeId}','${safeName}')" style="font-size:11px;padding:6px 12px;border-radius:8px;border:1.5px solid #FECACA;background:#FEF2F2;color:#DC2626;cursor:pointer;font-weight:700">🗑️ 삭제</button>
     </div>
   </div>
 </div>`;
   }).join('');
+
 
   el.innerHTML = `
 <div class="bo-fade">

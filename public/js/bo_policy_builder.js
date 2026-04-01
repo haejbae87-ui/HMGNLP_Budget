@@ -319,13 +319,14 @@ async function renderServicePolicy() {
     const pat = _patternFromPolicy(p);
     const pm = _PATTERN_META[pat] || _PATTERN_META['B'];
     const purposeLabel = [...(_PURPOSE_MAP.learner || []), ...(_PURPOSE_MAP.operator || [])].find(x => x.id === p.purpose)?.label || p.purpose || '—';
-    const escapedId = (p.id || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
-    const escapedName = (p.name || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    // ID 이스케이프: onclick 속성 내 작은따옴표 안전 처리
+    const safeId = String(p.id || '').replace(/'/g, "\\'").replace(/\\/g, '\\\\');
+    const safeName = String(p.name || '').replace(/'/g, "\\'").replace(/\\/g, '\\\\');
     const statusBg = p.status === 'active' ? '#D1FAE5' : '#F3F4F6';
     const statusColor = p.status === 'active' ? '#065F46' : '#9CA3AF';
     const statusLabel = p.status === 'active' ? '운영중' : '중지';
     return `
-<tr style="border-bottom:1px solid #F3F4F6;cursor:pointer;transition:background .12s" onmouseover="this.style.background='#F8FAFF'" onmouseout="this.style.background=''" onclick="startPolicyWizard(this.dataset.policyId)" data-policy-id="${escapedId}">
+<tr style="border-bottom:1px solid #F3F4F6;cursor:pointer;transition:background .12s" onmouseover="this.style.background='#F8FAFF'" onmouseout="this.style.background=''" onclick="event.stopPropagation();startPolicyWizard('${safeId}')">
   <td style="padding:11px 14px;text-align:center;color:#9CA3AF;font-size:12px">${idx + 1}</td>
   <td style="padding:11px 14px">
     <div style="font-weight:800;font-size:13px;color:#111827;margin-bottom:3px">${p.name}</div>
@@ -344,12 +345,13 @@ async function renderServicePolicy() {
   <td style="padding:11px 14px;font-size:12px;color:#6B7280;white-space:nowrap">${p.createdAt || '—'}</td>
   <td style="padding:11px 14px;text-align:center">
     <div style="display:flex;gap:5px;justify-content:center">
-      <button onclick="event.stopPropagation();startPolicyWizard(this.closest('tr').dataset.policyId)" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid #D1D5DB;background:white;cursor:pointer;font-weight:700;color:#374151">✏️ 수정</button>
-      <button onclick="event.stopPropagation();deleteServicePolicy(this.closest('tr').dataset.policyId,this.closest('tr').dataset.policyName)" data-policy-name="${escapedName}" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid #FECACA;background:#FEF2F2;color:#DC2626;cursor:pointer;font-weight:700">🗑️</button>
+      <button onclick="event.stopPropagation();startPolicyWizard('${safeId}')" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid #D1D5DB;background:white;cursor:pointer;font-weight:700;color:#374151">✏️ 수정</button>
+      <button onclick="event.stopPropagation();deleteServicePolicy('${safeId}','${safeName}')" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid #FECACA;background:#FEF2F2;color:#DC2626;cursor:pointer;font-weight:700">🗑️</button>
     </div>
   </td>
 </tr>`;
   }).join('');
+
 
 
 

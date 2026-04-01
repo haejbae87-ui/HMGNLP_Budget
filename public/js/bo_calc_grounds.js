@@ -1,9 +1,9 @@
-// ─── 백오피스: 세부 산출 근거 관리 (계층형: 테넌트→격리그룹→예산계정) ────────
-// 데이터는 CALC_GROUNDS_MASTER(레거시) + Supabase calc_grounds 테이블 혼용
+// ─── 백오피스: 세부 산출 근거 관리 (계층형: 테넌트→가상교육조직→예산계정) ────────
+// 데이터는 Supabase calc_grounds 테이블에서 로드, CALC_GROUNDS_MASTER로 동기화
 
 let _cgActiveTab      = null;     // 선택된 accountCode
 let _cgEditId         = null;
-let _cgFilterGroup    = null;     // 선택된 격리그룹 ID
+let _cgFilterGroup    = null;     // 선택된 가상교육조직 ID
 let _cgFilterAccount  = null;     // 선택된 예산계정 코드
 
 // ─── Scope / visible 배지 헬퍼 ───────────────────────────────────────────────
@@ -40,21 +40,54 @@ function _cgGetItems(tenantId, groupId, accountCode) {
   });
 }
 
+// ─── DB 로드 ───────────────────────────────────────────────────────────────────────
+let _cgDbLoaded = false;
+async function _cgLoadFromDb() {
+  if (_cgDbLoaded || typeof _sb !== 'function' || !_sb()) return;
+  try {
+    const { data, error } = await _sb().from('calc_grounds').select('*').order('sort_order');
+    if (!error && data && data.length > 0) {
+      // DB 데이터를 CALC_GROUNDS_MASTER 형식으로 변환
+      CALC_GROUNDS_MASTER = data.map(r => ({
+        id: r.id,
+        tenantId: r.tenant_id,
+        domainId: r.virtual_org_template_id || r.isolation_group_id || null,
+        accountCode: r.account_code || null,
+        name: r.name,
+        desc: r.description || '',
+        unitPrice: r.unit_price || 0,
+        softLimit: r.soft_limit || 0,
+        hardLimit: r.hard_limit || 0,
+        limitType: r.limit_type || 'none',
+        active: r.active !== false,
+        usageScope: r.usage_scope || ['plan','apply','settle'],
+        visibleFor: r.visible_for || 'both',
+        sortOrder: r.sort_order || 99,
+      }));
+      _cgDbLoaded = true;
+      console.log('[CalcGrounds] DB에서', data.length, '건 로드 완료');
+    }
+  } catch(e) { console.warn('[CalcGrounds] DB 로드 실패:', e); }
+}
+
 // ─── 메인 렌더 ───────────────────────────────────────────────────────────────
-function renderCalcGrounds() {
+async function renderCalcGrounds() {
+  await _cgLoadFromDb();
   const tenantId   = boCurrentPersona.tenantId || 'HMC';
   const tenantName = (typeof TENANTS !== 'undefined' ? TENANTS.find(t => t.id === tenantId) : null)?.name || tenantId;
 
-  // 이 테넌트에 속한 격리그룹
-  const myGroups = (typeof EDU_SUPPORT_DOMAINS !== 'undefined')
-    ? EDU_SUPPORT_DOMAINS.filter(g => g.tenantId === tenantId)
+  // 이 테넌트에 속한 가상교육조직 (교육지원 유형만)
+  const myGroups = (typeof VIRTUAL_ORG_TEMPLATES !== 'undefined')
+    ? VIRTUAL_ORG_TEMPLATES.filter(t => t.tenant_id === tenantId && t.service_type === 'edu_support')
     : [];
 
   if (!_cgFilterGroup && myGroups.length) _cgFilterGroup = myGroups[0].id;
 
-  // 선택된 그룹의 계정 목록
+  // 선택된 가상교육조직의 예산 계정 목록
   const selectedGroup = myGroups.find(g => g.id === _cgFilterGroup);
-  const ownedAccts = selectedGroup?.ownedAccounts || [];
+  const ownedAccts = (typeof _baAccountList !== 'undefined' && _cgFilterGroup)
+    ? _baAccountList.filter(a => a.virtual_org_template_id === _cgFilterGroup).map(a => a.code)
+    : [];
   if (!_cgFilterAccount && ownedAccts.length) _cgFilterAccount = ownedAccts[0];
 
   const el = document.getElementById('bo-content');
@@ -69,16 +102,16 @@ function renderCalcGrounds() {
       <h1 class="bo-page-title" style="margin:0">세부 산출 근거 관리</h1>
       <span style="font-size:13px;color:#6B7280">— ${tenantName}</span>
     </div>
-    <p class="bo-page-sub">테넌트 → 격리그룹 → 예산계정 단위로 세부 산출근거 항목을 독립적으로 구성합니다.</p>
+    <p class="bo-page-sub">테넌트 → 가상교육조직 → 예산계정 단위로 세부 산출근거 항목을 독립적으로 구성합니다.</p>
   </div>
 
   <!-- 계층형 필터 바 -->
   <div class="bo-card" style="padding:16px;margin-bottom:20px;background:#F8FAFC">
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
       
-      <!-- 격리그룹 선택 -->
+      <!-- 가상교육조직 선택 -->
       <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:200px">
-        <label style="font-size:11px;font-weight:900;color:#374151;white-space:nowrap">🛡️ 격리그룹</label>
+        <label style="font-size:11px;font-weight:900;color:#374151;white-space:nowrap">🏢 가상교육조직</label>
         <select id="cg-sel-group" onchange="cgOnGroupChange(this.value)"
                 style="flex:1;padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700">
           ${myGroups.map(g => `<option value="${g.id}" ${_cgFilterGroup===g.id?'selected':''}>${g.name}</option>`).join('')}
@@ -92,7 +125,7 @@ function renderCalcGrounds() {
                 style="flex:1;padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700">
           <option value="">— 전체 (공유) —</option>
           ${ownedAccts.map(code => {
-            const acct = (typeof ACCOUNT_MASTER!=='undefined' ? ACCOUNT_MASTER.find(a=>a.code===code) : null) || {};
+            const acct = (typeof _baAccountList!=='undefined' ? _baAccountList.find(a=>a.code===code) : null) || {};
             return `<option value="${code}" ${_cgFilterAccount===code?'selected':''}>${code}${acct.name?` (${acct.name})`:''}</option>`;
           }).join('')}
         </select>
@@ -165,7 +198,7 @@ function _renderCgTable(tenantId, groupId, accountCode) {
   // 범위 뱃지
   const scopeLabel = item => {
     if (item.accountCode) return `<span style="font-size:9px;background:#FDF2F8;color:#9D174D;padding:1px 5px;border-radius:4px;font-weight:800">계정전용</span>`;
-    if (item.domainId) return `<span style="font-size:9px;background:#F5F3FF;color:#7C3AED;padding:1px 5px;border-radius:4px;font-weight:800">그룹공유</span>`;
+    if (item.domainId) return `<span style="font-size:9px;background:#F5F3FF;color:#7C3AED;padding:1px 5px;border-radius:4px;font-weight:800">조직공유</span>`;
     return `<span style="font-size:9px;background:#F3F4F6;color:#6B7280;padding:1px 5px;border-radius:4px;font-weight:800">테넌트공유</span>`;
   };
 
@@ -177,7 +210,7 @@ function _renderCgTable(tenantId, groupId, accountCode) {
   </div>
   <div style="display:flex;gap:8px;font-size:10px;color:#9CA3AF">
     <span><span style="background:#F3F4F6;padding:1px 5px;border-radius:4px;font-weight:800;color:#6B7280">테넌트공유</span> 이 테넌트 전체</span>
-    <span><span style="background:#F5F3FF;padding:1px 5px;border-radius:4px;font-weight:800;color:#7C3AED">그룹공유</span> 격리그룹 내</span>
+    <span><span style="background:#F5F3FF;padding:1px 5px;border-radius:4px;font-weight:800;color:#7C3AED">조직공유</span> 가상교육조직 내</span>
     <span><span style="background:#FDF2F8;padding:1px 5px;border-radius:4px;font-weight:800;color:#9D174D">계정전용</span> 이 계정 한정</span>
   </div>
 </div>
@@ -251,7 +284,9 @@ function cgOpenModal(id) {
   _cgEditId = id || null;
   const item = id ? CALC_GROUNDS_MASTER.find(g => g.id === id) : null;
   const tenantId = boCurrentPersona.tenantId || 'HMC';
-  const myGroups = EDU_SUPPORT_DOMAINS.filter(g => g.tenantId === tenantId);
+  const myGroups = (typeof VIRTUAL_ORG_TEMPLATES !== 'undefined')
+    ? VIRTUAL_ORG_TEMPLATES.filter(t => t.tenant_id === tenantId && t.service_type === 'edu_support')
+    : [];
 
   document.getElementById('cg-modal-title').textContent = id ? '산출 근거 항목 수정' : '산출 근거 항목 추가';
   document.getElementById('cg-modal-body').innerHTML = _cgModalBody(item, tenantId, myGroups);
@@ -264,13 +299,15 @@ function _cgModalBody(item, tenantId, myGroups) {
   const scopes = item?.usageScope || ['plan','apply','settle'];
   const visFor = item?.visibleFor || 'both';
 
-  // 그룹+계정 드롭다운 (계층 지정)
-  const groupOpts = myGroups.map(g => `<option value="${g.id}" ${item?.domainId===g.id?'selected':''}>${g.name} (${g.id})</option>`).join('');
+  // 가상교육조직+계정 드롭다운
+  const groupOpts = myGroups.map(g => `<option value="${g.id}" ${item?.domainId===g.id?'selected':''}>${g.name}</option>`).join('');
   
   const selectedGrpId = item?.domainId || _cgFilterGroup;
-  const selectedGrp   = myGroups.find(g => g.id === selectedGrpId);
-  const acctOpts      = (selectedGrp?.ownedAccounts||[]).map(code =>
-    `<option value="${code}" ${item?.accountCode===code?'selected':''}>${code}</option>`
+  const acctList = (typeof _baAccountList !== 'undefined' && selectedGrpId)
+    ? _baAccountList.filter(a => a.virtual_org_template_id === selectedGrpId)
+    : [];
+  const acctOpts = acctList.map(a =>
+    `<option value="${a.code}" ${item?.accountCode===a.code?'selected':''}>${a.code}${a.name?` (${a.name})`:''}</option>`
   ).join('');
 
   return `
@@ -281,7 +318,7 @@ function _cgModalBody(item, tenantId, myGroups) {
     <div style="font-size:12px;font-weight:800;color:#1D4ED8;margin-bottom:10px">📐 적용 범위 설정</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div>
-        <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px">격리그룹 (미선택 = 테넌트 전체 공유)</label>
+        <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px">가상교육조직 (미선택 = 테넌트 전체 공유)</label>
         <select id="cg-grp" onchange="cgOnModalGroupChange(this.value)"
                 style="width:100%;padding:8px 10px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:12px">
           <option value="">— 테넌트 전체 공유 —</option>
@@ -397,13 +434,13 @@ function _cgModalBody(item, tenantId, myGroups) {
 }
 
 function cgOnModalGroupChange(groupId) {
-  const tenantId = boCurrentPersona.tenantId || 'HMC';
-  const g = (typeof EDU_SUPPORT_DOMAINS !== 'undefined' ? EDU_SUPPORT_DOMAINS.find(x => x.id === groupId) : null);
   const acctSel = document.getElementById('cg-acct');
   if (acctSel) {
-    const accts = g?.ownedAccounts || [];
+    const accts = (typeof _baAccountList !== 'undefined' && groupId)
+      ? _baAccountList.filter(a => a.virtual_org_template_id === groupId)
+      : [];
     acctSel.innerHTML = `<option value="">— 공유 항목 —</option>` +
-      accts.map(code => `<option value="${code}">${code}</option>`).join('');
+      accts.map(a => `<option value="${a.code}">${a.code}${a.name?` (${a.name})`:''}</option>`).join('');
   }
 }
 

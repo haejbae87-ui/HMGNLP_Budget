@@ -4,6 +4,8 @@
 let _policyWizardStep = 0;
 let _policyWizardData = {};
 let _editPolicyId = null;
+let _pbTplList = [];       // 가상교육조직 템플릿 목록 (DB 로드)
+let _pbAccountList = [];   // 예산계정 목록 (DB 로드)
 
 // ── 패턴 메타 (E 추가) ────────────────────────────────────────────────────────
 const _PATTERN_META = {
@@ -109,8 +111,8 @@ async function renderServicePolicy() {
   const el = document.getElementById('bo-content');
 
   // DB 재로드: Supabase에서 service_policies를 불러와 메모리와 병합
-  let _pbTplList = [];
-  let _pbAccountList = [];
+  _pbTplList = [];
+  _pbAccountList = [];
   if (typeof _sb === 'function' && _sb()) {
     try {
       const p1 = _sb().from('virtual_org_templates').select('id,name,tenant_id').eq('service_type', 'edu_support');
@@ -412,8 +414,6 @@ function _getPersonaByKey(key) {
 
 // ── 위저드 시작 ───────────────────────────────────────────────────────────────
 function startPolicyWizard(policyId) {
-  console.log('[startPolicyWizard] called with:', policyId, 'type:', typeof policyId);
-  console.log('[startPolicyWizard] SERVICE_POLICIES count:', SERVICE_POLICIES.length, 'ids:', SERVICE_POLICIES.map(p => p.id));
   _editPolicyId = policyId;
   _policyWizardStep = 0;
   if (policyId) {
@@ -464,15 +464,13 @@ function startPolicyWizard(policyId) {
 
 // ── 위저드 렌더링 ─────────────────────────────────────────────────────────────
 function renderPolicyWizard() {
-  try {
-    console.log('[renderPolicyWizard] START, _policyWizardStep=', _policyWizardStep, '_editPolicyId=', _editPolicyId);
-    const el = document.getElementById('bo-content');
-    const steps = ['범위설정', '정책명·대상자', '목적', '교육유형', '패턴', '양식', '결재라인'];
-    const TOTAL = steps.length - 1;
-    const d = _policyWizardData;
-    const persona = boCurrentPersona;
+  const el = document.getElementById('bo-content');
+  const steps = ['범위설정', '정책명·대상자', '목적', '교육유형', '패턴', '양식', '결재라인'];
+  const TOTAL = steps.length - 1;
+  const d = _policyWizardData;
+  const persona = boCurrentPersona;
 
-    const stepBar = steps.map((s, i) => `
+  const stepBar = steps.map((s, i) => `
 <div style="display:flex;align-items:center;gap:0">
   <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
     <div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;
@@ -483,50 +481,50 @@ function renderPolicyWizard() {
   ${i < steps.length - 1 ? `<div style="width:20px;height:2px;background:${i < _policyWizardStep ? '#059669' : '#E5E7EB'};margin-bottom:16px"></div>` : ''}
 </div>`).join('');
 
-    // ── 이전 선택값 요약 배너 (step > 0일 때 표시) ─────────────────────────────
-    const _sumTenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
-    const _sumVorgs = typeof _pbTplList !== 'undefined' ? _pbTplList : [];
-    const _sumAccts = typeof ACCOUNT_MASTER !== 'undefined' ? ACCOUNT_MASTER : [];
-    const sumTenant = _sumTenants.find(t => t.id === d.scopeTenantId)?.name || d.scopeTenantId || '';
-    const sumGroup = _sumVorgs.find(g => g.id === d.vorgTemplateId)?.name || d.vorgTemplateId || '';
-    const sumAccts = (d.accountCodes || []).map(c => _sumAccts.find(a => a.code === c)?.name || c).join(', ');
-    const sumPat = d.processPattern ? `${_PATTERN_META[d.processPattern]?.icon || ''} 패턴${d.processPattern}` : '';
-    const summaryChips = [
-      sumTenant && `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;background:#EFF6FF;border:1px solid #BFDBFE;font-size:11px;font-weight:700;color:#1E40AF">🏢 ${sumTenant}</span>`,
-      sumGroup && `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;background:#F5F3FF;border:1px solid #DDD6FE;font-size:11px;font-weight:700;color:#5B21B6">🛡️ ${sumGroup}</span>`,
-      sumAccts && `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;background:#ECFDF5;border:1px solid #A7F3D0;font-size:11px;font-weight:700;color:#065F46">💳 ${sumAccts}</span>`,
-      d.name && `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;background:#FFFBEB;border:1px solid #FDE68A;font-size:11px;font-weight:700;color:#92400E">📋 ${d.name}</span>`,
-      sumPat && `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;background:#FEF3C7;border:1px solid #FCD34D;font-size:11px;font-weight:700;color:#B45309">${sumPat}</span>`,
-    ].filter(Boolean).join('');
-    const summaryBar = (_policyWizardStep > 0 && summaryChips) ? `
+  // ── 이전 선택값 요약 배너 (step > 0일 때 표시) ─────────────────────────────
+  const _sumTenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
+  const _sumVorgs = typeof _pbTplList !== 'undefined' ? _pbTplList : [];
+  const _sumAccts = typeof ACCOUNT_MASTER !== 'undefined' ? ACCOUNT_MASTER : [];
+  const sumTenant = _sumTenants.find(t => t.id === d.scopeTenantId)?.name || d.scopeTenantId || '';
+  const sumGroup = _sumVorgs.find(g => g.id === d.vorgTemplateId)?.name || d.vorgTemplateId || '';
+  const sumAccts = (d.accountCodes || []).map(c => _sumAccts.find(a => a.code === c)?.name || c).join(', ');
+  const sumPat = d.processPattern ? `${_PATTERN_META[d.processPattern]?.icon || ''} 패턴${d.processPattern}` : '';
+  const summaryChips = [
+    sumTenant && `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;background:#EFF6FF;border:1px solid #BFDBFE;font-size:11px;font-weight:700;color:#1E40AF">🏢 ${sumTenant}</span>`,
+    sumGroup && `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;background:#F5F3FF;border:1px solid #DDD6FE;font-size:11px;font-weight:700;color:#5B21B6">🛡️ ${sumGroup}</span>`,
+    sumAccts && `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;background:#ECFDF5;border:1px solid #A7F3D0;font-size:11px;font-weight:700;color:#065F46">💳 ${sumAccts}</span>`,
+    d.name && `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;background:#FFFBEB;border:1px solid #FDE68A;font-size:11px;font-weight:700;color:#92400E">📋 ${d.name}</span>`,
+    sumPat && `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;background:#FEF3C7;border:1px solid #FCD34D;font-size:11px;font-weight:700;color:#B45309">${sumPat}</span>`,
+  ].filter(Boolean).join('');
+  const summaryBar = (_policyWizardStep > 0 && summaryChips) ? `
 <div style="display:flex;gap:6px;flex-wrap:wrap;padding:10px 14px;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;margin-bottom:16px">
   <span style="font-size:10px;font-weight:900;color:#9CA3AF;white-space:nowrap;line-height:24px">현재 설정:</span>
   ${summaryChips}
 </div>` : '';
 
-    let stepContent = '';
+  let stepContent = '';
 
-    // ── Step 0: 범위 설정 (회사 → 가상교육조직 → 예산계정) ────────────────────────────
-    if (_policyWizardStep === 0) {
-      const isPlatform = persona.role === 'platform_admin';
-      const isTenant = ['tenant_global_admin'].includes(persona.role);
-      const isBudgetOp = ['budget_op_manager', 'budget_hq', 'budget_global_admin'].includes(persona.role);
+  // ── Step 0: 범위 설정 (회사 → 가상교육조직 → 예산계정) ────────────────────────────
+  if (_policyWizardStep === 0) {
+    const isPlatform = persona.role === 'platform_admin';
+    const isTenant = ['tenant_global_admin'].includes(persona.role);
+    const isBudgetOp = ['budget_op_manager', 'budget_hq', 'budget_global_admin'].includes(persona.role);
 
-      const _TENANTS_LIST = typeof TENANTS !== 'undefined' ? TENANTS : [];
-      const _VORG_LIST = typeof _pbTplList !== 'undefined' ? _pbTplList : [];
+    const _TENANTS_LIST = typeof TENANTS !== 'undefined' ? TENANTS : [];
+    const _VORG_LIST = typeof _pbTplList !== 'undefined' ? _pbTplList : [];
 
-      const scopeTenantId = d.scopeTenantId || (isTenant || isBudgetOp ? persona.tenantId : '');
-      const scopeVorgs = _VORG_LIST.filter(g => scopeTenantId ? g.tenant_id === scopeTenantId : true);
+    const scopeTenantId = d.scopeTenantId || (isTenant || isBudgetOp ? persona.tenantId : '');
+    const scopeVorgs = _VORG_LIST.filter(g => scopeTenantId ? g.tenant_id === scopeTenantId : true);
 
-      const scopeVorgId = d.vorgTemplateId || (isBudgetOp ? (persona.domainId || '') : '');
-      const scopeVorg = scopeVorgs.find(g => g.id === scopeVorgId);
+    const scopeVorgId = d.vorgTemplateId || (isBudgetOp ? (persona.domainId || '') : '');
+    const scopeVorg = scopeVorgs.find(g => g.id === scopeVorgId);
 
-      // 예산계정
-      const scopeAccts = scopeVorgId
-        ? _pbAccountList.filter(a => a.active && a.virtual_org_template_id === scopeVorgId)
-        : [];
+    // 예산계정
+    const scopeAccts = scopeVorgId
+      ? _pbAccountList.filter(a => a.active && a.virtual_org_template_id === scopeVorgId)
+      : [];
 
-      stepContent = `
+    stepContent = `
 <div style="display:grid;gap:18px">
   <div style="padding:12px 16px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;font-size:12px;color:#92400E">
     💡 정책이 적용될 <strong>회사 · 가상교육조직 · 예산계정</strong>을 먼저 설정합니다. 이 설정이 정책의 모든 데이터 범위를 결정합니다.
@@ -598,9 +596,9 @@ function renderPolicyWizard() {
   </div>` : ''}
 </div>`;
 
-      // ── Step 1: 정책명 + 대상자 ──────────────────────────────────────────────────
-    } else if (_policyWizardStep === 1) {
-      stepContent = `
+    // ── Step 1: 정책명 + 대상자 ──────────────────────────────────────────────────
+  } else if (_policyWizardStep === 1) {
+    stepContent = `
 <div style="display:grid;gap:18px">
   <div>
     <label class="bo-label">정책명 <span style="color:#EF4444">*</span></label>
@@ -616,9 +614,9 @@ function renderPolicyWizard() {
     <label class="bo-label">대상자 <span style="color:#EF4444">*</span></label>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       ${[
-          { v: 'learner', icon: '👤', l: '학습자용', d: '개인 학습자가 교육비를 신청하는 서비스' },
-          { v: 'operator', icon: '👔', l: '교육담당자용', d: '교육담당자가 운영하는 집합·이러닝·외부행사' },
-        ].map(o => `
+        { v: 'learner', icon: '👤', l: '학습자용', d: '개인 학습자가 교육비를 신청하는 서비스' },
+        { v: 'operator', icon: '👔', l: '교육담당자용', d: '교육담당자가 운영하는 집합·이러닝·외부행사' },
+      ].map(o => `
       <label style="display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border-radius:10px;
                     border:2px solid ${d.targetType === o.v ? '#7C3AED' : '#E5E7EB'};
                     background:${d.targetType === o.v ? '#F5F3FF' : 'white'};cursor:pointer"
@@ -633,10 +631,10 @@ function renderPolicyWizard() {
   </div>
 </div>`;
 
-      // ── Step 2: 목적 ──────────────────────────────────────────────────────────────
-    } else if (_policyWizardStep === 2) {
-      const purposes = _PURPOSE_MAP[d.targetType] || [];
-      stepContent = `
+    // ── Step 2: 목적 ──────────────────────────────────────────────────────────────
+  } else if (_policyWizardStep === 2) {
+    const purposes = _PURPOSE_MAP[d.targetType] || [];
+    stepContent = `
 <div style="display:grid;gap:10px">
   <div style="padding:12px 16px;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:10px;font-size:12px;color:#5B21B6">
     대상: <strong>${d.targetType === 'learner' ? '👤 학습자용' : '👔 교육담당자용'}</strong>
@@ -652,26 +650,26 @@ function renderPolicyWizard() {
   </label>`).join('')}
 </div>`;
 
-      // ── Step 3: 교육유형 ───────────────────────────────────────────────────────────
-    } else if (_policyWizardStep === 3) {
-      const types = _EDU_TYPE_MAP[d.purpose] || [];
-      if (!d.eduSubTypes) d.eduSubTypes = {};
-      const isPersonal = d.purpose === 'external_personal';
-      // 개인직무사외학습: selectedEduItem = {typeId, subId}  (단독 선택)
-      if (!d.selectedEduItem) d.selectedEduItem = null;
+    // ── Step 3: 교육유형 ───────────────────────────────────────────────────────────
+  } else if (_policyWizardStep === 3) {
+    const types = _EDU_TYPE_MAP[d.purpose] || [];
+    if (!d.eduSubTypes) d.eduSubTypes = {};
+    const isPersonal = d.purpose === 'external_personal';
+    // 개인직무사외학습: selectedEduItem = {typeId, subId}  (단독 선택)
+    if (!d.selectedEduItem) d.selectedEduItem = null;
 
-      const purposeLabel = [...(_PURPOSE_MAP.learner || []), ...(_PURPOSE_MAP.operator || [])].find(x => x.id === d.purpose)?.label || d.purpose;
+    const purposeLabel = [...(_PURPOSE_MAP.learner || []), ...(_PURPOSE_MAP.operator || [])].find(x => x.id === d.purpose)?.label || d.purpose;
 
-      if (isPersonal) {
-        // ── 개인직무사외학습: 헤더+라디오 단독선택 ─────────────────────────────────
-        stepContent = `
+    if (isPersonal) {
+      // ── 개인직무사외학습: 헤더+라디오 단독선택 ─────────────────────────────────
+      stepContent = `
 <div style="display:grid;gap:12px">
   <div style="padding:12px 16px;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:10px;font-size:12px;color:#5B21B6">
     목적: <strong>${purposeLabel}</strong>
   </div>
   <label class="bo-label">교육 유형 세부 항목 <span style="font-size:10px;color:#9CA3AF">(하나만 선택)</span></label>
   ${types.map(t => {
-          if (!t.subs || !t.subs.length) return `
+        if (!t.subs || !t.subs.length) return `
   <div style="border-radius:10px;border:1.5px solid #E5E7EB;overflow:hidden">
     <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer"
            onclick="_selectEduItem('${t.id}','')">
@@ -679,7 +677,7 @@ function renderPolicyWizard() {
       <span style="font-size:13px;font-weight:800;color:${d.selectedEduItem?.typeId === t.id ? '#7C3AED' : '#374151'}">${t.label}</span>
     </label>
   </div>`;
-          return `
+        return `
   <div style="border-radius:10px;border:1.5px solid #E5E7EB;overflow:hidden">
     <div style="padding:10px 16px;background:#F9FAFB;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;gap:8px">
       <span style="font-size:12px;font-weight:900;color:#374151">${t.label}</span>
@@ -696,12 +694,12 @@ function renderPolicyWizard() {
       </label>`).join('')}
     </div>
   </div>`;
-        }).join('')}
+      }).join('')}
 </div>`;
 
-      } else {
-        // ── 기타 목적: 복수 체크박스 ───────────────────────────────────────────────
-        stepContent = `
+    } else {
+      // ── 기타 목적: 복수 체크박스 ───────────────────────────────────────────────
+      stepContent = `
 <div style="display:grid;gap:10px">
   <div style="padding:12px 16px;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:10px;font-size:12px;color:#5B21B6">
     목적: <strong>${purposeLabel}</strong>
@@ -709,35 +707,35 @@ function renderPolicyWizard() {
   <label class="bo-label">교육 유형 <span style="font-size:10px;color:#9CA3AF">(복수 선택 가능)</span></label>
   <div style="display:grid;gap:6px">
     ${types.map(t => {
-          const isChecked = (d.eduTypes || []).includes(t.id);
-          return `
+        const isChecked = (d.eduTypes || []).includes(t.id);
+        return `
     <div style="border-radius:10px;border:1.5px solid ${isChecked ? '#7C3AED' : '#E5E7EB'};background:${isChecked ? '#F5F3FF' : 'white'};overflow:hidden">
       <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer" onclick="_toggleEduType('${t.id}')">
         <input type="checkbox" ${isChecked ? 'checked' : ''} style="margin:0;flex-shrink:0">
         <div style="font-size:13px;font-weight:800;color:${isChecked ? '#7C3AED' : '#374151'}">${t.label}</div>
       </label>
     </div>`;
-        }).join('')}
+      }).join('')}
   </div>
 </div>`;
-      }
+    }
 
-      // ── Step 4: 패턴 ─────────────────────────────────────────────────────────────
-    } else if (_policyWizardStep === 4) {
-      const isNoBudget = !d.budgetLinked;
-      const selAcctName = (d.accountCodes || []).map(c => ACCOUNT_MASTER.find(a => a.code === c)?.name || c).join(', ') || '—';
-      const budgetedPatterns = [
-        { v: 'A', icon: '📊', l: '패턴A: 계획→신청→결과', color: '#7C3AED', d: '고통제형. R&D·대규모 집합교육. 사전계획 필수, 예산 가점유 후 실차감.' },
-        { v: 'B', icon: '📝', l: '패턴B: 신청→결과', color: '#1D4ED8', d: '자율신청형. 일반 사외교육 참가. 신청 승인 시 가점유, 결과 후 실차감.' },
-        { v: 'C', icon: '🧾', l: '패턴C: 결과 단독(후정산)', color: '#D97706', d: '선지불 후정산. 개인 카드 결제 후 영수증 첨부. 승인 즉시 예산 차감.' },
-      ];
-      const noBudgetPatterns = [
-        { v: 'D', icon: '📋', l: '패턴D: 신청 단독(이력)', color: '#6B7280', d: '무예산 이력관리. 무료 웨비나·자체세미나. 승인 시 즉시 이력 DB 적재.' },
-        { v: 'E', icon: '✅', l: '패턴E: 신청→결과(이력+결과)', color: '#059669', d: '무예산이지만 결과보고까지 진행. 자비학습 후 결과 제출 필요한 경우.' },
-      ];
-      const patterns = isNoBudget ? noBudgetPatterns : budgetedPatterns;
+    // ── Step 4: 패턴 ─────────────────────────────────────────────────────────────
+  } else if (_policyWizardStep === 4) {
+    const isNoBudget = !d.budgetLinked;
+    const selAcctName = (d.accountCodes || []).map(c => ACCOUNT_MASTER.find(a => a.code === c)?.name || c).join(', ') || '—';
+    const budgetedPatterns = [
+      { v: 'A', icon: '📊', l: '패턴A: 계획→신청→결과', color: '#7C3AED', d: '고통제형. R&D·대규모 집합교육. 사전계획 필수, 예산 가점유 후 실차감.' },
+      { v: 'B', icon: '📝', l: '패턴B: 신청→결과', color: '#1D4ED8', d: '자율신청형. 일반 사외교육 참가. 신청 승인 시 가점유, 결과 후 실차감.' },
+      { v: 'C', icon: '🧾', l: '패턴C: 결과 단독(후정산)', color: '#D97706', d: '선지불 후정산. 개인 카드 결제 후 영수증 첨부. 승인 즉시 예산 차감.' },
+    ];
+    const noBudgetPatterns = [
+      { v: 'D', icon: '📋', l: '패턴D: 신청 단독(이력)', color: '#6B7280', d: '무예산 이력관리. 무료 웨비나·자체세미나. 승인 시 즉시 이력 DB 적재.' },
+      { v: 'E', icon: '✅', l: '패턴E: 신청→결과(이력+결과)', color: '#059669', d: '무예산이지만 결과보고까지 진행. 자비학습 후 결과 제출 필요한 경우.' },
+    ];
+    const patterns = isNoBudget ? noBudgetPatterns : budgetedPatterns;
 
-      stepContent = `
+    stepContent = `
 <div style="display:grid;gap:16px">
   <div style="padding:12px 16px;background:${isNoBudget ? '#F0FDF4' : '#EFF6FF'};border:1px solid ${isNoBudget ? '#A7F3D0' : '#BFDBFE'};border-radius:10px;display:flex;align-items:center;gap:10px;font-size:12px">
     ${isNoBudget ? '📝 <strong style="color:#065F46">무예산</strong>' : '💳 <strong style="color:#1E40AF">예산 연동</strong>'}
@@ -762,120 +760,120 @@ function renderPolicyWizard() {
   </div>
 </div>`;
 
-      // ── Step 5: 단계별 양식 선택 (기존 Step 6) ──────────────────────────────────
-    } else if (_policyWizardStep === 5) {
-      // DB에서 form_templates 로드하여 FORM_MASTER와 병합 (최초 1회 또는 비어있을 때)
-      const _scopeGrpForLoad = d.scopeTenantId || persona.tenantId;
-      if (typeof _sb === 'function' && _sb() && typeof FORM_MASTER !== 'undefined') {
-        (async () => {
-          try {
-            const { data: dbForms } = await _sb().from('form_templates').select('*').eq('active', true);
-            if (dbForms && dbForms.length > 0) {
-              let changed = false;
-              dbForms.forEach(row => {
-                const mapped = {
-                  id: row.id, tenantId: row.tenant_id, domainId: row.domain_id || row.vorg_template_id,
-                  accountCode: row.account_code, type: row.type, name: row.name, desc: row.description || row.desc || '',
-                  purpose: row.purpose, eduType: row.edu_type, active: row.active !== false,
-                  fields: row.fields || [],
-                };
-                const idx = FORM_MASTER.findIndex(f => f.id === mapped.id);
-                if (idx >= 0) { FORM_MASTER[idx] = mapped; }
-                else { FORM_MASTER.push(mapped); changed = true; }
-              });
-              if (changed) renderPolicyWizard(); // DB 로드 후 양식 목록 갱신
-            }
-          } catch (e) { console.warn('[PolicyWizard:Step5] form_templates 로드 실패:', e.message); }
-        })();
-      }
+    // ── Step 5: 단계별 양식 선택 (기존 Step 6) ──────────────────────────────────
+  } else if (_policyWizardStep === 5) {
+    // DB에서 form_templates 로드하여 FORM_MASTER와 병합 (최초 1회 또는 비어있을 때)
+    const _scopeGrpForLoad = d.scopeTenantId || persona.tenantId;
+    if (typeof _sb === 'function' && _sb() && typeof FORM_MASTER !== 'undefined') {
+      (async () => {
+        try {
+          const { data: dbForms } = await _sb().from('form_templates').select('*').eq('active', true);
+          if (dbForms && dbForms.length > 0) {
+            let changed = false;
+            dbForms.forEach(row => {
+              const mapped = {
+                id: row.id, tenantId: row.tenant_id, domainId: row.domain_id || row.vorg_template_id,
+                accountCode: row.account_code, type: row.type, name: row.name, desc: row.description || row.desc || '',
+                purpose: row.purpose, eduType: row.edu_type, active: row.active !== false,
+                fields: row.fields || [],
+              };
+              const idx = FORM_MASTER.findIndex(f => f.id === mapped.id);
+              if (idx >= 0) { FORM_MASTER[idx] = mapped; }
+              else { FORM_MASTER.push(mapped); changed = true; }
+            });
+            if (changed) renderPolicyWizard(); // DB 로드 후 양식 목록 갱신
+          }
+        } catch (e) { console.warn('[PolicyWizard:Step5] form_templates 로드 실패:', e.message); }
+      })();
+    }
 
-      const _scopeTenantId = d.scopeTenantId || persona.tenantId;
-      const _scopeVorgId = d.vorgTemplateId || '';
-      const _scopeAcctCode = (d.accountCodes || [])[0] || '';
+    const _scopeTenantId = d.scopeTenantId || persona.tenantId;
+    const _scopeVorgId = d.vorgTemplateId || '';
+    const _scopeAcctCode = (d.accountCodes || [])[0] || '';
 
-      // 정책에서 선택된 교육유형 집합 (필터에 사용)
-      const _policyEduTypes = d.purpose === 'external_personal'
-        ? (d.selectedEduItem?.typeId ? [d.selectedEduItem.typeId] : [])
-        : (d.eduTypes || []);
-      // 정책에서 선택된 세부유형
-      const _policyEduSubId = d.purpose === 'external_personal'
-        ? (d.selectedEduItem?.subId || '') : '';
+    // 정책에서 선택된 교육유형 집합 (필터에 사용)
+    const _policyEduTypes = d.purpose === 'external_personal'
+      ? (d.selectedEduItem?.typeId ? [d.selectedEduItem.typeId] : [])
+      : (d.eduTypes || []);
+    // 정책에서 선택된 세부유형
+    const _policyEduSubId = d.purpose === 'external_personal'
+      ? (d.selectedEduItem?.subId || '') : '';
 
-      // 기준 양식 풀 (텐넌트+가상교육조직+계정)
-      const _allForms = (typeof FORM_MASTER !== 'undefined' ? FORM_MASTER : [])
-        .filter(f => {
-          if (!f.active) return false;
-          // tenantId 매칭: scopeTenantId 없으면 통과, 있으면 정확 매칭 (단 DB UUID와 코드가 다를 수 있어 양쪽 허용)
-          if (_scopeTenantId && f.tenantId && f.tenantId !== _scopeTenantId) return false;
-          // f.domainId에 신규로 vorg_template_id 저장됨
-          if (_scopeVorgId && f.domainId && f.domainId !== _scopeVorgId) return false;
-          if (_scopeAcctCode && f.accountCode && f.accountCode !== _scopeAcctCode) return false;
-          return true;
-        });
-
-
-      // 교육유형으로 추가 필터 (목적·유형 정보가 없는 구형 양식은 숨기지 않음)
-      // BO key('seminar') ↔ 한글라벨('세미나') 양방향 매칭
-      const _eduKeyToLabel = {};
-      const _eduLabelToKey = {};
-      Object.values(_EDU_TYPE_MAP).flat().forEach(t => {
-        _eduKeyToLabel[t.id] = t.label;
-        _eduLabelToKey[t.label] = t.id;
-        (t.subs || []).forEach(s => { _eduKeyToLabel[s.id] = s.label; _eduLabelToKey[s.label] = s.id; });
-      });
-      const _expandedEduTypes = new Set(_policyEduTypes);
-      _policyEduTypes.forEach(k => { if (_eduKeyToLabel[k]) _expandedEduTypes.add(_eduKeyToLabel[k]); });
-      _policyEduTypes.forEach(k => { if (_eduLabelToKey[k]) _expandedEduTypes.add(_eduLabelToKey[k]); });
-
-      const _eduFiltered = _expandedEduTypes.size === 0 ? _allForms : _allForms.filter(f => {
-        if (!f.eduType && !f.purpose) return true; // 구형 양식 허용
-        if (_expandedEduTypes.has(f.eduType)) return true;
-        return false;
+    // 기준 양식 풀 (텐넌트+가상교육조직+계정)
+    const _allForms = (typeof FORM_MASTER !== 'undefined' ? FORM_MASTER : [])
+      .filter(f => {
+        if (!f.active) return false;
+        // tenantId 매칭: scopeTenantId 없으면 통과, 있으면 정확 매칭 (단 DB UUID와 코드가 다를 수 있어 양쪽 허용)
+        if (_scopeTenantId && f.tenantId && f.tenantId !== _scopeTenantId) return false;
+        // f.domainId에 신규로 vorg_template_id 저장됨
+        if (_scopeVorgId && f.domainId && f.domainId !== _scopeVorgId) return false;
+        if (_scopeAcctCode && f.accountCode && f.accountCode !== _scopeAcctCode) return false;
+        return true;
       });
 
-      // stage별 폼 목록 함수 (해당 탭의 type에 맞는 것만)
-      const _formsForStage = (stage) => _eduFiltered.filter(f => f.type === stage);
 
-      const stages = _PATTERN_STAGES[d.processPattern] || ['apply'];
-      const stageLabel = { plan: '📊 계획', apply: '📝 신청', result: '📄 결과' };
-      const stageColor = { plan: '#7C3AED', apply: '#1D4ED8', result: '#059669' };
-      if (!d.stageFormIds) d.stageFormIds = { plan: [], apply: [], result: [] };
-      const activeStageTab = _policyWizardData._formTab || stages[0];
+    // 교육유형으로 추가 필터 (목적·유형 정보가 없는 구형 양식은 숨기지 않음)
+    // BO key('seminar') ↔ 한글라벨('세미나') 양방향 매칭
+    const _eduKeyToLabel = {};
+    const _eduLabelToKey = {};
+    Object.values(_EDU_TYPE_MAP).flat().forEach(t => {
+      _eduKeyToLabel[t.id] = t.label;
+      _eduLabelToKey[t.label] = t.id;
+      (t.subs || []).forEach(s => { _eduKeyToLabel[s.id] = s.label; _eduLabelToKey[s.label] = s.id; });
+    });
+    const _expandedEduTypes = new Set(_policyEduTypes);
+    _policyEduTypes.forEach(k => { if (_eduKeyToLabel[k]) _expandedEduTypes.add(_eduKeyToLabel[k]); });
+    _policyEduTypes.forEach(k => { if (_eduLabelToKey[k]) _expandedEduTypes.add(_eduLabelToKey[k]); });
 
-      // 교육유형 안내 칩
-      const _eduLabel = _policyEduTypes.length
-        ? _policyEduTypes.map(t => {
-          const sub = _policyEduSubId ? ` › ${_policyEduSubId}` : '';
-          return `<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:#FEF3C7;color:#92400E">${t}${sub}</span>`;
-        }).join(' ')
-        : `<span style="font-size:11px;color:#9CA3AF">교육유형 미지정 (전체 표시)</span>`;
+    const _eduFiltered = _expandedEduTypes.size === 0 ? _allForms : _allForms.filter(f => {
+      if (!f.eduType && !f.purpose) return true; // 구형 양식 허용
+      if (_expandedEduTypes.has(f.eduType)) return true;
+      return false;
+    });
 
-      // 탭 완성도 배지 (선택 수 + 미연결 경고)
-      const _tabBadge = (stage) => {
-        const cnt = (d.stageFormIds[stage] || []).length;
-        const avail = _formsForStage(stage).length;
-        if (cnt > 0) return `<span style="font-size:10px;font-weight:900;padding:1px 7px;border-radius:10px;background:${stageColor[stage]};color:white;margin-left:4px">${cnt}</span>`;
-        if (avail > 0) return `<span style="font-size:10px;font-weight:900;padding:1px 7px;border-radius:10px;background:#FEF3C7;color:#92400E;margin-left:4px">미선택</span>`;
-        return `<span style="font-size:10px;padding:1px 7px;border-radius:10px;background:#F3F4F6;color:#9CA3AF;margin-left:4px">없음</span>`;
-      };
+    // stage별 폼 목록 함수 (해당 탭의 type에 맞는 것만)
+    const _formsForStage = (stage) => _eduFiltered.filter(f => f.type === stage);
 
-      // 활성 탭의 양식 목록
-      const _activeForms = _formsForStage(activeStageTab);
-      const _selectedIds = d.stageFormIds[activeStageTab] || [];
+    const stages = _PATTERN_STAGES[d.processPattern] || ['apply'];
+    const stageLabel = { plan: '📊 계획', apply: '📝 신청', result: '📄 결과' };
+    const stageColor = { plan: '#7C3AED', apply: '#1D4ED8', result: '#059669' };
+    if (!d.stageFormIds) d.stageFormIds = { plan: [], apply: [], result: [] };
+    const activeStageTab = _policyWizardData._formTab || stages[0];
 
-      // 연결 요약 패널 (단계별 선택 현황)
-      const _summaryPanels = stages.map(s => {
-        const sel = (d.stageFormIds[s] || []).length;
-        const avail = _formsForStage(s).length;
-        const ok = sel > 0;
-        return `<div style="flex:1;padding:10px 12px;border-radius:10px;border:1.5px solid ${ok ? stageColor[s] + '50' : '#E5E7EB'};background:${ok ? stageColor[s] + '08' : '#F9FAFB'};text-align:center">
+    // 교육유형 안내 칩
+    const _eduLabel = _policyEduTypes.length
+      ? _policyEduTypes.map(t => {
+        const sub = _policyEduSubId ? ` › ${_policyEduSubId}` : '';
+        return `<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:#FEF3C7;color:#92400E">${t}${sub}</span>`;
+      }).join(' ')
+      : `<span style="font-size:11px;color:#9CA3AF">교육유형 미지정 (전체 표시)</span>`;
+
+    // 탭 완성도 배지 (선택 수 + 미연결 경고)
+    const _tabBadge = (stage) => {
+      const cnt = (d.stageFormIds[stage] || []).length;
+      const avail = _formsForStage(stage).length;
+      if (cnt > 0) return `<span style="font-size:10px;font-weight:900;padding:1px 7px;border-radius:10px;background:${stageColor[stage]};color:white;margin-left:4px">${cnt}</span>`;
+      if (avail > 0) return `<span style="font-size:10px;font-weight:900;padding:1px 7px;border-radius:10px;background:#FEF3C7;color:#92400E;margin-left:4px">미선택</span>`;
+      return `<span style="font-size:10px;padding:1px 7px;border-radius:10px;background:#F3F4F6;color:#9CA3AF;margin-left:4px">없음</span>`;
+    };
+
+    // 활성 탭의 양식 목록
+    const _activeForms = _formsForStage(activeStageTab);
+    const _selectedIds = d.stageFormIds[activeStageTab] || [];
+
+    // 연결 요약 패널 (단계별 선택 현황)
+    const _summaryPanels = stages.map(s => {
+      const sel = (d.stageFormIds[s] || []).length;
+      const avail = _formsForStage(s).length;
+      const ok = sel > 0;
+      return `<div style="flex:1;padding:10px 12px;border-radius:10px;border:1.5px solid ${ok ? stageColor[s] + '50' : '#E5E7EB'};background:${ok ? stageColor[s] + '08' : '#F9FAFB'};text-align:center">
         <div style="font-size:10px;font-weight:700;color:${ok ? stageColor[s] : '#9CA3AF'}">${stageLabel[s]}</div>
         <div style="font-size:16px;font-weight:900;color:${ok ? stageColor[s] : '#D1D5DB'};margin-top:2px">${ok ? '✓' : '—'}</div>
         <div style="font-size:10px;color:${ok ? stageColor[s] : '#9CA3AF'}">${sel > 0 ? sel + '개 연결' : `${avail}개 중 미선택`}</div>
       </div>`;
-      }).join('');
+    }).join('');
 
-      stepContent = `
+    stepContent = `
 <div style="display:grid;gap:16px">
   <!-- 교육유형 안내 -->
   <div style="padding:10px 16px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -895,10 +893,10 @@ function renderPolicyWizard() {
   </div>` : ''}
   <!-- 단계별 양식 카드 (한페이지 수직 배치) -->
   ${stages.map(s => {
-        const forms = _formsForStage(s);
-        const selected = d.stageFormIds[s] || [];
-        const ok = selected.length > 0;
-        return `
+      const forms = _formsForStage(s);
+      const selected = d.stageFormIds[s] || [];
+      const ok = selected.length > 0;
+      return `
   <div style="border:2px solid ${ok ? stageColor[s] + '60' : (forms.length > 0 ? '#FECACA' : '#E5E7EB')};border-radius:14px;overflow:hidden">
     <!-- 단계 헤더 -->
     <div style="padding:12px 16px;background:${ok ? stageColor[s] + '10' : (forms.length > 0 ? '#FEF2F2' : '#F9FAFB')};
@@ -906,11 +904,11 @@ function renderPolicyWizard() {
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:13px;font-weight:900;color:${stageColor[s]}">${stageLabel[s]} 단계 양식</span>
         ${ok
-            ? `<span style="padding:2px 9px;border-radius:20px;background:${stageColor[s]};color:white;font-size:10px;font-weight:900">${selected.length}개 연결</span>`
-            : forms.length > 0
-              ? `<span style="padding:2px 9px;border-radius:20px;background:#FEE2E2;color:#B91C1C;font-size:10px;font-weight:900">⚠ 미연결</span>`
-              : `<span style="padding:2px 9px;border-radius:20px;background:#F3F4F6;color:#9CA3AF;font-size:10px;font-weight:700">양식 없음</span>`
-          }
+          ? `<span style="padding:2px 9px;border-radius:20px;background:${stageColor[s]};color:white;font-size:10px;font-weight:900">${selected.length}개 연결</span>`
+          : forms.length > 0
+            ? `<span style="padding:2px 9px;border-radius:20px;background:#FEE2E2;color:#B91C1C;font-size:10px;font-weight:900">⚠ 미연결</span>`
+            : `<span style="padding:2px 9px;border-radius:20px;background:#F3F4F6;color:#9CA3AF;font-size:10px;font-weight:700">양식 없음</span>`
+        }
       </div>
       <span style="font-size:10px;color:#9CA3AF">${forms.length}개 선택 가능</span>
     </div>
@@ -924,8 +922,8 @@ function renderPolicyWizard() {
       </div>` : `
     <div style="display:grid;gap:6px">
       ${forms.map(f => {
-            const isSel = selected.includes(f.id);
-            return `
+          const isSel = selected.includes(f.id);
+          return `
       <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;
                     border:1.5px solid ${isSel ? stageColor[s] : '#E5E7EB'};
                     background:${isSel ? stageColor[s] + '10' : 'white'};cursor:pointer;transition:all .13s"
@@ -942,46 +940,46 @@ function renderPolicyWizard() {
         </div>
         ${isSel ? `<span style="flex-shrink:0;font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;background:${stageColor[s]};color:white">✓ 선택</span>` : ''}
       </label>`;
-          }).join('')}
+        }).join('')}
     </div>`}
     </div>
   </div>`;
-      }).join('')}
+    }).join('')}
 </div>`;
 
 
 
-      // ── Step 6: 단계별 결재라인 (기존 Step 7) ────────────────────────────────────
-    } else if (_policyWizardStep === 6) {
-      const stages = _PATTERN_STAGES[d.processPattern] || ['apply'];
-      const stageLabel = { plan: '📊 계획', apply: '📝 신청', result: '📄 결과' };
-      const stageColor = { plan: '#7C3AED', apply: '#1D4ED8', result: '#059669' };
-      if (!d.approvalConfig) d.approvalConfig = { plan: { thresholds: [], finalApproverKey: '' }, apply: { thresholds: [], finalApproverKey: '' }, result: { thresholds: [], finalApproverKey: '' } };
-      const activeStage = _policyWizardData._approvalTab || stages[0];
-      const cfg = d.approvalConfig[activeStage] || { thresholds: [], finalApproverKey: '' };
-      const tenantPersonas = Object.entries(BO_PERSONAS)
-        .filter(([k, p]) => p.tenantId === persona.tenantId)
-        .map(([k, p]) => ({ key: k, p }));
+    // ── Step 6: 단계별 결재라인 (기존 Step 7) ────────────────────────────────────
+  } else if (_policyWizardStep === 6) {
+    const stages = _PATTERN_STAGES[d.processPattern] || ['apply'];
+    const stageLabel = { plan: '📊 계획', apply: '📝 신청', result: '📄 결과' };
+    const stageColor = { plan: '#7C3AED', apply: '#1D4ED8', result: '#059669' };
+    if (!d.approvalConfig) d.approvalConfig = { plan: { thresholds: [], finalApproverKey: '' }, apply: { thresholds: [], finalApproverKey: '' }, result: { thresholds: [], finalApproverKey: '' } };
+    const activeStage = _policyWizardData._approvalTab || stages[0];
+    const cfg = d.approvalConfig[activeStage] || { thresholds: [], finalApproverKey: '' };
+    const tenantPersonas = Object.entries(BO_PERSONAS)
+      .filter(([k, p]) => p.tenantId === persona.tenantId)
+      .map(([k, p]) => ({ key: k, p }));
 
-      stepContent = `
+    stepContent = `
 <div style="display:grid;gap:16px">
   <div style="padding:12px 16px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;font-size:12px;color:#92400E">
     💡 각 단계(계획/신청/결과)별로 결재라인을 아래에서 한 번에 설정하세요. 최종 결재자는 필수입니다.
   </div>
   <!-- 단계별 결재 카드 (수직 배치) -->
   ${stages.map(s => {
-        const c = d.approvalConfig[s] || { thresholds: [], finalApproverKey: '' };
-        const hasFinal = !!c.finalApproverKey;
-        return `
+      const c = d.approvalConfig[s] || { thresholds: [], finalApproverKey: '' };
+      const hasFinal = !!c.finalApproverKey;
+      return `
   <div style="border:2px solid ${hasFinal ? stageColor[s] + '60' : '#FECACA'};border-radius:14px;overflow:hidden">
     <!-- 단계 헤더 -->
     <div style="padding:12px 16px;background:${hasFinal ? stageColor[s] + '10' : '#FEF2F2'};
          display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid ${hasFinal ? stageColor[s] + '30' : '#E5E7EB'}">
       <span style="font-size:13px;font-weight:900;color:${stageColor[s]}">${stageLabel[s]} 결재라인</span>
       ${hasFinal
-            ? `<span style="padding:2px 9px;border-radius:20px;background:${stageColor[s]};color:white;font-size:10px;font-weight:900">✓ 설정됨</span>`
-            : `<span style="padding:2px 9px;border-radius:20px;background:#FEE2E2;color:#B91C1C;font-size:10px;font-weight:900">⚠ 최종 결재자 미설정</span>`
-          }
+          ? `<span style="padding:2px 9px;border-radius:20px;background:${stageColor[s]};color:white;font-size:10px;font-weight:900">✓ 설정됨</span>`
+          : `<span style="padding:2px 9px;border-radius:20px;background:#FEE2E2;color:#B91C1C;font-size:10px;font-weight:900">⚠ 최종 결재자 미설정</span>`
+        }
     </div>
     <!-- 내용 -->
     <div style="padding:14px 16px;background:white;display:grid;gap:12px">
@@ -996,7 +994,7 @@ function renderPolicyWizard() {
           <div style="padding:14px;text-align:center;background:#F9FAFB;border-radius:8px;color:#9CA3AF;font-size:11px">
             구간 없음 — 모든 신청이 최종 결재자에게 바로 배달됩니다.
           </div>` :
-            c.thresholds.map((t, i) => `
+          c.thresholds.map((t, i) => `
           <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;padding:10px 12px;background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:8px">
             <div>
               <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">최대 금액 (원)</label>
@@ -1029,7 +1027,7 @@ function renderPolicyWizard() {
       </div>
     </div>
   </div>`;
-      }).join('')}
+    }).join('')}
   <!-- 정책 관리자 / 상태 -->
   <div style="border:1.5px solid #E5E7EB;border-radius:14px;padding:16px;background:white;display:grid;gap:12px">
     <div>
@@ -1053,9 +1051,9 @@ function renderPolicyWizard() {
   </div>
 </div>`;
 
-    }
+  }
 
-    el.innerHTML = `
+  el.innerHTML = `
 <div class="bo-fade" style="max-width:720px">
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px">
     <button onclick="renderServicePolicy()" style="border:none;background:none;cursor:pointer;font-size:18px;color:#6B7280">←</button>
@@ -1074,7 +1072,6 @@ function renderPolicyWizard() {
     </button>
   </div>
 </div>`;
-  } catch (wizErr) { console.error('[renderPolicyWizard] ERROR:', wizErr); alert('위저드 렌더링 오류: ' + wizErr.message); }
 }
 
 

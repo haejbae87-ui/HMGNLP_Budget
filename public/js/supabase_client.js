@@ -1,7 +1,7 @@
 // ─── Supabase 클라이언트 초기화 ──────────────────────────────────────────────
 // CDN에서 로드된 @supabase/supabase-js 를 사용 (backoffice.html, index.html에 추가)
 
-const SUPABASE_URL  = 'https://wihsojhucgmcdfpufonf.supabase.co';
+const SUPABASE_URL = 'https://wihsojhucgmcdfpufonf.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_xjFJV_1SDi0k43su5KtMPQ_sdnTyJkE';
 
 // supabase-js CDN이 로드된 후 클라이언트 생성
@@ -20,18 +20,18 @@ function getSB() {
 
 // ─── TENANTS 색상 팔레트 (DB에 없으므로 JS에서 머지) ─────────────────────────
 const _TENANT_COLORS = {
-  HMC:    { color: '#002C5F', bg: '#EFF6FF',  border: '#BFDBFE' },
-  KIA:    { color: '#05141F', bg: '#F0FDF4',  border: '#BBF7D0' },
-  HAE:    { color: '#7C3AED', bg: '#F5F3FF',  border: '#DDD6FE' },
-  HSC:    { color: '#BE123C', bg: '#FFF1F2',  border: '#FECDD3' },
-  ROTEM:  { color: '#B45309', bg: '#FFFBEB',  border: '#FDE68A' },
-  HEC:    { color: '#0369A1', bg: '#F0F9FF',  border: '#BAE6FD' },
-  HTS:    { color: '#6D28D9', bg: '#F5F3FF',  border: '#DDD6FE' },
-  GLOVIS: { color: '#0E7490', bg: '#ECFEFF',  border: '#A5F3FC' },
-  HIS:    { color: '#9D174D', bg: '#FDF2F8',  border: '#FBCFE8' },
-  KEFICO: { color: '#1D4ED8', bg: '#EFF6FF',  border: '#BFDBFE' },
-  HISC:   { color: '#374151', bg: '#F9FAFB',  border: '#E5E7EB' },
-  SYSTEM: { color: '#6B7280', bg: '#F9FAFB',  border: '#E5E7EB' },
+  HMC: { color: '#002C5F', bg: '#EFF6FF', border: '#BFDBFE' },
+  KIA: { color: '#05141F', bg: '#F0FDF4', border: '#BBF7D0' },
+  HAE: { color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
+  HSC: { color: '#BE123C', bg: '#FFF1F2', border: '#FECDD3' },
+  ROTEM: { color: '#B45309', bg: '#FFFBEB', border: '#FDE68A' },
+  HEC: { color: '#0369A1', bg: '#F0F9FF', border: '#BAE6FD' },
+  HTS: { color: '#6D28D9', bg: '#F5F3FF', border: '#DDD6FE' },
+  GLOVIS: { color: '#0E7490', bg: '#ECFEFF', border: '#A5F3FC' },
+  HIS: { color: '#9D174D', bg: '#FDF2F8', border: '#FBCFE8' },
+  KEFICO: { color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
+  HISC: { color: '#374151', bg: '#F9FAFB', border: '#E5E7EB' },
+  SYSTEM: { color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB' },
 };
 
 async function sbLoadTenants() {
@@ -41,7 +41,7 @@ async function sbLoadTenants() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     // DB 데이터 + JS 색상 팔레트 머지
-    return data.map(t => ({ ...t, ...(_TENANT_COLORS[t.id] || _TENANT_COLORS.SYSTEM), budgetMode:'full' }));
+    return data.map(t => ({ ...t, ...(_TENANT_COLORS[t.id] || _TENANT_COLORS.SYSTEM), budgetMode: 'full' }));
   } catch (e) {
     console.warn('[Supabase] tenants fallback to mock:', e.message);
     return typeof TENANTS !== 'undefined' ? TENANTS : [];
@@ -72,13 +72,13 @@ async function sbLoadIsolationGroups(tenantId = null) {
     // snake_case → camelCase 정규화 (JS 코드 전체와 호환)
     return data.map(g => ({
       ...g,
-      tenantId:        g.tenant_id,
-      desc:            g.descr || '',
-      ownedAccounts:   g.owned_accounts || [],
-      globalAdminKey:  g.global_admin_key || '',
+      tenantId: g.tenant_id,
+      desc: g.descr || '',
+      ownedAccounts: g.owned_accounts || [],
+      globalAdminKey: g.global_admin_key || '',
       globalAdminKeys: g.global_admin_key ? [g.global_admin_key] : [],
-      opManagerKeys:   g.op_manager_keys || [],
-      createdAt:       (g.created_at || '').slice(0, 10),
+      opManagerKeys: g.op_manager_keys || [],
+      createdAt: (g.created_at || '').slice(0, 10),
     }));
   } catch (e) {
     console.warn('[Supabase] edu_support_domains fallback:', e.message);
@@ -89,9 +89,9 @@ async function sbLoadIsolationGroups(tenantId = null) {
 async function sbLoadServicePolicies(filters = {}) {
   try {
     let q = getSB().from('service_policies').select('*').eq('status', 'active');
-    if (filters.tenantId)         q = q.eq('tenant_id', filters.tenantId);
+    if (filters.tenantId) q = q.eq('tenant_id', filters.tenantId);
     if (filters.domainId) q = q.eq('domain_id', filters.domainId);
-    if (filters.accountCode)      q = q.contains('account_codes', [filters.accountCode]);
+    if (filters.accountCode) q = q.contains('account_codes', [filters.accountCode]);
     const { data, error } = await q.order('created_at', { ascending: false });
     if (error) throw error;
     return data;
@@ -118,9 +118,9 @@ async function sbSaveServicePolicy(policy) {
 async function sbLoadPlans(filters = {}) {
   try {
     let q = getSB().from('plans').select('*');
-    if (filters.tenantId)    q = q.eq('tenant_id', filters.tenantId);
+    if (filters.tenantId) q = q.eq('tenant_id', filters.tenantId);
     if (filters.accountCode) q = q.eq('account_code', filters.accountCode);
-    if (filters.status)      q = q.eq('status', filters.status);
+    if (filters.status) q = q.eq('status', filters.status);
     const { data, error } = await q.order('created_at', { ascending: false });
     if (error) throw error;
     return data;
@@ -133,9 +133,9 @@ async function sbLoadPlans(filters = {}) {
 async function sbLoadApplications(filters = {}) {
   try {
     let q = getSB().from('applications').select('*');
-    if (filters.tenantId)    q = q.eq('tenant_id', filters.tenantId);
+    if (filters.tenantId) q = q.eq('tenant_id', filters.tenantId);
     if (filters.accountCode) q = q.eq('account_code', filters.accountCode);
-    if (filters.status)      q = q.eq('status', filters.status);
+    if (filters.status) q = q.eq('status', filters.status);
     const { data, error } = await q.order('created_at', { ascending: false });
     if (error) throw error;
     return data;
@@ -149,8 +149,8 @@ async function sbLoadApplications(filters = {}) {
 async function sbLoadVirtualOrgTemplates(filters = {}) {
   try {
     let q = getSB().from('virtual_edu_orgs').select('*');
-    if (filters.tenantId)          q = q.eq('tenant_id', filters.tenantId);
-    if (filters.domainId)  q = q.eq('domain_id', filters.domainId);
+    if (filters.tenantId) q = q.eq('tenant_id', filters.tenantId);
+    if (filters.domainId) q = q.eq('domain_id', filters.domainId);
     const { data, error } = await q.order('created_at');
     if (error) throw error;
     // DB 컬럼(snake_case) → JS mock 형식(camelCase) 정규화
@@ -179,12 +179,12 @@ async function sbSaveVirtualOrgTemplate(tplObj) {
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/virtual_edu_orgs`,
       {
-        method : 'POST',
+        method: 'POST',
         headers: {
-          'apikey'       : SUPABASE_ANON,
+          'apikey': SUPABASE_ANON,
           'Authorization': `Bearer ${SUPABASE_ANON}`,
-          'Content-Type' : 'application/json',
-          'Prefer'       : 'resolution=merge-duplicates,return=minimal',
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates,return=minimal',
         },
         body: JSON.stringify(row),
       }
@@ -194,7 +194,7 @@ async function sbSaveVirtualOrgTemplate(tplObj) {
       throw new Error(`HTTP ${res.status}: ${msg}`);
     }
     return true;
-  } catch(e) {
+  } catch (e) {
     console.error('[Supabase] virtual_edu_orgs 저장 실패:', e.message);
     return false;
   }
@@ -204,9 +204,9 @@ window.sbSaveVirtualOrgTemplate = sbSaveVirtualOrgTemplate;
 async function sbDeleteVirtualOrgTemplate(id) {
   try {
     const { error } = await getSB().from('virtual_edu_orgs').delete().eq('id', id);
-    if(error) throw error;
+    if (error) throw error;
     return true;
-  } catch(e) {
+  } catch (e) {
     console.error('[Supabase] virtual_edu_orgs 삭제 실패:', e.message);
     return false;
   }
@@ -240,8 +240,8 @@ async function sbLoadRoleMenuPerms() {
 const _ROLE_ALIAS = {
   'tenant_global_admin': 'tenant_admin',
   'budget_global_admin': 'budget_admin',
-  'budget_op_manager':   'budget_ops',
-  'budget_hq':           'budget_ops',
+  'budget_op_manager': 'budget_ops',
+  'budget_hq': 'budget_ops',
 };
 function _resolveRole(role) { return _ROLE_ALIAS[role] || role; }
 
@@ -272,10 +272,10 @@ window.getAllowedMenuSet = getAllowedMenuSet;
 // ─── 사용자/역할 로더 → BO_PERSONAS 동적 빌드 ────────────────────────────────
 const _ROLE_CODE_TO_JS = {
   platform_admin: 'platform_admin',
-  tenant_admin:   'tenant_global_admin',
-  budget_admin:   'budget_global_admin',
-  budget_ops:     'budget_op_manager',
-  learner:        'learner',
+  tenant_admin: 'tenant_global_admin',
+  budget_admin: 'budget_global_admin',
+  budget_ops: 'budget_op_manager',
+  learner: 'learner',
 };
 
 async function sbLoadPersonas() {
@@ -293,10 +293,10 @@ async function sbLoadPersonas() {
         fetch(`${SUPABASE_URL}/rest/v1/edu_support_domains?select=id,code,name,owned_accounts`,
           { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } }),
       ]);
-      const users    = await usersRes.json();
+      const users = await usersRes.json();
       const allRoles = await rolesRes.json();
-      const orgs     = await orgsRes.json();
-      const igs      = await igRes.json();
+      const orgs = await orgsRes.json();
+      const igs = await igRes.json();
       return _buildBoPersonas(users, allRoles, orgs, igs);
     }
 
@@ -311,10 +311,10 @@ async function sbLoadPersonas() {
     if (usersRes.error) throw usersRes.error;
 
     return _buildBoPersonas(
-      usersRes.data  || [],
-      rolesRes.data  || [],
-      orgsRes.data   || [],
-      igRes.data     || [],
+      usersRes.data || [],
+      rolesRes.data || [],
+      orgsRes.data || [],
+      igRes.data || [],
     );
   } catch (e) {
     console.warn('[Supabase] BO_PERSONAS 로드 실패 → JS mock 유지:', e.message);
@@ -346,11 +346,11 @@ function _buildBoPersonas(users, allRoles, orgs, igs) {
   };
 
   const ACCESS_BY_ROLE = {
-    platform_admin:     ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'field-mgmt', 'policy-builder', 'user-mgmt', 'role-mgmt', 'reports', 'manual'],
-    tenant_global_admin:['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'policy-builder', 'user-mgmt', 'reports', 'manual'],
-    budget_global_admin:['dashboard', 'my-isolation-group', 'org-budget', 'vorg-assign', 'reports', 'manual'],
-    budget_op_manager:  ['dashboard', 'my-operations', 'org-budget', 'reports', 'manual'],
-    learner:            ['dashboard'],
+    platform_admin: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'field-mgmt', 'policy-builder', 'user-mgmt', 'role-mgmt', 'reports', 'manual'],
+    tenant_global_admin: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'policy-builder', 'user-mgmt', 'reports', 'manual'],
+    budget_global_admin: ['dashboard', 'my-isolation-group', 'org-budget', 'vorg-assign', 'reports', 'manual'],
+    budget_op_manager: ['dashboard', 'my-operations', 'org-budget', 'reports', 'manual'],
+    learner: ['dashboard'],
   };
 
   const personas = {};
@@ -365,18 +365,18 @@ function _buildBoPersonas(users, allRoles, orgs, igs) {
       (a, b) => (_ROLE_LEVEL[a.role_code] || 99) - (_ROLE_LEVEL[b.role_code] || 99)
     );
     const primaryRoleCode = sorted[0].role_code;
-    const primaryRole     = _ROLE_CODE_TO_JS[primaryRoleCode] || primaryRoleCode;
-    const key             = u.emp_no || u.id;
-    const dept            = u.org_id ? (orgMap[u.org_id] || '') : '';
-    const tenantId        = sorted[0].tenant_id || u.tenant_id;
+    const primaryRole = _ROLE_CODE_TO_JS[primaryRoleCode] || primaryRoleCode;
+    const key = u.emp_no || u.id;
+    const dept = u.org_id ? (orgMap[u.org_id] || '') : '';
+    const tenantId = sorted[0].tenant_id || u.tenant_id;
 
     // isolation_group: 역할 중 scope_id가 있는 첫 번째 역할 사용
-    const roleWithScope   = sorted.find(r => r.scope_id);
-    const igId            = roleWithScope ? roleWithScope.scope_id : null;
-    const ig              = igId ? igMap[igId] : null;
+    const roleWithScope = sorted.find(r => r.scope_id);
+    const igId = roleWithScope ? roleWithScope.scope_id : null;
+    const ig = igId ? igMap[igId] : null;
 
     // owned/allowed accounts: ig에서 자동 계산
-    const ownedAccounts   = ig ? (ig.ownedAccounts || []) : [];
+    const ownedAccounts = ig ? (ig.ownedAccounts || []) : [];
     const allowedAccounts = ownedAccounts.length ? ownedAccounts
       : (primaryRoleCode === 'platform_admin' ? ['*'] : []);
 
@@ -387,23 +387,23 @@ function _buildBoPersonas(users, allRoles, orgs, igs) {
       .filter((v, i, a) => a.indexOf(v) === i);
 
     personas[key] = {
-      id:               u.emp_no || u.id,
-      name:             u.name,
-      dept:             dept,
-      pos:              u.pos || u.position || '',
-      role:             primaryRole,
-      roles:            sorted.map(r => _ROLE_CODE_TO_JS[r.role_code] || r.role_code),
-      roleLabel:        primaryRole,
-      tenantId:         tenantId,
-      jobType:          u.job_type || 'general',
-      status:           u.status,
+      id: u.emp_no || u.id,
+      name: u.name,
+      dept: dept,
+      pos: u.pos || u.position || '',
+      role: primaryRole,
+      roles: sorted.map(r => _ROLE_CODE_TO_JS[r.role_code] || r.role_code),
+      roleLabel: primaryRole,
+      tenantId: tenantId,
+      jobType: u.job_type || 'general',
+      status: u.status,
       domainId: igId,
-      isolationGroups:  domainIds,
-      isolationGroup:   ig ? ig.code : null,
-      ownedAccounts:    ownedAccounts,
-      allowedAccounts:  allowedAccounts,
-      accessMenus:      ACCESS_BY_ROLE[primaryRole] || ['dashboard'],
-      _dbId:            u.id,
+      isolationGroups: domainIds,
+      isolationGroup: ig ? ig.code : null,
+      ownedAccounts: ownedAccounts,
+      allowedAccounts: allowedAccounts,
+      accessMenus: ACCESS_BY_ROLE[primaryRole] || ['dashboard'],
+      _dbId: u.id,
     };
   });
 
@@ -434,31 +434,31 @@ async function sbLoadFoPersonas() {
       const myBudgets = budgets
         .filter(b => b.persona_id === p.id)
         .map(b => ({
-          id:      b.id,
-          name:    b.name,
+          id: b.id,
+          name: b.name,
           account: b.account,
           balance: b.balance || 0,
-          used:    b.used    || 0,
+          used: b.used || 0,
         }));
 
       personas[p.id] = {
-        id:             p.emp_no,
-        name:           p.name,
-        dept:           p.dept || '',
-        pos:            p.pos  || '',
-        role:           p.role,
-        jobType:        p.job_type || 'general',
-        type:           p.id,
-        typeLabel:      p.type_label || '',
-        company:        p.company,
-        tenantId:       p.tenant_id,
+        id: p.emp_no,
+        name: p.name,
+        dept: p.dept || '',
+        pos: p.pos || '',
+        role: p.role,
+        jobType: p.job_type || 'general',
+        type: p.id,
+        typeLabel: p.type_label || '',
+        company: p.company,
+        tenantId: p.tenant_id,
         isolationGroup: p.isolation_group,
-        allowedAccounts:(p.allowed_accounts || []),
-        process:        p.process || null,
-        desc:           p.description || '',
+        allowedAccounts: (p.allowed_accounts || []),
+        process: p.process || null,
+        desc: p.description || '',
         teamViewEnabled: p.team_view_enabled ?? false,
-        teamScope:       p.team_scope || 'team',
-        budgets:        myBudgets,
+        teamScope: p.team_scope || 'team',
+        budgets: myBudgets,
       };
     });
 
@@ -486,8 +486,8 @@ async function sbLoadEduTypes() {
     if (purposeRes.error) throw purposeRes.error;
 
     const purposes = purposeRes.data || [];
-    const groups   = groupRes.data   || [];
-    const items    = itemRes.data    || [];
+    const groups = groupRes.data || [];
+    const items = itemRes.data || [];
 
     // 목적군별로 그룹과 아이템 계층화
     const purposeMap = {};
@@ -540,10 +540,10 @@ async function initSupabaseData() {
     ]);
 
     // 전역 변수 교체
-    if (tenants     && tenants.length)       window.TENANTS            = tenants;
-    if (accounts    && accounts.length)      window.ACCOUNT_MASTER     = accounts;
-    if (groups      && groups.length)        window.EDU_SUPPORT_DOMAINS   = groups;
-    if (policies    && policies.length)      window.SERVICE_POLICIES   = policies;
+    if (tenants && tenants.length) window.TENANTS = tenants;
+    if (accounts && accounts.length) window.ACCOUNT_MASTER = accounts;
+    if (groups && groups.length) window.EDU_SUPPORT_DOMAINS = groups;
+    if (policies && policies.length) window.SERVICE_POLICIES = policies;
     if (vorgTemplates && vorgTemplates.length) window.VIRTUAL_EDU_ORGS = vorgTemplates;
 
     // 교육목적/유형: DB 로드 성공 시 PURPOSES 배열 갱신
@@ -604,21 +604,21 @@ async function sbLoadFormTemplates() {
     if (error) throw error;
     // DB 컬럼명을 FORM_MASTER 구조(JS camelCase)로 변환
     const forms = (data || []).map(r => ({
-      id:               r.id,
-      tenantId:         r.tenant_id,
-      name:             r.name,
-      type:             r.type,
-      purpose:          r.purpose,
-      eduType:          r.edu_type,
-      eduSubType:       r.edu_sub_type,
-      targetUser:       r.target_user,
-      desc:             r.desc_text,
-      noticeText:       r.notice_text,
-      fields:           r.fields || [],
-      attachments:      r.attachments || [],
-      active:           r.active,
-      accountCode:      r.account_code || null,
-      domainId: r.domain_id || null,
+      id: r.id,
+      tenantId: r.tenant_id,
+      name: r.name,
+      type: r.type,
+      purpose: r.purpose,
+      eduType: r.edu_type,
+      eduSubType: r.edu_sub_type,
+      targetUser: r.target_user,
+      desc: r.desc_text,
+      noticeText: r.notice_text,
+      fields: r.fields || [],
+      attachments: r.attachments || [],
+      active: r.active,
+      accountCode: r.account_code || null,
+      domainId: r.virtual_org_template_id || r.domain_id || null,
     }));
     console.log(`[Supabase] ✅ form_templates 로드: ${forms.length}건`);
     return forms;
@@ -633,20 +633,20 @@ window.sbLoadFormTemplates = sbLoadFormTemplates;
 async function sbSaveFormTemplate(formObj) {
   try {
     const row = {
-      id:           formObj.id,
-      tenant_id:    formObj.tenantId,
-      name:         formObj.name,
-      type:         formObj.type,
-      purpose:      formObj.purpose || null,
-      edu_type:     formObj.eduType || null,
+      id: formObj.id,
+      tenant_id: formObj.tenantId,
+      name: formObj.name,
+      type: formObj.type,
+      purpose: formObj.purpose || null,
+      edu_type: formObj.eduType || null,
       edu_sub_type: formObj.eduSubType || null,
-      target_user:  formObj.targetUser || null,
-      desc_text:    formObj.desc || null,
-      notice_text:  formObj.noticeText || null,
-      fields:       formObj.fields || [],
-      attachments:  formObj.attachments || [],
-      active:       formObj.active !== false,
-      updated_at:   new Date().toISOString(),
+      target_user: formObj.targetUser || null,
+      desc_text: formObj.desc || null,
+      notice_text: formObj.noticeText || null,
+      fields: formObj.fields || [],
+      attachments: formObj.attachments || [],
+      active: formObj.active !== false,
+      updated_at: new Date().toISOString(),
     };
     const { error } = await getSB()
       .from('form_templates')
@@ -690,16 +690,16 @@ async function sbLoadFieldDefinitions() {
     if (!data || !data.length) return null;
     // DB 컬럼명(snake_case) → ADVANCED_FIELDS 형식(camelCase) 변환
     return data.map(r => ({
-      key:         r.key,
-      fieldType:   r.field_type,
-      category:    r.category,
-      icon:        r.icon || '',
-      scope:       r.scope,
-      required:    r.required,
-      hint:        r.hint || '',
-      options:     r.options || undefined,
-      trigger:     r.trigger_field || undefined,
-      budget:      r.budget || false,
+      key: r.key,
+      fieldType: r.field_type,
+      category: r.category,
+      icon: r.icon || '',
+      scope: r.scope,
+      required: r.required,
+      hint: r.hint || '',
+      options: r.options || undefined,
+      trigger: r.trigger_field || undefined,
+      budget: r.budget || false,
     }));
   } catch (e) {
     console.warn('[Supabase] field_definitions 로드 실패 (JS 상수 사용):', e.message);
@@ -754,8 +754,8 @@ async function sbGetBudgetBalance(accountCode, fiscalYear) {
       accountCode,
       fiscalYear: year,
       totalBudget: data.total_budget || 0,
-      deducted:    data.deducted    || 0,
-      holding:     data.holding     || 0,
+      deducted: data.deducted || 0,
+      holding: data.holding || 0,
       available,
     };
   } catch (e) {
@@ -771,7 +771,7 @@ function _getBudgetBalanceMock(accountCode, year) {
   if (typeof ACCOUNT_BUDGETS !== 'undefined') {
     const rec = ACCOUNT_BUDGETS.find(b => b.accountCode === accountCode && b.fiscalYear === year);
     if (rec) {
-      const available = (rec.totalBudget||0) - (rec.deducted||0) - (rec.holding||0);
+      const available = (rec.totalBudget || 0) - (rec.deducted || 0) - (rec.holding || 0);
       return { accountCode, fiscalYear: year, ...rec, available };
     }
   }
@@ -787,7 +787,7 @@ async function sbGetGroupBudgetSummary(ownedAccountCodes, fiscalYear) {
   );
   const total = results.reduce((s, r) => s + r.totalBudget, 0);
   const deducted = results.reduce((s, r) => s + r.deducted, 0);
-  const holding  = results.reduce((s, r) => s + r.holding, 0);
+  const holding = results.reduce((s, r) => s + r.holding, 0);
   return { fiscalYear: year, totalBudget: total, deducted, holding, available: total - deducted - holding, accounts: results };
 }
 window.sbGetGroupBudgetSummary = sbGetGroupBudgetSummary;
@@ -795,6 +795,6 @@ window.sbGetGroupBudgetSummary = sbGetGroupBudgetSummary;
 // 숫자 포맷 헬퍼 (미정의 환경용)
 function _fmtKRW(n) {
   if (typeof boFmt === 'function') return boFmt(n);
-  return (n||0).toLocaleString('ko-KR') + '원';
+  return (n || 0).toLocaleString('ko-KR') + '원';
 }
 window._fmtKRW = _fmtKRW;

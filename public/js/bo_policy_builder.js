@@ -777,7 +777,7 @@ function renderPolicyWizard() {
             let changed = false;
             dbForms.forEach(row => {
               const mapped = {
-                id: row.id, tenantId: row.tenant_id, domainId: row.domain_id || row.vorg_template_id,
+                id: row.id, tenantId: row.tenant_id, domainId: row.virtual_org_template_id || row.domain_id || row.vorg_template_id,
                 accountCode: row.account_code, type: row.type, name: row.name, desc: row.description || row.desc || '',
                 purpose: row.purpose, eduType: row.edu_type, active: row.active !== false,
                 fields: row.fields || [],
@@ -837,7 +837,20 @@ function renderPolicyWizard() {
     });
 
     // stage별 폼 목록 함수 (해당 탭의 type에 맞는 것만)
-    const _formsForStage = (stage) => _eduFiltered.filter(f => f.type === stage);
+    // ★ 이미 연결된 양식은 필터와 무관하게 항상 포함 (기존 매핑 보존)
+    const _allFormMaster = (typeof FORM_MASTER !== 'undefined' ? FORM_MASTER : []);
+    const _formsForStage = (stage) => {
+      const filtered = _eduFiltered.filter(f => f.type === stage);
+      const connectedIds = (d.stageFormIds && d.stageFormIds[stage]) || [];
+      // 이미 연결됐지만 필터에서 빠진 양식 추가
+      connectedIds.forEach(cid => {
+        if (!filtered.find(f => f.id === cid)) {
+          const connected = _allFormMaster.find(f => f.id === cid);
+          if (connected) filtered.push(connected);
+        }
+      });
+      return filtered;
+    };
 
     const stages = _PATTERN_STAGES[d.processPattern] || ['apply'];
     const stageLabel = { plan: '📊 계획', apply: '📝 신청', result: '📄 결과' };
@@ -845,11 +858,18 @@ function renderPolicyWizard() {
     if (!d.stageFormIds) d.stageFormIds = { plan: [], apply: [], result: [] };
     const activeStageTab = _policyWizardData._formTab || stages[0];
 
-    // 교육유형 안내 칩
+    // 교육유형 안내 칩 — 영문 key → 한글 라벨 변환
+    const _allEduEntries = Object.values(_EDU_TYPE_MAP).flat();
     const _eduLabel = _policyEduTypes.length
       ? _policyEduTypes.map(t => {
-        const sub = _policyEduSubId ? ` › ${_policyEduSubId}` : '';
-        return `<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:#FEF3C7;color:#92400E">${t}${sub}</span>`;
+        const typeEntry = _allEduEntries.find(e => e.id === t);
+        const typeLabel = typeEntry ? typeEntry.label : t;
+        let subLabel = '';
+        if (_policyEduSubId) {
+          const subEntry = (typeEntry?.subs || []).find(s => s.id === _policyEduSubId);
+          subLabel = ` › ${subEntry ? subEntry.label : _policyEduSubId}`;
+        }
+        return `<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:#FEF3C7;color:#92400E">${typeLabel}${subLabel}</span>`;
       }).join(' ')
       : `<span style="font-size:11px;color:#9CA3AF">교육유형 미지정 (전체 표시)</span>`;
 

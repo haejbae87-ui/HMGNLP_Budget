@@ -465,7 +465,7 @@ function startPolicyWizard(policyId) {
 // ── 위저드 렌더링 ─────────────────────────────────────────────────────────────
 function renderPolicyWizard() {
   const el = document.getElementById('bo-content');
-  const steps = ['범위설정', '정책명·대상자', '목적', '교육유형', '패턴', '양식', '결재라인'];
+  const steps = ['정책 정의', '정책 범위', '패턴', '양식', '결재라인'];
   const TOTAL = steps.length - 1;
   const d = _policyWizardData;
   const persona = boCurrentPersona;
@@ -504,8 +504,137 @@ function renderPolicyWizard() {
 
   let stepContent = '';
 
-  // ── Step 0: 범위 설정 (회사 → 가상교육조직 → 예산계정) ────────────────────────────
+  // ── Step 0: 정책 정의 (정책명 + 대상자 + 목적 + 교육유형 통합) ──────────────
   if (_policyWizardStep === 0) {
+    const purposes = d.targetType ? (_PURPOSE_MAP[d.targetType] || []) : [];
+    const types = d.purpose ? (_EDU_TYPE_MAP[d.purpose] || []) : [];
+    const isPersonal = d.purpose === 'external_personal';
+    if (!d.eduSubTypes) d.eduSubTypes = {};
+    if (!d.selectedEduItem) d.selectedEduItem = null;
+    const purposeLabel = [...(_PURPOSE_MAP.learner || []), ...(_PURPOSE_MAP.operator || [])].find(x => x.id === d.purpose)?.label || d.purpose;
+
+    // ── 정책명 + 설명 ──
+    let nameBlock = `
+  <div>
+    <label class="bo-label">정책명 <span style="color:#EF4444">*</span></label>
+    <input id="wiz-name" type="text" value="${d.name || ''}" placeholder='예: "HAE 전사교육예산 정규교육 지원정책"'
+      style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;box-sizing:border-box"/>
+  </div>
+  <div>
+    <label class="bo-label">정책 설명</label>
+    <input id="wiz-desc" type="text" value="${d.desc || ''}" placeholder='학습자에게 표시될 설명'
+      style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-size:13px;box-sizing:border-box"/>
+  </div>`;
+
+    // ── 대상자 ──
+    let targetBlock = `
+  <div>
+    <label class="bo-label">대상자 <span style="color:#EF4444">*</span></label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${[
+        { v: 'learner', icon: '👤', l: '학습자용', d: '개인 학습자가 교육비를 신청하는 서비스' },
+        { v: 'operator', icon: '👔', l: '교육담당자용', d: '교육담당자가 운영하는 집합·이러닝·외부행사' },
+      ].map(o => `
+      <label style="display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border-radius:10px;
+                    border:2px solid ${d.targetType === o.v ? '#7C3AED' : '#E5E7EB'};
+                    background:${d.targetType === o.v ? '#F5F3FF' : 'white'};cursor:pointer"
+             onclick="_wizSaveStep0Inputs();_policyWizardData.targetType='${o.v}';_policyWizardData.purpose='';_policyWizardData.eduTypes=[];_policyWizardData.selectedEduItem=null;renderPolicyWizard()">
+        <input type="radio" name="wiz-target" value="${o.v}" ${d.targetType === o.v ? 'checked' : ''} style="margin-top:2px;flex-shrink:0">
+        <div>
+          <div style="font-weight:800;font-size:13px;color:${d.targetType === o.v ? '#7C3AED' : '#374151'}">${o.icon} ${o.l}</div>
+          <div style="font-size:11px;color:#6B7280;margin-top:2px">${o.d}</div>
+        </div>
+      </label>`).join('')}
+    </div>
+  </div>`;
+
+    // ── 목적 (대상자 선택 후 표시) ──
+    let purposeBlock = '';
+    if (d.targetType && purposes.length > 0) {
+      purposeBlock = `
+  <div style="border-top:1px dashed #E5E7EB;padding-top:16px">
+    <label class="bo-label">교육 목적 <span style="color:#EF4444">*</span></label>
+    ${purposes.map(p => `
+    <label style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:10px;margin-bottom:6px;
+                  border:2px solid ${d.purpose === p.id ? '#7C3AED' : '#E5E7EB'};
+                  background:${d.purpose === p.id ? '#F5F3FF' : 'white'};cursor:pointer"
+           onclick="_wizSaveStep0Inputs();_policyWizardData.purpose='${p.id}';_policyWizardData.eduTypes=[];_policyWizardData.selectedEduItem=null;renderPolicyWizard()">
+      <input type="radio" name="wiz-purpose" value="${p.id}" ${d.purpose === p.id ? 'checked' : ''} style="margin:0">
+      <span style="font-size:13px;font-weight:800;color:${d.purpose === p.id ? '#7C3AED' : '#374151'}">${p.label}</span>
+    </label>`).join('')}
+  </div>`;
+    }
+
+    // ── 교육유형 (목적 선택 후 표시) ──
+    let eduTypeBlock = '';
+    if (d.purpose && types.length > 0) {
+      if (isPersonal) {
+        // 개인직무사외학습: 단일 선택(라디오)
+        eduTypeBlock = `
+  <div style="border-top:1px dashed #E5E7EB;padding-top:16px">
+    <label class="bo-label">교육 유형 세부 항목 <span style="font-size:10px;color:#9CA3AF">(하나만 선택)</span></label>
+    ${types.map(t => {
+          if (!t.subs || !t.subs.length) return `
+    <div style="border-radius:10px;border:1.5px solid #E5E7EB;overflow:hidden;margin-bottom:6px">
+      <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer"
+             onclick="_wizSaveStep0Inputs();_selectEduItem('${t.id}','')">
+        <input type="radio" name="wiz-edu-item" ${d.selectedEduItem?.typeId === t.id && !d.selectedEduItem?.subId ? 'checked' : ''} style="margin:0;flex-shrink:0">
+        <span style="font-size:13px;font-weight:800;color:${d.selectedEduItem?.typeId === t.id ? '#7C3AED' : '#374151'}">${t.label}</span>
+      </label>
+    </div>`;
+          return `
+    <div style="border-radius:10px;border:1.5px solid #E5E7EB;overflow:hidden;margin-bottom:6px">
+      <div style="padding:10px 16px;background:#F9FAFB;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;font-weight:900;color:#374151">${t.label}</span>
+        <span style="font-size:10px;color:#9CA3AF">${t.subs.map(s => s.label).join(' · ')}</span>
+      </div>
+      <div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:8px">
+        ${t.subs.map(s => `
+        <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;
+                      border:1.5px solid ${d.selectedEduItem?.typeId === t.id && d.selectedEduItem?.subId === s.id ? '#7C3AED' : '#E5E7EB'};
+                      background:${d.selectedEduItem?.typeId === t.id && d.selectedEduItem?.subId === s.id ? '#F5F3FF' : 'white'};cursor:pointer"
+               onclick="_wizSaveStep0Inputs();_selectEduItem('${t.id}','${s.id}')">
+          <input type="radio" name="wiz-edu-item" ${d.selectedEduItem?.typeId === t.id && d.selectedEduItem?.subId === s.id ? 'checked' : ''} style="margin:0">
+          <span style="font-size:13px;font-weight:700;color:${d.selectedEduItem?.typeId === t.id && d.selectedEduItem?.subId === s.id ? '#7C3AED' : '#374151'}">${s.label}</span>
+        </label>`).join('')}
+      </div>
+    </div>`;
+        }).join('')}
+  </div>`;
+      } else {
+        // 기타 목적: 복수 체크박스
+        eduTypeBlock = `
+  <div style="border-top:1px dashed #E5E7EB;padding-top:16px">
+    <label class="bo-label">교육 유형 <span style="font-size:10px;color:#9CA3AF">(복수 선택 가능)</span></label>
+    <div style="display:grid;gap:6px">
+      ${types.map(t => {
+          const isChecked = (d.eduTypes || []).includes(t.id);
+          return `
+      <div style="border-radius:10px;border:1.5px solid ${isChecked ? '#7C3AED' : '#E5E7EB'};background:${isChecked ? '#F5F3FF' : 'white'};overflow:hidden">
+        <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer" onclick="_wizSaveStep0Inputs();_toggleEduType('${t.id}')">
+          <input type="checkbox" ${isChecked ? 'checked' : ''} style="margin:0;flex-shrink:0">
+          <div style="font-size:13px;font-weight:800;color:${isChecked ? '#7C3AED' : '#374151'}">${t.label}</div>
+        </label>
+      </div>`;
+        }).join('')}
+    </div>
+  </div>`;
+      }
+    }
+
+    stepContent = `
+<div style="display:grid;gap:18px">
+  <div style="padding:12px 16px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;font-size:12px;color:#92400E">
+    💡 정책의 <strong>이름, 대상자, 교육 목적, 교육유형</strong>을 정의합니다.
+  </div>
+  ${nameBlock}
+  ${targetBlock}
+  ${purposeBlock}
+  ${eduTypeBlock}
+</div>`;
+
+    // ── Step 1: 정책 범위 (회사 → 가상교육조직 → 예산계정) ────────────────────
+  } else if (_policyWizardStep === 1) {
     const isPlatform = persona.role === 'platform_admin';
     const isTenant = ['tenant_global_admin'].includes(persona.role);
     const isBudgetOp = ['budget_op_manager', 'budget_hq', 'budget_global_admin'].includes(persona.role);
@@ -527,7 +656,7 @@ function renderPolicyWizard() {
     stepContent = `
 <div style="display:grid;gap:18px">
   <div style="padding:12px 16px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;font-size:12px;color:#92400E">
-    💡 정책이 적용될 <strong>회사 · 가상교육조직 · 예산계정</strong>을 먼저 설정합니다. 이 설정이 정책의 모든 데이터 범위를 결정합니다.
+    💡 정책이 적용될 <strong>회사 · 가상교육조직 · 예산계정</strong>을 설정합니다. 이 설정이 정책의 데이터 범위를 결정합니다.
   </div>
   ${isPlatform ? `
   <div>
@@ -596,132 +725,8 @@ function renderPolicyWizard() {
   </div>` : ''}
 </div>`;
 
-    // ── Step 1: 정책명 + 대상자 ──────────────────────────────────────────────────
-  } else if (_policyWizardStep === 1) {
-    stepContent = `
-<div style="display:grid;gap:18px">
-  <div>
-    <label class="bo-label">정책명 <span style="color:#EF4444">*</span></label>
-    <input id="wiz-name" type="text" value="${d.name || ''}" placeholder='예: "HAE 전사교육예산 정규교육 지원정책"'
-      style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;box-sizing:border-box"/>
-  </div>
-  <div>
-    <label class="bo-label">정책 설명</label>
-    <input id="wiz-desc" type="text" value="${d.desc || ''}" placeholder='학습자에게 표시될 설명'
-      style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-size:13px;box-sizing:border-box"/>
-  </div>
-  <div>
-    <label class="bo-label">대상자 <span style="color:#EF4444">*</span></label>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      ${[
-        { v: 'learner', icon: '👤', l: '학습자용', d: '개인 학습자가 교육비를 신청하는 서비스' },
-        { v: 'operator', icon: '👔', l: '교육담당자용', d: '교육담당자가 운영하는 집합·이러닝·외부행사' },
-      ].map(o => `
-      <label style="display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border-radius:10px;
-                    border:2px solid ${d.targetType === o.v ? '#7C3AED' : '#E5E7EB'};
-                    background:${d.targetType === o.v ? '#F5F3FF' : 'white'};cursor:pointer"
-             onclick="_wizSaveStep1Inputs();_policyWizardData.targetType='${o.v}';_policyWizardData.purpose='';_policyWizardData.eduTypes=[];renderPolicyWizard()">
-        <input type="radio" name="wiz-target" value="${o.v}" ${d.targetType === o.v ? 'checked' : ''} style="margin-top:2px;flex-shrink:0">
-        <div>
-          <div style="font-weight:800;font-size:13px;color:${d.targetType === o.v ? '#7C3AED' : '#374151'}">${o.icon} ${o.l}</div>
-          <div style="font-size:11px;color:#6B7280;margin-top:2px">${o.d}</div>
-        </div>
-      </label>`).join('')}
-    </div>
-  </div>
-</div>`;
-
-    // ── Step 2: 목적 ──────────────────────────────────────────────────────────────
+    // ── Step 2: 패턴 ─────────────────────────────────────────────────────────────
   } else if (_policyWizardStep === 2) {
-    const purposes = _PURPOSE_MAP[d.targetType] || [];
-    stepContent = `
-<div style="display:grid;gap:10px">
-  <div style="padding:12px 16px;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:10px;font-size:12px;color:#5B21B6">
-    대상: <strong>${d.targetType === 'learner' ? '👤 학습자용' : '👔 교육담당자용'}</strong>
-  </div>
-  <label class="bo-label">교육 목적 <span style="color:#EF4444">*</span></label>
-  ${purposes.map(p => `
-  <label style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:10px;
-                border:2px solid ${d.purpose === p.id ? '#7C3AED' : '#E5E7EB'};
-                background:${d.purpose === p.id ? '#F5F3FF' : 'white'};cursor:pointer"
-         onclick="_policyWizardData.purpose='${p.id}';_policyWizardData.eduTypes=[];renderPolicyWizard()">
-    <input type="radio" name="wiz-purpose" value="${p.id}" ${d.purpose === p.id ? 'checked' : ''} style="margin:0">
-    <span style="font-size:13px;font-weight:800;color:${d.purpose === p.id ? '#7C3AED' : '#374151'}">${p.label}</span>
-  </label>`).join('')}
-</div>`;
-
-    // ── Step 3: 교육유형 ───────────────────────────────────────────────────────────
-  } else if (_policyWizardStep === 3) {
-    const types = _EDU_TYPE_MAP[d.purpose] || [];
-    if (!d.eduSubTypes) d.eduSubTypes = {};
-    const isPersonal = d.purpose === 'external_personal';
-    // 개인직무사외학습: selectedEduItem = {typeId, subId}  (단독 선택)
-    if (!d.selectedEduItem) d.selectedEduItem = null;
-
-    const purposeLabel = [...(_PURPOSE_MAP.learner || []), ...(_PURPOSE_MAP.operator || [])].find(x => x.id === d.purpose)?.label || d.purpose;
-
-    if (isPersonal) {
-      // ── 개인직무사외학습: 헤더+라디오 단독선택 ─────────────────────────────────
-      stepContent = `
-<div style="display:grid;gap:12px">
-  <div style="padding:12px 16px;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:10px;font-size:12px;color:#5B21B6">
-    목적: <strong>${purposeLabel}</strong>
-  </div>
-  <label class="bo-label">교육 유형 세부 항목 <span style="font-size:10px;color:#9CA3AF">(하나만 선택)</span></label>
-  ${types.map(t => {
-        if (!t.subs || !t.subs.length) return `
-  <div style="border-radius:10px;border:1.5px solid #E5E7EB;overflow:hidden">
-    <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer"
-           onclick="_selectEduItem('${t.id}','')">
-      <input type="radio" name="wiz-edu-item" ${d.selectedEduItem?.typeId === t.id && !d.selectedEduItem?.subId ? 'checked' : ''} style="margin:0;flex-shrink:0">
-      <span style="font-size:13px;font-weight:800;color:${d.selectedEduItem?.typeId === t.id ? '#7C3AED' : '#374151'}">${t.label}</span>
-    </label>
-  </div>`;
-        return `
-  <div style="border-radius:10px;border:1.5px solid #E5E7EB;overflow:hidden">
-    <div style="padding:10px 16px;background:#F9FAFB;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;gap:8px">
-      <span style="font-size:12px;font-weight:900;color:#374151">${t.label}</span>
-      <span style="font-size:10px;color:#9CA3AF">${t.subs.map(s => s.label).join(' · ')}</span>
-    </div>
-    <div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:8px">
-      ${t.subs.map(s => `
-      <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;
-                    border:1.5px solid ${d.selectedEduItem?.typeId === t.id && d.selectedEduItem?.subId === s.id ? '#7C3AED' : '#E5E7EB'};
-                    background:${d.selectedEduItem?.typeId === t.id && d.selectedEduItem?.subId === s.id ? '#F5F3FF' : 'white'};cursor:pointer"
-             onclick="_selectEduItem('${t.id}','${s.id}')">
-        <input type="radio" name="wiz-edu-item" ${d.selectedEduItem?.typeId === t.id && d.selectedEduItem?.subId === s.id ? 'checked' : ''} style="margin:0">
-        <span style="font-size:13px;font-weight:700;color:${d.selectedEduItem?.typeId === t.id && d.selectedEduItem?.subId === s.id ? '#7C3AED' : '#374151'}">${s.label}</span>
-      </label>`).join('')}
-    </div>
-  </div>`;
-      }).join('')}
-</div>`;
-
-    } else {
-      // ── 기타 목적: 복수 체크박스 ───────────────────────────────────────────────
-      stepContent = `
-<div style="display:grid;gap:10px">
-  <div style="padding:12px 16px;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:10px;font-size:12px;color:#5B21B6">
-    목적: <strong>${purposeLabel}</strong>
-  </div>
-  <label class="bo-label">교육 유형 <span style="font-size:10px;color:#9CA3AF">(복수 선택 가능)</span></label>
-  <div style="display:grid;gap:6px">
-    ${types.map(t => {
-        const isChecked = (d.eduTypes || []).includes(t.id);
-        return `
-    <div style="border-radius:10px;border:1.5px solid ${isChecked ? '#7C3AED' : '#E5E7EB'};background:${isChecked ? '#F5F3FF' : 'white'};overflow:hidden">
-      <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer" onclick="_toggleEduType('${t.id}')">
-        <input type="checkbox" ${isChecked ? 'checked' : ''} style="margin:0;flex-shrink:0">
-        <div style="font-size:13px;font-weight:800;color:${isChecked ? '#7C3AED' : '#374151'}">${t.label}</div>
-      </label>
-    </div>`;
-      }).join('')}
-  </div>
-</div>`;
-    }
-
-    // ── Step 4: 패턴 ─────────────────────────────────────────────────────────────
-  } else if (_policyWizardStep === 4) {
     const isNoBudget = !d.budgetLinked;
     const selAcctName = (d.accountCodes || []).map(c => ACCOUNT_MASTER.find(a => a.code === c)?.name || c).join(', ') || '—';
     const budgetedPatterns = [
@@ -741,7 +746,7 @@ function renderPolicyWizard() {
     ${isNoBudget ? '📝 <strong style="color:#065F46">무예산</strong>' : '💳 <strong style="color:#1E40AF">예산 연동</strong>'}
     <span style="color:#6B7280">|</span>
     <span style="color:#374151;font-weight:700">${selAcctName}</span>
-    <span style="font-size:10px;color:#9CA3AF;margin-left:4px">(Step 1에서 설정됨)</span>
+    <span style="font-size:10px;color:#9CA3AF;margin-left:4px">(Step 2에서 설정됨)</span>
   </div>
   <div>
     <label class="bo-label">프로세스 패턴 <span style="color:#EF4444">*</span></label>
@@ -760,8 +765,8 @@ function renderPolicyWizard() {
   </div>
 </div>`;
 
-    // ── Step 5: 단계별 양식 선택 (기존 Step 6) ──────────────────────────────────
-  } else if (_policyWizardStep === 5) {
+    // ── Step 3: 단계별 양식 선택 ──────────────────────────────────────────────
+  } else if (_policyWizardStep === 3) {
     // DB에서 form_templates 로드하여 FORM_MASTER와 병합 (최초 1회 또는 비어있을 때)
     const _scopeGrpForLoad = d.scopeTenantId || persona.tenantId;
     if (typeof _sb === 'function' && _sb() && typeof FORM_MASTER !== 'undefined') {
@@ -949,8 +954,8 @@ function renderPolicyWizard() {
 
 
 
-    // ── Step 6: 단계별 결재라인 (기존 Step 7) ────────────────────────────────────
-  } else if (_policyWizardStep === 6) {
+    // ── Step 4: 결재라인 ──────────────────────────────────────────────────────
+  } else if (_policyWizardStep === 4) {
     const stages = _PATTERN_STAGES[d.processPattern] || ['apply'];
     const stageLabel = { plan: '📊 계획', apply: '📝 신청', result: '📄 결과' };
     const stageColor = { plan: '#7C3AED', apply: '#1D4ED8', result: '#059669' };
@@ -1123,43 +1128,43 @@ function _selectEduItem(typeId, subId) {
 }
 
 // ── 위저드 진행 ───────────────────────────────────────────────────────────────
-// step1 input 값을 _policyWizardData에 먼저 저장한 후 재렌더 (입력 유실 방지)
-function _wizSaveStep1Inputs() {
+// step0 input 값을 _policyWizardData에 먼저 저장한 후 재렌더 (입력 유실 방지)
+function _wizSaveStep0Inputs() {
   const n = document.getElementById('wiz-name')?.value;
   const desc = document.getElementById('wiz-desc')?.value;
   if (n !== undefined) _policyWizardData.name = n.trim();
   if (desc !== undefined) _policyWizardData.desc = desc.trim();
 }
+window._wizSaveStep0Inputs = _wizSaveStep0Inputs;
+// 하위호환: 기존 코드에서 _wizSaveStep1Inputs 호출하는 곳 대비
+const _wizSaveStep1Inputs = _wizSaveStep0Inputs;
 window._wizSaveStep1Inputs = _wizSaveStep1Inputs;
 
 function advancePolicyWizard() {
   const d = _policyWizardData;
+  // Step 0: 정책 정의 (정책명 + 대상자 + 목적 + 교육유형)
   if (_policyWizardStep === 0) {
-    const d = _policyWizardData;
-    if (!d.scopeTenantId) { alert('회사를 선택하세요.'); return; }
-    if (!d.vorgTemplateId) { alert('가상교육조직을 선택하세요.'); return; }
-    if (!(d.accountCodes || []).length) { alert('예산 계정을 선택하세요.'); return; }
-    // scopeTenantId를 tenantId로 동기화
-    _policyWizardData.tenantId = d.scopeTenantId;
-  } else if (_policyWizardStep === 1) {
-    const n = document.getElementById('wiz-name')?.value?.trim();
-    if (!n) { alert('정책명을 입력하세요.'); return; }
-    d.name = n;
-    const desc = document.getElementById('wiz-desc')?.value?.trim();
-    if (desc) d.desc = desc;
+    _wizSaveStep0Inputs();
+    if (!d.name?.trim()) { alert('정책명을 입력하세요.'); return; }
     if (!d.targetType) { alert('대상자를 선택하세요.'); return; }
-  } else if (_policyWizardStep === 2) {
     if (!d.purpose) { alert('교육 목적을 선택하세요.'); return; }
-  } else if (_policyWizardStep === 3) {
     if (d.purpose === 'external_personal') {
       if (!d.selectedEduItem) { alert('교육 유형 세부 항목을 하나 선택하세요.'); return; }
     } else {
       if (!(d.eduTypes || []).length) { alert('교육 유형을 하나 이상 선택하세요.'); return; }
     }
-  } else if (_policyWizardStep === 4) {
+    // Step 1: 정책 범위 (회사·조직·계정)
+  } else if (_policyWizardStep === 1) {
+    if (!d.scopeTenantId) { alert('회사를 선택하세요.'); return; }
+    if (!d.vorgTemplateId) { alert('가상교육조직을 선택하세요.'); return; }
+    if (!(d.accountCodes || []).length) { alert('예산 계정을 선택하세요.'); return; }
+    _policyWizardData.tenantId = d.scopeTenantId;
+    // Step 2: 패턴
+  } else if (_policyWizardStep === 2) {
     if (!d.processPattern) { alert('프로세스 패턴을 선택하세요.'); return; }
   }
-  _policyWizardStep = Math.min(_policyWizardStep + 1, 7);
+  // Step 3(양식), Step 4(결재라인) — 유효성 경고는 있으나 진행 차단 안함
+  _policyWizardStep = Math.min(_policyWizardStep + 1, 5);
   renderPolicyWizard();
 }
 

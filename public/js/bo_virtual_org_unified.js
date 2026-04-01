@@ -836,10 +836,7 @@ async function _vuConfirmEdit() {
   await renderVirtualOrgUnified();
 }
 
-// 기존 voOpenEditTemplate → 통합 모달로 리다이렉트
-if (typeof voOpenEditTemplate === 'function') {
-  var _origVoOpenEdit = voOpenEditTemplate;
-}
+// voOpenEditTemplate: 통합 모달로 직접 연결
 window.voOpenEditTemplate = function(tplId) {
   _vuOpenEditModal(tplId);
 };

@@ -412,6 +412,8 @@ function _getPersonaByKey(key) {
 
 // ── 위저드 시작 ───────────────────────────────────────────────────────────────
 function startPolicyWizard(policyId) {
+  console.log('[startPolicyWizard] called with:', policyId, 'type:', typeof policyId);
+  console.log('[startPolicyWizard] SERVICE_POLICIES count:', SERVICE_POLICIES.length, 'ids:', SERVICE_POLICIES.map(p => p.id));
   _editPolicyId = policyId;
   _policyWizardStep = 0;
   if (policyId) {

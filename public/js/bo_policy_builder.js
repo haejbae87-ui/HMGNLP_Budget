@@ -979,9 +979,9 @@ function renderPolicyWizard() {
     const stages = _PATTERN_STAGES[d.processPattern] || ['apply'];
     const stageLabel = { plan: '📊 계획', apply: '📝 신청', result: '📄 결과' };
     const stageColor = { plan: '#7C3AED', apply: '#1D4ED8', result: '#059669' };
-    if (!d.approvalConfig) d.approvalConfig = { plan: { thresholds: [], finalApproverKey: '' }, apply: { thresholds: [], finalApproverKey: '' }, result: { thresholds: [], finalApproverKey: '' } };
+    if (!d.approvalConfig) d.approvalConfig = { plan: { thresholds: [], approvalType: 'platform' }, apply: { thresholds: [], approvalType: 'platform' }, result: { thresholds: [], approvalType: 'platform' } };
     const activeStage = _policyWizardData._approvalTab || stages[0];
-    const cfg = d.approvalConfig[activeStage] || { thresholds: [], finalApproverKey: '' };
+    const cfg = d.approvalConfig[activeStage] || { thresholds: [], approvalType: 'platform' };
     const tenantPersonas = Object.entries(BO_PERSONAS)
       .filter(([k, p]) => p.tenantId === persona.tenantId)
       .map(([k, p]) => ({ key: k, p }));
@@ -989,27 +989,45 @@ function renderPolicyWizard() {
     stepContent = `
 <div style="display:grid;gap:16px">
   <div style="padding:12px 16px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;font-size:12px;color:#92400E">
-    💡 각 단계(계획/신청/결과)별로 결재라인을 아래에서 한 번에 설정하세요. 최종 결재자는 필수입니다.
+    💡 각 단계(계획/신청/결과)별로 결재라인 및 결재 시스템(자체/통합)을 설정하세요. 최종 승인은 관리자 화면에서 진행되므로 지정할 필요가 없습니다.
   </div>
   <!-- 단계별 결재 카드 (수직 배치) -->
   ${stages.map(s => {
-      const c = d.approvalConfig[s] || { thresholds: [], finalApproverKey: '' };
-      const hasFinal = !!c.finalApproverKey;
+      const c = d.approvalConfig[s] || { thresholds: [], approvalType: 'platform' };
+      if (!c.approvalType) c.approvalType = 'platform';
+      const isConfigured = !!c.approvalType;
       return `
-  <div style="border:2px solid ${hasFinal ? stageColor[s] + '60' : '#FECACA'};border-radius:14px;overflow:hidden">
+  <div style="border:2px solid ${isConfigured ? stageColor[s] + '60' : '#FECACA'};border-radius:14px;overflow:hidden">
     <!-- 단계 헤더 -->
-    <div style="padding:12px 16px;background:${hasFinal ? stageColor[s] + '10' : '#FEF2F2'};
-         display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid ${hasFinal ? stageColor[s] + '30' : '#E5E7EB'}">
+    <div style="padding:12px 16px;background:${isConfigured ? stageColor[s] + '10' : '#FEF2F2'};
+         display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid ${isConfigured ? stageColor[s] + '30' : '#E5E7EB'}">
       <span style="font-size:13px;font-weight:900;color:${stageColor[s]}">${stageLabel[s]} 결재라인</span>
-      ${hasFinal
+      ${isConfigured
           ? `<span style="padding:2px 9px;border-radius:20px;background:${stageColor[s]};color:white;font-size:10px;font-weight:900">✓ 설정됨</span>`
-          : `<span style="padding:2px 9px;border-radius:20px;background:#FEE2E2;color:#B91C1C;font-size:10px;font-weight:900">⚠ 최종 결재자 미설정</span>`
+          : `<span style="padding:2px 9px;border-radius:20px;background:#FEE2E2;color:#B91C1C;font-size:10px;font-weight:900">⚠ 설정 확인 필요</span>`
         }
     </div>
     <!-- 내용 -->
-    <div style="padding:14px 16px;background:white;display:grid;gap:12px">
-      <!-- 금액 구간 -->
+    <div style="padding:14px 16px;background:white;display:grid;gap:16px">
+      <!-- 결재 시스템 선택 -->
       <div>
+        <label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:6px">${stageLabel[s]} 결재 시스템</label>
+        <div style="display:flex;gap:8px">
+          ${['platform', 'hmg'].map(type => {
+          const isSet = c.approvalType === type;
+          const label = type === 'platform' ? 'LXP 플랫폼 자체 결재' : 'HMG 통합결재 (AutoWay)';
+          const icon = type === 'platform' ? '⚙️' : '🌐';
+          return `
+            <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;border:2px solid ${isSet ? stageColor[s] : '#E5E7EB'};background:${isSet ? stageColor[s] + '10' : 'white'};cursor:pointer;transition:all .15s"
+                   onclick="_policyWizardData.approvalConfig['${s}'].approvalType='${type}';renderPolicyWizard()">
+              <input type="radio" ${isSet ? 'checked' : ''} style="margin:0;accent-color:${stageColor[s]}">
+              <span style="font-weight:700;font-size:12px;color:${isSet ? stageColor[s] : '#374151'}">${icon} ${label}</span>
+            </label>`;
+        }).join('')}
+        </div>
+      </div>
+      <!-- 금액 구간 -->
+      <div style="border-top:1px dashed #E5E7EB;padding-top:16px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <label style="font-size:11px;font-weight:800;color:#374151">${stageLabel[s]} 금액 구간별 결재자</label>
           <button onclick="_addStageThreshold('${s}')" style="font-size:11px;padding:5px 12px;border-radius:8px;border:1.5px solid ${stageColor[s]};color:${stageColor[s]};background:white;cursor:pointer;font-weight:700">+ 구간 추가</button>
@@ -1017,7 +1035,7 @@ function renderPolicyWizard() {
         <div style="display:grid;gap:8px">
           ${c.thresholds.length === 0 ? `
           <div style="padding:14px;text-align:center;background:#F9FAFB;border-radius:8px;color:#9CA3AF;font-size:11px">
-            구간 없음 — 모든 신청이 최종 결재자에게 바로 배달됩니다.
+            구간 없음 — 모든 신청 정보가 담당자 관리 화면으로 연동됩니다. (별도 중간결재 없음)
           </div>` :
           c.thresholds.map((t, i) => `
           <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;padding:10px 12px;background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:8px">
@@ -1039,16 +1057,6 @@ function renderPolicyWizard() {
             <button onclick="_removeStageThreshold('${s}',${i})" style="padding:7px 10px;border-radius:8px;border:1.5px solid #FCA5A5;color:#DC2626;background:white;cursor:pointer;font-size:11px;font-weight:700;height:34px">삭제</button>
           </div>`).join('')}
         </div>
-      </div>
-      <!-- 최종 결재자 -->
-      <div>
-        <label class="bo-label">${stageLabel[s]} 최종 결재자 <span style="color:#EF4444">*</span></label>
-        <select id="wiz-final-approver-${s}"
-          onchange="_policyWizardData.approvalConfig['${s}'].finalApproverKey=this.value;renderPolicyWizard()"
-          style="width:100%;border:1.5px solid ${hasFinal ? stageColor[s] : '#FCA5A5'};border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700">
-          <option value="">— 선택 —</option>
-          ${tenantPersonas.map(({ key, p }) => `<option value="${key}" ${c.finalApproverKey === key ? 'selected' : ''}>${p.name} (${p.dept} · ${p.roleLabel})</option>`).join('')}
-        </select>
       </div>
     </div>
   </div>`;
@@ -1195,16 +1203,9 @@ async function savePolicy() {
   if (mgr) d.managerPersonaKey = mgr;
 
   const stages = _PATTERN_STAGES[d.processPattern] || ['apply'];
-  for (const s of stages) {
-    const finalEl = document.getElementById(`wiz-final-approver-${s}`);
-    if (finalEl) d.approvalConfig[s].finalApproverKey = finalEl.value;
-  }
-  const applyFinalKey = d.approvalConfig?.apply?.finalApproverKey;
-  if (!applyFinalKey && stages.includes('apply')) {
-    alert('신청 단계의 최종 결재자를 선택하세요.'); return;
-  }
-  // 레거시 호환 필드 유지
-  d.approverPersonaKey = applyFinalKey;
+
+  // 레거시 호환 필드 유지용 (이제 필요없으나 시스템 호환성 위해 빈값 보장)
+  d.approverPersonaKey = '';
   d.approvalThresholds = d.approvalConfig?.apply?.thresholds || [];
   d.allowedLearningTypes = d.eduTypes || [];
   if (!d.name) { alert('정책명이 없습니다.'); return; }
@@ -1245,16 +1246,16 @@ async function savePolicy() {
     }
   }
 
-  const ap = BO_PERSONAS[applyFinalKey];
-  alert(`✅ 정책 저장 완료!\n\n📋 ${d.name}\n🔄 패턴 ${d.processPattern}\n✅ 신청 최종 결재자: ${ap?.name || '—'}\n\n이제 학습자 신청 시 [나의 운영 업무]에 자동 배달됩니다.`);
+  alert(`✅ 정책 저장 완료!\n\n📋 ${d.name}\n🔄 패턴 ${d.processPattern}\n\n이제 학습자 신청 정보가 운영/관리 메뉴에 자동 배달됩니다.`);
   renderServicePolicy();
 }
 
 // ── 헬퍼: 계정·양식·스테이지 폼 토글 ────────────────────────────────────────
 function togglePolicyAcct(code) {
-  const arr = _policyWizardData.accountCodes;
+  const arr = _policyWizardData.accountCodes || [];
   const i = arr.indexOf(code);
   if (i >= 0) arr.splice(i, 1); else arr.push(code);
+  _policyWizardData.accountCodes = arr;
   renderPolicyWizard();
 }
 function _selectPolicyAcct(code) {

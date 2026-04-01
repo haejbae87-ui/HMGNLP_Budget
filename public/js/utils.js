@@ -35,13 +35,13 @@ const ACCOUNT_TYPE_MAP = {
 //
 // BO purpose key → FO PURPOSES.id 매핑 테이블
 const _BO_TO_FO_PURPOSE = {
-  'elearning_class':    'internal_edu',     // 구버전 코드 호환
-  'internal_edu':       'internal_edu',     // 이러닝/집합(비대면) 운영
-  'conf_seminar':       'conf_seminar',     // 워크샵/세미나/콘퍼런스 운영
-  'workshop':           'conf_seminar',     // 구버전 코드 호환
-  'misc_ops':           'misc_ops',         // 기타운영
-  'etc':                'misc_ops',         // 구버전 코드 호환
-  'external_personal':  'external_personal',// 개인직무 사외학습
+  'elearning_class': 'internal_edu',     // 구버전 코드 호환
+  'internal_edu': 'internal_edu',     // 이러닝/집합(비대면) 운영
+  'conf_seminar': 'conf_seminar',     // 워크샵/세미나/콘퍼런스 운영
+  'workshop': 'conf_seminar',     // 구버전 코드 호환
+  'misc_ops': 'misc_ops',         // 기타운영
+  'etc': 'misc_ops',         // 구버전 코드 호환
+  'external_personal': 'external_personal',// 개인직무 사외학습
 };
 // FO purpose → BO purpose (역매핑, 복수 가능)
 const _FO_TO_BO_PURPOSE = {};
@@ -55,7 +55,7 @@ function _resolveIsoGroupId(persona) {
   if (typeof EDU_SUPPORT_DOMAINS === 'undefined') return null;
   const byCode = EDU_SUPPORT_DOMAINS.find(g =>
     g.code === persona.isolationGroup ||
-    g.id   === persona.isolationGroup
+    g.id === persona.isolationGroup
   );
   return byCode?.id || null;
 }
@@ -102,7 +102,7 @@ function getPersonaBudgets(persona, purposeId) {
       const isOperatorRole = !isLearnerRole || ['team_general', 'team_leader'].includes(persona.role);
       const byTarget = policies.filter(p => {
         if (!p.targetType) return true;
-        if (isLearnerRole  && p.targetType === 'learner')  return true;
+        if (isLearnerRole && p.targetType === 'learner') return true;
         if (isOperatorRole && p.targetType === 'operator') return true;
         return false;
       });
@@ -156,8 +156,8 @@ function getPersonaPurposes(persona) {
       const isOperatorRole = !isLearnerRole || ['team_general', 'team_leader'].includes(persona.role);
       const filtered = policies.filter(p => {
         if (!p.targetType) return true; // target_type 미설정 = 전체 허용
-        if (isLearnerRole  && p.targetType === 'learner')   return true;
-        if (isOperatorRole && p.targetType === 'operator')  return true;
+        if (isLearnerRole && p.targetType === 'learner') return true;
+        if (isOperatorRole && p.targetType === 'operator') return true;
         return false;
       });
       // BO purpose keys → FO PURPOSES.id 변환
@@ -221,6 +221,8 @@ function getPolicyEduTypes(persona, purposeId, budgetAccountType) {
 
 function navigate(page) {
   currentPage = page;
+  // URL hash에 현재 페이지 저장 → 새로고침 시 복원
+  if (typeof window !== 'undefined') window.location.hash = page;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.top-nav-item').forEach(n => n.classList.remove('active'));
   const pg = document.getElementById('page-' + page);
@@ -238,5 +240,12 @@ function navigate(page) {
   if (page === 'approval-member') renderApprovalMember();
   if (page === 'approval-leader') renderApprovalLeader();
   renderGNB();
+}
+
+// 새로고침 시 hash 복원
+function _restorePageFromHash() {
+  const hash = (window.location.hash || '').replace('#', '');
+  if (hash && document.getElementById('page-' + hash)) return hash;
+  return 'dashboard';
 }
 

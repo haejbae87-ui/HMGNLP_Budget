@@ -2,8 +2,10 @@
 
 let _resultState = null;
 function _resetResultState() {
-  return { step: 1, purpose: null, budgetId: '', useBudget: false, title: '', date: '', endDate: '',
-           hours: '', provider: '', resultText: '', expenses: [{ item:'수강료', price:'', qty:1 }], attachments: [] };
+  return {
+    step: 1, purpose: null, budgetId: '', useBudget: false, title: '', date: '', endDate: '',
+    hours: '', provider: '', resultText: '', expenses: [{ item: '수강료', price: '', qty: 1 }], attachments: []
+  };
 }
 
 function renderApply() {
@@ -42,10 +44,9 @@ function _applySmartButtons() {
     });
   }
 
-  // 정책 없으면 기본: 신청 + 결과 둘 다 표시
+  // 정책이 전혀 없으면 기본: 신청 버튼만 표시 (결과등록은 C/D 정책 있을 때만)
   if (!hasApplyPatterns && !hasResultOnlyPatterns) {
     hasApplyPatterns = true;
-    hasResultOnlyPatterns = true;
   }
 
   let btns = '';
@@ -135,11 +136,11 @@ function _renderResultForm() {
         style="padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
       <input type="number" value="${e.qty}" onchange="_resultState.expenses[${i}].qty=this.value" min="1"
         style="padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-      <span style="font-size:12px;font-weight:700;color:#374151">${((Number(e.price)||0)*(Number(e.qty)||1)).toLocaleString()}원</span>
+      <span style="font-size:12px;font-weight:700;color:#374151">${((Number(e.price) || 0) * (Number(e.qty) || 1)).toLocaleString()}원</span>
       <button onclick="_resultState.expenses.splice(${i},1);renderApply()" style="border:none;background:none;cursor:pointer;font-size:14px;color:#DC2626"
         title="삭제">✕</button>
     </div>`).join('');
-    const total = s.expenses.reduce((sum, e) => sum + (Number(e.price)||0)*(Number(e.qty)||1), 0);
+    const total = s.expenses.reduce((sum, e) => sum + (Number(e.price) || 0) * (Number(e.qty) || 1), 0);
 
     body = `
     <h2 style="font-size:15px;font-weight:900;margin-bottom:16px">02. 비용 정보</h2>
@@ -147,14 +148,14 @@ function _renderResultForm() {
       <div style="display:flex;gap:10px">
         <button onclick="_resultState.useBudget=true;renderApply()"
           style="flex:1;padding:14px;border-radius:12px;font-size:13px;font-weight:900;cursor:pointer;transition:all .15s;
-                 border:2px solid ${s.useBudget===true?'#D97706':'#E5E7EB'};
-                 background:${s.useBudget===true?'#FFFBEB':'white'};color:${s.useBudget===true?'#D97706':'#6B7280'}">
+                 border:2px solid ${s.useBudget === true ? '#D97706' : '#E5E7EB'};
+                 background:${s.useBudget === true ? '#FFFBEB' : 'white'};color:${s.useBudget === true ? '#D97706' : '#6B7280'}">
           🧾 후정산 (예산 사용)
         </button>
         <button onclick="_resultState.useBudget=false;renderApply()"
           style="flex:1;padding:14px;border-radius:12px;font-size:13px;font-weight:900;cursor:pointer;transition:all .15s;
-                 border:2px solid ${s.useBudget===false?'#059669':'#E5E7EB'};
-                 background:${s.useBudget===false?'#F0FDF4':'white'};color:${s.useBudget===false?'#059669':'#6B7280'}">
+                 border:2px solid ${s.useBudget === false ? '#059669' : '#E5E7EB'};
+                 background:${s.useBudget === false ? '#F0FDF4' : 'white'};color:${s.useBudget === false ? '#059669' : '#6B7280'}">
           📋 이력만 등록 (예산 미사용)
         </button>
       </div>
@@ -166,8 +167,8 @@ function _renderResultForm() {
         ${currentPersona.budgets.map(b => `
         <button onclick="_resultState.budgetId='${b.id}';renderApply()"
           style="padding:8px 16px;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;
-                 border:2px solid ${s.budgetId===b.id?'#D97706':'#E5E7EB'};
-                 background:${s.budgetId===b.id?'#FFFBEB':'white'};color:${s.budgetId===b.id?'#D97706':'#6B7280'}">${b.account}</button>`).join('')}
+                 border:2px solid ${s.budgetId === b.id ? '#D97706' : '#E5E7EB'};
+                 background:${s.budgetId === b.id ? '#FFFBEB' : 'white'};color:${s.budgetId === b.id ? '#D97706' : '#6B7280'}">${b.account}</button>`).join('')}
       </div>
     </div>
     <div style="margin-bottom:8px">
@@ -215,7 +216,7 @@ function _renderResultForm() {
           <div>📚 ${s.title || '-'}</div>
           <div>📅 ${s.date || '-'} ~ ${s.endDate || '-'}</div>
           <div>⏱ ${s.hours || '-'}시간 · 🏢 ${s.provider || '-'}</div>
-          <div>${s.useBudget ? '🧾 후정산 · ' + s.expenses.reduce((sum,e)=>(sum+(Number(e.price)||0)*(Number(e.qty)||1)),0).toLocaleString() + '원' : '📋 이력만 등록 (예산 미사용)'}</div>
+          <div>${s.useBudget ? '🧾 후정산 · ' + s.expenses.reduce((sum, e) => (sum + (Number(e.price) || 0) * (Number(e.qty) || 1)), 0).toLocaleString() + '원' : '📋 이력만 등록 (예산 미사용)'}</div>
         </div>
       </div>
     </div>`;
@@ -253,9 +254,9 @@ function _renderResultForm() {
     ${s.step > 1 ? `<button onclick="_resultState.step--;renderApply()"
       style="padding:10px 20px;border-radius:10px;background:white;border:1.5px solid #E5E7EB;font-size:12px;font-weight:800;cursor:pointer;color:#374151">← 이전</button>` : '<div></div>'}
     ${s.step < 3 ? `<button onclick="_resultState.step++;renderApply()"
-      ${(s.step===1&&!canNext1)||(s.step===2&&!canNext2) ? 'disabled' : ''}
+      ${(s.step === 1 && !canNext1) || (s.step === 2 && !canNext2) ? 'disabled' : ''}
       style="padding:10px 28px;border-radius:10px;font-size:12px;font-weight:900;border:none;cursor:pointer;
-             background:${(s.step===1&&canNext1)||(s.step===2&&canNext2)?'#D97706':'#D1D5DB'};color:white;
+             background:${(s.step === 1 && canNext1) || (s.step === 2 && canNext2) ? '#D97706' : '#D1D5DB'};color:white;
              transition:all .15s">다음→</button>` : `
     <button onclick="alert('교육결과가 등록되었습니다.');applyViewMode='list';renderApply()"
       style="padding:10px 28px;border-radius:10px;font-size:12px;font-weight:900;border:none;cursor:pointer;
@@ -269,72 +270,74 @@ function _renderResultForm() {
 // ─── 교육신청 목록 뷰 ──────────────────────────────────────────────────────────
 // 신청 목록 탭 상태
 let _applyListTab = 'mine'; // 'mine' | 'team'
+let _applyYear = new Date().getFullYear(); // 연도 필터
 
 function _renderApplyList() {
   const STATUS_CFG = {
-    '승인완료':   { color: '#059669', bg: '#F0FDF4', border: '#BBF7D0', icon: '✅' },
-    '반려':       { color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', icon: '❌' },
+    '승인완료': { color: '#059669', bg: '#F0FDF4', border: '#BBF7D0', icon: '✅' },
+    '반려': { color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', icon: '❌' },
     '결재진행중': { color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', icon: '⏳' },
-    '승인대기':   { color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB', icon: '🕐' },
+    '승인대기': { color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB', icon: '🕐' },
   };
 
   const teamViewEnabled = currentPersona.teamViewEnabled ?? currentPersona.team_view_enabled ?? false;
-  const myHistory   = typeof MOCK_HISTORY !== 'undefined' ? MOCK_HISTORY : [];
-  const teamHistory = teamViewEnabled ? _getSampleTeamHistory() : [];
+  const myHistory = [];
+  const teamHistory = [];
   const history = _applyListTab === 'mine' ? myHistory : teamHistory;
 
   // 통계
   const statCounts = {
-    total:       history.length,
-    approved:    history.filter(h => h.applyStatus === '승인완료').length,
-    inProgress:  history.filter(h => h.applyStatus === '결재진행중').length,
-    rejected:    history.filter(h => h.applyStatus === '반려').length,
-    pending:     history.filter(h => h.applyStatus === '승인대기').length,
+    total: history.length,
+    approved: history.filter(h => h.applyStatus === '승인완료').length,
+    inProgress: history.filter(h => h.applyStatus === '결재진행중').length,
+    rejected: history.filter(h => h.applyStatus === '반려').length,
+    pending: history.filter(h => h.applyStatus === '승인대기').length,
   };
 
   // Segmented tab
   const tabBar = teamViewEnabled ? `
-  <div style="display:flex;gap:4px;background:#F3F4F6;padding:4px;border-radius:14px;margin-bottom:20px;width:fit-content">
+    < div style = "display:flex;gap:4px;background:#F3F4F6;padding:4px;border-radius:14px;margin-bottom:20px;width:fit-content" >
     <button onclick="_applyListTab='mine';_renderApplyList()" style="
       padding:8px 20px;border-radius:10px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s;
-      background:${_applyListTab==='mine'?'#fff':'transparent'};
-      color:${_applyListTab==='mine'?'#002C5F':'#6B7280'};
-      box-shadow:${_applyListTab==='mine'?'0 1px 4px rgba(0,0,0,.12)':'none'}">
+      background:${_applyListTab === 'mine' ? '#fff' : 'transparent'};
+      color:${_applyListTab === 'mine' ? '#002C5F' : '#6B7280'};
+      box-shadow:${_applyListTab === 'mine' ? '0 1px 4px rgba(0,0,0,.12)' : 'none'}">
       👤 내 신청
     </button>
     <button onclick="_applyListTab='team';_renderApplyList()" style="
       padding:8px 20px;border-radius:10px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s;
-      background:${_applyListTab==='team'?'#fff':'transparent'};
-      color:${_applyListTab==='team'?'#002C5F':'#6B7280'};
-      box-shadow:${_applyListTab==='team'?'0 1px 4px rgba(0,0,0,.12)':'none'}">
+      background:${_applyListTab === 'team' ? '#fff' : 'transparent'};
+      color:${_applyListTab === 'team' ? '#002C5F' : '#6B7280'};
+      box-shadow:${_applyListTab === 'team' ? '0 1px 4px rgba(0,0,0,.12)' : 'none'}">
       👥 팀 신청
     </button>
-  </div>` : '';
+  </div > ` : '';
 
   // 통계 카드
   const statsBar = `
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
-    ${[
-      { label:'승인완료', val: statCounts.approved,   color:'#059669', bg:'#F0FDF4', icon:'✅' },
-      { label:'진행중',   val: statCounts.inProgress, color:'#D97706', bg:'#FFFBEB', icon:'⏳' },
-      { label:'반려',     val: statCounts.rejected,   color:'#DC2626', bg:'#FEF2F2', icon:'❌' },
-      { label:'승인대기', val: statCounts.pending,    color:'#6B7280', bg:'#F9FAFB', icon:'🕐' },
+    < div style = "display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px" >
+      ${[
+      { label: '승인완료', val: statCounts.approved, color: '#059669', bg: '#F0FDF4', icon: '✅' },
+      { label: '진행중', val: statCounts.inProgress, color: '#D97706', bg: '#FFFBEB', icon: '⏳' },
+      { label: '반려', val: statCounts.rejected, color: '#DC2626', bg: '#FEF2F2', icon: '❌' },
+      { label: '승인대기', val: statCounts.pending, color: '#6B7280', bg: '#F9FAFB', icon: '🕐' },
     ].map(s => `
     <div style="background:${s.bg};border-radius:14px;padding:14px 16px;border:1.5px solid ${s.color}20">
       <div style="font-size:11px;font-weight:700;color:${s.color};margin-bottom:6px">${s.icon} ${s.label}</div>
       <div style="font-size:24px;font-weight:900;color:${s.color}">${s.val}<span style="font-size:13px;margin-left:2px">건</span></div>
-    </div>`).join('')}
-  </div>`;
+    </div>`).join('')
+    }
+  </div > `;
 
   // 목록 행
   const rows = history.map(h => {
     const cfg = STATUS_CFG[h.applyStatus] || STATUS_CFG['승인대기'];
     const canResult = h.applyStatus === '승인완료';
-    const authorBadge = h.author ? `<span style="font-size:10px;background:#F3F4F6;color:#374151;padding:2px 8px;border-radius:10px;margin-left:6px">👤 ${h.author}</span>` : '';
+    const authorBadge = h.author ? `< span style = "font-size:10px;background:#F3F4F6;color:#374151;padding:2px 8px;border-radius:10px;margin-left:6px" >👤 ${h.author}</span > ` : '';
     return `
-    <div style="display:flex;align-items:flex-start;gap:16px;padding:18px 20px;border-radius:14px;
-                border:1.5px solid ${cfg.border};background:${cfg.bg};transition:all .15s">
-      <div style="font-size:24px;flex-shrink:0;margin-top:2px">${cfg.icon}</div>
+    < div style = "display:flex;align-items:flex-start;gap:16px;padding:18px 20px;border-radius:14px;
+  border: 1.5px solid ${cfg.border}; background:${cfg.bg}; transition:all .15s">
+    < div style = "font-size:24px;flex-shrink:0;margin-top:2px" > ${cfg.icon}</div >
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
           <span style="font-size:14px;font-weight:900;color:#111827">${h.title}</span>
@@ -345,7 +348,7 @@ function _renderApplyList() {
         <div style="font-size:11px;color:#6B7280;display:flex;gap:12px;flex-wrap:wrap">
           <span>📅 ${h.date} ~ ${h.endDate}</span>
           <span>📚 ${h.type}</span>
-          <span>💰 ${h.budget} · ${(h.amount||0).toLocaleString()}원</span>
+          <span>💰 ${h.budget} · ${(h.amount || 0).toLocaleString()}원</span>
           <span>⏱ ${h.hours}H</span>
         </div>
         ${h.applyStatus === '반려' ? `
@@ -364,37 +367,56 @@ function _renderApplyList() {
           ✅ 결과 제출 완료
         </button>` : ''}
       </div>
-    </div>`;
+    </div > `;
   }).join('');
 
-  const emptyMsg = `<div style="padding:60px 20px;text-align:center;color:#9CA3AF;font-weight:700">
-    📭 ${_applyListTab==='mine' ? '신청 이력이 없습니다.' : '팀원의 신청 이력이 없습니다.'}<br>
-    <span style="font-size:12px">${_applyListTab==='mine' ? '위의 "교육 신청" 버튼으로 신청해보세요.' : ''}</span>
-  </div>`;
+  const emptyMsg = `< div style = "padding:60px 20px;text-align:center;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB" >
+    <div style="font-size:48px;margin-bottom:16px">📭</div>
+    <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">${_applyYear}년 교육신청 이력이 없습니다</div>
+    <div style="font-size:12px;color:#9CA3AF;margin-bottom:20px;line-height:1.6">
+      교육 신청을 하면 결재 진행 상황과 결과를 이 화면에서 확인할 수 있습니다.<br>
+      위의 "교육 신청" 버튼으로 첫 신청을 시작해보세요.
+    </div>
+    <button onclick="applyViewMode='form';applyState=resetApplyState();renderApply()"
+      style="padding:12px 28px;border-radius:12px;background:#002C5F;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">
+      ✏️ 교육 신청하기
+    </button>
+  </div > `;
+
+  // 연도 선택
+  const curY = new Date().getFullYear();
+  const yearSelector = `
+    < select onchange = "_applyYear=Number(this.value);_renderApplyList()"
+  style = "padding:8px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:800;color:#002C5F;background:white;cursor:pointer;appearance:auto" >
+    ${[curY + 1, curY, curY - 1, curY - 2].map(y => `<option value="${y}" ${_applyYear === y ? 'selected' : ''}>${y}년</option>`).join('')}
+  </select > `;
 
   document.getElementById('page-apply').innerHTML = `
-<div class="max-w-4xl mx-auto space-y-4">
-  <div style="display:flex;align-items:flex-end;justify-content:space-between">
-    <div>
-      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육 신청</div>
-      <h1 class="text-3xl font-black text-brand tracking-tight">교육신청 현황</h1>
-      <p style="font-size:12px;color:#9CA3AF;margin-top:4px">${currentPersona.name} · ${currentPersona.dept}</p>
-    </div>
-    <div style="display:flex;gap:10px;align-items:center">${_applySmartButtons()}</div>
-  </div>
+    < div class="max-w-4xl mx-auto space-y-4" >
+      <div style="display:flex;align-items:flex-end;justify-content:space-between">
+        <div>
+          <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육 신청</div>
+          <h1 class="text-3xl font-black text-brand tracking-tight">교육신청 현황</h1>
+          <p style="font-size:12px;color:#9CA3AF;margin-top:4px">${currentPersona.name} · ${currentPersona.dept}</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          ${yearSelector}
+          ${_applySmartButtons()}
+        </div>
+      </div>
   ${tabBar}
   ${statsBar}
   <div class="card p-6">
     ${history.length === 0 ? emptyMsg : `<div style="display:flex;flex-direction:column;gap:10px">${rows}</div>`}
   </div>
-</div>`;
+</div > `;
 }
 
 // 팀 신청 샘플 (실제에서는 DB 조회)
 function _getSampleTeamHistory() {
   return [
-    { id:'TH001', title:'팀원 A - SDV 세미나', type:'세미나', date:'2026-03-01', endDate:'2026-03-01', hours:8, amount:300000, budget:'운영', applyStatus:'승인완료', resultDone:false, author:'김O수' },
-    { id:'TH002', title:'팀원 B - 이러닝 과정', type:'이러닝', date:'2026-03-10', endDate:'2026-03-31', hours:20, amount:150000, budget:'운영', applyStatus:'결재진행중', resultDone:false, author:'이O진' },
+    { id: 'TH001', title: '팀원 A - SDV 세미나', type: '세미나', date: '2026-03-01', endDate: '2026-03-01', hours: 8, amount: 300000, budget: '운영', applyStatus: '승인완료', resultDone: false, author: '김O수' },
+    { id: 'TH002', title: '팀원 B - 이러닝 과정', type: '이러닝', date: '2026-03-10', endDate: '2026-03-31', hours: 20, amount: 150000, budget: '운영', applyStatus: '결재진행중', resultDone: false, author: '이O진' },
   ];
 }
 
@@ -416,11 +438,11 @@ function _applySelectionBanner(s, currentStep) {
     if (s.purpose?.id === 'external_personal') {
       // 개인직무 사외학습: budgetChoice 레이블
       const bcMap = {
-        'general':  '일반교육예산 참가계정',
-        'rnd':      'R&D교육예산 계정',
-        'hae-edu':  '전사교육예산',
+        'general': '일반교육예산 참가계정',
+        'rnd': 'R&D교육예산 계정',
+        'hae-edu': '전사교육예산',
         'hae-team': '팀/프로젝트 할당예산',
-        'none':     '예산 미사용',
+        'none': '예산 미사용',
       };
       budgetLabel = s.budgetChoice ? (bcMap[s.budgetChoice] || s.budgetChoice) : '';
     } else {
@@ -437,17 +459,17 @@ function _applySelectionBanner(s, currentStep) {
   if (items.length === 0) return '';
 
   const itemsHtml = items.map(it => `
-    <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#374151">
+    < span style = "display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#374151" >
       <span style="font-size:10px;color:#6B7280;font-weight:700">${it.num} ${it.key}</span>
       <span style="font-weight:900;padding:2px 8px;border-radius:6px;background:${it.color}14;color:${it.color};max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.value}</span>
-    </span>`).join('<span style="color:#D1D5DB;margin:0 2px">|</span>');
+    </span > `).join('<span style="color:#D1D5DB;margin:0 2px">|</span>');
 
   return `
-  <div style="background:#F0F9FF;border:1.5px solid #BAE6FD;border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+    < div style = "background:#F0F9FF;border:1.5px solid #BAE6FD;border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;gap:6px;flex-wrap:wrap" >
     <span style="font-size:10px;font-weight:900;color:#0369A1;white-space:nowrap">📌 선택 내용</span>
     <span style="color:#BAE6FD;font-size:12px">|</span>
     ${itemsHtml}
-  </div>`;
+  </div > `;
 }
 
 // ─── 교육신청 폼 뷰 (기존 renderApply 로직) ──────────────────────────────────
@@ -479,7 +501,7 @@ function _renderApplyForm() {
   const over = curBudget && totalAmt > (curBudget.balance - curBudget.used);
 
   document.getElementById('page-apply').innerHTML = `
-<div class="max-w-4xl mx-auto space-y-6">
+    < div class="max-w-4xl mx-auto space-y-6" >
   <div class="flex items-center justify-between">
     <div>
       <button onclick="applyViewMode='list';renderApply()"
@@ -495,12 +517,12 @@ function _renderApplyForm() {
   <span style="font-size:20px">🔗</span>
   <div>
     <div style="font-size:12px;font-weight:900;color:#1D4ED8">교육계획 기반 신청</div>
-    <div style="font-size:11px;color:#3B82F6;margin-top:2px">${(MOCK_PLANS.find(p=>p.id===s.planId)||{}).title||s.planId} · 예산계정이 자동 연동되었습니다</div>
+    <div style="font-size:11px;color:#3B82F6;margin-top:2px">${(MOCK_PLANS.find(p => p.id === s.planId) || {}).title || s.planId} · 예산계정이 자동 연동되었습니다</div>
   </div>
 </div>` : ''}
   </div>
 
-  <!-- Stepper indicator -->
+  <!--Stepper indicator-- >
   <div class="card p-6">
     <div class="flex items-center gap-2">
       ${[1, 2, 3, 4].map(n => `
@@ -512,7 +534,7 @@ function _renderApplyForm() {
     </div>
   </div>
 
-  <!-- Step 1: Purpose -->
+  <!--Step 1: Purpose-- >
   <div class="card p-8 ${s.step === 1 ? '' : 'hidden'}">
     <h2 class="text-lg font-black text-gray-800 mb-6">01. 교육 목적 선택</h2>
 
@@ -572,7 +594,7 @@ function _renderApplyForm() {
     </div>
   </div>
 
-  <!-- Step 2: Budget -->
+  <!--Step 2: Budget-- >
   <div class="card p-8 ${s.step === 2 ? '' : 'hidden'}">
     ${_applySelectionBanner(s, 2)}
     <h2 class="text-lg font-black text-gray-800 mb-2">02. 예산 선택</h2>
@@ -581,84 +603,84 @@ function _renderApplyForm() {
       const isIndividual = s.purpose?.id === 'external_personal';
       if (isIndividual) {
         // ── 개인직무 사외학습: 페르소나별 동적 예산 옵션 카드 ──────────────────
-        const hasRnd    = (currentPersona.allowedAccounts || []).some(a => a.includes('RND'));
+        const hasRnd = (currentPersona.allowedAccounts || []).some(a => a.includes('RND'));
         const hasHscExt = (currentPersona.allowedAccounts || []).includes('HSC-EXT');
         const hasHaeEdu = (currentPersona.allowedAccounts || []).includes('HAE-EDU');
-        const hasHaeTeam= (currentPersona.allowedAccounts || []).includes('HAE-TEAM');
+        const hasHaeTeam = (currentPersona.allowedAccounts || []).includes('HAE-TEAM');
         const CHOICES = [
           // ── HAE 전사교육예산 ──────────────────────────────────────────────────
           ...(hasHaeEdu ? [{
-            id:'hae-edu', icon:'🏫',
-            title:'전사교육예산',
-            desc:'현대오토에버 전사 공통 교육예산에서 교육비를 지원받습니다. 신청 승인 후 교육 이수 결과를 작성합니다.',
-            tag:'신청→결과', tagColor:'#7C3AED', tagBg:'#F5F3FF',
-            next:'교육유형 선택 → 세부정보', nextColor:'#7C3AED',
+            id: 'hae-edu', icon: '🏫',
+            title: '전사교육예산',
+            desc: '현대오토에버 전사 공통 교육예산에서 교육비를 지원받습니다. 신청 승인 후 교육 이수 결과를 작성합니다.',
+            tag: '신청→결과', tagColor: '#7C3AED', tagBg: '#F5F3FF',
+            next: '교육유형 선택 → 세부정보', nextColor: '#7C3AED',
           }] : []),
           // ── HAE 팀/프로젝트 할당예산 ─────────────────────────────────────────
           ...(hasHaeTeam ? [{
-            id:'hae-team', icon:'👥',
-            title:'팀/프로젝트 할당예산',
-            desc:'팀 및 프로젝트 단위로 배정된 교육예산에서 교육비를 지원받습니다. 신청 승인 후 교육 이수 결과를 작성합니다.',
-            tag:'신청→결과', tagColor:'#059669', tagBg:'#F0FDF4',
-            next:'교육유형 선택 → 세부정보', nextColor:'#059669',
+            id: 'hae-team', icon: '👥',
+            title: '팀/프로젝트 할당예산',
+            desc: '팀 및 프로젝트 단위로 배정된 교육예산에서 교육비를 지원받습니다. 신청 승인 후 교육 이수 결과를 작성합니다.',
+            tag: '신청→결과', tagColor: '#059669', tagBg: '#F0FDF4',
+            next: '교육유형 선택 → 세부정보', nextColor: '#059669',
           }] : []),
           // ── HSC 사외교육 계정 ───────────────────────────────────────────────
           ...(hasHscExt ? [{
-            id:'general', icon:'🏭',
-            title:'현대제철-사외교육 계정',
-            desc:'현대제철 사외교육 예산에서 교육비를 지원받습니다. 신청 후 승인 시 예산이 차감되며, 이후 교육 결과를 작성합니다. (패턴 B: 신청 → 결과)',
-            tag:'신청→결과', tagColor:'#BE123C', tagBg:'#FFF1F2',
-            next:'교육유형 선택 → 세부정보', nextColor:'#BE123C',
+            id: 'general', icon: '🏭',
+            title: '현대제철-사외교육 계정',
+            desc: '현대제철 사외교육 예산에서 교육비를 지원받습니다. 신청 후 승인 시 예산이 차감되며, 이후 교육 결과를 작성합니다. (패턴 B: 신청 → 결과)',
+            tag: '신청→결과', tagColor: '#BE123C', tagBg: '#FFF1F2',
+            next: '교육유형 선택 → 세부정보', nextColor: '#BE123C',
           }] : []),
           // ── 일반 참가계정 (HMC/KIA 등 HAE/HSC 아닌 경우) ───────────────────
           ...(!hasHscExt && !hasHaeEdu ? [{
-            id:'general', icon:'💳',
-            title:'일반교육예산 참가계정',
-            desc:'일반 교육예산에서 참가비를 지원받습니다. 개인 선지출 후 영수증을 첨부하여 신청합니다.',
-            tag:'후정산형', tagColor:'#D97706', tagBg:'#FEF3C7',
-            next:'교육유형 선택 → 세부정보', nextColor:'#059669',
+            id: 'general', icon: '💳',
+            title: '일반교육예산 참가계정',
+            desc: '일반 교육예산에서 참가비를 지원받습니다. 개인 선지출 후 영수증을 첨부하여 신청합니다.',
+            tag: '후정산형', tagColor: '#D97706', tagBg: '#FEF3C7',
+            next: '교육유형 선택 → 세부정보', nextColor: '#059669',
           }] : []),
           ...(hasRnd ? [{
-            id:'rnd', icon:'🔬',
-            title:'R&D교육예산 계정',
-            desc:'사전에 승인받은 R&D 교육계획과 연동하여 신청합니다. 교육계획 없이는 이 경로를 이용할 수 없습니다.',
-            tag:'계획 연동 필수', tagColor:'#7C3AED', tagBg:'#F5F3FF',
-            next:'교육계획 선택 → 세부정보', nextColor:'#7C3AED',
+            id: 'rnd', icon: '🔬',
+            title: 'R&D교육예산 계정',
+            desc: '사전에 승인받은 R&D 교육계획과 연동하여 신청합니다. 교육계획 없이는 이 경로를 이용할 수 없습니다.',
+            tag: '계획 연동 필수', tagColor: '#7C3AED', tagBg: '#F5F3FF',
+            next: '교육계획 선택 → 세부정보', nextColor: '#7C3AED',
           }] : []),
           {
-            id:'none', icon:'📝',
-            title:'예산 미사용 (이력만 등록)',
-            desc:'자비 학습·무료 강의 등 예산 사용 없이 학습 이력만 등록합니다. 예산 잔액에 영향을 주지 않습니다.',
-            tag:'예산 미사용', tagColor:'#6B7280', tagBg:'#F3F4F6',
-            next:'교육유형 선택 → 세부정보', nextColor:'#374151',
+            id: 'none', icon: '📝',
+            title: '예산 미사용 (이력만 등록)',
+            desc: '자비 학습·무료 강의 등 예산 사용 없이 학습 이력만 등록합니다. 예산 잔액에 영향을 주지 않습니다.',
+            tag: '예산 미사용', tagColor: '#6B7280', tagBg: '#F3F4F6',
+            next: '교육유형 선택 → 세부정보', nextColor: '#374151',
           },
         ];
         const bc = s.budgetChoice;
         return `<p class="text-sm text-gray-400 mb-5">이번 교육 신청에 어떤 예산을 사용하시겠습니까?</p>
 <div style="display:grid;gap:10px;margin-bottom:4px">
 ${CHOICES.map(ch => {
-  const active = bc === ch.id;
-  const activeColor = ch.id==='rnd'?'#7C3AED':ch.id==='hae-edu'?'#7C3AED':ch.id==='hae-team'?'#059669':ch.id==='general'?(hasHscExt?'#BE123C':'#059669'):'#9CA3AF';
-  const col = active ? activeColor : '#E5E7EB';
-  return `<button onclick="selectBudgetChoice('${ch.id}')"
+          const active = bc === ch.id;
+          const activeColor = ch.id === 'rnd' ? '#7C3AED' : ch.id === 'hae-edu' ? '#7C3AED' : ch.id === 'hae-team' ? '#059669' : ch.id === 'general' ? (hasHscExt ? '#BE123C' : '#059669') : '#9CA3AF';
+          const col = active ? activeColor : '#E5E7EB';
+          return `<button onclick="selectBudgetChoice('${ch.id}')"
   style="text-align:left;padding:18px 20px;border-radius:14px;border:2px solid ${col};
-         background:${active?col+'12':'white'};cursor:pointer;width:100%;transition:all .15s">
+         background:${active ? col + '12' : 'white'};cursor:pointer;width:100%;transition:all .15s">
   <div style="display:flex;align-items:flex-start;gap:14px">
     <div style="font-size:26px;flex-shrink:0;margin-top:2px">${ch.icon}</div>
     <div style="flex:1">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap">
-        <span style="font-size:14px;font-weight:900;color:${active?col:'#111827'}">${ch.title}</span>
+        <span style="font-size:14px;font-weight:900;color:${active ? col : '#111827'}">${ch.title}</span>
         <span style="font-size:9px;font-weight:900;padding:2px 7px;border-radius:6px;background:${ch.tagBg};color:${ch.tagColor}">${ch.tag}</span>
       </div>
       <p style="font-size:12px;color:#6B7280;line-height:1.55;margin:0 0 8px">${ch.desc}</p>
       <div style="font-size:10px;font-weight:800;color:${ch.nextColor}">다음 단계: ${ch.next} →</div>
     </div>
-    <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${col};background:${active?col:'white'};flex-shrink:0;margin-top:4px;display:flex;align-items:center;justify-content:center">
+    <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${col};background:${active ? col : 'white'};flex-shrink:0;margin-top:4px;display:flex;align-items:center;justify-content:center">
       ${active ? '<span style="color:white;font-size:11px;font-weight:900">✓</span>' : ''}
     </div>
   </div>
 </button>`;
-}).join('')}
+        }).join('')}
 </div>
 ${bc === 'rnd' ? _renderRndPlanPicker(s) : ''}`;
       }
@@ -671,53 +693,53 @@ ${bc === 'rnd' ? _renderRndPlanPicker(s) : ''}`;
       return `<p class="text-sm text-gray-400 mb-5">이번 교육에 사용할 예산 계정을 선택하세요.</p>
 <div style="display:grid;gap:8px">
 ${policyBudgets.map(b => {
-  const active = s.budgetId === b.id;
-  const acctTypeLabel = b.account === '운영' ? '운영 계정' : b.account === '참가' ? '참가 계정' : b.account + ' 계정';
-  return `<button onclick="selectApplyBudget('${b.id}')"
-  style="text-align:left;padding:18px 20px;border-radius:14px;border:2px solid ${active?'#002C5F':'#E5E7EB'};
-         background:${active?'#EFF6FF':'white'};cursor:pointer;width:100%;transition:all .15s">
+        const active = s.budgetId === b.id;
+        const acctTypeLabel = b.account === '운영' ? '운영 계정' : b.account === '참가' ? '참가 계정' : b.account + ' 계정';
+        return `<button onclick="selectApplyBudget('${b.id}')"
+  style="text-align:left;padding:18px 20px;border-radius:14px;border:2px solid ${active ? '#002C5F' : '#E5E7EB'};
+         background:${active ? '#EFF6FF' : 'white'};cursor:pointer;width:100%;transition:all .15s">
   <div style="display:flex;align-items:center;justify-content:space-between">
     <div>
-      <div style="font-size:14px;font-weight:900;color:${active?'#002C5F':'#111827'}">${b.name}</div>
+      <div style="font-size:14px;font-weight:900;color:${active ? '#002C5F' : '#111827'}">${b.name}</div>
       <div style="font-size:11px;color:#9CA3AF;margin-top:3px">${acctTypeLabel}</div>
     </div>
     ${active ? '<span style="font-size:11px;font-weight:900;padding:3px 10px;border-radius:6px;background:#DBEAFE;color:#1D4ED8">선택됨</span>' : ''}
   </div>
 </button>`;
-}).join('')}
+      }).join('')}
 </div>`;
     })()}
 
     <div class="flex justify-between mt-6">
       <button onclick="applyPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
       ${(() => {
-        const isInd = s.purpose?.id === 'external_personal';
-        const ok = isInd
-          ? (s.budgetChoice && (s.budgetChoice !== 'rnd' || s.planId))
-          : !!s.serviceId;
-        return `<button onclick="applyNext()" ${!ok ? 'disabled' : ''}
+      const isInd = s.purpose?.id === 'external_personal';
+      const ok = isInd
+        ? (s.budgetChoice && (s.budgetChoice !== 'rnd' || s.planId))
+        : !!s.serviceId;
+      return `<button onclick="applyNext()" ${!ok ? 'disabled' : ''}
           class="px-8 py-3 rounded-xl font-black text-sm transition ${!ok ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-brand text-white hover:bg-blue-900 shadow-lg'}">
           다음 →
         </button>`;
-      })()}
+    })()}
     </div>
   </div>
 
 
-  <!-- Step 3: 교육유형 선택 -->
+  <!--Step 3: 교육유형 선택-- >
   <div class="card p-8 ${s.step === 3 ? '' : 'hidden'}">
     ${_applySelectionBanner(s, 3)}
     <h2 class="text-lg font-black text-gray-800 mb-6">03. 교육유형 선택</h2>
     ${(() => {
       // 예산별 허용 교육유형 ID 맵
       const SUBTYPE_FILTER_MAP = {
-        'hae-edu':  ['edu_elearning','edu_class','edu_live','acad_conf','dev_lang','dev_cert'],
-        'hae-team': ['edu_elearning','edu_class','edu_live','acad_conf','dev_lang','dev_cert'],
-        'none-hae': ['edu_elearning','edu_class','edu_live','acad_conf','etc_team'],
+        'hae-edu': ['edu_elearning', 'edu_class', 'edu_live', 'acad_conf', 'dev_lang', 'dev_cert'],
+        'hae-team': ['edu_elearning', 'edu_class', 'edu_live', 'acad_conf', 'dev_lang', 'dev_cert'],
+        'none-hae': ['edu_elearning', 'edu_class', 'edu_live', 'acad_conf', 'etc_team'],
       };
       const hasHaeEdu2 = (currentPersona.allowedAccounts || []).includes('HAE-EDU');
       const isHscExtBudget = (currentPersona.allowedAccounts || []).includes('HSC-EXT') && s.budgetChoice === 'general';
-      const HSC_EXT_ALLOWED = ['edu_elearning','edu_class','edu_live','acad_conf'];
+      const HSC_EXT_ALLOWED = ['edu_elearning', 'edu_class', 'edu_live', 'acad_conf'];
 
       // 필터 키 결정
       let filterKey = null;
@@ -730,10 +752,10 @@ ${policyBudgets.map(b => {
 
       const subtypes = s.purpose?.subtypes
         ? (allowedIds
-            ? s.purpose.subtypes
-                .map(g => ({ ...g, items: g.items.filter(i => allowedIds.includes(i.id)) }))
-                .filter(g => g.items.length > 0)
-            : s.purpose.subtypes)
+          ? s.purpose.subtypes
+            .map(g => ({ ...g, items: g.items.filter(i => allowedIds.includes(i.id)) }))
+            .filter(g => g.items.length > 0)
+          : s.purpose.subtypes)
         : null;
       if (!subtypes) return '<div class="p-5 bg-gray-50 rounded-2xl text-sm font-bold text-gray-500 flex items-center gap-3"><span class="text-accent text-xl">✓</span> 표준 프로세스가 자동 적용됩니다.</div>';
       return subtypes.map(g => `
@@ -757,74 +779,74 @@ ${policyBudgets.map(b => {
     </div>
   </div>
 
-  <!-- Step 4: Detail -->
-  <div class="card p-8 ${s.step === 4 ? '' : 'hidden'}">
-    <h2 class="text-lg font-black text-gray-800 mb-4">04. 세부 정보 입력</h2>
+  <!--Step 4: Detail-- >
+    <div class="card p-8 ${s.step === 4 ? '' : 'hidden'}">
+      <h2 class="text-lg font-black text-gray-800 mb-4">04. 세부 정보 입력</h2>
 
-    <!-- 이전 단계 선택 요약 배너 -->
-    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 mb-6">
-      <div class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-        <span class="w-1.5 h-1.5 bg-blue-400 rounded-full inline-block"></span> 신청 요약
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <!-- Step 1 요약 -->
-        <div class="bg-white rounded-xl px-4 py-3 border border-blue-100">
-          <div class="text-[10px] text-blue-400 font-black uppercase tracking-wider mb-1">① 교육 목적</div>
-          <div class="font-black text-sm text-gray-900">${s.purpose?.icon || ''} ${s.purpose?.label || '—'}</div>
-          ${s.subType ? (() => { const g = s.purpose?.subtypes?.flatMap(g => g.items).find(i => i.id === s.subType); return g ? `<div class="text-[11px] text-gray-500 mt-0.5">└ ${g.label}</div>` : ''; })() : ''}
+      <!-- 이전 단계 선택 요약 배너 -->
+      <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 mb-6">
+        <div class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 bg-blue-400 rounded-full inline-block"></span> 신청 요약
         </div>
-        <!-- Step 2 요약 -->
-        <div class="bg-white rounded-xl px-4 py-3 border border-blue-100">
-          <div class="text-[10px] text-blue-400 font-black uppercase tracking-wider mb-1">② 예산</div>
-          ${s.useBudget === false
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <!-- Step 1 요약 -->
+          <div class="bg-white rounded-xl px-4 py-3 border border-blue-100">
+            <div class="text-[10px] text-blue-400 font-black uppercase tracking-wider mb-1">① 교육 목적</div>
+            <div class="font-black text-sm text-gray-900">${s.purpose?.icon || ''} ${s.purpose?.label || '—'}</div>
+            ${s.subType ? (() => { const g = s.purpose?.subtypes?.flatMap(g => g.items).find(i => i.id === s.subType); return g ? `<div class="text-[11px] text-gray-500 mt-0.5">└ ${g.label}</div>` : ''; })() : ''}
+          </div>
+          <!-- Step 2 요약 -->
+          <div class="bg-white rounded-xl px-4 py-3 border border-blue-100">
+            <div class="text-[10px] text-blue-400 font-black uppercase tracking-wider mb-1">② 예산</div>
+            ${s.useBudget === false
       ? '<div class="font-black text-sm text-gray-500">📝 단순 이력 등록</div>'
       : `<div class="font-black text-sm text-gray-900">${curBudget ? curBudget.name : '—'}</div>
                ${s.planId ? `<div class="text-[11px] text-blue-500 mt-0.5">🔗 단일 계획 연동됨</div>` : ''}
                ${s.planIds?.length ? `<div class="text-[11px] text-violet-500 mt-0.5">🔗 복수 계획 연동됨 (${s.planIds.length}건)</div>` : ''}`
     }
-        </div>
-        <!-- Step 3 요약 -->
-        <div class="bg-white rounded-xl px-4 py-3 border border-blue-100">
-          <div class="text-[10px] text-blue-400 font-black uppercase tracking-wider mb-1">③ 교육유형</div>
-          ${s.subType
+          </div>
+          <!-- Step 3 요약 -->
+          <div class="bg-white rounded-xl px-4 py-3 border border-blue-100">
+            <div class="text-[10px] text-blue-400 font-black uppercase tracking-wider mb-1">③ 교육유형</div>
+            ${s.subType
       ? (() => { const item = s.purpose?.subtypes?.flatMap(g => g.items).find(i => i.id === s.subType); const grp = s.purpose?.subtypes?.find(g => g.items.some(i => i.id === s.subType)); return `<div class="font-black text-sm text-gray-900">${item?.label || '—'}</div><div class="text-[11px] text-gray-400 mt-0.5">${grp?.group || ''}</div>`; })()
       : '<div class="text-sm text-gray-400">—</div>'
     }
+          </div>
         </div>
-      </div>
-    </div>
-
-    <div class="space-y-5">
-      <!-- Region toggle -->
-      <div class="inline-flex bg-gray-100 rounded-xl p-1">
-        <button onclick="applyState.region='domestic';renderApply()" class="px-5 py-2 rounded-lg text-sm font-bold transition ${s.region === 'domestic' ? 'bg-white text-accent shadow' : ' text-gray-500'}">🗺 국내</button>
-        <button onclick="applyState.region='overseas';renderApply()" class="px-5 py-2 rounded-lg text-sm font-bold transition ${s.region === 'overseas' ? 'bg-white text-accent shadow' : 'text-gray-500'}">🌏 해외</button>
-      </div>
-      <div>
-        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">과정명 <span class="text-red-500">*</span></label>
-        <input type="text" value="${s.title}" oninput="applyState.title=this.value" placeholder="교육/세미나/자격증 등 공식 명칭" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
-      </div>
-      <div class="grid grid-cols-2 gap-5">
-        <div>
-          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">시작일</label>
-          <input type="date" value="${s.startDate}" oninput="applyState.startDate=this.value;renderApply()" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
-        </div>
-        <div>
-          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">종료일</label>
-          <input type="date" value="${s.endDate}" oninput="applyState.endDate=this.value;renderApply()" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
-        </div>
-      </div>
-      <div>
-        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">총 학습시간 (H)</label>
-        <input type="number" value="${s.hours}" oninput="applyState.hours=this.value" placeholder="0" class="w-40 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition"/>
-      </div>
-      <div>
-        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">학습 내용 <span class="text-red-500">*</span></label>
-        <textarea oninput="applyState.content=this.value" rows="3" placeholder="학습 목표, 주요 커리큘럼 및 활용 방안을 입력하세요." class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-medium text-gray-700 focus:border-accent focus:bg-white transition resize-none">${s.content}</textarea>
       </div>
 
-      <!-- Cost section -->
-      ${s.useBudget === true ? `
+      <div class="space-y-5">
+        <!-- Region toggle -->
+        <div class="inline-flex bg-gray-100 rounded-xl p-1">
+          <button onclick="applyState.region='domestic';renderApply()" class="px-5 py-2 rounded-lg text-sm font-bold transition ${s.region === 'domestic' ? 'bg-white text-accent shadow' : ' text-gray-500'}">🗺 국내</button>
+          <button onclick="applyState.region='overseas';renderApply()" class="px-5 py-2 rounded-lg text-sm font-bold transition ${s.region === 'overseas' ? 'bg-white text-accent shadow' : 'text-gray-500'}">🌏 해외</button>
+        </div>
+        <div>
+          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">과정명 <span class="text-red-500">*</span></label>
+          <input type="text" value="${s.title}" oninput="applyState.title=this.value" placeholder="교육/세미나/자격증 등 공식 명칭" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-bold text-gray-900 focus:border-accent focus:bg-white transition" />
+        </div>
+        <div class="grid grid-cols-2 gap-5">
+          <div>
+            <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">시작일</label>
+            <input type="date" value="${s.startDate}" oninput="applyState.startDate=this.value;renderApply()" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition" />
+          </div>
+          <div>
+            <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">종료일</label>
+            <input type="date" value="${s.endDate}" oninput="applyState.endDate=this.value;renderApply()" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">총 학습시간 (H)</label>
+          <input type="number" value="${s.hours}" oninput="applyState.hours=this.value" placeholder="0" class="w-40 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition" />
+        </div>
+        <div>
+          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">학습 내용 <span class="text-red-500">*</span></label>
+          <textarea oninput="applyState.content=this.value" rows="3" placeholder="학습 목표, 주요 커리큘럼 및 활용 방안을 입력하세요." class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-medium text-gray-700 focus:border-accent focus:bg-white transition resize-none">${s.content}</textarea>
+        </div>
+
+        <!-- Cost section -->
+        ${s.useBudget === true ? `
       <div class="border-t border-gray-100 pt-5">
         ${curBudget?.account === '연구투자' ? `
         <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">R&D 총 투자금액</label>
@@ -871,19 +893,19 @@ ${policyBudgets.map(b => {
         </div>
         <div class="text-xs text-gray-500 mt-1">${curBudget.name} 잔액: ${fmt(curBudget.balance - curBudget.used)}원</div>` : ''}
       </div>` : ''}
-    </div>
+      </div>
 
-    <div class="flex justify-between mt-8 border-t border-gray-100 pt-6">
-      <button onclick="applyPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
-      <div class="flex gap-3">
-        <button class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">임시저장</button>
-        <button onclick="submitApply()" ${over ? 'disabled' : ''}
-          class="px-10 py-3 rounded-xl font-black text-sm transition shadow-lg ${over ? 'bg-gray-300 text-gray-400 cursor-not-allowed' : 'bg-brand text-white hover:bg-blue-900'}">
-          신청서 제출 →
-        </button>
+      <div class="flex justify-between mt-8 border-t border-gray-100 pt-6">
+        <button onclick="applyPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
+        <div class="flex gap-3">
+          <button class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">임시저장</button>
+          <button onclick="submitApply()" ${over ? 'disabled' : ''}
+            class="px-10 py-3 rounded-xl font-black text-sm transition shadow-lg ${over ? 'bg-gray-300 text-gray-400 cursor-not-allowed' : 'bg-brand text-white hover:bg-blue-900'}">
+            신청서 제출 →
+          </button>
+        </div>
       </div>
     </div>
-  </div>
   
   ${s.showMultiPlanModal ? `
   <div class="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center fade-in">
@@ -904,8 +926,9 @@ ${policyBudgets.map(b => {
         <button onclick="applyState.showMultiPlanModal=false;renderApply()" class="px-6 py-2 bg-brand text-white font-bold rounded-xl hover:bg-blue-900 transition">확인</button>
       </div>
     </div>
-  </div>` : ''}
-</div>`;
+  </div>` : ''
+    }
+</div > `;
 }
 
 // ─── APPLY FORM HELPERS ─────────────────────────────────────────────────────
@@ -940,8 +963,8 @@ function submitApply() {
   const modeLabel = svc?.applyMode === 'reimbursement' ? '후정산형 신청' : '교육 신청';
   const budgetNote = svc?.budgetLinked === false ? '\n\n📝 무예산 이력 등록으로 예산 잔액에는 영향을 주지 않습니다.'
     : svc?.applyMode === 'reimbursement' ? '\n\n🧾 후정산 신청이 승인되면 예산에서 즉시 차감됩니다.'
-    : '\n\n💳 승인 시 예산이 가점유 처리됩니다.';
-  alert(`✅ ${modeLabel}서가 성공적으로 제출되었습니다.${budgetNote}\n\n담당자 검토 후 알림이 발송됩니다.`);
+      : '\n\n💳 승인 시 예산이 가점유 처리됩니다.';
+  alert(`✅ ${modeLabel}서가 성공적으로 제출되었습니다.${budgetNote} \n\n담당자 검토 후 알림이 발송됩니다.`);
   applyState = resetApplyState();
   navigate('history');
 }
@@ -952,9 +975,9 @@ function selectService(id) {
   applyState.serviceId = id;
   applyState.applyMode = svc ? svc.applyMode : null;
   applyState.useBudget = svc ? svc.budgetLinked : null;
-  applyState.budgetId  = '';
-  applyState.planId    = '';
-  applyState.planIds   = [];
+  applyState.budgetId = '';
+  applyState.planId = '';
+  applyState.planIds = [];
   renderApply();
 }
 
@@ -972,22 +995,22 @@ function selectApplyBudget(budgetId) {
 // ─── 개인직무 사외학습 전용: 예산 선택 ─────────────────────────────────────────
 function selectBudgetChoice(choice) {
   applyState.budgetChoice = choice;
-  applyState.budgetId  = '';
-  applyState.planId    = '';
-  applyState.planIds   = [];
+  applyState.budgetId = '';
+  applyState.planId = '';
+  applyState.planIds = [];
   applyState.serviceId = '';
   // applyMode 결정: HAE-EDU/TEAM → holding(신청→결과), HSC-EXT → holding, 일반 general → reimbursement(후정산)
   const isHscExtMode = (currentPersona.allowedAccounts || []).includes('HSC-EXT');
-  const isHaeMode    = ['hae-edu','hae-team'].includes(choice);
+  const isHaeMode = ['hae-edu', 'hae-team'].includes(choice);
   applyState.applyMode = choice === 'none' ? null
     : (choice === 'rnd' || isHscExtMode || isHaeMode) ? 'holding' : 'reimbursement';
   applyState.useBudget = choice !== 'none';
   // budgetId 자동 연결 (HAE-EDU → b_hae01, HAE-TEAM → b_hae02, 단일 예산 → [0])
   if (choice === 'hae-edu') {
-    const b = (currentPersona.budgets||[]).find(b => b.account === '전사교육');
+    const b = (currentPersona.budgets || []).find(b => b.account === '전사교육');
     if (b) applyState.budgetId = b.id;
   } else if (choice === 'hae-team') {
-    const b = (currentPersona.budgets||[]).find(b => b.account === '팀/프로젝트');
+    const b = (currentPersona.budgets || []).find(b => b.account === '팀/프로젝트');
     if (b) applyState.budgetId = b.id;
   } else if (choice === 'general' && (currentPersona.budgets || []).length >= 1) {
     applyState.budgetId = currentPersona.budgets[0].id;
@@ -1004,7 +1027,7 @@ function selectRndPlan(id) {
 
 // R&D 교육계획 선택 UI (Picker)
 function _renderRndPlanPicker(s) {
-  const rndPlans = MOCK_PLANS.filter(p => p.account === '연구투자' || (p.budgetId||'').includes('RND'));
+  const rndPlans = MOCK_PLANS.filter(p => p.account === '연구투자' || (p.budgetId || '').includes('RND'));
   if (rndPlans.length === 0) {
     return '<div style="margin-top:16px;padding:16px 20px;border-radius:12px;background:#FEF2F2;border:1.5px solid #FECACA">'
       + '<div style="font-size:13px;font-weight:900;color:#EF4444;margin-bottom:4px">⚠️ 연동 가능한 R&D 교육계획이 없습니다</div>'
@@ -1022,7 +1045,7 @@ function _renderRndPlanPicker(s) {
       + '<input type="radio" ' + (active ? 'checked' : '') + ' style="flex-shrink:0">'
       + '<div style="flex:1">'
       + '<div style="font-size:12px;font-weight:800;color:' + (active ? '#7C3AED' : '#111827') + '">' + p.title + '</div>'
-      + '<div style="font-size:10px;color:#9CA3AF;margin-top:2px">예산: ' + (p.amount||0).toLocaleString() + '원 &nbsp;·&nbsp; 잔액: ' + ((p.amount||0)-(p.used||0)).toLocaleString() + '원</div>'
+      + '<div style="font-size:10px;color:#9CA3AF;margin-top:2px">예산: ' + (p.amount || 0).toLocaleString() + '원 &nbsp;·&nbsp; 잔액: ' + ((p.amount || 0) - (p.used || 0)).toLocaleString() + '원</div>'
       + '</div>'
       + (active ? '<span style="font-size:14px;color:#7C3AED;font-weight:900">✓</span>' : '')
       + '</label>';

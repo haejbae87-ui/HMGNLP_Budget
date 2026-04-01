@@ -28,7 +28,7 @@ async function _loadFoPolicies() {
         if (idx >= 0) EDU_SUPPORT_DOMAINS[idx] = mapped; else EDU_SUPPORT_DOMAINS.push(mapped);
       });
     }
-  } catch(e) { console.warn('[FO] edu_support_domains 로드 실패:', e.message); }
+  } catch (e) { console.warn('[FO] edu_support_domains 로드 실패:', e.message); }
 
   // ── 페르소나의 VOrg 템플릿 ID 결정 ──────────────────────────────────────
   let vorgId = null;
@@ -45,7 +45,7 @@ async function _loadFoPolicies() {
           .limit(1);
         vorgId = vorgRows?.[0]?.id || null;
       }
-    } catch(e) { console.warn('[FO] VOrg 템플릿 조회 실패:', e.message); }
+    } catch (e) { console.warn('[FO] VOrg 템플릿 조회 실패:', e.message); }
   }
 
   // ── ①단계: 스냅샷 API 조회 (Edge Cache 활용, DB 로드로 보완) ─────────────
@@ -76,7 +76,7 @@ async function _loadFoPolicies() {
           }
         }
       }
-    } catch(e) { console.warn('[FO] 스냅샷 API 조회 실패, DB 직접 조회로 전환:', e.message); }
+    } catch (e) { console.warn('[FO] 스냅샷 API 조회 실패, DB 직접 조회로 전환:', e.message); }
   }
 
   // ── ②단계: 항상 DB 로드 (다중 격리그룹 사용자 지원) ────────────────────────
@@ -100,7 +100,7 @@ async function _loadFoPolicies() {
         });
         console.log(`[FO] DB 로드 완료 (정책 ${sPols.length}건, 다중그룹 코드 포함)`);
       }
-    } catch(e) { console.warn('[FO] 서비스 정맠 DB 로드 실패:', e.message); }
+    } catch (e) { console.warn('[FO] 서비스 정맠 DB 로드 실패:', e.message); }
   }
 
   _foServicePoliciesLoaded = true;
@@ -127,7 +127,9 @@ function resetPlanState() {
 }
 
 // 계획 목록 뷰 상태
+// 계획 목록 뷰 상태
 let _planViewTab = 'mine'; // 'mine' | 'team'
+let _planYear = new Date().getFullYear(); // 연도 필터
 
 function renderPlans() {
   // FO 정책 DB 로드 (최초 1회, 완료 후 목록 자동 갱신)
@@ -142,36 +144,43 @@ function renderPlans() {
   // 팀 뷰 허용 여부 (persona의 teamViewEnabled 또는 team_view_enabled)
   const teamViewEnabled = currentPersona.teamViewEnabled ?? currentPersona.team_view_enabled ?? false;
 
-  // 내 계획 (MOCK_PLANS: 실제에서는 DB 조회)
-  const myPlans    = typeof MOCK_PLANS !== 'undefined' ? MOCK_PLANS : [];
-  // 팀 계획 (현재는 샘플, 실제에서는 팀 기준 DB 조회)
-  const teamPlans  = teamViewEnabled ? _getSampleTeamPlans() : [];
+  // DB 데이터 (현재 비어있음 — 실제 신청 시 DB에 저장됨)
+  const myPlans = []; // MOCK_PLANS 제거 — 실제 DB 조회로 전환 예정
+  const teamPlans = teamViewEnabled ? [] : [];
 
   const plans = _planViewTab === 'mine' ? myPlans : teamPlans;
 
   // 통계
   const stats = {
-    total:    plans.length,
-    active:   plans.filter(p => p.status === '진행중' || p.status === '신청중').length,
-    done:     plans.filter(p => p.status === '완료').length,
+    total: plans.length,
+    active: plans.filter(p => p.status === '진행중' || p.status === '신청중').length,
+    done: plans.filter(p => p.status === '완료').length,
     rejected: plans.filter(p => p.status === '반려').length,
   };
+
+  // 연도 선택
+  const curY = new Date().getFullYear();
+  const yearSelector = `
+  <select onchange="_planYear=Number(this.value);renderPlans()"
+    style="padding:8px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:800;color:#002C5F;background:white;cursor:pointer;appearance:auto">
+    ${[curY + 1, curY, curY - 1, curY - 2].map(y => `<option value="${y}" ${_planYear === y ? 'selected' : ''}>${y}년</option>`).join('')}
+  </select>`;
 
   // 탭 UI
   const tabBar = teamViewEnabled ? `
   <div style="display:flex;gap:4px;background:#F3F4F6;padding:4px;border-radius:14px;margin-bottom:20px;width:fit-content">
     <button onclick="_planViewTab='mine';renderPlans()" style="
       padding:8px 20px;border-radius:10px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s;
-      background:${_planViewTab==='mine'?'#fff':'transparent'};
-      color:${_planViewTab==='mine'?'#002C5F':'#6B7280'};
-      box-shadow:${_planViewTab==='mine'?'0 1px 4px rgba(0,0,0,.12)':'none'}">
+      background:${_planViewTab === 'mine' ? '#fff' : 'transparent'};
+      color:${_planViewTab === 'mine' ? '#002C5F' : '#6B7280'};
+      box-shadow:${_planViewTab === 'mine' ? '0 1px 4px rgba(0,0,0,.12)' : 'none'}">
       👤 내 교육계획
     </button>
     <button onclick="_planViewTab='team';renderPlans()" style="
       padding:8px 20px;border-radius:10px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s;
-      background:${_planViewTab==='team'?'#fff':'transparent'};
-      color:${_planViewTab==='team'?'#002C5F':'#6B7280'};
-      box-shadow:${_planViewTab==='team'?'0 1px 4px rgba(0,0,0,.12)':'none'}">
+      background:${_planViewTab === 'team' ? '#fff' : 'transparent'};
+      color:${_planViewTab === 'team' ? '#002C5F' : '#6B7280'};
+      box-shadow:${_planViewTab === 'team' ? '0 1px 4px rgba(0,0,0,.12)' : 'none'}">
       👥 팀 교육계획
     </button>
   </div>` : '';
@@ -180,10 +189,10 @@ function renderPlans() {
   const statsBar = `
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
     ${[
-      { label:'전체',   val: stats.total,    color:'#002C5F', bg:'#EFF6FF', icon:'📋' },
-      { label:'진행중', val: stats.active,   color:'#0369A1', bg:'#F0F9FF', icon:'⏳' },
-      { label:'완료',   val: stats.done,     color:'#059669', bg:'#F0FDF4', icon:'✅' },
-      { label:'반려',   val: stats.rejected, color:'#DC2626', bg:'#FEF2F2', icon:'❌' },
+      { label: '전체', val: stats.total, color: '#002C5F', bg: '#EFF6FF', icon: '📋' },
+      { label: '진행중', val: stats.active, color: '#0369A1', bg: '#F0F9FF', icon: '⏳' },
+      { label: '완료', val: stats.done, color: '#059669', bg: '#F0FDF4', icon: '✅' },
+      { label: '반려', val: stats.rejected, color: '#DC2626', bg: '#FEF2F2', icon: '❌' },
     ].map(s => `
     <div style="background:${s.bg};border-radius:14px;padding:14px 16px;border:1.5px solid ${s.color}20">
       <div style="font-size:11px;font-weight:700;color:${s.color};margin-bottom:6px">${s.icon} ${s.label}</div>
@@ -194,28 +203,32 @@ function renderPlans() {
   // 계획 카드 목록
   const listHtml = plans.length > 0
     ? plans.map(p => _renderPlanCard(p)).join('')
-    : `<div class="card p-16 text-center">
+    : `<div style="padding:60px 20px;text-align:center;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB">
         <div style="font-size:48px;margin-bottom:16px">📋</div>
         <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">
-          ${_planViewTab === 'mine' ? '등록된 교육계획이 없습니다' : '팀 교육계획이 없습니다'}
+          ${_planYear}년 교육계획이 아직 없습니다
         </div>
-        <div style="font-size:12px;color:#9CA3AF;margin-bottom:20px">
-          ${_planViewTab === 'mine' ? '"교육계획 수립" 버튼으로 새 계획을 작성해보세요.' : '팀원들의 교육계획이 없거나 아직 로드되지 않았습니다.'}
+        <div style="font-size:12px;color:#9CA3AF;margin-bottom:20px;line-height:1.6">
+          교육계획을 수립하면 예산 연동 및 교육 신청이 가능합니다.<br>
+          아래 버튼으로 새 교육계획을 작성해 보세요.
         </div>
-        ${_planViewTab === 'mine' ? `<button onclick="startPlanWizard()" style="padding:10px 24px;border-radius:12px;background:#002C5F;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer">+ 교육계획 수립하기</button>` : ''}
+        <button onclick="startPlanWizard()" style="padding:12px 28px;border-radius:12px;background:#002C5F;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">+ 교육계획 수립하기</button>
       </div>`;
 
   document.getElementById('page-plans').innerHTML = `
 <div class="max-w-4xl mx-auto space-y-4">
-  <div class="flex items-center justify-between">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between">
     <div>
       <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육계획</div>
       <h1 class="text-3xl font-black text-brand tracking-tight">교육계획 수립</h1>
       <p class="text-gray-500 text-sm mt-1">${currentPersona.name} · ${currentPersona.dept}</p>
     </div>
-    <button onclick="startPlanWizard()" class="flex items-center gap-2 bg-brand text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-blue-900 transition shadow-lg">
-      + 교육계획 수립
-    </button>
+    <div style="display:flex;gap:10px;align-items:center">
+      ${yearSelector}
+      <button onclick="startPlanWizard()" class="flex items-center gap-2 bg-brand text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-blue-900 transition shadow-lg">
+        + 교육계획 수립
+      </button>
+    </div>
   </div>
   ${tabBar}
   ${statsBar}
@@ -233,24 +246,33 @@ function _getSampleTeamPlans() {
 
 // 계획 카드 렌더러
 function _renderPlanCard(p) {
-  const statusColor = { '완료':'#059669', '신청중':'#0369A1', '결재진행중':'#D97706', '반려':'#DC2626', '승인완료':'#059669', '승인대기':'#6B7280' };
-  const statusBg    = { '완료':'#F0FDF4', '신청중':'#EFF6FF', '결재진행중':'#FFFBEB', '반려':'#FEF2F2', '승인완료':'#F0FDF4', '승인대기':'#F9FAFB' };
-  const sc = statusColor[p.status] || '#6B7280';
-  const sb = statusBg[p.status]    || '#F9FAFB';
-  const authorBadge = p.author ? `<span style="font-size:10px;background:#F3F4F6;color:#374151;padding:2px 8px;border-radius:10px;margin-left:8px">👤 ${p.author}</span>` : '';
+  const STATUS_CFG = {
+    '승인완료': { color: '#059669', bg: '#F0FDF4', border: '#BBF7D0', icon: '✅' },
+    '반려': { color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', icon: '❌' },
+    '결재진행중': { color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', icon: '⏳' },
+    '승인대기': { color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB', icon: '🕐' },
+    '작성중': { color: '#0369A1', bg: '#EFF6FF', border: '#BFDBFE', icon: '📝' },
+  };
+  const status = p.status || '승인완료'; // 목데이터에 status가 없는 경우 기본값 부여
+  const cfg = STATUS_CFG[status] || STATUS_CFG['승인대기'];
+  const authorBadge = p.author ? `<span style="font-size:10px;background:#E5E7EB;color:#374151;padding:2px 8px;border-radius:10px;margin-left:6px">👤 ${p.author}</span>` : '';
+
   return `
-<div class="card p-5 mb-3" style="border-left:4px solid ${sc}">
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
-    <div style="flex:1">
-      <div style="font-size:14px;font-weight:900;color:#111827;margin-bottom:6px">${p.title}${authorBadge}</div>
-      <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:#6B7280">
-        <span>💳 ${p.account}계정</span>
-        <span>💰 ${Number(p.amount||0).toLocaleString()}원</span>
+    <div style="display:flex;align-items:flex-start;gap:16px;padding:18px 20px;border-radius:14px;
+                border:1.5px solid ${cfg.border};background:${cfg.bg};transition:all .15s;margin-bottom:12px">
+      <div style="font-size:24px;flex-shrink:0;margin-top:2px">${cfg.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+          <span style="font-size:14px;font-weight:900;color:#111827">${p.title}</span>
+          <span style="font-size:9px;font-weight:900;padding:2px 7px;border-radius:6px;background:${cfg.color}20;color:${cfg.color}">${status}</span>
+          ${authorBadge}
+        </div>
+        <div style="font-size:11px;color:#6B7280;display:flex;gap:12px;flex-wrap:wrap">
+          <span>💳 ${p.account} 예산</span>
+          <span>💰 ${(p.amount || 0).toLocaleString()}원</span>
+        </div>
       </div>
-    </div>
-    <span style="flex-shrink:0;font-size:11px;font-weight:800;padding:4px 12px;border-radius:10px;background:${sb};color:${sc}">${p.status}</span>
-  </div>
-</div>`;
+    </div>`;
 }
 
 // ─── PLAN WIZARD ─────────────────────────────────────────────────────────────
@@ -279,10 +301,10 @@ function renderPlanWizard() {
 
   // ── 스탭 지시자 (apply.js 동일 구조) ──────────────────────────────────────
   const stepLabels = ['목적 선택', '예산 선택', '교육유형', '세부 정보'];
-  const stepper = [1,2,3,4].map(n => `
+  const stepper = [1, 2, 3, 4].map(n => `
   <div class="step-item flex items-center gap-2 ${s.step > n ? 'done' : s.step === n ? 'active' : ''}">
     <div class="step-circle w-8 h-8 rounded-full flex items-center justify-center text-sm font-black transition-all">${s.step > n ? '✓' : n}</div>
-    <span class="text-xs font-bold ${s.step === n ? 'text-brand' : 'text-gray-400'} hidden sm:block">${stepLabels[n-1]}</span>
+    <span class="text-xs font-bold ${s.step === n ? 'text-brand' : 'text-gray-400'} hidden sm:block">${stepLabels[n - 1]}</span>
     ${n < 4 ? '<div class="h-px flex-1 bg-gray-200 mx-2 w-8"></div>' : ''}
   </div>`).join('');
 
@@ -514,8 +536,8 @@ function renderPlanWizard() {
           <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-gray-400">원</span>
         </div>
         ${curBudget && s.amount && Number(s.amount) > (curBudget.balance - curBudget.used)
-          ? `<div class="mt-1.5 text-xs font-black text-red-500">⚠️ 예산 잔액(${fmt(curBudget.balance - curBudget.used)}원)을 초과합니다</div>`
-          : ''}
+      ? `<div class="mt-1.5 text-xs font-black text-red-500">⚠️ 예산 잔액(${fmt(curBudget.balance - curBudget.used)}원)을 초과합니다</div>`
+      : ''}
         ${s.hardLimitViolated ? `<div class="mt-1.5 text-xs font-black text-red-600">🚫 Hard Limit 초과 항목이 있어 계획을 저장할 수 없습니다. 항목 금액을 수정해주세요.</div>` : ''}
         ${_renderApprovalRouteInfo(s, curBudget)}
       </div>
@@ -691,11 +713,11 @@ function _renderCalcGroundsSection(s, curBudget) {
       </thead>
       <tbody>
         ${rows.map((row, idx) => {
-          const item = items.find(g => g.id === row.itemId);
-          const isSoftOver = item && item.softLimit > 0 && row.total > item.softLimit;
-          const isHardOver = item && item.hardLimit > 0 && row.total > item.hardLimit;
-          const rowBg = isHardOver ? '#FEF2F2' : isSoftOver ? '#FFFBEB' : '#fff';
-          return `
+    const item = items.find(g => g.id === row.itemId);
+    const isSoftOver = item && item.softLimit > 0 && row.total > item.softLimit;
+    const isHardOver = item && item.hardLimit > 0 && row.total > item.hardLimit;
+    const rowBg = isHardOver ? '#FEF2F2' : isSoftOver ? '#FFFBEB' : '#fff';
+    return `
           <tr style="background:${rowBg};border-top:1px solid #F3F4F6">
             <td class="px-3 py-2">
               <select onchange="_cgUpdateItemId(${idx}, this.value)"
@@ -731,7 +753,7 @@ function _renderCalcGroundsSection(s, curBudget) {
               <button onclick="_cgRemoveRow(${idx})" style="color:#D1D5DB;font-size:14px;border:none;background:none;cursor:pointer">✕</button>
             </td>
           </tr>`;
-        }).join('')}
+  }).join('')}
       </tbody>
     </table>
   </div>

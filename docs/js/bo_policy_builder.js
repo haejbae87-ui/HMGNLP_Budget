@@ -325,7 +325,7 @@ async function renderServicePolicy() {
     const statusColor = p.status === 'active' ? '#065F46' : '#9CA3AF';
     const statusLabel = p.status === 'active' ? '운영중' : '중지';
     return `
-<tr class="policy-row" data-policy-id="${escapedId}" style="border-bottom:1px solid #F3F4F6;cursor:pointer;transition:background .12s" onmouseover="this.style.background='#F8FAFF'" onmouseout="this.style.background=''">
+<tr style="border-bottom:1px solid #F3F4F6;cursor:pointer;transition:background .12s" onmouseover="this.style.background='#F8FAFF'" onmouseout="this.style.background=''" onclick="startPolicyWizard(this.dataset.policyId)" data-policy-id="${escapedId}">
   <td style="padding:11px 14px;text-align:center;color:#9CA3AF;font-size:12px">${idx + 1}</td>
   <td style="padding:11px 14px">
     <div style="font-weight:800;font-size:13px;color:#111827;margin-bottom:3px">${p.name}</div>
@@ -344,8 +344,8 @@ async function renderServicePolicy() {
   <td style="padding:11px 14px;font-size:12px;color:#6B7280;white-space:nowrap">${p.createdAt || '—'}</td>
   <td style="padding:11px 14px;text-align:center">
     <div style="display:flex;gap:5px;justify-content:center">
-      <button class="policy-edit-btn" data-policy-id="${escapedId}" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid #D1D5DB;background:white;cursor:pointer;font-weight:700;color:#374151">✏️ 수정</button>
-      <button class="policy-del-btn" data-policy-id="${escapedId}" data-policy-name="${escapedName}" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid #FECACA;background:#FEF2F2;color:#DC2626;cursor:pointer;font-weight:700">🗑️</button>
+      <button onclick="event.stopPropagation();startPolicyWizard(this.closest('tr').dataset.policyId)" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid #D1D5DB;background:white;cursor:pointer;font-weight:700;color:#374151">✏️ 수정</button>
+      <button onclick="event.stopPropagation();deleteServicePolicy(this.closest('tr').dataset.policyId,this.closest('tr').dataset.policyName)" data-policy-name="${escapedName}" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid #FECACA;background:#FEF2F2;color:#DC2626;cursor:pointer;font-weight:700">🗑️</button>
     </div>
   </td>
 </tr>`;
@@ -399,25 +399,9 @@ async function renderServicePolicy() {
   </div>
 </div>`;
 
-  // ── 이벤트 위임: data-* 속성으로 테이블 행/버튼 클릭 처리 ──────────────────
-  el.querySelectorAll('.policy-edit-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      startPolicyWizard(btn.dataset.policyId);
-    });
-  });
-  el.querySelectorAll('.policy-del-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      deleteServicePolicy(btn.dataset.policyId, btn.dataset.policyName);
-    });
-  });
-  el.querySelectorAll('.policy-row').forEach(row => {
-    row.addEventListener('click', e => {
-      if (e.target.closest('button')) return;
-      startPolicyWizard(row.dataset.policyId);
-    });
-  });
+  // ── 이벤트 처리: onclick 인라인 + data-* 속성 하이브리드 방식 적용 ──────────────
+  // async 렌더링 함수 특성상 addEventListener 방식이 타이밍 문제로 등록되지 않을 수 있어
+  // onclick 인라인으로 전환 (startPolicyWizard(null) 방식과 동일한 패턴)
 }
 
 function _getPersonaByKey(key) {

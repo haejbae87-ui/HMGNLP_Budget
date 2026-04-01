@@ -9,7 +9,7 @@ const PERSONAS = {
     company: '현대자동차', tenantId: 'HMC',
     role: 'team_general', jobType: '일반직',
     allowedAccounts: ['HMC-OPS', 'HMC-ETC', 'COMMON-FREE'],
-    isolationGroup: 'HMC-GENERAL',
+    vorgId: 'HMC-GENERAL',
     desc: '일반예산(운영/기타) 활용 교육담당자. 운영·기타 계정으로 교육계획 수립 후, 승인된 계획 복수 매핑 신청. 무예산 개인 이력·운영 결과 등록 활용.',
     budgets: [
       { id: 'b_hmc02', name: '역량혁신팀 일반예산 운영계정', account: '운영', balance: 12000000, used: 3500000 }
@@ -21,7 +21,7 @@ const PERSONAS = {
     company: '현대자동차', tenantId: 'HMC',
     role: 'learner', jobType: '연구직',
     allowedAccounts: ['HMC-RND', 'COMMON-FREE'],
-    isolationGroup: 'HMC-RND',
+    vorgId: 'HMC-RND',
     desc: 'R&D교육예산 중심 연구직 학습자. R&D계정으로 계획→신청→결과 프로세스. 무예산 이력 등록 활용.',
     budgets: [
       { id: 'b_hmc04', name: '내구기술팀 R&D교육예산', account: '연구투자', balance: 45000000, used: 5000000 }
@@ -35,7 +35,7 @@ const PERSONAS = {
     company: '기아', tenantId: 'KIA',
     role: 'learner', jobType: '일반직',
     allowedAccounts: ['KIA-OPS', 'KIA-PART', 'COMMON-FREE'],
-    isolationGroup: 'KIA-GENERAL',
+    vorgId: 'KIA-GENERAL',
     desc: '일반예산기반 학습자. 교육계획 수립 → 복수 계획 매핑 신청 → 결과 작성. 자비/무료 교육 무예산 이력 등록 및 결과 단독 등록 활용.',
     budgets: [
       { id: 'b_kia01', name: '개인정보보호팀 참가계정', account: '참가', balance: 5000000, used: 800000 },
@@ -50,7 +50,7 @@ const PERSONAS = {
     company: '현대오토에버', tenantId: 'HAE',
     role: 'learner', jobType: '일반직',
     allowedAccounts: ['HAE-EDU', 'HAE-TEAM', 'COMMON-FREE'],
-    isolationGroup: 'HAE-ALL',
+    vorgId: 'HAE-ALL',
     desc: '솔루션사업부 학습자. 개인직무 사외학습 중심. 전사교육예산 및 팀/프로젝트 할당예산 활용.',
     budgets: [
       { id: 'b_hae01', name: 'PM서비스팀 전사교육예산', account: '전사교육', balance: 5000000, used: 600000 },
@@ -64,7 +64,7 @@ const PERSONAS = {
     company: '현대오토에버', tenantId: 'HAE',
     role: 'learner', jobType: '일반직',
     allowedAccounts: ['HAE-OPS', 'HAE-PART', 'HAE-CERT', 'COMMON-FREE'],
-    isolationGroup: 'HAE-ALL',
+    vorgId: 'HAE-ALL',
     process: 'plan-apply-result',
     desc: 'L&D플랫폼팀 학습자. 플랫폼 운영·기획 관련 교육 및 개인직무 사외학습 프로세스 수행. 운영·참가·자격증 전 계정 활용 가능.',
     budgets: [
@@ -81,7 +81,7 @@ const PERSONAS = {
     company: '현대제철', tenantId: 'HSC',
     role: 'learner', jobType: '일반직',
     allowedAccounts: ['HSC-OPS', 'HSC-EXT', 'COMMON-FREE'],
-    isolationGroup: 'IG-HSC-ALL',
+    vorgId: 'IG-HSC-ALL',
     process: 'plan-apply-result',
     desc: '현대제철 성장디자인팀 학습자. 개인직무 사외학습 중심. 사외교육 계정(HSC-EXT) 활용.',
     budgets: [
@@ -92,12 +92,12 @@ const PERSONAS = {
 
 
 const MOCK_HISTORY = [
-  { id: 'H001', title: 'AWS 클라우드 아키텍처 전문가 과정',   type: '사외교육', category: 'edu_offline',   date: '2026-02-10', endDate: '2026-02-12', hours: 24, amount: 1500000, status: '완료',   budget: '참가', applyStatus: '승인완료',   resultDone: true  },
-  { id: 'H002', title: 'SDV 소프트웨어 개발 세미나',          type: '세미나',   category: 'conf_present',  date: '2026-01-20', endDate: '2026-01-20', hours:  8, amount:  300000, status: '완료',   budget: '참가', applyStatus: '승인완료',   resultDone: false },
-  { id: 'H003', title: '애자일 PM 자격증 취득',               type: '자격증',   category: 'edu_online',    date: '2026-03-01', endDate: '2026-03-31', hours: 40, amount:  450000, status: '진행중', budget: '참가', applyStatus: '결재진행중', resultDone: false },
-  { id: 'H004', title: '데이터 분석 이러닝',                  type: '이러닝',   category: 'edu_online',    date: '2025-12-01', endDate: '2025-12-31', hours: 20, amount:  200000, status: '완료',   budget: '참가', applyStatus: '반려',       resultDone: false },
-  { id: 'H005', title: '리더십 워크샵',                       type: '워크샵',   category: 'workshop',      date: '2025-11-15', endDate: '2025-11-16', hours: 16, amount:  600000, status: '완료',   budget: '운영', applyStatus: '승인완료',   resultDone: true  },
-  { id: 'H006', title: 'AI/ML 실무 활용 강의',                type: '사외교육', category: 'edu_offline',   date: '2026-03-20', endDate: '2026-03-21', hours: 16, amount:  800000, status: '대기중', budget: '참가', applyStatus: '승인대기',   resultDone: false },
+  { id: 'H001', title: 'AWS 클라우드 아키텍처 전문가 과정', type: '사외교육', category: 'edu_offline', date: '2026-02-10', endDate: '2026-02-12', hours: 24, amount: 1500000, status: '완료', budget: '참가', applyStatus: '승인완료', resultDone: true },
+  { id: 'H002', title: 'SDV 소프트웨어 개발 세미나', type: '세미나', category: 'conf_present', date: '2026-01-20', endDate: '2026-01-20', hours: 8, amount: 300000, status: '완료', budget: '참가', applyStatus: '승인완료', resultDone: false },
+  { id: 'H003', title: '애자일 PM 자격증 취득', type: '자격증', category: 'edu_online', date: '2026-03-01', endDate: '2026-03-31', hours: 40, amount: 450000, status: '진행중', budget: '참가', applyStatus: '결재진행중', resultDone: false },
+  { id: 'H004', title: '데이터 분석 이러닝', type: '이러닝', category: 'edu_online', date: '2025-12-01', endDate: '2025-12-31', hours: 20, amount: 200000, status: '완료', budget: '참가', applyStatus: '반려', resultDone: false },
+  { id: 'H005', title: '리더십 워크샵', type: '워크샵', category: 'workshop', date: '2025-11-15', endDate: '2025-11-16', hours: 16, amount: 600000, status: '완료', budget: '운영', applyStatus: '승인완료', resultDone: true },
+  { id: 'H006', title: 'AI/ML 실무 활용 강의', type: '사외교육', category: 'edu_offline', date: '2026-03-20', endDate: '2026-03-21', hours: 16, amount: 800000, status: '대기중', budget: '참가', applyStatus: '승인대기', resultDone: false },
 ];
 
 const MOCK_PLANS = [
@@ -161,31 +161,31 @@ const PURPOSES = [
         group: '정규교육',
         items: [
           { id: 'edu_elearning', label: '이러닝' },
-          { id: 'edu_class',     label: '집합' },
-          { id: 'edu_live',      label: '라이브' },
+          { id: 'edu_class', label: '집합' },
+          { id: 'edu_live', label: '라이브' },
         ]
       },
       {
         group: '학술 및 연구활동',
         items: [
-          { id: 'acad_conf',    label: '학회/세미나/컨퍼런스' },
+          { id: 'acad_conf', label: '학회/세미나/컨퍼런스' },
           { id: 'acad_present', label: '학회 직접 발표' },
-          { id: 'acad_study',   label: '연수' },
+          { id: 'acad_study', label: '연수' },
         ]
       },
       {
         group: '지식자원학습',
         items: [
-          { id: 'res_book',    label: '도서' },
+          { id: 'res_book', label: '도서' },
           { id: 'res_journal', label: '논문/저널' },
-          { id: 'res_tech',    label: '기술자료(DB구독·자료구매)' },
+          { id: 'res_tech', label: '기술자료(DB구독·자료구매)' },
         ]
       },
       {
         group: '역량개발지원',
         items: [
-          { id: 'dev_lang',  label: '어학학습비 지원' },
-          { id: 'dev_cert',  label: '자격증 취득지원' },
+          { id: 'dev_lang', label: '어학학습비 지원' },
+          { id: 'dev_cert', label: '자격증 취득지원' },
           { id: 'dev_assoc', label: '학협회비' },
         ]
       },
@@ -193,7 +193,7 @@ const PURPOSES = [
         group: '기타',
         items: [
           { id: 'etc_teach', label: '교육출강(사/내외)' },
-          { id: 'etc_team',  label: '팀빌딩' },
+          { id: 'etc_team', label: '팀빌딩' },
         ]
       },
     ]
@@ -205,10 +205,12 @@ const PURPOSES = [
     icon: '🖥',
     accounts: ['운영', '연구투자'],
     subtypes: [
-      { group: '이러닝/집합 운영 유형', items: [
-        { id: 'ops_elearning', label: '이러닝' },
-        { id: 'ops_class',     label: '집합(비대면)' },
-      ]},
+      {
+        group: '이러닝/집합 운영 유형', items: [
+          { id: 'ops_elearning', label: '이러닝' },
+          { id: 'ops_class', label: '집합(비대면)' },
+        ]
+      },
     ]
   },
   {
@@ -218,13 +220,15 @@ const PURPOSES = [
     icon: '👥',
     accounts: ['참가', '운영', '연구투자'],
     subtypes: [
-      { group: '콘퍼런스/세미나 유형', items: [
-        { id: 'ops_workshop',    label: '워크샵' },
-        { id: 'ops_seminar',     label: '세미나' },
-        { id: 'ops_conference',  label: '콘퍼런스' },
-        { id: 'ops_cert_maint',  label: '자격유지' },
-        { id: 'ops_policy_link', label: '제도연계' },
-      ]},
+      {
+        group: '콘퍼런스/세미나 유형', items: [
+          { id: 'ops_workshop', label: '워크샵' },
+          { id: 'ops_seminar', label: '세미나' },
+          { id: 'ops_conference', label: '콘퍼런스' },
+          { id: 'ops_cert_maint', label: '자격유지' },
+          { id: 'ops_policy_link', label: '제도연계' },
+        ]
+      },
     ]
   },
   {
@@ -234,11 +238,13 @@ const PURPOSES = [
     icon: '📌',
     accounts: ['운영', '연구투자'],
     subtypes: [
-      { group: '기타운영 유형', items: [
-        { id: 'ops_course_dev',   label: '과정개발' },
-        { id: 'ops_material_dev', label: '교안개발' },
-        { id: 'ops_facility',     label: '교육시설 운영' },
-      ]},
+      {
+        group: '기타운영 유형', items: [
+          { id: 'ops_course_dev', label: '과정개발' },
+          { id: 'ops_material_dev', label: '교안개발' },
+          { id: 'ops_facility', label: '교육시설 운영' },
+        ]
+      },
     ]
   },
 ];

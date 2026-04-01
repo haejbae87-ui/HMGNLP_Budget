@@ -1,26 +1,26 @@
 // ─── 백오피스: 세부 산출 근거 관리 (계층형: 테넌트→가상교육조직→예산계정) ────────
 // 데이터는 Supabase calc_grounds 테이블에서 로드, CALC_GROUNDS_MASTER로 동기화
 
-let _cgActiveTab      = null;     // 선택된 accountCode
-let _cgEditId         = null;
-let _cgFilterTenant   = null;     // 선택된 회사 ID
-let _cgFilterGroup    = null;     // 선택된 가상교육조직 ID
-let _cgFilterAccount  = null;     // 선택된 예산계정 코드
+let _cgActiveTab = null;     // 선택된 accountCode
+let _cgEditId = null;
+let _cgFilterTenant = null;     // 선택된 회사 ID
+let _cgFilterGroup = null;     // 선택된 가상교육조직 ID
+let _cgFilterAccount = null;     // 선택된 예산계정 코드
 
 // ─── Scope / visible 배지 헬퍼 ───────────────────────────────────────────────
 const CG_SCOPE_META = {
-  plan:   { label: '계획', color: '#1D4ED8', bg: '#EFF6FF' },
-  apply:  { label: '신청', color: '#059669', bg: '#F0FDF4' },
+  plan: { label: '계획', color: '#1D4ED8', bg: '#EFF6FF' },
+  apply: { label: '신청', color: '#059669', bg: '#F0FDF4' },
   settle: { label: '결과', color: '#7C3AED', bg: '#F5F3FF' },
 };
 const CG_VISIBLE_META = {
-  both:     { label: '국내/해외', color: '#374151', bg: '#F9FAFB' },
-  domestic: { label: '국내전용',  color: '#2563EB', bg: '#EFF6FF' },
-  overseas: { label: '해외전용',  color: '#D97706', bg: '#FFFBEB' },
+  both: { label: '국내/해외', color: '#374151', bg: '#F9FAFB' },
+  domestic: { label: '국내전용', color: '#2563EB', bg: '#EFF6FF' },
+  overseas: { label: '해외전용', color: '#D97706', bg: '#FFFBEB' },
 };
 
 function _cgScopeBadges(scopes = []) {
-  return (scopes||[]).map(s => {
+  return (scopes || []).map(s => {
     const m = CG_SCOPE_META[s] || { label: s, color: '#6B7280', bg: '#F9FAFB' };
     return `<span style="background:${m.bg};color:${m.color};padding:1px 6px;border-radius:5px;font-size:10px;font-weight:800;border:1px solid ${m.color}20">${m.label}</span>`;
   }).join(' ');
@@ -51,7 +51,7 @@ async function _cgLoadFromDb() {
     const p1 = _sb().from('calc_grounds').select('*').order('sort_order');
     const p2 = _sb().from('virtual_org_templates').select('id,name,tenant_id,service_type').eq('service_type', 'edu_support');
     const p3 = _sb().from('budget_accounts').select('code,name,virtual_org_template_id,tenant_id');
-    
+
     const [res1, res2, res3] = await Promise.all([p1, p2, p3]);
 
     if (!res1.error && res1.data && res1.data.length > 0) {
@@ -59,7 +59,7 @@ async function _cgLoadFromDb() {
       CALC_GROUNDS_MASTER = res1.data.map(r => ({
         id: r.id,
         tenantId: r.tenant_id,
-        domainId: r.virtual_org_template_id || r.isolation_group_id || null,
+        domainId: r.virtual_org_template_id || r.isolation_group_id || null, // vorgId (DB 컬럼은 유지)
         accountCode: r.account_code || null,
         name: r.name,
         desc: r.description || '',
@@ -68,7 +68,7 @@ async function _cgLoadFromDb() {
         hardLimit: r.hard_limit || 0,
         limitType: r.limit_type || 'none',
         active: r.active !== false,
-        usageScope: r.usage_scope || ['plan','apply','settle'],
+        usageScope: r.usage_scope || ['plan', 'apply', 'settle'],
         visibleFor: r.visible_for || 'both',
         sortOrder: r.sort_order || 99,
       }));
@@ -77,28 +77,28 @@ async function _cgLoadFromDb() {
     }
     if (res2.data) _cgTplList = res2.data;
     if (res3.data) _cgAccountList = res3.data;
-  } catch(e) { console.warn('[CalcGrounds] DB 로드 실패:', e); }
+  } catch (e) { console.warn('[CalcGrounds] DB 로드 실패:', e); }
 }
 
 // ─── 메인 렌더 ───────────────────────────────────────────────────────────────
 async function renderCalcGrounds() {
   await _cgLoadFromDb();
-  const persona    = boCurrentPersona;
-  const role       = persona.role;
+  const persona = boCurrentPersona;
+  const role = persona.role;
   const isPlatform = role === 'platform_admin';
-  const isTenant   = role === 'tenant_global_admin';
+  const isTenant = role === 'tenant_global_admin';
   const isBudgetOp = role === 'budget_op_manager' || role === 'budget_hq';
   const isBudgetAdmin = role === 'budget_global_admin';
 
   const activeTenantId = isPlatform ? (_cgFilterTenant || '') : (persona.tenantId || '');
-  const pbVorgId       = (isBudgetOp || isBudgetAdmin) ? (persona.domainId || _cgFilterGroup || '') : (_cgFilterGroup || '');
+  const pbVorgId = (isBudgetOp || isBudgetAdmin) ? (persona.domainId || _cgFilterGroup || '') : (_cgFilterGroup || '');
 
-  const TENANTS_LIST = typeof TENANTS !== 'undefined' ? TENANTS : [...new Set(_cgTplList.map(t=>t.tenant_id))].map(id=>({id,name:id}));
-  const tenantName = TENANTS_LIST.find(t=>t.id===activeTenantId)?.name || activeTenantId || '소속 회사';
+  const TENANTS_LIST = typeof TENANTS !== 'undefined' ? TENANTS : [...new Set(_cgTplList.map(t => t.tenant_id))].map(id => ({ id, name: id }));
+  const tenantName = TENANTS_LIST.find(t => t.id === activeTenantId)?.name || activeTenantId || '소속 회사';
 
   // 이 테넌트에 속한 가상교육조직 (교육지원 유형만)
   const availVorgs = _cgTplList.filter(t => t.service_type === 'edu_support' && (!activeTenantId || t.tenant_id === activeTenantId));
-  const vorgName = availVorgs.find(g=>g.id===pbVorgId)?.name || pbVorgId || '선택된 조직';
+  const vorgName = availVorgs.find(g => g.id === pbVorgId)?.name || pbVorgId || '선택된 조직';
 
   // 선택된 가상교육조직의 예산 계정 목록
   const availAccounts = (() => {
@@ -120,7 +120,7 @@ async function renderCalcGrounds() {
     <select id="cg-tenant-sel" onchange="_cgFilterTenant=this.value;_cgFilterGroup='';_cgFilterAccount='';renderCalcGrounds()"
       style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:140px">
       <option value="">전체 회사</option>
-      ${TENANTS_LIST.map(t=>`<option value="${t.id}" ${activeTenantId===t.id?'selected':''}>${t.name||t.id}</option>`).join('')}
+      ${TENANTS_LIST.map(t => `<option value="${t.id}" ${activeTenantId === t.id ? 'selected' : ''}>${t.name || t.id}</option>`).join('')}
     </select>
   </div>
   <div style="width:1px;height:28px;background:#E5E7EB"></div>` : `
@@ -147,7 +147,7 @@ async function renderCalcGrounds() {
     <select id="cg-group-sel" onchange="_cgFilterGroup=this.value;_cgFilterAccount='';renderCalcGrounds()"
       style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:160px">
       <option value="">전체 조직</option>
-      ${availVorgs.map(g=>`<option value="${g.id}" ${pbVorgId===g.id?'selected':''}>${g.name}</option>`).join('')}
+      ${availVorgs.map(g => `<option value="${g.id}" ${pbVorgId === g.id ? 'selected' : ''}>${g.name}</option>`).join('')}
     </select>
   </div>`}
   
@@ -157,7 +157,7 @@ async function renderCalcGrounds() {
     <select id="cg-acct-sel" onchange="_cgFilterAccount=this.value"
       style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:160px">
       <option value="">전체 계정</option>
-      ${availAccounts.map(a=>`<option value="${a.code}" ${_cgFilterAccount===a.code?'selected':''}>${a.name}</option>`).join('')}
+      ${availAccounts.map(a => `<option value="${a.code}" ${_cgFilterAccount === a.code ? 'selected' : ''}>${a.name}</option>`).join('')}
     </select>
   </div>
   
@@ -177,7 +177,7 @@ async function renderCalcGrounds() {
   const el = document.getElementById('bo-content');
   el.innerHTML = `
 <div class="bo-fade" style="max-width:1100px;padding:24px">
-  ${typeof boIsolationGroupBanner==='function' ? boIsolationGroupBanner() : ''}
+  ${typeof boIsolationGroupBanner === 'function' ? boIsolationGroupBanner() : ''}
   
   <!-- 헤더 -->
   <div style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between">
@@ -264,32 +264,32 @@ function _renderCgTable(tenantId, groupId, accountCode) {
         이 범위에서 조회된 항목이 없습니다.<br>
         <button onclick="cgOpenModal(null)" class="bo-btn-primary bo-btn-sm" style="margin-top:10px">+ 첫 항목 추가</button>
       </td></tr>` : items.map((g, i) => `
-      <tr style="${g.active===false ? 'opacity:.45;' : ''}">
-        <td style="padding:10px 14px;color:#9CA3AF;font-size:11px">${i+1}</td>
+      <tr style="${g.active === false ? 'opacity:.45;' : ''}">
+        <td style="padding:10px 14px;color:#9CA3AF;font-size:11px">${i + 1}</td>
         <td style="padding:10px 14px">
           <div style="font-weight:700;font-size:13px;color:#111827">${g.name}</div>
           <div style="font-size:10px;color:#9CA3AF;margin-top:1px">${g.id}</div>
         </td>
         <td style="padding:10px 14px">${scopeLabel(g)}</td>
-        <td style="padding:10px 14px;font-size:11px;color:#6B7280;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.desc||''}</td>
-        <td style="padding:10px 14px;text-align:right;font-weight:700;font-size:12px">${g.unitPrice > 0 ? (typeof boFmt==='function'?boFmt(g.unitPrice):g.unitPrice.toLocaleString())+'원' : '<span style="color:#9CA3AF">—</span>'}</td>
-        <td style="padding:10px 14px;text-align:center">${_cgScopeBadges(g.usageScope||['plan','apply','settle'])}</td>
-        <td style="padding:10px 14px;text-align:center">${_cgVisibleBadge(g.visibleFor||'both')}</td>
+        <td style="padding:10px 14px;font-size:11px;color:#6B7280;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.desc || ''}</td>
+        <td style="padding:10px 14px;text-align:right;font-weight:700;font-size:12px">${g.unitPrice > 0 ? (typeof boFmt === 'function' ? boFmt(g.unitPrice) : g.unitPrice.toLocaleString()) + '원' : '<span style="color:#9CA3AF">—</span>'}</td>
+        <td style="padding:10px 14px;text-align:center">${_cgScopeBadges(g.usageScope || ['plan', 'apply', 'settle'])}</td>
+        <td style="padding:10px 14px;text-align:center">${_cgVisibleBadge(g.visibleFor || 'both')}</td>
         <td style="padding:10px 14px;text-align:center;font-size:11px">
-          ${g.limitType==='none'?'<span style="color:#9CA3AF">제한없음</span>':
-            g.limitType==='soft'?`<span style="background:#FFFBEB;color:#D97706;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:800">⚠ Soft</span>`:
-            `<span style="background:#FEF2F2;color:#DC2626;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:800">🚫 Hard</span>`}
+          ${g.limitType === 'none' ? '<span style="color:#9CA3AF">제한없음</span>' :
+      g.limitType === 'soft' ? `<span style="background:#FFFBEB;color:#D97706;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:800">⚠ Soft</span>` :
+        `<span style="background:#FEF2F2;color:#DC2626;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:800">🚫 Hard</span>`}
         </td>
         <td style="padding:10px 14px;text-align:center">
-          <span class="bo-badge ${g.active!==false ? 'bo-badge-green' : 'bo-badge-gray'}">${g.active!==false?'활성':'비활성'}</span>
+          <span class="bo-badge ${g.active !== false ? 'bo-badge-green' : 'bo-badge-gray'}">${g.active !== false ? '활성' : '비활성'}</span>
         </td>
         <td style="padding:10px 14px">
           <div style="display:flex;gap:4px">
             <button class="bo-btn-secondary bo-btn-sm" onclick="cgOpenModal('${g.id}')">수정</button>
             <button class="bo-btn-secondary bo-btn-sm"
               onclick="cgToggleActive('${g.id}')"
-              style="color:${g.active!==false?'#F59E0B':'#059669'};border-color:${g.active!==false?'#F59E0B':'#059669'}">
-              ${g.active!==false?'비활성':'활성화'}
+              style="color:${g.active !== false ? '#F59E0B' : '#059669'};border-color:${g.active !== false ? '#F59E0B' : '#059669'}">
+              ${g.active !== false ? '비활성' : '활성화'}
             </button>
           </div>
         </td>
@@ -301,7 +301,7 @@ function _renderCgTable(tenantId, groupId, accountCode) {
 <!-- 범례 -->
 <div class="bo-card" style="padding:12px 18px;margin-top:10px;background:#F8FAFC;border-color:#E2E8F0">
   <div style="font-size:11px;color:#374151;font-weight:600;display:flex;flex-wrap:wrap;gap:16px">
-    <span>📋 단계: ${_cgScopeBadges(['plan','apply','settle'])} — 체크된 단계에서만 입력 가능</span>
+    <span>📋 단계: ${_cgScopeBadges(['plan', 'apply', 'settle'])} — 체크된 단계에서만 입력 가능</span>
     <span>🌏 유형: ${_cgVisibleBadge('both')} ${_cgVisibleBadge('domestic')} ${_cgVisibleBadge('overseas')} — 국내/해외 구분 표시</span>
     <span>💡 <b>Soft</b>: 초과 시 사유 입력 후 진행 | <b>Hard</b>: 초과 시 차단</span>
   </div>
@@ -322,19 +322,19 @@ function cgOpenModal(id) {
 function cgCloseModal() { document.getElementById('cg-modal').style.display = 'none'; }
 
 function _cgModalBody(item, tenantId, myGroups) {
-  const lType  = item?.limitType  || 'none';
-  const scopes = item?.usageScope || ['plan','apply','settle'];
+  const lType = item?.limitType || 'none';
+  const scopes = item?.usageScope || ['plan', 'apply', 'settle'];
   const visFor = item?.visibleFor || 'both';
 
   // 가상교육조직+계정 드롭다운
-  const groupOpts = myGroups.map(g => `<option value="${g.id}" ${item?.domainId===g.id?'selected':''}>${g.name}</option>`).join('');
-  
+  const groupOpts = myGroups.map(g => `<option value="${g.id}" ${item?.domainId === g.id ? 'selected' : ''}>${g.name}</option>`).join('');
+
   const selectedGrpId = item?.domainId || _cgFilterGroup;
   const acctList = selectedGrpId
     ? _cgAccountList.filter(a => a.virtual_org_template_id === selectedGrpId)
     : [];
   const acctOpts = acctList.map(a =>
-    `<option value="${a.code}" ${item?.accountCode===a.code?'selected':''}>${a.code}${a.name?` (${a.name})`:''}</option>`
+    `<option value="${a.code}" ${item?.accountCode === a.code ? 'selected' : ''}>${a.code}${a.name ? ` (${a.name})` : ''}</option>`
   ).join('');
 
   return `
@@ -370,22 +370,22 @@ function _cgModalBody(item, tenantId, myGroups) {
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
     <div style="grid-column:1/-1">
       <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">항목명 <span style="color:#EF4444">*</span></label>
-      <input id="cg-name" type="text" value="${item?.name||''}" placeholder="예) 사외강사료"
+      <input id="cg-name" type="text" value="${item?.name || ''}" placeholder="예) 사외강사료"
         style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
     </div>
     <div style="grid-column:1/-1">
       <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">가이드 설명 <span style="font-size:10px;color:#6B7280">(학습자 화면 노출)</span></label>
       <textarea id="cg-desc" rows="2"
-        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;resize:none">${item?.desc||''}</textarea>
+        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;resize:none">${item?.desc || ''}</textarea>
     </div>
     <div>
       <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">기준단가 (원)</label>
-      <input id="cg-unit-price" type="number" value="${item?.unitPrice??''}" placeholder="0 = 직접 입력"
+      <input id="cg-unit-price" type="number" value="${item?.unitPrice ?? ''}" placeholder="0 = 직접 입력"
         style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
     </div>
     <div>
       <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">정렬 순서</label>
-      <input id="cg-order" type="number" value="${item?.sortOrder??99}" placeholder="99"
+      <input id="cg-order" type="number" value="${item?.sortOrder ?? 99}" placeholder="99"
         style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
     </div>
   </div>
@@ -395,14 +395,14 @@ function _cgModalBody(item, tenantId, myGroups) {
     <div style="font-size:12px;font-weight:800;color:#065F46;margin-bottom:10px">📋 사용 단계</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       ${[
-        { val:'plan',   label:'계획 수립', color:'#1D4ED8', bg:'#EFF6FF' },
-        { val:'apply',  label:'교육 신청', color:'#059669', bg:'#F0FDF4' },
-        { val:'settle', label:'결과 보고', color:'#7C3AED', bg:'#F5F3FF' },
-      ].map(s => `
+      { val: 'plan', label: '계획 수립', color: '#1D4ED8', bg: '#EFF6FF' },
+      { val: 'apply', label: '교육 신청', color: '#059669', bg: '#F0FDF4' },
+      { val: 'settle', label: '결과 보고', color: '#7C3AED', bg: '#F5F3FF' },
+    ].map(s => `
       <label style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:10px;cursor:pointer;
-                    border:1.5px solid ${scopes.includes(s.val)?s.color:'#E5E7EB'};
-                    background:${scopes.includes(s.val)?s.bg:'#fff'};flex:1">
-        <input type="checkbox" id="cg-scope-${s.val}" value="${s.val}" ${scopes.includes(s.val)?'checked':''}
+                    border:1.5px solid ${scopes.includes(s.val) ? s.color : '#E5E7EB'};
+                    background:${scopes.includes(s.val) ? s.bg : '#fff'};flex:1">
+        <input type="checkbox" id="cg-scope-${s.val}" value="${s.val}" ${scopes.includes(s.val) ? 'checked' : ''}
           style="accent-color:${s.color};width:14px;height:14px">
         <span style="font-size:12px;font-weight:800;color:${s.color}">${s.label}</span>
       </label>`).join('')}
@@ -414,14 +414,14 @@ function _cgModalBody(item, tenantId, myGroups) {
     <div style="font-size:12px;font-weight:800;color:#92400E;margin-bottom:10px">🌏 교육 유형별 노출</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       ${[
-        { val:'both',     label:'국내/해외 모두', color:'#374151', bg:'#F9FAFB' },
-        { val:'domestic', label:'국내 전용',       color:'#2563EB', bg:'#EFF6FF' },
-        { val:'overseas', label:'해외 전용',       color:'#D97706', bg:'#FFFBEB' },
-      ].map(v => `
+      { val: 'both', label: '국내/해외 모두', color: '#374151', bg: '#F9FAFB' },
+      { val: 'domestic', label: '국내 전용', color: '#2563EB', bg: '#EFF6FF' },
+      { val: 'overseas', label: '해외 전용', color: '#D97706', bg: '#FFFBEB' },
+    ].map(v => `
       <label style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:10px;cursor:pointer;
-                    border:1.5px solid ${visFor===v.val?v.color:'#E5E7EB'};
-                    background:${visFor===v.val?v.bg:'#fff'};flex:1" onclick="cgSelectVisible('${v.val}')">
-        <input type="radio" name="cg-visible" value="${v.val}" ${visFor===v.val?'checked':''}
+                    border:1.5px solid ${visFor === v.val ? v.color : '#E5E7EB'};
+                    background:${visFor === v.val ? v.bg : '#fff'};flex:1" onclick="cgSelectVisible('${v.val}')">
+        <input type="radio" name="cg-visible" value="${v.val}" ${visFor === v.val ? 'checked' : ''}
           style="accent-color:${v.color}">
         <span style="font-size:12px;font-weight:800;color:${v.color}">${v.label}</span>
       </label>`).join('')}
@@ -432,27 +432,27 @@ function _cgModalBody(item, tenantId, myGroups) {
   <div style="background:#F9FAFB;border-radius:10px;padding:14px;border:1.5px solid #E5E7EB">
     <div style="font-size:12px;font-weight:800;color:#374151;margin-bottom:10px">🔒 상한액 설정</div>
     <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-      ${['none','soft','hard'].map(v => `
+      ${['none', 'soft', 'hard'].map(v => `
       <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;cursor:pointer;
-                    border:1.5px solid ${lType===v?(v==='none'?'#10B981':v==='soft'?'#D97706':'#DC2626'):'#E5E7EB'};
-                    background:${lType===v?(v==='none'?'#F0FDF4':v==='soft'?'#FFFBEB':'#FEF2F2'):'#fff'}"
+                    border:1.5px solid ${lType === v ? (v === 'none' ? '#10B981' : v === 'soft' ? '#D97706' : '#DC2626') : '#E5E7EB'};
+                    background:${lType === v ? (v === 'none' ? '#F0FDF4' : v === 'soft' ? '#FFFBEB' : '#FEF2F2') : '#fff'}"
              onclick="cgSelectLimitType('${v}')">
-        <input type="radio" name="cg-limit-type" value="${v}" ${lType===v?'checked':''}
-          style="accent-color:${v==='none'?'#10B981':v==='soft'?'#D97706':'#DC2626'}">
+        <input type="radio" name="cg-limit-type" value="${v}" ${lType === v ? 'checked' : ''}
+          style="accent-color:${v === 'none' ? '#10B981' : v === 'soft' ? '#D97706' : '#DC2626'}">
         <span style="font-size:12px;font-weight:700">
-          ${v==='none'?'제한없음':v==='soft'?'⚠ Soft':'🚫 Hard'}
+          ${v === 'none' ? '제한없음' : v === 'soft' ? '⚠ Soft' : '🚫 Hard'}
         </span>
       </label>`).join('')}
     </div>
-    <div id="cg-limit-fields" style="display:${lType==='none'?'none':'grid'};grid-template-columns:1fr 1fr;gap:12px">
+    <div id="cg-limit-fields" style="display:${lType === 'none' ? 'none' : 'grid'};grid-template-columns:1fr 1fr;gap:12px">
       <div>
         <label style="font-size:11px;font-weight:700;color:#D97706;display:block;margin-bottom:4px">⚠ Soft Limit (원)</label>
-        <input id="cg-soft-limit" type="number" value="${item?.softLimit||''}" placeholder="0=미설정"
+        <input id="cg-soft-limit" type="number" value="${item?.softLimit || ''}" placeholder="0=미설정"
           style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #FDE68A;border-radius:8px;font-size:13px">
       </div>
       <div>
         <label style="font-size:11px;font-weight:700;color:#DC2626;display:block;margin-bottom:4px">🚫 Hard Limit (원)</label>
-        <input id="cg-hard-limit" type="number" value="${item?.hardLimit||''}" placeholder="0=미설정"
+        <input id="cg-hard-limit" type="number" value="${item?.hardLimit || ''}" placeholder="0=미설정"
           style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #FECACA;border-radius:8px;font-size:13px">
       </div>
     </div>
@@ -467,7 +467,7 @@ function cgOnModalGroupChange(groupId) {
       ? _cgAccountList.filter(a => a.virtual_org_template_id === groupId)
       : [];
     acctSel.innerHTML = `<option value="">— 공유 항목 —</option>` +
-      accts.map(a => `<option value="${a.code}">${a.code}${a.name?` (${a.name})`:''}</option>`).join('');
+      accts.map(a => `<option value="${a.code}">${a.code}${a.name ? ` (${a.name})` : ''}</option>`).join('');
   }
 }
 
@@ -479,7 +479,7 @@ function cgSelectVisible(val) {
     if (!lbl) return;
     const m = CG_VISIBLE_META[r.value] || CG_VISIBLE_META.both;
     lbl.style.borderColor = r.checked ? m.color : '#E5E7EB';
-    lbl.style.background  = r.checked ? m.bg : '#fff';
+    lbl.style.background = r.checked ? m.bg : '#fff';
   });
 }
 function cgSelectLimitType(val) {
@@ -492,26 +492,26 @@ function cgSelectLimitType(val) {
 function cgSaveItem() {
   const name = document.getElementById('cg-name')?.value.trim();
   if (!name) { alert('항목명은 필수입니다.'); return; }
-  const tenantId   = _cgFilterTenant || boCurrentPersona.tenantId || 'HMC';
-  const groupId    = document.getElementById('cg-grp')?.value || null;
-  const accountCode= document.getElementById('cg-acct')?.value || null;
-  const scopes     = ['plan','apply','settle'].filter(s => document.getElementById(`cg-scope-${s}`)?.checked);
+  const tenantId = _cgFilterTenant || boCurrentPersona.tenantId || 'HMC';
+  const groupId = document.getElementById('cg-grp')?.value || null;
+  const accountCode = document.getElementById('cg-acct')?.value || null;
+  const scopes = ['plan', 'apply', 'settle'].filter(s => document.getElementById(`cg-scope-${s}`)?.checked);
   if (!scopes.length) { alert('사용 단계를 최소 1개 선택하세요.'); return; }
 
   const obj = {
     name,
-    desc:          document.getElementById('cg-desc')?.value.trim(),
-    unitPrice:     Number(document.getElementById('cg-unit-price')?.value) || 0,
-    limitType:     document.querySelector('input[name="cg-limit-type"]:checked')?.value || 'none',
-    softLimit:     Number(document.getElementById('cg-soft-limit')?.value) || 0,
-    hardLimit:     Number(document.getElementById('cg-hard-limit')?.value) || 0,
-    usageScope:    scopes,
-    visibleFor:    document.querySelector('input[name="cg-visible"]:checked')?.value || 'both',
-    active:        true,
+    desc: document.getElementById('cg-desc')?.value.trim(),
+    unitPrice: Number(document.getElementById('cg-unit-price')?.value) || 0,
+    limitType: document.querySelector('input[name="cg-limit-type"]:checked')?.value || 'none',
+    softLimit: Number(document.getElementById('cg-soft-limit')?.value) || 0,
+    hardLimit: Number(document.getElementById('cg-hard-limit')?.value) || 0,
+    usageScope: scopes,
+    visibleFor: document.querySelector('input[name="cg-visible"]:checked')?.value || 'both',
+    active: true,
     tenantId,
     domainId: groupId || undefined,
-    accountCode:   accountCode || undefined,
-    sortOrder:     Number(document.getElementById('cg-order')?.value) || 99,
+    accountCode: accountCode || undefined,
+    sortOrder: Number(document.getElementById('cg-order')?.value) || 99,
   };
 
   if (_cgEditId) {

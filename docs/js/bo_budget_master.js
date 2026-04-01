@@ -59,9 +59,9 @@ const REAL_ORG_TREE = {
 let virtualOrgState = JSON.parse(JSON.stringify(VIRTUAL_ORG));
 
 // ── 상태 변수 ─────────────────────────────────────────────────────────────────
-let _baTenantId    = null; // 플랫폼총괄: 선택된 테넌트
-let _baGroupId     = null; // 선택된 격리그룹 ID
-let _baExpandedAR  = {};   // 결재라인 펼침 상태 { accountCode: bool }
+let _baTenantId = null; // 플랫폼총괄: 선택된 테넌트
+let _baGroupId = null; // 선택된 격리그룹 ID
+let _baExpandedAR = {};   // 결재라인 펼침 상태 { accountCode: bool }
 
 // ─── DB: account_master + edu_support_domains 로드 후 ACCOUNT_MASTER 갱신 ───────
 async function _baLoadAccountsFromDB() {
@@ -85,20 +85,24 @@ async function _baLoadAccountsFromDB() {
         else ACCOUNT_MASTER.push(mapped);
       });
     }
-    // EDU_SUPPORT_DOMAINS 동기화
-    if (igs && typeof EDU_SUPPORT_DOMAINS !== 'undefined') {
-      igs.forEach(row => {
-        const idx = EDU_SUPPORT_DOMAINS.findIndex(g => g.id === row.id);
-        const mapped = {
-          id: row.id, tenantId: row.tenant_id, name: row.name,
-          ownedAccounts: row.owned_accounts || [],
-          globalAdminKeys: row.global_admin_key ? [row.global_admin_key] : (row.op_manager_keys || []),
-        };
-        if (idx >= 0) EDU_SUPPORT_DOMAINS[idx] = { ...EDU_SUPPORT_DOMAINS[idx], ...mapped };
-        else EDU_SUPPORT_DOMAINS.push(mapped);
-      });
+    // VORG_TEMPLATES / EDU_SUPPORT_DOMAINS 동기화
+    if (igs) {
+      const tpl = typeof VORG_TEMPLATES !== 'undefined' ? VORG_TEMPLATES
+        : typeof EDU_SUPPORT_DOMAINS !== 'undefined' ? EDU_SUPPORT_DOMAINS : null;
+      if (tpl) {
+        igs.forEach(row => {
+          const idx = tpl.findIndex(g => g.id === row.id);
+          const mapped = {
+            id: row.id, tenantId: row.tenant_id, name: row.name,
+            ownedAccounts: row.owned_accounts || [],
+            globalAdminKeys: row.global_admin_key ? [row.global_admin_key] : (row.op_manager_keys || []),
+          };
+          if (idx >= 0) tpl[idx] = { ...tpl[idx], ...mapped };
+          else tpl.push(mapped);
+        });
+      }
     }
-  } catch(e) { console.warn('[BudgetAccount] DB 로드 실패:', e.message); }
+  } catch (e) { console.warn('[BudgetAccount] DB 로드 실패:', e.message); }
 }
 
 // ─── 진입점: 예산 계정 관리 (가상교육조직 템플릿 종속) ──────────────────────────
@@ -107,9 +111,9 @@ let _baTplList = [];   // 로드된 템플릿 목록 캐시
 let _baAccountList = []; // 로드된 계정 목록 캐시
 
 async function renderBudgetAccount() {
-  const role    = boCurrentPersona.role;
+  const role = boCurrentPersona.role;
   const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
-  const el      = document.getElementById('bo-content');
+  const el = document.getElementById('bo-content');
 
   if (!_baTenantId) {
     _baTenantId = (role === 'platform_admin')
@@ -130,7 +134,7 @@ async function renderBudgetAccount() {
         .eq('tenant_id', _baTenantId);
       if (data) _baTplList = data;
     }
-  } catch(e) { console.warn('[BudgetAccount] 템플릿 로드 실패:', e.message); }
+  } catch (e) { console.warn('[BudgetAccount] 템플릿 로드 실패:', e.message); }
 
   if (!_baTplId || !_baTplList.find(t => t.id === _baTplId)) {
     _baTplId = _baTplList[0]?.id || null;
@@ -149,27 +153,27 @@ async function renderBudgetAccount() {
           .eq('tenant_id', _baTenantId);
         if (data) _baAccountList = data;
       }
-    } catch(e) { console.warn('[BudgetAccount] 계정 로드 실패:', e.message); }
+    } catch (e) { console.warn('[BudgetAccount] 계정 로드 실패:', e.message); }
   }
 
   // ── 3. 셀렉트 HTML ──
   const tenantSelect = isPlatform
     ? `<select onchange="_baTenantId=this.value;_baTplId=null;renderBudgetAccount()"
         style="padding:7px 12px;border:1.5px solid #FDE68A;border-radius:8px;font-size:12px;font-weight:700;background:#FFFBEB;color:#92400E;cursor:pointer">
-        ${tenants.map(t=>`<option value="${t.id}" ${t.id===_baTenantId?'selected':''}>${t.name}</option>`).join('')}
+        ${tenants.map(t => `<option value="${t.id}" ${t.id === _baTenantId ? 'selected' : ''}>${t.name}</option>`).join('')}
       </select>`
     : `<span style="font-size:13px;font-weight:800;color:#111827">🏢 ${tenantName}</span>`;
 
   const tplSelect = _baTplList.length
     ? `<select onchange="_baTplId=this.value;renderBudgetAccount()"
         style="padding:7px 12px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:12px;font-weight:700;background:#EFF6FF;color:#1D4ED8;cursor:pointer;min-width:220px">
-        ${_baTplList.map(t=>`<option value="${t.id}" ${t.id===_baTplId?'selected':''}>${t.name}</option>`).join('')}
+        ${_baTplList.map(t => `<option value="${t.id}" ${t.id === _baTplId ? 'selected' : ''}>${t.name}</option>`).join('')}
       </select>`
     : `<span style="font-size:12px;color:#9CA3AF">등록된 가상교육조직 템플릿이 없습니다</span>`;
 
   // ── 4. 계정 카드 HTML ──
-  const canEdit = ['platform_admin','tenant_global_admin','budget_global_admin'].includes(role);
-  const curTpl  = _baTplList.find(t => t.id === _baTplId);
+  const canEdit = ['platform_admin', 'tenant_global_admin', 'budget_global_admin'].includes(role);
+  const curTpl = _baTplList.find(t => t.id === _baTplId);
 
   const accountsHtml = _baTplId && curTpl ? `
     <div style="padding:16px 20px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:12px;
@@ -230,12 +234,12 @@ async function renderBudgetAccount() {
 // ── 계정 카드 렌더 ──────────────────────────────────────────────────────────
 function _baRenderAccountCard(a, canEdit) {
   const typeColors = {
-    sap:        { bg:'#EFF6FF', border:'#BFDBFE', text:'#1D4ED8', label:'🔗 SAP 연동' },
-    standalone: { bg:'#F0FDF4', border:'#BBF7D0', text:'#059669', label:'📋 자체관리' },
-    training:   { bg:'#EFF6FF', border:'#BFDBFE', text:'#1D4ED8', label:'교육훈련' },
-    language:   { bg:'#F0FDF4', border:'#BBF7D0', text:'#059669', label:'어학' },
-    cert:       { bg:'#FFF7ED', border:'#FED7AA', text:'#C2410C', label:'자격증' },
-    badge:      { bg:'#F5F3FF', border:'#DDD6FE', text:'#7C3AED', label:'배지' },
+    sap: { bg: '#EFF6FF', border: '#BFDBFE', text: '#1D4ED8', label: '🔗 SAP 연동' },
+    standalone: { bg: '#F0FDF4', border: '#BBF7D0', text: '#059669', label: '📋 자체관리' },
+    training: { bg: '#EFF6FF', border: '#BFDBFE', text: '#1D4ED8', label: '교육훈련' },
+    language: { bg: '#F0FDF4', border: '#BBF7D0', text: '#059669', label: '어학' },
+    cert: { bg: '#FFF7ED', border: '#FED7AA', text: '#C2410C', label: '자격증' },
+    badge: { bg: '#F5F3FF', border: '#DDD6FE', text: '#7C3AED', label: '배지' },
   };
   const tc = typeColors[a.account_type] || typeColors.sap;
   return `
@@ -246,7 +250,7 @@ function _baRenderAccountCard(a, canEdit) {
         <code style="background:#F3F4F6;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:900">${a.code}</code>
         <span style="font-size:10px;padding:2px 8px;border-radius:6px;font-weight:700;background:${tc.bg};color:${tc.text};border:1px solid ${tc.border}">${tc.label}</span>
         <span style="font-size:13px;font-weight:800;color:#111827">${a.name}</span>
-        <span style="font-size:10px;padding:2px 7px;border-radius:5px;font-weight:700;background:${a.active?'#D1FAE5':'#F3F4F6'};color:${a.active?'#065F46':'#9CA3AF'}">${a.active?'✅ 활성':'⏸️ 비활성'}</span>
+        <span style="font-size:10px;padding:2px 7px;border-radius:5px;font-weight:700;background:${a.active ? '#D1FAE5' : '#F3F4F6'};color:${a.active ? '#065F46' : '#9CA3AF'}">${a.active ? '✅ 활성' : '⏸️ 비활성'}</span>
       </div>
       <div style="font-size:11px;color:#6B7280">${a.description || ''}</div>
     </div>
@@ -283,7 +287,7 @@ function _s1GenCode() {
 function openS1Modal(id) {
   _s1EditId = id || null;
   const list = window._baAccountList && window._baAccountList.length > 0 ? window._baAccountList : (typeof _baAccountList !== 'undefined' ? _baAccountList : []);
-  const a    = id ? (list.find(x => x.id === id) || null) : null;
+  const a = id ? (list.find(x => x.id === id) || null) : null;
   const autoCode = a?.code || _s1GenCode();
   document.getElementById('s1-modal-title').textContent = id ? '예산 계정 수정' : '예산 계정 신규 등록';
   document.getElementById('s1-modal-body').innerHTML = `
@@ -294,12 +298,12 @@ function openS1Modal(id) {
   </div>
   <div style="margin-bottom:12px">
     <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정명 *</label>
-    <input id="s1-name" type="text" placeholder="예) 교육훈련비" value="${a?.name||''}"
+    <input id="s1-name" type="text" placeholder="예) 교육훈련비" value="${a?.name || ''}"
       style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
   </div>
   <div style="margin-bottom:12px">
     <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">용도 설명</label>
-    <input id="s1-desc" type="text" placeholder="예) 사내 집합/이러닝 운영비" value="${a?.description||''}"
+    <input id="s1-desc" type="text" placeholder="예) 사내 집합/이러닝 운영비" value="${a?.description || ''}"
       style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
   </div>
   <div style="margin-bottom:12px">
@@ -343,15 +347,15 @@ function s1CloseModal() {
 }
 
 async function s1SaveAccount() {
-  const code  = document.getElementById('s1-code').value.trim();
-  const name  = document.getElementById('s1-name').value.trim();
+  const code = document.getElementById('s1-code').value.trim();
+  const name = document.getElementById('s1-name').value.trim();
   if (!code || !name) { alert('계정명은 필수입니다.'); return; }
-  if (!_baTplId)      { alert('템플릿을 먼저 선택하세요.'); return; }
+  if (!_baTplId) { alert('템플릿을 먼저 선택하세요.'); return; }
 
-  const role     = boCurrentPersona.role;
+  const role = boCurrentPersona.role;
   const tenantId = role === 'platform_admin' ? (_baTenantId || 'HMC') : (boCurrentPersona.tenantId || 'HMC');
   const integration = document.querySelector('input[name="s1-integration"]:checked')?.value || 'sap';
-  const payload  = {
+  const payload = {
     tenant_id: tenantId,
     virtual_org_template_id: _baTplId,
     code, name,
@@ -379,7 +383,7 @@ async function s1SaveAccount() {
     } else {
       await renderBudgetAccount();
     }
-  } catch(e) {
+  } catch (e) {
     alert('저장 실패: ' + e.message);
   }
 }
@@ -414,7 +418,7 @@ function arOpenNewModalForAccount(accountCode) {
     name: accountCode + ' 결재라인', accountCodes: [accountCode],
     ranges: [
       { max: 1000000, label: '100만원 미만', approvers: ['팀장 전결'] },
-      { max: null,    label: '100만원 이상', approvers: ['팀장', '실장'] },
+      { max: null, label: '100만원 이상', approvers: ['팀장', '실장'] },
     ]
   };
   APPROVAL_ROUTING.push(newRouting);
@@ -479,21 +483,21 @@ function renderStep1() {
 
   // 계정 소유권(ownedAccounts) 보유 여부 — 오너만 신규 등록/수정 가능
   const isOwner = (boCurrentPersona.ownedAccounts || []).length > 0
-                  || (boCurrentPersona.ownedAccounts || [])[0] === '*';
-  const isoGroup = boCurrentPersona.isolationGroup || '';
-  const isoLabel = isoGroup.includes('RND') ? '🔬 R&D 예산 전용 계정 보기'
-                 : isoGroup === 'SYSTEM' ? '🌐 전체 계정 조회'
-                 : '📋 일반교육 예산 전용 계정 보기';
+    || (boCurrentPersona.ownedAccounts || [])[0] === '*';
+  const vId = boCurrentPersona.vorgId || '';
+  const vLabel = vId.includes('RND') ? '🔬 R&D 예산 전용 계정 보기'
+    : vId === 'SYSTEM' ? '🌐 전체 계정 조회'
+      : '📋 일반교육 예산 전용 계정 보기';
 
   return `
 <div>
-  <!-- 격리 그룹 안내 배너 -->
-  ${tenantId && isoGroup !== 'SYSTEM' ? `
-  <div style="margin-bottom:12px;padding:10px 14px;background:${isoGroup.includes('RND') ? '#FFF7ED' : '#EFF6FF'};border:1.5px solid ${isoGroup.includes('RND') ? '#FED7AA' : '#BFDBFE'};border-radius:10px;display:flex;align-items:center;gap:8px">
-    <span style="font-size:14px">${isoGroup.includes('RND') ? '🔬' : '🔒'}</span>
+  <!-- VOrg 안내 배너 -->
+  ${tenantId && vId !== 'SYSTEM' ? `
+  <div style="margin-bottom:12px;padding:10px 14px;background:${vId.includes('RND') ? '#FFF7ED' : '#EFF6FF'};border:1.5px solid ${vId.includes('RND') ? '#FED7AA' : '#BFDBFE'};border-radius:10px;display:flex;align-items:center;gap:8px">
+    <span style="font-size:14px">${vId.includes('RND') ? '🔬' : '🔒'}</span>
     <div>
-      <span style="font-size:12px;font-weight:800;color:${isoGroup.includes('RND') ? '#C2410C' : '#1D4ED8'}">${isoLabel}</span>
-      <span style="font-size:11px;color:#6B7280;margin-left:8px">격리 그룹: <code style="background:#F3F4F6;padding:1px 6px;border-radius:4px;font-weight:700">${isoGroup}</code></span>
+      <span style="font-size:12px;font-weight:800;color:${vId.includes('RND') ? '#C2410C' : '#1D4ED8'}">${vLabel}</span>
+      <span style="font-size:11px;color:#6B7280;margin-left:8px">VOrg: <code style="background:#F3F4F6;padding:1px 6px;border-radius:4px;font-weight:700">${vId}</code></span>
     </div>
     ${!isOwner ? '<span style="margin-left:auto;font-size:11px;color:#9CA3AF;font-weight:600">👁 조회 전용 (오너: 계정 수정 권한 없음)</span>' : ''}
   </div>` : ''}
@@ -520,29 +524,29 @@ function renderStep1() {
       </tr></thead>
       <tbody>
         ${allAccounts.map(a => {
-          const planToggle = a.isSystem
-            ? '<span style="font-size:11px;color:#9CA3AF">해당없음</span>'
-            : bmToggle(a.planRequired, `s1ToggleField('${a.code}','planRequired')`, 'blue')
-              + `<div style="font-size:10px;margin-top:2px;color:${a.planRequired ? '#1D4ED8' : '#9CA3AF'}">${a.planRequired ? '✅ 계획 필수' : '❌ 계획 불필요'}</div>`;
-          const carryToggle = a.isSystem
-            ? '<span style="font-size:11px;color:#9CA3AF">-</span>'
-            : bmToggle(a.carryover, `s1ToggleField('${a.code}','carryover')`, 'green');
-          const managerHtml = a.isSystem
-            ? '<span style="font-size:11px;color:#9CA3AF">플랫폼 제공</span>'
-            : `<div style="font-size:12px;font-weight:700">${a.manager || '미지정'}</div>${a.subManager ? `<div style="font-size:11px;color:#6B7280">부: ${a.subManager}</div>` : ''}`;
-          const ctrlHtml = a.isSystem
-            ? '<span style="font-size:11px;color:#9CA3AF;padding:4px 8px">🔒 수정불가</span>'
-            : `<div style="display:flex;gap:6px">
+        const planToggle = a.isSystem
+          ? '<span style="font-size:11px;color:#9CA3AF">해당없음</span>'
+          : bmToggle(a.planRequired, `s1ToggleField('${a.code}','planRequired')`, 'blue')
+          + `<div style="font-size:10px;margin-top:2px;color:${a.planRequired ? '#1D4ED8' : '#9CA3AF'}">${a.planRequired ? '✅ 계획 필수' : '❌ 계획 불필요'}</div>`;
+        const carryToggle = a.isSystem
+          ? '<span style="font-size:11px;color:#9CA3AF">-</span>'
+          : bmToggle(a.carryover, `s1ToggleField('${a.code}','carryover')`, 'green');
+        const managerHtml = a.isSystem
+          ? '<span style="font-size:11px;color:#9CA3AF">플랫폼 제공</span>'
+          : `<div style="font-size:12px;font-weight:700">${a.manager || '미지정'}</div>${a.subManager ? `<div style="font-size:11px;color:#6B7280">부: ${a.subManager}</div>` : ''}`;
+        const ctrlHtml = a.isSystem
+          ? '<span style="font-size:11px;color:#9CA3AF;padding:4px 8px">🔒 수정불가</span>'
+          : `<div style="display:flex;gap:6px">
                  <button class="bo-btn-secondary bo-btn-sm" onclick="openS1Modal('${a.code}')">수정</button>
                  <button class="bo-btn-secondary bo-btn-sm" onclick="s1ToggleActive('${a.code}')"
                    style="color:${a.active ? '#F59E0B' : '#059669'};border-color:${a.active ? '#F59E0B' : '#059669'}">
                    ${a.active ? '비활성화' : '활성화'}
                  </button>
                </div>`;
-          const groupBadge = a.isSystem
-            ? '<span class="bo-badge" style="background:#F3F4F6;color:#6B7280">공통</span>'
-            : boGroupBadge(a.group === 'R&D' ? 'rnd' : 'general');
-          return `
+        const groupBadge = a.isSystem
+          ? '<span class="bo-badge" style="background:#F3F4F6;color:#6B7280">공통</span>'
+          : boGroupBadge(a.group === 'R&D' ? 'rnd' : 'general');
+        return `
         <tr style="${a.isSystem ? 'background:#FFFBEB;' : ''}">
           <td>
             <code style="background:#F3F4F6;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700">${a.code}</code>
@@ -557,7 +561,7 @@ function renderStep1() {
           <td><span class="bo-badge ${a.active ? 'bo-badge-green' : 'bo-badge-gray'}">${a.active ? '활성' : '비활성'}</span></td>
           <td>${ctrlHtml}</td>
         </tr>`;
-        }).join('')}
+      }).join('')}
 
       </tbody>
     </table>
@@ -854,64 +858,64 @@ let _s3Tenant = 'HMG';
 let _s3EditingRuleId = null;
 
 function renderStep3() {
-    const tenantId = boCurrentPersona.tenantId || _s3Tenant;
-    _s3Tenant = tenantId;
-    const rules = FORM_BUDGET_RULES.filter(r => r.tenantId === tenantId);
-    const accounts = getPersonaAccounts(boCurrentPersona);
-    const tenantName = TENANTS.find(t => t.id === tenantId)?.name || tenantId;
+  const tenantId = boCurrentPersona.tenantId || _s3Tenant;
+  _s3Tenant = tenantId;
+  const rules = FORM_BUDGET_RULES.filter(r => r.tenantId === tenantId);
+  const accounts = getPersonaAccounts(boCurrentPersona);
+  const tenantName = TENANTS.find(t => t.id === tenantId)?.name || tenantId;
 
-    // 예산 단위로 그룹핑
-    const accGrouped = {};
-    rules.forEach(r => {
-        if (!accGrouped[r.accountCode]) accGrouped[r.accountCode] = [];
-        accGrouped[r.accountCode].push(r);
-    });
+  // 예산 단위로 그룹핑
+  const accGrouped = {};
+  rules.forEach(r => {
+    if (!accGrouped[r.accountCode]) accGrouped[r.accountCode] = [];
+    accGrouped[r.accountCode].push(r);
+  });
 
-    const ruleCards = Object.keys(accGrouped).map(code => {
-        const acc = accounts.find(a => a.code === code);
-        if (!acc) return '';
-        const accCards = accGrouped[code].map(r => {
-            const tpl = VIRTUAL_EDU_ORGS.find(t => t.id === r.templateId) || { name: r.templateId || '전체(미지정)' };
-            const applyForm = r.formId ? (FORM_MASTER.find(f => f.id === r.formId) || { name: r.formId }) : null;
-            const planForm = r.planFormId ? FORM_MASTER.find(f => f.id === r.planFormId) : null;
-            const resultForm = r.resultFormId ? FORM_MASTER.find(f => f.id === r.resultFormId) : null;
+  const ruleCards = Object.keys(accGrouped).map(code => {
+    const acc = accounts.find(a => a.code === code);
+    if (!acc) return '';
+    const accCards = accGrouped[code].map(r => {
+      const tpl = VIRTUAL_EDU_ORGS.find(t => t.id === r.templateId) || { name: r.templateId || '전체(미지정)' };
+      const applyForm = r.formId ? (FORM_MASTER.find(f => f.id === r.formId) || { name: r.formId }) : null;
+      const planForm = r.planFormId ? FORM_MASTER.find(f => f.id === r.planFormId) : null;
+      const resultForm = r.resultFormId ? FORM_MASTER.find(f => f.id === r.resultFormId) : null;
 
-            // 프로세스 흐름 배지
-            const flowConfig = {
-              'plan-apply-result': { label: '계획 ➡️ 신청 ➡️ 결과', bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' },
-              'apply-result':      { label: '신청 ➡️ 결과', bg: '#ECFDF5', color: '#059669', border: '#A7F3D0' },
-              'result-only':       { label: '결과 단독', bg: '#FFFBEB', color: '#D97706', border: '#FDE68A' }
-            };
-            const flow = flowConfig[r.processFlow] || flowConfig['apply-result'];
-            const flowBadge = `<span style="background:${flow.bg};color:${flow.color};border:1px solid ${flow.border};font-size:11px;font-weight:800;padding:2px 10px;border-radius:20px">${flow.label}</span>`;
+      // 프로세스 흐름 배지
+      const flowConfig = {
+        'plan-apply-result': { label: '계획 ➡️ 신청 ➡️ 결과', bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' },
+        'apply-result': { label: '신청 ➡️ 결과', bg: '#ECFDF5', color: '#059669', border: '#A7F3D0' },
+        'result-only': { label: '결과 단독', bg: '#FFFBEB', color: '#D97706', border: '#FDE68A' }
+      };
+      const flow = flowConfig[r.processFlow] || flowConfig['apply-result'];
+      const flowBadge = `<span style="background:${flow.bg};color:${flow.color};border:1px solid ${flow.border};font-size:11px;font-weight:800;padding:2px 10px;border-radius:20px">${flow.label}</span>`;
 
-            const ltHtml = r.learningTypes && r.learningTypes.length ? r.learningTypes.map(lt =>
-                `<span style="background:#F5F3FF;color:#6D28D9;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700">${lt}</span>`
-            ).join('') : '<span style="font-size:11px;color:#9CA3AF">모든 유형</span>';
+      const ltHtml = r.learningTypes && r.learningTypes.length ? r.learningTypes.map(lt =>
+        `<span style="background:#F5F3FF;color:#6D28D9;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700">${lt}</span>`
+      ).join('') : '<span style="font-size:11px;color:#9CA3AF">모든 유형</span>';
 
-            // 양식 섹션 (프로세스 흐름에 따라)
-            let formSection = '';
-            if (r.processFlow === 'plan-apply-result' && planForm) {
-              formSection += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+      // 양식 섹션 (프로세스 흐름에 따라)
+      let formSection = '';
+      if (r.processFlow === 'plan-apply-result' && planForm) {
+        formSection += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
                 <span style="font-size:11px;font-weight:700;color:#7C3AED">📋 계획폼:</span>
                 <span style="background:#F5F3FF;color:#7C3AED;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700">${planForm.name}</span>
                 ${r.multiPlanAllowed ? '<span style="background:#ECFDF5;color:#059669;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800">복수 계획 허용</span>' : ''}
               </div>`;
-            }
-            if (applyForm && r.processFlow !== 'result-only') {
-              formSection += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+      }
+      if (applyForm && r.processFlow !== 'result-only') {
+        formSection += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
                 <span style="font-size:11px;font-weight:700;color:#059669">📄 신청폼:</span>
                 <span style="background:#F0FDF4;color:#059669;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700">${applyForm.name}</span>
               </div>`;
-            }
-            if (resultForm) {
-              formSection += `<div style="display:flex;align-items:center;gap:6px">
+      }
+      if (resultForm) {
+        formSection += `<div style="display:flex;align-items:center;gap:6px">
                 <span style="font-size:11px;font-weight:700;color:#D97706">📝 결과폼:</span>
                 <span style="background:#FFFBEB;color:#D97706;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700">${resultForm.name}</span>
               </div>`;
-            }
+      }
 
-            return `<div style="padding:12px;border:1px solid #E5E7EB;border-radius:8px;margin-bottom:8px;background:#fff">
+      return `<div style="padding:12px;border:1px solid #E5E7EB;border-radius:8px;margin-bottom:8px;background:#fff">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
           <div style="flex:1">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
@@ -933,9 +937,9 @@ function renderStep3() {
           </div>
         </div>
       </div>`;
-        }).join('');
+    }).join('');
 
-        return `
+    return `
     <div class="bo-rule-card" style="margin-bottom:14px;padding:20px 24px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1.5px solid #F3F4F6">
         <span style="font-size:16px">💳</span>
@@ -945,9 +949,9 @@ function renderStep3() {
       </div>
       ${accCards}
     </div>`;
-    }).join('');
+  }).join('');
 
-    const modalHtml = `
+  const modalHtml = `
   <div id="s3-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
     <div class="fade-in" style="background:#fff;border-radius:16px;width:600px;max-height:85vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
@@ -962,7 +966,7 @@ function renderStep3() {
     </div>
   </div>`;
 
-    return `
+  return `
   <div class="bo-fade">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <div>
@@ -977,39 +981,39 @@ function renderStep3() {
 function s3ChangeTenant(tid) { _s3Tenant = tid; document.getElementById('bm-content').innerHTML = renderStep3(); }
 
 function s3ToggleBudgetRequired(ruleId) {
-    const r = FORM_BUDGET_RULES.find(x => x.id === ruleId);
-    if (r) r.budgetRequired = !r.budgetRequired;
-    document.getElementById('bm-content').innerHTML = renderStep3();
+  const r = FORM_BUDGET_RULES.find(x => x.id === ruleId);
+  if (r) r.budgetRequired = !r.budgetRequired;
+  document.getElementById('bm-content').innerHTML = renderStep3();
 }
 
 function s3DeleteRule(ruleId) {
-    if (!confirm('이 정책을 삭제하시겠습니까?')) return;
-    const idx = FORM_BUDGET_RULES.findIndex(x => x.id === ruleId);
-    if (idx > -1) FORM_BUDGET_RULES.splice(idx, 1);
-    document.getElementById('bm-content').innerHTML = renderStep3();
+  if (!confirm('이 정책을 삭제하시겠습니까?')) return;
+  const idx = FORM_BUDGET_RULES.findIndex(x => x.id === ruleId);
+  if (idx > -1) FORM_BUDGET_RULES.splice(idx, 1);
+  document.getElementById('bm-content').innerHTML = renderStep3();
 }
 
 function _s3ModalBody(rule) {
-    const tenantId = boCurrentPersona.tenantId || _s3Tenant;
-    const templates = VIRTUAL_EDU_ORGS.filter(t => t.tenantId === tenantId);
-    const accounts = getPersonaAccounts(boCurrentPersona);
-    const applyForms = getTenantForms(tenantId, 'apply');
-    const planForms = getTenantForms(tenantId, 'plan');
-    const resultForms = getTenantForms(tenantId, 'result');
+  const tenantId = boCurrentPersona.tenantId || _s3Tenant;
+  const templates = VIRTUAL_EDU_ORGS.filter(t => t.tenantId === tenantId);
+  const accounts = getPersonaAccounts(boCurrentPersona);
+  const applyForms = getTenantForms(tenantId, 'apply');
+  const planForms = getTenantForms(tenantId, 'plan');
+  const resultForms = getTenantForms(tenantId, 'result');
 
-    const accVal = rule?.accountCode || '';
-    const tplVal = rule?.templateId || '';
-    const fVal = rule?.formId || '';
-    const planFmVal = rule?.planFormId || '';
-    const resultFmVal = rule?.resultFormId || '';
-    const flowVal = rule?.processFlow || 'apply-result';
-    const selLt = rule?.learningTypes || [];
-    const multi = rule?.multiPlanAllowed || false;
+  const accVal = rule?.accountCode || '';
+  const tplVal = rule?.templateId || '';
+  const fVal = rule?.formId || '';
+  const planFmVal = rule?.planFormId || '';
+  const resultFmVal = rule?.resultFormId || '';
+  const flowVal = rule?.processFlow || 'apply-result';
+  const selLt = rule?.learningTypes || [];
+  const multi = rule?.multiPlanAllowed || false;
 
-    const selAcc = accounts.find(a => a.code === accVal);
-    const planReq = selAcc?.planRequired || false;
+  const selAcc = accounts.find(a => a.code === accVal);
+  const planReq = selAcc?.planRequired || false;
 
-    const ltHtml = LEARNING_TYPES.map(cat => `
+  const ltHtml = LEARNING_TYPES.map(cat => `
     <div style="margin-bottom:8px">
       <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px">${cat.category}</div>
       <div style="display:flex;flex-wrap:wrap;gap:8px">
@@ -1021,16 +1025,16 @@ function _s3ModalBody(rule) {
     </div>
   `).join('');
 
-    // 각 계정 옵션: 시스템 계정 포함
-    const allAccounts = [...ACCOUNT_MASTER.filter(a => a.isSystem && a.active), ...accounts];
+  // 각 계정 옵션: 시스템 계정 포함
+  const allAccounts = [...ACCOUNT_MASTER.filter(a => a.isSystem && a.active), ...accounts];
 
-    const flowOptions = [
-      { val: 'plan-apply-result', label: '📋 계획 ➡️ 신청 ➡️ 결과 (3단계)', desc: 'R&D 예산 등 사전 계획 필수 계정에 적용' },
-      { val: 'apply-result',      label: '📄 신청 ➡️ 결과 (2단계)',       desc: '일반 참가/운영계정 등 계획 불필요 계정에 적용' },
-      { val: 'result-only',       label: '📝 결과 단독 (1단계)',           desc: '무예산/자비 학습 이력 등록에만 사용' }
-    ];
+  const flowOptions = [
+    { val: 'plan-apply-result', label: '📋 계획 ➡️ 신청 ➡️ 결과 (3단계)', desc: 'R&D 예산 등 사전 계획 필수 계정에 적용' },
+    { val: 'apply-result', label: '📄 신청 ➡️ 결과 (2단계)', desc: '일반 참가/운영계정 등 계획 불필요 계정에 적용' },
+    { val: 'result-only', label: '📝 결과 단독 (1단계)', desc: '무예산/자비 학습 이력 등록에만 사용' }
+  ];
 
-    return `
+  return `
   <div style="margin-bottom:14px;padding:12px;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px">
     <label style="font-size:12px;font-weight:800;color:#1E40AF;display:block;margin-bottom:5px">1. 예산 선택 (Budget)</label>
     <select id="s3-account" onchange="s3UpdateModalDynamic()" style="width:100%;padding:9px 12px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:13px;background:#EFF6FF;font-weight:700;outline:none">
@@ -1113,86 +1117,86 @@ function _s3ModalBody(rule) {
 }
 
 function s3UpdateModalDynamic() {
-    const accSelect = document.getElementById('s3-account');
-    const opt = accSelect.options[accSelect.selectedIndex];
-    const isPlanReq = opt && opt.dataset.plan === 'true';
-    const flowRadio = document.querySelector('input[name="s3-flow"]:checked');
-    const flow = flowRadio ? flowRadio.value : 'apply-result';
-    const planDiv = document.getElementById('s3-plan-div');
-    const applyDiv = document.getElementById('s3-apply-div');
-    if (planDiv) planDiv.style.display = (isPlanReq || flow === 'plan-apply-result') ? 'block' : 'none';
-    if (applyDiv) applyDiv.style.display = flow !== 'result-only' ? 'block' : 'none';
+  const accSelect = document.getElementById('s3-account');
+  const opt = accSelect.options[accSelect.selectedIndex];
+  const isPlanReq = opt && opt.dataset.plan === 'true';
+  const flowRadio = document.querySelector('input[name="s3-flow"]:checked');
+  const flow = flowRadio ? flowRadio.value : 'apply-result';
+  const planDiv = document.getElementById('s3-plan-div');
+  const applyDiv = document.getElementById('s3-apply-div');
+  if (planDiv) planDiv.style.display = (isPlanReq || flow === 'plan-apply-result') ? 'block' : 'none';
+  if (applyDiv) applyDiv.style.display = flow !== 'result-only' ? 'block' : 'none';
 }
 
 function s3SelectFlow(val) {
-    document.querySelectorAll('input[name="s3-flow"]').forEach(r => r.checked = (r.value === val));
-    s3UpdateModalDynamic();
-    // 라디오 레이블 스타일 업데이트
-    document.querySelectorAll('label[onclick^="s3SelectFlow"]').forEach(lbl => {
-        const isSelected = lbl.getAttribute('onclick') === `s3SelectFlow('${val}')`;
-        lbl.style.background = isSelected ? '#EDE9FE' : '#fff';
-        lbl.style.borderColor = isSelected ? '#8B5CF6' : '#E5E7EB';
-    });
+  document.querySelectorAll('input[name="s3-flow"]').forEach(r => r.checked = (r.value === val));
+  s3UpdateModalDynamic();
+  // 라디오 레이블 스타일 업데이트
+  document.querySelectorAll('label[onclick^="s3SelectFlow"]').forEach(lbl => {
+    const isSelected = lbl.getAttribute('onclick') === `s3SelectFlow('${val}')`;
+    lbl.style.background = isSelected ? '#EDE9FE' : '#fff';
+    lbl.style.borderColor = isSelected ? '#8B5CF6' : '#E5E7EB';
+  });
 }
 
 function openAddRuleModal() {
-    _s3EditingRuleId = null;
-    document.getElementById('s3-modal-title').textContent = '새 매핑 정책 추가';
-    document.getElementById('s3-modal-body').innerHTML = _s3ModalBody(null);
-    const m = document.getElementById('s3-modal'); m.style.display = 'flex';
+  _s3EditingRuleId = null;
+  document.getElementById('s3-modal-title').textContent = '새 매핑 정책 추가';
+  document.getElementById('s3-modal-body').innerHTML = _s3ModalBody(null);
+  const m = document.getElementById('s3-modal'); m.style.display = 'flex';
 }
 
 function openEditRuleModal(ruleId) {
-    _s3EditingRuleId = ruleId;
-    const rule = FORM_BUDGET_RULES.find(r => r.id === ruleId);
-    document.getElementById('s3-modal-title').textContent = '매핑 정책 편집';
-    document.getElementById('s3-modal-body').innerHTML = _s3ModalBody(rule);
-    const m = document.getElementById('s3-modal'); m.style.display = 'flex';
+  _s3EditingRuleId = ruleId;
+  const rule = FORM_BUDGET_RULES.find(r => r.id === ruleId);
+  document.getElementById('s3-modal-title').textContent = '매핑 정책 편집';
+  document.getElementById('s3-modal-body').innerHTML = _s3ModalBody(rule);
+  const m = document.getElementById('s3-modal'); m.style.display = 'flex';
 }
 
 function s3SaveRule() {
-    const acc = document.getElementById('s3-account').value;
-    const tpl = document.getElementById('s3-template').value;
-    const flowRadio = document.querySelector('input[name="s3-flow"]:checked');
-    const processFlow = flowRadio ? flowRadio.value : 'apply-result';
-    const applyDivEl = document.getElementById('s3-apply-div');
-    const fid = applyDivEl && applyDivEl.style.display !== 'none'
-        ? (document.getElementById('s3-apply-form')?.value || null)
-        : null;
-    const resultFormEl = document.getElementById('s3-result-form');
-    const resultFormId = resultFormEl ? (resultFormEl.value || null) : null;
-    const planFmEl = document.getElementById('s3-plan-form');
-    const multiEl = document.getElementById('s3-multi');
-    const planDiv = document.getElementById('s3-plan-div');
-    const isPlanVisible = planDiv && planDiv.style.display !== 'none';
-    const planFormId = (isPlanVisible && planFmEl) ? (planFmEl.value || null) : null;
-    const multiPlanAllowed = (isPlanVisible && multiEl) ? multiEl.checked : false;
-    const ltCbs = [...document.querySelectorAll('.s3-lt-cb:checked')];
-    const learningTypes = ltCbs.map(cb => cb.value);
-    if (!acc || !tpl) { alert('예산 계정과 대상 조직 템플릿을 선택해주세요.'); return; }
-    if (processFlow !== 'result-only' && !fid) { alert('신청 양식을 선택해주세요.'); return; }
-    if (processFlow === 'result-only' && !resultFormId) { alert('결과 양식을 선택해주세요.'); return; }
-    if (_s3EditingRuleId) {
-        const r = FORM_BUDGET_RULES.find(x => x.id === _s3EditingRuleId);
-        if (r) {
-            r.accountCode = acc; r.templateId = tpl; r.formId = fid;
-            r.planFormId = planFormId; r.multiPlanAllowed = multiPlanAllowed;
-            r.learningTypes = learningTypes; r.processFlow = processFlow;
-            r.resultFormId = resultFormId;
-        }
-    } else {
-        FORM_BUDGET_RULES.push({
-            id: 'R' + (Date.now()), tenantId: boCurrentPersona.tenantId || _s3Tenant,
-            accountCode: acc, templateId: tpl, formId: fid,
-            planFormId, multiPlanAllowed, learningTypes, processFlow, resultFormId
-        });
+  const acc = document.getElementById('s3-account').value;
+  const tpl = document.getElementById('s3-template').value;
+  const flowRadio = document.querySelector('input[name="s3-flow"]:checked');
+  const processFlow = flowRadio ? flowRadio.value : 'apply-result';
+  const applyDivEl = document.getElementById('s3-apply-div');
+  const fid = applyDivEl && applyDivEl.style.display !== 'none'
+    ? (document.getElementById('s3-apply-form')?.value || null)
+    : null;
+  const resultFormEl = document.getElementById('s3-result-form');
+  const resultFormId = resultFormEl ? (resultFormEl.value || null) : null;
+  const planFmEl = document.getElementById('s3-plan-form');
+  const multiEl = document.getElementById('s3-multi');
+  const planDiv = document.getElementById('s3-plan-div');
+  const isPlanVisible = planDiv && planDiv.style.display !== 'none';
+  const planFormId = (isPlanVisible && planFmEl) ? (planFmEl.value || null) : null;
+  const multiPlanAllowed = (isPlanVisible && multiEl) ? multiEl.checked : false;
+  const ltCbs = [...document.querySelectorAll('.s3-lt-cb:checked')];
+  const learningTypes = ltCbs.map(cb => cb.value);
+  if (!acc || !tpl) { alert('예산 계정과 대상 조직 템플릿을 선택해주세요.'); return; }
+  if (processFlow !== 'result-only' && !fid) { alert('신청 양식을 선택해주세요.'); return; }
+  if (processFlow === 'result-only' && !resultFormId) { alert('결과 양식을 선택해주세요.'); return; }
+  if (_s3EditingRuleId) {
+    const r = FORM_BUDGET_RULES.find(x => x.id === _s3EditingRuleId);
+    if (r) {
+      r.accountCode = acc; r.templateId = tpl; r.formId = fid;
+      r.planFormId = planFormId; r.multiPlanAllowed = multiPlanAllowed;
+      r.learningTypes = learningTypes; r.processFlow = processFlow;
+      r.resultFormId = resultFormId;
     }
-    s3CloseModal();
-    document.getElementById('bm-content').innerHTML = renderStep3();
+  } else {
+    FORM_BUDGET_RULES.push({
+      id: 'R' + (Date.now()), tenantId: boCurrentPersona.tenantId || _s3Tenant,
+      accountCode: acc, templateId: tpl, formId: fid,
+      planFormId, multiPlanAllowed, learningTypes, processFlow, resultFormId
+    });
+  }
+  s3CloseModal();
+  document.getElementById('bm-content').innerHTML = renderStep3();
 }
 
 function s3CloseModal() {
-    document.getElementById('s3-modal').style.display = 'none';
+  document.getElementById('s3-modal').style.display = 'none';
 }
 
 

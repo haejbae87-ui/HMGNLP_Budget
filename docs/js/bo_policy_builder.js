@@ -359,7 +359,7 @@ async function renderServicePolicy() {
 
   el.innerHTML = `
 <div class="bo-fade">
-  ${typeof boIsolationGroupBanner === 'function' ? boIsolationGroupBanner() : ''}
+  ${typeof boVorgBanner === 'function' ? boVorgBanner() : (typeof boIsolationGroupBanner === 'function' ? boIsolationGroupBanner() : '')}
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
     <div>
       <h1 class="bo-page-title">🔧 서비스 정책 관리</h1>

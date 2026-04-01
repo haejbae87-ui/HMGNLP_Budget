@@ -1,9 +1,10 @@
 // ─── PLANS (교육계획) ──────────────────────────────────────────────────────
 
-// FO 정책 연동용: BO service_policies + edu_support_domains DB 프리로드
-// var 재선언 금지 — bo_data.js에 let EDU_SUPPORT_DOMAINS 선언이 있어 SyntaxError 방지
+// FO 정책 연동용: BO service_policies + VOrg 템플릿 DB 프리로드
+// var 재선언 금지 — bo_data.js에 let VORG_TEMPLATES 선언이 있어 SyntaxError 방지
 if (typeof SERVICE_POLICIES === 'undefined') window.SERVICE_POLICIES = [];
-if (typeof EDU_SUPPORT_DOMAINS === 'undefined') window.EDU_SUPPORT_DOMAINS = [];
+if (typeof VORG_TEMPLATES === 'undefined') { window.VORG_TEMPLATES = []; }
+if (typeof EDU_SUPPORT_DOMAINS === 'undefined') { window.EDU_SUPPORT_DOMAINS = []; }
 var _foServicePoliciesLoaded = false;
 
 async function _loadFoPolicies() {
@@ -13,29 +14,31 @@ async function _loadFoPolicies() {
     return;
   }
 
-  // ── edu_support_domains 항상 로드 (코드 매핑에 필요) ─────────────────────────
+  // ── VOrg 템플릿(edu_support_domains) 항상 로드 (코드 매핑에 필요) ──
   try {
-    const { data: isoGrps } = await getSB().from('edu_support_domains').select('*');
-    if (isoGrps) {
-      isoGrps.forEach(row => {
+    const { data: vorgRows } = await getSB().from('edu_support_domains').select('*');
+    if (vorgRows) {
+      vorgRows.forEach(row => {
         const mapped = {
           id: row.id, tenantId: row.tenant_id, name: row.name,
           code: row.code || row.id,
           ownedAccounts: row.owned_accounts || [],
           globalAdminKeys: row.global_admin_keys || []
         };
-        const idx = EDU_SUPPORT_DOMAINS.findIndex(g => g.id === mapped.id);
-        if (idx >= 0) EDU_SUPPORT_DOMAINS[idx] = mapped; else EDU_SUPPORT_DOMAINS.push(mapped);
+        const tpl = typeof VORG_TEMPLATES !== 'undefined' ? VORG_TEMPLATES : [];
+        const idx = tpl.findIndex(g => g.id === mapped.id);
+        if (idx >= 0) tpl[idx] = mapped; else tpl.push(mapped);
       });
     }
-  } catch (e) { console.warn('[FO] edu_support_domains 로드 실패:', e.message); }
+  } catch (e) { console.warn('[FO] VOrg 템플릿 로드 실패:', e.message); }
 
-  // ── 페르소나의 VOrg 템플릿 ID 결정 ──────────────────────────────────────
+  // ── 페르소나의 VOrg 템플릿 ID 결정 ──────────────────────────────────
   let vorgId = null;
-  if (currentPersona?.isolationGroup) {
+  if (currentPersona?.vorgId) {
     try {
-      const ig = EDU_SUPPORT_DOMAINS.find(g =>
-        g.code === currentPersona.isolationGroup || g.id === currentPersona.isolationGroup
+      const domains = typeof VORG_TEMPLATES !== 'undefined' ? VORG_TEMPLATES : [];
+      const ig = domains.find(g =>
+        g.code === currentPersona.vorgId || g.id === currentPersona.vorgId
       );
       if (ig) {
         const { data: vorgRows } = await getSB()

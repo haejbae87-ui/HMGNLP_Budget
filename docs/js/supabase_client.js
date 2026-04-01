@@ -61,7 +61,7 @@ async function sbLoadAccountMaster(tenantId = null) {
   }
 }
 
-async function sbLoadIsolationGroups(tenantId = null) {
+async function sbLoadVorgs(tenantId = null) {
   try {
     let url = `${SUPABASE_URL}/rest/v1/edu_support_domains?select=*&status=eq.active&order=id`;
     if (tenantId) url += `&tenant_id=eq.${tenantId}`;
@@ -69,7 +69,6 @@ async function sbLoadIsolationGroups(tenantId = null) {
       { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    // snake_case → camelCase 정규화 (JS 코드 전체와 호환)
     return data.map(g => ({
       ...g,
       tenantId: g.tenant_id,
@@ -81,10 +80,14 @@ async function sbLoadIsolationGroups(tenantId = null) {
       createdAt: (g.created_at || '').slice(0, 10),
     }));
   } catch (e) {
-    console.warn('[Supabase] edu_support_domains fallback:', e.message);
-    return typeof EDU_SUPPORT_DOMAINS !== 'undefined' ? EDU_SUPPORT_DOMAINS : [];
+    console.warn('[Supabase] VOrg fallback:', e.message);
+    const domains = typeof VORG_TEMPLATES !== 'undefined' ? VORG_TEMPLATES
+      : typeof EDU_SUPPORT_DOMAINS !== 'undefined' ? EDU_SUPPORT_DOMAINS : [];
+    return domains;
   }
 }
+// 구버전 호환
+async function sbLoadIsolationGroups(tenantId) { return sbLoadVorgs(tenantId); }
 
 async function sbLoadServicePolicies(filters = {}) {
   try {
@@ -324,10 +327,10 @@ async function sbLoadPersonas() {
 
 // BO_PERSONAS 빌드 내부 함수 (fetch/sdk 공통)
 function _buildBoPersonas(users, allRoles, orgs, igs) {
-  // isolation_group 맵 (id → { code, name, ownedAccounts })
-  const igMap = {};
+  // VOrg 맵 (id → { code, name, ownedAccounts })
+  const vorgMap = {};
   (igs || []).forEach(g => {
-    igMap[g.id] = { code: g.code, name: g.name, ownedAccounts: g.owned_accounts || [] };
+    vorgMap[g.id] = { code: g.code, name: g.name, ownedAccounts: g.owned_accounts || [] };
   });
 
   // org 맵
@@ -370,17 +373,16 @@ function _buildBoPersonas(users, allRoles, orgs, igs) {
     const dept = u.org_id ? (orgMap[u.org_id] || '') : '';
     const tenantId = sorted[0].tenant_id || u.tenant_id;
 
-    // isolation_group: 역할 중 scope_id가 있는 첫 번째 역할 사용
+    // vorgId: 역할 중 scope_id가 있는 첫 번째 역할 사용
     const roleWithScope = sorted.find(r => r.scope_id);
     const igId = roleWithScope ? roleWithScope.scope_id : null;
-    const ig = igId ? igMap[igId] : null;
+    const ig = igId ? vorgMap[igId] : null;
 
-    // owned/allowed accounts: ig에서 자동 계산
     const ownedAccounts = ig ? (ig.ownedAccounts || []) : [];
     const allowedAccounts = ownedAccounts.length ? ownedAccounts
       : (primaryRoleCode === 'platform_admin' ? ['*'] : []);
 
-    // 여러 scope_id 지원 (한 유저가 복수 격리그룹 담당 가능)
+    // 여러 scope_id 지원 (한 유저가 복수 VOrg 담당 가능)
     const domainIds = sorted
       .filter(r => r.scope_id)
       .map(r => r.scope_id)
@@ -398,8 +400,8 @@ function _buildBoPersonas(users, allRoles, orgs, igs) {
       jobType: u.job_type || 'general',
       status: u.status,
       domainId: igId,
-      isolationGroups: domainIds,
-      isolationGroup: ig ? ig.code : null,
+      vorgIds: domainIds,
+      vorgId: ig ? ig.code : null,
       ownedAccounts: ownedAccounts,
       allowedAccounts: allowedAccounts,
       accessMenus: ACCESS_BY_ROLE[primaryRole] || ['dashboard'],

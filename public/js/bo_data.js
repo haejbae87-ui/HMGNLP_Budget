@@ -10,8 +10,8 @@ const LEARNING_TYPES = [
 // ─── 서비스 정책 → FO 연동 공유 데이터 ──────────────────────────────────────
 // BO 서비스 정책 위저드에서 설정한 정책을 FO 교육계획/신청 위저드와 연결합니다.
 // FO에서는 이 데이터를 기반으로:
-//   Step1(목적) → 해당 페르소나의 isolationGroup에 활성 정책이 있는 purpose만 표시
-//   Step2(예산) → 선택된 purpose + isolationGroup에 해당하는 accountCode 계정만 표시
+//   Step1(목적) → 해당 페르소나의 VOrg에 활성 정책이 있는 purpose만 표시
+//   Step2(예산) → 선택된 purpose + VOrg에 해당하는 accountCode 계정만 표시
 //   Step3(교육유형) → purpose + accountCode에 해당하는 allowedEduTypes만 표시
 //
 // [BO 목적 ID] — purpose 컬럼 유효값
@@ -91,10 +91,13 @@ const TENANTS = [
   { id: 'HISC', name: '현대ISC', budgetMode: 'full', color: '#374151', bg: '#F9FAFB', border: '#E5E7EB' },
 ];
 
-// 격리그룹 조회 헬퍼 (EDU_SUPPORT_DOMAINS는 하단에 let으로 선언됨)
-function getIsolationGroup(id) {
-  return typeof EDU_SUPPORT_DOMAINS !== 'undefined' ? EDU_SUPPORT_DOMAINS.find(g => g.id === id) : null;
+// VOrg 조회 헬퍼 (VORG_TEMPLATES / EDU_SUPPORT_DOMAINS 하단에 let으로 선언됨)
+function getVorg(id) {
+  const domains = typeof VORG_TEMPLATES !== 'undefined' ? VORG_TEMPLATES
+    : typeof EDU_SUPPORT_DOMAINS !== 'undefined' ? EDU_SUPPORT_DOMAINS : [];
+  return domains.find(g => g.id === id) || null;
 }
+function getIsolationGroup(id) { return getVorg(id); } // 구버전 호환
 
 
 // ─── 다중 테넌트 페르소나 (테넌트별 분리) ─────────────────────────────────────
@@ -108,13 +111,13 @@ const BO_PERSONAS = {
     // 플랫폼 총괄: 모든 테넌트·계정 전체 조회 가능
     ownedAccounts: ['*'],       // 전체 계정 소유자(설정 전용)
     allowedAccounts: ['*'],     // 전체 조회
-    isolationGroup: 'SYSTEM',
+    vorgId: 'SYSTEM',
     accessMenus: ['dashboard', 'platform-monitor', 'platform-roles', 'tenant-mgmt', 'org-mgmt', 'user-mgmt', 'role-mgmt', 'role-menu-perms', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'field-mgmt', 'calc-grounds', 'service-policy', 'reports', 'manual']
   },
 
   // ── [현대자동차 HMC] ──────────────────────────────────────────────────────
   // ※ HMC 내 일반예산·R&D예산은 계정 소유권 기반으로 완전 격리
-  //   → isolationGroup이 다른 페르소나끼리는 서로의 계획/집행/조직 데이터 접근 불가
+  //   → vorgId가 다른 페르소나끼리는 서로의 계획/집행/조직 데이터 접근 불가
   // ── HMC 테넌트 총괄 ────────────────────────────────────────────────────────
   hmc_tenant_admin: {
     id: 'P100', name: '최O영', dept: '역량혁신팀', pos: '매니저',
@@ -124,7 +127,7 @@ const BO_PERSONAS = {
     // 테넌트 총괄: 격리 그룹 생성/관리 + 총괄 권한 부여만. 예산 실무 접근 없음
     ownedAccounts: [],
     allowedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC', 'HMC-RND'],
-    isolationGroup: 'HMC-ALL',
+    vorgId: 'HMC-ALL',
     accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'reports', 'manual']
   },
   // ── HMC 일반예산 그룹 ────────────────────────────────────────────────────────
@@ -134,10 +137,10 @@ const BO_PERSONAS = {
     roleClass: 'role-total', roleTag: '[총괄]',
     budgetGroup: 'general', tenantId: 'HMC',
     domainId: 'IG-HMC-GEN',
-    isolationGroups: ['IG-HMC-GEN'],  // 담당 격리그룹 목록 (다중 가능)
+    vorgIds: ['IG-HMC-GEN'],  // 담당 격리그룹 목록 (다중 가능)
     ownedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC'],
     allowedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC'],
-    isolationGroup: 'HMC-GENERAL',
+    vorgId: 'HMC-GENERAL',
     accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
   hmc_hq_general: {
@@ -146,12 +149,12 @@ const BO_PERSONAS = {
     roleClass: 'role-hq', roleTag: '[운영]',
     budgetGroup: 'general', tenantId: 'HMC',
     domainId: 'IG-HMC-GEN',
-    isolationGroups: ['IG-HMC-GEN'],
+    vorgIds: ['IG-HMC-GEN'],
     scope: 'HMG경영연구원',
     managedVorgId: 'HQ01', managerPersonaKey: 'hmc_hq_general', cooperators: [],
     ownedAccounts: [],
     allowedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC'],
-    isolationGroup: 'HMC-GENERAL',
+    vorgId: 'HMC-GENERAL',
     accessMenus: ['dashboard', 'my-operations', 'org-budget', 'reports', 'manual']
   },
   // ── HMC R&D예산 그룹 ────────────────────────────────────────────────────────
@@ -161,10 +164,10 @@ const BO_PERSONAS = {
     roleClass: 'role-rnd', roleTag: '[총괄]',
     budgetGroup: 'rnd', tenantId: 'HMC',
     domainId: 'IG-HMC-RND',
-    isolationGroups: ['IG-HMC-RND'],
+    vorgIds: ['IG-HMC-RND'],
     ownedAccounts: ['HMC-RND'],
     allowedAccounts: ['HMC-RND'],
-    isolationGroup: 'HMC-RND',
+    vorgId: 'HMC-RND',
     accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
   hmc_center_rnd: {
@@ -177,7 +180,7 @@ const BO_PERSONAS = {
     managedVorgId: 'C01', managerPersonaKey: 'hmc_center_rnd', cooperators: [],
     ownedAccounts: [],
     allowedAccounts: ['HMC-RND'],
-    isolationGroup: 'HMC-RND',
+    vorgId: 'HMC-RND',
     accessMenus: ['dashboard', 'my-operations', 'org-budget', 'reports', 'manual']
   },
 
@@ -191,7 +194,7 @@ const BO_PERSONAS = {
     scope: '연구개발성장지원팀',
     ownedAccounts: [],
     allowedAccounts: ['HMC-OPS'],
-    isolationGroup: 'HMC-GEN',
+    vorgId: 'HMC-GEN',
     accessMenus: ['dashboard', 'my-operations', 'org-budget', 'reports', 'manual']
   },
 
@@ -210,10 +213,10 @@ const BO_PERSONAS = {
     roleClass: 'role-total', roleTag: '[총괄]',
     budgetGroup: 'general', tenantId: 'KIA',
     domainId: 'IG-KIA-GEN',
-    isolationGroups: ['IG-KIA-GEN'],
+    vorgIds: ['IG-KIA-GEN'],
     ownedAccounts: ['KIA-OPS', 'KIA-PART', 'KIA-ETC'],
     allowedAccounts: ['KIA-OPS', 'KIA-PART', 'KIA-ETC'],
-    isolationGroup: 'KIA-GENERAL',
+    vorgId: 'KIA-GENERAL',
     accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
   kia_hq_general: {
@@ -226,7 +229,7 @@ const BO_PERSONAS = {
     managedVorgId: 'KIAHQ01', managerPersonaKey: 'kia_hq_general', cooperators: [],
     ownedAccounts: [],
     allowedAccounts: ['KIA-OPS', 'KIA-PART', 'KIA-ETC'],
-    isolationGroup: 'KIA-GENERAL',
+    vorgId: 'KIA-GENERAL',
     accessMenus: ['dashboard', 'my-operations', 'org-budget', 'reports', 'manual']
   },
 
@@ -247,7 +250,7 @@ const BO_PERSONAS = {
     domainId: 'IG-HAE-ALL',
     ownedAccounts: ['HAE-OPS', 'HAE-PART', 'HAE-CERT', 'HAE-EDU', 'HAE-TEAM'],
     allowedAccounts: ['HAE-OPS', 'HAE-PART', 'HAE-CERT', 'HAE-EDU', 'HAE-TEAM'],
-    isolationGroup: 'HAE-ALL',
+    vorgId: 'HAE-ALL',
     accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
   hae_dept: {
@@ -260,7 +263,7 @@ const BO_PERSONAS = {
     managedVorgId: 'HAEHQ01', managerPersonaKey: 'hae_dept', cooperators: [],
     ownedAccounts: [],
     allowedAccounts: ['HAE-OPS'],
-    isolationGroup: 'HAE-SOL',
+    vorgId: 'HAE-SOL',
     accessMenus: ['dashboard', 'my-operations', 'org-budget', 'reports', 'manual']
   },
 
@@ -281,7 +284,7 @@ const BO_PERSONAS = {
     domainId: 'IG-ROTEM-ALL',
     ownedAccounts: ['ROTEM-OPS', 'ROTEM-PART'],
     allowedAccounts: ['ROTEM-OPS', 'ROTEM-PART'],
-    isolationGroup: 'ROTEM-ALL',
+    vorgId: 'ROTEM-ALL',
     accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
@@ -301,7 +304,7 @@ const BO_PERSONAS = {
     domainId: 'IG-HEC-ALL',
     ownedAccounts: ['HEC-OPS', 'HEC-PART'],
     allowedAccounts: ['HEC-OPS', 'HEC-PART'],
-    isolationGroup: 'HEC-ALL',
+    vorgId: 'HEC-ALL',
     accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
@@ -331,7 +334,7 @@ const BO_PERSONAS = {
     domainId: 'IG-HSC-ALL',
     ownedAccounts: ['HSC-OPS', 'HSC-PART'],
     allowedAccounts: ['HSC-OPS', 'HSC-PART'],
-    isolationGroup: 'HSC-ALL',
+    vorgId: 'HSC-ALL',
     accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
@@ -402,7 +405,7 @@ const BO_PERSONAS = {
     domainId: 'IG-HTS-ALL',
     ownedAccounts: ['HTS-OPS', 'HTS-PART'],
     allowedAccounts: ['HTS-OPS', 'HTS-PART'],
-    isolationGroup: 'HTS-ALL',
+    vorgId: 'HTS-ALL',
     accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
@@ -422,7 +425,7 @@ const BO_PERSONAS = {
     domainId: 'IG-GLOVIS-ALL',
     ownedAccounts: ['GLOVIS-OPS', 'GLOVIS-PART'],
     allowedAccounts: ['GLOVIS-OPS', 'GLOVIS-PART'],
-    isolationGroup: 'GLOVIS-ALL',
+    vorgId: 'GLOVIS-ALL',
     accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
@@ -442,7 +445,7 @@ const BO_PERSONAS = {
     domainId: 'IG-HIS-ALL',
     ownedAccounts: ['HIS-OPS', 'HIS-PART'],
     allowedAccounts: ['HIS-OPS', 'HIS-PART'],
-    isolationGroup: 'HIS-ALL',
+    vorgId: 'HIS-ALL',
     accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
@@ -462,7 +465,7 @@ const BO_PERSONAS = {
     domainId: 'IG-KEFICO-ALL',
     ownedAccounts: ['KEFICO-OPS', 'KEFICO-PART'],
     allowedAccounts: ['KEFICO-OPS', 'KEFICO-PART'],
-    isolationGroup: 'KEFICO-ALL',
+    vorgId: 'KEFICO-ALL',
     accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
@@ -482,7 +485,7 @@ const BO_PERSONAS = {
     domainId: 'IG-HISC-ALL',
     ownedAccounts: ['HISC-OPS', 'HISC-PART'],
     allowedAccounts: ['HISC-OPS', 'HISC-PART'],
-    isolationGroup: 'HISC-ALL',
+    vorgId: 'HISC-ALL',
     accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'allocation', 'my-operations', 'reports', 'manual']
   },
 
@@ -492,7 +495,7 @@ const BO_PERSONAS = {
     role: 'team_general', roleLabel: '팀 담당자 (LXP)',
     roleClass: 'role-team', roleTag: '[팀]',
     budgetGroup: 'general', tenantId: 'HMC',
-    isolationGroup: 'HMC-GENERAL',
+    vorgId: 'HMC-GENERAL',
     scope: '역량혁신팀',
     accessMenus: ['dashboard', 'plan-mgmt', 'allocation']
   },
@@ -501,15 +504,15 @@ const BO_PERSONAS = {
     role: 'learner', roleLabel: '일반 학습자 (LXP)',
     roleClass: 'role-team', roleTag: '[학습자]',
     budgetGroup: 'general', tenantId: 'HMC',
-    isolationGroup: 'HMC-GENERAL',
+    vorgId: 'HMC-GENERAL',
     scope: '내구기술팀',
     accessMenus: ['dashboard']
   },
 };
 
-// Isolation Groups Master
-// 예산총괄/운영담당자는 isolationGroups[] 배열로 여러 격리그룹을 운영할 수 있습니다.
-let EDU_SUPPORT_DOMAINS = [
+// VOrg Templates Master
+// 예산총괄/운영담당자는 vorgIds[] 배열로 여러 VOrg를 운영할 수 있습니다.
+let VORG_TEMPLATES = [
   { id: 'IG-HMC-GEN', tenantId: 'HMC', name: '일반교육예산 그룹', color: '#1D4ED8', bg: '#EFF6FF', desc: 'HMC 일반직군 교육예산', globalAdminKey: 'hmc_total_general', globalAdminKeys: ['hmc_total_general'], opManagerKeys: ['hmc_hq_general'], ownedAccounts: ['HMC-OPS', 'HMC-ETC', 'HMC-PART'], createdBy: 'hmc_tenant_admin', status: 'active', createdAt: '2026-01-01' },
   { id: 'IG-HMC-RND', tenantId: 'HMC', name: 'R&D교육예산 그룹', color: '#DC2626', bg: '#FEF2F2', desc: 'HMC R&D 교육예산', globalAdminKey: 'hmc_total_rnd', globalAdminKeys: ['hmc_total_rnd'], opManagerKeys: ['hmc_center_rnd'], ownedAccounts: ['HMC-RND'], createdBy: 'hmc_tenant_admin', status: 'active', createdAt: '2026-01-01' },
   { id: 'IG-HMC-FREE', tenantId: 'HMC', name: '예산미사용 그룹', color: '#6B7280', bg: '#F9FAFB', desc: 'HMC 무예산 학습이력 관리 전용', globalAdminKey: 'hmc_total_general', globalAdminKeys: ['hmc_total_general'], opManagerKeys: [], ownedAccounts: ['COMMON-FREE'], createdBy: 'hmc_tenant_admin', status: 'active', createdAt: '2026-01-01' },
@@ -534,6 +537,8 @@ let EDU_SUPPORT_DOMAINS = [
   { id: 'IG-HISC-ALL', tenantId: 'HISC', name: 'HISC 교육예산', color: '#374151', bg: '#F9FAFB', desc: '현대ISC 교육예산', globalAdminKey: 'hisc_total', globalAdminKeys: ['hisc_total'], opManagerKeys: [], ownedAccounts: ['HISC-OPS', 'HISC-PART'], createdBy: 'hisc_total', status: 'active', createdAt: '2026-02-01' },
   { id: 'IG-HISC-FREE', tenantId: 'HISC', name: '예산미사용 그룹', color: '#6B7280', bg: '#F9FAFB', desc: 'HISC 무예산 학습이력 관리 전용', globalAdminKey: 'hisc_total', globalAdminKeys: ['hisc_total'], opManagerKeys: [], ownedAccounts: ['COMMON-FREE'], createdBy: 'hisc_total', status: 'active', createdAt: '2026-02-01' },
 ];
+// 구버전 호환 별칭
+let EDU_SUPPORT_DOMAINS = VORG_TEMPLATES;
 
 const savedPersonaBo = sessionStorage.getItem('currentPersona') || 'platform_admin';
 let boCurrentPersona = BO_PERSONAS[savedPersonaBo] || BO_PERSONAS.platform_admin;

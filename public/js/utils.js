@@ -65,40 +65,41 @@ function getEduTypeLabel(key) {
   return EDU_TYPE_LABELS[key] || key;
 }
 
-// 페르소나 isolationGroup 코드 → EDU_SUPPORT_DOMAINS id 변환 (HMC-GENERAL → IG-HMC-GEN 등)
-function _resolveIsoGroupId(persona) {
-  if (typeof EDU_SUPPORT_DOMAINS === 'undefined') return null;
-  const byCode = EDU_SUPPORT_DOMAINS.find(g =>
-    g.code === persona.isolationGroup ||
-    g.id === persona.isolationGroup
+// 페르소나 vorgId 코드 → VORG_TEMPLATES(EDU_SUPPORT_DOMAINS) id 변환
+function _resolveVorgId(persona) {
+  const domains = typeof VORG_TEMPLATES !== 'undefined' ? VORG_TEMPLATES
+    : typeof EDU_SUPPORT_DOMAINS !== 'undefined' ? EDU_SUPPORT_DOMAINS : [];
+  if (!domains.length) return null;
+  const byCode = domains.find(g =>
+    g.code === persona.vorgId ||
+    g.id === persona.vorgId
   );
   return byCode?.id || null;
 }
 
-// 페르소나의 격리그룹 + 테넌트에 해당하는 활성 정책 목록 (SERVICE_POLICIES DB 기반 전용)
+// 페르소나의 VOrg + 테넌트에 해당하는 활성 정책 목록 (SERVICE_POLICIES DB 기반 전용)
 function _getActivePolicies(persona) {
   if (typeof SERVICE_POLICIES === 'undefined' || SERVICE_POLICIES.length === 0) return null;
-  const isoGroupId = _resolveIsoGroupId(persona);
+  const vorgId = _resolveVorgId(persona);
   // persona.allowedAccounts로 추가 매칭할 수 있는 격리그룹 ID 집합
   const allowedAcctCodes = new Set(persona.allowedAccounts || []);
 
   const matched = SERVICE_POLICIES.filter(p => {
     if (p.status && p.status !== 'active') return false;
     if (p.tenantId && p.tenantId !== persona.tenantId) return false;
-    // 격리그룹 매칭:
-    // ① 페르소나의 주 격리그룹 ID와 일치하거나
-    if (isoGroupId && p.domainId && p.domainId === isoGroupId) return true;
+    // VOrg 매칭:
+    // ① 페르소나의 주 VOrg ID와 일치하거나
+    if (vorgId && p.domainId && p.domainId === vorgId) return true;
     // ② 정책의 accountCodes가 persona.allowedAccounts와 교차하면 포함
-    //    (이상봉처럼 여러 격리그룹 계정을 가진 겸임 케이스)
+    //    (여러 VOrg 계정을 가진 겸임 케이스)
     if (p.accountCodes && p.accountCodes.some(c => allowedAcctCodes.has(c))) {
-      // 테넌트 범위 확인만 하고 OK
       return true;
     }
-    // ③ isoGroupId 미해석 + 직접 비교
-    if (!isoGroupId && p.domainId) {
-      if (persona.isolationGroup && p.domainId !== persona.isolationGroup) return false;
+    // ③ vorgId 미해석 + 직접 비교
+    if (!vorgId && p.domainId) {
+      if (persona.vorgId && p.domainId !== persona.vorgId) return false;
     }
-    // ④ 격리그룹 미설정 정책은 테넌트 내 전체 허용
+    // ④ VOrg 미설정 정책은 테넌트 내 전체 허용
     if (!p.domainId) return true;
     return false;
   });

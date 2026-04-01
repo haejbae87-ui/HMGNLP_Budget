@@ -311,42 +311,46 @@ async function renderServicePolicy() {
     style="padding:9px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:12px;font-weight:700;background:white;cursor:pointer;color:#6B7280;white-space:nowrap">초기화</button>` : ''}
 </div>` : '';
 
-  const policyCards = myPolicies.map(p => {
+  // ── 테이블 행 생성 ──────────────────────────────────────────────────────────
+  const policyRows = myPolicies.map((p, idx) => {
     const approver = _getPersonaByKey(p.approvalConfig?.apply?.finalApproverKey || p.approverPersonaKey);
     const manager = _getPersonaByKey(p.managerPersonaKey);
-    const accounts = (p.accountCodes || []).map(c => ACCOUNT_MASTER.find(a => a.code === c)?.name || c).join(', ');
+    const accounts = (p.accountCodes || []).map(c => ACCOUNT_MASTER.find(a => a.code === c)?.name || c).join(', ') || '—';
     const pat = _patternFromPolicy(p);
     const pm = _PATTERN_META[pat] || _PATTERN_META['B'];
-    const purposeLabel = [...(_PURPOSE_MAP.learner || []), ...(_PURPOSE_MAP.operator || [])].find(x => x.id === p.purpose)?.label || p.purpose || '';
-    // data-* 속성 방식: onclick 내에 특수문자를 직접 삽입하지 않음 (이스케이프 불안정 이슈 원척 차단)
+    const purposeLabel = [...(_PURPOSE_MAP.learner || []), ...(_PURPOSE_MAP.operator || [])].find(x => x.id === p.purpose)?.label || p.purpose || '—';
     const escapedId = (p.id || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
     const escapedName = (p.name || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    const statusBg = p.status === 'active' ? '#D1FAE5' : '#F3F4F6';
+    const statusColor = p.status === 'active' ? '#065F46' : '#9CA3AF';
+    const statusLabel = p.status === 'active' ? '운영중' : '중지';
     return `
-<div class="bo-card policy-card" data-policy-id="${escapedId}" style="padding:20px;margin-bottom:14px;cursor:pointer">
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
-    <div style="flex:1">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
-        <span style="font-size:10px;font-weight:900;padding:2px 9px;border-radius:6px;background:${pm.color}18;color:${pm.color};border:1px solid ${pm.color}40">${pm.icon} ${pm.label}</span>
-        <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${p.budgetLinked ? '#DBEAFE' : '#F3F4F6'};color:${p.budgetLinked ? '#1E40AF' : '#6B7280'};font-weight:700">${p.budgetLinked ? '💳 예산 연동' : '무예산'}</span>
-        <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${p.status === 'active' ? '#D1FAE5' : '#F3F4F6'};color:${p.status === 'active' ? '#065F46' : '#9CA3AF'};font-weight:700">${p.status === 'active' ? '✅ 운영중' : '⏸️ 중지'}</span>
-        ${isPlatform ? `<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:#FEF3C7;color:#92400E;font-weight:700">${p.tenantId}</span>` : ''}
-      </div>
-      <div style="font-weight:900;font-size:15px;color:#111827;margin-bottom:4px">${p.name}</div>
-      <div style="font-size:12px;color:#6B7280;display:flex;gap:12px;flex-wrap:wrap">
-        ${purposeLabel ? `<span>🎯 ${purposeLabel}</span>` : ''}
-        ${accounts ? `<span>💳 ${accounts}</span>` : ''}
-        <span>✅ 승인자: <b>${approver?.name || '—'}</b></span>
-        <span>📋 관리자: <b>${manager?.name || '—'}</b></span>
-        <span>📅 ${p.createdAt}</span>
-      </div>
+<tr class="policy-row" data-policy-id="${escapedId}" style="border-bottom:1px solid #F3F4F6;cursor:pointer;transition:background .12s" onmouseover="this.style.background='#F8FAFF'" onmouseout="this.style.background=''">
+  <td style="padding:11px 14px;text-align:center;color:#9CA3AF;font-size:12px">${idx + 1}</td>
+  <td style="padding:11px 14px">
+    <div style="font-weight:800;font-size:13px;color:#111827;margin-bottom:3px">${p.name}</div>
+    ${isPlatform ? `<span style="font-size:10px;padding:1px 7px;border-radius:5px;background:#FEF3C7;color:#92400E;font-weight:700">${p.tenantId}</span>` : ''}
+  </td>
+  <td style="padding:11px 14px">
+    <span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:6px;background:${pm.color}15;color:${pm.color};border:1px solid ${pm.color}30;white-space:nowrap">${pm.icon} ${pm.label}</span>
+  </td>
+  <td style="padding:11px 14px;font-size:12px;color:#374151">${purposeLabel}</td>
+  <td style="padding:11px 14px;font-size:12px;color:#374151">${accounts}</td>
+  <td style="padding:11px 14px;font-size:12px;color:#374151">${approver?.name || '—'}</td>
+  <td style="padding:11px 14px;font-size:12px;color:#374151">${manager?.name || '—'}</td>
+  <td style="padding:11px 14px">
+    <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:5px;background:${statusBg};color:${statusColor}">${statusLabel}</span>
+  </td>
+  <td style="padding:11px 14px;font-size:12px;color:#6B7280;white-space:nowrap">${p.createdAt || '—'}</td>
+  <td style="padding:11px 14px;text-align:center">
+    <div style="display:flex;gap:5px;justify-content:center">
+      <button class="policy-edit-btn" data-policy-id="${escapedId}" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid #D1D5DB;background:white;cursor:pointer;font-weight:700;color:#374151">✏️ 수정</button>
+      <button class="policy-del-btn" data-policy-id="${escapedId}" data-policy-name="${escapedName}" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid #FECACA;background:#FEF2F2;color:#DC2626;cursor:pointer;font-weight:700">🗑️</button>
     </div>
-    <div style="display:flex;gap:6px;flex-shrink:0">
-      <button class="policy-edit-btn" data-policy-id="${escapedId}" style="font-size:11px;padding:6px 12px;border-radius:8px;border:1.5px solid #E5E7EB;background:white;cursor:pointer;font-weight:700">✏️ 수정</button>
-      <button class="policy-del-btn" data-policy-id="${escapedId}" data-policy-name="${escapedName}" style="font-size:11px;padding:6px 12px;border-radius:8px;border:1.5px solid #FECACA;background:#FEF2F2;color:#DC2626;cursor:pointer;font-weight:700">🗑️ 삭제</button>
-    </div>
-  </div>
-</div>`;
+  </td>
+</tr>`;
   }).join('');
+
 
 
   el.innerHTML = `
@@ -368,11 +372,34 @@ async function renderServicePolicy() {
   ${filterBar}
   <div>
     <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">정책 목록 (${myPolicies.length}개)</div>
-    ${policyCards || '<div style="padding:40px;text-align:center;color:#9CA3AF">정책이 없습니다. 새 정책을 만드세요.</div>'}
+    ${myPolicies.length === 0
+      ? '<div style="padding:48px;text-align:center;color:#9CA3AF;background:white;border:1.5px solid #E5E7EB;border-radius:12px">정책이 없습니다. 새 정책을 만드세요.</div>'
+      : `<div style="background:white;border:1.5px solid #E5E7EB;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead>
+              <tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB">
+                <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#6B7280;width:46px">NO.</th>
+                <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151;min-width:180px">정책명</th>
+                <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151;min-width:140px">프로세스 패턴</th>
+                <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151;min-width:130px">목적</th>
+                <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151;min-width:120px">예산계정</th>
+                <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151;min-width:80px">승인자</th>
+                <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151;min-width:80px">관리자</th>
+                <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151;width:70px">상태</th>
+                <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151;width:90px">등록일</th>
+                <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#374151;width:110px">관리</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${policyRows}
+            </tbody>
+          </table>
+        </div>`
+    }
   </div>
 </div>`;
 
-  // ── 이벤트 위임: data-* 속성으로 정책 카드/버튼 클릭 처리 ──────────────────
+  // ── 이벤트 위임: data-* 속성으로 테이블 행/버튼 클릭 처리 ──────────────────
   el.querySelectorAll('.policy-edit-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
@@ -385,9 +412,10 @@ async function renderServicePolicy() {
       deleteServicePolicy(btn.dataset.policyId, btn.dataset.policyName);
     });
   });
-  el.querySelectorAll('.policy-card').forEach(card => {
-    card.addEventListener('click', () => {
-      startPolicyWizard(card.dataset.policyId);
+  el.querySelectorAll('.policy-row').forEach(row => {
+    row.addEventListener('click', e => {
+      if (e.target.closest('button')) return;
+      startPolicyWizard(row.dataset.policyId);
     });
   });
 }

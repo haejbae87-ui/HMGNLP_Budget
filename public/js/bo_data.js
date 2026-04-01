@@ -14,11 +14,12 @@ const LEARNING_TYPES = [
 //   Step2(예산) → 선택된 purpose + isolationGroup에 해당하는 accountCode 계정만 표시
 //   Step3(교육유형) → purpose + accountCode에 해당하는 allowedEduTypes만 표시
 //
-// [BO 목적 ID → FO 목적 ID 매핑]
-//   elearning_class  → internal_edu
-//   conf_seminar     → workshop
-//   misc_ops         → etc
-//   external_personal → external_personal
+// [BO 목적 ID] — purpose 컬럼 유효값
+//   elearning_class   : 이러닝/집합(비대면) 운영
+//   conf_seminar      : 워크샵/세미나/콘퍼런스 등 운영
+//   misc_ops          : 기타 운영
+//   external_personal : 개인직무 사외학습
+// ※ 구형 레거시 값 'internal_edu'는 DB 마이그레이션(2026-04-01)으로 elearning_class 로 일괄 변환됨.
 
 const SERVICE_POLICIES_FO = []; // mock 제거 - DB 전용 모드
 
@@ -27,45 +28,67 @@ const SERVICE_POLICIES_FO = []; // mock 제거 - DB 전용 모드
 
 // Service Definitions (Process Pattern + Budget Toggle)
 let SERVICE_DEFINITIONS = [
-  { id: 'SVC-HMC-OPS',  tenantId: 'HMC', name: '운영교육 (HMC)',            desc: '사내외 집합교육 운영. 계획 수립 후 가점유 신청.',    processPattern: 'A', budgetLinked: true,  applyMode: 'holding',       linkedAccounts: ['HMC-OPS'],  status: 'active',
-    eduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/세미나/컨퍼런스 참석'] },
-  { id: 'SVC-HMC-ETC',  tenantId: 'HMC', name: '기타교육 (HMC)',            desc: '도서·자격증 등 기타 항목.',                           processPattern: 'A', budgetLinked: true,  applyMode: 'holding',       linkedAccounts: ['HMC-ETC'],  status: 'active',
-    eduTypes: ['도서', '논문/저널', '기술자료', '학/협회비'] },
-  { id: 'SVC-HMC-PART', tenantId: 'HMC', name: '개인참가비 지원 (HMC)',     desc: '개인 선지불 후 청구. 영수증 첨부, 승인시 즉시차감.',   processPattern: 'B', budgetLinked: true,  applyMode: 'reimbursement', linkedAccounts: ['HMC-PART'], status: 'active',
-    eduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/세미나/컨퍼런스 참석', '학회 직접 발표', '도서', '논문/저널', '기술자료', '학/협회비'] },
-  { id: 'SVC-HMC-RND',  tenantId: 'HMC', name: 'R&D 교육 (HMC)',            desc: 'R&D 교육예산. 계획 필수, 가점유 후 결과 정산.',       processPattern: 'A', budgetLinked: true,  applyMode: 'holding',       linkedAccounts: ['HMC-RND'],  status: 'active',
-    eduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/세미나/컨퍼런스 참석', '학회 직접 발표', '도서', '논문/저널', '기술자료'] },
-  { id: 'SVC-HMC-FREE', tenantId: 'HMC', name: '무예산 학습이력 (HMC)',     desc: '무료/자비 학습 이력만 등록.',                          processPattern: 'C', budgetLinked: false, applyMode: null,            linkedAccounts: [],           status: 'active',
-    eduTypes: ['이러닝', '집합교육', '실시간 화상', '도서'] },
-  { id: 'SVC-KIA-OPS',  tenantId: 'KIA', name: '운영교육 (KIA)',            desc: '기아 운영계정 교육. 계획 수립 후 가점유 신청.',        processPattern: 'A', budgetLinked: true,  applyMode: 'holding',       linkedAccounts: ['KIA-OPS'],  status: 'active',
-    eduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/세미나/컨퍼런스 참석'] },
-  { id: 'SVC-KIA-PART', tenantId: 'KIA', name: '개인참가비 지원 (KIA)',     desc: '기아 개인 선지불 후 청구.',                            processPattern: 'B', budgetLinked: true,  applyMode: 'reimbursement', linkedAccounts: ['KIA-PART'], status: 'active',
-    eduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/세미나/컨퍼런스 참석', '도서'] },
-  { id: 'SVC-HAE-OPS',  tenantId: 'HAE', name: '운영교육 (HAE)',            desc: '현대오토에버 운영계정. 계획->신청->결과 고정 프로세스.', processPattern: 'A', budgetLinked: true,  applyMode: 'holding',       linkedAccounts: ['HAE-OPS'],  status: 'active',
-    eduTypes: ['이러닝', '집합교육', '실시간 화상'] },
-  { id: 'SVC-HAE-PART', tenantId: 'HAE', name: '개인직무 사외학습 (HAE)',   desc: '사외교육 참가비 지원. 영수증 첨부 신청.',              processPattern: 'B', budgetLinked: true,  applyMode: 'reimbursement', linkedAccounts: ['HAE-PART'], status: 'active',
-    eduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/세미나/컨퍼런스 참석', '도서'] },
-  { id: 'SVC-HAE-CERT', tenantId: 'HAE', name: '자격증 취득 지원 (HAE)',    desc: '자격증 응시료. 선지불 후 영수증 제출.',                processPattern: 'C', budgetLinked: true,  applyMode: 'reimbursement', linkedAccounts: ['HAE-CERT'], status: 'active',
-    eduTypes: ['기술자료', '학/협회비'] },
-  { id: 'SVC-HAE-FREE', tenantId: 'HAE', name: '무예산 학습이력 (HAE)',     desc: '무료 웨비나 등 학습 이력만 등록.',                     processPattern: 'C', budgetLinked: false, applyMode: null,            linkedAccounts: [],           status: 'active',
-    eduTypes: ['이러닝', '집합교육', '실시간 화상'] },
+  {
+    id: 'SVC-HMC-OPS', tenantId: 'HMC', name: '운영교육 (HMC)', desc: '사내외 집합교육 운영. 계획 수립 후 가점유 신청.', processPattern: 'A', budgetLinked: true, applyMode: 'holding', linkedAccounts: ['HMC-OPS'], status: 'active',
+    eduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/세미나/컨퍼런스 참석']
+  },
+  {
+    id: 'SVC-HMC-ETC', tenantId: 'HMC', name: '기타교육 (HMC)', desc: '도서·자격증 등 기타 항목.', processPattern: 'A', budgetLinked: true, applyMode: 'holding', linkedAccounts: ['HMC-ETC'], status: 'active',
+    eduTypes: ['도서', '논문/저널', '기술자료', '학/협회비']
+  },
+  {
+    id: 'SVC-HMC-PART', tenantId: 'HMC', name: '개인참가비 지원 (HMC)', desc: '개인 선지불 후 청구. 영수증 첨부, 승인시 즉시차감.', processPattern: 'B', budgetLinked: true, applyMode: 'reimbursement', linkedAccounts: ['HMC-PART'], status: 'active',
+    eduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/세미나/컨퍼런스 참석', '학회 직접 발표', '도서', '논문/저널', '기술자료', '학/협회비']
+  },
+  {
+    id: 'SVC-HMC-RND', tenantId: 'HMC', name: 'R&D 교육 (HMC)', desc: 'R&D 교육예산. 계획 필수, 가점유 후 결과 정산.', processPattern: 'A', budgetLinked: true, applyMode: 'holding', linkedAccounts: ['HMC-RND'], status: 'active',
+    eduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/세미나/컨퍼런스 참석', '학회 직접 발표', '도서', '논문/저널', '기술자료']
+  },
+  {
+    id: 'SVC-HMC-FREE', tenantId: 'HMC', name: '무예산 학습이력 (HMC)', desc: '무료/자비 학습 이력만 등록.', processPattern: 'C', budgetLinked: false, applyMode: null, linkedAccounts: [], status: 'active',
+    eduTypes: ['이러닝', '집합교육', '실시간 화상', '도서']
+  },
+  {
+    id: 'SVC-KIA-OPS', tenantId: 'KIA', name: '운영교육 (KIA)', desc: '기아 운영계정 교육. 계획 수립 후 가점유 신청.', processPattern: 'A', budgetLinked: true, applyMode: 'holding', linkedAccounts: ['KIA-OPS'], status: 'active',
+    eduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/세미나/컨퍼런스 참석']
+  },
+  {
+    id: 'SVC-KIA-PART', tenantId: 'KIA', name: '개인참가비 지원 (KIA)', desc: '기아 개인 선지불 후 청구.', processPattern: 'B', budgetLinked: true, applyMode: 'reimbursement', linkedAccounts: ['KIA-PART'], status: 'active',
+    eduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/세미나/컨퍼런스 참석', '도서']
+  },
+  {
+    id: 'SVC-HAE-OPS', tenantId: 'HAE', name: '운영교육 (HAE)', desc: '현대오토에버 운영계정. 계획->신청->결과 고정 프로세스.', processPattern: 'A', budgetLinked: true, applyMode: 'holding', linkedAccounts: ['HAE-OPS'], status: 'active',
+    eduTypes: ['이러닝', '집합교육', '실시간 화상']
+  },
+  {
+    id: 'SVC-HAE-PART', tenantId: 'HAE', name: '개인직무 사외학습 (HAE)', desc: '사외교육 참가비 지원. 영수증 첨부 신청.', processPattern: 'B', budgetLinked: true, applyMode: 'reimbursement', linkedAccounts: ['HAE-PART'], status: 'active',
+    eduTypes: ['이러닝', '집합교육', '실시간 화상', '학회/세미나/컨퍼런스 참석', '도서']
+  },
+  {
+    id: 'SVC-HAE-CERT', tenantId: 'HAE', name: '자격증 취득 지원 (HAE)', desc: '자격증 응시료. 선지불 후 영수증 제출.', processPattern: 'C', budgetLinked: true, applyMode: 'reimbursement', linkedAccounts: ['HAE-CERT'], status: 'active',
+    eduTypes: ['기술자료', '학/협회비']
+  },
+  {
+    id: 'SVC-HAE-FREE', tenantId: 'HAE', name: '무예산 학습이력 (HAE)', desc: '무료 웨비나 등 학습 이력만 등록.', processPattern: 'C', budgetLinked: false, applyMode: null, linkedAccounts: [], status: 'active',
+    eduTypes: ['이러닝', '집합교육', '실시간 화상']
+  },
 ];
 
 
 
 // ─── 법인(테넌트) 마스터 ─────────────────────────────────────────────────────
 const TENANTS = [
-  { id: 'HMC',    name: '현대자동차',   budgetMode: 'full', color: '#002C5F', bg: '#EFF6FF', border: '#BFDBFE' },
-  { id: 'KIA',    name: '기아',         budgetMode: 'full', color: '#05141F', bg: '#F0FDF4', border: '#BBF7D0' },
-  { id: 'HAE',    name: '현대오토에버', budgetMode: 'full', color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
-  { id: 'HSC',    name: '현대제철',     budgetMode: 'full', color: '#BE123C', bg: '#FFF1F2', border: '#FECDD3' },
-  { id: 'ROTEM',  name: '현대로템',     budgetMode: 'full', color: '#B45309', bg: '#FFFBEB', border: '#FDE68A' },
-  { id: 'HEC',    name: '현대엔지니어링', budgetMode: 'full', color: '#0369A1', bg: '#F0F9FF', border: '#BAE6FD' },
-  { id: 'HTS',    name: '현대트랜시스', budgetMode: 'full', color: '#6D28D9', bg: '#F5F3FF', border: '#DDD6FE' },
+  { id: 'HMC', name: '현대자동차', budgetMode: 'full', color: '#002C5F', bg: '#EFF6FF', border: '#BFDBFE' },
+  { id: 'KIA', name: '기아', budgetMode: 'full', color: '#05141F', bg: '#F0FDF4', border: '#BBF7D0' },
+  { id: 'HAE', name: '현대오토에버', budgetMode: 'full', color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
+  { id: 'HSC', name: '현대제철', budgetMode: 'full', color: '#BE123C', bg: '#FFF1F2', border: '#FECDD3' },
+  { id: 'ROTEM', name: '현대로템', budgetMode: 'full', color: '#B45309', bg: '#FFFBEB', border: '#FDE68A' },
+  { id: 'HEC', name: '현대엔지니어링', budgetMode: 'full', color: '#0369A1', bg: '#F0F9FF', border: '#BAE6FD' },
+  { id: 'HTS', name: '현대트랜시스', budgetMode: 'full', color: '#6D28D9', bg: '#F5F3FF', border: '#DDD6FE' },
   { id: 'GLOVIS', name: '현대글로비스', budgetMode: 'full', color: '#0E7490', bg: '#ECFEFF', border: '#A5F3FC' },
-  { id: 'HIS',    name: '현대차증권',   budgetMode: 'full', color: '#9D174D', bg: '#FDF2F8', border: '#FBCFE8' },
-  { id: 'KEFICO', name: '현대케피코',   budgetMode: 'full', color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
-  { id: 'HISC',   name: '현대ISC',      budgetMode: 'full', color: '#374151', bg: '#F9FAFB', border: '#E5E7EB' },
+  { id: 'HIS', name: '현대차증권', budgetMode: 'full', color: '#9D174D', bg: '#FDF2F8', border: '#FBCFE8' },
+  { id: 'KEFICO', name: '현대케피코', budgetMode: 'full', color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
+  { id: 'HISC', name: '현대ISC', budgetMode: 'full', color: '#374151', bg: '#F9FAFB', border: '#E5E7EB' },
 ];
 
 // 격리그룹 조회 헬퍼 (EDU_SUPPORT_DOMAINS는 하단에 let으로 선언됨)
@@ -487,29 +510,29 @@ const BO_PERSONAS = {
 // Isolation Groups Master
 // 예산총괄/운영담당자는 isolationGroups[] 배열로 여러 격리그룹을 운영할 수 있습니다.
 let EDU_SUPPORT_DOMAINS = [
-  { id: 'IG-HMC-GEN',   tenantId: 'HMC',    name: '일반교육예산 그룹', color: '#1D4ED8', bg: '#EFF6FF', desc: 'HMC 일반직군 교육예산',         globalAdminKey: 'hmc_total_general', globalAdminKeys: ['hmc_total_general'], opManagerKeys: ['hmc_hq_general'],  ownedAccounts: ['HMC-OPS','HMC-ETC','HMC-PART'], createdBy: 'hmc_tenant_admin',    status: 'active', createdAt: '2026-01-01' },
-  { id: 'IG-HMC-RND',   tenantId: 'HMC',    name: 'R&D교육예산 그룹',  color: '#DC2626', bg: '#FEF2F2', desc: 'HMC R&D 교육예산',              globalAdminKey: 'hmc_total_rnd',     globalAdminKeys: ['hmc_total_rnd'],    opManagerKeys: ['hmc_center_rnd'], ownedAccounts: ['HMC-RND'],                         createdBy: 'hmc_tenant_admin',    status: 'active', createdAt: '2026-01-01' },
-  { id: 'IG-HMC-FREE',  tenantId: 'HMC',    name: '예산미사용 그룹',   color: '#6B7280', bg: '#F9FAFB', desc: 'HMC 무예산 학습이력 관리 전용', globalAdminKey: 'hmc_total_general', globalAdminKeys: ['hmc_total_general'], opManagerKeys: [],                  ownedAccounts: ['COMMON-FREE'],                     createdBy: 'hmc_tenant_admin',    status: 'active', createdAt: '2026-01-01' },
-  { id: 'IG-KIA-GEN',   tenantId: 'KIA',    name: 'KIA 일반예산 그룹', color: '#059669', bg: '#F0FDF4', desc: '기아 전사 일반교육예산',        globalAdminKey: 'kia_total_general', globalAdminKeys: ['kia_total_general'], opManagerKeys: ['kia_hq_general'],  ownedAccounts: ['KIA-OPS','KIA-PART','KIA-ETC'],      createdBy: 'kia_total_general',   status: 'active', createdAt: '2026-01-15' },
-  { id: 'IG-KIA-FREE',  tenantId: 'KIA',    name: '예산미사용 그룹',   color: '#6B7280', bg: '#F9FAFB', desc: 'KIA 무예산 학습이력 관리 전용', globalAdminKey: 'kia_total_general', globalAdminKeys: ['kia_total_general'], opManagerKeys: [],                  ownedAccounts: ['COMMON-FREE'],                     createdBy: 'kia_total_general',   status: 'active', createdAt: '2026-01-15' },
-  { id: 'IG-HAE-ALL',   tenantId: 'HAE',    name: 'HAE 전사예산 그룹', color: '#7C3AED', bg: '#F5F3FF', desc: 'HAE 전사 교육예산',             globalAdminKey: 'hae_total',         globalAdminKeys: ['hae_total'],        opManagerKeys: ['hae_dept'],        ownedAccounts: ['HAE-OPS','HAE-PART','HAE-CERT','HAE-EDU','HAE-TEAM'],   createdBy: 'hae_total',           status: 'active', createdAt: '2026-01-20' },
-  { id: 'IG-HAE-FREE',  tenantId: 'HAE',    name: '예산미사용 그룹',   color: '#6B7280', bg: '#F9FAFB', desc: 'HAE 무예산 학습이력 관리 전용', globalAdminKey: 'hae_total',         globalAdminKeys: ['hae_total'],        opManagerKeys: [],                  ownedAccounts: ['COMMON-FREE'],                     createdBy: 'hae_total',           status: 'active', createdAt: '2026-01-20' },
-  { id: 'IG-ROTEM-ALL', tenantId: 'ROTEM',  name: '로템 전사예산',     color: '#B45309', bg: '#FFFBEB', desc: '현대로템 업무 교육예산',         globalAdminKey: 'rotem_total',       globalAdminKeys: ['rotem_total'],      opManagerKeys: [],                  ownedAccounts: ['ROTEM-OPS','ROTEM-PART'],          createdBy: 'rotem_total',         status: 'active', createdAt: '2026-02-01' },
-  { id: 'IG-ROTEM-FREE',tenantId: 'ROTEM',  name: '예산미사용 그룹',   color: '#6B7280', bg: '#F9FAFB', desc: '로템 무예산 학습이력 관리 전용',globalAdminKey: 'rotem_total',       globalAdminKeys: ['rotem_total'],      opManagerKeys: [],                  ownedAccounts: ['COMMON-FREE'],                     createdBy: 'rotem_total',         status: 'active', createdAt: '2026-02-01' },
-  { id: 'IG-HEC-ALL',   tenantId: 'HEC',    name: 'HEC 전사예산',      color: '#0369A1', bg: '#F0F9FF', desc: '현대엔지니어링 교육예산',       globalAdminKey: 'hec_total',         globalAdminKeys: ['hec_total'],        opManagerKeys: [],                  ownedAccounts: ['HEC-OPS','HEC-PART'],              createdBy: 'hec_total',           status: 'active', createdAt: '2026-02-01' },
-  { id: 'IG-HEC-FREE',  tenantId: 'HEC',    name: '예산미사용 그룹',   color: '#6B7280', bg: '#F9FAFB', desc: 'HEC 무예산 학습이력 관리 전용', globalAdminKey: 'hec_total',         globalAdminKeys: ['hec_total'],        opManagerKeys: [],                  ownedAccounts: ['COMMON-FREE'],                     createdBy: 'hec_total',           status: 'active', createdAt: '2026-02-01' },
-  { id: 'IG-HSC-ALL',   tenantId: 'HSC',    name: 'HSC 전사예산',      color: '#BE123C', bg: '#FFF1F2', desc: '현대제철 교육예산',             globalAdminKey: 'hsc_total',         globalAdminKeys: ['hsc_total'],        opManagerKeys: [],                  ownedAccounts: ['HSC-OPS','HSC-PART','HSC-EXT'],      createdBy: 'hsc_total',           status: 'active', createdAt: '2026-02-01' },
-  { id: 'IG-HSC-FREE',  tenantId: 'HSC',    name: '예산미사용 그룹',   color: '#6B7280', bg: '#F9FAFB', desc: 'HSC 무예산 학습이력 관리 전용', globalAdminKey: 'hsc_total',         globalAdminKeys: ['hsc_total'],        opManagerKeys: [],                  ownedAccounts: ['COMMON-FREE'],                     createdBy: 'hsc_total',           status: 'active', createdAt: '2026-02-01' },
-  { id: 'IG-HTS-ALL',   tenantId: 'HTS',    name: 'HTS 전사예산',      color: '#6D28D9', bg: '#F5F3FF', desc: '현대트랜시스 교육예산',         globalAdminKey: 'hts_total',         globalAdminKeys: ['hts_total'],        opManagerKeys: [],                  ownedAccounts: ['HTS-OPS','HTS-PART'],              createdBy: 'hts_total',           status: 'active', createdAt: '2026-02-01' },
-  { id: 'IG-HTS-FREE',  tenantId: 'HTS',    name: '예산미사용 그룹',   color: '#6B7280', bg: '#F9FAFB', desc: 'HTS 무예산 학습이력 관리 전용', globalAdminKey: 'hts_total',         globalAdminKeys: ['hts_total'],        opManagerKeys: [],                  ownedAccounts: ['COMMON-FREE'],                     createdBy: 'hts_total',           status: 'active', createdAt: '2026-02-01' },
-  { id: 'IG-GLOVIS-ALL',tenantId: 'GLOVIS', name: 'GLOVIS 전사예산',   color: '#0E7490', bg: '#ECFEFF', desc: '현대글로비스 교육예산',         globalAdminKey: 'glovis_total',      globalAdminKeys: ['glovis_total'],     opManagerKeys: [],                  ownedAccounts: ['GLOVIS-OPS','GLOVIS-PART'],        createdBy: 'glovis_total',        status: 'active', createdAt: '2026-02-01' },
-  { id: 'IG-GLOVIS-FREE',tenantId: 'GLOVIS',name: '예산미사용 그룹',   color: '#6B7280', bg: '#F9FAFB', desc: 'GLOVIS 무예산 학습이력 관리',   globalAdminKey: 'glovis_total',      globalAdminKeys: ['glovis_total'],     opManagerKeys: [],                  ownedAccounts: ['COMMON-FREE'],                     createdBy: 'glovis_total',        status: 'active', createdAt: '2026-02-01' },
-  { id: 'IG-HIS-ALL',   tenantId: 'HIS',    name: 'HIS 교육예산',      color: '#9D174D', bg: '#FDF2F8', desc: '현대차증권 교육예산',           globalAdminKey: 'his_total',         globalAdminKeys: ['his_total'],        opManagerKeys: [],                  ownedAccounts: ['HIS-OPS','HIS-PART'],              createdBy: 'his_total',           status: 'active', createdAt: '2026-02-01' },
-  { id: 'IG-HIS-FREE',  tenantId: 'HIS',    name: '예산미사용 그룹',   color: '#6B7280', bg: '#F9FAFB', desc: 'HIS 무예산 학습이력 관리 전용', globalAdminKey: 'his_total',         globalAdminKeys: ['his_total'],        opManagerKeys: [],                  ownedAccounts: ['COMMON-FREE'],                     createdBy: 'his_total',           status: 'active', createdAt: '2026-02-01' },
-  { id: 'IG-KEFICO-ALL',tenantId: 'KEFICO', name: 'KEFICO 교육예산',   color: '#1D4ED8', bg: '#EFF6FF', desc: '현대케피코 교육예산',           globalAdminKey: 'kefico_total',      globalAdminKeys: ['kefico_total'],     opManagerKeys: [],                  ownedAccounts: ['KEFICO-OPS','KEFICO-PART'],        createdBy: 'kefico_total',        status: 'active', createdAt: '2026-02-01' },
-  { id: 'IG-KEFICO-FREE',tenantId: 'KEFICO',name: '예산미사용 그룹',   color: '#6B7280', bg: '#F9FAFB', desc: 'KEFICO 무예산 학습이력 관리',   globalAdminKey: 'kefico_total',      globalAdminKeys: ['kefico_total'],     opManagerKeys: [],                  ownedAccounts: ['COMMON-FREE'],                     createdBy: 'kefico_total',        status: 'active', createdAt: '2026-02-01' },
-  { id: 'IG-HISC-ALL',  tenantId: 'HISC',   name: 'HISC 교육예산',     color: '#374151', bg: '#F9FAFB', desc: '현대ISC 교육예산',              globalAdminKey: 'hisc_total',        globalAdminKeys: ['hisc_total'],       opManagerKeys: [],                  ownedAccounts: ['HISC-OPS','HISC-PART'],            createdBy: 'hisc_total',          status: 'active', createdAt: '2026-02-01' },
-  { id: 'IG-HISC-FREE', tenantId: 'HISC',   name: '예산미사용 그룹',   color: '#6B7280', bg: '#F9FAFB', desc: 'HISC 무예산 학습이력 관리 전용',globalAdminKey: 'hisc_total',        globalAdminKeys: ['hisc_total'],       opManagerKeys: [],                  ownedAccounts: ['COMMON-FREE'],                     createdBy: 'hisc_total',          status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-HMC-GEN', tenantId: 'HMC', name: '일반교육예산 그룹', color: '#1D4ED8', bg: '#EFF6FF', desc: 'HMC 일반직군 교육예산', globalAdminKey: 'hmc_total_general', globalAdminKeys: ['hmc_total_general'], opManagerKeys: ['hmc_hq_general'], ownedAccounts: ['HMC-OPS', 'HMC-ETC', 'HMC-PART'], createdBy: 'hmc_tenant_admin', status: 'active', createdAt: '2026-01-01' },
+  { id: 'IG-HMC-RND', tenantId: 'HMC', name: 'R&D교육예산 그룹', color: '#DC2626', bg: '#FEF2F2', desc: 'HMC R&D 교육예산', globalAdminKey: 'hmc_total_rnd', globalAdminKeys: ['hmc_total_rnd'], opManagerKeys: ['hmc_center_rnd'], ownedAccounts: ['HMC-RND'], createdBy: 'hmc_tenant_admin', status: 'active', createdAt: '2026-01-01' },
+  { id: 'IG-HMC-FREE', tenantId: 'HMC', name: '예산미사용 그룹', color: '#6B7280', bg: '#F9FAFB', desc: 'HMC 무예산 학습이력 관리 전용', globalAdminKey: 'hmc_total_general', globalAdminKeys: ['hmc_total_general'], opManagerKeys: [], ownedAccounts: ['COMMON-FREE'], createdBy: 'hmc_tenant_admin', status: 'active', createdAt: '2026-01-01' },
+  { id: 'IG-KIA-GEN', tenantId: 'KIA', name: 'KIA 일반예산 그룹', color: '#059669', bg: '#F0FDF4', desc: '기아 전사 일반교육예산', globalAdminKey: 'kia_total_general', globalAdminKeys: ['kia_total_general'], opManagerKeys: ['kia_hq_general'], ownedAccounts: ['KIA-OPS', 'KIA-PART', 'KIA-ETC'], createdBy: 'kia_total_general', status: 'active', createdAt: '2026-01-15' },
+  { id: 'IG-KIA-FREE', tenantId: 'KIA', name: '예산미사용 그룹', color: '#6B7280', bg: '#F9FAFB', desc: 'KIA 무예산 학습이력 관리 전용', globalAdminKey: 'kia_total_general', globalAdminKeys: ['kia_total_general'], opManagerKeys: [], ownedAccounts: ['COMMON-FREE'], createdBy: 'kia_total_general', status: 'active', createdAt: '2026-01-15' },
+  { id: 'IG-HAE-ALL', tenantId: 'HAE', name: 'HAE 전사예산 그룹', color: '#7C3AED', bg: '#F5F3FF', desc: 'HAE 전사 교육예산', globalAdminKey: 'hae_total', globalAdminKeys: ['hae_total'], opManagerKeys: ['hae_dept'], ownedAccounts: ['HAE-OPS', 'HAE-PART', 'HAE-CERT', 'HAE-EDU', 'HAE-TEAM'], createdBy: 'hae_total', status: 'active', createdAt: '2026-01-20' },
+  { id: 'IG-HAE-FREE', tenantId: 'HAE', name: '예산미사용 그룹', color: '#6B7280', bg: '#F9FAFB', desc: 'HAE 무예산 학습이력 관리 전용', globalAdminKey: 'hae_total', globalAdminKeys: ['hae_total'], opManagerKeys: [], ownedAccounts: ['COMMON-FREE'], createdBy: 'hae_total', status: 'active', createdAt: '2026-01-20' },
+  { id: 'IG-ROTEM-ALL', tenantId: 'ROTEM', name: '로템 전사예산', color: '#B45309', bg: '#FFFBEB', desc: '현대로템 업무 교육예산', globalAdminKey: 'rotem_total', globalAdminKeys: ['rotem_total'], opManagerKeys: [], ownedAccounts: ['ROTEM-OPS', 'ROTEM-PART'], createdBy: 'rotem_total', status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-ROTEM-FREE', tenantId: 'ROTEM', name: '예산미사용 그룹', color: '#6B7280', bg: '#F9FAFB', desc: '로템 무예산 학습이력 관리 전용', globalAdminKey: 'rotem_total', globalAdminKeys: ['rotem_total'], opManagerKeys: [], ownedAccounts: ['COMMON-FREE'], createdBy: 'rotem_total', status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-HEC-ALL', tenantId: 'HEC', name: 'HEC 전사예산', color: '#0369A1', bg: '#F0F9FF', desc: '현대엔지니어링 교육예산', globalAdminKey: 'hec_total', globalAdminKeys: ['hec_total'], opManagerKeys: [], ownedAccounts: ['HEC-OPS', 'HEC-PART'], createdBy: 'hec_total', status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-HEC-FREE', tenantId: 'HEC', name: '예산미사용 그룹', color: '#6B7280', bg: '#F9FAFB', desc: 'HEC 무예산 학습이력 관리 전용', globalAdminKey: 'hec_total', globalAdminKeys: ['hec_total'], opManagerKeys: [], ownedAccounts: ['COMMON-FREE'], createdBy: 'hec_total', status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-HSC-ALL', tenantId: 'HSC', name: 'HSC 전사예산', color: '#BE123C', bg: '#FFF1F2', desc: '현대제철 교육예산', globalAdminKey: 'hsc_total', globalAdminKeys: ['hsc_total'], opManagerKeys: [], ownedAccounts: ['HSC-OPS', 'HSC-PART', 'HSC-EXT'], createdBy: 'hsc_total', status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-HSC-FREE', tenantId: 'HSC', name: '예산미사용 그룹', color: '#6B7280', bg: '#F9FAFB', desc: 'HSC 무예산 학습이력 관리 전용', globalAdminKey: 'hsc_total', globalAdminKeys: ['hsc_total'], opManagerKeys: [], ownedAccounts: ['COMMON-FREE'], createdBy: 'hsc_total', status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-HTS-ALL', tenantId: 'HTS', name: 'HTS 전사예산', color: '#6D28D9', bg: '#F5F3FF', desc: '현대트랜시스 교육예산', globalAdminKey: 'hts_total', globalAdminKeys: ['hts_total'], opManagerKeys: [], ownedAccounts: ['HTS-OPS', 'HTS-PART'], createdBy: 'hts_total', status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-HTS-FREE', tenantId: 'HTS', name: '예산미사용 그룹', color: '#6B7280', bg: '#F9FAFB', desc: 'HTS 무예산 학습이력 관리 전용', globalAdminKey: 'hts_total', globalAdminKeys: ['hts_total'], opManagerKeys: [], ownedAccounts: ['COMMON-FREE'], createdBy: 'hts_total', status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-GLOVIS-ALL', tenantId: 'GLOVIS', name: 'GLOVIS 전사예산', color: '#0E7490', bg: '#ECFEFF', desc: '현대글로비스 교육예산', globalAdminKey: 'glovis_total', globalAdminKeys: ['glovis_total'], opManagerKeys: [], ownedAccounts: ['GLOVIS-OPS', 'GLOVIS-PART'], createdBy: 'glovis_total', status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-GLOVIS-FREE', tenantId: 'GLOVIS', name: '예산미사용 그룹', color: '#6B7280', bg: '#F9FAFB', desc: 'GLOVIS 무예산 학습이력 관리', globalAdminKey: 'glovis_total', globalAdminKeys: ['glovis_total'], opManagerKeys: [], ownedAccounts: ['COMMON-FREE'], createdBy: 'glovis_total', status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-HIS-ALL', tenantId: 'HIS', name: 'HIS 교육예산', color: '#9D174D', bg: '#FDF2F8', desc: '현대차증권 교육예산', globalAdminKey: 'his_total', globalAdminKeys: ['his_total'], opManagerKeys: [], ownedAccounts: ['HIS-OPS', 'HIS-PART'], createdBy: 'his_total', status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-HIS-FREE', tenantId: 'HIS', name: '예산미사용 그룹', color: '#6B7280', bg: '#F9FAFB', desc: 'HIS 무예산 학습이력 관리 전용', globalAdminKey: 'his_total', globalAdminKeys: ['his_total'], opManagerKeys: [], ownedAccounts: ['COMMON-FREE'], createdBy: 'his_total', status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-KEFICO-ALL', tenantId: 'KEFICO', name: 'KEFICO 교육예산', color: '#1D4ED8', bg: '#EFF6FF', desc: '현대케피코 교육예산', globalAdminKey: 'kefico_total', globalAdminKeys: ['kefico_total'], opManagerKeys: [], ownedAccounts: ['KEFICO-OPS', 'KEFICO-PART'], createdBy: 'kefico_total', status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-KEFICO-FREE', tenantId: 'KEFICO', name: '예산미사용 그룹', color: '#6B7280', bg: '#F9FAFB', desc: 'KEFICO 무예산 학습이력 관리', globalAdminKey: 'kefico_total', globalAdminKeys: ['kefico_total'], opManagerKeys: [], ownedAccounts: ['COMMON-FREE'], createdBy: 'kefico_total', status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-HISC-ALL', tenantId: 'HISC', name: 'HISC 교육예산', color: '#374151', bg: '#F9FAFB', desc: '현대ISC 교육예산', globalAdminKey: 'hisc_total', globalAdminKeys: ['hisc_total'], opManagerKeys: [], ownedAccounts: ['HISC-OPS', 'HISC-PART'], createdBy: 'hisc_total', status: 'active', createdAt: '2026-02-01' },
+  { id: 'IG-HISC-FREE', tenantId: 'HISC', name: '예산미사용 그룹', color: '#6B7280', bg: '#F9FAFB', desc: 'HISC 무예산 학습이력 관리 전용', globalAdminKey: 'hisc_total', globalAdminKeys: ['hisc_total'], opManagerKeys: [], ownedAccounts: ['COMMON-FREE'], createdBy: 'hisc_total', status: 'active', createdAt: '2026-02-01' },
 ];
 
 const savedPersonaBo = sessionStorage.getItem('currentPersona') || 'platform_admin';
@@ -638,17 +661,17 @@ var VIRTUAL_EDU_ORGS = [
           managerPersonaKey: 'hsc_budget_gen',
           managerPersonaKeys: ['hsc_budget_gen'],
           cooperators: [
-            { teamId: 'HSCCOP01', teamName: '재경팀',           coopType: '재경협조처', required: false, role: '예산검토' },
-            { teamId: 'HSCCOP02', teamName: '투명경영지원팀',   coopType: '재경협조처', required: false, role: '예산검토' }
+            { teamId: 'HSCCOP01', teamName: '재경팀', coopType: '재경협조처', required: false, role: '예산검토' },
+            { teamId: 'HSCCOP02', teamName: '투명경영지원팀', coopType: '재경협조처', required: false, role: '예산검토' }
           ],
           budget: { total: 150000000, deducted: 0, holding: 0 },
           teams: [
-            { id: 'HSVT01', name: '준법경영실',        allowedJobTypes: ['일반직', '임원'], budget: { allocated: 20000000, deducted: 0, holding: 0 } },
-            { id: 'HSVT02', name: '국제법무팀',        allowedJobTypes: ['일반직', '임원'], budget: { allocated: 20000000, deducted: 0, holding: 0 } },
-            { id: 'HSVT03', name: '(포)전기로기술팀',  allowedJobTypes: ['일반직', '임원'], budget: { allocated: 25000000, deducted: 0, holding: 0 } },
-            { id: 'HSVT04', name: '(당)자재팀',        allowedJobTypes: ['일반직', '임원'], budget: { allocated: 25000000, deducted: 0, holding: 0 } },
-            { id: 'HSVT05', name: '(인)전기로기술팀',  allowedJobTypes: ['일반직', '임원'], budget: { allocated: 25000000, deducted: 0, holding: 0 } },
-            { id: 'HSVT06', name: '(순)전기로기술팀',  allowedJobTypes: ['일반직'], budget: { allocated: 35000000, deducted: 0, holding: 0 } },
+            { id: 'HSVT01', name: '준법경영실', allowedJobTypes: ['일반직', '임원'], budget: { allocated: 20000000, deducted: 0, holding: 0 } },
+            { id: 'HSVT02', name: '국제법무팀', allowedJobTypes: ['일반직', '임원'], budget: { allocated: 20000000, deducted: 0, holding: 0 } },
+            { id: 'HSVT03', name: '(포)전기로기술팀', allowedJobTypes: ['일반직', '임원'], budget: { allocated: 25000000, deducted: 0, holding: 0 } },
+            { id: 'HSVT04', name: '(당)자재팀', allowedJobTypes: ['일반직', '임원'], budget: { allocated: 25000000, deducted: 0, holding: 0 } },
+            { id: 'HSVT05', name: '(인)전기로기술팀', allowedJobTypes: ['일반직', '임원'], budget: { allocated: 25000000, deducted: 0, holding: 0 } },
+            { id: 'HSVT06', name: '(순)전기로기술팀', allowedJobTypes: ['일반직'], budget: { allocated: 35000000, deducted: 0, holding: 0 } },
           ]
         },
         // ② 전사 연구직
@@ -657,12 +680,12 @@ var VIRTUAL_EDU_ORGS = [
           managerPersonaKey: 'hsc_budget_rnd',
           managerPersonaKeys: ['hsc_budget_rnd'],
           cooperators: [
-            { teamId: 'HSCCOP01', teamName: '재경팀',           coopType: '재경협조처', required: false, role: '예산검토' },
-            { teamId: 'HSCCOP02', teamName: '투명경영지원팀',   coopType: '재경협조처', required: false, role: '예산검토' }
+            { teamId: 'HSCCOP01', teamName: '재경팀', coopType: '재경협조처', required: false, role: '예산검토' },
+            { teamId: 'HSCCOP02', teamName: '투명경영지원팀', coopType: '재경협조처', required: false, role: '예산검토' }
           ],
           budget: { total: 80000000, deducted: 0, holding: 0 },
           teams: [
-            { id: 'HSVT11', name: 'R&D전략기획팀',     allowedJobTypes: ['연구직'], budget: { allocated: 80000000, deducted: 0, holding: 0 } },
+            { id: 'HSVT11', name: 'R&D전략기획팀', allowedJobTypes: ['연구직'], budget: { allocated: 80000000, deducted: 0, holding: 0 } },
           ]
         },
         // ③ 당진공장(기술직)
@@ -671,12 +694,12 @@ var VIRTUAL_EDU_ORGS = [
           managerPersonaKey: 'hsc_budget_hr_dang',
           managerPersonaKeys: ['hsc_budget_hr_dang'],
           cooperators: [
-            { teamId: 'HSCCOP01', teamName: '재경팀',           coopType: '재경협조처', required: false, role: '예산검토' },
-            { teamId: 'HSCCOP02', teamName: '투명경영지원팀',   coopType: '재경협조처', required: false, role: '예산검토' }
+            { teamId: 'HSCCOP01', teamName: '재경팀', coopType: '재경협조처', required: false, role: '예산검토' },
+            { teamId: 'HSCCOP02', teamName: '투명경영지원팀', coopType: '재경협조처', required: false, role: '예산검토' }
           ],
           budget: { total: 60000000, deducted: 0, holding: 0 },
           teams: [
-            { id: 'HSVT21', name: '(당)자재팀',        allowedJobTypes: ['기술직'], budget: { allocated: 60000000, deducted: 0, holding: 0 } },
+            { id: 'HSVT21', name: '(당)자재팀', allowedJobTypes: ['기술직'], budget: { allocated: 60000000, deducted: 0, holding: 0 } },
           ]
         },
         // ④ 포항공장(기술직)
@@ -685,12 +708,12 @@ var VIRTUAL_EDU_ORGS = [
           managerPersonaKey: 'hsc_budget_hr_po',
           managerPersonaKeys: ['hsc_budget_hr_po'],
           cooperators: [
-            { teamId: 'HSCCOP01', teamName: '재경팀',           coopType: '재경협조처', required: false, role: '예산검토' },
-            { teamId: 'HSCCOP02', teamName: '투명경영지원팀',   coopType: '재경협조처', required: false, role: '예산검토' }
+            { teamId: 'HSCCOP01', teamName: '재경팀', coopType: '재경협조처', required: false, role: '예산검토' },
+            { teamId: 'HSCCOP02', teamName: '투명경영지원팀', coopType: '재경협조처', required: false, role: '예산검토' }
           ],
           budget: { total: 70000000, deducted: 0, holding: 0 },
           teams: [
-            { id: 'HSVT31', name: '(포)전기로기술팀',  allowedJobTypes: ['기술직'], budget: { allocated: 70000000, deducted: 0, holding: 0 } },
+            { id: 'HSVT31', name: '(포)전기로기술팀', allowedJobTypes: ['기술직'], budget: { allocated: 70000000, deducted: 0, holding: 0 } },
           ]
         },
         // ⑤ 인천공장(기술직)
@@ -699,12 +722,12 @@ var VIRTUAL_EDU_ORGS = [
           managerPersonaKey: 'hsc_budget_hr_in',
           managerPersonaKeys: ['hsc_budget_hr_in'],
           cooperators: [
-            { teamId: 'HSCCOP01', teamName: '재경팀',           coopType: '재경협조처', required: false, role: '예산검토' },
-            { teamId: 'HSCCOP02', teamName: '투명경영지원팀',   coopType: '재경협조처', required: false, role: '예산검토' }
+            { teamId: 'HSCCOP01', teamName: '재경팀', coopType: '재경협조처', required: false, role: '예산검토' },
+            { teamId: 'HSCCOP02', teamName: '투명경영지원팀', coopType: '재경협조처', required: false, role: '예산검토' }
           ],
           budget: { total: 50000000, deducted: 0, holding: 0 },
           teams: [
-            { id: 'HSVT41', name: '(인)전기로기술팀',  allowedJobTypes: ['기술직'], budget: { allocated: 50000000, deducted: 0, holding: 0 } },
+            { id: 'HSVT41', name: '(인)전기로기술팀', allowedJobTypes: ['기술직'], budget: { allocated: 50000000, deducted: 0, holding: 0 } },
           ]
         },
         // ⑥ 순천공장(기술직)
@@ -713,12 +736,12 @@ var VIRTUAL_EDU_ORGS = [
           managerPersonaKey: 'hsc_budget_cold',
           managerPersonaKeys: ['hsc_budget_cold'],
           cooperators: [
-            { teamId: 'HSCCOP01', teamName: '재경팀',           coopType: '재경협조처', required: false, role: '예산검토' },
-            { teamId: 'HSCCOP02', teamName: '투명경영지원팀',   coopType: '재경협조처', required: false, role: '예산검토' }
+            { teamId: 'HSCCOP01', teamName: '재경팀', coopType: '재경협조처', required: false, role: '예산검토' },
+            { teamId: 'HSCCOP02', teamName: '투명경영지원팀', coopType: '재경협조처', required: false, role: '예산검토' }
           ],
           budget: { total: 45000000, deducted: 0, holding: 0 },
           teams: [
-            { id: 'HSVT51', name: '(순)전기로기술팀',  allowedJobTypes: ['기술직'], budget: { allocated: 45000000, deducted: 0, holding: 0 } },
+            { id: 'HSVT51', name: '(순)전기로기술팀', allowedJobTypes: ['기술직'], budget: { allocated: 45000000, deducted: 0, holding: 0 } },
           ]
         }
       ]
@@ -1054,37 +1077,37 @@ function boPlanStatusBadge(s) {
     rejected: ['bo-badge-red', '반려'],
     settling: ['bo-badge-orange', '정산 대기'],
     completed: ['bo-badge-gray', '정산 완료'],
-  // KIA 학습자
-  kia_learner: {
-    id: 'P203', name: '강동우', dept: '개인정보보호팀', pos: '책임',
-    role: 'learner', roleLabel: '[KIA] 학습자',
-    roleClass: 'role-team', roleTag: '[학습자]',
-    budgetGroup: 'general', tenantId: 'KIA',
-    scope: '개인정보보호팀',
-    desc: '일반예산기반 학습자. 교육계획 수립 후 복수 계획 매핑 신청, 결과 작성. 자비/무료 교육 무예산 이력 등록 및 결과 단독 등록 활용.',
-    accessMenus: ['dashboard']
-  },
-  // HAE 학습자
-  hae_learner: {
-    id: 'P303', name: '남영우', dept: 'PM서비스팀', pos: '책임',
-    role: 'learner', roleLabel: '[HAE] 학습자',
-    roleClass: 'role-team', roleTag: '[학습자]',
-    budgetGroup: 'general', tenantId: 'HAE',
-    scope: 'PM서비스팀',
-    desc: '개인 직무 사외학습 중심. HAE 고정 프로세스(교육계획→계획기반신청→수료 후 결과) 준수. 개인 학습 이력 전용.',
-    accessMenus: ['dashboard']
-  },
-  // HSC 학습자
-  hsc_learner: {
-    id: 'P608', name: '정O안', dept: '성장디자인팀', pos: '매니저',
-    role: 'learner', roleLabel: '[HSC] 학습자',
-    roleClass: 'role-team', roleTag: '[학습자]',
-    budgetGroup: 'general', tenantId: 'HSC',
-    domainId: 'IG-HSC-ALL',
-    scope: '성장디자인팀',
-    desc: '현대제철 일반직 학습자. 개인직무 사외학습 중심. 교육신청/결과 작성.',
-    accessMenus: ['dashboard']
-  },
+    // KIA 학습자
+    kia_learner: {
+      id: 'P203', name: '강동우', dept: '개인정보보호팀', pos: '책임',
+      role: 'learner', roleLabel: '[KIA] 학습자',
+      roleClass: 'role-team', roleTag: '[학습자]',
+      budgetGroup: 'general', tenantId: 'KIA',
+      scope: '개인정보보호팀',
+      desc: '일반예산기반 학습자. 교육계획 수립 후 복수 계획 매핑 신청, 결과 작성. 자비/무료 교육 무예산 이력 등록 및 결과 단독 등록 활용.',
+      accessMenus: ['dashboard']
+    },
+    // HAE 학습자
+    hae_learner: {
+      id: 'P303', name: '남영우', dept: 'PM서비스팀', pos: '책임',
+      role: 'learner', roleLabel: '[HAE] 학습자',
+      roleClass: 'role-team', roleTag: '[학습자]',
+      budgetGroup: 'general', tenantId: 'HAE',
+      scope: 'PM서비스팀',
+      desc: '개인 직무 사외학습 중심. HAE 고정 프로세스(교육계획→계획기반신청→수료 후 결과) 준수. 개인 학습 이력 전용.',
+      accessMenus: ['dashboard']
+    },
+    // HSC 학습자
+    hsc_learner: {
+      id: 'P608', name: '정O안', dept: '성장디자인팀', pos: '매니저',
+      role: 'learner', roleLabel: '[HSC] 학습자',
+      roleClass: 'role-team', roleTag: '[학습자]',
+      budgetGroup: 'general', tenantId: 'HSC',
+      domainId: 'IG-HSC-ALL',
+      scope: '성장디자인팀',
+      desc: '현대제철 일반직 학습자. 개인직무 사외학습 중심. 교육신청/결과 작성.',
+      accessMenus: ['dashboard']
+    },
   };
   const [cls, label] = m[s] || ['bo-badge-gray', s];
   return `<span class="bo-badge ${cls}">${label}</span>`;
@@ -1149,10 +1172,10 @@ let FORM_ANNOUNCEMENTS = [
 
 // ─── 예산 재원 유형 정의 ──────────────────────────────────────────────────────
 const BUDGET_SOURCE_TYPE = {
-  'HMC-OPS':'sap_if','HMC-ETC':'sap_if','HMC-PART':'sap_if',
-  'HMC-RND':'platform',
-  'KIA-OPS':'sap_if','KIA-PART':'sap_if',
-  'HAE-OPS':'platform','HAE-PART':'platform','HAE-CERT':'platform',
+  'HMC-OPS': 'sap_if', 'HMC-ETC': 'sap_if', 'HMC-PART': 'sap_if',
+  'HMC-RND': 'platform',
+  'KIA-OPS': 'sap_if', 'KIA-PART': 'sap_if',
+  'HAE-OPS': 'platform', 'HAE-PART': 'platform', 'HAE-CERT': 'platform',
 };
 
 // ─── Level 1: 계정 총액 관리 (Account Budget Master) ─────────────────────────
@@ -1160,91 +1183,109 @@ const BUDGET_SOURCE_TYPE = {
 // 배분가능재원 = baseAmount + totalAdded - SUM(TEAM_DIST.allocAmount)
 let ACCOUNT_BUDGETS = [
   // HMC 일반 — SAP I/F 연동형 (계정 단위 총액)
-  { id:'AB001', tenantId:'HMC', accountCode:'HMC-OPS',  sourceType:'sap_if',
-    fiscalYear:2026,
-    baseAmount:330000000, totalAdded:20000000, status:'confirmed',
-    confirmedBy:'신승남', ifReceivedAt:'2026-01-03' },
-  { id:'AB002', tenantId:'HMC', accountCode:'HMC-PART', sourceType:'sap_if',
-    fiscalYear:2026,
-    baseAmount:150000000, totalAdded:10000000, status:'confirmed',
-    confirmedBy:'신승남', ifReceivedAt:'2026-01-03' },
-  { id:'AB003', tenantId:'HMC', accountCode:'HMC-ETC',  sourceType:'sap_if',
-    fiscalYear:2026,
-    baseAmount:30000000,  totalAdded:0,        status:'confirmed',
-    confirmedBy:'신승남', ifReceivedAt:'2026-01-03' },
+  {
+    id: 'AB001', tenantId: 'HMC', accountCode: 'HMC-OPS', sourceType: 'sap_if',
+    fiscalYear: 2026,
+    baseAmount: 330000000, totalAdded: 20000000, status: 'confirmed',
+    confirmedBy: '신승남', ifReceivedAt: '2026-01-03'
+  },
+  {
+    id: 'AB002', tenantId: 'HMC', accountCode: 'HMC-PART', sourceType: 'sap_if',
+    fiscalYear: 2026,
+    baseAmount: 150000000, totalAdded: 10000000, status: 'confirmed',
+    confirmedBy: '신승남', ifReceivedAt: '2026-01-03'
+  },
+  {
+    id: 'AB003', tenantId: 'HMC', accountCode: 'HMC-ETC', sourceType: 'sap_if',
+    fiscalYear: 2026,
+    baseAmount: 30000000, totalAdded: 0, status: 'confirmed',
+    confirmedBy: '신승남', ifReceivedAt: '2026-01-03'
+  },
   // HMC R&D — 플랫폼 자체 관리형
-  { id:'AB004', tenantId:'HMC', accountCode:'HMC-RND',  sourceType:'platform',
-    fiscalYear:2026,
-    baseAmount:1400000000, totalAdded:50000000, status:'confirmed',
-    enteredBy:'류해령', enteredAt:'2026-01-08' },
+  {
+    id: 'AB004', tenantId: 'HMC', accountCode: 'HMC-RND', sourceType: 'platform',
+    fiscalYear: 2026,
+    baseAmount: 1400000000, totalAdded: 50000000, status: 'confirmed',
+    enteredBy: '류해령', enteredAt: '2026-01-08'
+  },
   // KIA 일반 — SAP I/F 연동형
-  { id:'AB005', tenantId:'KIA', accountCode:'KIA-OPS',  sourceType:'sap_if',
-    fiscalYear:2026,
-    baseAmount:120000000, totalAdded:0,         status:'confirmed',
-    confirmedBy:'고범현', ifReceivedAt:'2026-01-04' },
-  { id:'AB006', tenantId:'KIA', accountCode:'KIA-PART', sourceType:'sap_if',
-    fiscalYear:2026,
-    baseAmount:80000000,  totalAdded:15000000,  status:'confirmed',
-    confirmedBy:'고범현', ifReceivedAt:'2026-01-04' },
+  {
+    id: 'AB005', tenantId: 'KIA', accountCode: 'KIA-OPS', sourceType: 'sap_if',
+    fiscalYear: 2026,
+    baseAmount: 120000000, totalAdded: 0, status: 'confirmed',
+    confirmedBy: '고범현', ifReceivedAt: '2026-01-04'
+  },
+  {
+    id: 'AB006', tenantId: 'KIA', accountCode: 'KIA-PART', sourceType: 'sap_if',
+    fiscalYear: 2026,
+    baseAmount: 80000000, totalAdded: 15000000, status: 'confirmed',
+    confirmedBy: '고범현', ifReceivedAt: '2026-01-04'
+  },
   // HAE — 플랫폼 자체 관리형
-  { id:'AB007', tenantId:'HAE', accountCode:'HAE-OPS',  sourceType:'platform',
-    fiscalYear:2026,
-    baseAmount:10000000,  totalAdded:0,         status:'confirmed',
-    enteredBy:'안슬기', enteredAt:'2026-01-10' },
-  { id:'AB008', tenantId:'HAE', accountCode:'HAE-PART', sourceType:'platform',
-    fiscalYear:2026,
-    baseAmount:40000000,  totalAdded:0,         status:'confirmed',
-    enteredBy:'안슬기', enteredAt:'2026-01-10' },
-  { id:'AB009', tenantId:'HAE', accountCode:'HAE-CERT', sourceType:'platform',
-    fiscalYear:2026,
-    baseAmount:20000000,  totalAdded:0,         status:'confirmed',
-    enteredBy:'안슬기', enteredAt:'2026-01-10' },
+  {
+    id: 'AB007', tenantId: 'HAE', accountCode: 'HAE-OPS', sourceType: 'platform',
+    fiscalYear: 2026,
+    baseAmount: 10000000, totalAdded: 0, status: 'confirmed',
+    enteredBy: '안슬기', enteredAt: '2026-01-10'
+  },
+  {
+    id: 'AB008', tenantId: 'HAE', accountCode: 'HAE-PART', sourceType: 'platform',
+    fiscalYear: 2026,
+    baseAmount: 40000000, totalAdded: 0, status: 'confirmed',
+    enteredBy: '안슬기', enteredAt: '2026-01-10'
+  },
+  {
+    id: 'AB009', tenantId: 'HAE', accountCode: 'HAE-CERT', sourceType: 'platform',
+    fiscalYear: 2026,
+    baseAmount: 20000000, totalAdded: 0, status: 'confirmed',
+    enteredBy: '안슬기', enteredAt: '2026-01-10'
+  },
 ];
 
 // ─── Level 2: 팀별 배분 (Team Distribution) ──────────────────────────────────
 // 각 계정 총액에서 팀으로 배분. SUM(allocAmount) <= ACCOUNT_BUDGETS.baseAmount+totalAdded
 let TEAM_DIST = [
   // HMC-OPS → 가상본부 배분
-  { id:'TD001', accountBudgetId:'AB001', teamName:'HMGOOOO본부', allocAmount:180000000, spent:82000000, reserved:15000000 },
-  { id:'TD002', accountBudgetId:'AB001', teamName:'SDVOOOO본부', allocAmount:150000000, spent:45000000, reserved:8000000 },
+  { id: 'TD001', accountBudgetId: 'AB001', teamName: 'HMGOOOO본부', allocAmount: 180000000, spent: 82000000, reserved: 15000000 },
+  { id: 'TD002', accountBudgetId: 'AB001', teamName: 'SDVOOOO본부', allocAmount: 150000000, spent: 45000000, reserved: 8000000 },
 
   // HMC-PART → 가상본부 배분
-  { id:'TD003', accountBudgetId:'AB002', teamName:'HMGOOOO본부', allocAmount:90000000, spent:38000000, reserved:5000000 },
-  { id:'TD004', accountBudgetId:'AB002', teamName:'SDVOOOO본부', allocAmount:60000000, spent:20000000, reserved:3000000 },
+  { id: 'TD003', accountBudgetId: 'AB002', teamName: 'HMGOOOO본부', allocAmount: 90000000, spent: 38000000, reserved: 5000000 },
+  { id: 'TD004', accountBudgetId: 'AB002', teamName: 'SDVOOOO본부', allocAmount: 60000000, spent: 20000000, reserved: 3000000 },
 
   // HMC-ETC → 가상본부 배분
-  { id:'TD005', accountBudgetId:'AB003', teamName:'HMGOOOO본부', allocAmount:30000000, spent:12000000, reserved:0 },
+  { id: 'TD005', accountBudgetId: 'AB003', teamName: 'HMGOOOO본부', allocAmount: 30000000, spent: 12000000, reserved: 0 },
 
   // HMC-RND → 가상센터 배분
-  { id:'TD006', accountBudgetId:'AB004', teamName:'모빌리티OOOO센터', allocAmount:800000000, spent:310000000, reserved:120000000 },
-  { id:'TD007', accountBudgetId:'AB004', teamName:'전동화OOOO센터',   allocAmount:600000000, spent:210000000, reserved:80000000 },
+  { id: 'TD006', accountBudgetId: 'AB004', teamName: '모빌리티OOOO센터', allocAmount: 800000000, spent: 310000000, reserved: 120000000 },
+  { id: 'TD007', accountBudgetId: 'AB004', teamName: '전동화OOOO센터', allocAmount: 600000000, spent: 210000000, reserved: 80000000 },
 
   // KIA-OPS
-  { id:'TD008', accountBudgetId:'AB005', teamName:'Autoland사업부', allocAmount:120000000, spent:55000000, reserved:10000000 },
+  { id: 'TD008', accountBudgetId: 'AB005', teamName: 'Autoland사업부', allocAmount: 120000000, spent: 55000000, reserved: 10000000 },
 
   // KIA-PART
-  { id:'TD009', accountBudgetId:'AB006', teamName:'Autoland사업부', allocAmount:80000000, spent:28000000, reserved:5000000 },
+  { id: 'TD009', accountBudgetId: 'AB006', teamName: 'Autoland사업부', allocAmount: 80000000, spent: 28000000, reserved: 5000000 },
 
   // HAE-OPS (1000만원 배분됨, 총액과 동일)
-  { id:'TD010', accountBudgetId:'AB007', teamName:'PM서비스팀(솔루션사업부)', allocAmount:6000000, spent:2200000, reserved:400000 },
-  { id:'TD011', accountBudgetId:'AB007', teamName:'인프라팀',                 allocAmount:4000000, spent:1800000, reserved:200000 },
+  { id: 'TD010', accountBudgetId: 'AB007', teamName: 'PM서비스팀(솔루션사업부)', allocAmount: 6000000, spent: 2200000, reserved: 400000 },
+  { id: 'TD011', accountBudgetId: 'AB007', teamName: '인프라팀', allocAmount: 4000000, spent: 1800000, reserved: 200000 },
 
   // HAE-PART
-  { id:'TD012', accountBudgetId:'AB008', teamName:'전사 공통', allocAmount:40000000, spent:15000000, reserved:2000000 },
+  { id: 'TD012', accountBudgetId: 'AB008', teamName: '전사 공통', allocAmount: 40000000, spent: 15000000, reserved: 2000000 },
 
   // HAE-CERT
-  { id:'TD013', accountBudgetId:'AB009', teamName:'전사 공통', allocAmount:20000000, spent:5000000, reserved:1000000 },
+  { id: 'TD013', accountBudgetId: 'AB009', teamName: '전사 공통', allocAmount: 20000000, spent: 5000000, reserved: 1000000 },
 ];
 
 // ─── Audit Trail: 계정 추가배정 이력 ─────────────────────────────────────────
 const ACCOUNT_ADJUST_HISTORY = [
-  { id:'AH001', accountBudgetId:'AB001', date:'2026-01-03', type:'SAP_IF',   amount:330000000, note:'SAP CO 2026년 운영계정 연간 예산 자동 수신',   by:'SYSTEM' },
-  { id:'AH002', accountBudgetId:'AB001', date:'2026-01-03', type:'확정',      amount:0,         note:'신승남 매니저 정합성 확인 후 확정',              by:'신승남' },
-  { id:'AH003', accountBudgetId:'AB001', date:'2026-02-15', type:'추가배정',  amount:20000000,  note:'1분기 SDV 특별 오프라인 프로그램 증액',          by:'신승남' },
-  { id:'AH004', accountBudgetId:'AB004', date:'2026-01-08', type:'기초입력',  amount:1400000000,note:'2026년 R&D 교육예산 연간 총액 직접 입력',        by:'류해령' },
-  { id:'AH005', accountBudgetId:'AB004', date:'2026-03-10', type:'추가배정',  amount:50000000,  note:'특허·논문 발표 지원 프로그램 확대 증액',          by:'류해령' },
-  { id:'AH006', accountBudgetId:'AB007', date:'2026-01-10', type:'기초입력',  amount:10000000,  note:'오토에버 운영계정 26년 연간 기초 예산 입력',      by:'안슬기' },
-  { id:'AH007', accountBudgetId:'AB009', date:'2026-01-10', type:'기초입력',  amount:20000000,  note:'오토에버 자격증계정 26년 연간 기초 예산 입력',    by:'안슬기' },
+  { id: 'AH001', accountBudgetId: 'AB001', date: '2026-01-03', type: 'SAP_IF', amount: 330000000, note: 'SAP CO 2026년 운영계정 연간 예산 자동 수신', by: 'SYSTEM' },
+  { id: 'AH002', accountBudgetId: 'AB001', date: '2026-01-03', type: '확정', amount: 0, note: '신승남 매니저 정합성 확인 후 확정', by: '신승남' },
+  { id: 'AH003', accountBudgetId: 'AB001', date: '2026-02-15', type: '추가배정', amount: 20000000, note: '1분기 SDV 특별 오프라인 프로그램 증액', by: '신승남' },
+  { id: 'AH004', accountBudgetId: 'AB004', date: '2026-01-08', type: '기초입력', amount: 1400000000, note: '2026년 R&D 교육예산 연간 총액 직접 입력', by: '류해령' },
+  { id: 'AH005', accountBudgetId: 'AB004', date: '2026-03-10', type: '추가배정', amount: 50000000, note: '특허·논문 발표 지원 프로그램 확대 증액', by: '류해령' },
+  { id: 'AH006', accountBudgetId: 'AB007', date: '2026-01-10', type: '기초입력', amount: 10000000, note: '오토에버 운영계정 26년 연간 기초 예산 입력', by: '안슬기' },
+  { id: 'AH007', accountBudgetId: 'AB009', date: '2026-01-10', type: '기초입력', amount: 20000000, note: '오토에버 자격증계정 26년 연간 기초 예산 입력', by: '안슬기' },
 ];
 
 // 헬퍼: 계정의 배분 가능 재원 계산
@@ -1293,10 +1334,10 @@ function getPendingCountForPersona(persona) {
 // ─── 직군 마스터 (JOB_TYPES) ────────────────────────────────────────────────
 // 테넌트별 허용 직군 - 팀별 직군 필터링에 사용
 const JOB_TYPES = {
-  'HMC':   ['일반직', '생산직', '연구직', '임원'],
-  'KIA':   ['일반직', '생산직', '연구직'],
-  'HAE':   ['일반직', '임원'],
-  'HSC':   ['일반직', '생산직', '기술직', '연구직', '임원'],
+  'HMC': ['일반직', '생산직', '연구직', '임원'],
+  'KIA': ['일반직', '생산직', '연구직'],
+  'HAE': ['일반직', '임원'],
+  'HSC': ['일반직', '생산직', '기술직', '연구직', '임원'],
   'default': ['일반직']
 };
 
@@ -1313,49 +1354,49 @@ let CALC_GROUNDS_MASTER = [
   // ── 운영계정 항목 (21종) ─────────────────────────────────────────────────
   // usageScope: ['plan','apply','settle'] 중 해당 단계 배열
   // visibleFor: 'both'(국내/해외), 'domestic'(국내전용), 'overseas'(해외전용)
-  { id: 'CG001', tenantId: 'HMC', accountTypes: ['ops'], name: '식비 (조식)',          desc: '교육 당일 조식 제공 비용. 1인 1식 기준.',       unitPrice: 8000,    softLimit: 0,        hardLimit: 0,        limitType: 'none', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'both'     },
-  { id: 'CG002', tenantId: 'HMC', accountTypes: ['ops'], name: '식비 (중식)',          desc: '교육 당일 중식 제공 비용. 1인 1식 기준.',       unitPrice: 12000,   softLimit: 0,        hardLimit: 0,        limitType: 'none', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'both'     },
-  { id: 'CG003', tenantId: 'HMC', accountTypes: ['ops'], name: '식비 (석식)',          desc: '교육 당일 석식 제공 비용. 1인 1식 기준.',       unitPrice: 15000,   softLimit: 0,        hardLimit: 0,        limitType: 'none', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'both'     },
-  { id: 'CG004', tenantId: 'HMC', accountTypes: ['ops'], name: '숙박비',               desc: '외부 교육 숙박비. 1인 1박 기준.',               unitPrice: 120000,  softLimit: 150000,   hardLimit: 200000,   limitType: 'soft', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'both'     },
-  { id: 'CG005', tenantId: 'HMC', accountTypes: ['ops'], name: '다과비',               desc: '교육 중 간식/음료 제공 비용. 1인 기준.',        unitPrice: 5000,    softLimit: 0,        hardLimit: 0,        limitType: 'none', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'domestic' },
-  { id: 'CG006', tenantId: 'HMC', accountTypes: ['ops'], name: '강의장 사용료 (사내)', desc: '사내 강의장 대관료. 하루 기준.',                unitPrice: 0,       softLimit: 0,        hardLimit: 500000,   limitType: 'hard', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'domestic' },
-  { id: 'CG007', tenantId: 'HMC', accountTypes: ['ops'], name: '강의장 사용료 (사외)', desc: '사외 강의장 대관료. 하루 기준.',                unitPrice: 300000,  softLimit: 500000,   hardLimit: 1000000,  limitType: 'soft', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'both'     },
-  { id: 'CG008', tenantId: 'HMC', accountTypes: ['ops'], name: '사외강사료',           desc: '외부 강사 초청 강의료. 1시간 기준.',            unitPrice: 500000,  softLimit: 2000000,  hardLimit: 5000000,  limitType: 'soft', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'both'     },
-  { id: 'CG009', tenantId: 'HMC', accountTypes: ['ops'], name: '기타 인건비',          desc: '퍼실리테이터, 보조강사 등 기타 인건비.',        unitPrice: 300000,  softLimit: 1000000,  hardLimit: 0,        limitType: 'soft', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'both'     },
-  { id: 'CG010', tenantId: 'HMC', accountTypes: ['ops'], name: '사내강사/운영자 교통비', desc: '사내 강사 및 운영자 교통비. 1회 기준.',       unitPrice: 20000,   softLimit: 50000,    hardLimit: 100000,   limitType: 'soft', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'domestic' },
-  { id: 'CG011', tenantId: 'HMC', accountTypes: ['ops'], name: '용차료',               desc: '교육 운영을 위한 차량 임차료.',                 unitPrice: 100000,  softLimit: 300000,   hardLimit: 0,        limitType: 'soft', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'domestic' },
-  { id: 'CG012', tenantId: 'HMC', accountTypes: ['ops'], name: '교육당직비',           desc: '교육 행사 당직 운영비.',                        unitPrice: 50000,   softLimit: 0,        hardLimit: 0,        limitType: 'none', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'both'     },
-  { id: 'CG013', tenantId: 'HMC', accountTypes: ['ops'], name: '문구비',               desc: '교육 자료 제작을 위한 문구류 구매비.',          unitPrice: 10000,   softLimit: 0,        hardLimit: 200000,   limitType: 'hard', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'both'     },
-  { id: 'CG014', tenantId: 'HMC', accountTypes: ['ops'], name: '교보재비',             desc: '교육 교재, 워크북 등 교육보조재 구매비.',       unitPrice: 30000,   softLimit: 0,        hardLimit: 0,        limitType: 'none', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'both'     },
-  { id: 'CG015', tenantId: 'HMC', accountTypes: ['ops'], name: '업체 지급비',          desc: '교육 운영 위탁 업체 지급 비용.',                unitPrice: 0,       softLimit: 3000000,  hardLimit: 10000000, limitType: 'soft', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'both'     },
-  { id: 'CG016', tenantId: 'HMC', accountTypes: ['ops'], name: '진단비',               desc: '역량 진단, 설문조사 등 진단 도구 비용.',        unitPrice: 50000,   softLimit: 500000,   hardLimit: 0,        limitType: 'soft', active: true, usageScope: ['plan','apply'],          visibleFor: 'both'     },
-  { id: 'CG017', tenantId: 'HMC', accountTypes: ['ops'], name: '교육참가비',           desc: '외부 교육 프로그램 참가비. 1인 기준.',          unitPrice: 200000,  softLimit: 1000000,  hardLimit: 3000000,  limitType: 'soft', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'both'     },
-  { id: 'CG018', tenantId: 'HMC', accountTypes: ['ops'], name: '과정개발비',           desc: '교육과정 기획 및 콘텐츠 개발비.',               unitPrice: 0,       softLimit: 5000000,  hardLimit: 0,        limitType: 'soft', active: true, usageScope: ['plan','apply'],          visibleFor: 'both'     },
-  { id: 'CG019', tenantId: 'HMC', accountTypes: ['ops'], name: '그룹사간 정산',        desc: '그룹사 간 교육 비용 상호 정산액.',              unitPrice: 0,       softLimit: 0,        hardLimit: 0,        limitType: 'none', active: true, usageScope: ['settle'],                visibleFor: 'both'     },
-  { id: 'CG020', tenantId: 'HMC', accountTypes: ['ops'], name: '러닝랩 활동비',        desc: '러닝랩/학습동아리 운영 활동비.',                unitPrice: 30000,   softLimit: 500000,   hardLimit: 0,        limitType: 'soft', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'domestic' },
-  { id: 'CG021', tenantId: 'HMC', accountTypes: ['ops'], name: '기타 (운영)',          desc: '위 항목에 해당하지 않는 기타 운영 비용.',       unitPrice: 0,       softLimit: 0,        hardLimit: 0,        limitType: 'none', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'both'     },
+  { id: 'CG001', tenantId: 'HMC', accountTypes: ['ops'], name: '식비 (조식)', desc: '교육 당일 조식 제공 비용. 1인 1식 기준.', unitPrice: 8000, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
+  { id: 'CG002', tenantId: 'HMC', accountTypes: ['ops'], name: '식비 (중식)', desc: '교육 당일 중식 제공 비용. 1인 1식 기준.', unitPrice: 12000, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
+  { id: 'CG003', tenantId: 'HMC', accountTypes: ['ops'], name: '식비 (석식)', desc: '교육 당일 석식 제공 비용. 1인 1식 기준.', unitPrice: 15000, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
+  { id: 'CG004', tenantId: 'HMC', accountTypes: ['ops'], name: '숙박비', desc: '외부 교육 숙박비. 1인 1박 기준.', unitPrice: 120000, softLimit: 150000, hardLimit: 200000, limitType: 'soft', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
+  { id: 'CG005', tenantId: 'HMC', accountTypes: ['ops'], name: '다과비', desc: '교육 중 간식/음료 제공 비용. 1인 기준.', unitPrice: 5000, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'domestic' },
+  { id: 'CG006', tenantId: 'HMC', accountTypes: ['ops'], name: '강의장 사용료 (사내)', desc: '사내 강의장 대관료. 하루 기준.', unitPrice: 0, softLimit: 0, hardLimit: 500000, limitType: 'hard', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'domestic' },
+  { id: 'CG007', tenantId: 'HMC', accountTypes: ['ops'], name: '강의장 사용료 (사외)', desc: '사외 강의장 대관료. 하루 기준.', unitPrice: 300000, softLimit: 500000, hardLimit: 1000000, limitType: 'soft', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
+  { id: 'CG008', tenantId: 'HMC', accountTypes: ['ops'], name: '사외강사료', desc: '외부 강사 초청 강의료. 1시간 기준.', unitPrice: 500000, softLimit: 2000000, hardLimit: 5000000, limitType: 'soft', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
+  { id: 'CG009', tenantId: 'HMC', accountTypes: ['ops'], name: '기타 인건비', desc: '퍼실리테이터, 보조강사 등 기타 인건비.', unitPrice: 300000, softLimit: 1000000, hardLimit: 0, limitType: 'soft', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
+  { id: 'CG010', tenantId: 'HMC', accountTypes: ['ops'], name: '사내강사/운영자 교통비', desc: '사내 강사 및 운영자 교통비. 1회 기준.', unitPrice: 20000, softLimit: 50000, hardLimit: 100000, limitType: 'soft', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'domestic' },
+  { id: 'CG011', tenantId: 'HMC', accountTypes: ['ops'], name: '용차료', desc: '교육 운영을 위한 차량 임차료.', unitPrice: 100000, softLimit: 300000, hardLimit: 0, limitType: 'soft', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'domestic' },
+  { id: 'CG012', tenantId: 'HMC', accountTypes: ['ops'], name: '교육당직비', desc: '교육 행사 당직 운영비.', unitPrice: 50000, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
+  { id: 'CG013', tenantId: 'HMC', accountTypes: ['ops'], name: '문구비', desc: '교육 자료 제작을 위한 문구류 구매비.', unitPrice: 10000, softLimit: 0, hardLimit: 200000, limitType: 'hard', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
+  { id: 'CG014', tenantId: 'HMC', accountTypes: ['ops'], name: '교보재비', desc: '교육 교재, 워크북 등 교육보조재 구매비.', unitPrice: 30000, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
+  { id: 'CG015', tenantId: 'HMC', accountTypes: ['ops'], name: '업체 지급비', desc: '교육 운영 위탁 업체 지급 비용.', unitPrice: 0, softLimit: 3000000, hardLimit: 10000000, limitType: 'soft', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
+  { id: 'CG016', tenantId: 'HMC', accountTypes: ['ops'], name: '진단비', desc: '역량 진단, 설문조사 등 진단 도구 비용.', unitPrice: 50000, softLimit: 500000, hardLimit: 0, limitType: 'soft', active: true, usageScope: ['plan', 'apply'], visibleFor: 'both' },
+  { id: 'CG017', tenantId: 'HMC', accountTypes: ['ops'], name: '교육참가비', desc: '외부 교육 프로그램 참가비. 1인 기준.', unitPrice: 200000, softLimit: 1000000, hardLimit: 3000000, limitType: 'soft', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
+  { id: 'CG018', tenantId: 'HMC', accountTypes: ['ops'], name: '과정개발비', desc: '교육과정 기획 및 콘텐츠 개발비.', unitPrice: 0, softLimit: 5000000, hardLimit: 0, limitType: 'soft', active: true, usageScope: ['plan', 'apply'], visibleFor: 'both' },
+  { id: 'CG019', tenantId: 'HMC', accountTypes: ['ops'], name: '그룹사간 정산', desc: '그룹사 간 교육 비용 상호 정산액.', unitPrice: 0, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['settle'], visibleFor: 'both' },
+  { id: 'CG020', tenantId: 'HMC', accountTypes: ['ops'], name: '러닝랩 활동비', desc: '러닝랩/학습동아리 운영 활동비.', unitPrice: 30000, softLimit: 500000, hardLimit: 0, limitType: 'soft', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'domestic' },
+  { id: 'CG021', tenantId: 'HMC', accountTypes: ['ops'], name: '기타 (운영)', desc: '위 항목에 해당하지 않는 기타 운영 비용.', unitPrice: 0, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
 
   // ── 기타계정 항목 (7종) ─────────────────────────────────────────────────
-  { id: 'CG101', tenantId: 'HMC', accountTypes: ['etc'], name: '교보재비',             desc: '교육 교재, 워크북, E-book 구매비.',             unitPrice: 30000,   softLimit: 0,        hardLimit: 0,        limitType: 'none', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'both'     },
-  { id: 'CG102', tenantId: 'HMC', accountTypes: ['etc'], name: '과정개발비',           desc: '콘텐츠 기획·개발, 영상제작 등 개발 비용.',     unitPrice: 0,       softLimit: 5000000,  hardLimit: 20000000, limitType: 'soft', active: true, usageScope: ['plan','apply'],          visibleFor: 'both'     },
-  { id: 'CG103', tenantId: 'HMC', accountTypes: ['etc'], name: '콘텐츠사용비',         desc: '외부 콘텐츠 라이선스 및 플랫폼 구독료.',       unitPrice: 0,       softLimit: 1000000,  hardLimit: 5000000,  limitType: 'soft', active: true, usageScope: ['plan','apply'],          visibleFor: 'both'     },
-  { id: 'CG104', tenantId: 'HMC', accountTypes: ['etc'], name: '가입비 (협회/간행물)', desc: '학·협회 가입비, 간행물 구독비.',                unitPrice: 0,       softLimit: 500000,   hardLimit: 2000000,  limitType: 'soft', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'both'     },
-  { id: 'CG105', tenantId: 'HMC', accountTypes: ['etc'], name: '도서구입비',           desc: '직무·교양 도서 구매비. 1권 기준.',             unitPrice: 20000,   softLimit: 0,        hardLimit: 500000,   limitType: 'hard', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'both'     },
-  { id: 'CG106', tenantId: 'HMC', accountTypes: ['etc'], name: '그룹사간 정산',        desc: '그룹사 간 콘텐츠·개발비 정산액.',              unitPrice: 0,       softLimit: 0,        hardLimit: 0,        limitType: 'none', active: true, usageScope: ['settle'],                visibleFor: 'both'     },
-  { id: 'CG107', tenantId: 'HMC', accountTypes: ['etc'], name: '기타 (기타계정)',      desc: '위 항목에 해당하지 않는 기타 비용.',            unitPrice: 0,       softLimit: 0,        hardLimit: 0,        limitType: 'none', active: true, usageScope: ['plan','apply','settle'], visibleFor: 'both'     },
+  { id: 'CG101', tenantId: 'HMC', accountTypes: ['etc'], name: '교보재비', desc: '교육 교재, 워크북, E-book 구매비.', unitPrice: 30000, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
+  { id: 'CG102', tenantId: 'HMC', accountTypes: ['etc'], name: '과정개발비', desc: '콘텐츠 기획·개발, 영상제작 등 개발 비용.', unitPrice: 0, softLimit: 5000000, hardLimit: 20000000, limitType: 'soft', active: true, usageScope: ['plan', 'apply'], visibleFor: 'both' },
+  { id: 'CG103', tenantId: 'HMC', accountTypes: ['etc'], name: '콘텐츠사용비', desc: '외부 콘텐츠 라이선스 및 플랫폼 구독료.', unitPrice: 0, softLimit: 1000000, hardLimit: 5000000, limitType: 'soft', active: true, usageScope: ['plan', 'apply'], visibleFor: 'both' },
+  { id: 'CG104', tenantId: 'HMC', accountTypes: ['etc'], name: '가입비 (협회/간행물)', desc: '학·협회 가입비, 간행물 구독비.', unitPrice: 0, softLimit: 500000, hardLimit: 2000000, limitType: 'soft', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
+  { id: 'CG105', tenantId: 'HMC', accountTypes: ['etc'], name: '도서구입비', desc: '직무·교양 도서 구매비. 1권 기준.', unitPrice: 20000, softLimit: 0, hardLimit: 500000, limitType: 'hard', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
+  { id: 'CG106', tenantId: 'HMC', accountTypes: ['etc'], name: '그룹사간 정산', desc: '그룹사 간 콘텐츠·개발비 정산액.', unitPrice: 0, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['settle'], visibleFor: 'both' },
+  { id: 'CG107', tenantId: 'HMC', accountTypes: ['etc'], name: '기타 (기타계정)', desc: '위 항목에 해당하지 않는 기타 비용.', unitPrice: 0, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
 ];
 
 
 // ─── 계정별 산출근거 항목 연결 설정 ──────────────────────────────────────────
 // key: accountCode, value: { accountType: 'ops'|'etc', enabledItemIds: [] (빈 배열이면 전체 허용) }
 let CALC_ACCOUNT_GROUNDS = {
-  'HMC-OPS':  { accountType: 'ops', enabledItemIds: [] },
-  'HMC-ETC':  { accountType: 'etc', enabledItemIds: [] },
+  'HMC-OPS': { accountType: 'ops', enabledItemIds: [] },
+  'HMC-ETC': { accountType: 'etc', enabledItemIds: [] },
   'HMC-PART': { accountType: 'ops', enabledItemIds: ['CG017'] },  // 참가계정: 교육참가비만
-  'HMC-RND':  { accountType: 'ops', enabledItemIds: [] },
-  'KIA-OPS':  { accountType: 'ops', enabledItemIds: [] },
+  'HMC-RND': { accountType: 'ops', enabledItemIds: [] },
+  'KIA-OPS': { accountType: 'ops', enabledItemIds: [] },
   'KIA-PART': { accountType: 'ops', enabledItemIds: ['CG017'] },
-  'HAE-OPS':  { accountType: 'ops', enabledItemIds: [] },
+  'HAE-OPS': { accountType: 'ops', enabledItemIds: [] },
   'HAE-PART': { accountType: 'ops', enabledItemIds: ['CG017'] },
   'HAE-CERT': { accountType: 'etc', enabledItemIds: ['CG104', 'CG107'] },
 };
@@ -1377,36 +1418,36 @@ let APPROVAL_ROUTING = [
     id: 'AR001', tenantId: 'HMC', accountCodes: ['HMC-OPS', 'HMC-ETC', 'HMC-PART'],
     name: '현대차 일반예산 결재라인',
     ranges: [
-      { max: 1000000,   label: '100만원 미만',          approvers: ['팀장 전결'] },
-      { max: 5000000,   label: '100만원 ~ 500만원 미만', approvers: ['팀장', '실장'] },
-      { max: null,      label: '500만원 이상',           approvers: ['팀장', '실장', '본부장'] },
+      { max: 1000000, label: '100만원 미만', approvers: ['팀장 전결'] },
+      { max: 5000000, label: '100만원 ~ 500만원 미만', approvers: ['팀장', '실장'] },
+      { max: null, label: '500만원 이상', approvers: ['팀장', '실장', '본부장'] },
     ]
   },
   {
     id: 'AR002', tenantId: 'HMC', accountCodes: ['HMC-RND'],
     name: 'HMC R&D 결재라인',
     ranges: [
-      { max: 3000000,   label: '300만원 미만',           approvers: ['팀장 전결'] },
-      { max: 10000000,  label: '300만원 ~ 1000만원 미만',approvers: ['팀장', '센터장'] },
-      { max: null,      label: '1000만원 이상',          approvers: ['팀장', '센터장', 'R&D총괄'] },
+      { max: 3000000, label: '300만원 미만', approvers: ['팀장 전결'] },
+      { max: 10000000, label: '300만원 ~ 1000만원 미만', approvers: ['팀장', '센터장'] },
+      { max: null, label: '1000만원 이상', approvers: ['팀장', '센터장', 'R&D총괄'] },
     ]
   },
   {
     id: 'AR003', tenantId: 'KIA', accountCodes: ['KIA-OPS', 'KIA-PART', 'KIA-ETC'],
     name: '기아 일반예산 결재라인',
     ranges: [
-      { max: 1000000,   label: '100만원 미만',           approvers: ['팀장 전결'] },
-      { max: 5000000,   label: '100만원 ~ 500만원 미만', approvers: ['팀장', '실장'] },
-      { max: null,      label: '500만원 이상',            approvers: ['팀장', '실장', '본부장'] },
+      { max: 1000000, label: '100만원 미만', approvers: ['팀장 전결'] },
+      { max: 5000000, label: '100만원 ~ 500만원 미만', approvers: ['팀장', '실장'] },
+      { max: null, label: '500만원 이상', approvers: ['팀장', '실장', '본부장'] },
     ]
   },
   {
     id: 'AR004', tenantId: 'HAE', accountCodes: ['HAE-OPS', 'HAE-PART', 'HAE-CERT'],
     name: '오토에버 결재라인',
     ranges: [
-      { max: 500000,    label: '50만원 미만',            approvers: ['팀장 전결'] },
-      { max: 2000000,   label: '50만원 ~ 200만원 미만',  approvers: ['팀장', '임원'] },
-      { max: null,      label: '200만원 이상',            approvers: ['팀장', '임원', '대표이사'] },
+      { max: 500000, label: '50만원 미만', approvers: ['팀장 전결'] },
+      { max: 2000000, label: '50만원 ~ 200만원 미만', approvers: ['팀장', '임원'] },
+      { max: null, label: '200만원 이상', approvers: ['팀장', '임원', '대표이사'] },
     ]
   },
 ];

@@ -82,7 +82,7 @@ const _EDU_TYPE_MAP = {
 
 // ── 필터 상태 ─────────────────────────────────────────────────────────────────
 let _pbTenantFilter  = '';
-let _pbGroupFilter   = '';
+let _pbVorgFilter    = '';
 let _pbAccountFilter = '';
 
 // ── 정책 목록 메인 화면 ───────────────────────────────────────────────────────
@@ -96,15 +96,25 @@ async function renderServicePolicy() {
   const el = document.getElementById('bo-content');
 
   // DB 재로드: Supabase에서 service_policies를 불러와 메모리와 병합
+  let _pbTplList = [];
+  let _pbAccountList = [];
   if (typeof _sb === 'function' && _sb()) {
     try {
-      const { data: dbPolicies } = await _sb().from('service_policies').select('*');
-      if (dbPolicies && dbPolicies.length > 0) {
-        dbPolicies.forEach(row => {
+      const p1 = _sb().from('virtual_org_templates').select('id,name,tenant_id').eq('service_type', 'edu_support');
+      const p2 = _sb().from('budget_accounts').select('code,name,virtual_org_template_id,tenant_id,active');
+      const p3 = _sb().from('service_policies').select('*');
+      const [res1, res2, res3] = await Promise.all([p1, p2, p3]);
+      
+      if (res1.data) _pbTplList = res1.data;
+      if (res2.data) _pbAccountList = res2.data;
+
+      if (res3.data && res3.data.length > 0) {
+        res3.data.forEach(row => {
           const mapped = {
             id: row.id, tenantId: row.tenant_id, name: row.name, desc: row.descr,
-            domainId: row.domain_id, scopeTenantId: row.scope_tenant_id,
-            scopeGroupId: row.scope_group_id, targetType: row.target_type, purpose: row.purpose,
+            vorgTemplateId: row.vorg_template_id || row.scope_group_id || row.isolation_group_id, 
+            scopeTenantId: row.scope_tenant_id,
+            targetType: row.target_type, purpose: row.purpose,
             eduTypes: row.edu_types || [], selectedEduItem: row.selected_edu_item,
             processPattern: row.process_pattern, flow: row.flow,
             budgetLinked: row.budget_linked !== false, applyMode: row.apply_mode,
@@ -126,46 +136,39 @@ async function renderServicePolicy() {
   }
 
   const activeTenantId = isPlatform ? (_pbTenantFilter || '') : (persona.tenantId || '');
-  const activeGroupId  = (typeof boGetActiveGroupId === 'function') ? boGetActiveGroupId() : null;
-  const autoGroupId    = (isBudgetOp || isBudgetAdmin) ? (persona.domainId || activeGroupId || '') : null;
-  const pbGroupId      = autoGroupId || _pbGroupFilter || activeGroupId || '';
+  const pbVorgId       = (isBudgetOp || isBudgetAdmin) ? (persona.domainId || _pbVorgFilter || '') : (_pbVorgFilter || '');
 
   let myPolicies = SERVICE_POLICIES.filter(p => {
-
-    const tenantMatch = activeTenantId ? p.tenantId === activeTenantId : true;
-    if (!tenantMatch) return false;
-    if (isBudgetOp || isBudgetAdmin) {
-      if (pbGroupId && p.domainId) { if (p.domainId !== pbGroupId) return false; }
-      else {
-        const myAccts = persona.ownedAccounts || [];
-        if (!myAccts.includes('*') && !myAccts.some(a => p.accountCodes?.includes(a))) return false;
-      }
-    } else {
-      if (pbGroupId && p.domainId && p.domainId !== pbGroupId) return false;
-      if (activeTenantId && p.tenantId !== activeTenantId) return false;
-    }
+    // 1. 테넌트 필터
+    if (activeTenantId && p.tenantId !== activeTenantId) return false;
+    // 2. 가상조직 필터 
+    if (pbVorgId && p.vorgTemplateId !== pbVorgId) return false;
+    // 3. 예산계정 필터
     if (_pbAccountFilter && !(p.accountCodes || []).includes(_pbAccountFilter)) return false;
+    // 4. 교육지원 담당자(운영자)는 자신에게 매핑된 예산계정의 정책만 표시할 수 있음
+    if ((isBudgetOp || isBudgetAdmin) && !pbVorgId) {
+      const myAccts = persona.ownedAccounts || [];
+      if (!myAccts.includes('*') && !myAccts.some(a => p.accountCodes?.includes(a))) return false;
+    }
     return true;
   });
 
-  const TENANTS_LIST = typeof TENANTS !== 'undefined' ? TENANTS
-    : [...new Set(SERVICE_POLICIES.map(p=>p.tenantId))].map(id=>({id,name:id}));
-  const availGroups = (typeof EDU_SUPPORT_DOMAINS !== 'undefined' ? EDU_SUPPORT_DOMAINS : [])
-    .filter(g => !activeTenantId || g.tenantId === activeTenantId);
+  const TENANTS_LIST = typeof TENANTS !== 'undefined' ? TENANTS : [...new Set(SERVICE_POLICIES.map(p=>p.tenantId))].map(id=>({id,name:id}));
+  const tenantName = TENANTS_LIST.find(t=>t.id===activeTenantId)?.name || activeTenantId || '소속 회사';
+  
+  // 조회 가능한 가상교육조직 템플릿 목록
+  const availVorgs = _pbTplList.filter(g => !activeTenantId || g.tenant_id === activeTenantId);
+  const vorgName = availVorgs.find(g=>g.id===pbVorgId)?.name || pbVorgId || '선택된 조직';
+
+  // 조회 가능한 예산계정 목록
   const availAccounts = (() => {
-    // 격리그룹을 선택한 경우 해당 그룹의 ownedAccounts만 표시
-    if (pbGroupId) {
-      const grp = (typeof EDU_SUPPORT_DOMAINS !== 'undefined' ? EDU_SUPPORT_DOMAINS : []).find(g => g.id === pbGroupId);
-      const owned = grp?.ownedAccounts || [];
-      if (owned.length) {
-        return ACCOUNT_MASTER.filter(a => a.active && owned.includes(a.code));
-      }
+    if (pbVorgId) {
+      return _pbAccountList.filter(a => a.active && a.virtual_org_template_id === pbVorgId);
     }
-    // 그룹 미선택: 테넌트 전체 계정 (COMMON-FREE 제외)
-    return ACCOUNT_MASTER.filter(a =>
+    return _pbAccountList.filter(a =>
       a.active &&
       a.code !== 'COMMON-FREE' &&
-      (activeTenantId ? a.tenantId === activeTenantId : true)
+      (activeTenantId ? a.tenant_id === activeTenantId : true)
     );
   })();
 
@@ -174,47 +177,60 @@ async function renderServicePolicy() {
   ${isPlatform ? `
   <div style="display:flex;align-items:center;gap:8px">
     <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">회사</span>
-    <select id="pb-tenant-sel" onchange="_pbTenantFilter=this.value;_pbGroupFilter='';_pbAccountFilter='';renderServicePolicy()"
+    <select id="pb-tenant-sel" onchange="_pbTenantFilter=this.value;_pbVorgFilter='';_pbAccountFilter='';renderServicePolicy()"
       style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:140px">
       <option value="">전체 회사</option>
       ${TENANTS_LIST.map(t=>`<option value="${t.id}" ${activeTenantId===t.id?'selected':''}>${t.name||t.id}</option>`).join('')}
     </select>
   </div>
-  <div style="width:1px;height:28px;background:#E5E7EB"></div>` : ''}
-  ${isBudgetOp ? `
+  <div style="width:1px;height:28px;background:#E5E7EB"></div>` : `
   <div style="display:flex;align-items:center;gap:8px">
-    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">격리그룹</span>
+    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">회사</span>
+    <div style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid #E5E7EB;border-radius:10px;background:#F9FAFB;min-width:140px">
+      <span style="font-size:12px">🏢</span>
+      <span style="font-size:13px;font-weight:800;color:#374151">${tenantName}</span>
+    </div>
+  </div>
+  <div style="width:1px;height:28px;background:#E5E7EB"></div>
+  `}
+  
+  ${(isBudgetOp || isBudgetAdmin) ? `
+  <div style="display:flex;align-items:center;gap:8px">
+    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">가상교육조직</span>
     <div style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid #C4B5FD;border-radius:10px;background:#F5F3FF;min-width:140px">
       <span style="font-size:12px">🔒</span>
-      <span style="font-size:13px;font-weight:800;color:#7C3AED">${(typeof EDU_SUPPORT_DOMAINS!=='undefined'?EDU_SUPPORT_DOMAINS:[]).find(g=>g.id===pbGroupId)?.name||pbGroupId||'전체'}</span>
+      <span style="font-size:13px;font-weight:800;color:#7C3AED">${vorgName}</span>
     </div>
   </div>` : `
   <div style="display:flex;align-items:center;gap:8px">
-    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">격리그룹</span>
-    <select id="pb-group-sel" onchange="_pbGroupFilter=this.value;_pbAccountFilter='';renderServicePolicy()"
+    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">가상교육조직</span>
+    <select id="pb-group-sel" onchange="_pbVorgFilter=this.value;_pbAccountFilter='';renderServicePolicy()"
       style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:160px">
-      <option value="">전체 그룹</option>
-      ${availGroups.map(g=>`<option value="${g.id}" ${pbGroupId===g.id?'selected':''}>${g.name}</option>`).join('')}
+      <option value="">전체 조직</option>
+      ${availVorgs.map(g=>`<option value="${g.id}" ${pbVorgId===g.id?'selected':''}>${g.name}</option>`).join('')}
     </select>
   </div>`}
+  
+  <div style="width:1px;height:28px;background:#E5E7EB"></div>
   <div style="display:flex;align-items:center;gap:8px">
-    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">예산 계정</span>
+    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">예산계정</span>
     <select id="pb-acct-sel" onchange="_pbAccountFilter=this.value"
       style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:160px">
       <option value="">전체 계정</option>
       ${availAccounts.map(a=>`<option value="${a.code}" ${_pbAccountFilter===a.code?'selected':''}>${a.name}</option>`).join('')}
     </select>
   </div>
+  
   <button onclick="
     _pbTenantFilter=document.getElementById('pb-tenant-sel')?.value||_pbTenantFilter;
-    _pbGroupFilter=document.getElementById('pb-group-sel')?.value||_pbGroupFilter;
+    _pbVorgFilter=document.getElementById('pb-group-sel')?.value||_pbVorgFilter;
     _pbAccountFilter=document.getElementById('pb-acct-sel')?.value||_pbAccountFilter;
     renderServicePolicy()"
-    style="padding:9px 20px;background:linear-gradient(135deg,#1D4ED8,#2563EB);color:white;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(37,99,235,.35);white-space:nowrap">
+    style="padding:9px 20px;background:linear-gradient(135deg,#1D4ED8,#2563EB);color:white;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(37,99,235,.35);white-space:nowrap;margin-left:auto">
     ● 조회
   </button>
-  ${!isBudgetOp ? `
-  <button onclick="_pbTenantFilter='';_pbGroupFilter='';_pbAccountFilter='';renderServicePolicy()"
+  ${(!isBudgetOp && !isBudgetAdmin) ? `
+  <button onclick="_pbTenantFilter='';_pbVorgFilter='';_pbAccountFilter='';renderServicePolicy()"
     style="padding:9px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:12px;font-weight:700;background:white;cursor:pointer;color:#6B7280;white-space:nowrap">초기화</button>` : ''}
 </div>` : '';
 
@@ -305,7 +321,7 @@ function startPolicyWizard(policyId) {
       id: 'POL-' + Date.now(),
       tenantId: boCurrentPersona.tenantId,
       scopeTenantId: boCurrentPersona.tenantId || '',
-      scopeGroupId: boCurrentPersona.domainId || '',
+      vorgTemplateId: boCurrentPersona.domainId || '',
       name: '', desc: '',
       targetType: '',
       purpose: '',
@@ -323,9 +339,9 @@ function startPolicyWizard(policyId) {
       status: 'active', createdAt: new Date().toISOString().slice(0,10),
     };
     // 목록 페이지의 필터값을 새 정책 초기값으로 pre-fill
-    if (_pbTenantFilter)  _policyWizardData.scopeTenantId = _pbTenantFilter;
-    if (_pbGroupFilter)   _policyWizardData.scopeGroupId  = _pbGroupFilter;
-    if (_pbAccountFilter) _policyWizardData.accountCodes  = [_pbAccountFilter];
+    if (_pbTenantFilter)  _policyWizardData.scopeTenantId  = _pbTenantFilter;
+    if (_pbVorgFilter)    _policyWizardData.vorgTemplateId = _pbVorgFilter;
+    if (_pbAccountFilter) _policyWizardData.accountCodes   = [_pbAccountFilter];
   }
   renderPolicyWizard();
 }
@@ -333,7 +349,7 @@ function startPolicyWizard(policyId) {
 // ── 위저드 렌더링 ─────────────────────────────────────────────────────────────
 function renderPolicyWizard() {
   const el = document.getElementById('bo-content');
-  const steps = ['범위설정', '정책명·대상자', '목적', '교육유형', '패턴', '대상조직', '양식', '결재라인'];
+  const steps = ['범위설정', '정책명·대상자', '목적', '교육유형', '패턴', '양식', '결재라인'];
   const TOTAL = steps.length - 1;
   const d = _policyWizardData;
   const persona = boCurrentPersona;
@@ -351,10 +367,10 @@ function renderPolicyWizard() {
 
   // ── 이전 선택값 요약 배너 (step > 0일 때 표시) ─────────────────────────────
   const _sumTenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
-  const _sumGroups  = typeof EDU_SUPPORT_DOMAINS !== 'undefined' ? EDU_SUPPORT_DOMAINS : [];
+  const _sumVorgs   = typeof _pbTplList !== 'undefined' ? _pbTplList : [];
   const _sumAccts   = typeof ACCOUNT_MASTER !== 'undefined' ? ACCOUNT_MASTER : [];
   const sumTenant   = _sumTenants.find(t => t.id === d.scopeTenantId)?.name || d.scopeTenantId || '';
-  const sumGroup    = _sumGroups.find(g => g.id === d.scopeGroupId)?.name  || d.scopeGroupId  || '';
+  const sumGroup    = _sumVorgs.find(g => g.id === d.vorgTemplateId)?.name  || d.vorgTemplateId  || '';
   const sumAccts    = (d.accountCodes||[]).map(c => _sumAccts.find(a=>a.code===c)?.name||c).join(', ');
   const sumPat      = d.processPattern ? `${_PATTERN_META[d.processPattern]?.icon||''} 패턴${d.processPattern}` : '';
   const summaryChips = [
@@ -372,32 +388,35 @@ function renderPolicyWizard() {
 
   let stepContent = '';
 
-  // ── Step 0: 범위 설정 (회사 → 격리그룹 → 예산계정) ────────────────────────────
+  // ── Step 0: 범위 설정 (회사 → 가상교육조직 → 예산계정) ────────────────────────────
   if (_policyWizardStep === 0) {
     const isPlatform = persona.role === 'platform_admin';
     const isTenant   = ['tenant_global_admin'].includes(persona.role);
     const isBudgetOp = ['budget_op_manager','budget_hq','budget_global_admin'].includes(persona.role);
 
-    const _TENANTS_LIST = typeof TENANTS !== 'undefined' ? TENANTS
-      : [...new Set((typeof SERVICE_POLICIES!=='undefined'?SERVICE_POLICIES:[]).map(p=>p.tenantId))].map(id=>({id,name:id}));
+    const _TENANTS_LIST = typeof TENANTS !== 'undefined' ? TENANTS : [];
+    const _VORG_LIST    = typeof _pbTplList !== 'undefined' ? _pbTplList : [];
+    
     const scopeTenantId = d.scopeTenantId || (isTenant||isBudgetOp ? persona.tenantId : '');
-    const scopeGroups = (typeof EDU_SUPPORT_DOMAINS!=='undefined' ? EDU_SUPPORT_DOMAINS : [])
-      .filter(g => scopeTenantId ? g.tenantId === scopeTenantId : true);
-    const scopeGroupId = d.scopeGroupId || (isBudgetOp ? (persona.domainId||'') : '');
-    const scopeGroup   = scopeGroups.find(g => g.id === scopeGroupId);
-    const scopeAccts   = scopeGroupId
-      ? ACCOUNT_MASTER.filter(a => a.active && (scopeGroup?.ownedAccounts||[]).includes(a.code))
+    const scopeVorgs    = _VORG_LIST.filter(g => scopeTenantId ? g.tenant_id === scopeTenantId : true);
+    
+    const scopeVorgId   = d.vorgTemplateId || (isBudgetOp ? (persona.domainId||'') : '');
+    const scopeVorg     = scopeVorgs.find(g => g.id === scopeVorgId);
+    
+    // 예산계정
+    const scopeAccts    = scopeVorgId
+      ? _pbAccountList.filter(a => a.active && a.virtual_org_template_id === scopeVorgId)
       : [];
 
     stepContent = `
 <div style="display:grid;gap:18px">
   <div style="padding:12px 16px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;font-size:12px;color:#92400E">
-    💡 정책이 적용될 <strong>회사 · 격리그룹 · 예산계정</strong>을 먼저 설정합니다. 이 설정이 정책의 모든 데이터 범위를 결정합니다.
+    💡 정책이 적용될 <strong>회사 · 가상교육조직 · 예산계정</strong>을 먼저 설정합니다. 이 설정이 정책의 모든 데이터 범위를 결정합니다.
   </div>
   ${isPlatform ? `
   <div>
     <label class="bo-label">회사 선택 <span style="color:#EF4444">*</span></label>
-    <select onchange="_policyWizardData.scopeTenantId=this.value;_policyWizardData.scopeGroupId='';_policyWizardData.accountCodes=[];renderPolicyWizard()"
+    <select onchange="_policyWizardData.scopeTenantId=this.value;_policyWizardData.vorgTemplateId='';_policyWizardData.accountCodes=[];renderPolicyWizard()"
       style="width:100%;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700">
       <option value="">— 회사를 선택하세요 —</option>
       ${_TENANTS_LIST.map(t=>`<option value="${t.id}" ${scopeTenantId===t.id?'selected':''}>${t.name||t.id}</option>`).join('')}
@@ -408,30 +427,31 @@ function renderPolicyWizard() {
     <span style="font-size:14px;font-weight:900;color:#111827">🏢 ${_TENANTS_LIST.find(t=>t.id===scopeTenantId)?.name||scopeTenantId}</span>
     <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#E5E7EB;color:#6B7280">자동 설정</span>
   </div>`}
+  
   ${scopeTenantId ? `
   <div>
-    <label class="bo-label">${isBudgetOp?'담당 격리그룹':'격리그룹 선택'} <span style="color:#EF4444">*</span></label>
+    <label class="bo-label">${isBudgetOp?'담당 가상교육조직':'가상교육조직 선택'} <span style="color:#EF4444">*</span></label>
     ${isBudgetOp ? `
     <div style="padding:10px 16px;background:#EDE9FE;border:1.5px solid #C4B5FD;border-radius:10px;display:flex;align-items:center;gap:8px">
       <span style="font-size:16px">🔒</span>
-      <span style="font-size:14px;font-weight:900;color:#7C3AED">${scopeGroups.find(g=>g.id===scopeGroupId)?.name||scopeGroupId}</span>
+      <span style="font-size:14px;font-weight:900;color:#7C3AED">${scopeVorgs.find(g=>g.id===scopeVorgId)?.name||scopeVorgId}</span>
       <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#DDD6FE;color:#5B21B6">자동 고정</span>
     </div>` : `
     <div style="display:grid;gap:6px">
-      ${scopeGroups.map(g=>`
+      ${scopeVorgs.length > 0 ? scopeVorgs.map(g=>`
       <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:10px;
-                    border:2px solid ${scopeGroupId===g.id?g.color||'#7C3AED':'#E5E7EB'};
-                    background:${scopeGroupId===g.id?(g.bg||'#F5F3FF'):'white'};cursor:pointer"
-             onclick="_policyWizardData.scopeGroupId='${g.id}';_policyWizardData.accountCodes=[];_policyWizardData.budgetLinked=true;renderPolicyWizard()">
-        <input type="radio" name="wiz-group" ${scopeGroupId===g.id?'checked':''} style="margin:0;flex-shrink:0">
+                    border:2px solid ${scopeVorgId===g.id?'#7C3AED':'#E5E7EB'};
+                    background:${scopeVorgId===g.id?'#F5F3FF':'white'};cursor:pointer"
+             onclick="_policyWizardData.vorgTemplateId='${g.id}';_policyWizardData.accountCodes=[];_policyWizardData.budgetLinked=true;renderPolicyWizard()">
+        <input type="radio" name="wiz-group" ${scopeVorgId===g.id?'checked':''} style="margin:0;flex-shrink:0">
         <div>
-          <div style="font-weight:800;font-size:13px;color:${scopeGroupId===g.id?(g.color||'#7C3AED'):'#374151'}">${g.name}</div>
-          <div style="font-size:11px;color:#9CA3AF">${g.desc||''}</div>
+          <div style="font-weight:800;font-size:13px;color:${scopeVorgId===g.id?'#7C3AED':'#374151'}">${g.name}</div>
         </div>
-      </label>`).join('')}
+      </label>`).join('') : '<div style="font-size:12px;padding:10px;color:#9CA3AF">해당 회사의 가상교육조직이 없습니다. 먼저 조직을 생성하세요.</div>'}
     </div>`}
   </div>` : ''}
-  ${scopeGroupId && scopeAccts.length ? `
+  
+  ${scopeVorgId && scopeAccts.length ? `
   <div>
     <label class="bo-label">예산 계정 선택 <span style="color:#EF4444">*</span></label>
     <div style="display:grid;gap:6px">
@@ -454,9 +474,9 @@ function renderPolicyWizard() {
     <div style="margin-top:8px;padding:10px 16px;background:${d.budgetLinked?'#EFF6FF':'#F0FDF4'};border-radius:10px;font-size:12px;color:${d.budgetLinked?'#1E40AF':'#065F46'}">
       ${d.budgetLinked?'💳 <strong>예산 연동</strong> — 선택한 계정에서 예산을 집행합니다.':'📝 <strong>무예산</strong> — 예산 차감 없이 이력 관리합니다.'}
     </div>` : ''}
-  </div>` : scopeGroupId ? `
+  </div>` : scopeVorgId ? `
   <div style="padding:20px;text-align:center;background:#F9FAFB;border-radius:10px;color:#9CA3AF;font-size:12px">
-    선택한 격리그룹에 연결된 예산 계정이 없습니다.
+    선택한 가상교육조직에 연결된 예산 계정이 없습니다.
   </div>` : ''}
 </div>`;
 
@@ -624,39 +644,8 @@ function renderPolicyWizard() {
   </div>
 </div>`;
 
-  // ── Step 5: 대상 조직 ─────────────────────────────────────────────────────────
+  // ── Step 5: 단계별 양식 선택 (기존 Step 6) ──────────────────────────────────
   } else if (_policyWizardStep === 5) {
-    // scopeTenantId + scopeGroupId 기반 필터 (persona.tenantId가 아닌 정책 선택 기준)
-    const scopeTenantId = d.scopeTenantId || persona.tenantId;
-    const scopeGroupId  = d.scopeGroupId  || '';
-    const tpls = (typeof VIRTUAL_EDU_ORGS !== 'undefined' ? VIRTUAL_EDU_ORGS : [])
-      .filter(t => {
-        const tTenantId = t.tenantId || t.tenant_id;
-        const tGroupId  = t.domainId || t.domain_id;
-        if (tTenantId !== scopeTenantId) return false;
-        if (scopeGroupId && tGroupId && tGroupId !== scopeGroupId) return false;
-        return true;
-      });
-    stepContent = `
-<div>
-  <label class="bo-label">가상조직 템플릿 연결 <span style="color:#EF4444">*</span></label>
-  <div style="display:grid;gap:8px">
-    ${tpls.map(t=>`
-    <label style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:10px;border:2px solid ${d.virtualEduOrgId===t.id?'#059669':'#E5E7EB'};background:${d.virtualEduOrgId===t.id?'#F0FDF4':'white'};cursor:pointer"
-           onclick="_policyWizardData.virtualEduOrgId='${t.id}';renderPolicyWizard()">
-      <input type="radio" ${d.virtualEduOrgId===t.id?'checked':''} style="margin:0">
-      <div>
-        <div style="font-weight:700;font-size:13px">🏢 ${t.name}</div>
-        <div style="font-size:11px;color:#6B7280">
-          ${(t.tree.hqs||t.tree.centers||[]).map(g=>`${g.name}(${(g.teams||[]).length}팀)`).join(' · ')}
-        </div>
-      </div>
-    </label>`).join('')}
-  </div>
-</div>`;
-
-  // ── Step 6: 단계별 양식 선택 ──────────────────────────────────────────────────
-  } else if (_policyWizardStep === 6) {
     // DB에서 form_templates 로드하여 FORM_MASTER와 병합 (최초 1회 또는 비어있을 때)
     const _scopeGrpForLoad = d.scopeTenantId || persona.tenantId;
     if (typeof _sb === 'function' && _sb() && typeof FORM_MASTER !== 'undefined') {
@@ -667,7 +656,7 @@ function renderPolicyWizard() {
             let changed = false;
             dbForms.forEach(row => {
               const mapped = {
-                id: row.id, tenantId: row.tenant_id, domainId: row.domain_id,
+                id: row.id, tenantId: row.tenant_id, domainId: row.domain_id || row.vorg_template_id,
                 accountCode: row.account_code, type: row.type, name: row.name, desc: row.description || row.desc || '',
                 purpose: row.purpose, eduType: row.edu_type, active: row.active !== false,
                 fields: row.fields || [],
@@ -678,12 +667,12 @@ function renderPolicyWizard() {
             });
             if (changed) renderPolicyWizard(); // DB 로드 후 양식 목록 갱신
           }
-        } catch(e) { console.warn('[PolicyWizard:Step6] form_templates 로드 실패:', e.message); }
+        } catch(e) { console.warn('[PolicyWizard:Step5] form_templates 로드 실패:', e.message); }
       })();
     }
 
     const _scopeTenantId = d.scopeTenantId || persona.tenantId;
-    const _scopeGroupId  = d.scopeGroupId  || '';
+    const _scopeVorgId   = d.vorgTemplateId  || '';
     const _scopeAcctCode = (d.accountCodes||[])[0] || '';
 
     // 정책에서 선택된 교육유형 집합 (필터에 사용)
@@ -694,13 +683,14 @@ function renderPolicyWizard() {
     const _policyEduSubId = d.purpose === 'external_personal'
       ? (d.selectedEduItem?.subId || '') : '';
 
-    // 기준 양식 풀 (텐넌트+격리그룹+계정)
+    // 기준 양식 풀 (텐넌트+가상교육조직+계정)
     const _allForms = (typeof FORM_MASTER !== 'undefined' ? FORM_MASTER : [])
       .filter(f => {
         if (!f.active) return false;
         // tenantId 매칭: scopeTenantId 없으면 통과, 있으면 정확 매칭 (단 DB UUID와 코드가 다를 수 있어 양쪽 허용)
         if (_scopeTenantId && f.tenantId && f.tenantId !== _scopeTenantId) return false;
-        if (_scopeGroupId && f.domainId && f.domainId !== _scopeGroupId) return false;
+        // f.domainId에 신규로 vorg_template_id 저장됨
+        if (_scopeVorgId && f.domainId && f.domainId !== _scopeVorgId) return false;
         if (_scopeAcctCode && f.accountCode && f.accountCode !== _scopeAcctCode) return false;
         return true;
       });
@@ -843,8 +833,8 @@ function renderPolicyWizard() {
 
 
 
-  // ── Step 7: 단계별 결재라인 ────────────────────────────────────────────────────
-  } else if (_policyWizardStep === 7) {
+  // ── Step 6: 단계별 결재라인 (기존 Step 7) ────────────────────────────────────
+  } else if (_policyWizardStep === 6) {
     const stages = _PATTERN_STAGES[d.processPattern] || ['apply'];
     const stageLabel = { plan:'📊 계획', apply:'📝 신청', result:'📄 결과' };
     const stageColor = { plan:'#7C3AED', apply:'#1D4ED8', result:'#059669' };
@@ -1031,7 +1021,7 @@ function advancePolicyWizard() {
   if (_policyWizardStep === 0) {
     const d = _policyWizardData;
     if (!d.scopeTenantId) { alert('회사를 선택하세요.'); return; }
-    if (!d.scopeGroupId)  { alert('격리그룹을 선택하세요.'); return; }
+    if (!d.vorgTemplateId)  { alert('가상교육조직을 선택하세요.'); return; }
     if (!(d.accountCodes||[]).length) { alert('예산 계정을 선택하세요.'); return; }
     // scopeTenantId를 tenantId로 동기화
     _policyWizardData.tenantId = d.scopeTenantId;
@@ -1088,9 +1078,8 @@ async function savePolicy() {
     const dbRow = {
       id:                  d.id,
       tenant_id:           d.tenantId || d.scopeTenantId,
-      domain_id:  d.domainId || d.scopeGroupId || null,
+      vorg_template_id:    d.vorgTemplateId || null,
       scope_tenant_id:     d.scopeTenantId || null,
-      scope_group_id:      d.scopeGroupId || null,
       name:                d.name,
       descr:               d.desc || d.descr || null,
       target_type:         d.targetType || null,
@@ -1102,11 +1091,10 @@ async function savePolicy() {
       budget_linked:       d.budgetLinked !== false,
       apply_mode:          d.applyMode || null,
       account_codes:       d.accountCodes || [],
-      virtual_edu_org_id:    d.virtualEduOrgId || null,
       stage_form_ids:      d.stageFormIds || d.formSets || null,
       approval_config:     d.approvalConfig || null,
       manager_persona_key: d.managerPersonaKey || null,
-      status:              'active',
+      status:              d.status || 'active',
     };
     try {
       await sbSaveServicePolicy(dbRow);

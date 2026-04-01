@@ -296,7 +296,7 @@ function _renderApplyList() {
 
   // Segmented tab
   const tabBar = teamViewEnabled ? `
-    < div style = "display:flex;gap:4px;background:#F3F4F6;padding:4px;border-radius:14px;margin-bottom:20px;width:fit-content" >
+  <div style="display:flex;gap:4px;background:#F3F4F6;padding:4px;border-radius:14px;margin-bottom:20px;width:fit-content">
     <button onclick="_applyListTab='mine';_renderApplyList()" style="
       padding:8px 20px;border-radius:10px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s;
       background:${_applyListTab === 'mine' ? '#fff' : 'transparent'};
@@ -311,12 +311,12 @@ function _renderApplyList() {
       box-shadow:${_applyListTab === 'team' ? '0 1px 4px rgba(0,0,0,.12)' : 'none'}">
       👥 팀 신청
     </button>
-  </div > ` : '';
+  </div>` : '';
 
   // 통계 카드
   const statsBar = `
-    < div style = "display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px" >
-      ${[
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+    ${[
       { label: '승인완료', val: statCounts.approved, color: '#059669', bg: '#F0FDF4', icon: '✅' },
       { label: '진행중', val: statCounts.inProgress, color: '#D97706', bg: '#FFFBEB', icon: '⏳' },
       { label: '반려', val: statCounts.rejected, color: '#DC2626', bg: '#FEF2F2', icon: '❌' },
@@ -325,19 +325,18 @@ function _renderApplyList() {
     <div style="background:${s.bg};border-radius:14px;padding:14px 16px;border:1.5px solid ${s.color}20">
       <div style="font-size:11px;font-weight:700;color:${s.color};margin-bottom:6px">${s.icon} ${s.label}</div>
       <div style="font-size:24px;font-weight:900;color:${s.color}">${s.val}<span style="font-size:13px;margin-left:2px">건</span></div>
-    </div>`).join('')
-    }
-  </div > `;
+    </div>`).join('')}
+  </div>`;
 
   // 목록 행
   const rows = history.map(h => {
     const cfg = STATUS_CFG[h.applyStatus] || STATUS_CFG['승인대기'];
     const canResult = h.applyStatus === '승인완료';
-    const authorBadge = h.author ? `< span style = "font-size:10px;background:#F3F4F6;color:#374151;padding:2px 8px;border-radius:10px;margin-left:6px" >👤 ${h.author}</span > ` : '';
+    const authorBadge = h.author ? `<span style="font-size:10px;background:#F3F4F6;color:#374151;padding:2px 8px;border-radius:10px;margin-left:6px">👤 ${h.author}</span>` : '';
     return `
-    < div style = "display:flex;align-items:flex-start;gap:16px;padding:18px 20px;border-radius:14px;
-  border: 1.5px solid ${cfg.border}; background:${cfg.bg}; transition:all .15s">
-    < div style = "font-size:24px;flex-shrink:0;margin-top:2px" > ${cfg.icon}</div >
+    <div style="display:flex;align-items:flex-start;gap:16px;padding:18px 20px;border-radius:14px;
+                border:1.5px solid ${cfg.border};background:${cfg.bg};transition:all .15s">
+      <div style="font-size:24px;flex-shrink:0;margin-top:2px">${cfg.icon}</div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
           <span style="font-size:14px;font-weight:900;color:#111827">${h.title}</span>
@@ -367,10 +366,10 @@ function _renderApplyList() {
           ✅ 결과 제출 완료
         </button>` : ''}
       </div>
-    </div > `;
+    </div>`;
   }).join('');
 
-  const emptyMsg = `< div style = "padding:60px 20px;text-align:center;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB" >
+  const emptyMsg = `<div style="padding:60px 20px;text-align:center;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB">
     <div style="font-size:48px;margin-bottom:16px">📭</div>
     <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">${_applyYear}년 교육신청 이력이 없습니다</div>
     <div style="font-size:12px;color:#9CA3AF;margin-bottom:20px;line-height:1.6">
@@ -381,35 +380,35 @@ function _renderApplyList() {
       style="padding:12px 28px;border-radius:12px;background:#002C5F;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">
       ✏️ 교육 신청하기
     </button>
-  </div > `;
+  </div>`;
 
   // 연도 선택
   const curY = new Date().getFullYear();
   const yearSelector = `
-    < select onchange = "_applyYear=Number(this.value);_renderApplyList()"
-  style = "padding:8px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:800;color:#002C5F;background:white;cursor:pointer;appearance:auto" >
+  <select onchange="_applyYear=Number(this.value);_renderApplyList()"
+    style="padding:8px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:800;color:#002C5F;background:white;cursor:pointer;appearance:auto">
     ${[curY + 1, curY, curY - 1, curY - 2].map(y => `<option value="${y}" ${_applyYear === y ? 'selected' : ''}>${y}년</option>`).join('')}
-  </select > `;
+  </select>`;
 
   document.getElementById('page-apply').innerHTML = `
-    < div class="max-w-4xl mx-auto space-y-4" >
-      <div style="display:flex;align-items:flex-end;justify-content:space-between">
-        <div>
-          <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육 신청</div>
-          <h1 class="text-3xl font-black text-brand tracking-tight">교육신청 현황</h1>
-          <p style="font-size:12px;color:#9CA3AF;margin-top:4px">${currentPersona.name} · ${currentPersona.dept}</p>
-        </div>
-        <div style="display:flex;gap:10px;align-items:center">
-          ${yearSelector}
-          ${_applySmartButtons()}
-        </div>
-      </div>
+<div class="max-w-4xl mx-auto space-y-4">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between">
+    <div>
+      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육 신청</div>
+      <h1 class="text-3xl font-black text-brand tracking-tight">교육신청 현황</h1>
+      <p style="font-size:12px;color:#9CA3AF;margin-top:4px">${currentPersona.name} · ${currentPersona.dept}</p>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      ${yearSelector}
+      ${_applySmartButtons()}
+    </div>
+  </div>
   ${tabBar}
   ${statsBar}
   <div class="card p-6">
     ${history.length === 0 ? emptyMsg : `<div style="display:flex;flex-direction:column;gap:10px">${rows}</div>`}
   </div>
-</div > `;
+</div>`;
 }
 
 // 팀 신청 샘플 (실제에서는 DB 조회)

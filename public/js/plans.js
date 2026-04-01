@@ -462,7 +462,7 @@ function renderPlanWizard() {
         ${eduTypes.map(t => `
         <button onclick="planState.eduType='${t}';renderPlanWizard()"
           class="p-4 rounded-xl border-2 text-sm font-bold text-left transition
-                 ${s.eduType === t ? 'bg-gray-900 border-gray-900 text-white shadow-xl' : 'border-gray-200 text-gray-700 hover:border-accent hover:text-accent'}">${t}</button>
+                 ${s.eduType === t ? 'bg-gray-900 border-gray-900 text-white shadow-xl' : 'border-gray-200 text-gray-700 hover:border-accent hover:text-accent'}">${typeof getEduTypeLabel !== 'undefined' ? getEduTypeLabel(t) : t}</button>
         `).join('')}
       </div>`;
     })()}
@@ -496,7 +496,7 @@ function renderPlanWizard() {
         </div>
         <div class="bg-white rounded-xl px-4 py-3 border border-blue-100">
           <div class="text-[10px] text-blue-400 font-black uppercase tracking-wider mb-1">③ 교육유형</div>
-          <div class="font-black text-sm text-gray-900">${s.eduType || '—'}</div>
+          <div class="font-black text-sm text-gray-900">${typeof getEduTypeLabel !== 'undefined' && s.eduType ? getEduTypeLabel(s.eduType) : (s.eduType || '—')}</div>
         </div>
       </div>
     </div>

@@ -50,6 +50,21 @@ Object.entries(_BO_TO_FO_PURPOSE).forEach(([bo, fo]) => {
   _FO_TO_BO_PURPOSE[fo].push(bo);
 });
 
+// ── 교육유형 라벨 매핑 (BO raw key → 한글 라벨) ──
+const EDU_TYPE_LABELS = {
+  regular: '정규교육', elearning: '이러닝', class: '집합', live: '라이브',
+  academic: '학술 및 연구활동', conf: '학회/컨퍼런스', seminar: '세미나',
+  knowledge: '지식자원 학습', book: '도서구입', online: '온라인콘텐츠',
+  competency: '역량개발지원', lang: '어학학습비 지원', cert: '자격증 취득지원',
+  etc: '기타', team_build: '팀빌딩',
+  conference: '콘퍼런스', teambuilding: '팀빌딩', cert_maintain: '자격유지',
+  system_link: '제도연계',
+  course_dev: '과정개발', material_dev: '교안개발', video_prod: '영상제작', facility: '교육시설운영',
+};
+function getEduTypeLabel(key) {
+  return EDU_TYPE_LABELS[key] || key;
+}
+
 // 페르소나 isolationGroup 코드 → EDU_SUPPORT_DOMAINS id 변환 (HMC-GENERAL → IG-HMC-GEN 등)
 function _resolveIsoGroupId(persona) {
   if (typeof EDU_SUPPORT_DOMAINS === 'undefined') return null;
@@ -149,20 +164,10 @@ function getPersonaPurposes(persona) {
   if (result) {
     const { source, policies } = result;
     if (source === 'db') {
-      // persona role → DB target_type 매핑
-      // team_general / team_leader 등 겸임 역할은 learner + operator 정책 모두 적용
-      const LEARNER_ROLES = ['learner', 'team_general', 'team_leader'];
-      const isLearnerRole = LEARNER_ROLES.includes(persona.role);
-      const isOperatorRole = !isLearnerRole || ['team_general', 'team_leader'].includes(persona.role);
-      const filtered = policies.filter(p => {
-        if (!p.targetType) return true; // target_type 미설정 = 전체 허용
-        if (isLearnerRole && p.targetType === 'learner') return true;
-        if (isOperatorRole && p.targetType === 'operator') return true;
-        return false;
-      });
-      // BO purpose keys → FO PURPOSES.id 변환
+      // 같은 VOrg에 소속된 정책은 targetType 구분 없이 모두 보여줌
+      // (learner/operator 모두 본인 VOrg에 할당된 정책의 목적을 볼 수 있어야 함)
       const foPurposeIds = [...new Set(
-        filtered.map(p => _BO_TO_FO_PURPOSE[p.purpose] || p.purpose).filter(Boolean)
+        policies.map(p => _BO_TO_FO_PURPOSE[p.purpose] || p.purpose).filter(Boolean)
       )];
       return PURPOSES.filter(p => foPurposeIds.includes(p.id));
     }

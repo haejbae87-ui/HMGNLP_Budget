@@ -42,11 +42,19 @@ function _cgGetItems(tenantId, groupId, accountCode) {
 
 // ─── DB 로드 ───────────────────────────────────────────────────────────────────────
 let _cgDbLoaded = false;
+let _cgTplList = [];
+let _cgAccountList = [];
 async function _cgLoadFromDb() {
-  if (_cgDbLoaded || typeof _sb !== 'function' || !_sb()) return;
+  if (typeof _sb !== 'function' || !_sb()) return;
   try {
-    const { data, error } = await _sb().from('calc_grounds').select('*').order('sort_order');
-    if (!error && data && data.length > 0) {
+    const tenantId = boCurrentPersona.tenantId || 'HMC';
+    const p1 = _sb().from('calc_grounds').select('*').order('sort_order');
+    const p2 = _sb().from('virtual_org_templates').select('id,name,tenant_id,service_type').eq('tenant_id', tenantId);
+    const p3 = _sb().from('budget_accounts').select('code,name,virtual_org_template_id').eq('tenant_id', tenantId);
+    
+    const [res1, res2, res3] = await Promise.all([p1, p2, p3]);
+
+    if (!res1.error && res1.data && res1.data.length > 0) {
       // DB 데이터를 CALC_GROUNDS_MASTER 형식으로 변환
       CALC_GROUNDS_MASTER = data.map(r => ({
         id: r.id,
@@ -65,8 +73,10 @@ async function _cgLoadFromDb() {
         sortOrder: r.sort_order || 99,
       }));
       _cgDbLoaded = true;
-      console.log('[CalcGrounds] DB에서', data.length, '건 로드 완료');
+      console.log('[CalcGrounds] DB에서', res1.data.length, '건 로드 완료');
     }
+    if (res2.data) _cgTplList = res2.data;
+    if (res3.data) _cgAccountList = res3.data;
   } catch(e) { console.warn('[CalcGrounds] DB 로드 실패:', e); }
 }
 
@@ -77,16 +87,14 @@ async function renderCalcGrounds() {
   const tenantName = (typeof TENANTS !== 'undefined' ? TENANTS.find(t => t.id === tenantId) : null)?.name || tenantId;
 
   // 이 테넌트에 속한 가상교육조직 (교육지원 유형만)
-  const myGroups = (typeof VIRTUAL_ORG_TEMPLATES !== 'undefined')
-    ? VIRTUAL_ORG_TEMPLATES.filter(t => t.tenant_id === tenantId && t.service_type === 'edu_support')
-    : [];
+  const myGroups = _cgTplList.filter(t => t.service_type === 'edu_support');
 
   if (!_cgFilterGroup && myGroups.length) _cgFilterGroup = myGroups[0].id;
 
   // 선택된 가상교육조직의 예산 계정 목록
   const selectedGroup = myGroups.find(g => g.id === _cgFilterGroup);
-  const ownedAccts = (typeof _baAccountList !== 'undefined' && _cgFilterGroup)
-    ? _baAccountList.filter(a => a.virtual_org_template_id === _cgFilterGroup).map(a => a.code)
+  const ownedAccts = _cgFilterGroup
+    ? _cgAccountList.filter(a => a.virtual_org_template_id === _cgFilterGroup).map(a => a.code)
     : [];
   if (!_cgFilterAccount && ownedAccts.length) _cgFilterAccount = ownedAccts[0];
 
@@ -125,7 +133,7 @@ async function renderCalcGrounds() {
                 style="flex:1;padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700">
           <option value="">— 전체 (공유) —</option>
           ${ownedAccts.map(code => {
-            const acct = (typeof _baAccountList!=='undefined' ? _baAccountList.find(a=>a.code===code) : null) || {};
+            const acct = _cgAccountList.find(a=>a.code===code) || {};
             return `<option value="${code}" ${_cgFilterAccount===code?'selected':''}>${code}${acct.name?` (${acct.name})`:''}</option>`;
           }).join('')}
         </select>
@@ -172,14 +180,19 @@ async function renderCalcGrounds() {
 function cgOnGroupChange(groupId) {
   _cgFilterGroup = groupId;
   const tenantId = boCurrentPersona.tenantId || 'HMC';
-  const g = EDU_SUPPORT_DOMAINS.find(g => g.id === groupId);
-  _cgFilterAccount = g?.ownedAccounts?.[0] || null;
+  const g = _cgTplList.find(g => g.id === groupId);
+  const accts = groupId 
+    ? _cgAccountList.filter(a => a.virtual_org_template_id === groupId).map(a => a.code)
+    : [];
+  _cgFilterAccount = accts[0] || null;
   // acct select 새로 채우기
   const sel = document.getElementById('cg-sel-acct');
   if (sel) {
-    const accts = g?.ownedAccounts || [];
     sel.innerHTML = `<option value="">— 전체 (공유) —</option>` +
-      accts.map(code => `<option value="${code}" selected>${code}</option>`).join('');
+      accts.map(code => {
+        const acct = _cgAccountList.find(a=>a.code===code) || {};
+        return `<option value="${code}" selected>${code}${acct.name?` (${acct.name})`:''}</option>`;
+      }).join('');
     if (accts.length) { sel.value = accts[0]; _cgFilterAccount = accts[0]; }
   }
   document.getElementById('cg-content').innerHTML = _renderCgTable(tenantId, groupId, _cgFilterAccount);
@@ -284,9 +297,7 @@ function cgOpenModal(id) {
   _cgEditId = id || null;
   const item = id ? CALC_GROUNDS_MASTER.find(g => g.id === id) : null;
   const tenantId = boCurrentPersona.tenantId || 'HMC';
-  const myGroups = (typeof VIRTUAL_ORG_TEMPLATES !== 'undefined')
-    ? VIRTUAL_ORG_TEMPLATES.filter(t => t.tenant_id === tenantId && t.service_type === 'edu_support')
-    : [];
+  const myGroups = _cgTplList.filter(t => t.service_type === 'edu_support');
 
   document.getElementById('cg-modal-title').textContent = id ? '산출 근거 항목 수정' : '산출 근거 항목 추가';
   document.getElementById('cg-modal-body').innerHTML = _cgModalBody(item, tenantId, myGroups);
@@ -303,8 +314,8 @@ function _cgModalBody(item, tenantId, myGroups) {
   const groupOpts = myGroups.map(g => `<option value="${g.id}" ${item?.domainId===g.id?'selected':''}>${g.name}</option>`).join('');
   
   const selectedGrpId = item?.domainId || _cgFilterGroup;
-  const acctList = (typeof _baAccountList !== 'undefined' && selectedGrpId)
-    ? _baAccountList.filter(a => a.virtual_org_template_id === selectedGrpId)
+  const acctList = selectedGrpId
+    ? _cgAccountList.filter(a => a.virtual_org_template_id === selectedGrpId)
     : [];
   const acctOpts = acctList.map(a =>
     `<option value="${a.code}" ${item?.accountCode===a.code?'selected':''}>${a.code}${a.name?` (${a.name})`:''}</option>`
@@ -436,8 +447,8 @@ function _cgModalBody(item, tenantId, myGroups) {
 function cgOnModalGroupChange(groupId) {
   const acctSel = document.getElementById('cg-acct');
   if (acctSel) {
-    const accts = (typeof _baAccountList !== 'undefined' && groupId)
-      ? _baAccountList.filter(a => a.virtual_org_template_id === groupId)
+    const accts = groupId
+      ? _cgAccountList.filter(a => a.virtual_org_template_id === groupId)
       : [];
     acctSel.innerHTML = `<option value="">— 공유 항목 —</option>` +
       accts.map(a => `<option value="${a.code}">${a.code}${a.name?` (${a.name})`:''}</option>`).join('');

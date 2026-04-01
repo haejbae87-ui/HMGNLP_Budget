@@ -84,6 +84,9 @@ const _EDU_TYPE_MAP = {
 let _pbTenantFilter  = '';
 let _pbVorgFilter    = '';
 let _pbAccountFilter = '';
+let _pbPurposeFilter = '';
+let _pbEduTypeFilter = '';
+let _pbSubTypeFilter = '';
 
 // ── 정책 목록 메인 화면 ───────────────────────────────────────────────────────
 async function renderServicePolicy() {
@@ -163,6 +166,18 @@ async function renderServicePolicy() {
       const myAccts = persona.ownedAccounts || [];
       if (!myAccts.includes('*') && !myAccts.some(a => p.accountCodes?.includes(a))) return false;
     }
+    // 5. 목적, 교육유형, 세부유형 필터
+    if (_pbPurposeFilter && p.purpose !== _pbPurposeFilter) return false;
+    if (_pbEduTypeFilter) {
+      if (p.purpose === 'external_personal') {
+         if (p.selectedEduItem?.typeId !== _pbEduTypeFilter) return false;
+      } else {
+         if (!p.eduTypes || !p.eduTypes.includes(_pbEduTypeFilter)) return false;
+      }
+    }
+    if (_pbSubTypeFilter && p.purpose === 'external_personal') {
+      if (p.selectedEduItem?.subId !== _pbSubTypeFilter) return false;
+    }
     return true;
   });
 
@@ -184,6 +199,11 @@ async function renderServicePolicy() {
       (activeTenantId ? a.tenant_id === activeTenantId : true)
     );
   })();
+
+  // ── 목적/유형 필터 목록 산출 ─────────────────────────────
+  const availPurposes = [...(_PURPOSE_MAP.learner||[]), ...(_PURPOSE_MAP.operator||[])];
+  const availEduTypes = _pbPurposeFilter ? (_EDU_TYPE_MAP[_pbPurposeFilter] || []) : [];
+  const availSubTypes = _pbEduTypeFilter ? (availEduTypes.find(t=>t.id===_pbEduTypeFilter)?.subs || []) : [];
 
   const filterBar = (isPlatform || isTenant || isBudgetOp || isBudgetAdmin) ? `
 <div style="background:white;border:1.5px solid #E5E7EB;border-radius:14px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.05)">
@@ -234,16 +254,50 @@ async function renderServicePolicy() {
     </select>
   </div>
   
+  <div style="width:100%;height:1px;background:#E5E7EB;margin:6px 0"></div>
+  
+  <div style="display:flex;align-items:center;gap:8px">
+    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">목적</span>
+    <select id="pb-purp-sel" onchange="_pbPurposeFilter=this.value;_pbEduTypeFilter='';_pbSubTypeFilter='';renderServicePolicy()"
+      style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:140px">
+      <option value="">전체 목적</option>
+      ${availPurposes.map(p=>`<option value="${p.id}" ${_pbPurposeFilter===p.id?'selected':''}>${p.label}</option>`).join('')}
+    </select>
+  </div>
+  <div style="width:1px;height:28px;background:#E5E7EB"></div>
+
+  <div style="display:flex;align-items:center;gap:8px">
+    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">교육유형</span>
+    <select id="pb-type-sel" onchange="_pbEduTypeFilter=this.value;_pbSubTypeFilter='';renderServicePolicy()" ${!_pbPurposeFilter?'disabled':''}
+      style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:${_pbPurposeFilter?'#FAFAFA':'#F3F4F6'};cursor:${_pbPurposeFilter?'pointer':'default'};appearance:auto;min-width:140px">
+      <option value="">전체 유형</option>
+      ${availEduTypes.map(t=>`<option value="${t.id}" ${_pbEduTypeFilter===t.id?'selected':''}>${t.label}</option>`).join('')}
+    </select>
+  </div>
+  <div style="width:1px;height:28px;background:#E5E7EB"></div>
+
+  <div style="display:flex;align-items:center;gap:8px">
+    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">세부유형</span>
+    <select id="pb-sub-sel" onchange="_pbSubTypeFilter=this.value" ${!_pbEduTypeFilter || availSubTypes.length===0?'disabled':''}
+      style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:${_pbEduTypeFilter&&availSubTypes.length>0?'#FAFAFA':'#F3F4F6'};cursor:${_pbEduTypeFilter&&availSubTypes.length>0?'pointer':'default'};appearance:auto;min-width:140px">
+      <option value="">전체 세부유형</option>
+      ${availSubTypes.map(s=>`<option value="${s.id}" ${_pbSubTypeFilter===s.id?'selected':''}>${s.label}</option>`).join('')}
+    </select>
+  </div>
+
   <button onclick="
     _pbTenantFilter=document.getElementById('pb-tenant-sel')?.value||_pbTenantFilter;
     _pbVorgFilter=document.getElementById('pb-group-sel')?.value||_pbVorgFilter;
     _pbAccountFilter=document.getElementById('pb-acct-sel')?.value||_pbAccountFilter;
+    _pbPurposeFilter=document.getElementById('pb-purp-sel')?.value||_pbPurposeFilter;
+    _pbEduTypeFilter=document.getElementById('pb-type-sel')?.value||_pbEduTypeFilter;
+    _pbSubTypeFilter=document.getElementById('pb-sub-sel')?.value||_pbSubTypeFilter;
     renderServicePolicy()"
     style="padding:9px 20px;background:linear-gradient(135deg,#1D4ED8,#2563EB);color:white;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(37,99,235,.35);white-space:nowrap;margin-left:auto">
     ● 조회
   </button>
   ${(!isBudgetOp && !isBudgetAdmin) ? `
-  <button onclick="_pbTenantFilter='';_pbVorgFilter='';_pbAccountFilter='';renderServicePolicy()"
+  <button onclick="_pbTenantFilter='';_pbVorgFilter='';_pbAccountFilter='';_pbPurposeFilter='';_pbEduTypeFilter='';_pbSubTypeFilter='';renderServicePolicy()"
     style="padding:9px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:12px;font-weight:700;background:white;cursor:pointer;color:#6B7280;white-space:nowrap">초기화</button>` : ''}
 </div>` : '';
 

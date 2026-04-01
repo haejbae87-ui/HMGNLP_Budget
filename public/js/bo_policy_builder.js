@@ -111,11 +111,14 @@ async function renderServicePolicy() {
       if (res3.data && res3.data.length > 0) {
         res3.data.forEach(row => {
           let vId = row.vorg_template_id || row.scope_group_id || row.isolation_group_id;
-          if (!vId || vId.startsWith('IG-')) {
-            if (row.name.startsWith('현대') || row.name.toUpperCase().startsWith('HMC')) {
+          // 레거시 ID(IG-*, TPL_GEN_01, TPL_RND_01 등) → 실제 가상교육조직 ID로 보정
+          const isLegacyId = !vId || vId.startsWith('IG-') || vId === 'TPL_GEN_01' || vId === 'TPL_RND_01';
+          if (isLegacyId) {
+            if (row.name.startsWith('현대') || row.name.toUpperCase().startsWith('HMC') || vId === 'TPL_GEN_01') {
               const tpl = _pbTplList.find(t => t.name.includes('일반교육예산 가상교육조직') || t.name === 'HMC 일반교육예산 가상교육조직');
               if (tpl) vId = tpl.id;
-            } else if (row.name.toUpperCase().startsWith('R&D')) {
+            }
+            if (row.name.toUpperCase().startsWith('R&D') || vId === 'TPL_RND_01') {
               const tpl = _pbTplList.find(t => t.name.includes('R&D교육예산 가상교육조직') || t.name === 'HMC R&D교육예산 가상교육조직');
               if (tpl) vId = tpl.id;
             }

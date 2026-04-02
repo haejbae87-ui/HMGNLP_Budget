@@ -632,9 +632,41 @@ function planPrev() {
   renderPlanWizard();
 }
 
-function savePlan() {
+async function savePlan() {
   const total = _calcGroundsTotal();
-  const budgetStr = fmt(total || Number(planState.amount || 0));
+  const amount = total || Number(planState.amount || 0);
+  const budgetStr = fmt(amount);
+  const curBudget = planState.budgetId
+    ? (currentPersona.budgets || []).find(b => b.id === planState.budgetId) : null;
+  const accountCode = curBudget?.accountCode || _getPlanAccountCode(curBudget) || '';
+
+  // DB 저장
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (sb) {
+    try {
+      const planId = `PLAN-${Date.now()}`;
+      const row = {
+        id: planId, tenant_id: currentPersona.tenantId, account_code: accountCode,
+        applicant_id: currentPersona.id, applicant_name: currentPersona.name,
+        edu_name: planState.title || planState.eduTypeName || '교육계획',
+        edu_type: planState.eduType || planState.eduSubType || null,
+        amount: amount, status: 'pending', policy_id: planState.policyId || null,
+        detail: {
+          purpose: planState.purpose?.id || null, budgetId: planState.budgetId || null,
+          eduType: planState.eduType, eduSubType: planState.eduSubType,
+          calcGrounds: planState.calcGrounds || [], period: planState.period || null,
+          institution: planState.institution || null, notes: planState.notes || null,
+          dept: currentPersona.dept,
+        },
+      };
+      const { error } = await sb.from('plans').insert(row);
+      if (error) throw error;
+      console.log(`[savePlan] DB 저장 성공: ${planId}`);
+    } catch (err) {
+      console.error('[savePlan] DB 저장 실패:', err.message);
+    }
+  }
+
   alert(`✅ 교육계획이 상신되었습니다.\n\n계획액: ${budgetStr}원\n\n` +
     `📋 승인 완료 시 이 계획은 '교육 실행의 증빙 근거'로 확정됩니다.\n` +
     `⚠ 예산 할당(본부/팀별 분배)은 별도의 관리자 배분 절차를 통해 진행됩니다.\n\n` +
@@ -644,24 +676,38 @@ function savePlan() {
 }
 
 // ─── 교육계획 기반 교육신청 연동 ─────────────────────────────────────────────
-function startApplyFromPlan(planId) {
-  const plan = MOCK_PLANS.find(p => p.id === planId);
+async function startApplyFromPlan(planId) {
+  // 1. DB에서 계획 조회
+  let plan = null;
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (sb) {
+    try {
+      const { data, error } = await sb.from('plans').select('*').eq('id', planId).single();
+      if (!error && data) {
+        plan = {
+          id: data.id, title: data.edu_name,
+          budgetId: data.detail?.budgetId || null,
+          purpose: data.detail?.purpose || null,
+          account: data.account_code,
+        };
+      }
+    } catch (err) {
+      console.warn('[startApplyFromPlan] DB 조회 실패:', err.message);
+    }
+  }
+  // 2. mock 폴백
+  if (!plan) {
+    const mockPlan = MOCK_PLANS.find(p => p.id === planId);
+    if (mockPlan) plan = { id: mockPlan.id, title: mockPlan.title, budgetId: mockPlan.budgetId, purpose: mockPlan.purpose };
+  }
   if (!plan) { navigate('apply'); return; }
 
-  // applyState 초기화 후 계획 정보 셋팅
   applyState = resetApplyState();
   applyState.planId = planId;
-
-  // 예산계정 자동 선택
   if (plan.budgetId) applyState.budgetId = plan.budgetId;
-
-  // 목적: 계획에 purpose 없으면 internal_edu(운영) 기본
   const purposeId = plan.purpose || 'internal_edu';
   applyState.purpose = PURPOSES.find(p => p.id === purposeId) || null;
-
-  // 교육신청 페이지로 이동 (폼 모드 직접)
   applyViewMode = 'form';
-  // 목적이 설정되었으면 Step 2(예산 선택)로 바로 이동
   if (applyState.purpose) applyState.step = 2;
   navigate('apply');
 }

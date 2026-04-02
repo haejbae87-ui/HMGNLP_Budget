@@ -1011,13 +1011,49 @@ function applyNext() { applyState.step = Math.min(applyState.step + 1, 4); rende
 function applyPrev() { applyState.step = Math.max(applyState.step - 1, 1); renderApply(); }
 function addExpRow() { applyState.expenses.push({ id: Date.now(), type: '교육비/등록비', price: 0, qty: 1 }); renderApply(); }
 function removeExpRow(i) { applyState.expenses.splice(i, 1); renderApply(); }
-function submitApply() {
+async function submitApply() {
   const svc = typeof SERVICE_DEFINITIONS !== 'undefined' && applyState.serviceId
     ? SERVICE_DEFINITIONS.find(sv => sv.id === applyState.serviceId) : null;
   const modeLabel = svc?.applyMode === 'reimbursement' ? '후정산형 신청' : '교육 신청';
   const budgetNote = svc?.budgetLinked === false ? '\n\n📝 무예산 이력 등록으로 예산 잔액에는 영향을 주지 않습니다.'
     : svc?.applyMode === 'reimbursement' ? '\n\n🧾 후정산 신청이 승인되면 예산에서 즉시 차감됩니다.'
       : '\n\n💳 승인 시 예산이 가점유 처리됩니다.';
+
+  // DB 저장
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (sb) {
+    try {
+      const curBudget = applyState.budgetId
+        ? (currentPersona.budgets || []).find(b => b.id === applyState.budgetId) : null;
+      const totalExp = applyState.expenses.reduce((sum, e) => sum + Number(e.price) * Number(e.qty), 0);
+      const appId = `APP-${Date.now()}`;
+      const row = {
+        id: appId, tenant_id: currentPersona.tenantId,
+        plan_id: applyState.planId || null,
+        account_code: curBudget?.accountCode || '',
+        applicant_id: currentPersona.id,
+        applicant_name: currentPersona.name,
+        dept: currentPersona.dept || '',
+        edu_name: applyState.eduName || applyState.title || '교육신청',
+        edu_type: applyState.eduType || applyState.eduSubType || null,
+        amount: totalExp, status: 'pending',
+        policy_id: applyState.policyId || null,
+        detail: {
+          purpose: applyState.purpose?.id || null,
+          budgetId: applyState.budgetId || null,
+          expenses: applyState.expenses,
+          serviceId: applyState.serviceId || null,
+          applyMode: svc?.applyMode || null,
+        },
+      };
+      const { error } = await sb.from('applications').insert(row);
+      if (error) throw error;
+      console.log(`[submitApply] DB 저장 성공: ${appId}`);
+    } catch (err) {
+      console.error('[submitApply] DB 저장 실패:', err.message);
+    }
+  }
+
   alert(`✅ ${modeLabel}서가 성공적으로 제출되었습니다.${budgetNote} \n\n담당자 검토 후 알림이 발송됩니다.`);
   applyState = resetApplyState();
   navigate('history');

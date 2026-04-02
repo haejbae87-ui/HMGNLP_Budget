@@ -233,9 +233,13 @@ function gnbSwitchCompany(tenantId) {
   if (firstKey) switchPersonaTo(firstKey);
 }
 
-// 페르소나 전환 함수 (LXP 전용)
+// 페르소나 전환 함수 (LXP 전용) — DB 기반 로더 사용
 function switchPersonaTo(key) {
-  if (PERSONAS[key]) {
+  if (!PERSONAS[key]) return;
+  if (typeof switchPersonaAndReload === 'function') {
+    switchPersonaAndReload(key); // fo_persona_loader.js: DB 연동 전환
+  } else {
+    // fallback: DB 로더 없으면 기존 방식
     sessionStorage.setItem('currentPersona', key);
     window.location.reload();
   }

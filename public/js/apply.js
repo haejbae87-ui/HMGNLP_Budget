@@ -475,8 +475,10 @@ function _applySelectionBanner(s, currentStep) {
 function _renderApplyForm() {
   const s = applyState;
   const isFixedProcess = isFixedPlanProcess(currentPersona);
-  const isRndPersona = currentPersona.role === 'learner' && (currentPersona.allowedAccounts || []).includes('HMC-RND');
+  const isLearner = currentPersona.role === 'learner' || (currentPersona.roles || []).includes('learner');
+  const isRndPersona = isLearner && (currentPersona.allowedAccounts || []).includes('HMC-RND');
   const availBudgets = s.purpose ? getPersonaBudgets(currentPersona, s.purpose.accounts) : [];
+
   const curBudget = availBudgets.find(b => b.id === s.budgetId) || null;
   const isRndBudget = curBudget?.account === '연구투자';
   const isOperBudget = curBudget?.account === '운영';

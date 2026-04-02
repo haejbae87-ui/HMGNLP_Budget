@@ -296,8 +296,8 @@ function renderPlanWizard() {
   if (!s) return;
 
   const isFixedProcess = isFixedPlanProcess(currentPersona);
-  // R&D 학습자 판별: allowedAccounts에 HMC-RND 포함 여부 (role 필드 독립적으로 판단)
-  const isRndPersona = (currentPersona.allowedAccounts || []).includes('HMC-RND');
+  const isLearner = currentPersona.role === 'learner' || (currentPersona.roles || []).includes('learner');
+  const isRndPersona = isLearner && (currentPersona.allowedAccounts || []).includes('HMC-RND');
 
   const availBudgets = s.purpose
     ? getPersonaBudgets(currentPersona, s.purpose.id)

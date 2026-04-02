@@ -414,64 +414,9 @@ function _buildBoPersonas(users, allRoles, orgs, igs) {
 }
 window.sbLoadPersonas = sbLoadPersonas;
 
-// ─── FO 페르소나 DB 로더 ─────────────────────────────────────────────────────
-// fo_personas + fo_persona_budgets 테이블에서 PERSONAS 전역변수 구성
-async function sbLoadFoPersonas() {
-  try {
-    const sb = getSB();
-    if (!sb) return null;
+// FO 페르소나 로드: fo_persona_loader.js의 _loadAllEmployees() / _resolveCurrentPersona()로 이전됨
+// (users + user_roles 테이블 직접 사용, fo_personas/fo_persona_budgets 테이블 deprecated)
 
-    // fo_personas + fo_persona_budgets 동시 로드
-    const [personasRes, budgetsRes] = await Promise.all([
-      sb.from('fo_personas').select('*').order('tenant_id'),
-      sb.from('fo_persona_budgets').select('*'),
-    ]);
-
-    if (personasRes.error) throw personasRes.error;
-
-    const budgets = budgetsRes.data || [];
-    const personas = {};
-
-    (personasRes.data || []).forEach(p => {
-      const myBudgets = budgets
-        .filter(b => b.persona_id === p.id)
-        .map(b => ({
-          id: b.id,
-          name: b.name,
-          account: b.account,
-          balance: b.balance || 0,
-          used: b.used || 0,
-        }));
-
-      personas[p.id] = {
-        id: p.emp_no,
-        name: p.name,
-        dept: p.dept || '',
-        pos: p.pos || '',
-        role: p.role,
-        jobType: p.job_type || 'general',
-        type: p.id,
-        typeLabel: p.type_label || '',
-        company: p.company,
-        tenantId: p.tenant_id,
-        isolationGroup: p.isolation_group,
-        allowedAccounts: (p.allowed_accounts || []),
-        process: p.process || null,
-        desc: p.description || '',
-        teamViewEnabled: p.team_view_enabled ?? false,
-        teamScope: p.team_scope || 'team',
-        budgets: myBudgets,
-      };
-    });
-
-    console.log(`[Supabase] ✅ FO 페르소나 DB 로드: ${Object.keys(personas).length}명`);
-    return personas;
-  } catch (e) {
-    console.warn('[Supabase] FO 페르소나 로드 실패 → data.js mock 유지:', e.message);
-    return null;
-  }
-}
-window.sbLoadFoPersonas = sbLoadFoPersonas;
 
 // ─── 교육목적/유형 DB 로더 ───────────────────────────────────────────────────
 // edu_purpose_groups + edu_type_groups + edu_type_items → EDU_PURPOSE_GROUPS / EDU_TYPE_ITEMS
@@ -529,15 +474,14 @@ window.sbLoadEduTypes = sbLoadEduTypes;
 async function initSupabaseData() {
   console.log('[Supabase] 데이터 로딩 시작...');
   try {
-    // 핸심 데이터를 병렬 로드 (FO 페르소나 포함)
-    const [tenants, accounts, groups, policies, personas, vorgTemplates, foPersonas, eduTypes] = await Promise.all([
+    // 핵심 데이터를 병렬 로드
+    const [tenants, accounts, groups, policies, personas, vorgTemplates, eduTypes] = await Promise.all([
       sbLoadTenants(),
       sbLoadAccountMaster(),
       sbLoadIsolationGroups(),
       sbLoadServicePolicies(),
       sbLoadPersonas(),
       sbLoadVirtualOrgTemplates(),
-      sbLoadFoPersonas(),
       sbLoadEduTypes(),
     ]);
 
@@ -553,30 +497,19 @@ async function initSupabaseData() {
       window.EDU_PURPOSE_GROUPS = eduTypes.purposeMap;
       window.EDU_TYPE_ITEMS_FLAT = eduTypes.itemsFlat;
       window.EDU_TYPES_RAW = eduTypes;
-      // PURPOSES 배열을 DB 데이터로 교체 (FO 하위호환)
       window.PURPOSES = eduTypes.purposes.map(p => eduTypes.purposeMap[p.id]).filter(Boolean);
       console.log('[Supabase] ✅ PURPOSES DB 전환 완료');
     }
 
-    // BO_PERSONAS: DB 데이터로 교체 (실패 시 null 반환 → JS mock 유지)
+    // BO_PERSONAS: DB 데이터로 교체
     if (personas && Object.keys(personas).length > 0) {
       const pAdmin = typeof BO_PERSONAS !== 'undefined' ? BO_PERSONAS['platform_admin'] : null;
       window.BO_PERSONAS = personas;
       if (pAdmin) window.BO_PERSONAS['platform_admin'] = pAdmin;
     }
 
-    // FO PERSONAS: DB 데이터로 교체 (실패 시 data.js mock 유지)
-    if (foPersonas && Object.keys(foPersonas).length > 0) {
-      window.PERSONAS = foPersonas;
-      // currentPersona 갱신: sessionStorage에 저장된 key로 재설정
-      const savedKey = sessionStorage.getItem('currentPersona') || 'hmc_team_mgr';
-      const resolved = foPersonas[savedKey] || foPersonas[Object.keys(foPersonas)[0]];
-      if (resolved) window.currentPersona = resolved;
-      // GNB 재렌더 (페르소나 드롭다운 반영)
-      if (typeof renderGnb === 'function') renderGnb();
-      console.log('[Supabase] ✅ FO PERSONAS DB 전환 완료');
-    }
-
+    // FO PERSONAS: fo_persona_loader.js에서 처리 (users + user_roles)
+    // initSupabaseData에서 제거됨 → main.js의 _loadAllEmployees() + _resolveCurrentPersona() 사용
     console.log(`[Supabase] ✅ DB 로딩 완료 - 테넌트:${tenants?.length}, 계정:${accounts?.length}, 격리그룹:${groups?.length}, 사용자:${personas ? Object.keys(personas).length : 'mock'}`);
 
     // 역할별 메뉴 권한 로드 (비동기, 완료 후 사이드바 재렌더)

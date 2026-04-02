@@ -102,33 +102,42 @@ function _resolveVorgId(persona) {
 }
 
 // 페르소나의 VOrg + 테넌트에 해당하는 활성 정책 목록 (SERVICE_POLICIES DB 기반 전용)
+// ※ DB 직접 로드 시 snake_case(tenant_id, vorg_template_id, account_codes),
+//    mock 데이터는 camelCase(tenantId, domainId, accountCodes) — 둘 다 처리
 function _getActivePolicies(persona) {
   if (typeof SERVICE_POLICIES === 'undefined' || SERVICE_POLICIES.length === 0) return null;
   const vorgId = _resolveVorgId(persona);
-  // persona.allowedAccounts로 추가 매칭할 수 있는 격리그룹 ID 집합
   const allowedAcctCodes = new Set(persona.allowedAccounts || []);
 
   const matched = SERVICE_POLICIES.filter(p => {
-    if (p.status && p.status !== 'active') return false;
-    if (p.tenantId && p.tenantId !== persona.tenantId) return false;
-    // VOrg 매칭:
-    // ① 페르소나의 주 VOrg ID와 일치하거나
-    if (vorgId && p.domainId && p.domainId === vorgId) return true;
-    // ② 정책의 accountCodes가 persona.allowedAccounts와 교차하면 포함
-    //    (여러 VOrg 계정을 가진 겸임 케이스)
-    if (p.accountCodes && p.accountCodes.some(c => allowedAcctCodes.has(c))) {
-      return true;
-    }
+    // snake_case(DB) + camelCase(mock) 호환
+    const pStatus = p.status;
+    const pTenantId = p.tenant_id || p.tenantId;
+    const pDomainId = p.vorg_template_id || p.domainId;  // DB: vorg_template_id, mock: domainId
+    const pAcctCodes = p.account_codes || p.accountCodes || [];
+
+    if (pStatus && pStatus !== 'active') return false;
+    if (pTenantId && pTenantId !== persona.tenantId) return false;
+
+    // ① persona.allowedAccounts와 정책 account_codes 교차 매칭 (가장 신뢰도 높음)
+    if (pAcctCodes.length > 0 && pAcctCodes.some(c => allowedAcctCodes.has(c))) return true;
+
+    // ② 페르소나의 VOrg ID와 정책 VOrg(vorg_template_id) 일치
+    if (vorgId && pDomainId && pDomainId === vorgId) return true;
+
     // ③ vorgId 미해석 + 직접 비교
-    if (!vorgId && p.domainId) {
-      if (persona.vorgId && p.domainId !== persona.vorgId) return false;
+    if (!vorgId && pDomainId) {
+      if (persona.vorgId && pDomainId !== persona.vorgId) return false;
     }
-    // ④ VOrg 미설정 정책은 테넌트 내 전체 허용
-    if (!p.domainId) return true;
+
+    // ④ VOrg/account 미설정 정책은 테넌트 내 전체 허용
+    if (!pDomainId && pAcctCodes.length === 0) return true;
+
     return false;
   });
   return matched.length > 0 ? { source: 'db', policies: matched } : null;
 }
+
 
 // 현재 페르소나가 사용 가능한 교육 목적 필터링
 function getPersonaBudgets(persona, purposeId) {

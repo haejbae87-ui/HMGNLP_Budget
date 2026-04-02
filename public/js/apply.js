@@ -602,10 +602,35 @@ function _renderApplyForm() {
       const isIndividual = s.purpose?.id === 'external_personal';
       if (isIndividual) {
         // ── 개인직무 사외학습: 페르소나별 동적 예산 옵션 카드 ──────────────────
-        const hasRnd = (currentPersona.allowedAccounts || []).some(a => a.includes('RND'));
-        const hasHscExt = (currentPersona.allowedAccounts || []).includes('HSC-EXT');
-        const hasHaeEdu = (currentPersona.allowedAccounts || []).includes('HAE-EDU');
-        const hasHaeTeam = (currentPersona.allowedAccounts || []).includes('HAE-TEAM');
+        const allowed = currentPersona.allowedAccounts || [];
+        const hasRnd = allowed.some(a => a.includes('RND'));
+        const hasHscExt = allowed.includes('HSC-EXT');
+        const hasHaeEdu = allowed.includes('HAE-EDU');
+        const hasHaeTeam = allowed.includes('HAE-TEAM');
+        const hasPart = allowed.some(a => a.includes('-PART') || a.includes('-OPS') || a.includes('-ETC'));
+        const hasFree = allowed.includes('COMMON-FREE'); // 예산 미사용 정책 여부
+
+        // ── 일반계정 카드 태그: 서비스 정책 process_pattern 기반 동적 결정 ──────
+        // Pattern B: 신청→결과(즉시 예산 차감), Pattern C/D: 후정산, A/E: 신청→결과
+        function _getGeneralCardTag() {
+          if (typeof SERVICE_POLICIES !== 'undefined') {
+            const pol = SERVICE_POLICIES.find(p =>
+              p.status !== 'inactive' &&
+              (p.account_codes || []).some(c => allowed.includes(c)) &&
+              (p.purpose === 'external_personal' || p.purpose === '개인직무 사외학습')
+            );
+            if (pol) {
+              const pt = pol.process_pattern || pol.processPattern || '';
+              if (pt === 'B') return { tag: '패턴 B (신청→결과)', tagColor: '#B45309', tagBg: '#FFFBEB' };
+              if (pt === 'C' || pt === 'D') return { tag: '후정산형', tagColor: '#D97706', tagBg: '#FEF3C7' };
+              if (pt === 'A' || pt === 'E') return { tag: '신청→결과', tagColor: '#059669', tagBg: '#F0FDF4' };
+            }
+          }
+          // DB에서 정책 못 읽으면 → 현재 테넌트 기본값
+          return { tag: '패턴 B (신청→결과)', tagColor: '#B45309', tagBg: '#FFFBEB' };
+        }
+        const generalTag = _getGeneralCardTag();
+
         const CHOICES = [
           // ── HAE 전사교육예산 ──────────────────────────────────────────────────
           ...(hasHaeEdu ? [{
@@ -631,12 +656,12 @@ function _renderApplyForm() {
             tag: '신청→결과', tagColor: '#BE123C', tagBg: '#FFF1F2',
             next: '교육유형 선택 → 세부정보', nextColor: '#BE123C',
           }] : []),
-          // ── 일반 참가계정 (HMC/KIA 등 HAE/HSC 아닌 경우) ───────────────────
-          ...(!hasHscExt && !hasHaeEdu ? [{
+          // ── 일반 참가계정 (HMC/KIA 등) — 정책 패턴 태그 동적 표시 ─────────
+          ...(!hasHscExt && !hasHaeEdu && hasPart ? [{
             id: 'general', icon: '💳',
             title: '일반교육예산 참가계정',
-            desc: '일반 교육예산에서 참가비를 지원받습니다. 개인 선지출 후 영수증을 첨부하여 신청합니다.',
-            tag: '후정산형', tagColor: '#D97706', tagBg: '#FEF3C7',
+            desc: '일반 교육예산에서 참가비를 지원받습니다. 서비스 정책에 따라 신청 → 결과 또는 후정산 방식으로 처리됩니다.',
+            tag: generalTag.tag, tagColor: generalTag.tagColor, tagBg: generalTag.tagBg,
             next: '교육유형 선택 → 세부정보', nextColor: '#059669',
           }] : []),
           ...(hasRnd ? [{
@@ -646,13 +671,14 @@ function _renderApplyForm() {
             tag: '계획 연동 필수', tagColor: '#7C3AED', tagBg: '#F5F3FF',
             next: '교육계획 선택 → 세부정보', nextColor: '#7C3AED',
           }] : []),
-          {
+          // ── 예산 미사용 — COMMON-FREE 정책 계정이 있을 때만 노출 ────────────
+          ...(hasFree ? [{
             id: 'none', icon: '📝',
             title: '예산 미사용 (이력만 등록)',
             desc: '자비 학습·무료 강의 등 예산 사용 없이 학습 이력만 등록합니다. 예산 잔액에 영향을 주지 않습니다.',
             tag: '예산 미사용', tagColor: '#6B7280', tagBg: '#F3F4F6',
             next: '교육유형 선택 → 세부정보', nextColor: '#374151',
-          },
+          }] : []),
         ];
         const bc = s.budgetChoice;
         return `<p class="text-sm text-gray-400 mb-5">이번 교육 신청에 어떤 예산을 사용하시겠습니까?</p>

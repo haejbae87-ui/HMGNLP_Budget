@@ -1243,4 +1243,423 @@ function renderPermissions() {
 
 
 
+// ═════════════════════════════════════════════════════════════════════════════
+// [예산 배정 현황 관리] — 조직별 통장 + 기간별 배정 관리
+// ═════════════════════════════════════════════════════════════════════════════
+let _obTenant = null;
+let _obTplId = null;
+let _obGroupId = null;   // 선택된 VOrg 그룹 ID (null = 전체)
+let _obAccountId = null; // 선택된 계정 ID (null = 전체)
+let _obPeriodId = null;
+let _obTplList = [];
+let _obAcctList = [];
+let _obGroups = [];      // tree_data.hqs
+let _obPeriods = [];
+let _obBankbooks = [];
+let _obAllocations = [];
+let _obLogs = [];
+
+async function renderOrgBudget() {
+  const el = document.getElementById('bo-content');
+  const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
+  const role = boCurrentPersona.role;
+  const isPlatform = role === 'platform_admin' || role === 'tenant_global_admin';
+
+  if (!_obTenant) _obTenant = isPlatform ? (tenants[0]?.id || 'HMC') : (boCurrentPersona.tenantId || 'HMC');
+
+  const sb = typeof _sb === 'function' ? _sb() : null;
+  if (!sb) { el.innerHTML = '<div style="padding:40px;text-align:center;color:#EF4444">DB 연결이 없습니다.</div>'; return; }
+
+  // ── 1. 템플릿 로드 ──
+  try {
+    const { data } = await sb.from('virtual_org_templates').select('id,name,service_type,purpose,tree_data').eq('tenant_id', _obTenant);
+    _obTplList = data || [];
+  } catch (e) { _obTplList = []; }
+  if (!_obTplId || !_obTplList.find(t => t.id === _obTplId)) _obTplId = _obTplList[0]?.id || null;
+
+  // ── 2. VOrg 그룹 (tree_data.hqs) ──
+  const curTpl = _obTplList.find(t => t.id === _obTplId);
+  _obGroups = curTpl?.tree_data?.hqs || [];
+
+  // ── 3. 계정 로드 ──
+  if (_obTplId) {
+    try {
+      const { data } = await sb.from('budget_accounts').select('*').eq('virtual_org_template_id', _obTplId).eq('tenant_id', _obTenant);
+      _obAcctList = (data || []).filter(a => a.active);
+    } catch (e) { _obAcctList = []; }
+  } else { _obAcctList = []; }
+  if (_obAccountId && !_obAcctList.find(a => a.id === _obAccountId)) _obAccountId = null;
+
+  // ── 4. 기간 로드 ──
+  try {
+    const { data } = await sb.from('budget_periods').select('*').eq('tenant_id', _obTenant).order('fiscal_year', { ascending: false }).order('quarter', { ascending: true, nullsFirst: true });
+    _obPeriods = data || [];
+  } catch (e) { _obPeriods = []; }
+  if (!_obPeriodId || !_obPeriods.find(p => p.id === _obPeriodId)) _obPeriodId = _obPeriods[0]?.id || null;
+
+  // ── 5. 통장 로드 ──
+  if (_obTplId) {
+    let q = sb.from('org_budget_bankbooks').select('*').eq('tenant_id', _obTenant).eq('template_id', _obTplId).eq('status', 'active');
+    if (_obGroupId) q = q.eq('vorg_group_id', _obGroupId);
+    if (_obAccountId) q = q.eq('account_id', _obAccountId);
+    try { const { data } = await q; _obBankbooks = data || []; } catch (e) { _obBankbooks = []; }
+  } else { _obBankbooks = []; }
+
+  // ── 6. 배정 로드 ──
+  if (_obBankbooks.length > 0 && _obPeriodId) {
+    const bbIds = _obBankbooks.map(b => b.id);
+    try {
+      const { data } = await sb.from('budget_allocations').select('*').in('bankbook_id', bbIds).eq('period_id', _obPeriodId);
+      _obAllocations = data || [];
+    } catch (e) { _obAllocations = []; }
+  } else { _obAllocations = []; }
+
+  // ── 7. 로그 로드 (최근 15건) ──
+  if (_obAllocations.length > 0) {
+    const alIds = _obAllocations.map(a => a.id);
+    try {
+      const { data } = await sb.from('budget_allocation_log').select('*').in('allocation_id', alIds).order('performed_at', { ascending: false }).limit(15);
+      _obLogs = data || [];
+    } catch (e) { _obLogs = []; }
+  } else { _obLogs = []; }
+
+  // ── 배정 요약 ──
+  const totalAlloc = _obAllocations.reduce((s, a) => s + Number(a.allocated_amount || 0), 0);
+  const totalUsed = _obAllocations.reduce((s, a) => s + Number(a.used_amount || 0), 0);
+  const totalFrozen = _obAllocations.reduce((s, a) => s + Number(a.frozen_amount || 0), 0);
+  const totalCarry = _obAllocations.reduce((s, a) => s + Number(a.carryover_amount || 0), 0);
+  const balance = totalAlloc + totalCarry - totalUsed - totalFrozen;
+  const pct = totalAlloc + totalCarry > 0 ? ((balance / (totalAlloc + totalCarry)) * 100).toFixed(1) : '0';
+  const curPeriod = _obPeriods.find(p => p.id === _obPeriodId);
+  const fmt = n => Number(n).toLocaleString();
+
+  // ── 필터 HTML ──
+  const tenantSel = isPlatform ? `<select onchange="_obTenant=this.value;_obTplId=null;_obGroupId=null;_obAccountId=null;renderOrgBudget()"
+    style="padding:7px 12px;border:1.5px solid #FDE68A;border-radius:8px;font-size:12px;font-weight:700;background:#FFFBEB;color:#92400E;cursor:pointer">
+    ${tenants.map(t => `<option value="${t.id}" ${t.id === _obTenant ? 'selected' : ''}>${t.name}</option>`).join('')}
+  </select>` : `<span style="font-size:13px;font-weight:800;color:#111827">🏢 ${tenants.find(t => t.id === _obTenant)?.name || _obTenant}</span>`;
+
+  const tplSel = _obTplList.length ? `<select onchange="_obTplId=this.value;_obGroupId=null;_obAccountId=null;renderOrgBudget()"
+    style="padding:7px 12px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:12px;font-weight:700;background:#EFF6FF;color:#1D4ED8;cursor:pointer;min-width:200px">
+    ${_obTplList.map(t => `<option value="${t.id}" ${t.id === _obTplId ? 'selected' : ''}>${t.name}</option>`).join('')}
+  </select>` : '<span style="font-size:12px;color:#9CA3AF">템플릿 없음</span>';
+
+  const groupSel = _obGroups.length ? `<select onchange="_obGroupId=this.value||null;renderOrgBudget()"
+    style="padding:7px 12px;border:1.5px solid #DDD6FE;border-radius:8px;font-size:12px;font-weight:700;background:#F5F3FF;color:#7C3AED;cursor:pointer;min-width:160px">
+    <option value="">전체 VOrg 그룹</option>
+    ${_obGroups.map(g => `<option value="${g.id}" ${g.id === _obGroupId ? 'selected' : ''}>${g.name}</option>`).join('')}
+  </select>` : '';
+
+  const acctSel = _obAcctList.length ? `<select onchange="_obAccountId=this.value||null;renderOrgBudget()"
+    style="padding:7px 12px;border:1.5px solid #BBF7D0;border-radius:8px;font-size:12px;font-weight:700;background:#F0FDF4;color:#059669;cursor:pointer;min-width:160px">
+    <option value="">전체 계정</option>
+    ${_obAcctList.map(a => `<option value="${a.id}" ${a.id === _obAccountId ? 'selected' : ''}>${a.name} (${a.code})</option>`).join('')}
+  </select>` : '';
+
+  const periodSel = _obPeriods.length ? `<select onchange="_obPeriodId=this.value;renderOrgBudget()"
+    style="padding:7px 12px;border:1.5px solid #FED7AA;border-radius:8px;font-size:12px;font-weight:700;background:#FFF7ED;color:#C2410C;cursor:pointer;min-width:140px">
+    ${_obPeriods.map(p => `<option value="${p.id}" ${p.id === _obPeriodId ? 'selected' : ''}>${p.period_label} ${p.status === 'closed' ? '(마감)' : ''}</option>`).join('')}
+  </select>` : '';
+
+  // ── 통장별 그룹핑 렌더 ──
+  const grouped = {};
+  _obBankbooks.forEach(b => {
+    const key = b.vorg_group_id + '|' + b.account_id;
+    if (!grouped[key]) grouped[key] = { groupId: b.vorg_group_id, accountId: b.account_id, items: [] };
+    grouped[key].items.push(b);
+  });
+
+  let bankbookHtml = '';
+  if (Object.keys(grouped).length === 0 && _obTplId) {
+    bankbookHtml = `<div style="padding:48px;text-align:center;background:#F9FAFB;border:2px dashed #E5E7EB;border-radius:14px;color:#9CA3AF">
+      <div style="font-size:36px;margin-bottom:10px">📭</div>
+      <div style="font-size:13px;font-weight:700;color:#64748B">조직별 통장이 없습니다</div>
+      <div style="font-size:11px;margin-top:6px">아래 '통장 자동 생성' 버튼으로 VOrg 매핑 조직의 통장을 만들어 주세요.</div>
+    </div>`;
+  } else {
+    Object.values(grouped).forEach(g => {
+      const grp = _obGroups.find(gr => gr.id === g.groupId);
+      const acct = _obAcctList.find(a => a.id === g.accountId);
+      const grpName = grp?.name || g.groupId;
+      const acctName = acct ? `${acct.name} (${acct.code})` : g.accountId;
+
+      // 상위/하위 조직 분류
+      const parents = g.items.filter(b => !b.parent_org_id);
+      const children = g.items.filter(b => b.parent_org_id);
+
+      const grpAllocs = g.items.map(b => {
+        const al = _obAllocations.find(a => a.bankbook_id === b.id);
+        return { ...b, alloc: al };
+      });
+      const grpTotal = grpAllocs.reduce((s, b) => s + Number(b.alloc?.allocated_amount || 0), 0);
+      const grpUsed = grpAllocs.reduce((s, b) => s + Number(b.alloc?.used_amount || 0), 0);
+
+      bankbookHtml += `
+      <div class="bo-card" style="margin-bottom:16px;overflow:hidden">
+        <div style="padding:14px 20px;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);border-bottom:1px solid #E5E7EB;display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-weight:900;font-size:14px;color:#1E40AF">🏢 ${grpName}</div>
+            <div style="font-size:11px;color:#6B7280;margin-top:2px">💳 ${acctName} · ${g.items.length}개 조직</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:11px;color:#6B7280">배정 합계</div>
+            <div style="font-weight:900;font-size:15px;color:#059669">${fmt(grpTotal)}원</div>
+            <div style="font-size:10px;color:#9CA3AF">집행 ${fmt(grpUsed)}원</div>
+          </div>
+        </div>
+        <table class="bo-table" style="font-size:12px">
+          <thead><tr>
+            <th style="width:30px"></th>
+            <th>조직명</th><th>조직유형</th>
+            <th style="text-align:right">배정액</th>
+            <th style="text-align:right">집행액</th>
+            <th style="text-align:right">동결액</th>
+            <th style="text-align:right">잔액</th>
+            <th style="text-align:center;width:80px">관리</th>
+          </tr></thead>
+          <tbody>
+          ${grpAllocs.map(b => {
+        const al = b.alloc;
+        const allocated = Number(al?.allocated_amount || 0);
+        const used = Number(al?.used_amount || 0);
+        const frozen = Number(al?.frozen_amount || 0);
+        const carry = Number(al?.carryover_amount || 0);
+        const bal = allocated + carry - used - frozen;
+        const isParent = !b.parent_org_id;
+        const indent = isParent ? '' : 'padding-left:28px';
+        const orgIcon = b.org_type === 'hq' || b.org_type === 'center' ? '🏢' : '👥';
+        return `<tr style="${isParent ? 'background:#FAFBFF;font-weight:700' : ''}">
+              <td style="text-align:center;font-size:11px">${isParent ? '▼' : '└'}</td>
+              <td style="${indent}">${orgIcon} ${b.org_name}</td>
+              <td><span style="font-size:10px;padding:2px 6px;border-radius:4px;background:${isParent ? '#DBEAFE' : '#F3F4F6'};color:${isParent ? '#1D4ED8' : '#6B7280'}">${b.org_type === 'hq' ? '본부' : b.org_type === 'center' ? '센터' : '팀'}</span></td>
+              <td style="text-align:right;font-weight:700;color:#059669">${fmt(allocated)}</td>
+              <td style="text-align:right;color:#DC2626">${fmt(used)}</td>
+              <td style="text-align:right;color:#D97706">${fmt(frozen)}</td>
+              <td style="text-align:right;font-weight:700;color:${bal >= 0 ? '#111827' : '#EF4444'}">${fmt(bal)}</td>
+              <td style="text-align:center">
+                <button class="bo-btn-secondary bo-btn-sm" onclick="_obEditAlloc('${b.id}',${allocated})" style="font-size:10px;padding:3px 8px">배정수정</button>
+              </td>
+            </tr>`;
+      }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+    });
+  }
+
+  // ── 로그 HTML ──
+  const logHtml = _obLogs.length > 0 ? `
+  <div class="bo-card" style="margin-top:16px">
+    <div style="padding:12px 20px;border-bottom:1px solid #F3F4F6">
+      <span style="font-weight:900;font-size:13px;color:#374151">📋 배정 이력 (최근 ${_obLogs.length}건)</span>
+    </div>
+    <div style="max-height:240px;overflow-y:auto">
+      ${_obLogs.map(l => {
+    const colors = { allocate: '#059669', adjust: '#D97706', freeze: '#7C3AED', use: '#DC2626', carryover: '#1D4ED8', release: '#6B7280' };
+    const labels = { allocate: '배정', adjust: '조정', freeze: '동결', use: '집행', carryover: '이월', release: '해제' };
+    return `<div style="padding:8px 20px;border-bottom:1px solid #F9FAFB;display:flex;align-items:center;gap:10px;font-size:12px">
+          <span style="font-size:10px;padding:2px 8px;border-radius:4px;font-weight:800;background:${colors[l.action]}15;color:${colors[l.action]}">${labels[l.action] || l.action}</span>
+          <span style="font-weight:700">${l.amount >= 0 ? '+' : ''}${fmt(l.amount)}원</span>
+          <span style="color:#9CA3AF">${l.reason || ''}</span>
+          <span style="margin-left:auto;color:#9CA3AF;font-size:10px">${l.performed_by || ''} · ${new Date(l.performed_at).toLocaleString('ko-KR')}</span>
+        </div>`;
+  }).join('')}
+    </div>
+  </div>` : '';
+
+  el.innerHTML = `
+<div class="bo-fade" style="padding:24px;max-width:1100px">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="background:#059669;color:#fff;font-size:9px;font-weight:900;padding:3px 8px;border-radius:6px">교육지원제도 운영</span>
+        <h1 style="font-size:20px;font-weight:900;color:#111827;margin:0">💰 예산 배정 현황 관리</h1>
+      </div>
+      <p style="font-size:12px;color:#64748B;margin:0">가상교육조직별·예산계정별·기간별 예산 배정 현황을 조회하고 관리합니다.</p>
+    </div>
+  </div>
+
+  <!-- 필터 -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px;padding:14px 16px;background:#FAFBFF;border:1.5px solid #E5E7EB;border-radius:12px">
+    ${tenantSel} ${tplSel} ${groupSel} ${acctSel} ${periodSel}
+    <button class="bo-btn-primary bo-btn-sm" onclick="_obAutoCreate()" style="margin-left:auto;background:#7C3AED;border-color:#7C3AED">🏗️ 통장 자동 생성</button>
+  </div>
+
+  <!-- 요약 카드 -->
+  ${curPeriod ? `
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px">
+    <div class="bo-card" style="padding:16px;text-align:center">
+      <div style="font-size:10px;color:#6B7280;font-weight:700">📅 기간</div>
+      <div style="font-size:14px;font-weight:900;color:#111827;margin-top:4px">${curPeriod.period_label}</div>
+      <div style="font-size:10px;color:${curPeriod.status === 'open' ? '#059669' : '#DC2626'};font-weight:700;margin-top:2px">${curPeriod.status === 'open' ? '● 진행중' : '● 마감'}</div>
+    </div>
+    <div class="bo-card" style="padding:16px;text-align:center;border-left:3px solid #059669">
+      <div style="font-size:10px;color:#6B7280;font-weight:700">💰 총 배정</div>
+      <div style="font-size:16px;font-weight:900;color:#059669;margin-top:4px">${fmt(totalAlloc)}</div>
+      ${totalCarry > 0 ? `<div style="font-size:10px;color:#1D4ED8;margin-top:2px">이월 +${fmt(totalCarry)}</div>` : ''}
+    </div>
+    <div class="bo-card" style="padding:16px;text-align:center;border-left:3px solid #DC2626">
+      <div style="font-size:10px;color:#6B7280;font-weight:700">📊 집행</div>
+      <div style="font-size:16px;font-weight:900;color:#DC2626;margin-top:4px">${fmt(totalUsed)}</div>
+    </div>
+    <div class="bo-card" style="padding:16px;text-align:center;border-left:3px solid #D97706">
+      <div style="font-size:10px;color:#6B7280;font-weight:700">🔒 동결</div>
+      <div style="font-size:16px;font-weight:900;color:#D97706;margin-top:4px">${fmt(totalFrozen)}</div>
+    </div>
+    <div class="bo-card" style="padding:16px;text-align:center;border-left:3px solid #1D4ED8">
+      <div style="font-size:10px;color:#6B7280;font-weight:700">💡 잔액</div>
+      <div style="font-size:16px;font-weight:900;color:#1D4ED8;margin-top:4px">${fmt(balance)}</div>
+      <div style="font-size:10px;color:#9CA3AF;margin-top:2px">${pct}%</div>
+    </div>
+  </div>` : ''}
+
+  <!-- 통장 목록 -->
+  ${bankbookHtml}
+
+  <!-- 배정 이력 -->
+  ${logHtml}
+</div>
+
+<!-- 배정 수정 모달 -->
+<div id="ob-alloc-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;width:420px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+    <h3 style="font-size:15px;font-weight:800;margin:0 0 16px">💰 예산 배정 수정</h3>
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">배정 금액 (원)</label>
+      <input id="ob-alloc-amt" type="number" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:14px;font-weight:700">
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">배정 사유</label>
+      <input id="ob-alloc-reason" type="text" placeholder="예) 2026년 Q1 초기 배정" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+    </div>
+    <input id="ob-alloc-bbid" type="hidden">
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+      <button class="bo-btn-secondary bo-btn-sm" onclick="document.getElementById('ob-alloc-modal').style.display='none'">취소</button>
+      <button class="bo-btn-primary bo-btn-sm" onclick="_obSaveAlloc()">저장</button>
+    </div>
+  </div>
+</div>`;
+}
+
+// ── 배정 수정 모달 열기 ──
+function _obEditAlloc(bankbookId, curAmt) {
+  document.getElementById('ob-alloc-bbid').value = bankbookId;
+  document.getElementById('ob-alloc-amt').value = curAmt || 0;
+  document.getElementById('ob-alloc-reason').value = '';
+  document.getElementById('ob-alloc-modal').style.display = 'flex';
+}
+
+// ── 배정 저장 ──
+async function _obSaveAlloc() {
+  const bbId = document.getElementById('ob-alloc-bbid').value;
+  const newAmt = Number(document.getElementById('ob-alloc-amt').value) || 0;
+  const reason = document.getElementById('ob-alloc-reason').value.trim() || '배정 수정';
+  if (!bbId || !_obPeriodId) return;
+
+  const sb = typeof _sb === 'function' ? _sb() : null;
+  if (!sb) return;
+
+  try {
+    // 기존 allocation 찾기
+    const existing = _obAllocations.find(a => a.bankbook_id === bbId);
+    const prevAmt = Number(existing?.allocated_amount || 0);
+
+    if (existing) {
+      await sb.from('budget_allocations').update({ allocated_amount: newAmt, updated_at: new Date().toISOString() }).eq('id', existing.id);
+      // 로그
+      await sb.from('budget_allocation_log').insert({
+        allocation_id: existing.id,
+        action: prevAmt === 0 ? 'allocate' : 'adjust',
+        amount: newAmt - prevAmt,
+        prev_balance: prevAmt, new_balance: newAmt,
+        reason, performed_by: boCurrentPersona?.name || ''
+      });
+    } else {
+      // 신규 allocation
+      const { data: ins } = await sb.from('budget_allocations').insert({
+        bankbook_id: bbId, period_id: _obPeriodId,
+        allocated_amount: newAmt
+      }).select('id').single();
+      if (ins) {
+        await sb.from('budget_allocation_log').insert({
+          allocation_id: ins.id,
+          action: 'allocate', amount: newAmt,
+          prev_balance: 0, new_balance: newAmt,
+          reason, performed_by: boCurrentPersona?.name || ''
+        });
+      }
+    }
+    document.getElementById('ob-alloc-modal').style.display = 'none';
+    await renderOrgBudget();
+  } catch (e) { alert('저장 실패: ' + e.message); }
+}
+
+// ── 통장 자동 생성 ──
+async function _obAutoCreate() {
+  if (!_obTplId) { alert('템플릿을 선택하세요.'); return; }
+  if (_obAcctList.length === 0) { alert('예산 계정이 없습니다. 먼저 계정을 등록하세요.'); return; }
+  if (_obGroups.length === 0) { alert('VOrg 그룹이 없습니다. 가상교육조직 템플릿에 그룹을 먼저 구성하세요.'); return; }
+
+  const sb = typeof _sb === 'function' ? _sb() : null;
+  if (!sb) return;
+
+  const bankbookRows = [];
+  const groups = _obGroupId ? _obGroups.filter(g => g.id === _obGroupId) : _obGroups;
+  const accounts = _obAccountId ? _obAcctList.filter(a => a.id === _obAccountId) : _obAcctList;
+
+  for (const grp of groups) {
+    const mappedOrgs = grp.teams || [];
+    for (const acct of accounts) {
+      for (const org of mappedOrgs) {
+        // 상위조직 통장
+        bankbookRows.push({
+          tenant_id: _obTenant, template_id: _obTplId,
+          vorg_group_id: grp.id, account_id: acct.id,
+          org_id: org.id, org_name: org.name,
+          org_type: org.includesSubOrgs ? 'hq' : 'team',
+          parent_org_id: null
+        });
+        // 하위조직 전개 (REAL_ORG_TREE에서 찾기)
+        if (org.includesSubOrgs && typeof REAL_ORG_TREE !== 'undefined') {
+          const subs = _obFindSubOrgs(org.name);
+          subs.forEach(sub => {
+            bankbookRows.push({
+              tenant_id: _obTenant, template_id: _obTplId,
+              vorg_group_id: grp.id, account_id: acct.id,
+              org_id: sub.id, org_name: sub.name,
+              org_type: 'team', parent_org_id: org.id
+            });
+          });
+        }
+      }
+    }
+  }
+
+  if (bankbookRows.length === 0) { alert('생성할 통장이 없습니다.'); return; }
+
+  try {
+    const { error } = await sb.from('org_budget_bankbooks').upsert(bankbookRows, { onConflict: 'tenant_id,template_id,vorg_group_id,account_id,org_id', ignoreDuplicates: true });
+    if (error) throw error;
+    alert(`✅ ${bankbookRows.length}건의 통장이 생성/확인되었습니다.`);
+    await renderOrgBudget();
+  } catch (e) { alert('통장 생성 실패: ' + e.message); }
+}
+
+// ── REAL_ORG_TREE에서 이름 기반 하위 조직 찾기 ──
+function _obFindSubOrgs(parentName) {
+  if (typeof REAL_ORG_TREE === 'undefined') return [];
+  const allBranches = [...(REAL_ORG_TREE.general || []), ...(REAL_ORG_TREE.rnd || [])];
+  for (const branch of allBranches) {
+    if (branch.name === parentName || branch.name.includes(parentName) || parentName.includes(branch.name)) {
+      return branch.children || [];
+    }
+    // 2-depth 탐색
+    if (branch.children) {
+      for (const child of branch.children) {
+        if (child.name === parentName && child.children) return child.children;
+      }
+    }
+  }
+  return [];
+}
 

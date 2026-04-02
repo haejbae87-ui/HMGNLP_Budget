@@ -1261,6 +1261,7 @@ let _obLogs = [];
 let _obTab = 0;
 let _obAllBankbooks = [];   // 전체 템플릿 통장 (교차 VOrg 이관용)
 let _obAllAllocations = []; // 전체 템플릿 allocation
+let _obOrgStatuses = {};    // org_id → 'active'|'deprecated'
 
 // ── 공통 데이터 로드 ──
 async function _obLoadData() {
@@ -1310,6 +1311,13 @@ async function _obLoadData() {
       try { const { data } = await sb.from('budget_allocations').select('*').in('bankbook_id', allBbIds).eq('period_id', _obPeriodId); _obAllAllocations = data || []; } catch (e) { _obAllAllocations = []; }
     } else { _obAllAllocations = []; }
   } else { _obAllBankbooks = []; _obAllAllocations = []; }
+
+  // 조직 상태 로드 (deprecated 차단용)
+  try {
+    const { data } = await sb.from('organizations').select('id,status').eq('tenant_id', _obTenant);
+    _obOrgStatuses = {};
+    (data || []).forEach(o => { _obOrgStatuses[o.id] = o.status; });
+  } catch (e) { _obOrgStatuses = {}; }
 }
 
 // ── 진입점 ──
@@ -1453,7 +1461,7 @@ function _obRenderOverview() {
         const isP = !b.parent_org_id;
         return `<tr style="${isP ? 'background:#FAFBFF;font-weight:700' : ''}">
             <td style="text-align:center;font-size:10px">${isP ? '▼' : '└'}</td>
-            <td style="${isP ? '' : 'padding-left:24px'}">${b.org_type === 'hq' || b.org_type === 'center' ? '🏢' : '👥'} ${b.org_name}</td>
+            <td style="${isP ? '' : 'padding-left:24px'}">${b.org_type === 'hq' || b.org_type === 'center' ? '🏢' : '👥'} ${b.org_name}${_obOrgStatuses[b.org_id] === 'deprecated' ? ' <span style="font-size:8px;padding:1px 4px;background:#FEE2E2;color:#DC2626;border-radius:3px;font-weight:800">미사용</span>' : ''}</td>
             <td><span style="font-size:9px;padding:1px 5px;border-radius:4px;background:${isP ? '#DBEAFE' : '#F3F4F6'};color:${isP ? '#1D4ED8' : '#6B7280'}">${b.org_type === 'hq' ? '본부' : b.org_type === 'center' ? '센터' : '팀'}</span></td>
             <td style="text-align:right;color:#059669">${fmt(a)}</td>
             <td style="text-align:right;color:#DC2626">${fmt(u)}</td>
@@ -1634,8 +1642,11 @@ function _obRenderTransfer() {
     return { ...b, allocated: a, used: u, frozen: f, balance: a - u - f, grpName: grp?.name || b.vorg_group_id, acctName: acct?.name || '' };
   });
 
-  const fromOpts = bbWithAlloc.filter(b => b.balance > 0).map(b => `<option value="${b.id}">[${b.grpName}] ${b.org_name} — ${b.acctName} (잔액: ${fmt(b.balance)}원)</option>`).join('');
-  const toOpts = bbWithAlloc.map(b => `<option value="${b.id}">[${b.grpName}] ${b.org_name} — ${b.acctName} (현재: ${fmt(b.allocated)}원)</option>`).join('');
+  const fromOpts = bbWithAlloc.filter(b => b.balance > 0).map(b => {
+    const dep = _obOrgStatuses[b.org_id] === 'deprecated' ? ' 🚫미사용' : '';
+    return `<option value="${b.id}">[${b.grpName}] ${b.org_name}${dep} — ${b.acctName} (잔액: ${fmt(b.balance)}원)</option>`;
+  }).join('');
+  const toOpts = bbWithAlloc.filter(b => _obOrgStatuses[b.org_id] !== 'deprecated').map(b => `<option value="${b.id}">[${b.grpName}] ${b.org_name} — ${b.acctName} (현재: ${fmt(b.allocated)}원)</option>`).join('');
 
   return `<div style="max-width:700px">
     <div style="padding:8px 14px;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;margin-bottom:12px;font-size:11px;color:#92400E;font-weight:600">
@@ -1887,9 +1898,9 @@ async function _obDeactivateBankbook(bbId) {
   const balance = allocated - used - frozen;
   const fmt = n => Number(n).toLocaleString();
 
-  // 집행/동결 중인 건이 있으면 차단
-  if (used > 0 || frozen > 0) {
-    alert(`⛔ 집행(${fmt(used)}원) 또는 동결(${fmt(frozen)}원)이 있어 비활성화할 수 없습니다.\n→ 기간 마감 후 처리하거나 동결 해제 후 이관하세요.`);
+  // 동결(교육 진행 중)이면 교육 완료까지 통장 유지
+  if (frozen > 0) {
+    alert(`⛔ 동결 예산 ${fmt(frozen)}원이 있습니다.\n→ 진행 중인 교육이 완료될 때까지 통장을 유지해야 합니다.\n→ 교육 완료 후 다시 시도하세요.`);
     return;
   }
 

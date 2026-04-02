@@ -215,6 +215,7 @@ const PLATFORM_MENUS = [
   { id: 'my-operations', icon: '📥', label: '교육신청 관리', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'org-budget', icon: '📊', label: '교육결과 관리', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'allocation', icon: '💰', label: '예산 배정 및 관리', section: null, gnb: GNB_CATE.PROGRAM },
+  { id: 'budget-history', icon: '📒', label: '예산 사용이력', section: null, gnb: GNB_CATE.PROGRAM },
   // 자격증 지원관리
   { id: 'cert-mapping', icon: '📜', label: '자격증 맵핑', section: '자격증 지원관리', gnb: GNB_CATE.PROGRAM },
   // 통계·기타
@@ -237,6 +238,7 @@ const TENANT_ADMIN_MENUS = [
   { id: 'my-operations', icon: '📥', label: '교육신청 관리', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'org-budget', icon: '📊', label: '교육결과 관리', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'allocation', icon: '💰', label: '예산 배정 및 관리', section: null, gnb: GNB_CATE.PROGRAM },
+  { id: 'budget-history', icon: '📒', label: '예산 사용이력', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'cert-mapping', icon: '📜', label: '자격증 맵핑', section: '자격증 지원관리', gnb: GNB_CATE.PROGRAM },
   { id: 'reports', icon: '📈', label: '전사 통계 리포트', section: null, gnb: GNB_CATE.STATS },
   { id: 'manual', icon: '📖', label: '서비스 매뉴얼', section: null, gnb: GNB_CATE.ETC },
@@ -254,6 +256,7 @@ const BUDGET_ADMIN_MENUS = [
   { id: 'my-operations', icon: '📥', label: '교육신청 관리', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'org-budget', icon: '📊', label: '교육결과 관리', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'allocation', icon: '💰', label: '예산 배정 및 관리', section: null, gnb: GNB_CATE.PROGRAM },
+  { id: 'budget-history', icon: '📒', label: '예산 사용이력', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'cert-mapping', icon: '📜', label: '자격증 맵핑', section: '자격증 지원관리', gnb: GNB_CATE.PROGRAM },
   { id: 'reports', icon: '📈', label: '통계 및 리포트', section: null, gnb: GNB_CATE.STATS },
   { id: 'manual', icon: '📖', label: '서비스 매뉴얼', section: null, gnb: GNB_CATE.ETC },
@@ -267,6 +270,7 @@ const BUDGET_OP_MENUS = [
   { id: 'my-operations', icon: '📥', label: '교육신청 관리', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'org-budget', icon: '📊', label: '교육결과 관리', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'allocation', icon: '💰', label: '예산 배정 및 관리', section: null, gnb: GNB_CATE.PROGRAM },
+  { id: 'budget-history', icon: '📒', label: '예산 사용이력', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'reports', icon: '📈', label: '통계 및 리포트', section: null, gnb: GNB_CATE.STATS },
 ];
 
@@ -285,6 +289,7 @@ const TENANT_DUAL_MENUS = [
   { id: 'my-operations', icon: '📥', label: '교육신청 관리', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'org-budget', icon: '📊', label: '교육결과 관리', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'allocation', icon: '💰', label: '예산 배정 및 관리', section: null, gnb: GNB_CATE.PROGRAM },
+  { id: 'budget-history', icon: '📒', label: '예산 사용이력', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'cert-mapping', icon: '📜', label: '자격증 맵핑', section: '자격증 지원관리', gnb: GNB_CATE.PROGRAM },
   { id: 'reports', icon: '📈', label: '통계 및 리포트', section: null, gnb: GNB_CATE.STATS },
   { id: 'manual', icon: '📖', label: '서비스 매뉴얼', section: null, gnb: GNB_CATE.ETC },
@@ -620,6 +625,7 @@ function boNavigate(menuId) {
   // 운영 메뉴
   if (menuId === 'plan-mgmt') renderBoPlanMgmt();
   if (menuId === 'allocation') renderOrgBudget();
+  if (menuId === 'budget-history') renderBudgetHistory();
   if (menuId === 'my-operations') renderMyOperations();
   if (menuId === 'org-budget') renderOrgBudget();
   // isolation-groups 메뉴 제거됨 (2026-03-30: 교육지원 도메인 관리 → 가상교육조직 템플릿 종속으로 변경)

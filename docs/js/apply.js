@@ -273,6 +273,46 @@ function _renderResultForm() {
 let _applyListTab = 'mine'; // 'mine' | 'team'
 let _applyYear = new Date().getFullYear(); // 연도 필터
 
+
+// ─── 결과 등록 제출 (패턴 C/D) → DB 저장 ───────────────────────────────────
+async function submitResult() {
+  const rs = _resultState || {};
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (sb) {
+    try {
+      const appId = `RES-${Date.now()}`;
+      const row = {
+        id: appId, tenant_id: currentPersona.tenantId,
+        plan_id: null, account_code: rs.accountCode || '',
+        applicant_id: currentPersona.id,
+        applicant_name: currentPersona.name,
+        dept: currentPersona.dept || '',
+        edu_name: rs.eduName || '교육결과',
+        edu_type: rs.eduType || null,
+        amount: Number(rs.amount || 0), status: 'completed',
+        policy_id: rs.policyId || null,
+        detail: {
+          purpose: rs.purpose || null, resultType: 'direct',
+          completionDate: rs.completionDate || null,
+          score: rs.score || null, notes: rs.notes || null,
+        },
+      };
+      const { error } = await sb.from('applications').insert(row);
+      if (error) throw error;
+      console.log(`[submitResult] DB 저장 성공: ${appId}`);
+    } catch (err) {
+      console.error('[submitResult] DB 저장 실패:', err.message);
+    }
+  }
+  alert('✅ 교육결과가 성공적으로 등록되었습니다.\n\n관리자 확인 후 이력에 반영됩니다.');
+  _resultState = _resetResultState();
+  applyViewMode = 'list';
+  renderApply();
+}
+
+let _dbMyApps = [];
+let _appsDbLoaded = false;
+
 function _renderApplyList() {
   const STATUS_CFG = {
     '승인완료': { color: '#059669', bg: '#F0FDF4', border: '#BBF7D0', icon: '✅' },
@@ -1089,21 +1129,34 @@ function selectBudgetChoice(choice) {
   applyState.planId = '';
   applyState.planIds = [];
   applyState.serviceId = '';
-  // applyMode 결정: HAE-EDU/TEAM → holding(신청→결과), HSC-EXT → holding, 일반 general → reimbursement(후정산)
-  const isHscExtMode = (currentPersona.allowedAccounts || []).includes('HSC-EXT');
-  const isHaeMode = ['hae-edu', 'hae-team'].includes(choice);
-  applyState.applyMode = choice === 'none' ? null
-    : (choice === 'rnd' || isHscExtMode || isHaeMode) ? 'holding' : 'reimbursement';
-  applyState.useBudget = choice !== 'none';
-  // budgetId 자동 연결 (HAE-EDU → b_hae01, HAE-TEAM → b_hae02, 단일 예산 → [0])
-  if (choice === 'hae-edu') {
-    const b = (currentPersona.budgets || []).find(b => b.account === '전사교육');
+
+  // 정책 기반: 선택한 예산에 매칭되는 정책의 apply_mode로 결정
+  const budgets = currentPersona.budgets || [];
+  if (choice === 'none') {
+    applyState.applyMode = null;
+    applyState.useBudget = false;
+  } else if (choice === 'rnd') {
+    applyState.applyMode = 'holding';
+    applyState.useBudget = true;
+    const b = budgets.find(b => (b.accountCode || '').includes('RND') || b.account === '연구투자');
     if (b) applyState.budgetId = b.id;
-  } else if (choice === 'hae-team') {
-    const b = (currentPersona.budgets || []).find(b => b.account === '팀/프로젝트');
+  } else if (choice === 'general') {
+    // 정책에서 applyMode 확인, 기본 reimbursement
+    const policyResult = typeof _getActivePolicies !== 'undefined' ? _getActivePolicies(currentPersona) : null;
+    const policies = policyResult ? policyResult.policies : [];
+    const matchedPolicy = policies.find(p =>
+      (p.purpose === 'external_personal' || p.purpose === 'personal_external') &&
+      !((p.account_codes || p.accountCodes || []).some(c => c.includes('RND')))
+    );
+    applyState.applyMode = matchedPolicy?.apply_mode || matchedPolicy?.applyMode || 'reimbursement';
+    applyState.useBudget = true;
+    if (budgets.length >= 1) applyState.budgetId = budgets[0].id;
+  } else {
+    // 기타 선택지: 예산 목록에서 account name 매칭
+    applyState.applyMode = 'holding';
+    applyState.useBudget = true;
+    const b = budgets.find(b => b.id === choice || b.account === choice);
     if (b) applyState.budgetId = b.id;
-  } else if (choice === 'general' && (currentPersona.budgets || []).length >= 1) {
-    applyState.budgetId = currentPersona.budgets[0].id;
   }
   renderApply();
 }

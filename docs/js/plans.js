@@ -135,6 +135,13 @@ function resetPlanState() {
 let _planViewTab = 'mine'; // 'mine' | 'team'
 let _planYear = new Date().getFullYear(); // 연도 필터
 
+let _dbMyPlans = [];
+let _plansDbLoaded = false;
+function _mapDbStatus(s) {
+  const m = { pending: '신청중', approved: '진행중', completed: '완료', rejected: '반려' };
+  return m[s] || s || '신청중';
+}
+
 function renderPlans() {
   // FO 정책 DB 로드 (최초 1회, 완료 후 목록 자동 갱신)
   if (!_foServicePoliciesLoaded) {
@@ -148,10 +155,30 @@ function renderPlans() {
   // 팀 뷰 허용 여부 (persona의 teamViewEnabled 또는 team_view_enabled)
   const teamViewEnabled = currentPersona.teamViewEnabled ?? currentPersona.team_view_enabled ?? false;
 
-  // DB 데이터 (현재 비어있음 — 실제 신청 시 DB에 저장됨)
-  const myPlans = []; // MOCK_PLANS 제거 — 실제 DB 조회로 전환 예정
-  const teamPlans = teamViewEnabled ? [] : [];
-
+  // DB 실시간 조회
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (sb && !_plansDbLoaded) {
+    _plansDbLoaded = true;
+    sb.from('plans').select('*')
+      .eq('applicant_id', currentPersona.id)
+      .eq('tenant_id', currentPersona.tenantId)
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (!error && data) {
+          _dbMyPlans = data.map(d => ({
+            id: d.id, title: d.edu_name, type: d.edu_type || '',
+            amount: Number(d.amount || 0), status: _mapDbStatus(d.status),
+            account: d.account_code, date: d.created_at?.slice(0, 10) || '',
+            budgetId: d.detail?.budgetId || null, purpose: d.detail?.purpose || null,
+          }));
+        }
+        renderPlans();
+      });
+    return;
+  }
+  const myPlans = _dbMyPlans.length > 0 ? _dbMyPlans
+    : MOCK_PLANS.filter(p => p.year === _planYear);
+  const teamPlans = teamViewEnabled ? _getSampleTeamPlans() : [];
   const plans = _planViewTab === 'mine' ? myPlans : teamPlans;
 
   // 통계

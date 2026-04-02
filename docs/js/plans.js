@@ -295,9 +295,18 @@ function renderPlanWizard() {
   const s = planState;
   if (!s) return;
 
-  const isFixedProcess = isFixedPlanProcess(currentPersona);
-  const isLearner = currentPersona.role === 'learner' || (currentPersona.roles || []).includes('learner');
-  const isRndPersona = isLearner && (currentPersona.allowedAccounts || []).includes('HMC-RND');
+  // 정책 우선: 역할이 아닌 매칭 정책의 target_type으로 UI 섹션 결정
+  const policyResult = typeof _getActivePolicies !== 'undefined' ? _getActivePolicies(currentPersona) : null;
+  const matchedPolicies = policyResult ? policyResult.policies : [];
+  const hasLearnerPolicies = matchedPolicies.some(p => (p.target_type || p.targetType) === 'learner');
+  const hasOperatorPolicies = matchedPolicies.some(p => (p.target_type || p.targetType) === 'operator');
+  // 패턴A 존재 시 계획 필수 안내
+  const hasPlanRequiredPattern = matchedPolicies.some(p => (p.process_pattern || p.processPattern) === 'A');
+
+  // 정책 기반 목적 필터
+  const allPurposes = getPersonaPurposes(currentPersona);
+  const learnerPurposes = allPurposes.filter(p => p.id === 'external_personal');
+  const operatorPurposes = allPurposes.filter(p => p.id !== 'external_personal');
 
   const availBudgets = s.purpose
     ? getPersonaBudgets(currentPersona, s.purpose.id)
@@ -336,63 +345,53 @@ function renderPlanWizard() {
   <div class="${s.step === 1 ? '' : 'hidden'}">
     <h3 class="text-base font-black text-gray-800 mb-5">01. 교육 목적 선택</h3>
 
-    ${isFixedProcess ? `
-    <!-- HAE 고정 프로세스 안내 -->
-    <div class="mb-5 p-4 bg-purple-50 border-2 border-purple-200 rounded-2xl flex items-start gap-3">
-      <span class="text-2xl flex-shrink-0">🔒</span>
+    ${hasPlanRequiredPattern ? `
+    <!-- 패턴A 정책 존재: 계획 필수 안내 -->
+    <div class="mb-5 p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl flex items-start gap-3">
+      <span class="text-2xl flex-shrink-0">📋</span>
       <div>
-        <div class="font-black text-purple-700 text-sm mb-1">${currentPersona.company} 고정 프로세스 계획 수립</div>
-        <p class="text-xs text-purple-500 leading-relaxed">개인직무 사외학습 한정: 참가계정 및 자격증계정에 한하여 계획 수립 후 신청하세요.</p>
+        <div class="font-black text-blue-700 text-sm mb-1">계획 수립 필수 정책이 포함되어 있습니다</div>
+        <p class="text-xs text-blue-500 leading-relaxed">일부 교육 목적은 계획 수립 후 신청하는 절차(패턴A)가 적용됩니다.</p>
       </div>
     </div>` : ''}
 
-    ${isRndPersona ? `
-    <!-- 연구직군만: 학습자(개인 직무 사외학습) 섹션 -->
+    ${learnerPurposes.length > 0 ? `
+    <!-- 👤 학습자 교육 목적 (정책 기반) -->
     <div class="mb-6">
       <div class="flex items-center gap-2 mb-3">
         <span class="text-[10px] font-black px-2.5 py-1 rounded-full bg-blue-100 text-blue-600 tracking-wider">👤 학습자</span>
         <span class="text-[11px] text-gray-400">본인이 직접 학습에 참여하는 경우</span>
       </div>
       <div class="grid grid-cols-1 gap-3">
-        ${PURPOSES.filter(p => p.id === 'external_personal').map(p => `
+        ${learnerPurposes.map(p => `
         <button onclick="selectPlanPurpose('${p.id}')" class="p-5 rounded-2xl border-2 text-left transition-all hover:border-accent ${s.purpose?.id === p.id ? 'border-accent bg-blue-50 shadow-lg' : 'border-gray-200 bg-white'}">
           <div class="text-2xl mb-2">${p.icon}</div>
           <div class="font-black text-gray-900 text-sm mb-0.5 ${s.purpose?.id === p.id ? 'text-accent' : ''}">${p.label}</div>
           <div class="text-xs text-gray-500">${p.desc}</div>
         </button>`).join('')}
       </div>
-    </div>` : isFixedProcess ? `
-    <!-- HAE 고정 프로세스: external_personal 전용 -->
-    <div class="mb-6">
-      <div class="flex items-center gap-2 mb-3">
-        <span class="text-[10px] font-black px-2.5 py-1 rounded-full bg-purple-100 text-purple-600 tracking-wider">👤 개인직무 학습자</span>
-        <span class="text-[11px] text-gray-400">개인직무 사외학습에 한정된 계획을 수립합니다</span>
-      </div>
-      <div class="grid grid-cols-1 gap-3">
-        ${getPersonaPurposes(currentPersona).map(p => `
-        <button onclick="selectPlanPurpose('${p.id}')" class="p-5 rounded-2xl border-2 text-left transition-all hover:border-purple-400 ${s.purpose?.id === p.id ? 'border-purple-500 bg-purple-50 shadow-lg' : 'border-gray-200 bg-white'}">
-          <div class="text-2xl mb-2">${p.icon}</div>
-          <div class="font-black text-gray-900 text-sm mb-0.5 ${s.purpose?.id === p.id ? 'text-purple-600' : ''}">${p.label}</div>
-          <div class="text-xs text-gray-500">${p.desc}</div>
-        </button>`).join('')}
-      </div>
     </div>` : ''}
 
-    ${!isRndPersona && !isFixedProcess ? `
-    <!-- 일반 학습자/실무자: 전체 목적 표시 -->
+    ${operatorPurposes.length > 0 ? `
+    <!-- 🛠 교육담당자 교육 목적 (정책 기반) -->
     <div>
       <div class="flex items-center gap-2 mb-3">
         <span class="text-[10px] font-black px-2.5 py-1 rounded-full bg-violet-100 text-violet-600 tracking-wider">🛠 교육담당자</span>
         <span class="text-[11px] text-gray-400">교육과정을 기획·운영하는 담당자</span>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        ${getPersonaPurposes(currentPersona).filter(p => p.id !== 'external_personal').map(p => `
+        ${operatorPurposes.map(p => `
         <button onclick="selectPlanPurpose('${p.id}')" class="p-5 rounded-2xl border-2 text-left transition-all hover:border-violet-400 ${s.purpose?.id === p.id ? 'border-violet-500 bg-violet-50 shadow-lg' : 'border-gray-200 bg-gray-50/50'}">
           <div class="text-2xl mb-2">${p.icon}</div>
           <div class="font-black text-gray-900 text-sm mb-0.5 ${s.purpose?.id === p.id ? 'text-violet-600' : ''}">${p.label}</div>
           <div class="text-xs text-gray-500">${p.desc}</div>
         </button>`).join('')}
       </div>
+    </div>` : ''}
+
+    ${learnerPurposes.length === 0 && operatorPurposes.length === 0 ? `
+    <div class="p-5 bg-yellow-50 border-2 border-yellow-200 rounded-2xl text-sm font-bold text-yellow-700">
+      ⚠️ 현재 사용자에게 오픈된 교육 정책이 없습니다. 관리자에게 문의해 주세요.
     </div>` : ''}
 
     <div class="flex justify-end mt-6 pt-4 border-t border-gray-100">

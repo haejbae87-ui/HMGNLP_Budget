@@ -29,11 +29,12 @@ function _applySmartButtons() {
   if (typeof SERVICE_POLICIES !== 'undefined' && SERVICE_POLICIES.length > 0) {
     const policies = SERVICE_POLICIES.filter(p => {
       if (p.status && p.status !== 'active') return false;
-      if (p.tenantId && p.tenantId !== currentPersona.tenantId) return false;
+      const pTenantId = p.tenant_id || p.tenantId;
+      if (pTenantId && pTenantId !== currentPersona.tenantId) return false;
       return true;
     });
     policies.forEach(p => {
-      const pattern = p.processPattern || '';
+      const pattern = p.process_pattern || p.processPattern || '';
       if (['A', 'B', 'E'].includes(pattern)) hasApplyPatterns = true;
       if (['C', 'D'].includes(pattern)) hasResultOnlyPatterns = true;
       // flow 기반 fallback
@@ -474,9 +475,14 @@ function _applySelectionBanner(s, currentStep) {
 // ─── 교육신청 폼 뷰 (기존 renderApply 로직) ──────────────────────────────────
 function _renderApplyForm() {
   const s = applyState;
-  const isFixedProcess = isFixedPlanProcess(currentPersona);
-  const isLearner = currentPersona.role === 'learner' || (currentPersona.roles || []).includes('learner');
-  const isRndPersona = isLearner && (currentPersona.allowedAccounts || []).includes('HMC-RND');
+
+  // 정책 우선: 역할이 아닌 매칭 정책으로 UI 결정
+  const policyResult = typeof _getActivePolicies !== 'undefined' ? _getActivePolicies(currentPersona) : null;
+  const matchedPolicies = policyResult ? policyResult.policies : [];
+  const allPurposes = getPersonaPurposes(currentPersona);
+  const learnerPurposes = allPurposes.filter(p => p.id === 'external_personal');
+  const operatorPurposes = allPurposes.filter(p => p.id !== 'external_personal');
+
   const availBudgets = s.purpose ? getPersonaBudgets(currentPersona, s.purpose.accounts) : [];
 
   const curBudget = availBudgets.find(b => b.id === s.budgetId) || null;
@@ -535,41 +541,30 @@ function _renderApplyForm() {
     </div>
   </div>
 
-  <!--Step 1: Purpose-->
+  <!--Step 1: Purpose (정책 기반)-->
   <div class="card p-8 ${s.step === 1 ? '' : 'hidden'}">
     <h2 class="text-lg font-black text-gray-800 mb-6">01. 교육 목적 선택</h2>
 
-    ${isFixedProcess ? `
-    <!-- HAE 고정 프로세스 안내 -->
-    <div class="mb-5 p-4 bg-purple-50 border-2 border-purple-200 rounded-2xl flex items-start gap-3">
-      <span class="text-2xl flex-shrink-0">🔒</span>
-      <div>
-        <div class="font-black text-purple-700 text-sm mb-1">${currentPersona.company} 고정 프로세스</div>
-        <p class="text-xs text-purple-500 leading-relaxed">${currentPersona.desc}</p>
-        <p class="text-xs text-purple-400 mt-1">⚠️ 신청 전 반드시 교육계획을 먼저 수립해야 합니다.</p>
-      </div>
-    </div>` : ''}
-
-    <!-- 학습자 섹션 -->
+    ${learnerPurposes.length > 0 ? `
+    <!-- 👤 학습자 섹션 (정책 기반) -->
     <div class="mb-6">
       <div class="flex items-center gap-2 mb-3">
         <span class="text-[10px] font-black px-2.5 py-1 rounded-full bg-blue-100 text-blue-600 tracking-wider">👤 학습자</span>
         <span class="text-[11px] text-gray-400">본인이 직접 학습에 참여하는 경우</span>
       </div>
       <div class="grid grid-cols-1 gap-4">
-        ${getPersonaPurposes(currentPersona).filter(p => p.id === 'external_personal').map(p => `
+        ${learnerPurposes.map(p => `
         <button onclick="selectPurpose('${p.id}')" class="p-6 rounded-2xl border-2 text-left transition-all hover:border-accent ${s.purpose?.id === p.id ? 'border-accent bg-blue-50 shadow-lg' : 'border-gray-200 bg-white'}">
           <div class="text-3xl mb-3">${p.icon}</div>
           <div class="font-black text-gray-900 text-sm mb-1 ${s.purpose?.id === p.id ? 'text-accent' : ''}">${p.label}</div>
           <div class="text-xs text-gray-500">${p.desc}</div>
         </button>`).join('')}
       </div>
-    </div>
+    </div>` : ''}
 
-    <!-- 교육담당자 섹션: 표시할 목적 버튼이 있을 때만 렌더링 -->
+    <!-- 🛠 교육담당자 섹션 (정책 기반) -->
     ${(() => {
-      const operPurposes = !isFixedProcess ? getPersonaPurposes(currentPersona).filter(p => p.id !== 'external_personal') : [];
-      if (operPurposes.length === 0) return '';
+      if (operatorPurposes.length === 0) return '';
       return `
     <div>
       <div class="flex items-center gap-2 mb-3">
@@ -577,7 +572,7 @@ function _renderApplyForm() {
         <span class="text-[11px] text-gray-400">교육과정을 기획·운영하는 담당자</span>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        ${operPurposes.map(p => `
+        ${operatorPurposes.map(p => `
         <button onclick="selectPurpose('${p.id}')" class="p-6 rounded-2xl border-2 text-left transition-all hover:border-violet-400 ${s.purpose?.id === p.id ? 'border-violet-500 bg-violet-50 shadow-lg' : 'border-gray-200 bg-gray-50/50'}">
           <div class="text-3xl mb-3">${p.icon}</div>
           <div class="font-black text-gray-900 text-sm mb-1 ${s.purpose?.id === p.id ? 'text-violet-600' : ''}">${p.label}</div>

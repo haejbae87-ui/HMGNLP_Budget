@@ -139,29 +139,20 @@ function _getActivePolicies(persona) {
 }
 
 
-// 현재 페르소나가 사용 가능한 교육 목적 필터링
+// 현재 페르소나에 오픈된 정책 기반 예산 목록 반환 (Policy-First: 역할 무관, 정책만 기준)
 function getPersonaBudgets(persona, purposeId) {
   const result = _getActivePolicies(persona);
   if (result) {
     const { source, policies } = result;
     if (source === 'db') {
-      // target_type 필터 (team_general/team_leader는 learner + operator 모두)
-      const LEARNER_ROLES = ['learner', 'team_general', 'team_leader'];
-      const isLearnerRole = LEARNER_ROLES.includes(persona.role);
-      const isOperatorRole = !isLearnerRole || ['team_general', 'team_leader'].includes(persona.role);
-      const byTarget = policies.filter(p => {
-        if (!p.targetType) return true;
-        if (isLearnerRole && p.targetType === 'learner') return true;
-        if (isOperatorRole && p.targetType === 'operator') return true;
-        return false;
-      });
-      // BO DB: purposeId (FO) → BO purpose keys로 변환
+      // 정책 우선: target_type 필터 없이 매칭된 정책 전부 사용
+      // (정책이 열려있으면 누구든 사용 가능)
       const boPurposeKeys = purposeId ? (_FO_TO_BO_PURPOSE[purposeId] || [purposeId]) : null;
       const filtered = boPurposeKeys
-        ? byTarget.filter(p => boPurposeKeys.includes(p.purpose))
-        : byTarget;
+        ? policies.filter(p => boPurposeKeys.includes(p.purpose))
+        : policies;
       // 허용된 accountCodes로 persona.budgets 필터
-      const allCodes = [...new Set(filtered.flatMap(p => p.accountCodes || []))];
+      const allCodes = [...new Set(filtered.flatMap(p => p.accountCodes || p.account_codes || []))];
       return persona.budgets.filter(b =>
         allCodes.some(code => {
           const acctType = ACCOUNT_TYPE_MAP[code] || null;
@@ -185,21 +176,25 @@ function getPersonaBudgets(persona, purposeId) {
   );
 }
 
+// 정책 기반 계획 필수 여부 판단 (Policy-First: persona.process 하드코딩 대신 정책 패턴으로 결정)
 function isFixedPlanProcess(persona) {
-  return persona.process === 'plan-apply-result';
+  // 기존 mock 호환
+  if (persona.process === 'plan-apply-result') return true;
+  // DB 정책 기반: 매칭 정책 중 패턴A가 있으면 계획 필수
+  const result = _getActivePolicies(persona);
+  if (result && result.source === 'db') {
+    return result.policies.some(p => (p.process_pattern || p.processPattern) === 'A');
+  }
+  return false;
 }
 
-// 현재 페르소나가 사용 가능한 교육 목적 필터링
+// 정책 기반 교육 목적 필터 (Policy-First: target_type 구분 없이 오픈된 정책의 목적 전부 표시)
 function getPersonaPurposes(persona) {
-  if (isFixedPlanProcess(persona)) {
-    return PURPOSES.filter(p => p.id === 'external_personal');
-  }
   const result = _getActivePolicies(persona);
   if (result) {
     const { source, policies } = result;
     if (source === 'db') {
-      // 같은 VOrg에 소속된 정책은 targetType 구분 없이 모두 보여줌
-      // (learner/operator 모두 본인 VOrg에 할당된 정책의 목적을 볼 수 있어야 함)
+      // 정책 우선: target_type 구분 없이 모든 매칭 정책의 목적을 표시
       const foPurposeIds = [...new Set(
         policies.map(p => _BO_TO_FO_PURPOSE[p.purpose] || p.purpose).filter(Boolean)
       )];

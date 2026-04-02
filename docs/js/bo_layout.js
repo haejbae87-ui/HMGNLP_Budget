@@ -619,7 +619,7 @@ function boNavigate(menuId) {
   if (menuId === 'service-policy') renderServicePolicy();
   // 운영 메뉴
   if (menuId === 'plan-mgmt') renderBoPlanMgmt();
-  if (menuId === 'allocation') renderBoAllocation();
+  if (menuId === 'allocation') renderOrgBudget();
   if (menuId === 'my-operations') renderMyOperations();
   if (menuId === 'org-budget') renderOrgBudget();
   // isolation-groups 메뉴 제거됨 (2026-03-30: 교육지원 도메인 관리 → 가상교육조직 템플릿 종속으로 변경)

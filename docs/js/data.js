@@ -131,6 +131,7 @@ function resetApplyState() {
     showMultiPlanModal: false,
     budgetId: '',
     subType: '',
+    eduType: '',      // 교육유형 트리 상위 노드 ID
     region: 'domestic',
     title: '',
     startDate: '',

@@ -730,32 +730,54 @@ ${policyBudgets.map(b => {
     ${_applySelectionBanner(s, 3)}
     <h2 class="text-lg font-black text-gray-800 mb-6">03. 교육유형 선택</h2>
     ${(() => {
-      // 예산별 허용 교육유형 ID 맵
-      const SUBTYPE_FILTER_MAP = {
-        'hae-edu': ['edu_elearning', 'edu_class', 'edu_live', 'acad_conf', 'dev_lang', 'dev_cert'],
-        'hae-team': ['edu_elearning', 'edu_class', 'edu_live', 'acad_conf', 'dev_lang', 'dev_cert'],
-        'none-hae': ['edu_elearning', 'edu_class', 'edu_live', 'acad_conf', 'etc_team'],
-      };
-      const hasHaeEdu2 = (currentPersona.allowedAccounts || []).includes('HAE-EDU');
-      const isHscExtBudget = (currentPersona.allowedAccounts || []).includes('HSC-EXT') && s.budgetChoice === 'general';
-      const HSC_EXT_ALLOWED = ['edu_elearning', 'edu_class', 'edu_live', 'acad_conf'];
+      // 정책 기반 교육유형 트리 우선 사용
+      const tree = typeof getPolicyEduTree !== 'undefined' && curBudget
+        ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget.account)
+        : [];
 
-      // 필터 키 결정
-      let filterKey = null;
-      if (s.budgetChoice === 'hae-edu') filterKey = 'hae-edu';
-      else if (s.budgetChoice === 'hae-team') filterKey = 'hae-team';
-      else if (s.budgetChoice === 'none' && hasHaeEdu2) filterKey = 'none-hae';
-      else if (isHscExtBudget) filterKey = 'hsc-ext';
+      if (tree.length > 0) {
+        // ── 정책 기반 트리 렌더링 ──
+        return tree.map(node => {
+          const isLeaf = !node.subs || node.subs.length === 0;
+          const isSelected = s.eduType === node.id;
+          if (isLeaf) {
+            const leafSelected = isSelected && !s.subType;
+            return `
+        <div class="mb-3">
+          <button onclick="applyState.eduType='${node.id}';applyState.subType='';renderApply()"
+            class="w-full p-4 rounded-xl border-2 text-sm font-bold text-left transition
+                   ${leafSelected ? 'bg-gray-900 border-gray-900 text-white shadow-xl' : 'border-gray-200 text-gray-700 hover:border-accent hover:text-accent'}">${node.label}</button>
+        </div>`;
+          } else {
+            return `
+        <div class="mb-3 rounded-xl border-2 overflow-hidden ${isSelected ? 'border-gray-900' : 'border-gray-200'}">
+          <button onclick="applyState.eduType='${node.id}';applyState.subType='';renderApply()"
+            class="w-full p-4 text-sm font-bold text-left transition flex items-center justify-between
+                   ${isSelected ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-50'}">
+            <span>${node.label}</span>
+            <span class="text-xs ${isSelected ? 'text-gray-300' : 'text-gray-400'}">${isSelected ? '▼' : '▶'} ${node.subs.length}개 세부유형</span>
+          </button>
+          ${isSelected ? `
+          <div class="p-4 bg-gray-50 border-t border-gray-200">
+            <div class="text-xs font-black text-blue-500 mb-3 flex items-center gap-2">
+              <span class="w-1.5 h-1.5 bg-blue-500 rounded-full inline-block"></span>
+              세부 교육유형을 선택하세요
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              ${node.subs.map(st => `
+              <button onclick="applyState.subType='${st.key}';renderApply()"
+                class="p-3 rounded-xl border-2 text-sm font-bold text-left transition
+                       ${s.subType === st.key ? 'bg-blue-600 border-blue-600 text-white shadow-lg' : 'border-blue-200 text-blue-700 hover:border-blue-400 hover:bg-blue-50'}">${st.label}</button>
+              `).join('')}
+            </div>
+          </div>` : ''}
+        </div>`;
+          }
+        }).join('');
+      }
 
-      const allowedIds = filterKey === 'hsc-ext' ? HSC_EXT_ALLOWED : SUBTYPE_FILTER_MAP[filterKey] || null;
-
-      const subtypes = s.purpose?.subtypes
-        ? (allowedIds
-          ? s.purpose.subtypes
-            .map(g => ({ ...g, items: g.items.filter(i => allowedIds.includes(i.id)) }))
-            .filter(g => g.items.length > 0)
-          : s.purpose.subtypes)
-        : null;
+      // ── Fallback: PURPOSES subtypes 기반 (기존 방식) ──
+      const subtypes = s.purpose?.subtypes || null;
       if (!subtypes) return '<div class="p-5 bg-gray-50 rounded-2xl text-sm font-bold text-gray-500 flex items-center gap-3"><span class="text-accent text-xl">✓</span> 표준 프로세스가 자동 적용됩니다.</div>';
       return subtypes.map(g => `
     <div class="mb-7">
@@ -771,10 +793,20 @@ ${policyBudgets.map(b => {
     })()}
     <div class="flex justify-between mt-6">
       <button onclick="applyPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
-      <button onclick="applyNext()" ${s.purpose?.subtypes && !s.subType ? 'disabled' : ''}
-        class="px-8 py-3 rounded-xl font-black text-sm transition ${s.purpose?.subtypes && !s.subType ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-brand text-white hover:bg-blue-900 shadow-lg'}">
-        다음 →
-      </button>
+      ${(() => {
+      const tree2 = typeof getPolicyEduTree !== 'undefined' && curBudget
+        ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget.account) : [];
+      if (tree2.length > 0) {
+        const selNode = tree2.find(n => n.id === s.eduType);
+        const isLeaf = selNode && (!selNode.subs || selNode.subs.length === 0);
+        const canNext = s.eduType && (isLeaf || s.subType);
+        return `<button onclick="applyNext()" ${!canNext ? 'disabled' : ''}
+            class="px-8 py-3 rounded-xl font-black text-sm transition ${!canNext ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-brand text-white hover:bg-blue-900 shadow-lg'}">다음 →</button>`;
+      }
+      const dis = s.purpose?.subtypes && !s.subType;
+      return `<button onclick="applyNext()" ${dis ? 'disabled' : ''}
+          class="px-8 py-3 rounded-xl font-black text-sm transition ${dis ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-brand text-white hover:bg-blue-900 shadow-lg'}">다음 →</button>`;
+    })()}
     </div>
   </div>
 

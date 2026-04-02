@@ -117,6 +117,7 @@ function resetPlanState() {
     step: 1,
     purpose: null,
     subType: '',
+    eduType: '',      // 교육유형 트리 상위 노드 ID
     budgetId: '',
     region: 'domestic',
     title: '',
@@ -450,54 +451,64 @@ function renderPlanWizard() {
       </div>
     </div>` : ''}
     ${(() => {
-      // getPolicyEduTypes: SERVICE_POLICIES_FO 기반 (없으면 SERVICE_DEFINITIONS fallback)
-      const eduTypes = typeof getPolicyEduTypes !== 'undefined' && curBudget
-        ? getPolicyEduTypes(currentPersona, s.purpose?.id, curBudget.account)
+      // 교육유형 트리 가져오기
+      const tree = typeof getPolicyEduTree !== 'undefined' && curBudget
+        ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget.account)
         : [];
 
-      if (eduTypes.length === 0) return `
+      if (tree.length === 0) return `
       <div class="p-5 bg-gray-50 rounded-2xl text-sm font-bold text-gray-500 flex items-center gap-3">
         <span class="text-accent text-xl">✓</span> 이 예산 계정은 모든 교육유형에 사용 가능합니다.
       </div>`;
 
-      // 학습자용 여부 판별: subtypes가 있는 교육유형이면 세부항목 표시
-      const _isLearner = typeof isLearnerTargetType !== 'undefined'
-        ? isLearnerTargetType(currentPersona, s.purpose?.id) : true;
-      const hasSubtypes = _isLearner && s.eduType
-        && typeof EDU_TYPE_SUBTYPES !== 'undefined' && EDU_TYPE_SUBTYPES[s.eduType];
-      const subtypes = hasSubtypes ? EDU_TYPE_SUBTYPES[s.eduType] : [];
-
-      return `
-      <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        ${eduTypes.map(t => `
-        <button onclick="planState.eduType='${t}';planState.subType='';renderPlanWizard()"
-          class="p-4 rounded-xl border-2 text-sm font-bold text-left transition
-                 ${s.eduType === t ? 'bg-gray-900 border-gray-900 text-white shadow-xl' : 'border-gray-200 text-gray-700 hover:border-accent hover:text-accent'}">${typeof getEduTypeLabel !== 'undefined' ? getEduTypeLabel(t) : t}</button>
-        `).join('')}
-      </div>
-      ${subtypes.length > 0 ? `
-      <div class="mt-5">
-        <div class="text-xs font-black text-blue-500 mb-3 flex items-center gap-2">
-          <span class="w-1.5 h-1.5 bg-blue-500 rounded-full inline-block"></span>
-          세부 교육유형 선택
-        </div>
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          ${subtypes.map(st => `
-          <button onclick="planState.subType='${st.key}';renderPlanWizard()"
-            class="p-3 rounded-xl border-2 text-sm font-bold text-left transition
-                   ${s.subType === st.key ? 'bg-blue-600 border-blue-600 text-white shadow-lg' : 'border-blue-200 text-blue-700 hover:border-blue-400 hover:bg-blue-50'}">${st.label}</button>
-          `).join('')}
-        </div>
-      </div>` : ''}`;
+      return tree.map(node => {
+        const isLeaf = !node.subs || node.subs.length === 0;
+        const isSelected = s.eduType === node.id;
+        if (isLeaf) {
+          // 리프 노드: 바로 선택 (교육담당자용)
+          const leafSelected = isSelected && !s.subType;
+          return `
+      <div class="mb-3">
+        <button onclick="planState.eduType='${node.id}';planState.subType='';renderPlanWizard()"
+          class="w-full p-4 rounded-xl border-2 text-sm font-bold text-left transition
+                 ${leafSelected ? 'bg-gray-900 border-gray-900 text-white shadow-xl' : 'border-gray-200 text-gray-700 hover:border-accent hover:text-accent'}">${node.label}</button>
+      </div>`;
+        } else {
+          // 중간 노드: 클릭 시 세부항목 펼침 (학습자용)
+          return `
+      <div class="mb-3 rounded-xl border-2 overflow-hidden ${isSelected ? 'border-gray-900' : 'border-gray-200'}">
+        <button onclick="planState.eduType='${node.id}';planState.subType='';renderPlanWizard()"
+          class="w-full p-4 text-sm font-bold text-left transition flex items-center justify-between
+                 ${isSelected ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-50'}">
+          <span>${node.label}</span>
+          <span class="text-xs ${isSelected ? 'text-gray-300' : 'text-gray-400'}">${isSelected ? '▼' : '▶'} ${node.subs.length}개 세부유형</span>
+        </button>
+        ${isSelected ? `
+        <div class="p-4 bg-gray-50 border-t border-gray-200">
+          <div class="text-xs font-black text-blue-500 mb-3 flex items-center gap-2">
+            <span class="w-1.5 h-1.5 bg-blue-500 rounded-full inline-block"></span>
+            세부 교육유형을 선택하세요
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            ${node.subs.map(st => `
+            <button onclick="planState.subType='${st.key}';renderPlanWizard()"
+              class="p-3 rounded-xl border-2 text-sm font-bold text-left transition
+                     ${s.subType === st.key ? 'bg-blue-600 border-blue-600 text-white shadow-lg' : 'border-blue-200 text-blue-700 hover:border-blue-400 hover:bg-blue-50'}">${st.label}</button>
+            `).join('')}
+          </div>
+        </div>` : ''}
+      </div>`;
+        }
+      }).join('');
     })()}
     <div class="flex justify-between mt-6 pt-4 border-t border-gray-100">
       <button onclick="planPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
       ${(() => {
-      const _isL = typeof isLearnerTargetType !== 'undefined'
-        ? isLearnerTargetType(currentPersona, s.purpose?.id) : true;
-      const needsSub = _isL && s.eduType
-        && typeof EDU_TYPE_SUBTYPES !== 'undefined' && EDU_TYPE_SUBTYPES[s.eduType];
-      const canNext = s.eduType && (!needsSub || s.subType);
+      const tree2 = typeof getPolicyEduTree !== 'undefined' && curBudget
+        ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget.account) : [];
+      const selNode = tree2.find(n => n.id === s.eduType);
+      const isLeaf = selNode && (!selNode.subs || selNode.subs.length === 0);
+      const canNext = s.eduType && (isLeaf || s.subType);
       return `<button onclick="planNext()" ${!canNext ? 'disabled' : ''}
           class="px-8 py-3 rounded-xl font-black text-sm transition ${!canNext ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-brand text-white hover:bg-blue-900 shadow-lg'}">
           다음 →

@@ -243,6 +243,21 @@ function getPolicyEduTypes(persona, purposeId, budgetAccountType) {
   return [];
 }
 
+// ── 교육유형 트리 반환 (Step3 트리 렌더링용) ──
+// 반환값: [{ id, label, subs: [{key, label}] }]
+// subs가 비어 있으면 해당 eduType이 리프 노드 (교육담당자용)
+// subs가 있으면 세부유형 선택 필요 (학습자용)
+function getPolicyEduTree(persona, purposeId, budgetAccountType) {
+  const eduTypes = getPolicyEduTypes(persona, purposeId, budgetAccountType);
+  if (eduTypes.length === 0) return [];
+
+  return eduTypes.map(t => {
+    const label = (typeof EDU_TYPE_LABELS !== 'undefined' && EDU_TYPE_LABELS[t]) || t;
+    const subs = (typeof EDU_TYPE_SUBTYPES !== 'undefined' && EDU_TYPE_SUBTYPES[t]) || [];
+    return { id: t, label, subs: subs.map(s => ({ key: s.key, label: s.label })) };
+  });
+}
+
 
 
 

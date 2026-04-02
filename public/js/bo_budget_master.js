@@ -343,6 +343,27 @@ function openS1Modal(id) {
         </div>
       </label>
     </div>
+  </div>
+  <div id="s1-bankbook-mode-section" style="margin-bottom:4px;${(a?.uses_budget === false) ? 'display:none' : ''}">
+    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px">통장 생성 정책</label>
+    <div style="font-size:10px;color:#9CA3AF;margin-bottom:8px">가상교육조직에 상위 조직(본부)을 맵핑했을 때 통장을 어떻게 만들지 결정합니다.</div>
+    <div style="display:flex;gap:12px">
+      <label id="s1-mode-isolated-label" style="display:flex;align-items:flex-start;gap:8px;padding:10px 14px;border:1.5px solid ${(policy?.bankbook_mode !== 'shared') ? '#7C3AED' : '#E5E7EB'};border-radius:10px;cursor:pointer;background:${(policy?.bankbook_mode !== 'shared') ? '#F5F3FF' : '#fff'};flex:1" onclick="_s1ToggleBankbookMode('isolated')">
+        <input type="radio" name="s1-bankbook-mode" value="isolated" ${(policy?.bankbook_mode !== 'shared') ? 'checked' : ''} style="accent-color:#7C3AED;margin-top:2px">
+        <div>
+          <div style="font-size:11px;font-weight:800;color:#7C3AED">팔별 분리 통장</div>
+          <div style="font-size:10px;color:#6B7280;margin-top:2px">하위 팀마다 개별 통장<br>예) 내구기술팀 통장, 전동화설계팀 통장</div>
+        </div>
+      </label>
+      <label id="s1-mode-shared-label" style="display:flex;align-items:flex-start;gap:8px;padding:10px 14px;border:1.5px solid ${(policy?.bankbook_mode === 'shared') ? '#D97706' : '#E5E7EB'};border-radius:10px;cursor:pointer;background:${(policy?.bankbook_mode === 'shared') ? '#FFFBEB' : '#fff'};flex:1" onclick="_s1ToggleBankbookMode('shared')">
+        <input type="radio" name="s1-bankbook-mode" value="shared" ${(policy?.bankbook_mode === 'shared') ? 'checked' : ''} style="accent-color:#D97706;margin-top:2px">
+        <div>
+          <div style="font-size:11px;font-weight:800;color:#D97706">상위 조직 공유 통장</div>
+          <div style="font-size:10px;color:#6B7280;margin-top:2px">본부단위 통장 1개, 하위 팀이 공유<br>예) 연구개발본부 단일 통장</div>
+          <div style="font-size:10px;color:#D97706;margin-top:4px;font-weight:700">⚠️ 패더 소진 시 하위 팀 전체 영향</div>
+        </div>
+      </label>
+    </div>
   </div>`;
   document.getElementById('s1-modal').style.display = 'flex';
 }
@@ -377,6 +398,22 @@ function _s1ToggleUsesBudget(val) {
   yesLabel.style.background = val ? '#F0FDF4' : '#fff';
   noLabel.style.borderColor = !val ? '#DC2626' : '#E5E7EB';
   noLabel.style.background = !val ? '#FEF2F2' : '#fff';
+  // 미사용이면 통장 생성 정책 숨김
+  const modeSection = document.getElementById('s1-bankbook-mode-section');
+  if (modeSection) modeSection.style.display = val ? '' : 'none';
+}
+
+// 통장 생성 정책 토글
+function _s1ToggleBankbookMode(mode) {
+  const isoLabel = document.getElementById('s1-mode-isolated-label');
+  const sharedLabel = document.getElementById('s1-mode-shared-label');
+  if (!isoLabel || !sharedLabel) return;
+  isoLabel.querySelector('input').checked = (mode === 'isolated');
+  sharedLabel.querySelector('input').checked = (mode === 'shared');
+  isoLabel.style.borderColor = mode === 'isolated' ? '#7C3AED' : '#E5E7EB';
+  isoLabel.style.background = mode === 'isolated' ? '#F5F3FF' : '#fff';
+  sharedLabel.style.borderColor = mode === 'shared' ? '#D97706' : '#E5E7EB';
+  sharedLabel.style.background = mode === 'shared' ? '#FFFBEB' : '#fff';
 }
 
 async function s1SaveAccount() {
@@ -389,6 +426,7 @@ async function s1SaveAccount() {
   const tenantId = role === 'platform_admin' ? (_baTenantId || 'HMC') : (boCurrentPersona.tenantId || 'HMC');
   const integration = document.querySelector('input[name="s1-integration"]:checked')?.value || 'sap';
   const usesBudget = document.querySelector('input[name="s1-uses-budget"]:checked')?.value !== 'no';
+  const bankbookMode = document.querySelector('input[name="s1-bankbook-mode"]:checked')?.value || 'isolated';
   const payload = {
     tenant_id: tenantId,
     virtual_org_template_id: _baTplId,
@@ -406,10 +444,19 @@ async function s1SaveAccount() {
     if (_s1EditId) {
       const { error } = await sb.from('budget_accounts').update(payload).eq('id', _s1EditId);
       if (error) throw error;
+      // 통장 생성 정책 upsert
+      await sb.from('budget_account_org_policy').upsert(
+        { budget_account_id: _s1EditId, vorg_template_id: _baTplId, bankbook_mode: bankbookMode, bankbook_level: 'team', updated_at: new Date().toISOString() },
+        { onConflict: 'budget_account_id,vorg_template_id' }
+      );
     } else {
       payload.id = 'BA-' + Date.now();
       const { error } = await sb.from('budget_accounts').insert(payload);
       if (error) throw error;
+      // 통장 생성 정책 insert
+      await sb.from('budget_account_org_policy').insert(
+        { budget_account_id: payload.id, vorg_template_id: _baTplId, bankbook_mode: bankbookMode, bankbook_level: 'team' }
+      );
       // ✅ 신규 계정 생성 시 → 자동 통장 동기화
       try { await _syncBankbooksForTemplate(_baTplId, payload.tenant_id); } catch (e) { console.warn('[통장 동기화]', e.message); }
     }
@@ -1908,10 +1955,21 @@ async function _syncBankbooksForTemplate(templateId, tenantId) {
   const groups = tplData?.tree_data?.hqs || [];
   if (!groups.length) return 0;
 
-  // 2. 활성 예산 계정 로드
-  const { data: acctData } = await sb.from('budget_accounts').select('id').eq('virtual_org_template_id', templateId).eq('tenant_id', tenantId).eq('active', true);
+  // 2. 활성 예산 계정 + 통장 생성 정책 함께 로드
+  const { data: acctData } = await sb.from('budget_accounts')
+    .select('id')
+    .eq('virtual_org_template_id', templateId)
+    .eq('tenant_id', tenantId)
+    .eq('active', true);
   const accounts = acctData || [];
   if (!accounts.length) return 0;
+
+  const { data: policyData } = await sb.from('budget_account_org_policy')
+    .select('budget_account_id,bankbook_mode')
+    .eq('vorg_template_id', templateId)
+    .in('budget_account_id', accounts.map(a => a.id));
+  const policyMap = {};
+  (policyData || []).forEach(p => { policyMap[p.budget_account_id] = p.bankbook_mode; });
 
   // 3. 조직 상태 로드 (deprecated 제외)
   const { data: orgData } = await sb.from('organizations').select('id,name,parent_id,status,type').eq('tenant_id', tenantId);
@@ -1919,25 +1977,43 @@ async function _syncBankbooksForTemplate(templateId, tenantId) {
   const orgMap = {};
   allOrgs.forEach(o => { orgMap[o.id] = o; });
 
-  // 하위 조직 탐색 (DB 기반)
+  // 하위 조직 탐색 (DB 기반, 1레벨)
   function findSubOrgs(parentOrgId) {
     return allOrgs.filter(o => o.parent_id === parentOrgId && o.status !== 'deprecated');
   }
 
-  // 4. 통장 행 생성
+  // 4. 통장 행 생성 — 계정별 mode 분기
   const rows = [];
   for (const grp of groups) {
     for (const acct of accounts) {
+      const mode = policyMap[acct.id] || 'isolated'; // 미설정이면 isolated (\ud558위 전개)
       for (const org of (grp.teams || [])) {
-        // 폐지 조직 제외
         if (orgMap[org.id]?.status === 'deprecated') continue;
-        const hasSubOrgs = allOrgs.some(o => o.parent_id === org.id);
-        rows.push({ tenant_id: tenantId, template_id: templateId, vorg_group_id: grp.id, account_id: acct.id, org_id: org.id, org_name: org.name, org_type: hasSubOrgs ? 'hq' : 'team', parent_org_id: null });
-        // 하위 조직 전개 (DB 기반)
-        if (hasSubOrgs) {
-          findSubOrgs(org.id).forEach(sub => {
-            rows.push({ tenant_id: tenantId, template_id: templateId, vorg_group_id: grp.id, account_id: acct.id, org_id: sub.id, org_name: sub.name, org_type: 'team', parent_org_id: org.id });
+        const hasSubOrgs = allOrgs.some(o => o.parent_id === org.id && o.status !== 'deprecated');
+
+        if (mode === 'shared') {
+          // ━ shared: 맵핑된 조직(\uc0c1\uc704)\ub9cc 통장 생성, 하위 팀은 생략
+          rows.push({
+            tenant_id: tenantId, template_id: templateId, vorg_group_id: grp.id,
+            account_id: acct.id, org_id: org.id, org_name: org.name,
+            org_type: hasSubOrgs ? 'hq' : 'team', parent_org_id: null
           });
+        } else {
+          // ━ isolated: 맵핑 조직 + DB 하위 조직 전원 통장
+          rows.push({
+            tenant_id: tenantId, template_id: templateId, vorg_group_id: grp.id,
+            account_id: acct.id, org_id: org.id, org_name: org.name,
+            org_type: hasSubOrgs ? 'hq' : 'team', parent_org_id: null
+          });
+          if (hasSubOrgs) {
+            findSubOrgs(org.id).forEach(sub => {
+              rows.push({
+                tenant_id: tenantId, template_id: templateId, vorg_group_id: grp.id,
+                account_id: acct.id, org_id: sub.id, org_name: sub.name,
+                org_type: 'team', parent_org_id: org.id
+              });
+            });
+          }
         }
       }
     }

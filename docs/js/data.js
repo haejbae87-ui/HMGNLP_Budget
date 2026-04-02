@@ -20,11 +20,24 @@ const PERSONAS = {
     type: 'HMC_Learner', typeLabel: 'HMC 학습자·연구원',
     company: '현대자동차', tenantId: 'HMC',
     role: 'learner', jobType: '연구직',
-    allowedAccounts: ['HMC-RND', 'COMMON-FREE'],
+    // 연구개발본부 → HMC일반교육 VOrg 맵핑 → PART/OPS/ETC 가능
+    // 연구개발본부 → HMC R&D 교육 VOrg 맵핑 → RND 가능
+    allowedAccounts: ['HMC-PART', 'HMC-OPS', 'HMC-ETC', 'HMC-RND', 'COMMON-FREE'],
     vorgId: 'HMC-RND',
-    desc: 'R&D교육예산 중심 연구직 학습자. R&D계정으로 계획→신청→결과 프로세스. 무예산 이력 등록 활용.',
+    orgHqId: '0cea84e6-3821-45e1-9e0c-e232af019a1d', // 연구개발본부 (shared 모드 대비)
+    desc: '내구기술팀 연구직 학습자. 연구개발본부 소속. 일반교육예산 참가계정(shared) + R&D계정 활용.',
     budgets: [
-      { id: 'b_hmc04', name: '내구기술팀 R&D교육예산', account: '연구투자', balance: 45000000, used: 5000000 }
+      {
+        id: 'b_hmc_rnd_hq', name: '연구개발본부 일반교육 참가계정',
+        account: '참가', balance: 20000000, used: 2500000,
+        bankbookMode: 'shared',        // 본부 단위 공유 통장
+        parentOrgName: '연구개발본부'  // 잔액 위젯 라벨용
+      },
+      {
+        id: 'b_hmc04', name: '내구기술팀 R&D교육예산',
+        account: '연구투자', balance: 45000000, used: 5000000,
+        bankbookMode: 'isolated'       // 팀 단위 개별 통장
+      }
     ]
   },
 

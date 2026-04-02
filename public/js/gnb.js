@@ -8,7 +8,7 @@ let _gnbListenerAttached = false;
 function initGNBListener() {
   if (_gnbListenerAttached) return;
   _gnbListenerAttached = true;
-  document.addEventListener('click', function(e) {
+  document.addEventListener('click', function (e) {
     if (_gnbDropdownOpen && !e.target.closest('#gnb')) {
       _gnbDropdownOpen = null;
       renderGNB();
@@ -23,17 +23,27 @@ function renderGNB() {
       id: 'growth',
       label: '성장',
       dropdown: [
-        { id: 'plans',   label: '교육계획', icon: '📊', navigate: true,
-          desc: '교육계획 수립 및 R&D 계획 관리' },
-        { id: 'apply',   label: '교육신청', icon: '📝', navigate: true,
-          desc: '개인직무·운영교육 신청' },
+        {
+          id: 'plans', label: '교육계획', icon: '📊', navigate: true,
+          desc: '교육계획 수립 및 R&D 계획 관리'
+        },
+        {
+          id: 'apply', label: '교육신청', icon: '📝', navigate: true,
+          desc: '개인직무·운영교육 신청'
+        },
         { divider: true },
-        { id: 'history-register', label: '교육이력등록', icon: '📚', navigate: false,
-          desc: '수료·이수 이력 직접 등록', soon: true },
-        { id: 'language-score',  label: '어학점수',    icon: '🌐', navigate: false,
-          desc: 'TOEIC·OPIC 등 어학점수 관리', soon: true },
-        { id: 'certificate',     label: '자격증',      icon: '🏅', navigate: false,
-          desc: '자격증·면허 취득 이력 관리', soon: true },
+        {
+          id: 'history-register', label: '교육이력등록', icon: '📚', navigate: false,
+          desc: '수료·이수 이력 직접 등록', soon: true
+        },
+        {
+          id: 'language-score', label: '어학점수', icon: '🌐', navigate: false,
+          desc: 'TOEIC·OPIC 등 어학점수 관리', soon: true
+        },
+        {
+          id: 'certificate', label: '자격증', icon: '🏅', navigate: false,
+          desc: '자격증·면허 취득 이력 관리', soon: true
+        },
       ],
     },
     // ── 결재 메뉴 ──────────────────────────────────────────────────────────
@@ -42,17 +52,21 @@ function renderGNB() {
       label: '결재',
       dropdown: (() => {
         // 리더 여부: pos에 팀장/실장/센터장/본부장/사업부장 포함 여부로 판단
-        const _isLeader = ['팀장','실장','센터장','본부장','사업부장'].some(
+        const _isLeader = ['팀장', '실장', '센터장', '본부장', '사업부장'].some(
           t => (currentPersona.pos || '').includes(t)
         );
         const items = [
-          { id: 'approval-member', label: '팀원용 결재함', icon: '📥', navigate: true,
-            desc: '내가 신청한 교육의 결재 현황 확인' },
+          {
+            id: 'approval-member', label: '팀원용 결재함', icon: '📥', navigate: true,
+            desc: '내가 신청한 교육의 결재 현황 확인'
+          },
         ];
         if (_isLeader) {
           items.push({ divider: true });
-          items.push({ id: 'approval-leader', label: '리더용 결재함', icon: '👔', navigate: true,
-            desc: '팀원의 교육신청 결재 처리' });
+          items.push({
+            id: 'approval-leader', label: '리더용 결재함', icon: '👔', navigate: true,
+            desc: '팀원의 교육신청 결재 처리'
+          });
         }
         return items;
       })(),
@@ -240,9 +254,10 @@ function switchPersona() {
 // ─── FLOATING BUDGET WIDGET ─────────────────────────────────────────────────
 
 function renderFloatingBudget() {
-  const totalUsed = currentPersona.budgets.reduce((s, b) => s + b.used, 0);
-  const totalBalance = currentPersona.budgets.reduce((s, b) => s + b.balance, 0);
-  const pct = Math.min((totalUsed / totalBalance) * 100, 100).toFixed(0);
+  const budgets = currentPersona.budgets || [];
+  const totalUsed = budgets.reduce((s, b) => s + b.used, 0);
+  const totalBalance = budgets.reduce((s, b) => s + b.balance, 0);
+  const pct = totalBalance > 0 ? Math.min((totalUsed / totalBalance) * 100, 100).toFixed(0) : 0;
   document.getElementById('floating-budget').innerHTML = `
 <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
   <span class="w-2 h-2 bg-accent rounded-full inline-block"></span> 내 예산 잔액
@@ -253,10 +268,20 @@ function renderFloatingBudget() {
 </div>
 <div class="text-[10px] text-gray-400 mb-3">${fmt(totalUsed)}원 집행 / ${fmt(totalBalance)}원 총 예산</div>
 <div class="space-y-1.5 pt-2 border-t border-gray-100">
-  ${currentPersona.budgets.map(b => `
-  <div class="flex justify-between text-[11px]">
-    <span class="text-gray-500 truncate mr-2">${b.name}</span>
+  ${budgets.map(b => {
+    const isShared = b.bankbookMode === 'shared';
+    const label = isShared
+      ? `${b.parentOrgName || '상위조직'} 공유 통장`
+      : b.name;
+    const tag = isShared
+      ? `<span style="font-size:8px;padding:1px 5px;border-radius:4px;background:#FEF3C7;color:#D97706;font-weight:900;margin-left:4px">공유</span>`
+      : '';
+    return `
+  <div class="flex justify-between text-[11px] items-center">
+    <span class="text-gray-500 truncate mr-2">${label}${tag}</span>
     <span class="font-black ${b.account === '연구투자' ? 'text-orange-500' : 'text-accent'}">${fmt(b.balance - b.used)}원</span>
-  </div>`).join('')}
+  </div>`;
+  }).join('')}
 </div>`;
 }
+

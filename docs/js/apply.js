@@ -458,13 +458,13 @@ function _applySelectionBanner(s, currentStep) {
   if (items.length === 0) return '';
 
   const itemsHtml = items.map(it => `
-    < span style = "display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#374151" >
+    <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#374151">
       <span style="font-size:10px;color:#6B7280;font-weight:700">${it.num} ${it.key}</span>
       <span style="font-weight:900;padding:2px 8px;border-radius:6px;background:${it.color}14;color:${it.color};max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.value}</span>
-    </span > `).join('<span style="color:#D1D5DB;margin:0 2px">|</span>');
+    </span>`).join('<span style="color:#D1D5DB;margin:0 2px">|</span>');
 
   return `
-    < div style = "background:#F0F9FF;border:1.5px solid #BAE6FD;border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;gap:6px;flex-wrap:wrap" >
+    <div style="background:#F0F9FF;border:1.5px solid #BAE6FD;border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
     <span style="font-size:10px;font-weight:900;color:#0369A1;white-space:nowrap">📌 선택 내용</span>
     <span style="color:#BAE6FD;font-size:12px">|</span>
     ${itemsHtml}
@@ -500,7 +500,7 @@ function _renderApplyForm() {
   const over = curBudget && totalAmt > (curBudget.balance - curBudget.used);
 
   document.getElementById('page-apply').innerHTML = `
-    < div class="max-w-4xl mx-auto space-y-6" >
+    <div class="max-w-4xl mx-auto space-y-6">
   <div class="flex items-center justify-between">
     <div>
       <button onclick="applyViewMode='list';renderApply()"
@@ -521,7 +521,7 @@ function _renderApplyForm() {
 </div>` : ''}
   </div>
 
-  <!--Stepper indicator-- >
+  <!--Stepper indicator-->
   <div class="card p-6">
     <div class="flex items-center gap-2">
       ${[1, 2, 3, 4].map(n => `
@@ -533,7 +533,7 @@ function _renderApplyForm() {
     </div>
   </div>
 
-  <!--Step 1: Purpose-- >
+  <!--Step 1: Purpose-->
   <div class="card p-8 ${s.step === 1 ? '' : 'hidden'}">
     <h2 class="text-lg font-black text-gray-800 mb-6">01. 교육 목적 선택</h2>
 
@@ -593,7 +593,7 @@ function _renderApplyForm() {
     </div>
   </div>
 
-  <!--Step 2: Budget-- >
+  <!--Step 2: Budget-->
   <div class="card p-8 ${s.step === 2 ? '' : 'hidden'}">
     ${_applySelectionBanner(s, 2)}
     <h2 class="text-lg font-black text-gray-800 mb-2">02. 예산 선택</h2>
@@ -725,7 +725,7 @@ ${policyBudgets.map(b => {
   </div>
 
 
-  <!--Step 3: 교육유형 선택-- >
+  <!--Step 3: 교육유형 선택-->
   <div class="card p-8 ${s.step === 3 ? '' : 'hidden'}">
     ${_applySelectionBanner(s, 3)}
     <h2 class="text-lg font-black text-gray-800 mb-6">03. 교육유형 선택</h2>
@@ -778,7 +778,7 @@ ${policyBudgets.map(b => {
     </div>
   </div>
 
-  <!--Step 4: Detail-- >
+  <!--Step 4: Detail-->
     <div class="card p-8 ${s.step === 4 ? '' : 'hidden'}">
       <h2 class="text-lg font-black text-gray-800 mb-4">04. 세부 정보 입력</h2>
 

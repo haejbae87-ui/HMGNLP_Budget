@@ -25,16 +25,7 @@ function renderBoPlanMgmt() {
     ${canSubmit ? `<button class="bo-btn-primary" onclick="alert('교육계획 수립은 프론트(LXP)에서 작성 가능합니다.')">+ 계획 수립</button>` : ''}
   </div>
 
-  <!-- 필터 바 -->
-  <div class="bo-card" style="padding:12px 16px;margin-bottom:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-    <select style="border:1px solid #E5E7EB;border-radius:8px;padding:7px 12px;font-size:13px;font-weight:700;color:#374151">
-      <option>전체 계정</option><option>운영계정</option><option>기타계정</option><option>통합(R&D)</option>
-    </select>
-    <select style="border:1px solid #E5E7EB;border-radius:8px;padding:7px 12px;font-size:13px;font-weight:700;color:#374151">
-      <option>전체 상태</option><option>승인 대기</option><option>승인 완료</option><option>반려</option>
-    </select>
-    <input type="text" placeholder="🔍 계획명 또는 팀 검색..." style="border:1px solid #E5E7EB;border-radius:8px;padding:7px 16px;font-size:13px;flex:1;min-width:200px"/>
-  </div>
+  ${_boEduFilterBar("renderBoPlanMgmt")}
 
   <!-- 계획 목록 -->
   <div class="bo-card" style="overflow:hidden;margin-bottom:20px">

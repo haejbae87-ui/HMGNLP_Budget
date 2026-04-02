@@ -23,14 +23,19 @@ function renderMyOperations() {
   const patternA_PolicyIds = myPolicies.filter(p => (p.processPattern||'B') === 'A').map(p => p.id);
   const patternAB_PolicyIds = myPolicies.filter(p => ['A','B'].includes(p.processPattern||'B')).map(p => p.id);
 
-  // 전체 결재 건에서 내가 담당한 것만
-  const allApps = MOCK_BO_APPLICATIONS.filter(a => myPolicyIds.includes(a.policyId));
-  const allPlans = MOCK_BO_PLANS.filter(a =>
-    patternA_PolicyIds.length > 0 || myPolicies.some(p => p.flow?.includes('plan'))
+  // DB에서 결재 건 조회 (비동기 → 캐시)
+  if (!_boApprovalLoaded) {
+    _boApprovalLoaded = true;
+    _loadBoApprovalData().then(() => renderMyOperations());
+    return;
+  }
+  const allApps = _boDbApps.filter(a => myPolicyIds.includes(a.policyId));
+  const allPlans = _boDbPlans.filter(a =>
+    patternA_PolicyIds.length > 0 || myPolicies.some(p => (p.flow || '').includes('plan'))
   );
 
   // 단계별 탭 데이터
-  const planItems  = MOCK_BO_PLANS.filter(a => a.status?.startsWith('pending'));
+  const planItems  = _boDbPlans.filter(a => (a.status || '').startsWith('pending'));
   const applyItems = allApps.filter(a => a.type === '신청' || !a.type);
   const resultItems= allApps.filter(a => a.type === '결과보고');
 
@@ -176,23 +181,66 @@ function renderMyOperations() {
 </div>`;
 }
 
-function myOpsApprove(id) {
-  const a = MOCK_BO_APPLICATIONS.find(x=>x.id===id) || MOCK_BO_PLANS.find(x=>x.id===id);
-  if (a) {
-    a.status = a.type==='결과보고' ? 'completed' : 'approved';
-    renderMyOperations();
+async function myOpsApprove(id) {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  // 계획인지 신청인지 판별
+  const isPlan = _boDbPlans.some(x => x.id === id);
+  const item = isPlan
+    ? _boDbPlans.find(x => x.id === id)
+    : _boDbApps.find(x => x.id === id);
+  if (!item) return;
+
+  const isResult = item.type === '결과보고';
+  const newStatus = isResult ? 'completed' : 'approved';
+  item.status = newStatus;
+
+  // DB 업데이트
+  if (sb) {
+    try {
+      const table = isPlan ? 'plans' : 'applications';
+      const { error } = await sb.from(table).update({ status: newStatus }).eq('id', id);
+      if (error) throw error;
+      console.log(`[BO Approve] ${id} → ${newStatus}`);
+    } catch (err) {
+      console.error('[BO Approve] DB 업데이트 실패:', err.message);
+    }
   }
+  renderMyOperations();
 }
-function myOpsReject(id) {
+async function myOpsReject(id) {
   const r = prompt('반려 사유를 입력하세요:');
-  if (r) {
-    const a = MOCK_BO_APPLICATIONS.find(x=>x.id===id) || MOCK_BO_PLANS.find(x=>x.id===id);
-    if (a) { a.status='rejected'; renderMyOperations(); }
+  if (!r) return;
+  const isPlan = _boDbPlans.some(x => x.id === id);
+  const item = isPlan ? _boDbPlans.find(x => x.id === id) : _boDbApps.find(x => x.id === id);
+  if (item) item.status = 'rejected';
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (sb) {
+    try {
+      const table = isPlan ? 'plans' : 'applications';
+      const { error } = await sb.from(table).update({ status: 'rejected' }).eq('id', id);
+      if (error) throw error;
+      console.log(`[BO Reject] ${id} → rejected: ${r}`);
+    } catch (err) {
+      console.error('[BO Reject] DB 업데이트 실패:', err.message);
+    }
   }
+  renderMyOperations();
 }
-function myOpsCancel(id) {
-  if (confirm('가점유 예산을 즉시 환원하시겠습니까?')) {
-    const a = MOCK_BO_APPLICATIONS.find(x=>x.id===id);
-    if (a) { a.status='cancelled'; renderMyOperations(); }
+async function myOpsCancel(id) {
+  if (!confirm('가점유 예산을 즉시 환원하시겠습니까?')) return;
+  const item = _boDbApps.find(x => x.id === id);
+  if (item) item.status = 'cancelled';
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (sb) {
+    try {
+      const { error } = await sb.from('applications').update({ status: 'cancelled' }).eq('id', id);
+      if (error) throw error;
+      console.log(`[BO Cancel] ${id} → cancelled`);
+    } catch (err) {
+      console.error('[BO Cancel] DB 업데이트 실패:', err.message);
+    }
   }
+  renderMyOperations();
 }

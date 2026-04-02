@@ -322,8 +322,31 @@ function _renderApplyList() {
   };
 
   const teamViewEnabled = currentPersona.teamViewEnabled ?? currentPersona.team_view_enabled ?? false;
-  const myHistory = [];
-  const teamHistory = [];
+
+  // DB 실시간 조회
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (sb && !_appsDbLoaded) {
+    _appsDbLoaded = true;
+    sb.from('applications').select('*')
+      .eq('applicant_id', currentPersona.id)
+      .eq('tenant_id', currentPersona.tenantId)
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (!error && data) {
+          _dbMyApps = data.map(d => ({
+            id: d.id, title: d.edu_name, type: d.edu_type || '교육',
+            date: d.created_at?.slice(0, 10) || '', endDate: d.created_at?.slice(0, 10) || '',
+            hours: 0, amount: Number(d.amount || 0),
+            budget: d.account_code || '', applyStatus: _mapAppStatus(d.status),
+            resultDone: d.status === 'completed', author: d.applicant_name,
+          }));
+        }
+        _renderApplyList();
+      });
+    return;
+  }
+  const myHistory = _dbMyApps;
+  const teamHistory = teamViewEnabled ? _getSampleTeamHistory() : [];
   const history = _applyListTab === 'mine' ? myHistory : teamHistory;
 
   // 통계

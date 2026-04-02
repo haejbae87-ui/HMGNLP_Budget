@@ -3,17 +3,17 @@
 // 공통 탭: ① 기본정보  ② 가상조직 구성  ③ 협조처·담당자
 // 용도별:  ④ 예산계정(edu_support) / ④ 자격증 맵핑(cert)
 
-let _vuActiveTab   = 0;
-let _vuTplId       = null;   // 선택된 템플릿 ID
-let _vuTplList     = [];     // 현재 테넌트의 템플릿 목록
-let _vuTenantId    = null;
+let _vuActiveTab = 0;
+let _vuTplId = null;   // 선택된 템플릿 ID
+let _vuTplList = [];     // 현재 테넌트의 템플릿 목록
+let _vuTenantId = null;
 
 // ── 탭 정의: 용도별 동적 생성 ──────────────────────────────────────────────────
 function _vuGetTabs(purpose) {
   const common = [
-    { key: 'info',   label: '① 기본정보',       icon: '📋' },
-    { key: 'org',    label: '② 가상조직 구성',   icon: '🏗️' },
-    { key: 'coop',   label: '③ 협조처·담당자',   icon: '🤝' },
+    { key: 'info', label: '① 기본정보', icon: '📋' },
+    { key: 'org', label: '② 가상조직 구성', icon: '🏗️' },
+    { key: 'coop', label: '③ 협조처·담당자', icon: '🤝' },
   ];
   return common;
 }
@@ -23,7 +23,7 @@ async function renderVirtualOrgUnified() {
   const el = document.getElementById('bo-content');
   if (!el) return;
 
-  const role    = boCurrentPersona.role;
+  const role = boCurrentPersona.role;
   const tenants = typeof TENANTS !== 'undefined' ? TENANTS.filter(t => t.id !== 'SYSTEM') : [];
   const isPlatform = role === 'platform_admin';
 
@@ -42,19 +42,19 @@ async function renderVirtualOrgUnified() {
         .eq('tenant_id', _vuTenantId);
       if (data && data.length) {
         _vuTplList = data.map(row => ({
-          id:               row.id,
-          tenantId:         row.tenant_id,
-          name:             row.name,
-          purpose:          row.service_type || row.purpose || 'edu_support',
-          serviceTypes:     (row.service_type || row.purpose || 'edu_support').split(',').map(s=>s.trim()),
-          ownerRoleIds:     row.owner_role_ids || [],
-          tree:             row.tree_data || { hqs: [] },
-          headManagerRole:  row.head_manager_role || null,
-          headManagerUser:  row.head_manager_user || null,
+          id: row.id,
+          tenantId: row.tenant_id,
+          name: row.name,
+          purpose: row.service_type || row.purpose || 'edu_support',
+          serviceTypes: (row.service_type || row.purpose || 'edu_support').split(',').map(s => s.trim()),
+          ownerRoleIds: row.owner_role_ids || [],
+          tree: row.tree_data || { hqs: [] },
+          headManagerRole: row.head_manager_role || null,
+          headManagerUser: row.head_manager_user || null,
         }));
       }
     }
-  } catch(e) {
+  } catch (e) {
     console.warn('[VOU] DB 로드 실패:', e.message);
   }
 
@@ -78,16 +78,16 @@ async function renderVirtualOrgUnified() {
   const tenantSelectHtml = isPlatform ? `
     <select onchange="_vuTenantId=this.value;_vuTplId=null;_vuActiveTab=0;renderVirtualOrgUnified()"
       style="padding:7px 12px;border:1.5px solid #FDE68A;border-radius:8px;font-size:12px;font-weight:700;background:#FFFBEB;color:#92400E;cursor:pointer">
-      ${tenants.map(t => `<option value="${t.id}" ${t.id===_vuTenantId?'selected':''}>${t.name}</option>`).join('')}
+      ${tenants.map(t => `<option value="${t.id}" ${t.id === _vuTenantId ? 'selected' : ''}>${t.name}</option>`).join('')}
     </select>` : '';
 
   // 용도 뱃지 색상
   const purposeColors = {
-    edu_support: { bg:'#EFF6FF', text:'#1D4ED8', label:'교육지원' },
-    '교육지원':    { bg:'#EFF6FF', text:'#1D4ED8', label:'교육지원' },
-    language:    { bg:'#F0FDF4', text:'#059669', label:'어학' },
-    cert:        { bg:'#FFF7ED', text:'#C2410C', label:'자격증' },
-    badge:       { bg:'#F5F3FF', text:'#7C3AED', label:'배지' },
+    edu_support: { bg: '#EFF6FF', text: '#1D4ED8', label: '교육지원' },
+    '교육지원': { bg: '#EFF6FF', text: '#1D4ED8', label: '교육지원' },
+    language: { bg: '#F0FDF4', text: '#059669', label: '어학' },
+    cert: { bg: '#FFF7ED', text: '#C2410C', label: '자격증' },
+    badge: { bg: '#F5F3FF', text: '#7C3AED', label: '배지' },
   };
 
   el.innerHTML = `
@@ -104,9 +104,9 @@ async function renderVirtualOrgUnified() {
     </div>
     <div style="padding:6px 8px" id="vu-tpl-list-container">
       ${_vuTplList.length ? _vuTplList.map((t, idx) => {
-        const pc = purposeColors[t.purpose] || purposeColors.edu_support;
-        const isActive = t.id === _vuTplId;
-        return `
+    const pc = purposeColors[t.purpose] || purposeColors.edu_support;
+    const isActive = t.id === _vuTplId;
+    return `
       <div draggable="true"
         data-tpl-id="${t.id}"
         data-tpl-idx="${idx}"
@@ -129,7 +129,7 @@ async function renderVirtualOrgUnified() {
           <span style="font-size:9px;padding:2px 7px;border-radius:5px;font-weight:700;background:#F3F4F6;color:#6B7280">${(t.tree?.hqs || t.tree?.centers || []).length}개 조직</span>
         </div>
       </div>`;
-      }).join('') : `
+  }).join('') : `
       <div style="padding:30px 14px;text-align:center;color:#9CA3AF">
         <div style="font-size:28px;margin-bottom:8px">📋</div>
         <div style="font-size:12px;font-weight:700">등록된 템플릿이 없습니다</div>
@@ -145,16 +145,16 @@ async function renderVirtualOrgUnified() {
     <div style="padding:16px 24px 0;border-bottom:1.5px solid #E5E7EB;background:#fff;position:sticky;top:0;z-index:10">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
         <h2 style="font-size:18px;font-weight:900;margin:0;color:#111827">${curTpl.name}</h2>
-        <span style="font-size:10px;padding:3px 10px;border-radius:6px;font-weight:700;background:${(purposeColors[purpose]||purposeColors.edu_support).bg};color:${(purposeColors[purpose]||purposeColors.edu_support).text}">${(purposeColors[purpose]||purposeColors.edu_support).label}</span>
+        <span style="font-size:10px;padding:3px 10px;border-radius:6px;font-weight:700;background:${(purposeColors[purpose] || purposeColors.edu_support).bg};color:${(purposeColors[purpose] || purposeColors.edu_support).text}">${(purposeColors[purpose] || purposeColors.edu_support).label}</span>
         <button onclick="voOpenEditTemplate('${curTpl.id}')" style="margin-left:auto;padding:5px 12px;border:1.5px solid #E5E7EB;border-radius:7px;background:#fff;font-size:11px;font-weight:700;cursor:pointer;color:#6B7280">⚙ 설정 수정</button>
       </div>
       <div id="vu-tab-buttons" style="display:flex;gap:0">
         ${tabs.map((tab, i) => `
         <button onclick="_vuSwitchTab(${i})"
-          style="padding:10px 18px;font-size:12px;font-weight:${_vuActiveTab===i?900:600};
-                 color:${_vuActiveTab===i?'#1D4ED8':'#6B7280'};
+          style="padding:10px 18px;font-size:12px;font-weight:${_vuActiveTab === i ? 900 : 600};
+                 color:${_vuActiveTab === i ? '#1D4ED8' : '#6B7280'};
                  border:none;background:none;cursor:pointer;position:relative;
-                 border-bottom:${_vuActiveTab===i?'3px solid #1D4ED8':'3px solid transparent'};
+                 border-bottom:${_vuActiveTab === i ? '3px solid #1D4ED8' : '3px solid transparent'};
                  transition:all .15s">${tab.icon} ${tab.label}</button>`).join('')}
       </div>
     </div>
@@ -195,7 +195,7 @@ function _vuSwitchTab(idx) {
   const tabs = _vuGetTabs(curTpl.purpose);
   const el = document.getElementById('vu-tab-content');
   if (el) el.innerHTML = _vuRenderTabContent(tabs[idx]?.key, curTpl);
-  
+
   // 탭 버튼 밑줄 UI 갱신
   const tabContainer = document.getElementById('vu-tab-buttons');
   if (tabContainer) {
@@ -219,17 +219,17 @@ function _vuSwitchTab(idx) {
 // ── 탭 콘텐츠 렌더 ─────────────────────────────────────────────────────────
 function _vuRenderTabContent(tabKey, tpl) {
   if (!tpl) return '';
-  switch(tabKey) {
-    case 'info':   return _vuTabInfo(tpl);
-    case 'org':    return _vuTabOrg(tpl);
-    case 'coop':   return _vuTabCoop(tpl);
-    default:       return '<div style="padding:40px;text-align:center;color:#9CA3AF">준비 중입니다</div>';
+  switch (tabKey) {
+    case 'info': return _vuTabInfo(tpl);
+    case 'org': return _vuTabOrg(tpl);
+    case 'coop': return _vuTabCoop(tpl);
+    default: return '<div style="padding:40px;text-align:center;color:#9CA3AF">준비 중입니다</div>';
   }
 }
 
 // ═══ 탭①: 기본정보 ═══════════════════════════════════════════════════════════
 function _vuTabInfo(tpl) {
-  const purposeLabels = { edu_support:'교육지원', language:'어학', cert:'자격증', badge:'배지', '교육지원':'교육지원' };
+  const purposeLabels = { edu_support: '교육지원', language: '어학', cert: '자격증', badge: '배지', '교육지원': '교육지원' };
   const types = tpl.serviceTypes || [tpl.purpose];
   const roleIds = tpl.ownerRoleIds || [];
   const headRole = tpl.headManagerRole || null;
@@ -246,10 +246,10 @@ function _vuTabInfo(tpl) {
       <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:8px">용도 (제도유형)</label>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         ${types.map(t => {
-          const colors = { edu_support:'#1D4ED8', language:'#059669', cert:'#C2410C', badge:'#7C3AED' };
-          const bgs    = { edu_support:'#EFF6FF', language:'#F0FDF4', cert:'#FFF7ED', badge:'#F5F3FF' };
-          return `<span style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;background:${bgs[t]||'#F3F4F6'};color:${colors[t]||'#374151'};border:1.5px solid ${colors[t]||'#E5E7EB'}30">${purposeLabels[t] || t}</span>`;
-        }).join('')}
+    const colors = { edu_support: '#1D4ED8', language: '#059669', cert: '#C2410C', badge: '#7C3AED' };
+    const bgs = { edu_support: '#EFF6FF', language: '#F0FDF4', cert: '#FFF7ED', badge: '#F5F3FF' };
+    return `<span style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;background:${bgs[t] || '#F3F4F6'};color:${colors[t] || '#374151'};border:1.5px solid ${colors[t] || '#E5E7EB'}30">${purposeLabels[t] || t}</span>`;
+  }).join('')}
       </div>
     </div>
     <div style="margin-bottom:0">
@@ -274,7 +274,7 @@ function _vuTabInfo(tpl) {
     ${headUser ? `
     <div style="display:flex;align-items:center;gap:8px">
       <span style="padding:7px 14px;background:#fff;border:1.5px solid #C2410C;border-radius:8px;font-size:13px;font-weight:700;color:#C2410C;display:flex;align-items:center;gap:6px">
-        👑 ${headUser.name} <span style="font-size:10px;color:#9CA3AF">${headUser.dept||''}</span>
+        👑 ${headUser.name} <span style="font-size:10px;color:#9CA3AF">${headUser.dept || ''}</span>
         <button onclick="_vuClearHeadManagerInfo('${tpl.id}')" style="border:none;background:none;color:#C2410C;cursor:pointer;font-size:10px">✕</button>
       </span>
     </div>` : '<span style="font-size:12px;color:#9CA3AF">총괄담당자가 설정되지 않았습니다.<br><small>💡 총괄담당자 설정 후 협조처·담당자 탭에서 운영담당자를 추가할 수 있습니다.</small></span>'}
@@ -340,10 +340,10 @@ function _vuTabCoop(tpl) {
   return `
 <div>
   <h3 style="font-size:14px;font-weight:900;color:#111827;margin:0 0 4px">🤝 협조처·담당자 관리</h3>
-  ${headRole ? `<p style="font-size:11px;color:#6B7280;margin:0 0 16px">총괄담당자 역할: <code style="background:#FFF7ED;color:#C2410C;padding:2px 8px;border-radius:4px;font-size:10px">${headRole.name}</code> ${headUser ? '· 담당자: <b>'+headUser.name+'</b>' : ''}</p>` : '<p style="font-size:11px;color:#EF4444;margin:0 0 16px">⚠ 기본정보 탭에서 총괄담당자를 먼저 설정하세요</p>'}
+  ${headRole ? `<p style="font-size:11px;color:#6B7280;margin:0 0 16px">총괄담당자 역할: <code style="background:#FFF7ED;color:#C2410C;padding:2px 8px;border-radius:4px;font-size:10px">${headRole.name}</code> ${headUser ? '· 담당자: <b>' + headUser.name + '</b>' : ''}</p>` : '<p style="font-size:11px;color:#EF4444;margin:0 0 16px">⚠ 기본정보 탭에서 총괄담당자를 먼저 설정하세요</p>'}
   ${groups.length ? groups.map((g, gi) => {
     const coopTeams = g.coopTeams || [];
-    const managers   = g.managers || [];
+    const managers = g.managers || [];
     const hasHeadRole = !!headRole;
     return `
   <div class="bo-card" style="padding:16px 20px;margin-bottom:14px">
@@ -360,7 +360,7 @@ function _vuTabCoop(tpl) {
         <button onclick="_vuAddCoop('${tpl.id}',${gi})" style="margin-left:auto;padding:4px 10px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;color:#D97706">+ 협조처 추가</button>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px">
-        ${coopTeams.map((ct,ci) => `
+        ${coopTeams.map((ct, ci) => `
         <span style="padding:5px 10px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:7px;font-size:11px;font-weight:600;color:#92400E;display:flex;align-items:center;gap:4px">
           ${ct.name || ct}
           <button onclick="_vuRemoveCoop('${tpl.id}',${gi},${ci})" style="border:none;background:none;color:#D97706;cursor:pointer;font-size:10px;padding:0">✕</button>
@@ -376,9 +376,9 @@ function _vuTabCoop(tpl) {
       </div>
       ${hasHeadRole ? '<div style="font-size:10px;color:#6B7280;margin-bottom:6px;padding-left:2px">💡 총괄담당자 역할의 하위 운영 권한을 가진 사용자를 선택합니다</div>' : ''}
       <div style="display:flex;flex-wrap:wrap;gap:6px">
-        ${managers.map((m,mi) => `
+        ${managers.map((m, mi) => `
         <span style="padding:5px 10px;background:#F0FDF4;border:1px solid #A7F3D0;border-radius:7px;font-size:11px;font-weight:600;color:#065F46;display:flex;align-items:center;gap:4px">
-          ${m.name || m} ${m.dept ? '<span style="font-size:9px;color:#9CA3AF">'+m.dept+'</span>' : ''}
+          ${m.name || m} ${m.dept ? '<span style="font-size:9px;color:#9CA3AF">' + m.dept + '</span>' : ''}
           <button onclick="_vuRemoveManager('${tpl.id}',${gi},${mi})" style="border:none;background:none;color:#059669;cursor:pointer;font-size:10px;padding:0">✕</button>
         </span>`).join('') || '<span style="font-size:11px;color:#9CA3AF">등록된 운영담당자가 없습니다</span>'}
       </div>
@@ -496,7 +496,7 @@ function _vuRemoveManager(tplId, gi, mi) {
 }
 
 
-// ── DB 자동저장 (tree_data) ─────────────────────────────────────────────────
+// ── DB 자동저장 (tree_data) + 통장 자동 동기화 ──────────────────────────────
 async function _vuAutoSave(tpl) {
   try {
     const sb = typeof _sb === 'function' ? _sb() : null;
@@ -505,7 +505,11 @@ async function _vuAutoSave(tpl) {
       tree_data: tpl.tree,
       updated_at: new Date().toISOString(),
     }).eq('id', tpl.id);
-  } catch(e) {
+    // ✅ 팀 추가/변경 후 자동 통장 동기화 (계정이 있을 때만)
+    if (typeof window._syncBankbooksForTemplate === 'function') {
+      try { await window._syncBankbooksForTemplate(tpl.id, _vuTenantId); } catch (e) { console.warn('[통장 동기화]', e.message); }
+    }
+  } catch (e) {
     console.warn('[VOU] 자동저장 실패:', e.message);
   }
 }
@@ -520,20 +524,20 @@ async function _vuAutoSaveTplMeta(tpl) {
       head_manager_user: tpl.headManagerUser || null,
       updated_at: new Date().toISOString(),
     }).eq('id', tpl.id);
-  } catch(e) {
+  } catch (e) {
     console.warn('[VOU] 메타 저장 실패:', e.message);
   }
 }
 
 // ── 총괄담당자 선택 (1단계: 역할 → 2단계: 사용자) ─────────────────────────
 const _purposeToServiceType = {
-  'edu_support':'edu_support', '교육지원':'edu_support',
-  'cert':'cert', '자격증':'cert',
-  'language':'language', '어학':'language',
-  'badge':'badge', '배지':'badge',
+  'edu_support': 'edu_support', '교육지원': 'edu_support',
+  'cert': 'cert', '자격증': 'cert',
+  'language': 'language', '어학': 'language',
+  'badge': 'badge', '배지': 'badge',
 };
-const _serviceColors = { edu_support:'#1D4ED8', cert:'#C2410C', language:'#059669', badge:'#7C3AED', all:'#6B7280' };
-const _serviceLabels = { edu_support:'교육지원', cert:'자격증', language:'어학', badge:'배지', all:'공통' };
+const _serviceColors = { edu_support: '#1D4ED8', cert: '#C2410C', language: '#059669', badge: '#7C3AED', all: '#6B7280' };
+const _serviceLabels = { edu_support: '교육지원', cert: '자격증', language: '어학', badge: '배지', all: '공통' };
 
 async function _vuOpenHeadManagerSelector(tplId) {
   window._vuHeadSelectorTplId = tplId;
@@ -564,7 +568,7 @@ async function _vuOpenHeadManagerSelector(tplId) {
         });
       }
     }
-  } catch(e) { console.warn('역할 로드 실패:', e.message); }
+  } catch (e) { console.warn('역할 로드 실패:', e.message); }
 
   const rolesHtml = roles.length ? roles.map(r => {
     const sc = _serviceColors[r.service_type] || '#6B7280';
@@ -572,7 +576,7 @@ async function _vuOpenHeadManagerSelector(tplId) {
     return `
     <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:8px;cursor:pointer"
            onmouseover="this.style.borderColor='#FED7AA';this.style.background='#FFF7ED'" onmouseout="this.style.borderColor='#E5E7EB';this.style.background='#fff'">
-      <input type="radio" name="vu-head-role" value="${r.code}" data-name="${r.name.replace(/'/g,'&#39;')}" style="accent-color:#C2410C;width:15px;height:15px">
+      <input type="radio" name="vu-head-role" value="${r.code}" data-name="${r.name.replace(/'/g, '&#39;')}" style="accent-color:#C2410C;width:15px;height:15px">
       <div style="flex:1">
         <div style="font-size:13px;font-weight:700;color:#111827">${r.name}</div>
         <div style="font-size:10px;color:#9CA3AF;font-family:monospace">${r.code}</div>
@@ -636,7 +640,7 @@ async function _vuConfirmHeadManagerRole() {
         users = (us || []).map(u => ({ ...u, dept: orgMap[u.org_id] || '' }));
       }
     }
-  } catch(e) { console.warn('사용자 로드 실패:', e.message); }
+  } catch (e) { console.warn('사용자 로드 실패:', e.message); }
 
   // BO_PERSONAS 폴백 (DB에서 못 찾거나, 로컬 mock일 때)
   if (!users.length && typeof BO_PERSONAS !== 'undefined') {
@@ -662,10 +666,10 @@ async function _vuConfirmHeadManagerRole() {
     ${users.length ? users.map(u => `
     <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:8px;cursor:pointer;margin-bottom:6px"
            onmouseover="this.style.borderColor='#FED7AA'" onmouseout="this.style.borderColor='#E5E7EB'">
-      <input type="radio" name="vu-head-user" value="${u.id}" data-name="${(u.name||'').replace(/'/g,'&#39;')}" data-dept="${u.dept||''}" style="accent-color:#C2410C;width:15px;height:15px">
+      <input type="radio" name="vu-head-user" value="${u.id}" data-name="${(u.name || '').replace(/'/g, '&#39;')}" data-dept="${u.dept || ''}" style="accent-color:#C2410C;width:15px;height:15px">
       <div>
-        <div style="font-size:13px;font-weight:700;color:#111827">${u.name} <span style="font-size:10px;color:#9CA3AF">${u.pos||''}</span></div>
-        <div style="font-size:10px;color:#6B7280">${u.dept||''} · ${u.emp_no||u.id||''}</div>
+        <div style="font-size:13px;font-weight:700;color:#111827">${u.name} <span style="font-size:10px;color:#9CA3AF">${u.pos || ''}</span></div>
+        <div style="font-size:10px;color:#6B7280">${u.dept || ''} · ${u.emp_no || u.id || ''}</div>
       </div>
     </label>`).join('') : '<div style="padding:20px;text-align:center;color:#9CA3AF;font-size:12px">이 역할에 배정된 사용자가 없습니다</div>'}`;
 
@@ -760,7 +764,7 @@ async function _vuConfirmCreate() {
     _vuTplId = newId;
     _vuActiveTab = 0;
     await renderVirtualOrgUnified();
-  } catch(e) {
+  } catch (e) {
     alert('생성 실패: ' + e.message);
   }
 }
@@ -796,15 +800,15 @@ function _vuOpenEditModal(tplId) {
   window._vuEditingTplId = tplId;
   document.getElementById('vu-edit-name').value = tpl.name;
   const purposeOpts = [
-    { val:'edu_support', label:'📚 교육지원', color:'#1D4ED8' },
-    { val:'language',    label:'🌐 어학',     color:'#059669' },
-    { val:'cert',        label:'📜 자격증',   color:'#C2410C' },
-    { val:'badge',       label:'🏅 배지',     color:'#7C3AED' },
+    { val: 'edu_support', label: '📚 교육지원', color: '#1D4ED8' },
+    { val: 'language', label: '🌐 어학', color: '#059669' },
+    { val: 'cert', label: '📜 자격증', color: '#C2410C' },
+    { val: 'badge', label: '🏅 배지', color: '#7C3AED' },
   ];
   const curPurpose = tpl.purpose || 'edu_support';
   document.getElementById('vu-edit-purpose-box').innerHTML = purposeOpts.map(p => `
-    <label style="display:flex;align-items:center;gap:8px;padding:10px;border:1.5px solid ${curPurpose===p.val?p.color:'#E5E7EB'};border-radius:8px;cursor:pointer;background:${curPurpose===p.val?p.color+'10':'#fff'}">
-      <input type="radio" name="vu-edit-purpose" value="${p.val}" ${curPurpose===p.val?'checked':''} style="accent-color:${p.color}">
+    <label style="display:flex;align-items:center;gap:8px;padding:10px;border:1.5px solid ${curPurpose === p.val ? p.color : '#E5E7EB'};border-radius:8px;cursor:pointer;background:${curPurpose === p.val ? p.color + '10' : '#fff'}">
+      <input type="radio" name="vu-edit-purpose" value="${p.val}" ${curPurpose === p.val ? 'checked' : ''} style="accent-color:${p.color}">
       <span style="font-size:12px;font-weight:700">${p.label}</span>
     </label>`).join('');
   document.getElementById('vu-edit-modal').style.display = 'flex';
@@ -830,14 +834,14 @@ async function _vuConfirmEdit() {
         updated_at: new Date().toISOString()
       }).eq('id', tplId);
     }
-  } catch(e) { console.warn('수정 저장 실패:', e.message); }
+  } catch (e) { console.warn('수정 저장 실패:', e.message); }
   document.getElementById('vu-edit-modal').style.display = 'none';
   _vuActiveTab = 0;
   await renderVirtualOrgUnified();
 }
 
 // voOpenEditTemplate: 통합 모달로 직접 연결
-window.voOpenEditTemplate = function(tplId) {
+window.voOpenEditTemplate = function (tplId) {
   _vuOpenEditModal(tplId);
 };
 
@@ -893,7 +897,7 @@ async function _vuShowOrgPicker(title) {
         .order('name');
       if (data) rawOrgs = data;
     }
-  } catch(e) { console.warn('조직도 로드 실패:', e.message); }
+  } catch (e) { console.warn('조직도 로드 실패:', e.message); }
 
   if (rawOrgs.length > 0) {
     const orgMap = {};
@@ -937,19 +941,19 @@ function _vuBuildOrgTreeHtml(nodes, depth, q) {
     if (!matchSelf && !childHtml) return;
 
     const st = {
-      headquarters: { icon:'🏢', color:'#1E40AF', bg:'#EFF6FF', border:'#BFDBFE', label:'본부' },
-      center:       { icon:'🔬', color:'#6D28D9', bg:'#F5F3FF', border:'#DDD6FE', label:'센터' },
-      office:       { icon:'📋', color:'#065F46', bg:'#ECFDF5', border:'#A7F3D0', label:'실' },
-      division:     { icon:'🏭', color:'#92400E', bg:'#FFFBEB', border:'#FDE68A', label:'사업부' },
-      team:         { icon:'👥', color:'#374151', bg:'#F9FAFB', border:'#E5E7EB', label:'팀' }
-    }[node.type] || { icon:'👥', color:'#374151', bg:'#F9FAFB', border:'#E5E7EB', label:node.type||'팀' };
+      headquarters: { icon: '🏢', color: '#1E40AF', bg: '#EFF6FF', border: '#BFDBFE', label: '본부' },
+      center: { icon: '🔬', color: '#6D28D9', bg: '#F5F3FF', border: '#DDD6FE', label: '센터' },
+      office: { icon: '📋', color: '#065F46', bg: '#ECFDF5', border: '#A7F3D0', label: '실' },
+      division: { icon: '🏭', color: '#92400E', bg: '#FFFBEB', border: '#FDE68A', label: '사업부' },
+      team: { icon: '👥', color: '#374151', bg: '#F9FAFB', border: '#E5E7EB', label: '팀' }
+    }[node.type] || { icon: '👥', color: '#374151', bg: '#F9FAFB', border: '#E5E7EB', label: node.type || '팀' };
 
     const indent = depth * 20;
     const isMapped = _vuMappedOrgIds.has(node.id);
     const hasChildren = node.children && node.children.length > 0;
 
     // 이미 매핑된 경우 다른 스타일
-    const rowBg  = isMapped ? '#F0FDF4' : '#fff';
+    const rowBg = isMapped ? '#F0FDF4' : '#fff';
     const rowBdr = isMapped ? '1.5px solid #6EE7B7' : '1px solid #E5E7EB';
 
     // 상위 노드 선택 시 하위 자동 체크용 data 속성
@@ -958,7 +962,7 @@ function _vuBuildOrgTreeHtml(nodes, depth, q) {
 
     html += `
     <div style="margin-bottom:5px" data-org-id="${node.id}">
-      <label style="display:flex;align-items:center;gap:9px;padding:9px 14px;padding-left:${14+indent}px;
+      <label style="display:flex;align-items:center;gap:9px;padding:9px 14px;padding-left:${14 + indent}px;
              border-radius:9px;cursor:pointer;background:${rowBg};border:${rowBdr};
              transition:all 0.15s;user-select:none"
              onmouseover="if(!${isMapped})this.style.background='#F9FAFB'" onmouseout="if(!${isMapped})this.style.background='${rowBg}'">
@@ -966,16 +970,16 @@ function _vuBuildOrgTreeHtml(nodes, depth, q) {
           ${isMapped ? 'checked disabled' : ''}
           ${childIdsAttr}
           onchange="if(this.checked)_vuCheckChildren(this)"
-          style="width:15px;height:15px;accent-color:#1D4ED8;margin:0;flex-shrink:0${isMapped?';opacity:0.5':''}">
+          style="width:15px;height:15px;accent-color:#1D4ED8;margin:0;flex-shrink:0${isMapped ? ';opacity:0.5' : ''}">
         <span style="font-size:14px">${st.icon}</span>
-        <span style="font-size:13px;font-weight:${isMapped?'800':'600'};color:${isMapped?'#059669':'#374151'};flex:1">
+        <span style="font-size:13px;font-weight:${isMapped ? '800' : '600'};color:${isMapped ? '#059669' : '#374151'};flex:1">
           ${node.name}${hasChildren ? ` <span style="font-size:10px;color:#9CA3AF;font-weight:400">(${node.children.length}개 하위)</span>` : ''}
         </span>
         ${isMapped ? '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;background:#D1FAE5;color:#059669;white-space:nowrap">✓ 매핑됨</span>' : ''}
         <span style="font-size:10px;color:${st.color};background:${st.bg};border:1px solid ${st.border};
               padding:1px 7px;border-radius:5px;font-weight:700;white-space:nowrap">${st.label}</span>
       </label>
-      ${childHtml ? `<div style="border-left:2px solid #E5E7EB;margin-left:${26+indent}px;padding-left:4px">${childHtml}</div>` : ''}
+      ${childHtml ? `<div style="border-left:2px solid #E5E7EB;margin-left:${26 + indent}px;padding-left:4px">${childHtml}</div>` : ''}
     </div>`;
   });
   return html;
@@ -1006,9 +1010,9 @@ function _vuCheckChildren(checkbox) {
 function _vuRenderOrgList(query) {
   const listEl = document.getElementById('vu-org-list');
   const q = query.toLowerCase().trim();
-  
+
   const html = _vuBuildOrgTreeHtml(_vuOrgPickerData, 0, q);
-  
+
   if (!html) {
     listEl.innerHTML = '<div style="padding:20px;text-align:center;color:#9CA3AF;font-size:12px">결과가 없습니다</div>';
     return;
@@ -1100,7 +1104,7 @@ async function _vuShowUserPicker(title, roleFilter) {
           _vuUserPickerData = (us || []).map(u => ({ key: u.id, name: u.name, dept: orgMap[u.org_id] || '', pos: u.emp_no, role: '' }));
         }
       }
-    } catch(e) { console.warn('운영담당자 로드 실패:', e.message); }
+    } catch (e) { console.warn('운영담당자 로드 실패:', e.message); }
   }
 
   // DB에 데이터가 없으면 BO_PERSONAS 폴백
@@ -1121,7 +1125,7 @@ function _vuFilterUsers(q) { _vuRenderUserList(q); }
 function _vuRenderUserList(query) {
   const listEl = document.getElementById('vu-user-list');
   const q = query.toLowerCase();
-  const filtered = q ? _vuUserPickerData.filter(u => u.name.toLowerCase().includes(q) || (u.dept||'').toLowerCase().includes(q)) : _vuUserPickerData;
+  const filtered = q ? _vuUserPickerData.filter(u => u.name.toLowerCase().includes(q) || (u.dept || '').toLowerCase().includes(q)) : _vuUserPickerData;
   if (!filtered.length) {
     listEl.innerHTML = '<div style="padding:20px;text-align:center;color:#9CA3AF;font-size:12px">결과가 없습니다</div>';
     return;
@@ -1150,15 +1154,15 @@ function _vuRenderUserList(query) {
     const existing = mappingMap[u.key] || [];
     const mappingBadge = existing.length
       ? '<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:3px">' +
-        existing.map(e =>
-          '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#DBEAFE;color:#1E40AF;font-weight:600">📌 ' + e.orgName + '</span>'
-        ).join('') +
-        '</div>'
+      existing.map(e =>
+        '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#DBEAFE;color:#1E40AF;font-weight:600">📌 ' + e.orgName + '</span>'
+      ).join('') +
+      '</div>'
       : '';
     return `
     <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;transition:background .1s;border:1px solid ${existing.length ? '#BFDBFE' : '#F3F4F6'};margin-bottom:4px;background:${existing.length ? '#F8FAFF' : '#fff'}"
       onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='${existing.length ? '#F8FAFF' : '#fff'}'">
-      <input type="${isSingle ? 'radio' : 'checkbox'}" name="vu-user-sel" class="vu-user-chk" value="${u.key}" data-name="${u.name}" data-dept="${u.dept||''}" style="width:16px;height:16px;accent-color:#1D4ED8;margin-top:2px">
+      <input type="${isSingle ? 'radio' : 'checkbox'}" name="vu-user-sel" class="vu-user-chk" value="${u.key}" data-name="${u.name}" data-dept="${u.dept || ''}" style="width:16px;height:16px;accent-color:#1D4ED8;margin-top:2px">
       <div style="flex:1">
         <div style="font-size:13px;font-weight:700;color:#111827">${u.name} <span style="font-size:10px;color:#9CA3AF">${u.pos || ''}</span></div>
         <div style="font-size:10px;color:#6B7280">${u.dept || ''}</div>
@@ -1253,7 +1257,7 @@ async function _vuDrop(e, targetId) {
 
   // 배열 순서 변경
   const fromIdx = _vuTplList.findIndex(t => t.id === src);
-  const toIdx   = _vuTplList.findIndex(t => t.id === targetId);
+  const toIdx = _vuTplList.findIndex(t => t.id === targetId);
   if (fromIdx === -1 || toIdx === -1) {
     setTimeout(() => { _vuIsDragging = false; }, 200);
     return;
@@ -1276,7 +1280,7 @@ async function _vuDrop(e, targetId) {
         sb.from('virtual_org_templates').update({ sort_order: i }).eq('id', t.id)
       ));
     }
-  } catch(err) { console.warn('순서 저장 실패:', err.message); }
+  } catch (err) { console.warn('순서 저장 실패:', err.message); }
 }
 
 // 리스트 컨테이너만 부분 갱신 (우측 상세 패널은 유지)
@@ -1285,11 +1289,11 @@ function _vuRenderTplListOnly() {
   if (!container) { renderVirtualOrgUnified(); return; }
 
   const purposeColors = {
-    edu_support: { bg:'#EFF6FF', text:'#1D4ED8', label:'교육지원' },
-    language:    { bg:'#F0FDF4', text:'#059669', label:'어학' },
-    cert:        { bg:'#FFF7ED', text:'#C2410C', label:'자격증' },
-    badge:       { bg:'#F5F3FF', text:'#7C3AED', label:'배지' },
-    '교육지원':   { bg:'#EFF6FF', text:'#1D4ED8', label:'교육지원' },
+    edu_support: { bg: '#EFF6FF', text: '#1D4ED8', label: '교육지원' },
+    language: { bg: '#F0FDF4', text: '#059669', label: '어학' },
+    cert: { bg: '#FFF7ED', text: '#C2410C', label: '자격증' },
+    badge: { bg: '#F5F3FF', text: '#7C3AED', label: '배지' },
+    '교육지원': { bg: '#EFF6FF', text: '#1D4ED8', label: '교육지원' },
   };
 
   container.innerHTML = _vuTplList.map((t, idx) => {

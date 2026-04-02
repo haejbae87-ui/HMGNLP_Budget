@@ -375,6 +375,8 @@ async function s1SaveAccount() {
       payload.id = 'BA-' + Date.now();
       const { error } = await sb.from('budget_accounts').insert(payload);
       if (error) throw error;
+      // ✅ 신규 계정 생성 시 → 자동 통장 동기화
+      try { await _syncBankbooksForTemplate(_baTplId, payload.tenant_id); } catch (e) { console.warn('[통장 동기화]', e.message); }
     }
     s1CloseModal();
     // 독립 메뉴(bo_budget_account.js)에서 호출된 경우
@@ -1849,43 +1851,70 @@ async function _obSubmitTransfer() {
 // ═══ 통장 자동 생성 ═══
 async function _obAutoCreate() {
   if (!_obTplId) { alert('템플릿을 선택하세요.'); return; }
-  if (_obAcctList.length === 0) { alert('예산 계정이 없습니다.'); return; }
+  if (_obAcctList.length === 0) { alert('예산 계정이 없습니다. 예산 계정을 먼저 생성하세요.'); return; }
   if (_obGroups.length === 0) { alert('VOrg 그룹이 없습니다.'); return; }
   const sb = typeof _sb === 'function' ? _sb() : null;
   if (!sb) return;
+
+  try {
+    const count = await _syncBankbooksForTemplate(_obTplId, _obTenant);
+    alert(`✅ ${count}건 통장 동기화 완료`);
+    await renderOrgBudget();
+  } catch (e) { alert('통장 생성 실패: ' + e.message); }
+}
+
+// ═══ 통장 동기화 (공용 함수 — 예산계정 생성/VOrg 팀 추가 시 호출) ═══
+async function _syncBankbooksForTemplate(templateId, tenantId) {
+  const sb = typeof _sb === 'function' ? _sb() : null;
+  if (!sb || !templateId || !tenantId) return 0;
+
+  // 1. 템플릿 tree_data 로드
+  const { data: tplData } = await sb.from('virtual_org_templates').select('tree_data').eq('id', templateId).single();
+  const groups = tplData?.tree_data?.hqs || [];
+  if (!groups.length) return 0;
+
+  // 2. 활성 예산 계정 로드
+  const { data: acctData } = await sb.from('budget_accounts').select('id').eq('virtual_org_template_id', templateId).eq('tenant_id', tenantId).eq('active', true);
+  const accounts = acctData || [];
+  if (!accounts.length) return 0;
+
+  // 3. 조직 상태 로드 (deprecated 제외)
+  const { data: orgData } = await sb.from('organizations').select('id,name,parent_id,status,type').eq('tenant_id', tenantId);
+  const allOrgs = orgData || [];
+  const orgMap = {};
+  allOrgs.forEach(o => { orgMap[o.id] = o; });
+
+  // 하위 조직 탐색 (DB 기반)
+  function findSubOrgs(parentOrgId) {
+    return allOrgs.filter(o => o.parent_id === parentOrgId && o.status !== 'deprecated');
+  }
+
+  // 4. 통장 행 생성
   const rows = [];
-  const groups = _obGroupId ? _obGroups.filter(g => g.id === _obGroupId) : _obGroups;
-  const accounts = _obAccountId ? _obAcctList.filter(a => a.id === _obAccountId) : _obAcctList;
   for (const grp of groups) {
     for (const acct of accounts) {
       for (const org of (grp.teams || [])) {
-        rows.push({ tenant_id: _obTenant, template_id: _obTplId, vorg_group_id: grp.id, account_id: acct.id, org_id: org.id, org_name: org.name, org_type: org.includesSubOrgs ? 'hq' : 'team', parent_org_id: null });
-        if (org.includesSubOrgs && typeof REAL_ORG_TREE !== 'undefined') {
-          _obFindSubOrgs(org.name).forEach(sub => {
-            rows.push({ tenant_id: _obTenant, template_id: _obTplId, vorg_group_id: grp.id, account_id: acct.id, org_id: sub.id, org_name: sub.name, org_type: 'team', parent_org_id: org.id });
+        // 폐지 조직 제외
+        if (orgMap[org.id]?.status === 'deprecated') continue;
+        const hasSubOrgs = allOrgs.some(o => o.parent_id === org.id);
+        rows.push({ tenant_id: tenantId, template_id: templateId, vorg_group_id: grp.id, account_id: acct.id, org_id: org.id, org_name: org.name, org_type: hasSubOrgs ? 'hq' : 'team', parent_org_id: null });
+        // 하위 조직 전개 (DB 기반)
+        if (hasSubOrgs) {
+          findSubOrgs(org.id).forEach(sub => {
+            rows.push({ tenant_id: tenantId, template_id: templateId, vorg_group_id: grp.id, account_id: acct.id, org_id: sub.id, org_name: sub.name, org_type: 'team', parent_org_id: org.id });
           });
         }
       }
     }
   }
-  if (rows.length === 0) { alert('생성할 통장이 없습니다.'); return; }
-  try {
-    const { error } = await sb.from('org_budget_bankbooks').upsert(rows, { onConflict: 'tenant_id,template_id,vorg_group_id,account_id,org_id', ignoreDuplicates: true });
-    if (error) throw error;
-    alert(`✅ ${rows.length}건 통장 생성 / 확인`);
-    await renderOrgBudget();
-  } catch (e) { alert('통장 생성 실패: ' + e.message); }
-}
+  if (!rows.length) return 0;
 
-function _obFindSubOrgs(parentName) {
-  if (typeof REAL_ORG_TREE === 'undefined') return [];
-  const all = [...(REAL_ORG_TREE.general || []), ...(REAL_ORG_TREE.rnd || [])];
-  for (const b of all) {
-    if (b.name === parentName || b.name.includes(parentName) || parentName.includes(b.name)) return b.children || [];
-    if (b.children) { for (const c of b.children) { if (c.name === parentName && c.children) return c.children; } }
-  }
-  return [];
+  const { error } = await sb.from('org_budget_bankbooks').upsert(rows, { onConflict: 'tenant_id,template_id,vorg_group_id,account_id,org_id', ignoreDuplicates: true });
+  if (error) throw error;
+  return rows.length;
 }
+// 전역 노출 (VOrg 템플릿에서 호출)
+window._syncBankbooksForTemplate = _syncBankbooksForTemplate;
 
 // ═══ 통장 비활성화 (조직개편 대응) ═══
 async function _obDeactivateBankbook(bbId) {

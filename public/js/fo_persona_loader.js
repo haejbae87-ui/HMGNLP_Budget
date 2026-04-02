@@ -178,6 +178,8 @@ async function _buildPersonaFromEmployee(emp) {
         name: emp.name,
         dept: emp.dept,
         pos: emp.pos || '',
+        // FO 페르소나는 항상 learner 역할 (리더도 learner 기반)
+        role: 'learner',
         tenantId: emp.tenant_id,
         company: _FO_TENANT_MAP[emp.tenant_id] || emp.tenant_id,
         orgId: emp.org_id,

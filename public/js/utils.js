@@ -65,6 +65,30 @@ function getEduTypeLabel(key) {
   return EDU_TYPE_LABELS[key] || key;
 }
 
+// ── 학습자용 교육유형 → 세부항목 매핑 ──
+// 학습자 정책에서 교육유형이 상위 카테고리(예: regular)인 경우 세부항목을 선택하도록 합니다.
+// 교육담당자 정책은 이미 세부 레벨(elearning, class 등)이므로 서브타입 불필요.
+const EDU_TYPE_SUBTYPES = {
+  regular: [{ key: 'elearning', label: '이러닝' }, { key: 'class', label: '집합' }, { key: 'live', label: '라이브' }],
+  academic: [{ key: 'conf', label: '학회/세미나/컨퍼런스' }, { key: 'acad_present', label: '학회 직접 발표' }, { key: 'acad_study', label: '연수' }],
+  knowledge: [{ key: 'book', label: '도서' }, { key: 'journal', label: '논문/저널' }, { key: 'tech_resource', label: '기술자료(DB구독·자료구매)' }],
+  competency: [{ key: 'lang', label: '어학학습비 지원' }, { key: 'cert', label: '자격증 취득지원' }, { key: 'assoc', label: '학협회비' }],
+  etc: [{ key: 'teach', label: '교육출강(사/내외)' }, { key: 'team_build', label: '팀빌딩' }],
+};
+
+// 현재 페르소나의 활성 정책이 학습자 대상인지 판별
+function isLearnerTargetType(persona, purposeId) {
+  const result = _getActivePolicies(persona);
+  if (!result) return true; // 정책 없으면 학습자 기본
+  const { policies } = result;
+  const boPurposeKeys = typeof _FO_TO_BO_PURPOSE !== 'undefined'
+    ? (_FO_TO_BO_PURPOSE[purposeId] || [purposeId]) : [purposeId];
+  const matched = policies.filter(p => boPurposeKeys.includes(p.purpose));
+  if (matched.length === 0) return true;
+  // targetType이 'learner'이면 학습자, 아니면 교육담당자
+  return matched.some(p => p.targetType === 'learner' || !p.targetType);
+}
+
 // 페르소나 vorgId 코드 → VORG_TEMPLATES(EDU_SUPPORT_DOMAINS) id 변환
 function _resolveVorgId(persona) {
   const domains = typeof VORG_TEMPLATES !== 'undefined' ? VORG_TEMPLATES

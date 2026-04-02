@@ -460,21 +460,49 @@ function renderPlanWizard() {
         <span class="text-accent text-xl">✓</span> 이 예산 계정은 모든 교육유형에 사용 가능합니다.
       </div>`;
 
+      // 학습자용 여부 판별: subtypes가 있는 교육유형이면 세부항목 표시
+      const _isLearner = typeof isLearnerTargetType !== 'undefined'
+        ? isLearnerTargetType(currentPersona, s.purpose?.id) : true;
+      const hasSubtypes = _isLearner && s.eduType
+        && typeof EDU_TYPE_SUBTYPES !== 'undefined' && EDU_TYPE_SUBTYPES[s.eduType];
+      const subtypes = hasSubtypes ? EDU_TYPE_SUBTYPES[s.eduType] : [];
+
       return `
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
         ${eduTypes.map(t => `
-        <button onclick="planState.eduType='${t}';renderPlanWizard()"
+        <button onclick="planState.eduType='${t}';planState.subType='';renderPlanWizard()"
           class="p-4 rounded-xl border-2 text-sm font-bold text-left transition
                  ${s.eduType === t ? 'bg-gray-900 border-gray-900 text-white shadow-xl' : 'border-gray-200 text-gray-700 hover:border-accent hover:text-accent'}">${typeof getEduTypeLabel !== 'undefined' ? getEduTypeLabel(t) : t}</button>
         `).join('')}
-      </div>`;
+      </div>
+      ${subtypes.length > 0 ? `
+      <div class="mt-5">
+        <div class="text-xs font-black text-blue-500 mb-3 flex items-center gap-2">
+          <span class="w-1.5 h-1.5 bg-blue-500 rounded-full inline-block"></span>
+          세부 교육유형 선택
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          ${subtypes.map(st => `
+          <button onclick="planState.subType='${st.key}';renderPlanWizard()"
+            class="p-3 rounded-xl border-2 text-sm font-bold text-left transition
+                   ${s.subType === st.key ? 'bg-blue-600 border-blue-600 text-white shadow-lg' : 'border-blue-200 text-blue-700 hover:border-blue-400 hover:bg-blue-50'}">${st.label}</button>
+          `).join('')}
+        </div>
+      </div>` : ''}`;
     })()}
     <div class="flex justify-between mt-6 pt-4 border-t border-gray-100">
       <button onclick="planPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
-      <button onclick="planNext()" ${!s.eduType ? 'disabled' : ''}
-        class="px-8 py-3 rounded-xl font-black text-sm transition ${!s.eduType ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-brand text-white hover:bg-blue-900 shadow-lg'}">
-        다음 →
-      </button>
+      ${(() => {
+      const _isL = typeof isLearnerTargetType !== 'undefined'
+        ? isLearnerTargetType(currentPersona, s.purpose?.id) : true;
+      const needsSub = _isL && s.eduType
+        && typeof EDU_TYPE_SUBTYPES !== 'undefined' && EDU_TYPE_SUBTYPES[s.eduType];
+      const canNext = s.eduType && (!needsSub || s.subType);
+      return `<button onclick="planNext()" ${!canNext ? 'disabled' : ''}
+          class="px-8 py-3 rounded-xl font-black text-sm transition ${!canNext ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-brand text-white hover:bg-blue-900 shadow-lg'}">
+          다음 →
+        </button>`;
+    })()}
     </div>
   </div>
 

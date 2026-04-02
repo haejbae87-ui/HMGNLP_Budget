@@ -284,11 +284,28 @@ function _s1GenCode() {
   return tenantId + '-' + seq;
 }
 
-function openS1Modal(id) {
+async function openS1Modal(id) {
   _s1EditId = id || null;
   const list = window._baAccountList && window._baAccountList.length > 0 ? window._baAccountList : (typeof _baAccountList !== 'undefined' ? _baAccountList : []);
   const a = id ? (list.find(x => x.id === id) || null) : null;
   const autoCode = a?.code || _s1GenCode();
+
+  // budget_account_org_policy 로드 (기존 bankbook_mode 값 반영)
+  let policy = null;
+  if (id && _baTplId) {
+    try {
+      const sb = typeof _sb === 'function' ? _sb() : getSB?.();
+      if (sb) {
+        const { data } = await sb.from('budget_account_org_policy')
+          .select('bankbook_mode, bankbook_level')
+          .eq('budget_account_id', id)
+          .eq('vorg_template_id', _baTplId)
+          .maybeSingle();
+        policy = data;
+      }
+    } catch (e) { console.warn('[s1Modal] policy 로드 실패:', e.message); }
+  }
+
   document.getElementById('s1-modal-title').textContent = id ? '예산 계정 수정' : '예산 계정 신규 등록';
   document.getElementById('s1-modal-body').innerHTML = `
   <div style="margin-bottom:12px">

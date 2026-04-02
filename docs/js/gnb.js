@@ -74,26 +74,36 @@ function renderGNB() {
     { id: 'fo-manual', label: '📖 매뉴얼', dropdown: null },
   ];
 
-  // ── 회사→학습자 cascade 드롭다운 ───────────────────────────────────────────
-  // 회사 목록 (PERSONAS 기반, 중복 제거)
-  const _companyList = Object.entries(PERSONAS).reduce((acc, [k, p]) => {
-    if (!acc.find(x => x.tenantId === p.tenantId)) {
-      acc.push({ tenantId: p.tenantId, label: p.company });
-    }
-    return acc;
-  }, []);
+  // ── 회사→학습자 cascade 드롭다운 (DB employees 기반) ───────────────────────
+  // _FO_EMPLOYEES: fo_persona_loader.js가 DB에서 로드 (없으면 PERSONAS mock 폴백)
+  const _employees = (typeof _FO_EMPLOYEES !== 'undefined' && _FO_EMPLOYEES.length > 0)
+    ? _FO_EMPLOYEES
+    : Object.entries(PERSONAS || {}).map(([key, p]) => ({
+      id: key, tenant_id: p.tenantId, name: p.name, dept: p.dept,
+      pos: p.pos, persona_key: key, is_active: true,
+    }));
+
+  // 테넌트 이름 맵: _FO_TENANT_MAP > PERSONAS > tenant_id 그대로
+  const _tenantMap = (typeof _FO_TENANT_MAP !== 'undefined') ? _FO_TENANT_MAP : {};
+  function _tenantLabel(tid) {
+    if (_tenantMap[tid]) return _tenantMap[tid];
+    const pm = Object.values(PERSONAS || {}).find(p => p.tenantId === tid);
+    return pm?.company || tid;
+  }
+
+  // 회사 목록 (중복 제거, 순서 유지)
+  const _companyList = [...new Set(_employees.map(e => e.tenant_id))]
+    .map(tid => ({ tenantId: tid, label: _tenantLabel(tid) }));
 
   // 현재 선택된 회사
   const _currentTenantId = currentPersona.tenantId;
 
   // 현재 회사의 학습자 목록
-  const _currentCompanyPersonas = Object.entries(PERSONAS)
-    .filter(([k, p]) => p.tenantId === _currentTenantId)
-    .map(([k, p]) => ({ key: k, name: p.name, pos: p.pos, dept: p.dept }));
+  const _currentCompanyEmps = _employees.filter(e => e.tenant_id === _currentTenantId);
 
-  const _currentPersonaKey = Object.keys(PERSONAS).find(k => PERSONAS[k] === currentPersona) || '';
+  // 현재 선택된 학습자의 persona_key
+  const _currentPersonaKey = Object.keys(PERSONAS || {}).find(k => PERSONAS[k] === currentPersona) || '';
 
-  // 회사 select 변경 → 해당 회사 첫 번째 학습자로 전환
   const switcherHtml = `
 <span style="font-size:10px;color:rgba(255,255,255,0.55);font-weight:700;white-space:nowrap">접속자:</span>
 <div style="display:flex;align-items:center;gap:6px">
@@ -114,10 +124,20 @@ function renderGNB() {
            cursor:pointer;outline:none;appearance:none;
            background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22 viewBox=%220 0 10 6%22><path d=%22M0 0l5 6 5-6z%22 fill=%22rgba(255,255,255,0.7)%22/></svg>');
            background-repeat:no-repeat;background-position:right 8px center">
-    ${_currentCompanyPersonas.map(p => `<option value="${p.key}" ${p.key === _currentPersonaKey ? 'selected' : ''}
-      style="background:#1E293B;color:#fff">${p.name} ${p.pos} · ${p.dept}</option>`).join('')}
+    ${_currentCompanyEmps.length === 0
+      ? `<option style="background:#1E293B;color:#9CA3AF" disabled>학습자 없음</option>`
+      : _currentCompanyEmps.map(e => {
+        const key = e.persona_key;
+        const hasProfile = key && PERSONAS && PERSONAS[key];
+        const label = `${e.name} ${e.pos || ''} · ${e.dept || ''}`;
+        const suffix = hasProfile ? '' : ' (미설정)';
+        return `<option value="${key || ''}" ${key === _currentPersonaKey ? 'selected' : ''} ${hasProfile ? '' : 'disabled'}
+            style="background:#1E293B;color:${hasProfile ? '#fff' : '#9CA3AF'}">${label}${suffix}</option>`;
+      }).join('')
+    }
   </select>
 </div>`;
+
 
   // 1depth 활성 메뉴 판별 (드롭다운 자식 포함)
   function isMenuActive(menu) {
@@ -227,10 +247,16 @@ function renderGNB() {
 `;
 }
 
-// 회사 변경 시 해당 회사 첫 번째 학습자로 전환
+// 회사 변경 시 해당 회사 첫 번째 학습자로 전환 (DB employees 기반)
 function gnbSwitchCompany(tenantId) {
-  const firstKey = Object.keys(PERSONAS).find(k => PERSONAS[k].tenantId === tenantId);
-  if (firstKey) switchPersonaTo(firstKey);
+  const emps = (typeof _FO_EMPLOYEES !== 'undefined' && _FO_EMPLOYEES.length > 0)
+    ? _FO_EMPLOYEES
+    : Object.entries(PERSONAS || {}).map(([key, p]) => ({ tenant_id: p.tenantId, persona_key: key }));
+
+  const firstEmp = emps.find(e => e.tenant_id === tenantId && e.persona_key);
+  if (firstEmp?.persona_key) {
+    switchPersonaTo(firstEmp.persona_key);
+  }
 }
 
 // 페르소나 전환 함수 (LXP 전용) — DB 기반 로더 사용

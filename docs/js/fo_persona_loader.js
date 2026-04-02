@@ -184,6 +184,7 @@ async function switchPersonaAndReload(personaKey) {
     if (typeof navigate === 'function') navigate(currentPage || 'dashboard');
 }
 
+
 /** CSS 스피너 애니메이션 주입 */
 (function () {
     if (!document.getElementById('fo-loader-style')) {
@@ -193,3 +194,77 @@ async function switchPersonaAndReload(personaKey) {
         document.head.appendChild(s);
     }
 })();
+
+// ─── GNB 스위처용 employees 캐시 ────────────────────────────────────────────
+
+/** DB에서 로드된 전체 학습자 캐시 (GNB 스위처용) */
+let _FO_EMPLOYEES = [];
+
+/**
+ * 테넌트 ID → 회사 이름 맵
+ * PERSONAS mock에서 초기화 (DB tenants 테이블 없으므로 폴백)
+ */
+let _FO_TENANT_MAP = {};
+
+/**
+ * 전체 활성 학습자 목록을 DB에서 로드 (1회 캐시)
+ * main.js DOMContentLoaded에서 _initCurrentPersona와 함께 호출
+ */
+async function _loadAllEmployees() {
+    const sb = _foSb();
+
+    // tenant 이름 맵: PERSONAS mock에서 먼저 구성 (폴백)
+    if (typeof PERSONAS !== 'undefined') {
+        Object.values(PERSONAS).forEach(p => {
+            if (p.tenantId && p.company) _FO_TENANT_MAP[p.tenantId] = p.company;
+        });
+    }
+
+    if (!sb) {
+        // Supabase 없으면 PERSONAS mock을 employees 형식으로 변환
+        _FO_EMPLOYEES = Object.entries(PERSONAS || {}).map(([key, p]) => ({
+            id: key,
+            tenant_id: p.tenantId,
+            name: p.name,
+            dept: p.dept,
+            pos: p.pos,
+            job_type: p.jobType,
+            org_id: p.orgId || null,
+            persona_key: key,
+            is_active: true,
+        }));
+        console.warn('[FO Loader] Supabase 없음 → PERSONAS mock 사용');
+        return;
+    }
+
+    try {
+        const { data, error } = await sb.from('employees')
+            .select('id, tenant_id, name, dept, pos, job_type, org_id, persona_key, is_active')
+            .eq('is_active', true)
+            .order('tenant_id')
+            .order('name');
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+            _FO_EMPLOYEES = data;
+            console.log(`[FO Loader] employees ${data.length}명 로드 완료`);
+        } else {
+            // DB에 학습자 없으면 mock 폴백
+            _FO_EMPLOYEES = Object.entries(PERSONAS || {}).map(([key, p]) => ({
+                id: key, tenant_id: p.tenantId, name: p.name, dept: p.dept,
+                pos: p.pos, job_type: p.jobType, org_id: p.orgId || null,
+                persona_key: key, is_active: true,
+            }));
+            console.warn('[FO Loader] DB 학습자 없음 → PERSONAS mock 폴백');
+        }
+    } catch (err) {
+        // 네트워크 오류 등 → PERSONAS mock 폴백
+        _FO_EMPLOYEES = Object.entries(PERSONAS || {}).map(([key, p]) => ({
+            id: key, tenant_id: p.tenantId, name: p.name, dept: p.dept,
+            pos: p.pos, job_type: p.jobType, org_id: p.orgId || null,
+            persona_key: key, is_active: true,
+        }));
+        console.error('[FO Loader] employees 로드 오류 → PERSONAS mock 폴백', err.message);
+    }
+}

@@ -1,10 +1,13 @@
 // ─── APP INITIALIZATION ──────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // DB 기반 페르소나 정보 로드 (orgId 있는 HMC 등)
-  if (typeof _initCurrentPersona === 'function') {
-    currentPersona = await _initCurrentPersona(currentPersona);
-  }
+  // DB 기반 데이터 초기화 (병렬 실행)
+  await Promise.all([
+    typeof _loadAllEmployees === 'function' ? _loadAllEmployees() : Promise.resolve(),
+    typeof _initCurrentPersona === 'function'
+      ? _initCurrentPersona(currentPersona).then(p => { currentPersona = p; })
+      : Promise.resolve(),
+  ]);
   renderGNB();
   renderFloatingBudget();
   // hash가 있으면 해당 페이지 복원, 없으면 대시보드

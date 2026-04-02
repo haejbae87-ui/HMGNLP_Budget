@@ -1259,6 +1259,8 @@ let _obBankbooks = [];
 let _obAllocations = [];
 let _obLogs = [];
 let _obTab = 0;
+let _obAllBankbooks = [];   // 전체 템플릿 통장 (교차 VOrg 이관용)
+let _obAllAllocations = []; // 전체 템플릿 allocation
 
 // ── 공통 데이터 로드 ──
 async function _obLoadData() {
@@ -1299,6 +1301,15 @@ async function _obLoadData() {
     const alIds = _obAllocations.map(a => a.id);
     try { const { data } = await sb.from('budget_allocation_log').select('*').in('allocation_id', alIds).order('performed_at', { ascending: false }).limit(30); _obLogs = data || []; } catch (e) { _obLogs = []; }
   } else { _obLogs = []; }
+
+  // 교차 VOrg 이관용: 필터 무관하게 템플릿 전체 통장 로드
+  if (_obTplId) {
+    try { const { data } = await sb.from('org_budget_bankbooks').select('*').eq('tenant_id', _obTenant).eq('template_id', _obTplId).eq('status', 'active'); _obAllBankbooks = data || []; } catch (e) { _obAllBankbooks = []; }
+    if (_obAllBankbooks.length > 0 && _obPeriodId) {
+      const allBbIds = _obAllBankbooks.map(b => b.id);
+      try { const { data } = await sb.from('budget_allocations').select('*').in('bankbook_id', allBbIds).eq('period_id', _obPeriodId); _obAllAllocations = data || []; } catch (e) { _obAllAllocations = []; }
+    } else { _obAllAllocations = []; }
+  } else { _obAllBankbooks = []; _obAllAllocations = []; }
 }
 
 // ── 진입점 ──
@@ -1433,7 +1444,7 @@ function _obRenderOverview() {
         <table class="bo-table" style="font-size:11px"><thead><tr>
           <th style="width:24px"></th><th>조직명</th><th>유형</th>
           <th style="text-align:right">배정액</th><th style="text-align:right">집행</th><th style="text-align:right">동결</th><th style="text-align:right">잔액</th>
-          <th style="text-align:center;width:70px">관리</th>
+          <th style="text-align:center;width:110px">관리</th>
         </tr></thead><tbody>
         ${grpAllocs.map(b => {
         const al = b.alloc;
@@ -1448,7 +1459,7 @@ function _obRenderOverview() {
             <td style="text-align:right;color:#DC2626">${fmt(u)}</td>
             <td style="text-align:right;color:#D97706">${fmt(f)}</td>
             <td style="text-align:right;font-weight:700;color:${bal >= 0 ? '#111' : '#EF4444'}">${fmt(bal)}</td>
-            <td style="text-align:center"><button class="bo-btn-secondary bo-btn-sm" onclick="_obEditAlloc('${b.id}',${a})" style="font-size:9px;padding:2px 6px">수정</button></td>
+            <td style="text-align:center"><button class="bo-btn-secondary bo-btn-sm" onclick="_obEditAlloc('${b.id}',${a})" style="font-size:9px;padding:2px 5px">수정</button> <button class="bo-btn-secondary bo-btn-sm" onclick="_obDeactivateBankbook('${b.id}')" style="font-size:9px;padding:2px 5px;color:#DC2626;border-color:#FECACA" title="통장 비활성화">제외</button></td>
           </tr>`;
       }).join('')}
         </tbody></table></div>`;
@@ -1605,37 +1616,47 @@ function _obRenderDist() {
   return html;
 }
 
-// ═══ 탭4: 이관 ═══
+// ═══ 탭4: 이관 (교차 VOrg 지원) ═══
 function _obRenderTransfer() {
   const fmt = n => Number(n).toLocaleString();
   const curPeriod = _obPeriods.find(p => p.id === _obPeriodId);
   if (curPeriod?.status === 'closed') return `<div style="padding:40px;text-align:center"><div style="font-size:40px">🔒</div><div style="font-weight:900;color:#374151;margin-top:8px">마감된 기간</div></div>`;
 
-  const bbWithAlloc = _obBankbooks.map(b => {
-    const al = _obAllocations.find(a => a.bankbook_id === b.id);
+  // 교차 VOrg: 전체 템플릿 통장 사용
+  const allBbs = _obAllBankbooks.length > 0 ? _obAllBankbooks : _obBankbooks;
+  const allAllocs = _obAllAllocations.length > 0 ? _obAllAllocations : _obAllocations;
+
+  const bbWithAlloc = allBbs.map(b => {
+    const al = allAllocs.find(a => a.bankbook_id === b.id);
     const grp = _obGroups.find(g => g.id === b.vorg_group_id);
+    const acct = _obAcctList.find(ac => ac.id === b.account_id);
     const a = Number(al?.allocated_amount || 0), u = Number(al?.used_amount || 0), f = Number(al?.frozen_amount || 0);
-    return { ...b, allocated: a, used: u, frozen: f, balance: a - u - f, grpName: grp?.name || '' };
+    return { ...b, allocated: a, used: u, frozen: f, balance: a - u - f, grpName: grp?.name || b.vorg_group_id, acctName: acct?.name || '' };
   });
 
-  const opts = bbWithAlloc.map(b => `<option value="${b.id}">${b.grpName} > ${b.org_name} (잔액: ${fmt(b.balance)}원)</option>`).join('');
+  const fromOpts = bbWithAlloc.filter(b => b.balance > 0).map(b => `<option value="${b.id}">[${b.grpName}] ${b.org_name} — ${b.acctName} (잔액: ${fmt(b.balance)}원)</option>`).join('');
+  const toOpts = bbWithAlloc.map(b => `<option value="${b.id}">[${b.grpName}] ${b.org_name} — ${b.acctName} (현재: ${fmt(b.allocated)}원)</option>`).join('');
 
-  return `<div class="bo-card" style="padding:20px;max-width:650px">
+  return `<div style="max-width:700px">
+    <div style="padding:8px 14px;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;margin-bottom:12px;font-size:11px;color:#92400E;font-weight:600">
+      🔀 <b>교차 VOrg 이관 지원</b> — 다른 VOrg 그룹의 통장 간에도 이관이 가능합니다. 조직개편 시 활용하세요.
+    </div>
+    <div class="bo-card" style="padding:20px">
     <div style="font-weight:800;font-size:13px;margin-bottom:4px">↔ 예산 이관 — 조직 간 잔액 이동</div>
     <p style="font-size:11px;color:#6B7280;margin-bottom:14px">동일 기간 내에서 A조직의 잔여 배정액을 B조직으로 이동합니다. 사유 필수.</p>
     <div style="display:grid;gap:12px">
       <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center">
         <div>
-          <label style="font-size:10px;font-weight:700;color:#EF4444;display:block;margin-bottom:4px">FROM (출처)</label>
+          <label style="font-size:10px;font-weight:700;color:#EF4444;display:block;margin-bottom:4px">FROM (출처) — 잔액이 있는 통장만</label>
           <select id="ob-tr-from" style="width:100%;padding:8px;border:1.5px solid #FECACA;border-radius:8px;font-size:11px;font-weight:700">
-            <option value="">— 선택 —</option>${opts}
+            <option value="">— 선택 —</option>${fromOpts}
           </select>
         </div>
         <div style="font-size:20px;color:#9CA3AF;margin-top:16px">→</div>
         <div>
-          <label style="font-size:10px;font-weight:700;color:#059669;display:block;margin-bottom:4px">TO (대상)</label>
+          <label style="font-size:10px;font-weight:700;color:#059669;display:block;margin-bottom:4px">TO (대상) — 모든 통장</label>
           <select id="ob-tr-to" style="width:100%;padding:8px;border:1.5px solid #BBF7D0;border-radius:8px;font-size:11px;font-weight:700">
-            <option value="">— 선택 —</option>${opts}
+            <option value="">— 선택 —</option>${toOpts}
           </select>
         </div>
       </div>
@@ -1645,18 +1666,19 @@ function _obRenderTransfer() {
         <textarea id="ob-tr-reason" rows="2" placeholder="조직 개편, 예산 부족, 사업 변경 등" style="width:100%;box-sizing:border-box;padding:8px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;resize:none"></textarea></div>
       <button onclick="_obSubmitTransfer()" class="bo-btn-primary" style="padding:12px">↔ 이관 처리</button>
     </div>
-  </div>`;
+  </div></div>`;
 }
+
 
 // ═══ 탭5: 변경 이력 ═══
 function _obRenderHistory() {
   const fmt = n => Number(n).toLocaleString();
-  if (_obLogs.length === 0) return `<div style="padding:40px;text-align:center;color:#9CA3AF"><div style="font-size:32px">📜</div><div style="font-weight:700;margin-top:8px">변경 이력이 없습니다.</div></div>`;
+  if (_obLogs.length === 0) return `< div style = "padding:40px;text-align:center;color:#9CA3AF" ><div style="font-size:32px">📜</div><div style="font-weight:700;margin-top:8px">변경 이력이 없습니다.</div></div > `;
 
   const colors = { allocate: '#059669', adjust: '#D97706', freeze: '#7C3AED', use: '#DC2626', carryover: '#1D4ED8', release: '#6B7280', transfer_out: '#EF4444', transfer_in: '#059669' };
   const labels = { allocate: '배정', adjust: '조정', freeze: '동결', use: '집행', carryover: '이월', release: '해제', transfer_out: '이관출처', transfer_in: '이관수신' };
 
-  return `<div class="bo-card" style="overflow:hidden">
+  return `< div class="bo-card" style = "overflow:hidden" >
     <div style="padding:10px 18px;border-bottom:1px solid #F3F4F6;font-weight:800;font-size:12px">📜 변경 이력 — Audit Trail (최근 ${_obLogs.length}건)</div>
     <table class="bo-table" style="font-size:11px"><thead><tr><th>일시</th><th style="text-align:center">유형</th><th style="text-align:right">금액</th><th>사유</th><th>처리자</th></tr></thead>
     <tbody>${_obLogs.map(l => {
@@ -1669,7 +1691,7 @@ function _obRenderHistory() {
         <td style="color:#374151">${l.reason || ''}</td>
         <td style="color:#9CA3AF">${l.performed_by || ''}</td>
       </tr>`;
-  }).join('')}</tbody></table></div>`;
+  }).join('')}</tbody></table></div > `;
 }
 
 // ═══ 액션: 배정 수정 모달 ═══
@@ -1709,7 +1731,7 @@ async function _obSubmitInitBatch() {
   if (!sb) return;
   let count = 0;
   for (let i = 0; i < unallocated.length; i++) {
-    const amt = Number(document.getElementById(`ob-init-${i}`)?.value || 0);
+    const amt = Number(document.getElementById(`ob - init - ${i} `)?.value || 0);
     if (amt <= 0) continue;
     try {
       const { data: ins } = await sb.from('budget_allocations').insert({ bankbook_id: unallocated[i].id, period_id: _obPeriodId, allocated_amount: amt }).select('id').single();
@@ -1740,7 +1762,7 @@ async function _obSubmitAdd() {
       const { data: ins } = await sb.from('budget_allocations').insert({ bankbook_id: bbId, period_id: _obPeriodId, allocated_amount: amt }).select('id').single();
       if (ins) await sb.from('budget_allocation_log').insert({ allocation_id: ins.id, action: 'allocate', amount: amt, prev_balance: 0, new_balance: amt, reason, performed_by: boCurrentPersona?.name || '' });
     }
-    alert(`✅ 추가 배정 완료: +${Number(amt).toLocaleString()}원`);
+    alert(`✅ 추가 배정 완료: +${Number(amt).toLocaleString()} 원`);
     await renderOrgBudget();
   } catch (e) { alert('추가 배정 실패: ' + e.message); }
 }
@@ -1773,7 +1795,7 @@ async function _obSubmitDist() {
   await renderOrgBudget();
 }
 
-// ═══ 액션: 이관 ═══
+// ═══ 액션: 이관 (교차 VOrg 대응) ═══
 async function _obSubmitTransfer() {
   const fromId = document.getElementById('ob-tr-from')?.value;
   const toId = document.getElementById('ob-tr-to')?.value;
@@ -1781,8 +1803,11 @@ async function _obSubmitTransfer() {
   const reason = document.getElementById('ob-tr-reason')?.value?.trim();
   if (!fromId || !toId || fromId === toId || amt <= 0 || !reason) { alert('모든 항목을 올바르게 입력하세요. From과 To는 달라야 합니다.'); return; }
 
-  const fromAlloc = _obAllocations.find(a => a.bankbook_id === fromId);
-  const toAlloc = _obAllocations.find(a => a.bankbook_id === toId);
+  // 교차 VOrg: 전체 데이터에서 검색
+  const allAllocs = _obAllAllocations.length > 0 ? _obAllAllocations : _obAllocations;
+  const allBbs = _obAllBankbooks.length > 0 ? _obAllBankbooks : _obBankbooks;
+  const fromAlloc = allAllocs.find(a => a.bankbook_id === fromId);
+  const toAlloc = allAllocs.find(a => a.bankbook_id === toId);
   const fromBal = Number(fromAlloc?.allocated_amount || 0) - Number(fromAlloc?.used_amount || 0) - Number(fromAlloc?.frozen_amount || 0);
   if (amt > fromBal) { alert(`잔액 부족: From 통장 잔액 ${Number(fromBal).toLocaleString()}원, 이관 요청 ${Number(amt).toLocaleString()}원`); return; }
 
@@ -1794,16 +1819,16 @@ async function _obSubmitTransfer() {
     const fromPrev = Number(fromAlloc?.allocated_amount || 0);
     if (fromAlloc) {
       await sb.from('budget_allocations').update({ allocated_amount: fromPrev - amt, updated_at: new Date().toISOString() }).eq('id', fromAlloc.id);
-      await sb.from('budget_allocation_log').insert({ allocation_id: fromAlloc.id, action: 'transfer_out', amount: -amt, prev_balance: fromPrev, new_balance: fromPrev - amt, reason: `→ ${_obBankbooks.find(b => b.id === toId)?.org_name}: ${reason}`, performed_by: boCurrentPersona?.name || '' });
+      await sb.from('budget_allocation_log').insert({ allocation_id: fromAlloc.id, action: 'transfer_out', amount: -amt, prev_balance: fromPrev, new_balance: fromPrev - amt, reason: `→ ${allBbs.find(b => b.id === toId)?.org_name}: ${reason}`, performed_by: boCurrentPersona?.name || '' });
     }
     // To: 증가
     const toPrev = Number(toAlloc?.allocated_amount || 0);
     if (toAlloc) {
       await sb.from('budget_allocations').update({ allocated_amount: toPrev + amt, updated_at: new Date().toISOString() }).eq('id', toAlloc.id);
-      await sb.from('budget_allocation_log').insert({ allocation_id: toAlloc.id, action: 'transfer_in', amount: amt, prev_balance: toPrev, new_balance: toPrev + amt, reason: `← ${_obBankbooks.find(b => b.id === fromId)?.org_name}: ${reason}`, performed_by: boCurrentPersona?.name || '' });
+      await sb.from('budget_allocation_log').insert({ allocation_id: toAlloc.id, action: 'transfer_in', amount: amt, prev_balance: toPrev, new_balance: toPrev + amt, reason: `← ${allBbs.find(b => b.id === fromId)?.org_name}: ${reason}`, performed_by: boCurrentPersona?.name || '' });
     } else {
       const { data: ins } = await sb.from('budget_allocations').insert({ bankbook_id: toId, period_id: _obPeriodId, allocated_amount: amt }).select('id').single();
-      if (ins) await sb.from('budget_allocation_log').insert({ allocation_id: ins.id, action: 'transfer_in', amount: amt, prev_balance: 0, new_balance: amt, reason: `← ${_obBankbooks.find(b => b.id === fromId)?.org_name}: ${reason}`, performed_by: boCurrentPersona?.name || '' });
+      if (ins) await sb.from('budget_allocation_log').insert({ allocation_id: ins.id, action: 'transfer_in', amount: amt, prev_balance: 0, new_balance: amt, reason: `← ${allBbs.find(b => b.id === fromId)?.org_name}: ${reason}`, performed_by: boCurrentPersona?.name || '' });
     }
     alert(`✅ 이관 완료: ${Number(amt).toLocaleString()}원`);
     await renderOrgBudget();
@@ -1836,7 +1861,7 @@ async function _obAutoCreate() {
   try {
     const { error } = await sb.from('org_budget_bankbooks').upsert(rows, { onConflict: 'tenant_id,template_id,vorg_group_id,account_id,org_id', ignoreDuplicates: true });
     if (error) throw error;
-    alert(`✅ ${rows.length}건 통장 생성/확인`);
+    alert(`✅ ${rows.length}건 통장 생성 / 확인`);
     await renderOrgBudget();
   } catch (e) { alert('통장 생성 실패: ' + e.message); }
 }
@@ -1850,5 +1875,51 @@ function _obFindSubOrgs(parentName) {
   }
   return [];
 }
+
+// ═══ 통장 비활성화 (조직개편 대응) ═══
+async function _obDeactivateBankbook(bbId) {
+  const bb = _obBankbooks.find(b => b.id === bbId);
+  if (!bb) { alert('통장을 찾을 수 없습니다.'); return; }
+  const alloc = _obAllocations.find(a => a.bankbook_id === bbId);
+  const allocated = Number(alloc?.allocated_amount || 0);
+  const used = Number(alloc?.used_amount || 0);
+  const frozen = Number(alloc?.frozen_amount || 0);
+  const balance = allocated - used - frozen;
+  const fmt = n => Number(n).toLocaleString();
+
+  // 집행/동결 중인 건이 있으면 차단
+  if (used > 0 || frozen > 0) {
+    alert(`⛔ 집행(${fmt(used)}원) 또는 동결(${fmt(frozen)}원)이 있어 비활성화할 수 없습니다.\n→ 기간 마감 후 처리하거나 동결 해제 후 이관하세요.`);
+    return;
+  }
+
+  // 잔액이 있으면 이관 유도
+  if (balance > 0) {
+    const ok = confirm(`⚠️ 잔액 ${fmt(balance)}원이 남아있습니다.\n\n잔액을 다른 통장으로 이관한 후 비활성화하시겠습니까?\n→ [확인]: 이관 탭으로 이동\n→ [취소]: 잔액 회수 후 비활성화`);
+    if (ok) { _obTab = 3; _obRenderTabContent(); _obSwitchTab(3); return; }
+    const forceOk = confirm(`❗ 잔액 ${fmt(balance)}원을 회수(0원 처리)하고 통장을 비활성화합니다.\n정말 진행하시겠습니까?`);
+    if (!forceOk) return;
+
+    // 잔액 0으로 초기화 + 로그
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (!sb) return;
+    if (alloc) {
+      await sb.from('budget_allocations').update({ allocated_amount: 0, updated_at: new Date().toISOString() }).eq('id', alloc.id);
+      await sb.from('budget_allocation_log').insert({ allocation_id: alloc.id, action: 'adjust', amount: -allocated, prev_balance: allocated, new_balance: 0, reason: '조직개편 — 통장 비활성화 (잔액 회수)', performed_by: boCurrentPersona?.name || '' });
+    }
+  }
+
+  // 최종 확인
+  if (balance <= 0 && !confirm(`"${bb.org_name}" 통장을 비활성화합니다.\n비활성화된 통장은 배정 현황에서 제외됩니다.\n\n진행하시겠습니까?`)) return;
+
+  const sb = typeof _sb === 'function' ? _sb() : null;
+  if (!sb) return;
+  try {
+    await sb.from('org_budget_bankbooks').update({ status: 'inactive' }).eq('id', bbId);
+    alert(`✅ "${bb.org_name}" 통장이 비활성화되었습니다.`);
+    await renderOrgBudget();
+  } catch (e) { alert('비활성화 실패: ' + e.message); }
+}
+
 
 

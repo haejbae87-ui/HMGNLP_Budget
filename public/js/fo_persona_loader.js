@@ -267,20 +267,24 @@ async function _initCurrentPersona(persona) {
         }
 
         // 4. allowedAccounts + budgets 구성
+        //    예산 사용 계정 → allowedAccounts + budgets
+        //    예산 미사용 계정 → allowedAccounts만 (정책 매칭용, 잔액 관리 불필요)
         const allowedAccounts = [];
         const budgets = [];
         for (const bb of (directBbs || [])) {
             const acct = accountMap[bb.account_id];
-            if (!acct || !acct.uses_budget) continue;
+            if (!acct) continue;
             if (allowedAccounts.includes(acct.code)) continue;
+            allowedAccounts.push(acct.code);
+            if (!acct.uses_budget) continue; // 예산 미사용: 코드만 등록, budgets 스킵
             const policy = policyMap[bb.account_id];
             const alloc = allocMap[bb.id];
             const mode = policy?.bankbook_mode || 'isolated';
-            allowedAccounts.push(acct.code);
             budgets.push({
                 id: bb.id,
                 name: `${bb.org_name} ${acct.name}`,
                 account: acct.name.replace('일반-', '').replace('계정', '').trim(),
+                accountCode: acct.code,
                 balance: Number(alloc?.allocated_amount || 0),
                 used: Number(alloc?.used_amount || 0),
                 frozen: Number(alloc?.frozen_amount || 0),
@@ -302,24 +306,32 @@ async function _initCurrentPersona(persona) {
 
             for (const bb of (hqBbs || [])) {
                 const acct = accountMap[bb.account_id] || await _fetchAccount(sb, bb.account_id);
-                if (!acct || !acct.uses_budget) continue;
+                if (!acct) continue;
                 if (allowedAccounts.includes(acct.code)) continue;
+                if (!acct.uses_budget) {
+                    // 예산 미사용 상위 계정: 코드만 등록
+                    allowedAccounts.push(acct.code);
+                    continue;
+                }
                 if (hqPolicyMap[bb.account_id]?.bankbook_mode !== 'shared') continue;
                 allowedAccounts.push(acct.code);
                 budgets.push({
                     id: bb.id, name: `${bb.org_name} ${acct.name}`,
                     account: acct.name.replace('일반-', '').replace('계정', '').trim(),
+                    accountCode: acct.code,
                     balance: 0, used: 0, frozen: 0,
                     bankbookMode: 'shared', parentOrgName: bb.org_name,
                 });
             }
         }
 
-        // 6. COMMON-FREE 계정 존재 여부
-        const { data: freeAcct } = await sb.from('budget_accounts')
-            .select('id').eq('tenant_id', persona.tenantId)
-            .eq('uses_budget', false).eq('active', true).limit(1);
-        if (freeAcct && freeAcct.length > 0) allowedAccounts.push('COMMON-FREE');
+        // 6. 테넌트 전체 예산 미사용 계정 코드 추가 (통장 없이 정책 매칭용)
+        const { data: freeAccts } = await sb.from('budget_accounts')
+            .select('id, code').eq('tenant_id', persona.tenantId)
+            .eq('uses_budget', false).eq('active', true);
+        for (const fa of (freeAccts || [])) {
+            if (!allowedAccounts.includes(fa.code)) allowedAccounts.push(fa.code);
+        }
 
         console.log(`[FO Loader] ${persona.name} → 계정: ${allowedAccounts.join(', ')}`);
         return { ...persona, allowedAccounts, budgets };

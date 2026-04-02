@@ -324,6 +324,25 @@ function openS1Modal(id) {
         </div>
       </label>
     </div>
+  </div>
+  <div style="margin-bottom:4px">
+    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px">예산 사용 여부</label>
+    <div style="display:flex;gap:12px">
+      <label id="s1-uses-yes-label" style="display:flex;align-items:center;gap:8px;padding:10px 16px;border:1.5px solid ${(a?.uses_budget !== false) ? '#059669' : '#E5E7EB'};border-radius:10px;cursor:pointer;background:${(a?.uses_budget !== false) ? '#F0FDF4' : '#fff'};flex:1" onclick="_s1ToggleUsesBudget(true)">
+        <input type="radio" name="s1-uses-budget" value="yes" ${(a?.uses_budget !== false) ? 'checked' : ''} style="accent-color:#059669">
+        <div>
+          <div style="font-size:12px;font-weight:800;color:#059669">✅ 사용</div>
+          <div style="font-size:10px;color:#6B7280">조직별 통장 생성 및 예산 배정 허용</div>
+        </div>
+      </label>
+      <label id="s1-uses-no-label" style="display:flex;align-items:center;gap:8px;padding:10px 16px;border:1.5px solid ${a?.uses_budget === false ? '#DC2626' : '#E5E7EB'};border-radius:10px;cursor:pointer;background:${a?.uses_budget === false ? '#FEF2F2' : '#fff'};flex:1" onclick="_s1ToggleUsesBudget(false)">
+        <input type="radio" name="s1-uses-budget" value="no" ${a?.uses_budget === false ? 'checked' : ''} style="accent-color:#DC2626">
+        <div>
+          <div style="font-size:12px;font-weight:800;color:#DC2626">⛔ 미사용</div>
+          <div style="font-size:10px;color:#6B7280">통장 생성 안 함, 조회만 가능</div>
+        </div>
+      </label>
+    </div>
   </div>`;
   document.getElementById('s1-modal').style.display = 'flex';
 }
@@ -346,6 +365,20 @@ function s1CloseModal() {
   document.getElementById('s1-modal').style.display = 'none';
 }
 
+// 예산 사용 여부 토글
+function _s1ToggleUsesBudget(val) {
+  const yesLabel = document.getElementById('s1-uses-yes-label');
+  const noLabel = document.getElementById('s1-uses-no-label');
+  if (!yesLabel || !noLabel) return;
+  const yesR = yesLabel.querySelector('input');
+  const noR = noLabel.querySelector('input');
+  yesR.checked = val; noR.checked = !val;
+  yesLabel.style.borderColor = val ? '#059669' : '#E5E7EB';
+  yesLabel.style.background = val ? '#F0FDF4' : '#fff';
+  noLabel.style.borderColor = !val ? '#DC2626' : '#E5E7EB';
+  noLabel.style.background = !val ? '#FEF2F2' : '#fff';
+}
+
 async function s1SaveAccount() {
   const code = document.getElementById('s1-code').value.trim();
   const name = document.getElementById('s1-name').value.trim();
@@ -355,13 +388,15 @@ async function s1SaveAccount() {
   const role = boCurrentPersona.role;
   const tenantId = role === 'platform_admin' ? (_baTenantId || 'HMC') : (boCurrentPersona.tenantId || 'HMC');
   const integration = document.querySelector('input[name="s1-integration"]:checked')?.value || 'sap';
+  const usesBudget = document.querySelector('input[name="s1-uses-budget"]:checked')?.value !== 'no';
   const payload = {
     tenant_id: tenantId,
     virtual_org_template_id: _baTplId,
     code, name,
-    account_type: integration, // sap or standalone
+    account_type: integration,
     description: document.getElementById('s1-desc').value.trim(),
-    active: true,
+    active: usesBudget,
+    uses_budget: usesBudget,
     updated_at: new Date().toISOString(),
   };
 

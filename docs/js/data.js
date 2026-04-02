@@ -108,8 +108,10 @@ const MOCK_PLANS = [
 ];
 
 // ─── GLOBAL STATE ────────────────────────────────────────────────────────────
+// ※ currentPersona는 main.js의 _resolveCurrentPersona()가 DB 기반으로 재설정함
+//    여기서는 PERSONAS에 있으면 사용, 없으면 첫 번째 항목을 임시 플레이스홀더로 사용
 const savedPersonaFo = sessionStorage.getItem('currentPersona') || 'hmc_team_mgr';
-let currentPersona = PERSONAS[savedPersonaFo] || PERSONAS.hmc_team_mgr;
+let currentPersona = PERSONAS[savedPersonaFo] || Object.values(PERSONAS)[0];
 let currentPage = 'dashboard';
 // 교육신청 화면 모드: 'list' = 신청 목록, 'form' = 신청 폼
 // (navigate('apply') 진입 시 'list'로 리셋)

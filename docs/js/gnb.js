@@ -252,29 +252,46 @@ function renderGNB() {
 `;
 }
 
-// 회사 변경 시 해당 회사 첫 번째 학습자로 전환 (DB employees 기반)
+// 회사 변경 시 해당 회사 첫 번째 학습자로 전환 + 즉시 학습자 select 업데이트
 function gnbSwitchCompany(tenantId) {
   const emps = (typeof _FO_EMPLOYEES !== 'undefined' && _FO_EMPLOYEES.length > 0)
     ? _FO_EMPLOYEES
     : Object.entries(PERSONAS || {}).map(([key, p]) => ({ tenant_id: p.tenantId, persona_key: key }));
 
-  const firstEmp = emps.find(e => e.tenant_id === tenantId && e.persona_key);
+  // 해당 회사 직원 목록으로 즉시 persona select 업데이트
+  const tenantEmps = emps.filter(e => e.tenant_id === tenantId && e.persona_key);
+  const personaSelect = document.getElementById('gnb-persona-select');
+  if (personaSelect && tenantEmps.length > 0) {
+    const tenantMap = (typeof _FO_TENANT_MAP !== 'undefined') ? _FO_TENANT_MAP : {};
+    personaSelect.innerHTML = tenantEmps.map(e => {
+      const deptPart = e.dept ? `${e.dept} · ` : '';
+      const posPart = e.is_leader && e.pos ? ` (${e.pos})` : '';
+      return `<option value="${e.persona_key}" style="background:#1E293B;color:#fff">${deptPart}${e.name}${posPart}</option>`;
+    }).join('');
+  } else if (personaSelect) {
+    personaSelect.innerHTML = `<option style="background:#1E293B;color:#9CA3AF" disabled>학습자 없음</option>`;
+  }
+
+  // 첫 번째 학습자로 전환
+  const firstEmp = tenantEmps[0];
   if (firstEmp?.persona_key) {
     switchPersonaTo(firstEmp.persona_key);
   }
 }
 
 // 페르소나 전환 함수 (LXP 전용) — DB 기반 로더 사용
+// ※ PERSONAS[key] 체크 제거: DB users.id(P402, USR-xxx)는 PERSONAS에 없으므로 skip되면 안 됨
 function switchPersonaTo(key) {
-  if (!PERSONAS[key]) return;
+  if (!key) return;
   if (typeof switchPersonaAndReload === 'function') {
-    switchPersonaAndReload(key); // fo_persona_loader.js: DB 연동 전환
+    switchPersonaAndReload(key); // fo_persona_loader.js: DB users.id 또는 PERSONAS key 모두 처리
   } else {
     // fallback: DB 로더 없으면 기존 방식
     sessionStorage.setItem('currentPersona', key);
     window.location.reload();
   }
 }
+
 
 // 레거시 switchPersona 호환 유지
 function switchPersona() {

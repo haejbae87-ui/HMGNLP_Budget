@@ -101,8 +101,10 @@ function renderGNB() {
   // 현재 회사의 학습자 목록
   const _currentCompanyEmps = _employees.filter(e => e.tenant_id === _currentTenantId);
 
-  // 현재 선택된 학습자의 persona_key
-  const _currentPersonaKey = Object.keys(PERSONAS || {}).find(k => PERSONAS[k] === currentPersona) || '';
+  // 현재 선택된 학습자 키: sessionStorage 우선 (users.id or PERSONAS key 모두 처리)
+  const _currentPersonaKey = sessionStorage.getItem('currentPersona')
+    || Object.keys(PERSONAS || {}).find(k => PERSONAS[k] === currentPersona)
+    || '';
 
   const switcherHtml = `
 <span style="font-size:10px;color:rgba(255,255,255,0.55);font-weight:700;white-space:nowrap">접속자:</span>
@@ -128,11 +130,14 @@ function renderGNB() {
       ? `<option style="background:#1E293B;color:#9CA3AF" disabled>학습자 없음</option>`
       : _currentCompanyEmps.map(e => {
         const key = e.persona_key;
-        const hasProfile = key && PERSONAS && PERSONAS[key];
-        const label = `${e.name} ${e.pos || ''} · ${e.dept || ''}`;
-        const suffix = hasProfile ? '' : ' (미설정)';
-        return `<option value="${key || ''}" ${key === _currentPersonaKey ? 'selected' : ''} ${hasProfile ? '' : 'disabled'}
-            style="background:#1E293B;color:${hasProfile ? '#fff' : '#9CA3AF'}">${label}${suffix}</option>`;
+        // 조직명 · 이름 형식 (직위는 리더만 표시)
+        const deptPart = e.dept ? `${e.dept} · ` : '';
+        const posPart = e.is_leader && e.pos ? ` (${e.pos})` : '';
+        const label = `${deptPart}${e.name}${posPart}`;
+        const isSelected = key === _currentPersonaKey;
+        // DB users는 동적으로 persona 빌드 가능 → disabled 없음
+        return `<option value="${key || ''}" ${isSelected ? 'selected' : ''}
+            style="background:#1E293B;color:#fff">${label}</option>`;
       }).join('')
     }
   </select>

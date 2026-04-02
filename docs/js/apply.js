@@ -1090,10 +1090,22 @@ function _renderRndPlanPicker(s) {
 
 // ─── Step 이동 (R&D 시 교육유형 단계 건너뜀) ──────────────────────────────────
 function applyNext() {
-  if (applyState.step === 2 && applyState.budgetChoice === 'rnd') {
-    applyState.step = 4; // R&D: 교육유형 건너뜀 → 바로 세부정보
+  const s = applyState;
+  // Step 2: R&D 선택시 교육계획 없으면 진행 차단
+  if (s.step === 2 && s.budgetChoice === 'rnd' && !s.planId) {
+    const picker = document.getElementById('rnd-plan-picker-alert');
+    if (picker) {
+      picker.style.animation = 'none';
+      requestAnimationFrame(() => { picker.style.animation = 'shake .3s ease'; });
+    } else {
+      alert('❗ R&D 교육예산을 사용하려면 승인된 R&D 교육계획을 먼저 선택해주세요.');
+    }
+    return;
+  }
+  if (s.step === 2 && s.budgetChoice === 'rnd') {
+    s.step = 4; // R&D: 교육유형 건너뜀 → 바로 세부정보
   } else {
-    applyState.step = Math.min(applyState.step + 1, 4);
+    s.step = Math.min(s.step + 1, 4);
   }
   renderApply();
 }

@@ -505,7 +505,12 @@ const BO_PERSONAS = {
     roleClass: 'role-team', roleTag: '[학습자]',
     budgetGroup: 'general', tenantId: 'HMC',
     vorgId: 'HMC-GENERAL',
+    orgId: 'team-naegoo',           // 내구기술팀 org ID
+    orgHqId: '0cea84e6-3821-45e1-9e0c-e232af019a1d', // 연구개발본부 (shared 모드 대비)
     scope: '내구기술팀',
+    // 연구개발본부 → HMC일반교육예산 VOrg 맵핑 → 일반계정 3종 사용 가능
+    // 연구개발본부 → HMC R&D교육예산 VOrg 맵핑 → RND 계정 사용 가능
+    allowedAccounts: ['HMC-PART', 'HMC-OPS', 'HMC-ETC', 'HMC-RND'],
     accessMenus: ['dashboard']
   },
 };

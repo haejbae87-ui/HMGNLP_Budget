@@ -4,12 +4,12 @@ let _boEduFilter = { tenantId: '', vorgId: '', accountCode: '', purpose: '', edu
 
 // 공통 캐스케이드 필터 HTML 생성기
 function _boEduFilterBar(onChangeCallback) {
-  const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
-  const vorgTemplates = typeof VORG_TEMPLATES !== 'undefined' ? VORG_TEMPLATES : [];
-  const budgetAccounts = typeof BUDGET_ACCOUNTS !== 'undefined' ? BUDGET_ACCOUNTS : [];
-  const purposes = typeof EDU_PURPOSE_GROUPS !== 'undefined' ? EDU_PURPOSE_GROUPS : [];
-  const typeGroups = typeof EDU_TYPE_GROUPS !== 'undefined' ? EDU_TYPE_GROUPS : [];
-  const typeItems = typeof EDU_TYPE_ITEMS !== 'undefined' ? EDU_TYPE_ITEMS : [];
+  const tenants = (typeof TENANTS !== 'undefined' && Array.isArray(TENANTS)) ? TENANTS : [];
+  const vorgTemplates = (typeof VORG_TEMPLATES !== 'undefined' && Array.isArray(VORG_TEMPLATES)) ? VORG_TEMPLATES : [];
+  const budgetAccounts = (typeof BUDGET_ACCOUNTS !== 'undefined' && Array.isArray(BUDGET_ACCOUNTS)) ? BUDGET_ACCOUNTS : [];
+  const purposes = (typeof EDU_PURPOSE_GROUPS !== 'undefined' && Array.isArray(EDU_PURPOSE_GROUPS)) ? EDU_PURPOSE_GROUPS : [];
+  const typeGroups = (typeof EDU_TYPE_GROUPS !== 'undefined' && Array.isArray(EDU_TYPE_GROUPS)) ? EDU_TYPE_GROUPS : [];
+  const typeItems = (typeof EDU_TYPE_ITEMS !== 'undefined' && Array.isArray(EDU_TYPE_ITEMS)) ? EDU_TYPE_ITEMS : [];
 
   // 기본값: 현재 페르소나 테넌트
   if (!_boEduFilter.tenantId && boCurrentPersona?.tenantId) {

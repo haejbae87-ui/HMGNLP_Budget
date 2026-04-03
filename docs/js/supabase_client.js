@@ -503,8 +503,15 @@ async function initSupabaseData() {
 
     // 교육목적/유형: DB 로드 성공 시 PURPOSES 배열 갱신
     if (eduTypes && eduTypes.purposes && eduTypes.purposes.length) {
-      window.EDU_PURPOSE_GROUPS = eduTypes.purposeMap;
+      // EDU_PURPOSE_GROUPS는 배열이어야 함 (.map 호출 필요)
+      window.EDU_PURPOSE_GROUPS = eduTypes.purposes.map(p => ({
+        id: p.id, label: p.label, audience: p.audience,
+        icon: p.icon, description: p.description,
+      }));
+      window.EDU_PURPOSE_MAP = eduTypes.purposeMap; // Object 형태는 별도 변수로
       window.EDU_TYPE_ITEMS_FLAT = eduTypes.itemsFlat;
+      window.EDU_TYPE_GROUPS = eduTypes.groups || [];
+      window.EDU_TYPE_ITEMS = eduTypes.items || [];
       window.EDU_TYPES_RAW = eduTypes;
       window.PURPOSES = eduTypes.purposes.map(p => eduTypes.purposeMap[p.id]).filter(Boolean);
       console.log('[Supabase] ✅ PURPOSES DB 전환 완료');

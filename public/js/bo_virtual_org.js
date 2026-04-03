@@ -3,19 +3,19 @@
 // 기능추가: 플랫폼총괄·테넌트총괄 역할별 필터바 (테넌트/격리그룹 선택)
 
 let _voActiveTemplateId = null;
-let _voMyTemplates      = [];
-let _voCurrentGroup     = null;
-let _voSelectedTeams    = new Set();
-let _voEditGroupIdx     = null;
-let _voCoopGroupIdx     = null;
+let _voMyTemplates = [];
+let _voCurrentGroup = null;
+let _voSelectedTeams = new Set();
+let _voEditGroupIdx = null;
+let _voCoopGroupIdx = null;
 
-let _voServiceType      = 'edu_support'; // 기본 제도 유형
-let _voTenantId         = null;
+let _voServiceType = 'edu_support'; // 기본 제도 유형
+let _voTenantId = null;
 
 // 용도 카드 선택 토글 (레거시 단일선택 - 하위호환)
-window._voSelectPurpose = function(purpose) {
-  const map = { edu_support:'edu', language:'lang', cert:'cert', badge:'badge' };
-  ['edu','lang','cert','badge'].forEach(k => {
+window._voSelectPurpose = function (purpose) {
+  const map = { edu_support: 'edu', language: 'lang', cert: 'cert', badge: 'badge' };
+  ['edu', 'lang', 'cert', 'badge'].forEach(k => {
     const el = document.getElementById(`vo-purpose-btn-${k}`);
     if (!el) return;
     const active = map[purpose] === k;
@@ -27,19 +27,19 @@ window._voSelectPurpose = function(purpose) {
 // ── 신규 생성 모달 멀티선택 전용 ──────────────────────────────────────────────
 let _voSelectedPurposes = new Set(['edu_support']);
 
-window._voTogglePurpose = async function(purpose) {
+window._voTogglePurpose = async function (purpose) {
   if (_voSelectedPurposes.has(purpose)) {
     if (_voSelectedPurposes.size <= 1) return; // 최소 1개 유지
     _voSelectedPurposes.delete(purpose);
   } else {
     _voSelectedPurposes.add(purpose);
   }
-  const btnMap = { edu_support:'edu', language:'lang', cert:'cert', badge:'badge' };
+  const btnMap = { edu_support: 'edu', language: 'lang', cert: 'cert', badge: 'badge' };
   Object.entries(btnMap).forEach(([val, key]) => {
     const el = document.getElementById('vo-purpose-btn-' + key);
     if (!el) return;
     const active = _voSelectedPurposes.has(val);
-    el.style.border     = active ? '2px solid #3B82F6' : '2px solid #E5E7EB';
+    el.style.border = active ? '2px solid #3B82F6' : '2px solid #E5E7EB';
     el.style.background = active ? '#EFF6FF' : '#F9FAFB';
     const titleEl = el.querySelector('div > div:first-child');
     if (titleEl) titleEl.style.color = active ? '#1D4ED8' : '#374151';
@@ -79,7 +79,7 @@ async function _voLoadRolesCheckboxes(selectedPurposes) {
         <span style="font-weight:600;color:#374151">${r.name}</span>
         <span style="color:#9CA3AF;font-size:10px">(${r.code})</span>
       </label>`).join('');
-  } catch(e) {
+  } catch (e) {
     box.innerHTML = '<span style="color:#EF4444;font-size:12px">로드 실패</span>';
   }
 }
@@ -87,19 +87,19 @@ async function _voLoadRolesCheckboxes(selectedPurposes) {
 // ── 수정 모달 전용 멀티선택 ────────────────────────────────────────────────────
 let _voEditSelectedPurposes = new Set(['edu_support']);
 
-window._voEditTogglePurpose = async function(purpose) {
+window._voEditTogglePurpose = async function (purpose) {
   if (_voEditSelectedPurposes.has(purpose)) {
     if (_voEditSelectedPurposes.size <= 1) return;
     _voEditSelectedPurposes.delete(purpose);
   } else {
     _voEditSelectedPurposes.add(purpose);
   }
-  const btnMap = { edu_support:'edu', language:'lang', cert:'cert', badge:'badge' };
+  const btnMap = { edu_support: 'edu', language: 'lang', cert: 'cert', badge: 'badge' };
   Object.entries(btnMap).forEach(([val, key]) => {
     const el = document.getElementById('vo-edit-btn-' + key);
     if (!el) return;
     const active = _voEditSelectedPurposes.has(val);
-    el.style.border     = active ? '2px solid #3B82F6' : '2px solid #E5E7EB';
+    el.style.border = active ? '2px solid #3B82F6' : '2px solid #E5E7EB';
     el.style.background = active ? '#EFF6FF' : '#F9FAFB';
     const titleEl = el.querySelector('div > div:first-child');
     if (titleEl) titleEl.style.color = active ? '#1D4ED8' : '#374151';
@@ -134,12 +134,12 @@ async function _voLoadEditRolesCheckboxes(selectedPurposes, preChecked) {
     box.innerHTML = filtered.map(r => `
       <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;cursor:pointer;border-radius:4px;font-size:12px">
         <input type="checkbox" class="vo-edit-role-chk" value="${r.code}"
-          ${(preChecked||[]).includes(r.code) ? 'checked' : ''}
+          ${(preChecked || []).includes(r.code) ? 'checked' : ''}
           style="width:14px;height:14px;accent-color:#1D4ED8">
         <span style="font-weight:600;color:#374151">${r.name}</span>
         <span style="color:#9CA3AF;font-size:10px">(${r.code})</span>
       </label>`).join('');
-  } catch(e) {
+  } catch (e) {
     box.innerHTML = '<span style="color:#EF4444;font-size:12px">로드 실패</span>';
   }
 }
@@ -160,12 +160,12 @@ async function voOpenEditTemplate(tplId) {
     : (tpl.ownerRoleId ? [tpl.ownerRoleId] : []);
   window._voEditCurrentRoleIds = existRoles;
   // 카드 스타일 초기화
-  const btnMap = { edu_support:'edu', language:'lang', cert:'cert', badge:'badge' };
+  const btnMap = { edu_support: 'edu', language: 'lang', cert: 'cert', badge: 'badge' };
   Object.entries(btnMap).forEach(([val, key]) => {
     const btn = document.getElementById('vo-edit-btn-' + key);
     if (!btn) return;
     const active = _voEditSelectedPurposes.has(val);
-    btn.style.border     = active ? '2px solid #3B82F6' : '2px solid #E5E7EB';
+    btn.style.border = active ? '2px solid #3B82F6' : '2px solid #E5E7EB';
     btn.style.background = active ? '#EFF6FF' : '#F9FAFB';
     const titleEl = btn.querySelector('div > div:first-child');
     if (titleEl) titleEl.style.color = active ? '#1D4ED8' : '#374151';
@@ -175,7 +175,7 @@ async function voOpenEditTemplate(tplId) {
 }
 
 async function voConfirmEditTemplate() {
-  const tplId   = document.getElementById('vo-tpl-edit-id')?.value;
+  const tplId = document.getElementById('vo-tpl-edit-id')?.value;
   const newName = document.getElementById('vo-tpl-edit-name')?.value.trim();
   if (!newName) { alert('이름을 입력해주세요.'); return; }
   const selectedTypes = [..._voEditSelectedPurposes];
@@ -183,11 +183,11 @@ async function voConfirmEditTemplate() {
   const checkedRoles = [...document.querySelectorAll('.vo-edit-role-chk:checked')].map(cb => cb.value);
   const tpl = _voMyTemplates.find(t => t.id === tplId);
   if (!tpl) return;
-  tpl.name         = newName;
-  tpl.serviceType  = selectedTypes[0];
+  tpl.name = newName;
+  tpl.serviceType = selectedTypes[0];
   tpl.serviceTypes = selectedTypes;
-  tpl.purpose      = selectedTypes[0];
-  tpl.ownerRoleId  = checkedRoles[0] || null;
+  tpl.purpose = selectedTypes[0];
+  tpl.ownerRoleId = checkedRoles[0] || null;
   tpl.ownerRoleIds = checkedRoles;
   voCloseModal('vo-tpl-edit-modal');
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
@@ -202,20 +202,20 @@ async function _voSaveToDB(tpl) {
     const sb = typeof _sb === 'function' ? _sb() : null;
     if (!sb) { console.warn('[VOrg] Supabase client not ready'); return false; }
     const payload = {
-      id:            tpl.id,
-      tenant_id:     tpl.tenantId,
-      name:          tpl.name,
-      purpose:       tpl.purpose || 'edu_support',
-      service_type:  Array.isArray(tpl.serviceTypes) ? tpl.serviceTypes.join(',') : (tpl.serviceType || 'edu_support'),
+      id: tpl.id,
+      tenant_id: tpl.tenantId,
+      name: tpl.name,
+      purpose: tpl.purpose || 'edu_support',
+      service_type: Array.isArray(tpl.serviceTypes) ? tpl.serviceTypes.join(',') : (tpl.serviceType || 'edu_support'),
       owner_role_id: (Array.isArray(tpl.ownerRoleIds) && tpl.ownerRoleIds.length > 0) ? tpl.ownerRoleIds[0] : (tpl.ownerRoleId || null),
       owner_role_ids: Array.isArray(tpl.ownerRoleIds) ? tpl.ownerRoleIds : (tpl.ownerRoleId ? [tpl.ownerRoleId] : []),
-      tree_data:     tpl.tree,
-      updated_at:    new Date().toISOString()
+      tree_data: tpl.tree,
+      updated_at: new Date().toISOString()
     };
     const { error } = await sb.from('virtual_org_templates').upsert(payload, { onConflict: 'id' });
     if (error) throw error;
     return true;
-  } catch(e) {
+  } catch (e) {
     console.warn('[VOrg] DB 저장 실패:', e.message);
     return false;
   }
@@ -247,7 +247,7 @@ async function renderVirtualOrg() {
   const el = document.getElementById('bo-content');
   el.innerHTML = '<div class="bo-fade" style="padding:40px;text-align:center"><p style="color:#9CA3AF">로딩 중...</p></div>';
 
-  const role    = boCurrentPersona.role;
+  const role = boCurrentPersona.role;
   const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
 
   if (!_voTenantId) {
@@ -257,9 +257,9 @@ async function renderVirtualOrg() {
   }
   const serviceTypes = [
     { id: 'edu_support', name: '교육지원' },
-    { id: 'language',   name: '어학' },
-    { id: 'cert',       name: '자격증' },
-    { id: 'badge',      name: '뱃지' }
+    { id: 'language', name: '어학' },
+    { id: 'cert', name: '자격증' },
+    { id: 'badge', name: '뱃지' }
   ];
   if (!_voServiceType) _voServiceType = 'edu_support';
 
@@ -274,13 +274,13 @@ async function renderVirtualOrg() {
         .order('created_at', { ascending: true });
       if (!error && data) {
         _voMyTemplates = data.map(row => ({
-          id:          row.id,
-          tenantId:    row.tenant_id,
-          name:        row.name,
-          purpose:     row.purpose || 'edu_support',
+          id: row.id,
+          tenantId: row.tenant_id,
+          name: row.name,
+          purpose: row.purpose || 'edu_support',
           serviceType: row.service_type || 'edu_support',
           ownerRoleId: row.owner_role_id || null,
-          tree:        row.tree_data || { hqs: [] },
+          tree: row.tree_data || { hqs: [] },
         })).filter(t => {
           if ((t.serviceType || 'edu_support') !== _voServiceType) return false;
           // 조회 권한 필터
@@ -291,7 +291,7 @@ async function renderVirtualOrg() {
         });
       } else { _voMyTemplates = []; }
     } else { _voMyTemplates = []; }
-  } catch(e) {
+  } catch (e) {
     console.warn('[VOrg] DB 로드 실패:', e.message);
     _voMyTemplates = [];
   }
@@ -301,7 +301,7 @@ async function renderVirtualOrg() {
   }
 
   const isPlatform = role === 'platform_admin';
-  const isTenant   = role === 'tenant_global_admin';
+  const isTenant = role === 'tenant_global_admin';
   const tenantName = tenants.find(t => t.id === _voTenantId)?.name || _voTenantId;
 
   const tenantSelect = isPlatform ? `
@@ -309,7 +309,7 @@ async function renderVirtualOrg() {
     <label style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">회사</label>
     <select onchange="_voTenantId=this.value;_voActiveTemplateId=null;renderVirtualOrg()"
       style="padding:7px 12px;border:1.5px solid #FDE68A;border-radius:8px;font-size:12px;font-weight:700;background:#FFFBEB;color:#92400E;cursor:pointer">
-      ${tenants.map(t => `<option value="${t.id}" ${t.id===_voTenantId?'selected':''}>${t.name}</option>`).join('')}
+      ${tenants.map(t => `<option value="${t.id}" ${t.id === _voTenantId ? 'selected' : ''}>${t.name}</option>`).join('')}
     </select>
   </div>` : `
   <div style="display:flex;align-items:center;gap:6px">
@@ -322,7 +322,7 @@ async function renderVirtualOrg() {
     <label style="font-size:11px;font-weight:700;color:#374151;white-space:nowrap">제도 유형</label>
     <select onchange="_voServiceType=this.value;_voActiveTemplateId=null;renderVirtualOrg()"
       style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:white;cursor:pointer;min-width:180px">
-      ${serviceTypes.map(s => `<option value="${s.id}" ${s.id===_voServiceType?'selected':''}>${s.name}</option>`).join('')}
+      ${serviceTypes.map(s => `<option value="${s.id}" ${s.id === _voServiceType ? 'selected' : ''}>${s.name}</option>`).join('')}
     </select>
   </div>`;
 
@@ -382,8 +382,8 @@ function _renderVirtualOrgFull(filterBar) {
   let rightHtml = '';
 
   if (activeTpl) {
-    const isRnd    = activeTpl.tree.centers !== undefined;
-    const groups   = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
+    const isRnd = activeTpl.tree.centers !== undefined;
+    const groups = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
     const groupName = isRnd ? '센터' : '본부';
 
     rightHtml = `
@@ -396,16 +396,16 @@ function _renderVirtualOrgFull(filterBar) {
       </div>
       <ul class="org-tree">
         ${groups.map((g, gIdx) => {
-          // managerPersonaKeys 배열 지원 (기존 단일 managerPersonaKey 하위호환)
-          const mgrKeys = g.managerPersonaKeys?.length ? g.managerPersonaKeys
-            : (g.managerPersonaKey ? [g.managerPersonaKey] : []);
-          const mgrBadge = mgrKeys.length > 0
-            ? mgrKeys.map(k => {
-                const p = BO_PERSONAS[k];
-                return p ? `<span style="font-size:10px;background:#EFF6FF;color:#1D4ED8;padding:2px 8px;border-radius:6px;font-weight:700">👤 ${p.name} (${p.dept})</span>` : '';
-              }).join(' ')
-            : `<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:6px;font-weight:700">👤 담당자 미지정</span>`;
-          return `
+      // managerPersonaKeys 배열 지원 (기존 단일 managerPersonaKey 하위호환)
+      const mgrKeys = g.managerPersonaKeys?.length ? g.managerPersonaKeys
+        : (g.managerPersonaKey ? [g.managerPersonaKey] : []);
+      const mgrBadge = mgrKeys.length > 0
+        ? mgrKeys.map(k => {
+          const p = BO_PERSONAS[k];
+          return p ? `<span style="font-size:10px;background:#EFF6FF;color:#1D4ED8;padding:2px 8px;border-radius:6px;font-weight:700">👤 ${p.name} (${p.dept})</span>` : '';
+        }).join(' ')
+        : `<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:6px;font-weight:700">👤 담당자 미지정</span>`;
+      return `
         <li style="margin-bottom:16px">
           <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:12px 16px;margin-bottom:8px">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -423,38 +423,46 @@ function _renderVirtualOrgFull(filterBar) {
             </div>
           </div>
           <ul class="org-tree" style="padding-left:0">
-            ${g.teams.map((t, tIdx) => {
-              const jts = t.allowedJobTypes && t.allowedJobTypes.length>0 ? t.allowedJobTypes : [];
-              const jtBadges = jts.map(j =>
-                `<span style="font-size:10px;background:#D1FAE5;color:#065F46;padding:1px 7px;border-radius:5px;font-weight:700">${j}</span>`
-              ).join(' ');
-              const allTypes = getTenantJobTypes(boCurrentPersona.tenantId);
-              const allSelected = allTypes.length > 0 && allTypes.every(jt => jts.includes(jt));
-              const selectAllBtn = `<label style="display:inline-flex;align-items:center;gap:3px;font-size:10px;cursor:pointer;padding:2px 8px;border-radius:5px;font-weight:900;background:${allSelected?'#1D4ED8':'#EFF6FF'};color:${allSelected?'white':'#1D4ED8'};border:1px solid #BFDBFE" onclick="voSelectAllJobTypes(${gIdx},${tIdx})"><input type="checkbox" ${allSelected?'checked':''} style="margin:0;width:10px;height:10px"> 전체</label> `;
-              const jtPicker = selectAllBtn + allTypes.map(jt => {
-                const sel = jts.includes(jt);
-                return `<label style="display:inline-flex;align-items:center;gap:3px;font-size:10px;cursor:pointer;padding:2px 6px;border-radius:5px;background:${sel?'#059669':'#F3F4F6'};color:${sel?'white':'#374151'}" onclick="voToggleJobType(${gIdx},${tIdx},'${jt}')"><input type="checkbox" ${sel?'checked':''} style="margin:0;width:10px;height:10px"> ${jt}</label>`;
-              }).join(' ');
-              return `
-            <li style="margin-bottom:6px"><div style="display:flex;align-items:center;justify-content:space-between;
-                            background:#fff;border:1.5px solid #F3F4F6;border-radius:8px;padding:10px 16px;
-                            box-shadow:0 1px 2px rgba(0,0,0,0.02)">
-              <div style="flex:1">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-                  <span style="color:#9CA3AF">👥</span>
-                  <span style="font-weight:700;font-size:13px;color:#374151">${t.name}</span>
-                  ${jtBadges || '<span style="font-size:10px;color:#9CA3AF">직군 미지정 (전체 허용)</span>'}
-                </div>
-                <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">${jtPicker}</div>
+            ${g.teams.length > 0 ? `<li style="margin-bottom:8px"><div style="background:#F8FAFF;border:1.5px solid #E0E7FF;border-radius:10px;padding:10px 16px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <span style="font-size:11px;font-weight:800;color:#1D4ED8">📋 맵핑된 조직 (${g.teams.length}개)</span>
+                <span style="font-size:10px;color:#6B7280">${g.teams.filter(t => t.includesSubOrgs).length > 0 ? '📂 하위포함 조직 있음' : ''}</span>
               </div>
-              <button onclick="voRemoveTeam(${gIdx},${tIdx})"
-                style="border:none;background:none;cursor:pointer;color:#D1D5DB;font-size:16px;padding:0 4px;margin-left:8px">✕</button>
-            </div></li>`;
-            }).join('')}
+              ${g.teams.map((t, tIdx) => {
+        const jts = t.allowedJobTypes && t.allowedJobTypes.length > 0 ? t.allowedJobTypes : [];
+        const jtBadges = jts.map(j =>
+          `<span style="font-size:10px;background:#D1FAE5;color:#065F46;padding:1px 7px;border-radius:5px;font-weight:700">${j}</span>`
+        ).join(' ');
+        const allTypes = getTenantJobTypes(boCurrentPersona.tenantId);
+        const allSelected = allTypes.length > 0 && allTypes.every(jt => jts.includes(jt));
+        const selectAllBtn = `<label style="display:inline-flex;align-items:center;gap:3px;font-size:10px;cursor:pointer;padding:2px 8px;border-radius:5px;font-weight:900;background:${allSelected ? '#1D4ED8' : '#EFF6FF'};color:${allSelected ? 'white' : '#1D4ED8'};border:1px solid #BFDBFE" onclick="voSelectAllJobTypes(${gIdx},${tIdx})"><input type="checkbox" ${allSelected ? 'checked' : ''} style="margin:0;width:10px;height:10px"> 전체</label> `;
+        const jtPicker = selectAllBtn + allTypes.map(jt => {
+          const sel = jts.includes(jt);
+          return `<label style="display:inline-flex;align-items:center;gap:3px;font-size:10px;cursor:pointer;padding:2px 6px;border-radius:5px;background:${sel ? '#059669' : '#F3F4F6'};color:${sel ? 'white' : '#374151'}" onclick="voToggleJobType(${gIdx},${tIdx},'${jt}')"><input type="checkbox" ${sel ? 'checked' : ''} style="margin:0;width:10px;height:10px"> ${jt}</label>`;
+        }).join(' ');
+        const subOrgBadge = t.includesSubOrgs ? '<span style="font-size:9px;background:#DBEAFE;color:#1D4ED8;padding:1px 6px;border-radius:4px;font-weight:800">📂 하위 전체 포함</span>' : '';
+        return `
+              <div style="display:flex;align-items:center;justify-content:space-between;
+                            background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:8px 14px;margin-bottom:4px;
+                            box-shadow:0 1px 2px rgba(0,0,0,0.02)">
+                <div style="flex:1">
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:${jts.length > 0 || allTypes.length > 0 ? '4px' : '0'}">
+                    <span style="color:#9CA3AF;font-size:12px">👥</span>
+                    <span style="font-weight:700;font-size:12px;color:#374151">${t.name}</span>
+                    ${subOrgBadge}
+                    ${jtBadges || (allTypes.length > 0 ? '<span style="font-size:10px;color:#9CA3AF">직군 미지정</span>' : '')}
+                  </div>
+                  ${allTypes.length > 0 ? `<div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center">${jtPicker}</div>` : ''}
+                </div>
+                <button onclick="voRemoveTeam(${gIdx},${tIdx})"
+                  style="border:none;background:none;cursor:pointer;color:#D1D5DB;font-size:14px;padding:0 4px;margin-left:6px">✕</button>
+              </div>`;
+      }).join('')}
+            </div></li>` : ''}
             ${g.teams.length === 0 ? '<li style="padding:12px 16px;background:#FEF2F2;border:1px dashed #FECACA;border-radius:8px;font-size:12px;color:#EF4444;font-style:italic">아직 맵핑된 실제 팀이 없습니다</li>' : ''}
           </ul>
         </li>`;
-        }).join('')}
+    }).join('')}
         ${groups.length === 0 ? `<li style="padding:40px;text-align:center;background:#F9FAFB;border:1px dashed #D1D5DB;border-radius:12px;color:#6B7280;font-size:13px">가상 ${groupName}를 먼저 추가해주세요</li>` : ''}
       </ul>
     `;
@@ -732,7 +740,7 @@ async function _voLoadRolesOptions(selectedVal) {
     roles.forEach(r => {
       opts += `<option value="${r.code}" ${r.code === selectedVal ? 'selected' : ''}>${r.name} (${r.code})</option>`;
     });
-  } catch(e) {}
+  } catch (e) { }
   return opts;
 }
 
@@ -742,12 +750,12 @@ async function voOpenCreateTemplate() {
   if (el) el.value = '';
   // 제도유형 선택 초기화 - edu_support 하나만 선택된 상태로
   _voSelectedPurposes = new Set(['edu_support']);
-  const btnMap = { edu_support:'edu', language:'lang', cert:'cert', badge:'badge' };
+  const btnMap = { edu_support: 'edu', language: 'lang', cert: 'cert', badge: 'badge' };
   Object.entries(btnMap).forEach(([val, key]) => {
     const btn = document.getElementById('vo-purpose-btn-' + key);
     if (!btn) return;
     const active = val === 'edu_support';
-    btn.style.border     = active ? '2px solid #3B82F6' : '2px solid #E5E7EB';
+    btn.style.border = active ? '2px solid #3B82F6' : '2px solid #E5E7EB';
     btn.style.background = active ? '#EFF6FF' : '#F9FAFB';
     const titleEl = btn.querySelector('div > div:first-child');
     if (titleEl) titleEl.style.color = active ? '#1D4ED8' : '#374151';
@@ -764,15 +772,15 @@ function voConfirmCreateTemplate() {
   if (selectedTypes.length === 0) { alert('제도유형을 하나 이상 선택해주세요.'); return; }
   // 체크된 역할들 수집
   const checkedRoles = [...document.querySelectorAll('.vo-role-chk:checked')].map(cb => cb.value);
-  const id   = 'TPL_' + Date.now();
+  const id = 'TPL_' + Date.now();
   const tree = { label: name, hqs: [] };
   const newTpl = {
     id,
-    tenantId:     _voTenantId,
-    serviceType:  selectedTypes[0],       // 주 제도유형 (역호환성)
+    tenantId: _voTenantId,
+    serviceType: selectedTypes[0],       // 주 제도유형 (역호환성)
     serviceTypes: selectedTypes,           // 전체 멀티 제도유형
-    purpose:      selectedTypes[0],
-    ownerRoleId:  checkedRoles[0] || null, // 단일참조 역호환성
+    purpose: selectedTypes[0],
+    ownerRoleId: checkedRoles[0] || null, // 단일참조 역호환성
     ownerRoleIds: checkedRoles,            // 멀티 역할
     name,
     tree
@@ -788,7 +796,7 @@ function voConfirmCreateTemplate() {
 async function voOpenEditTemplate(tplId) {
   const tpl = _voMyTemplates.find(t => t.id === tplId);
   if (!tpl) return;
-  document.getElementById('vo-tpl-edit-id').value  = tplId;
+  document.getElementById('vo-tpl-edit-id').value = tplId;
   document.getElementById('vo-tpl-edit-name').value = tpl.name;
   const ownerSel = document.getElementById('vo-tpl-edit-owner');
   if (ownerSel) ownerSel.innerHTML = await _voLoadRolesOptions(tpl.ownerRoleId || '');
@@ -796,7 +804,7 @@ async function voOpenEditTemplate(tplId) {
 }
 
 async function voConfirmEditTemplate() {
-  const tplId   = document.getElementById('vo-tpl-edit-id')?.value;
+  const tplId = document.getElementById('vo-tpl-edit-id')?.value;
   const newName = document.getElementById('vo-tpl-edit-name')?.value.trim();
   const ownerId = document.getElementById('vo-tpl-edit-owner')?.value || null;
   if (!newName) { alert('이름을 입력해주세요.'); return; }
@@ -815,7 +823,7 @@ async function voRemoveTemplate(id) {
   try {
     const sb = typeof _sb === 'function' ? _sb() : null;
     if (sb) { await sb.from('virtual_org_templates').delete().eq('id', id); }
-  } catch(e) { console.warn('[VOrg] 삭제 실패:', e.message); }
+  } catch (e) { console.warn('[VOrg] 삭제 실패:', e.message); }
   _voMyTemplates = _voMyTemplates.filter(t => t.id !== id);
   if (_voActiveTemplateId === id) _voActiveTemplateId = _voMyTemplates[0]?.id || null;
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
@@ -840,8 +848,8 @@ function voOpenEditGroup(groupIdx) {
   const activeTpl = _voGetActiveTpl();
   if (!activeTpl) return;
   const isRnd = activeTpl.tree.centers !== undefined;
-  const list  = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
-  const g     = list[groupIdx];
+  const list = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
+  const g = list[groupIdx];
   if (!g) return;
   const et = document.getElementById('vo-group-create-title');
   if (et) et.textContent = `"${g.name}" 수정`;
@@ -897,7 +905,7 @@ function _voRenderMgrPicker(selectedKeys, filter = '') {
     const p = BO_PERSONAS[k];
     if (!p) return false;
     if (!lf) return true;
-    return p.name.toLowerCase().includes(lf) || (p.dept||'').toLowerCase().includes(lf);
+    return p.name.toLowerCase().includes(lf) || (p.dept || '').toLowerCase().includes(lf);
   });
 
   if (candidates.length === 0) {
@@ -950,7 +958,7 @@ function voConfirmCreateGroup() {
   const activeTpl = _voGetActiveTpl();
   if (!activeTpl) return;
   const isRnd = activeTpl.tree.centers !== undefined;
-  const list  = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
+  const list = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
 
   if (_voEditGroupIdx !== null && _voEditGroupIdx !== undefined) {
     const g = list[_voEditGroupIdx];
@@ -960,10 +968,10 @@ function voConfirmCreateGroup() {
     g.managerPersonaKey = _voSelectedMgrKeys[0] || '';
   } else {
     list.push({
-      id: 'VG'+Date.now(), name,
+      id: 'VG' + Date.now(), name,
       managerPersonaKeys: [..._voSelectedMgrKeys],
       managerPersonaKey: _voSelectedMgrKeys[0] || '',
-      cooperators:[], budget:{total:0,deducted:0,holding:0}, teams:[]
+      cooperators: [], budget: { total: 0, deducted: 0, holding: 0 }, teams: []
     });
   }
   voCloseModal('vo-group-create-modal');
@@ -996,11 +1004,11 @@ function _voRenderCoopList(cooperators) {
     return;
   }
   el.innerHTML = cooperators.map((c, i) => {
-    const typeColor  = c.coopType === '재경협조처' ? { bg:'#FFFBEB', border:'#FDE68A', text:'#92400E', icon:'💰' }
-                                                   : { bg:'#EFF6FF', border:'#BFDBFE', text:'#1D4ED8', icon:'📚' };
-    const reqColor   = c.required === '필수' ? '#EF4444' : '#6B7280';
-    const reqIcon    = c.required === '필수' ? '🔴' : '⚪';
-    const reqLabel   = c.required === '필수' ? '필수협조처' : '선택협조처';
+    const typeColor = c.coopType === '재경협조처' ? { bg: '#FFFBEB', border: '#FDE68A', text: '#92400E', icon: '💰' }
+      : { bg: '#EFF6FF', border: '#BFDBFE', text: '#1D4ED8', icon: '📚' };
+    const reqColor = c.required === '필수' ? '#EF4444' : '#6B7280';
+    const reqIcon = c.required === '필수' ? '🔴' : '⚪';
+    const reqLabel = c.required === '필수' ? '필수협조처' : '선택협조처';
     return `
 <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;
             background:${typeColor.bg};border:1px solid ${typeColor.border};border-radius:10px;margin-bottom:7px">
@@ -1010,7 +1018,7 @@ function _voRenderCoopList(cooperators) {
       <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${typeColor.border};color:${typeColor.text};font-weight:700">
         ${typeColor.icon} ${c.coopType || '교육협조처'}
       </span>
-      <span style="font-size:10px;padding:2px 8px;border-radius:6px;color:${reqColor};font-weight:700;background:${c.required==='필수'?'#FEF2F2':'#F3F4F6'};border:1px solid ${c.required==='필수'?'#FECACA':'#E5E7EB'}">
+      <span style="font-size:10px;padding:2px 8px;border-radius:6px;color:${reqColor};font-weight:700;background:${c.required === '필수' ? '#FEF2F2' : '#F3F4F6'};border:1px solid ${c.required === '필수' ? '#FECACA' : '#E5E7EB'}">
         ${reqIcon} ${reqLabel}
       </span>
       ${c.role && c.role !== '협조' ? `<span style="font-size:10px;color:#6B7280">${c.role}</span>` : ''}
@@ -1032,7 +1040,7 @@ function _voDeleteCoop(idx) {
 
 function voAddCoopTeam() {
   const teamName = document.getElementById('vo-coop-team-input')?.value.trim();
-  const role     = document.getElementById('vo-coop-role-input')?.value.trim() || '협조';
+  const role = document.getElementById('vo-coop-role-input')?.value.trim() || '협조';
   const coopType = document.querySelector('input[name="vo-coop-type"]:checked')?.value || '교육협조처';
   const required = document.querySelector('input[name="vo-coop-required"]:checked')?.value || '필수';
   if (!teamName) { alert('팀명을 입력하세요.'); return; }
@@ -1041,7 +1049,7 @@ function voAddCoopTeam() {
   const isRnd = activeTpl.tree.centers !== undefined;
   const g = (isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs)[_voCoopGroupIdx];
   if (!g.cooperators) g.cooperators = [];
-  g.cooperators.push({ teamId: 'CT'+Date.now(), teamName, coopType, required, role });
+  g.cooperators.push({ teamId: 'CT' + Date.now(), teamName, coopType, required, role });
   _voRenderCoopList(g.cooperators);
   // 입력 필드 초기화
   const ti = document.getElementById('vo-coop-team-input');
@@ -1080,7 +1088,7 @@ function voSelectAllJobTypes(groupIdx, teamIdx) {
   const g = (isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs)[groupIdx];
   const team = g.teams[teamIdx];
   const allTypes = getTenantJobTypes(boCurrentPersona.tenantId);
-  const allSelected = allTypes.every(jt => (team.allowedJobTypes||[]).includes(jt));
+  const allSelected = allTypes.every(jt => (team.allowedJobTypes || []).includes(jt));
   team.allowedJobTypes = allSelected ? [] : [...allTypes];
   _voMyTemplates = _voGetTemplatesByScope(_voTenantId, _voServiceType);
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();
@@ -1090,7 +1098,7 @@ function voRemoveGroup(groupIdx) {
   const activeTpl = _voGetActiveTpl();  // ★ 수정
   if (!activeTpl) return;
   const isRnd = activeTpl.tree.centers !== undefined;
-  const list  = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
+  const list = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
   if (!confirm(`"${list[groupIdx].name}" 그룹을 삭제하시겠습니까?`)) return;
   list.splice(groupIdx, 1);
   _voMyTemplates = _voGetTemplatesByScope(_voTenantId, _voServiceType);
@@ -1114,7 +1122,7 @@ async function voOpenAddTeam(groupIdx) {
   if (ts) ts.value = '';
 
   const existIds = new Set();
-  const groups   = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
+  const groups = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
   groups.forEach(g => g.teams.forEach(t => existIds.add(t.id)));
 
   // 조직관리 DB에서 해당 회사 조직 로드
@@ -1149,7 +1157,7 @@ async function voOpenAddTeam(groupIdx) {
         return;
       }
     }
-  } catch(e) {
+  } catch (e) {
     console.warn('[VOrg] 조직 DB 로드 실패, 목데이터 사용:', e.message);
   }
 
@@ -1161,11 +1169,13 @@ async function voOpenAddTeam(groupIdx) {
 // DB 조직 트리 렌더 (organizations 테이블 데이터 기반)
 // 타입별 아이콘/색상
 function _voOrgStyle(type) {
-  const s = { headquarters: { icon:'🏢', color:'#1E40AF', bg:'#EFF6FF', border:'#BFDBFE' },
-               center:        { icon:'🔬', color:'#6D28D9', bg:'#F5F3FF', border:'#DDD6FE' },
-               office:        { icon:'📋', color:'#065F46', bg:'#ECFDF5', border:'#A7F3D0' },
-               division:      { icon:'🏭', color:'#92400E', bg:'#FFFBEB', border:'#FDE68A' },
-               team:          { icon:'👥', color:'#374151', bg:'#F9FAFB', border:'#E5E7EB' } };
+  const s = {
+    headquarters: { icon: '🏢', color: '#1E40AF', bg: '#EFF6FF', border: '#BFDBFE' },
+    center: { icon: '🔬', color: '#6D28D9', bg: '#F5F3FF', border: '#DDD6FE' },
+    office: { icon: '📋', color: '#065F46', bg: '#ECFDF5', border: '#A7F3D0' },
+    division: { icon: '🏭', color: '#92400E', bg: '#FFFBEB', border: '#FDE68A' },
+    team: { icon: '👥', color: '#374151', bg: '#F9FAFB', border: '#E5E7EB' }
+  };
   return s[type] || s.team;
 }
 
@@ -1222,18 +1232,18 @@ function voRenderTree(existIds, filter = '', orgTree) {
     else if (parentCk) badge = '<span style="font-size:10px;color:#065F46;background:#D1FAE5;padding:2px 7px;border-radius:12px;font-weight:700">✓ 포함됨</span>';
     else if (ck && hasChildren) badge = '<span style="font-size:10px;color:#1D4ED8;background:#DBEAFE;padding:2px 7px;border-radius:12px;font-weight:700">📂 하위 전체 포함</span>';
 
-    const rowBg    = parentCk ? '#F0FDF4' : ck ? (hasChildren ? '#EFF6FF' : '#EFF6FF') : '#fff';
-    const rowBd    = parentCk ? '#A7F3D0' : ck ? '#93C5FD' : '#E5E7EB';
-    const nameCl   = parentCk ? '#065F46' : ck ? '#1D4ED8' : '#374151';
-    const cursor   = isDisabled ? 'not-allowed' : 'pointer';
-    const opacity  = isDisabled && !parentCk ? '.5' : '1';
+    const rowBg = parentCk ? '#F0FDF4' : ck ? (hasChildren ? '#EFF6FF' : '#EFF6FF') : '#fff';
+    const rowBd = parentCk ? '#A7F3D0' : ck ? '#93C5FD' : '#E5E7EB';
+    const nameCl = parentCk ? '#065F46' : ck ? '#1D4ED8' : '#374151';
+    const cursor = isDisabled ? 'not-allowed' : 'pointer';
+    const opacity = isDisabled && !parentCk ? '.5' : '1';
 
     const childHtml = hasChildren
       ? (node.children || []).map(c => renderNode(c, depth + 1, ck || parentCk)).join('')
       : '';
 
     return `<div style="margin-bottom:5px">
-      <label style="display:flex;align-items:center;gap:9px;padding:9px 14px;padding-left:${14+indent}px;
+      <label style="display:flex;align-items:center;gap:9px;padding:9px 14px;padding-left:${14 + indent}px;
              border-radius:9px;cursor:${cursor};background:${rowBg};border:1px solid ${rowBd};
              opacity:${opacity};transition:all 0.15s;user-select:none">
         <input type="checkbox" value="${node.id}" data-name="${node.name}"
@@ -1262,9 +1272,24 @@ function voToggleTeam(cb) {
   const hasChildren = cb.dataset.hasChildren === 'true';
   if (cb.checked) {
     _voSelectedTeams.add(id);
-    // 부모가 선택됐으면 자식은 dim만 (별도 추가 불필요)
+    // ★ 상위 조직 선택 시 → 하위 전체 자동 선택
+    if (hasChildren) {
+      const node = _voFindNodeById(_voOrgTreeData, id);
+      if (node) {
+        const descIds = _voGetDescendantIds(node);
+        descIds.forEach(did => _voSelectedTeams.add(did));
+      }
+    }
   } else {
     _voSelectedTeams.delete(id);
+    // ★ 상위 해제 시 → 하위 전체 자동 해제
+    if (hasChildren) {
+      const node = _voFindNodeById(_voOrgTreeData, id);
+      if (node) {
+        const descIds = _voGetDescendantIds(node);
+        descIds.forEach(did => _voSelectedTeams.delete(did));
+      }
+    }
   }
   _voUpdateSelCount();
   // 트리 재렌더 (dim/포함됨 배지 반영)
@@ -1279,6 +1304,16 @@ function voToggleTeam(cb) {
   }
 }
 
+// 트리에서 특정 ID의 노드 찾기
+function _voFindNodeById(tree, id) {
+  for (const n of (tree || [])) {
+    if (n.id === id) return n;
+    const found = _voFindNodeById(n.children || [], id);
+    if (found) return found;
+  }
+  return null;
+}
+
 function _voUpdateSelCount() {
   const sc = document.getElementById('vo-sel-count');
   const n = _voSelectedTeams.size;
@@ -1291,10 +1326,10 @@ function _voUpdateSelCount() {
 function voConfirmAddTeams() {
   if (!_voSelectedTeams.size) { alert('조직을 하나 이상 선택해주세요.'); return; }
   const { groupIdx } = _voCurrentGroup;
-  const activeTpl    = _voGetActiveTpl();
+  const activeTpl = _voGetActiveTpl();
   if (!activeTpl) return;
   const isRnd = activeTpl.tree.centers !== undefined;
-  const grp   = isRnd ? activeTpl.tree.centers[groupIdx] : activeTpl.tree.hqs[groupIdx];
+  const grp = isRnd ? activeTpl.tree.centers[groupIdx] : activeTpl.tree.hqs[groupIdx];
 
   // 이미 맵핑된 ID Set
   const existIds = new Set(grp.teams.map(t => t.id));
@@ -1329,7 +1364,7 @@ function voRenderTreeLegacy(budgetType, existIds, filter = '') {
   const html = orgGroups.map(g => {
     const vis = g.children.filter(t => !lf || t.name.toLowerCase().includes(lf) || g.name.toLowerCase().includes(lf));
     if (!vis.length) return '';
-    const gc  = isRnd ? '#6D28D9' : '#1E40AF';
+    const gc = isRnd ? '#6D28D9' : '#1E40AF';
     const gbg = isRnd ? '#F5F3FF' : '#EFF6FF';
     const gbd = isRnd ? '#DDD6FE' : '#BFDBFE';
     const teamHtml = vis.map(t => {
@@ -1365,9 +1400,9 @@ function voFilterTree() {
   const filter = document.getElementById('vo-team-search').value;
   const activeTpl = _voGetActiveTpl();
   if (!activeTpl) return;
-  const isRnd    = activeTpl.tree.centers !== undefined;
+  const isRnd = activeTpl.tree.centers !== undefined;
   const existIds = new Set();
-  const groups   = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
+  const groups = isRnd ? activeTpl.tree.centers : activeTpl.tree.hqs;
   groups.forEach(g => g.teams.forEach(t => existIds.add(t.id)));
 
   if (_voOrgTreeData && _voOrgTreeData.length > 0) {
@@ -1387,7 +1422,7 @@ function voRemoveTeam(groupIdx, teamIdx) {
   const activeTpl = _voGetActiveTpl();  // ★ 수정
   if (!activeTpl) return;
   const isRnd = activeTpl.tree.centers !== undefined;
-  const grp   = isRnd ? activeTpl.tree.centers[groupIdx] : activeTpl.tree.hqs[groupIdx];
+  const grp = isRnd ? activeTpl.tree.centers[groupIdx] : activeTpl.tree.hqs[groupIdx];
   grp.teams.splice(teamIdx, 1);
   _voMyTemplates = _voGetTemplatesByGroup(_voGroupId, _voTenantId);
   document.getElementById('bo-content').innerHTML = _renderVirtualOrgFull();

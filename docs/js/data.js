@@ -147,6 +147,7 @@ function resetApplyState() {
     receiptDesc: '',        // 후정산 지출 내용
     editId: null,           // 임시저장 편집 ID
     confirmMode: false,     // 작성확인 화면 모드
+    courseSessionLinks: [], // 과정-차수 연결 (다과정·다차수 부분선택)
   };
 }
 

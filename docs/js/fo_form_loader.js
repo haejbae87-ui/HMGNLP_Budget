@@ -191,6 +191,43 @@ function _renderOneField(def, s, prefix) {
       </div>`;
             break;
 
+        case 'course-session': {
+            // 다과정·다차수 부분 선택 필드
+            const links = (Array.isArray(val) ? val : []);
+            const linksTable = links.length > 0 ? `
+              <table style="width:100%;border-collapse:collapse;margin-bottom:10px;font-size:12px">
+                <thead><tr style="border-bottom:2px solid #E5E7EB">
+                  <th style="text-align:left;padding:6px 8px;font-weight:800;color:#374151">과정명</th>
+                  <th style="text-align:left;padding:6px 8px;font-weight:800;color:#374151">차수</th>
+                  <th style="text-align:center;padding:6px 8px;width:40px"></th>
+                </tr></thead>
+                <tbody>${links.map((lnk, li) => `
+                  <tr style="border-bottom:1px solid #F3F4F6">
+                    <td style="padding:6px 8px;font-weight:700;color:#1D4ED8">
+                      <div>📺 ${lnk.channelName || ''}</div>
+                      <div style="font-weight:800;color:#111827">📚 ${lnk.courseName || lnk.courseId}</div>
+                    </td>
+                    <td style="padding:6px 8px">${(lnk.sessions || []).map(ss => `
+                      <span style="display:inline-block;margin:2px 4px 2px 0;padding:2px 8px;background:#D1FAE5;color:#065F46;border-radius:6px;font-size:10px;font-weight:700">
+                        ${ss.no}차 ${ss.name || ''}${ss.period ? ' (' + ss.period + ')' : ''}
+                        <span onclick="_csRemoveSession('${prefix}','${stateKey}',${li},'${ss.id}')" style="cursor:pointer;color:#DC2626;margin-left:4px">✕</span>
+                      </span>`).join('')}
+                    </td>
+                    <td style="text-align:center;padding:6px 8px">
+                      <button onclick="_csRemoveCourse('${prefix}','${stateKey}',${li})" style="border:none;background:none;color:#DC2626;cursor:pointer;font-size:14px;font-weight:900" title="과정 전체 삭제">🗑</button>
+                    </td>
+                  </tr>`).join('')}
+                </tbody>
+              </table>` : '';
+            inputHtml = `<div style="background:#F9FAFB;border:2px solid #E5E7EB;border-radius:12px;padding:14px 16px">
+              ${linksTable}
+              <button type="button" onclick="_csOpenModal('${prefix}','${stateKey}')"
+                style="font-size:12px;font-weight:700;color:#1D4ED8;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:8px;padding:8px 16px;cursor:pointer">📺 과정 추가</button>
+              ${links.length === 0 ? '<span style="font-size:11px;color:#9CA3AF;margin-left:8px">채널의 과정/차수를 선택하여 예산 근거로 사용</span>' : `<span style="font-size:10px;color:#059669;margin-left:8px;font-weight:700">${links.length}개 과정 · ${links.reduce((s, l) => (s + (l.sessions || []).length), 0)}개 차수 선택됨</span>`}
+            </div>`;
+            break;
+        }
+
         default:
             // unknown field_type → text로 fallback
             inputHtml = `<input type="text" value="${_esc(val)}"
@@ -238,6 +275,7 @@ const _KEY_MAP = {
     '수료증': 'completionCert',
     '대관확정서': 'venueConfirm',
     '납품확인서': 'deliveryConfirm',
+    '과정-차수연결': 'courseSessionLinks',
 };
 
 function _toStateKey(key) {
@@ -292,3 +330,218 @@ async function getMatchedPolicyForStage(persona, purposeId, accountCode, stage) 
     return await getFoFormTemplate(matched, stage);
 }
 window.getMatchedPolicyForStage = getMatchedPolicyForStage;
+
+// ─── 과정-차수 연결 필드 전역 함수 ────────────────────────────────────────────
+let _csPrefix = '';
+let _csStateKey = '';
+let _csCourses = [];  // 모달 캐시
+let _csChMap = {};    // 채널 이름 캐시
+
+function _csOpenModal(prefix, stateKey) {
+    _csPrefix = prefix;
+    _csStateKey = stateKey;
+    // 모달이 이미 DOM에 있으면 재사용
+    let modal = document.getElementById('cs-picker-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'cs-picker-modal';
+        document.body.appendChild(modal);
+    }
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;display:flex;align-items:center;justify-content:center';
+    modal.innerHTML = `<div style="background:#fff;border-radius:16px;width:620px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">
+      <div style="padding:20px 24px;border-bottom:1px solid #F3F4F6">
+        <h3 style="font-size:15px;font-weight:800;margin:0">📺 과정-차수 선택</h3>
+        <p style="font-size:12px;color:#6B7280;margin:4px 0 0">채널의 교육과정을 선택하고 차수를 체크하세요</p>
+      </div>
+      <div id="cs-picker-body" style="flex:1;overflow-y:auto;padding:16px 24px"><div style="padding:20px;text-align:center;color:#9CA3AF">⏳ 로딩 중...</div></div>
+      <div style="padding:14px 24px;border-top:1px solid #F3F4F6;text-align:right">
+        <button onclick="document.getElementById('cs-picker-modal').style.display='none'"
+          style="padding:8px 20px;border:1.5px solid #E5E7EB;border-radius:8px;background:#fff;font-size:12px;font-weight:700;cursor:pointer;color:#6B7280">닫기</button>
+      </div>
+    </div>`;
+    _csLoadCourses();
+}
+window._csOpenModal = _csOpenModal;
+
+async function _csLoadCourses() {
+    const body = document.getElementById('cs-picker-body');
+    if (!body) return;
+    const sb = typeof getSB === 'function' ? getSB() : null;
+    if (!sb) { body.innerHTML = '<p style="color:#EF4444">DB 연결 없음</p>'; return; }
+    const persona = typeof currentPersona !== 'undefined' ? currentPersona : {};
+    const tenantId = persona.tenantId || 'HMC';
+
+    // 채널 담당자 여부
+    let channelFilter = null;
+    try {
+        const { data: myRoles } = await sb.from('user_roles').select('role_code')
+            .eq('user_id', persona.id).eq('tenant_id', tenantId);
+        const chRoles = (myRoles || []).filter(r => r.role_code.includes('_ch_mgr_'));
+        if (chRoles.length > 0) {
+            const { data: channels } = await sb.from('edu_channels').select('id,name')
+                .in('role_code', chRoles.map(r => r.role_code));
+            channelFilter = (channels || []).map(c => c.id);
+        }
+    } catch (e) { }
+
+    let courses = [];
+    try {
+        let q = sb.from('edu_courses').select('id,title,channel_id,edu_type,status')
+            .eq('tenant_id', tenantId);
+        if (channelFilter && channelFilter.length > 0) q = q.in('channel_id', channelFilter);
+        else q = q.eq('status', 'active');
+        const { data } = await q.order('title');
+        courses = data || [];
+    } catch (e) { courses = []; }
+    _csCourses = courses;
+
+    if (courses.length === 0) {
+        body.innerHTML = '<div style="padding:30px;text-align:center;color:#9CA3AF"><div style="font-size:32px;margin-bottom:8px">📚</div>선택 가능한 교육과정이 없습니다</div>';
+        return;
+    }
+
+    const chIds = [...new Set(courses.map(c => c.channel_id))];
+    try {
+        const { data } = await sb.from('edu_channels').select('id,name').in('id', chIds);
+        _csChMap = {};
+        (data || []).forEach(c => _csChMap[c.id] = c.name);
+    } catch (e) { }
+
+    const statusLabel = { draft: '초안', active: '운영중', closed: '종료' };
+    body.innerHTML = courses.map(c => `<div style="border:1.5px solid #E5E7EB;border-radius:10px;padding:12px 16px;margin-bottom:10px;cursor:pointer;transition:all .15s"
+      onmouseover="this.style.borderColor='#93C5FD';this.style.background='#F0F9FF'"
+      onmouseout="this.style.borderColor='#E5E7EB';this.style.background='#fff'"
+      onclick="_csLoadSessions('${c.id}','${(c.title || '').replace(/'/g, "\\\'")}','${c.channel_id}')">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:11px;color:#6B7280">채널: ${_csChMap[c.channel_id] || '-'}</div>
+          <div style="font-size:13px;font-weight:800;color:#374151">📚 ${c.title}</div>
+        </div>
+        <span style="font-size:10px;font-weight:700;color:${c.status === 'active' ? '#059669' : '#D97706'};background:${c.status === 'active' ? '#D1FAE5' : '#FEF3C7'};padding:2px 8px;border-radius:6px">${statusLabel[c.status] || c.status}</span>
+      </div>
+    </div>`).join('');
+}
+
+async function _csLoadSessions(courseId, courseTitle, channelId) {
+    const body = document.getElementById('cs-picker-body');
+    if (!body) return;
+    body.innerHTML = '<div style="padding:20px;text-align:center;color:#9CA3AF">⏳ 차수 로딩 중...</div>';
+    const sb = typeof getSB === 'function' ? getSB() : null;
+    if (!sb) return;
+    const persona = typeof currentPersona !== 'undefined' ? currentPersona : {};
+    const tenantId = persona.tenantId || 'HMC';
+
+    let sessions = [];
+    try {
+        const { data } = await sb.from('edu_sessions').select('id,session_no,name,start_date,end_date,status,capacity')
+            .eq('course_id', courseId).eq('tenant_id', tenantId)
+            .in('status', ['planned', 'open', 'in_progress'])
+            .order('session_no');
+        sessions = data || [];
+    } catch (e) { sessions = []; }
+
+    const backBtn = `<button onclick="_csLoadCourses()" style="font-size:11px;color:#1D4ED8;background:none;border:none;cursor:pointer;font-weight:700;margin-bottom:10px">← 과정 목록으로</button>`;
+    const header = `<div style="font-size:14px;font-weight:800;color:#374151;margin-bottom:12px">📚 ${courseTitle}</div>`;
+
+    if (sessions.length === 0) {
+        body.innerHTML = backBtn + header + '<div style="padding:20px;text-align:center;color:#9CA3AF">등록된 차수가 없습니다</div>';
+        return;
+    }
+
+    // 이미 선택된 차수 표시를 위해 현재 상태 참조
+    const stateRef = _csPrefix === 'planState' ? (typeof planState !== 'undefined' ? planState : {})
+        : _csPrefix === 'applyState' ? (typeof applyState !== 'undefined' ? applyState : {})
+            : (typeof _resultState !== 'undefined' ? _resultState : {});
+    const existing = (stateRef[_csStateKey] || []).find(l => l.courseId === courseId);
+    const existingIds = new Set((existing?.sessions || []).map(s => s.id));
+
+    const statusLabel = { planned: '계획', open: '모집중', in_progress: '진행중' };
+    const statusColor = { planned: '#6B7280', open: '#059669', in_progress: '#1D4ED8' };
+
+    body.innerHTML = backBtn + header + `
+    <div style="margin-bottom:12px;font-size:11px;color:#6B7280">차수를 체크한 후 아래 "선택 추가" 버튼을 클릭하세요</div>
+    <div id="cs-session-list">
+    ${sessions.map(s => {
+        const alreadySelected = existingIds.has(s.id);
+        return `<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid ${alreadySelected ? '#BBF7D0' : '#E5E7EB'};border-radius:10px;margin-bottom:6px;cursor:pointer;transition:all .12s;background:${alreadySelected ? '#F0FDF4' : '#fff'}"
+          onmouseover="this.style.borderColor='#6EE7B7'" onmouseout="this.style.borderColor='${alreadySelected ? '#BBF7D0' : '#E5E7EB'}'">
+          <input type="checkbox" value="${s.id}" data-no="${s.session_no}" data-name="${(s.name || '').replace(/"/g, '&quot;')}" data-start="${s.start_date || ''}" data-end="${s.end_date || ''}" ${alreadySelected ? 'checked disabled' : ''}
+            style="accent-color:#059669;width:16px;height:16px">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:800;color:#374151">🗓️ ${s.session_no}차 — ${s.name || ''}</div>
+            <div style="font-size:11px;color:#6B7280">${s.start_date || '-'} ~ ${s.end_date || '-'} · 정원 ${s.capacity || '-'}명</div>
+          </div>
+          <span style="font-size:10px;font-weight:700;color:${statusColor[s.status] || '#6B7280'}">${statusLabel[s.status] || s.status}</span>
+          ${alreadySelected ? '<span style="font-size:9px;color:#059669;font-weight:700">선택됨</span>' : ''}
+        </label>`;
+    }).join('')}
+    </div>
+    <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="_csLoadCourses()" style="padding:8px 18px;border:1.5px solid #E5E7EB;border-radius:8px;background:#fff;font-size:12px;font-weight:700;cursor:pointer;color:#6B7280">취소</button>
+      <button onclick="_csConfirmSessions('${courseId}','${courseTitle.replace(/'/g, "\\\'")}','${channelId}')" style="padding:8px 22px;background:#059669;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">✅ 선택 추가</button>
+    </div>`;
+}
+window._csLoadSessions = _csLoadSessions;
+window._csLoadCourses = _csLoadCourses;
+
+function _csConfirmSessions(courseId, courseTitle, channelId) {
+    const checks = document.querySelectorAll('#cs-session-list input[type=checkbox]:checked:not([disabled])');
+    if (checks.length === 0) { alert('추가할 차수를 1개 이상 선택하세요.'); return; }
+
+    const stateRef = _csPrefix === 'planState' ? (typeof planState !== 'undefined' ? planState : null)
+        : _csPrefix === 'applyState' ? (typeof applyState !== 'undefined' ? applyState : null)
+            : (typeof _resultState !== 'undefined' ? _resultState : null);
+    if (!stateRef) return;
+    if (!Array.isArray(stateRef[_csStateKey])) stateRef[_csStateKey] = [];
+
+    const newSessions = Array.from(checks).map(cb => ({
+        id: cb.value,
+        no: parseInt(cb.dataset.no) || 0,
+        name: cb.dataset.name || '',
+        period: (cb.dataset.start && cb.dataset.end) ? `${cb.dataset.start}~${cb.dataset.end}` : ''
+    }));
+
+    // 같은 과정이 이미 있으면 차수 병합
+    const existing = stateRef[_csStateKey].find(l => l.courseId === courseId);
+    if (existing) {
+        const existingIds = new Set(existing.sessions.map(s => s.id));
+        newSessions.forEach(ns => { if (!existingIds.has(ns.id)) existing.sessions.push(ns); });
+        existing.sessions.sort((a, b) => a.no - b.no);
+    } else {
+        stateRef[_csStateKey].push({
+            channelId: channelId,
+            channelName: _csChMap[channelId] || '',
+            courseId: courseId,
+            courseName: courseTitle,
+            sessions: newSessions.sort((a, b) => a.no - b.no)
+        });
+    }
+
+    // 모달 닫기 + 폼 재렌더
+    document.getElementById('cs-picker-modal').style.display = 'none';
+    _reRenderForm(_csPrefix);
+}
+window._csConfirmSessions = _csConfirmSessions;
+
+function _csRemoveCourse(prefix, stateKey, idx) {
+    const stateRef = prefix === 'planState' ? (typeof planState !== 'undefined' ? planState : null)
+        : prefix === 'applyState' ? (typeof applyState !== 'undefined' ? applyState : null)
+            : (typeof _resultState !== 'undefined' ? _resultState : null);
+    if (!stateRef || !Array.isArray(stateRef[stateKey])) return;
+    stateRef[stateKey].splice(idx, 1);
+    _reRenderForm(prefix);
+}
+window._csRemoveCourse = _csRemoveCourse;
+
+function _csRemoveSession(prefix, stateKey, courseIdx, sessionId) {
+    const stateRef = prefix === 'planState' ? (typeof planState !== 'undefined' ? planState : null)
+        : prefix === 'applyState' ? (typeof applyState !== 'undefined' ? applyState : null)
+            : (typeof _resultState !== 'undefined' ? _resultState : null);
+    if (!stateRef || !Array.isArray(stateRef[stateKey])) return;
+    const course = stateRef[stateKey][courseIdx];
+    if (!course) return;
+    course.sessions = course.sessions.filter(s => s.id !== sessionId);
+    if (course.sessions.length === 0) stateRef[stateKey].splice(courseIdx, 1);
+    _reRenderForm(prefix);
+}
+window._csRemoveSession = _csRemoveSession;

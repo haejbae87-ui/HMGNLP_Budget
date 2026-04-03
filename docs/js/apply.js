@@ -1208,6 +1208,7 @@ async function confirmApply() {
             expenses: applyState.expenses,
             serviceId: applyState.serviceId || null,
             applyMode: svc?.applyMode || null,
+            courseSessionLinks: applyState.courseSessionLinks || [],
           },
         }),
       });
@@ -1232,7 +1233,7 @@ async function confirmApply() {
           edu_type: applyState.eduType || applyState.eduSubType || null,
           amount: totalExp, status: 'pending',
           policy_id: applyState.policyId || null,
-          detail: { purpose: applyState.purpose?.id || null, expenses: applyState.expenses },
+          detail: { purpose: applyState.purpose?.id || null, expenses: applyState.expenses, courseSessionLinks: applyState.courseSessionLinks || [] },
         };
         const { error } = await sb.from('applications').upsert(row, { onConflict: 'id' });
         if (error) throw error;
@@ -1273,6 +1274,7 @@ async function saveApplyDraft() {
         purpose: applyState.purpose?.id || null,
         budgetId: applyState.budgetId || null,
         expenses: applyState.expenses,
+        courseSessionLinks: applyState.courseSessionLinks || [],
       },
     };
     const { error } = await sb.from('applications').upsert(row, { onConflict: 'id' });

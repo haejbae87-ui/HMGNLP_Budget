@@ -106,6 +106,7 @@ var ADVANCED_FIELDS = [
   // 연결/시스템 필드
   { key: '계획서연결', icon: '🔗', required: false, scope: 'system', category: '시스템', fieldType: 'system', hint: '연결된 교육계획 양식 자동 불러오기' },
   { key: '예산계정', icon: '💼', required: false, scope: 'system', category: '시스템', fieldType: 'budget-linked', hint: '예산 계정 잔액 실시간 연동', budget: true },
+  { key: '과정-차수연결', icon: '📺', required: false, scope: 'front', category: '시스템', fieldType: 'course-session', hint: '채널→과정→차수 선택 (다과정·다차수 부분선택 가능)' },
 ];
 
 // 서비스 매핑 데이터 (테넌트별 관리)

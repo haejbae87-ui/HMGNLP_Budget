@@ -186,7 +186,15 @@ async function _chOpenEdit(idx) {
       const { data } = await sb.from('user_roles').select('user_id').eq('role_code', ch.role_code);
       if (data && data.length > 0) {
         const uids = data.map(r => r.user_id);
-        const { data: users } = await sb.from('users').select('id,name,org_id,job_type,organizations(name)').in('id', uids);
+        let users = null;
+        try {
+          const res = await sb.from('users').select('id,name,org_id,job_type,organizations(name)').in('id', uids);
+          users = res.data;
+        } catch (e2) {
+          // FK 조인 실패 시 기본 쿼리
+          const res = await sb.from('users').select('id,name,org_id,job_type').in('id', uids);
+          users = (res.data || []).map(u => ({ ...u, organizations: null }));
+        }
         _chSelectedMgrs = (users || []).map(u => ({ user_id: u.id, name: u.name, dept: u.organizations?.name || '' }));
       }
     } catch (e) { }
@@ -230,15 +238,24 @@ async function _chLoadInitialUsers() {
   if (!el) return;
   const sb = getSB();
   if (!sb) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="padding:12px;text-align:center;font-size:11px;color:#9CA3AF">⏳ 사용자 로딩 중...</div>';
   try {
-    el.innerHTML = '<div style="padding:12px;text-align:center;font-size:11px;color:#9CA3AF">⏳ 사용자 로딩 중...</div>';
-    const { data } = await sb.from('users').select('id,name,org_id,job_type,organizations(name)').eq('tenant_id', _chTenant).order('name').limit(50);
+    let data = null;
+    try {
+      const res = await sb.from('users').select('id,name,org_id,job_type,organizations(name)').eq('tenant_id', _chTenant).order('name').limit(50);
+      if (res.error) throw res.error;
+      data = res.data;
+    } catch (joinErr) {
+      console.warn('[Channel] FK join failed, fallback:', joinErr.message || joinErr);
+      const res = await sb.from('users').select('id,name,org_id,job_type').eq('tenant_id', _chTenant).order('name').limit(50);
+      data = (res.data || []).map(u => ({ ...u, organizations: null }));
+    }
     if (!data || data.length === 0) {
       el.innerHTML = '<div style="padding:16px;text-align:center;font-size:12px;color:#9CA3AF">등록된 사용자가 없습니다</div>';
       return;
     }
     _chRenderUserList(data, data.length >= 50 ? '상위 50명 표시 · 이름으로 검색하여 추가 조회' : `총 ${data.length}명`);
-  } catch (e) { el.innerHTML = ''; }
+  } catch (e) { console.error('[Channel] user load error:', e); el.innerHTML = '<div style="padding:12px;text-align:center;font-size:11px;color:#EF4444">사용자 로드 실패</div>'; }
 }
 
 async function _chSearchUsers() {
@@ -248,7 +265,15 @@ async function _chSearchUsers() {
   const sb = getSB();
   if (!sb) return;
   try {
-    const { data } = await sb.from('users').select('id,name,org_id,job_type,organizations(name)').eq('tenant_id', _chTenant).ilike('name', `%${q}%`).limit(30);
+    let data = null;
+    try {
+      const res = await sb.from('users').select('id,name,org_id,job_type,organizations(name)').eq('tenant_id', _chTenant).ilike('name', `%${q}%`).limit(30);
+      if (res.error) throw res.error;
+      data = res.data;
+    } catch (joinErr) {
+      const res = await sb.from('users').select('id,name,org_id,job_type').eq('tenant_id', _chTenant).ilike('name', `%${q}%`).limit(30);
+      data = (res.data || []).map(u => ({ ...u, organizations: null }));
+    }
     if (!data || data.length === 0) { el.innerHTML = '<div style="padding:12px;text-align:center;font-size:11px;color:#9CA3AF">검색 결과 없음</div>'; return; }
     _chRenderUserList(data, `"${q}" 검색 결과 ${data.length}건`);
   } catch (e) { el.innerHTML = ''; }

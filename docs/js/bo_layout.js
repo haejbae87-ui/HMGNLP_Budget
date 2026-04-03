@@ -187,6 +187,7 @@ const GNB_CATE = {
   PLATFORM: '플랫폼',
   TENANT: '테넌트',
   PROGRAM: '교육제도',   // 교육자원 + 교육운영 + 성장제도 통합
+  COURSE: '교육과정운영',  // 채널/교육과정/차수/학습자
   STATS: '현황/통계',
   ETC: '기타'
 };
@@ -219,6 +220,11 @@ const PLATFORM_MENUS = [
   { id: 'budget-demand', icon: '📊', label: '예산 수요분석', section: null, gnb: GNB_CATE.PROGRAM },
   // 자격증 지원관리
   { id: 'cert-mapping', icon: '📜', label: '자격증 맵핑', section: '자격증 지원관리', gnb: GNB_CATE.PROGRAM },
+  // 교육과정 운영
+  { id: 'channel-mgmt', icon: '📺', label: '채널 관리', section: '교육과정 기준정보', gnb: GNB_CATE.COURSE },
+  { id: 'course-mgmt', icon: '📚', label: '교육과정 관리', section: null, gnb: GNB_CATE.COURSE },
+  { id: 'session-mgmt', icon: '🗓️', label: '차수 관리', section: '교육과정 운영', gnb: GNB_CATE.COURSE },
+  { id: 'enrollment-mgmt', icon: '👥', label: '학습자 관리', section: null, gnb: GNB_CATE.COURSE },
   // 통계·기타
   { id: 'reports', icon: '📈', label: '통계 및 리포트', section: null, gnb: GNB_CATE.STATS },
   { id: 'manual', icon: '📖', label: '서비스 매뉴얼', section: null, gnb: GNB_CATE.ETC },
@@ -242,6 +248,11 @@ const TENANT_ADMIN_MENUS = [
   { id: 'budget-history', icon: '📒', label: '예산 사용이력', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'budget-demand', icon: '📊', label: '예산 수요분석', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'cert-mapping', icon: '📜', label: '자격증 맵핑', section: '자격증 지원관리', gnb: GNB_CATE.PROGRAM },
+  // 교육과정 운영
+  { id: 'channel-mgmt', icon: '📺', label: '채널 관리', section: '교육과정 기준정보', gnb: GNB_CATE.COURSE },
+  { id: 'course-mgmt', icon: '📚', label: '교육과정 관리', section: null, gnb: GNB_CATE.COURSE },
+  { id: 'session-mgmt', icon: '🗓️', label: '차수 관리', section: '교육과정 운영', gnb: GNB_CATE.COURSE },
+  { id: 'enrollment-mgmt', icon: '👥', label: '학습자 관리', section: null, gnb: GNB_CATE.COURSE },
   { id: 'reports', icon: '📈', label: '전사 통계 리포트', section: null, gnb: GNB_CATE.STATS },
   { id: 'manual', icon: '📖', label: '서비스 매뉴얼', section: null, gnb: GNB_CATE.ETC },
 ];
@@ -261,6 +272,11 @@ const BUDGET_ADMIN_MENUS = [
   { id: 'budget-history', icon: '📒', label: '예산 사용이력', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'budget-demand', icon: '📊', label: '예산 수요분석', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'cert-mapping', icon: '📜', label: '자격증 맵핑', section: '자격증 지원관리', gnb: GNB_CATE.PROGRAM },
+  // 교육과정 운영
+  { id: 'channel-mgmt', icon: '📺', label: '채널 관리', section: '교육과정 기준정보', gnb: GNB_CATE.COURSE },
+  { id: 'course-mgmt', icon: '📚', label: '교육과정 관리', section: null, gnb: GNB_CATE.COURSE },
+  { id: 'session-mgmt', icon: '🗓️', label: '차수 관리', section: '교육과정 운영', gnb: GNB_CATE.COURSE },
+  { id: 'enrollment-mgmt', icon: '👥', label: '학습자 관리', section: null, gnb: GNB_CATE.COURSE },
   { id: 'reports', icon: '📈', label: '통계 및 리포트', section: null, gnb: GNB_CATE.STATS },
   { id: 'manual', icon: '📖', label: '서비스 매뉴얼', section: null, gnb: GNB_CATE.ETC },
 ];
@@ -275,6 +291,10 @@ const BUDGET_OP_MENUS = [
   { id: 'allocation', icon: '💰', label: '예산 배정 및 관리', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'budget-history', icon: '📒', label: '예산 사용이력', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'budget-demand', icon: '📊', label: '예산 수요분석', section: null, gnb: GNB_CATE.PROGRAM },
+  // 교육과정 운영
+  { id: 'course-mgmt', icon: '📚', label: '교육과정 관리', section: '교육과정 운영', gnb: GNB_CATE.COURSE },
+  { id: 'session-mgmt', icon: '🗓️', label: '차수 관리', section: null, gnb: GNB_CATE.COURSE },
+  { id: 'enrollment-mgmt', icon: '👥', label: '학습자 관리', section: null, gnb: GNB_CATE.COURSE },
   { id: 'reports', icon: '📈', label: '통계 및 리포트', section: null, gnb: GNB_CATE.STATS },
 ];
 
@@ -296,6 +316,11 @@ const TENANT_DUAL_MENUS = [
   { id: 'budget-history', icon: '📒', label: '예산 사용이력', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'budget-demand', icon: '📊', label: '예산 수요분석', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'cert-mapping', icon: '📜', label: '자격증 맵핑', section: '자격증 지원관리', gnb: GNB_CATE.PROGRAM },
+  // 교육과정 운영
+  { id: 'channel-mgmt', icon: '📺', label: '채널 관리', section: '교육과정 기준정보', gnb: GNB_CATE.COURSE },
+  { id: 'course-mgmt', icon: '📚', label: '교육과정 관리', section: null, gnb: GNB_CATE.COURSE },
+  { id: 'session-mgmt', icon: '🗓️', label: '차수 관리', section: '교육과정 운영', gnb: GNB_CATE.COURSE },
+  { id: 'enrollment-mgmt', icon: '👥', label: '학습자 관리', section: null, gnb: GNB_CATE.COURSE },
   { id: 'reports', icon: '📈', label: '통계 및 리포트', section: null, gnb: GNB_CATE.STATS },
   { id: 'manual', icon: '📖', label: '서비스 매뉴얼', section: null, gnb: GNB_CATE.ETC },
 ];
@@ -639,6 +664,11 @@ function boNavigate(menuId) {
   if (menuId === 'edu-type-mgmt') renderEduTypeMgmt();
   if (menuId === 'reports') renderBoReports();
   if (menuId === 'manual') renderBoManual();
+  // 교육과정 운영
+  if (menuId === 'channel-mgmt') renderChannelMgmt();
+  if (menuId === 'course-mgmt') renderCourseMgmt();
+  if (menuId === 'session-mgmt') renderSessionMgmt();
+  if (menuId === 'enrollment-mgmt') renderEnrollmentMgmt();
 }
 
 function boSwitchPersona(key) {

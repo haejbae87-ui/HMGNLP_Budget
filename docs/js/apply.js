@@ -1202,7 +1202,7 @@ async function confirmApply() {
       if (error) throw error;
       console.log(`[confirmApply] DB 제출 성공: ${appId}`);
     } catch (err) {
-      alert('제출 실패: ' + err.message);
+      alert('제출 실패: ' + _friendlyApplyError(err.message));
       return;
     }
   }
@@ -1258,17 +1258,31 @@ async function cancelApply(appId) {
         alert('⚠️ 이미 승인된 신청은 상위 승인자가 취소해야 합니다.');
         return;
       }
+      if (data?.status === 'cancelled') {
+        alert('이미 취소된 신청입니다.');
+        return;
+      }
     } catch (e) { /* pass */ }
   }
   if (!confirm('이 교육신청을 취소하시겠습니까?')) return;
   if (sb) {
     try {
-      await sb.from('applications').update({ status: 'cancelled' }).eq('id', appId);
+      const { error } = await sb.from('applications').update({ status: 'cancelled' }).eq('id', appId);
+      if (error) throw error;
       alert('교육신청이 취소되었습니다.');
-    } catch (err) { alert('취소 실패: ' + err.message); return; }
+    } catch (err) { alert('취소 실패: ' + _friendlyApplyError(err.message)); return; }
   }
   _appsDbLoaded = false;
   _renderApplyList();
+}
+
+// ─── 상태 전이 에러 한국어 변환 ──────────────────────────────────────────
+function _friendlyApplyError(msg) {
+  if (!msg) return '알 수 없는 에러';
+  const m = msg.match(/Invalid status transition:\s*(\w+)\s*→\s*(\w+)/);
+  if (!m) return msg;
+  const labels = { draft: '작성중', pending: '결재대기', approved: '승인완료', rejected: '반려', cancelled: '취소', completed: '완료' };
+  return `현재 '${labels[m[1]] || m[1]}' 상태에서 '${labels[m[2]] || m[2]}'(으)로 변경할 수 없습니다.`;
 }
 
 // ─── 신청 임시저장 이어쓰기/삭제 ────────────────────────────────────

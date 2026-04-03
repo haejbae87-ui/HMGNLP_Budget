@@ -888,7 +888,7 @@ async function confirmPlan() {
       if (error) throw error;
       console.log(`[confirmPlan] DB 제출 성공: ${planId}`);
     } catch (err) {
-      alert('제출 실패: ' + err.message);
+      alert('제출 실패: ' + _friendlyStatusError(err.message));
       console.error('[confirmPlan] 실패:', err.message);
       return;
     }
@@ -937,15 +937,27 @@ async function deletePlanDraft(planId) {
   renderPlans();
 }
 
+// ─── 상태 전이 에러 한국어 변환 ─────────────────────────────────────────────
+function _friendlyStatusError(msg) {
+  if (!msg) return '알 수 없는 에러';
+  const m = msg.match(/Invalid status transition:\s*(\w+)\s*→\s*(\w+)/);
+  if (!m) return msg;
+  const labels = { draft: '작성중', pending: '결재대기', approved: '승인완료', rejected: '반려', cancelled: '취소', completed: '완료' };
+  return `현재 '${labels[m[1]] || m[1]}' 상태에서 '${labels[m[2]] || m[2]}'(으)로 변경할 수 없습니다.`;
+}
+
 // ─── 교육계획 취소 ─────────────────────────────────────────────────────────
 async function cancelPlan(planId) {
-  // 결재라인 체크 (추후 상세 로직 적용 예정)
   const sb = typeof getSB === 'function' ? getSB() : null;
   if (sb) {
     try {
       const { data } = await sb.from('plans').select('status').eq('id', planId).single();
       if (data?.status === 'approved') {
         alert('⚠️ 이미 승인된 계획은 상위 승인자가 취소해야 합니다.\n\n결재라인 관리자에게 문의해주세요.');
+        return;
+      }
+      if (data?.status === 'cancelled') {
+        alert('이미 취소된 계획입니다.');
         return;
       }
     } catch (e) { /* pass */ }
@@ -956,7 +968,7 @@ async function cancelPlan(planId) {
       const { error } = await sb.from('plans').update({ status: 'cancelled' }).eq('id', planId);
       if (error) throw error;
       alert('교육계획이 취소되었습니다.');
-    } catch (err) { alert('취소 실패: ' + err.message); return; }
+    } catch (err) { alert('취소 실패: ' + _friendlyStatusError(err.message)); return; }
   }
   _plansDbLoaded = false;
   renderPlans();

@@ -186,8 +186,8 @@ async function _chOpenEdit(idx) {
       const { data } = await sb.from('user_roles').select('user_id').eq('role_code', ch.role_code);
       if (data && data.length > 0) {
         const uids = data.map(r => r.user_id);
-        const { data: users } = await sb.from('users').select('id,name,department').in('id', uids);
-        _chSelectedMgrs = (users || []).map(u => ({ user_id: u.id, name: u.name, dept: u.department || '' }));
+        const { data: users } = await sb.from('users').select('id,name,org_id,job_type,organizations(name)').in('id', uids);
+        _chSelectedMgrs = (users || []).map(u => ({ user_id: u.id, name: u.name, dept: u.organizations?.name || '' }));
       }
     } catch (e) { }
   } else {
@@ -232,7 +232,7 @@ async function _chLoadInitialUsers() {
   if (!sb) { el.innerHTML = ''; return; }
   try {
     el.innerHTML = '<div style="padding:12px;text-align:center;font-size:11px;color:#9CA3AF">⏳ 사용자 로딩 중...</div>';
-    const { data } = await sb.from('users').select('id,name,department,position').eq('tenant_id', _chTenant).order('name').limit(50);
+    const { data } = await sb.from('users').select('id,name,org_id,job_type,organizations(name)').eq('tenant_id', _chTenant).order('name').limit(50);
     if (!data || data.length === 0) {
       el.innerHTML = '<div style="padding:16px;text-align:center;font-size:12px;color:#9CA3AF">등록된 사용자가 없습니다</div>';
       return;
@@ -248,7 +248,7 @@ async function _chSearchUsers() {
   const sb = getSB();
   if (!sb) return;
   try {
-    const { data } = await sb.from('users').select('id,name,department,position').eq('tenant_id', _chTenant).ilike('name', `%${q}%`).limit(30);
+    const { data } = await sb.from('users').select('id,name,org_id,job_type,organizations(name)').eq('tenant_id', _chTenant).ilike('name', `%${q}%`).limit(30);
     if (!data || data.length === 0) { el.innerHTML = '<div style="padding:12px;text-align:center;font-size:11px;color:#9CA3AF">검색 결과 없음</div>'; return; }
     _chRenderUserList(data, `"${q}" 검색 결과 ${data.length}건`);
   } catch (e) { el.innerHTML = ''; }
@@ -261,13 +261,13 @@ function _chRenderUserList(users, subtitle) {
   html += users.map(u => {
     const already = _chSelectedMgrs.some(m => m.user_id === u.id);
     return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #F3F4F6;cursor:${already ? 'default' : 'pointer'};background:${already ? '#F0F9FF' : '#fff'};transition:background .1s"
-      ${already ? '' : `onclick="_chAddMgr('${u.id}','${(u.name || '').replace(/'/g, "\\'")}','${(u.department || '').replace(/'/g, "\\'")}')" `}
+      ${already ? '' : `onclick="_chAddMgr('${u.id}','${(u.name || '').replace(/'/g, "\\'")}','${(u.organizations?.name || '').replace(/'/g, "\\'")}')" `}
       onmouseover="if(!${already})this.style.background='#F8FAFC'" onmouseout="this.style.background='${already ? '#F0F9FF' : '#fff'}'">
       <div style="display:flex;align-items:center;gap:8px">
         <span style="width:28px;height:28px;border-radius:50%;background:${already ? '#DBEAFE' : '#F3F4F6'};display:flex;align-items:center;justify-content:center;font-size:12px">${already ? '✅' : '👤'}</span>
         <div>
           <div style="font-size:12px;font-weight:700;color:#1E293B">${u.name}</div>
-          <div style="font-size:10px;color:#6B7280">${u.department || ''} ${u.position ? '· ' + u.position : ''}</div>
+          <div style="font-size:10px;color:#6B7280">${u.organizations?.name || ''} ${u.job_type ? '· ' + u.job_type : ''}</div>
         </div>
       </div>
       ${already ? '<span style="font-size:10px;color:#3B82F6;font-weight:700">추가됨</span>' : '<span style="font-size:10px;color:#1D4ED8;font-weight:700">+ 추가</span>'}

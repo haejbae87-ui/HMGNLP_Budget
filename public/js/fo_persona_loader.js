@@ -221,6 +221,7 @@ async function switchPersonaAndReload(key) {
 
     if (typeof renderGNB === 'function') renderGNB();
     if (typeof renderFloatingBudget === 'function') renderFloatingBudget();
+    if (typeof _resetDashboard === 'function') _resetDashboard(); // 대시보드 캐시 리셋
     if (typeof navigate === 'function') navigate(currentPage || 'dashboard');
 }
 

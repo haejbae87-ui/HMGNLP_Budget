@@ -3,14 +3,23 @@
 
 const SUPABASE_URL = 'https://wihsojhucgmcdfpufonf.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_xjFJV_1SDi0k43su5KtMPQ_sdnTyJkE';
+const EDGE_FUNCTION_URL = SUPABASE_URL + '/functions/v1';
 
-// supabase-js CDN이 로드된 후 클라이언트 생성
+// 데모 모드: true이면 persona 전환 자유, 상단 배너 표시
+const DEMO_MODE = true;
+
+// supabase-js CDN이 로드된 후 클라이언트 생성 (tenant 헤더 주입)
 let _sbClient = null;
+let _sbTenantId = '';
 function getSB() {
-  if (!_sbClient) {
-    if (typeof window !== 'undefined' && window.supabase) {
-      _sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-    }
+  const tid = (typeof currentPersona !== 'undefined' && currentPersona?.tenantId) || 'HMC';
+  // tenant가 변경되면 클라이언트 재생성
+  if (_sbClient && _sbTenantId === tid) return _sbClient;
+  if (typeof window !== 'undefined' && window.supabase) {
+    _sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+      global: { headers: { 'x-tenant-id': tid } }
+    });
+    _sbTenantId = tid;
   }
   return _sbClient;
 }

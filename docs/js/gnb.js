@@ -217,7 +217,15 @@ function renderGNB() {
   }).join('');
 
   initGNBListener();
+
+  // 데모 배너 (DEMO_MODE가 true일 때만)
+  const demoBanner = (typeof DEMO_MODE !== 'undefined' && DEMO_MODE) ? `
+  <div style="background:linear-gradient(90deg,#D97706,#F59E0B);color:#fff;text-align:center;padding:3px 0;font-size:10px;font-weight:800;letter-spacing:.05em">
+    ⚠️ 데모 환경 — Persona 자유 전환 가능 | 운영 배포 시 비활성화됩니다
+  </div>` : '';
+
   document.getElementById('gnb').innerHTML = `
+${demoBanner}
 <div style="display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:56px">
   <div style="display:flex;align-items:center;gap:12px">
     <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="navigate('dashboard');_gnbDropdownOpen=null;renderGNB()">

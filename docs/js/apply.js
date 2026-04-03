@@ -1168,43 +1168,79 @@ function _renderApplyConfirm() {
   </div>`;
 }
 
-// ─── 신청 확정 제출 ────────────────────────────────────────────
+// ─── 신청 확정 제출 (Edge Function 경유 — 예산 트랜잭션) ────────────────
 async function confirmApply() {
   const svc = typeof SERVICE_DEFINITIONS !== 'undefined' && applyState.serviceId
     ? SERVICE_DEFINITIONS.find(sv => sv.id === applyState.serviceId) : null;
-  const sb = typeof getSB === 'function' ? getSB() : null;
-  if (sb) {
-    try {
-      const curBudget = applyState.budgetId
-        ? (currentPersona.budgets || []).find(b => b.id === applyState.budgetId) : null;
-      const totalExp = applyState.expenses.reduce((sum, e) => sum + Number(e.price) * Number(e.qty), 0);
-      const appId = applyState.editId || `APP-${Date.now()}`;
-      const row = {
-        id: appId, tenant_id: currentPersona.tenantId,
-        plan_id: applyState.planId || null,
-        account_code: curBudget?.accountCode || '',
-        applicant_id: currentPersona.id,
-        applicant_name: currentPersona.name,
-        dept: currentPersona.dept || '',
-        edu_name: applyState.eduName || applyState.title || '교육신청',
-        edu_type: applyState.eduType || applyState.eduSubType || null,
-        amount: totalExp, status: 'pending',
-        policy_id: applyState.policyId || null,
-        detail: {
-          purpose: applyState.purpose?.id || null,
-          budgetId: applyState.budgetId || null,
-          expenses: applyState.expenses,
-          serviceId: applyState.serviceId || null,
-          applyMode: svc?.applyMode || null,
+  const curBudget = applyState.budgetId
+    ? (currentPersona.budgets || []).find(b => b.id === applyState.budgetId) : null;
+  const totalExp = applyState.expenses.reduce((sum, e) => sum + Number(e.price) * Number(e.qty), 0);
+  const appId = applyState.editId || `APP-${Date.now()}`;
+
+  try {
+    const edgeUrl = typeof EDGE_FUNCTION_URL !== 'undefined'
+      ? EDGE_FUNCTION_URL + '/submit-application' : null;
+
+    if (edgeUrl) {
+      // Edge Function 경유: 예산 잔액 체크 + 신청 저장을 원자적 트랜잭션으로 처리
+      const res = await fetch(edgeUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-id': currentPersona.tenantId || 'HMC',
         },
-      };
-      const { error } = await sb.from('applications').upsert(row, { onConflict: 'id' });
-      if (error) throw error;
-      console.log(`[confirmApply] DB 제출 성공: ${appId}`);
-    } catch (err) {
-      alert('제출 실패: ' + _friendlyApplyError(err.message));
-      return;
+        body: JSON.stringify({
+          action: 'submit',
+          appId, tenantId: currentPersona.tenantId,
+          accountCode: curBudget?.accountCode || '',
+          applicantId: currentPersona.id,
+          applicantName: currentPersona.name,
+          dept: currentPersona.dept || '',
+          eduName: applyState.eduName || applyState.title || '교육신청',
+          eduType: applyState.eduType || applyState.eduSubType || null,
+          amount: totalExp, status: 'pending',
+          planId: applyState.planId || null,
+          policyId: applyState.policyId || null,
+          budgetLinked: svc?.budgetLinked !== false,
+          detail: {
+            purpose: applyState.purpose?.id || null,
+            budgetId: applyState.budgetId || null,
+            expenses: applyState.expenses,
+            serviceId: applyState.serviceId || null,
+            applyMode: svc?.applyMode || null,
+          },
+        }),
+      });
+      const result = await res.json();
+      if (result.error) throw new Error(result.error);
+      console.log('[confirmApply] Edge Function 결과:', result);
+      if (result.budget_checked) {
+        console.log(`  예산 잔액: ${result.available_before?.toLocaleString()} → ${result.available_after?.toLocaleString()}원`);
+      }
+    } else {
+      // Fallback: 직접 DB upsert (Edge Function 미사용)
+      const sb = typeof getSB === 'function' ? getSB() : null;
+      if (sb) {
+        const row = {
+          id: appId, tenant_id: currentPersona.tenantId,
+          plan_id: applyState.planId || null,
+          account_code: curBudget?.accountCode || '',
+          applicant_id: currentPersona.id,
+          applicant_name: currentPersona.name,
+          dept: currentPersona.dept || '',
+          edu_name: applyState.eduName || applyState.title || '교육신청',
+          edu_type: applyState.eduType || applyState.eduSubType || null,
+          amount: totalExp, status: 'pending',
+          policy_id: applyState.policyId || null,
+          detail: { purpose: applyState.purpose?.id || null, expenses: applyState.expenses },
+        };
+        const { error } = await sb.from('applications').upsert(row, { onConflict: 'id' });
+        if (error) throw error;
+      }
     }
+  } catch (err) {
+    alert('제출 실패: ' + _friendlyApplyError(err.message));
+    return;
   }
   alert('✅ 교육신청서가 성공적으로 제출되었습니다.\n\n담당자 검토 후 알림이 발송됩니다.');
   applyState = resetApplyState();

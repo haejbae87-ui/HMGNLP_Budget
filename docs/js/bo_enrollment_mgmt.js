@@ -1,8 +1,10 @@
 // ─── 👥 학습자 관리 ─────────────────────────────────────────────────────
 let _enTenant = '';
+let _enChannelId = null;
 let _enCourseId = null;
 let _enSessionId = null;
 let _enList = [];
+let _enChannels = [];
 let _enCourses = [];
 let _enSessions = [];
 let _enSelectedRows = new Set(); // 일괄 처리를 위한 선택된 학습자 ID 목록
@@ -20,11 +22,20 @@ async function renderEnrollmentMgmt() {
 
   _enSelectedRows.clear();
 
+  // 채널 로드
+  try {
+    const { data } = await sb.from('edu_channels').select('id,name').eq('tenant_id', _enTenant).eq('active', true).order('name');
+    _enChannels = data || [];
+  } catch (e) { _enChannels = []; }
+
   // 과정 목록
   try {
-    const { data } = await sb.from('edu_courses').select('id,title').eq('tenant_id', _enTenant).order('title');
+    let q = sb.from('edu_courses').select('id,title,channel_id,status').eq('tenant_id', _enTenant).order('title');
+    if (_enChannelId) q = q.eq('channel_id', _enChannelId);
+    const { data } = await q;
     _enCourses = data || [];
   } catch (e) { _enCourses = []; }
+  if (_enCourseId && !_enCourses.find(c => c.id === _enCourseId)) _enCourseId = null;
   if (!_enCourseId && _enCourses.length > 0) _enCourseId = _enCourses[0].id;
 
   // 차수 목록
@@ -50,6 +61,29 @@ async function renderEnrollmentMgmt() {
   const statusLabel = { enrolled: '수강중', completed: '수료', cancelled: '취소', no_show: '미출석' };
   const statusColor = { enrolled: '#059669', completed: '#1D4ED8', cancelled: '#DC2626', no_show: '#D97706' };
 
+  const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
+  const tenantSel = isPlatform
+    ? `<label style="font-size:10px;font-weight:700;color:#6B7280">테넌트</label>
+      <select onchange="_enTenant=this.value;_enChannelId=null;_enCourseId=null;_enSessionId=null;renderEnrollmentMgmt()" style="${selStyle}">
+      ${tenants.filter(t => t.id !== 'SYSTEM').map(t => `<option value="${t.id}" ${t.id === _enTenant ? 'selected' : ''}>${t.name}</option>`).join('')}
+    </select>` : `<span style="font-size:12px;font-weight:800;color:#374151;padding:6px 10px;background:#F3F4F6;border-radius:8px">${tenants.find(t => t.id === _enTenant)?.name || _enTenant}</span>`;
+
+  const channelSel = `<label style="font-size:10px;font-weight:700;color:#6B7280">채널</label>
+      <select onchange="_enChannelId=this.value||null;_enCourseId=null;_enSessionId=null;renderEnrollmentMgmt()" style="${selStyle}">
+        <option value="">전체 채널</option>
+        ${_enChannels.map(c => `<option value="${c.id}" ${c.id === _enChannelId ? 'selected' : ''}>${c.name}</option>`).join('')}
+      </select>`;
+
+  const courseSel = `<label style="font-size:10px;font-weight:700;color:#6B7280">과정</label>
+      <select onchange="_enCourseId=this.value;_enSessionId=null;renderEnrollmentMgmt()" style="${selStyle}">
+        ${_enCourses.map(c => `<option value="${c.id}" ${c.id === _enCourseId ? 'selected' : ''}>${c.title}</option>`).join('')}
+      </select>`;
+
+  const sessionSel = `<label style="font-size:10px;font-weight:700;color:#6B7280">차수</label>
+      <select onchange="_enSessionId=this.value;renderEnrollmentMgmt()" style="${selStyle}">
+        ${_enSessions.map(s => `<option value="${s.id}" ${s.id === _enSessionId ? 'selected' : ''}>${s.session_no}차 - ${s.name}</option>`).join('')}
+      </select>`;
+
   el.innerHTML = `
   <div class="bo-fade">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
@@ -63,15 +97,11 @@ async function renderEnrollmentMgmt() {
     <div class="bo-card" style="padding:14px 18px;margin-bottom:16px">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <span style="font-size:11px;font-weight:900;color:#374151">🔍 조회</span>
-        <label style="font-size:10px;font-weight:700;color:#6B7280">과정</label>
-        <select onchange="_enCourseId=this.value;_enSessionId=null;renderEnrollmentMgmt()" style="${selStyle}">
-          ${_enCourses.map(c => `<option value="${c.id}" ${c.id === _enCourseId ? 'selected' : ''}>${c.title}</option>`).join('')}
-        </select>
-        <label style="font-size:10px;font-weight:700;color:#6B7280">차수</label>
-        <select onchange="_enSessionId=this.value;renderEnrollmentMgmt()" style="${selStyle}">
-          ${_enSessions.map(s => `<option value="${s.id}" ${s.id === _enSessionId ? 'selected' : ''}>${s.session_no}차 - ${s.name}</option>`).join('')}
-        </select>
-        <button onclick="renderEnrollmentMgmt()" class="bo-btn-primary" style="margin-left:auto">🔄</button>
+        ${tenantSel}
+        ${channelSel}
+        ${courseSel}
+        ${sessionSel}
+        <button onclick="renderEnrollmentMgmt()" class="bo-btn-primary" style="margin-left:auto">🔄 새로고침</button>
       </div>
     </div>
 

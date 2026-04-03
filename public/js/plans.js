@@ -130,6 +130,10 @@ function resetPlanState() {
     hardLimitViolated: false,
     editId: null,       // 임시저장 편집 ID
     confirmMode: false, // 작성확인 화면 모드
+    courseId: null,      // 교육과정 연결
+    sessionId: null,     // 차수 연결
+    courseName: '',      // 표시용
+    sessionName: '',     // 표시용
   };
 }
 
@@ -715,6 +719,42 @@ function renderPlanWizard() {
       </div>
     </div>
 
+    <!-- ── 교육과정/차수 연결 (선택사항) ── -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:11px;font-weight:800;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">📚 교육과정 연결 <span style="font-size:10px;font-weight:500;color:#9CA3AF">(선택사항 — 예산 근거자료)</span></div>
+      <div id="plan-course-picker" style="background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:12px;padding:14px 18px">
+        ${s.courseId ? `
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:800;color:#1D4ED8">📚 ${s.courseName || s.courseId}</div>
+              ${s.sessionId ? `<div style="font-size:11px;color:#059669;font-weight:700;margin-top:2px">🗓️ ${s.sessionName || s.sessionId}</div>` : ''}
+            </div>
+            <button onclick="planState.courseId=null;planState.sessionId=null;planState.courseName='';planState.sessionName='';renderPlanWizard()"
+              style="font-size:11px;padding:4px 12px;border:1px solid #FECACA;border-radius:6px;background:#FEF2F2;color:#DC2626;cursor:pointer;font-weight:700">✕ 해제</button>
+          </div>
+        ` : `
+          <button onclick="_openCoursePickerModal()"
+            style="font-size:12px;font-weight:700;color:#1D4ED8;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:8px;padding:8px 16px;cursor:pointer">🔍 교육과정 선택...</button>
+          <span style="font-size:11px;color:#9CA3AF;margin-left:8px">채널의 과정/차수를 선택하면 예산 근거로 사용됩니다</span>
+        `}
+      </div>
+    </div>
+
+    <!-- ── 과정/차수 선택 모달 ── -->
+    <div id="course-picker-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
+      <div style="background:#fff;border-radius:16px;width:560px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">
+        <div style="padding:20px 24px;border-bottom:1px solid #F3F4F6">
+          <h3 style="font-size:15px;font-weight:800;margin:0">📚 교육과정 선택</h3>
+          <p style="font-size:12px;color:#6B7280;margin:4px 0 0">예산 신청 시 근거가 될 교육과정과 차수를 선택하세요</p>
+        </div>
+        <div id="course-picker-body" style="flex:1;overflow-y:auto;padding:16px 24px"><!-- 동적 로드 --></div>
+        <div style="padding:14px 24px;border-top:1px solid #F3F4F6;text-align:right">
+          <button onclick="document.getElementById('course-picker-modal').style.display='none'"
+            style="padding:8px 20px;border:1.5px solid #E5E7EB;border-radius:8px;background:#fff;font-size:12px;font-weight:700;cursor:pointer;color:#6B7280">닫기</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ── 동적 양식 필드 (BO form_templates 기반) ── -->
     <div class="space-y-5">
       ${(() => {
@@ -882,6 +922,8 @@ async function savePlanDraft() {
       edu_name: planState.title || planState.eduTypeName || '교육계획',
       edu_type: planState.eduType || planState.eduSubType || null,
       amount: amount, status: 'draft', policy_id: planState.policyId || null,
+      course_id: planState.courseId || null,
+      session_id: planState.sessionId || null,
       detail: {
         purpose: planState.purpose?.id || null, budgetId: planState.budgetId || null,
         eduType: planState.eduType, eduSubType: planState.eduSubType,
@@ -991,6 +1033,8 @@ async function confirmPlan() {
         edu_name: planState.title || planState.eduTypeName || '교육계획',
         edu_type: planState.eduType || planState.eduSubType || null,
         amount: amount, status: 'pending', policy_id: planState.policyId || null,
+        course_id: planState.courseId || null,
+        session_id: planState.sessionId || null,
         detail: {
           purpose: planState.purpose?.id || null, budgetId: planState.budgetId || null,
           eduType: planState.eduType, eduSubType: planState.eduSubType,
@@ -1036,6 +1080,8 @@ async function resumePlanDraft(planId) {
     planState.policyId = data.policy_id || null;
     planState.region = data.detail?.region || 'domestic';
     planState.accountCode = data.account_code || '';
+    planState.courseId = data.course_id || null;
+    planState.sessionId = data.session_id || null;
 
     // ★ purpose 복원: PURPOSES 배열에서 id로 풀 오브젝트 매칭
     const purposeId = data.detail?.purpose;
@@ -1410,3 +1456,128 @@ function _cgRefreshTotals() {
   // Step 4에 있을 때만 재렌더
   if (planState.step === 4) renderPlanWizard();
 }
+
+// ─── 교육과정/차수 선택 모달 ────────────────────────────────────────────────
+async function _openCoursePickerModal() {
+  const modal = document.getElementById('course-picker-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  const body = document.getElementById('course-picker-body');
+  if (!body) return;
+  body.innerHTML = '<div style="padding:20px;text-align:center;color:#9CA3AF">⏳ 과정 로딩 중...</div>';
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { body.innerHTML = '<p style="color:#EF4444">DB 연결 없음</p>'; return; }
+  const tenantId = currentPersona.tenantId || 'HMC';
+
+  // 채널 담당자 여부 확인 → 자기 채널만 vs 전체 공개 과정
+  let channelFilter = null;
+  try {
+    const { data: myRoles } = await sb.from('user_roles').select('role_code')
+      .eq('user_id', currentPersona.id).eq('tenant_id', tenantId);
+    const chRoles = (myRoles || []).filter(r => r.role_code.includes('_ch_mgr_'));
+    if (chRoles.length > 0) {
+      // 채널 담당자: 해당 채널 조회
+      const { data: channels } = await sb.from('edu_channels').select('id,name')
+        .in('role_code', chRoles.map(r => r.role_code));
+      channelFilter = (channels || []).map(c => c.id);
+    }
+  } catch (e) { }
+
+  // 과정 조회
+  let courses = [];
+  try {
+    let q = sb.from('edu_courses').select('id,title,channel_id,edu_type,status')
+      .eq('tenant_id', tenantId);
+    if (channelFilter && channelFilter.length > 0) {
+      q = q.in('channel_id', channelFilter);
+    } else {
+      q = q.eq('status', 'active'); // 일반 학습자: 활성 과정만
+    }
+    const { data } = await q.order('title');
+    courses = data || [];
+  } catch (e) { courses = []; }
+
+  if (courses.length === 0) {
+    body.innerHTML = '<div style="padding:30px;text-align:center;color:#9CA3AF"><div style="font-size:32px;margin-bottom:8px">📚</div>선택 가능한 교육과정이 없습니다</div>';
+    return;
+  }
+
+  // 채널명 조회
+  const chIds = [...new Set(courses.map(c => c.channel_id))];
+  let chMap = {};
+  try {
+    const { data } = await sb.from('edu_channels').select('id,name').in('id', chIds);
+    (data || []).forEach(c => chMap[c.id] = c.name);
+  } catch (e) { }
+
+  body.innerHTML = courses.map(c => {
+    const statusLabel = { draft: '초안', active: '운영중', closed: '종료' };
+    return `<div style="border:1.5px solid #E5E7EB;border-radius:10px;padding:12px 16px;margin-bottom:10px;cursor:pointer;transition:all .15s"
+      onmouseover="this.style.borderColor='#93C5FD';this.style.background='#F0F9FF'"
+      onmouseout="this.style.borderColor='#E5E7EB';this.style.background='#fff'"
+      onclick="_loadSessionsForCourse('${c.id}','${(c.title || '').replace(/'/g, "\\'")}')">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:13px;font-weight:800;color:#374151">📚 ${c.title}</div>
+          <div style="font-size:11px;color:#6B7280;margin-top:2px">채널: ${chMap[c.channel_id] || '-'} · ${c.edu_type || '-'}</div>
+        </div>
+        <span style="font-size:10px;font-weight:700;color:${c.status === 'active' ? '#059669' : '#D97706'};background:${c.status === 'active' ? '#D1FAE5' : '#FEF3C7'};padding:2px 8px;border-radius:6px">${statusLabel[c.status] || c.status}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function _loadSessionsForCourse(courseId, courseTitle) {
+  const body = document.getElementById('course-picker-body');
+  if (!body) return;
+  body.innerHTML = '<div style="padding:20px;text-align:center;color:#9CA3AF">⏳ 차수 로딩 중...</div>';
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) return;
+  const tenantId = currentPersona.tenantId || 'HMC';
+
+  let sessions = [];
+  try {
+    const { data } = await sb.from('edu_sessions').select('id,session_no,name,start_date,end_date,status,capacity')
+      .eq('course_id', courseId).eq('tenant_id', tenantId)
+      .in('status', ['planned', 'open', 'in_progress'])
+      .order('session_no');
+    sessions = data || [];
+  } catch (e) { sessions = []; }
+
+  const backBtn = `<button onclick="_openCoursePickerModal()" style="font-size:11px;color:#1D4ED8;background:none;border:none;cursor:pointer;font-weight:700;margin-bottom:10px">← 과정 목록으로</button>`;
+  const header = `<div style="font-size:14px;font-weight:800;color:#374151;margin-bottom:12px">📚 ${courseTitle}</div>`;
+
+  if (sessions.length === 0) {
+    body.innerHTML = backBtn + header + '<div style="padding:20px;text-align:center;color:#9CA3AF">선택 가능한 차수가 없습니다</div>';
+    return;
+  }
+
+  const statusLabel = { planned: '계획', open: '모집중', in_progress: '진행중' };
+  const statusColor = { planned: '#6B7280', open: '#059669', in_progress: '#1D4ED8' };
+
+  body.innerHTML = backBtn + header + sessions.map(s => `
+    <div style="border:1.5px solid #E5E7EB;border-radius:10px;padding:12px 16px;margin-bottom:8px;cursor:pointer;transition:all .15s"
+      onmouseover="this.style.borderColor='#6EE7B7';this.style.background='#F0FDF4'"
+      onmouseout="this.style.borderColor='#E5E7EB';this.style.background='#fff'"
+      onclick="_selectCourseSession('${courseId}','${courseTitle.replace(/'/g, "\\'")}','${s.id}','${s.session_no}차 ${(s.name || '').replace(/'/g, "\\'")}'${s.start_date ? `+' (${s.start_date}~${s.end_date || ''})'` : ''})">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:13px;font-weight:800;color:#374151">🗓️ ${s.session_no}차 — ${s.name}</div>
+          <div style="font-size:11px;color:#6B7280;margin-top:2px">${s.start_date || '-'} ~ ${s.end_date || '-'} · 정원 ${s.capacity || '-'}명</div>
+        </div>
+        <span style="font-size:10px;font-weight:700;color:${statusColor[s.status] || '#6B7280'}">${statusLabel[s.status] || s.status}</span>
+      </div>
+    </div>`).join('');
+}
+
+function _selectCourseSession(courseId, courseName, sessionId, sessionName) {
+  planState.courseId = courseId;
+  planState.courseName = courseName;
+  planState.sessionId = sessionId;
+  planState.sessionName = sessionName;
+  document.getElementById('course-picker-modal').style.display = 'none';
+  renderPlanWizard();
+}
+

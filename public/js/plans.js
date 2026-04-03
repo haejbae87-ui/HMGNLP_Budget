@@ -578,59 +578,86 @@ function renderPlanWizard() {
       </div>
     </div>
 
+    <!-- ── 동적 양식 필드 (BO form_templates 기반) ── -->
     <div class="space-y-5">
-      <!-- 국내/해외 -->
-      <div class="inline-flex bg-gray-100 rounded-xl p-1">
-        <button onclick="planState.region='domestic';renderPlanWizard()" class="px-5 py-2 rounded-lg text-sm font-bold transition ${s.region === 'domestic' ? 'bg-white text-accent shadow' : 'text-gray-500'}">🗺 국내</button>
-        <button onclick="planState.region='overseas';renderPlanWizard()" class="px-5 py-2 rounded-lg text-sm font-bold transition ${s.region === 'overseas' ? 'bg-white text-accent shadow' : 'text-gray-500'}">🌏 해외</button>
-      </div>
-
-      <div>
-        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">계획명 <span class="text-red-500">*</span></label>
-        <input type="text" value="${s.title}" oninput="planState.title=this.value" placeholder="예) 26년 AI 탐구형 학습 계획" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
-      </div>
-      <div class="grid grid-cols-2 gap-5">
-        <div>
-          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">계획 시작일</label>
-          <input type="date" value="${s.startDate}" oninput="planState.startDate=this.value" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
+      ${(() => {
+      // BO 양식이 로드된 경우 → 동적 렌더링
+      if (s.formTemplate && s.formTemplate.fields && s.formTemplate.fields.length > 0) {
+        const dynamicHtml = (typeof renderDynamicFormFields === 'function')
+          ? renderDynamicFormFields(s.formTemplate.fields, s, 'planState') : '';
+        if (dynamicHtml) {
+          const tplBadge = s.formTemplate.name
+            ? `<div style="margin-bottom:16px;padding:8px 14px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;font-size:11px;font-weight:700;color:#1D4ED8">📋 양식: ${s.formTemplate.name}</div>` : '';
+          const hasAmountField = s.formTemplate.fields.some(f => ['예상비용', '교육비'].includes(f.key));
+          const amountFallback = hasAmountField ? '' : `
+            <div>
+              <label style="display:block;font-size:11px;font-weight:800;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">💰 예산 계획액 <span style="color:#EF4444">*</span>
+                ${s.calcGrounds && s.calcGrounds.length > 0 ? '<span style="font-size:11px;font-weight:500;color:#3B82F6;margin-left:6px">(세부 산출 근거 합계 자동 반영)</span>' : ''}
+              </label>
+              <div style="position:relative;max-width:340px">
+                <input type="number" value="${s.amount}" oninput="planState.amount=this.value;_syncCalcToAmount()" placeholder="0"
+                  style="width:100%;background:#F9FAFB;border:2px solid ${s.hardLimitViolated ? '#EF4444' : '#E5E7EB'};border-radius:12px;padding:12px 48px 12px 16px;font-weight:700;font-size:16px;color:#111827;box-sizing:border-box"/>
+                <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:13px;font-weight:700;color:#9CA3AF">원</span>
+              </div>
+              ${curBudget && s.amount && Number(s.amount) > (curBudget.balance - curBudget.used)
+              ? `<div style="margin-top:6px;font-size:11px;font-weight:700;color:#EF4444">⚠️ 예산 잔액(${fmt(curBudget.balance - curBudget.used)}원)을 초과합니다</div>` : ''}
+              ${s.hardLimitViolated ? `<div style="margin-top:6px;font-size:11px;font-weight:700;color:#DC2626">🚫 Hard Limit 초과 항목이 있어 계획을 저장할 수 없습니다.</div>` : ''}
+              ${_renderApprovalRouteInfo(s, curBudget)}
+            </div>`;
+          return tplBadge + dynamicHtml + amountFallback;
+        }
+      }
+      if (s.formTemplateLoading) {
+        return `<div style="padding:32px;text-align:center;color:#6B7280;font-size:14px;font-weight:600"><div style="font-size:28px;margin-bottom:8px">⌛</div>양식 로딩 중...</div>`;
+      }
+      // ── Fallback: 양식 미설정 ──
+      return `
+        <div class="inline-flex bg-gray-100 rounded-xl p-1">
+          <button onclick="planState.region='domestic';renderPlanWizard()" class="px-5 py-2 rounded-lg text-sm font-bold transition ${s.region === 'domestic' ? 'bg-white text-accent shadow' : 'text-gray-500'}">🗺 국내</button>
+          <button onclick="planState.region='overseas';renderPlanWizard()" class="px-5 py-2 rounded-lg text-sm font-bold transition ${s.region === 'overseas' ? 'bg-white text-accent shadow' : 'text-gray-500'}">🌏 해외</button>
         </div>
         <div>
-          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">계획 종료일</label>
-          <input type="date" value="${s.endDate}" oninput="planState.endDate=this.value" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
+          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">계획명 <span class="text-red-500">*</span></label>
+          <input type="text" value="${s.title}" oninput="planState.title=this.value" placeholder="예) 26년 AI 탐구형 학습 계획" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
         </div>
-      </div>
-
-      <!-- ── 세부 산출 근거 섹션 ── -->
-      ${_renderCalcGroundsSection(s, curBudget)}
-
-      <div>
-        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">예산 계획액
-          ${s.calcGrounds && s.calcGrounds.length > 0 ? '<span class="text-xs font-medium text-blue-500 ml-2">(세부 산출 근거 합계 자동 반영)</span>' : ''}
-        </label>
-        <div class="relative max-w-xs">
-          <input type="number" value="${s.amount}" oninput="planState.amount=this.value;_syncCalcToAmount()" placeholder="0"
-            class="w-full bg-gray-50 border-2 ${s.hardLimitViolated ? 'border-red-400 bg-red-50' : 'border-gray-100'} rounded-xl px-5 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition pr-12"/>
-          <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-gray-400">원</span>
+        <div class="grid grid-cols-2 gap-5">
+          <div>
+            <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">계획 시작일</label>
+            <input type="date" value="${s.startDate}" oninput="planState.startDate=this.value" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
+          </div>
+          <div>
+            <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">계획 종료일</label>
+            <input type="date" value="${s.endDate}" oninput="planState.endDate=this.value" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
+          </div>
         </div>
-        ${curBudget && s.amount && Number(s.amount) > (curBudget.balance - curBudget.used)
-      ? `<div class="mt-1.5 text-xs font-black text-red-500">⚠️ 예산 잔액(${fmt(curBudget.balance - curBudget.used)}원)을 초과합니다</div>`
-      : ''}
-        ${s.hardLimitViolated ? `<div class="mt-1.5 text-xs font-black text-red-600">🚫 Hard Limit 초과 항목이 있어 계획을 저장할 수 없습니다. 항목 금액을 수정해주세요.</div>` : ''}
-        ${_renderApprovalRouteInfo(s, curBudget)}
-      </div>
-
-      <div>
-        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">계획 상세 내용</label>
-        <textarea oninput="planState.content=this.value" rows="3" placeholder="업무 활용 방안, 학습 목표 등을 입력하세요." class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-medium text-gray-700 focus:border-accent focus:bg-white transition resize-none">${s.content}</textarea>
-      </div>
+        ${_renderCalcGroundsSection(s, curBudget)}
+        <div>
+          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">예산 계획액
+            ${s.calcGrounds && s.calcGrounds.length > 0 ? '<span class="text-xs font-medium text-blue-500 ml-2">(세부 산출 근거 합계 자동 반영)</span>' : ''}
+          </label>
+          <div class="relative max-w-xs">
+            <input type="number" value="${s.amount}" oninput="planState.amount=this.value;_syncCalcToAmount()" placeholder="0"
+              class="w-full bg-gray-50 border-2 ${s.hardLimitViolated ? 'border-red-400 bg-red-50' : 'border-gray-100'} rounded-xl px-5 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition pr-12"/>
+            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-gray-400">원</span>
+          </div>
+          ${curBudget && s.amount && Number(s.amount) > (curBudget.balance - curBudget.used)
+          ? `<div class="mt-1.5 text-xs font-black text-red-500">⚠️ 예산 잔액(${fmt(curBudget.balance - curBudget.used)}원)을 초과합니다</div>` : ''}
+          ${s.hardLimitViolated ? `<div class="mt-1.5 text-xs font-black text-red-600">🚫 Hard Limit 초과 항목이 있어 계획을 저장할 수 없습니다. 항목 금액을 수정해주세요.</div>` : ''}
+          ${_renderApprovalRouteInfo(s, curBudget)}
+        </div>
+        <div>
+          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">계획 상세 내용</label>
+          <textarea oninput="planState.content=this.value" rows="3" placeholder="업무 활용 방안, 학습 목표 등을 입력하세요." class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-medium text-gray-700 focus:border-accent focus:bg-white transition resize-none">${s.content}</textarea>
+        </div>`;
+    })()}
     </div>
 
     <div class="flex justify-between mt-6 pt-4 border-t border-gray-100">
       <button onclick="planPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
       <div class="flex gap-3">
         <button onclick="closePlanWizard()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">취소</button>
-        <button onclick="savePlan()" ${(!s.title || s.hardLimitViolated) ? 'disabled' : ''}
-          class="px-10 py-3 rounded-xl font-black text-sm transition shadow-lg ${(!s.title || s.hardLimitViolated) ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-brand text-white hover:bg-blue-900'}">
+        <button onclick="savePlan()" ${s.hardLimitViolated ? 'disabled' : ''}
+          class="px-10 py-3 rounded-xl font-black text-sm transition shadow-lg ${s.hardLimitViolated ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-brand text-white hover:bg-blue-900'}">
           계획 저장 ✓
         </button>
       </div>
@@ -658,7 +685,38 @@ function planSelectBudget(id) {
 }
 
 function planNext() {
-  planState.step = Math.min(planState.step + 1, 4);
+  const nextStep = Math.min(planState.step + 1, 4);
+  planState.step = nextStep;
+  // Step4 진입 시 BO form_template 비동기 로드
+  if (nextStep === 4 && !planState.formTemplate) {
+    planState.formTemplateLoading = true;
+    renderPlanWizard();
+    // 매칭 정책 찾기
+    const policies = (typeof _getActivePolicies === 'function')
+      ? (_getActivePolicies(currentPersona)?.policies || []) : [];
+    const purposeId = planState.purpose?.id;
+    const accCode = (() => {
+      const budgets = currentPersona?.budgets || [];
+      const b = budgets.find(x => x.id === planState.budgetId);
+      return b?.accountCode || b?.account_code || null;
+    })();
+    // purpose + account 기준 최적 정책 선택
+    const matched = policies.find(p => {
+      const acc = p.account_codes || p.accountCodes || [];
+      return (!purposeId || p.purpose === purposeId) && (!accCode || acc.includes(accCode));
+    }) || policies.find(p => (p.account_codes || p.accountCodes || []).includes(accCode))
+      || policies[0] || null;
+    (async () => {
+      let tpl = null;
+      if (matched && typeof getFoFormTemplate === 'function') {
+        tpl = await getFoFormTemplate(matched, 'plan');
+      }
+      planState.formTemplate = tpl || null;
+      planState.formTemplateLoading = false;
+      renderPlanWizard();
+    })();
+    return;
+  }
   renderPlanWizard();
 }
 

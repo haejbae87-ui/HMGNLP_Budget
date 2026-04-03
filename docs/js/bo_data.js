@@ -141,7 +141,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC'],
     allowedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC'],
     vorgId: 'HMC-GENERAL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'reports', 'manual']
   },
   hmc_hq_general: {
     id: 'P102', name: '이O현', dept: 'HMG경영연구원', pos: '매니저',
@@ -168,7 +168,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HMC-RND'],
     allowedAccounts: ['HMC-RND'],
     vorgId: 'HMC-RND',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'reports', 'manual']
   },
   hmc_center_rnd: {
     id: 'P104', name: '이O하', dept: '모빌리티기술센터', pos: '책임',
@@ -217,7 +217,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['KIA-OPS', 'KIA-PART', 'KIA-ETC'],
     allowedAccounts: ['KIA-OPS', 'KIA-PART', 'KIA-ETC'],
     vorgId: 'KIA-GENERAL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'reports', 'manual']
   },
   kia_hq_general: {
     id: 'P202', name: '장O범', dept: 'Autoland교육팀', pos: '책임',
@@ -251,7 +251,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HAE-OPS', 'HAE-PART', 'HAE-CERT', 'HAE-EDU', 'HAE-TEAM'],
     allowedAccounts: ['HAE-OPS', 'HAE-PART', 'HAE-CERT', 'HAE-EDU', 'HAE-TEAM'],
     vorgId: 'HAE-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'reports', 'manual']
   },
   hae_dept: {
     id: 'P302', name: '김O늘', dept: 'PM서비스팀', pos: '책임',
@@ -285,7 +285,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['ROTEM-OPS', 'ROTEM-PART'],
     allowedAccounts: ['ROTEM-OPS', 'ROTEM-PART'],
     vorgId: 'ROTEM-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'reports', 'manual']
   },
 
   // ── [현대엔지니어링 HEC] ─────────────────────────────────
@@ -305,7 +305,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HEC-OPS', 'HEC-PART'],
     allowedAccounts: ['HEC-OPS', 'HEC-PART'],
     vorgId: 'HEC-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'reports', 'manual']
   },
 
   // ── [현대제슠 HSC] ──────────────────────────────────────
@@ -324,7 +324,7 @@ const BO_PERSONAS = {
     domainId: 'IG-HSC-ALL',
     ownedAccounts: ['HSC-OPS', 'HSC-PART'],
     allowedAccounts: ['HSC-OPS', 'HSC-PART'],
-    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'reports', 'manual']
   },
   hsc_total: {
     id: 'P601', name: '정O안', dept: '성장디자인팀', pos: '매니저',
@@ -335,7 +335,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HSC-OPS', 'HSC-PART'],
     allowedAccounts: ['HSC-OPS', 'HSC-PART'],
     vorgId: 'HSC-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'reports', 'manual']
   },
 
   hsc_budget_rnd: {
@@ -346,7 +346,7 @@ const BO_PERSONAS = {
     domainId: 'IG-HSC-ALL',
     ownedAccounts: ['HSC-OPS', 'HSC-PART'],
     allowedAccounts: ['HSC-OPS', 'HSC-PART'],
-    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'budget-history', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'reports', 'manual']
   },
   hsc_budget_hr_dang: {
     id: 'P603', name: '박O연', dept: '(당)인사지원팀', pos: '매니저',
@@ -356,7 +356,7 @@ const BO_PERSONAS = {
     domainId: 'IG-HSC-ALL',
     ownedAccounts: ['HSC-OPS', 'HSC-PART'],
     allowedAccounts: ['HSC-OPS', 'HSC-PART'],
-    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'budget-history', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'reports', 'manual']
   },
   hsc_budget_hr_in: {
     id: 'P604', name: '박O영', dept: '(인)인사팀', pos: '매니저',
@@ -366,7 +366,7 @@ const BO_PERSONAS = {
     domainId: 'IG-HSC-ALL',
     ownedAccounts: ['HSC-OPS', 'HSC-PART'],
     allowedAccounts: ['HSC-OPS', 'HSC-PART'],
-    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'budget-history', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'reports', 'manual']
   },
   hsc_budget_hr_po: {
     id: 'P605', name: '석O영', dept: '(포)인사팀', pos: '매니저',
@@ -376,7 +376,7 @@ const BO_PERSONAS = {
     domainId: 'IG-HSC-ALL',
     ownedAccounts: ['HSC-OPS', 'HSC-PART'],
     allowedAccounts: ['HSC-OPS', 'HSC-PART'],
-    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'budget-history', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'reports', 'manual']
   },
   hsc_budget_cold: {
     id: 'P606', name: '김O민', dept: '(순)냉연업무지원팀', pos: '매니저',
@@ -386,7 +386,7 @@ const BO_PERSONAS = {
     domainId: 'IG-HSC-ALL',
     ownedAccounts: ['HSC-OPS', 'HSC-PART'],
     allowedAccounts: ['HSC-OPS', 'HSC-PART'],
-    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'budget-history', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'reports', 'manual']
   },
 
   // ── [현대트랜시스 HTS] ─────────────────────────────────
@@ -406,7 +406,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HTS-OPS', 'HTS-PART'],
     allowedAccounts: ['HTS-OPS', 'HTS-PART'],
     vorgId: 'HTS-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'reports', 'manual']
   },
 
   // ── [현대글로비스 GLOVIS] ──────────────────────────────
@@ -426,7 +426,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['GLOVIS-OPS', 'GLOVIS-PART'],
     allowedAccounts: ['GLOVIS-OPS', 'GLOVIS-PART'],
     vorgId: 'GLOVIS-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'reports', 'manual']
   },
 
   // ── [현대차증권 HIS] ───────────────────────────────────
@@ -446,7 +446,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HIS-OPS', 'HIS-PART'],
     allowedAccounts: ['HIS-OPS', 'HIS-PART'],
     vorgId: 'HIS-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'reports', 'manual']
   },
 
   // ── [현대케피코 KEFICO] ────────────────────────────────
@@ -466,7 +466,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['KEFICO-OPS', 'KEFICO-PART'],
     allowedAccounts: ['KEFICO-OPS', 'KEFICO-PART'],
     vorgId: 'KEFICO-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'reports', 'manual']
   },
 
   // ── [현대ISC HISC] ──────────────────────────────────────
@@ -486,7 +486,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HISC-OPS', 'HISC-PART'],
     allowedAccounts: ['HISC-OPS', 'HISC-PART'],
     vorgId: 'HISC-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'my-operations', 'reports', 'manual']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'reports', 'manual']
   },
 
   // ── [프론트/학습자 — LXP 전용] ───────────────────────────────────────────

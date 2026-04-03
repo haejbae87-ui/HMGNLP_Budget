@@ -152,11 +152,13 @@ function getPersonaBudgets(persona, purposeId) {
         ? policies.filter(p => boPurposeKeys.includes(p.purpose))
         : policies;
       // 허용된 accountCodes로 persona.budgets 필터
+      // !acctType 조건 제거: ACCOUNT_TYPE_MAP에 없는 코드가 있어도 전체 통과하지 않도록
       const allCodes = [...new Set(filtered.flatMap(p => p.accountCodes || p.account_codes || []))];
       return persona.budgets.filter(b =>
         allCodes.some(code => {
-          const acctType = ACCOUNT_TYPE_MAP[code] || null;
-          return !acctType || acctType === b.account || code === b.accountCode;
+          const acctType = ACCOUNT_TYPE_MAP[code];
+          // acctType이 있으면 account 유형명으로 매칭, 없으면 accountCode 직접 매칭만 허용
+          return (acctType && acctType === b.account) || code === b.accountCode;
         })
       );
     }

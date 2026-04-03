@@ -325,13 +325,10 @@ async function _initCurrentPersona(persona) {
             }
         }
 
-        // 6. 테넌트 전체 예산 미사용 계정 코드 추가 (통장 없이 정책 매칭용)
-        const { data: freeAccts } = await sb.from('budget_accounts')
-            .select('id, code').eq('tenant_id', persona.tenantId)
-            .eq('uses_budget', false).eq('active', true);
-        for (const fa of (freeAccts || [])) {
-            if (!allowedAccounts.includes(fa.code)) allowedAccounts.push(fa.code);
-        }
+        // ⚠️ 테넌트 전체 uses_budget=false 계정 자동 추가 제거됨
+        // 이 블록이 HMC-PART 등 다른 격리그룹 계정을 allowedAccounts에 무조건 추가하여
+        // _getActivePolicies 기반 정책 매칭이 오염됨 (원인 2 수정)
+        // 서비스 정책의 accountCodes ↔ allowedAccounts 교차 매칭으로만 정책 필터링
 
         console.log(`[FO Loader] ${persona.name} → 계정: ${allowedAccounts.join(', ')}`);
         return { ...persona, allowedAccounts, budgets };

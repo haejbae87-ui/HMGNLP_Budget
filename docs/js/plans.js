@@ -323,6 +323,13 @@ function renderPlanWizard() {
   const s = planState;
   if (!s) return;
 
+  // P1 수정: 정책 로드 완료 전이면 먼저 로드 후 재렌더
+  // (빠른 클릭 등으로 SERVICE_POLICIES 비어있을 때 Fallback 경로 방지)
+  if (!_foServicePoliciesLoaded) {
+    _loadFoPolicies().then(() => renderPlanWizard());
+    return;
+  }
+
   // 정책 우선: 역할이 아닌 매칭 정책의 target_type으로 UI 섹션 결정
   const policyResult = typeof _getActivePolicies !== 'undefined' ? _getActivePolicies(currentPersona) : null;
   const matchedPolicies = policyResult ? policyResult.policies : [];

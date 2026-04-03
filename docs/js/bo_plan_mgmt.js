@@ -12,8 +12,8 @@ function renderBoPlanMgmt() {
     plans = plans.filter(pl => pl.group === 'rnd');
   }
 
-  const canApprove = ['total_general','total_rnd','hq_general','center_rnd'].includes(p.role);
-  const canSubmit  = ['team_general'].includes(p.role);
+  const canApprove = ['total_general', 'total_rnd', 'hq_general', 'center_rnd'].includes(p.role);
+  const canSubmit = ['team_general'].includes(p.role);
 
   el.innerHTML = `
 <div class="bo-fade">
@@ -25,13 +25,13 @@ function renderBoPlanMgmt() {
     ${canSubmit ? `<button class="bo-btn-primary" onclick="alert('교육계획 수립은 프론트(LXP)에서 작성 가능합니다.')">+ 계획 수립</button>` : ''}
   </div>
 
-  ${_boEduFilterBar("renderBoPlanMgmt")}
+  ${typeof _boEduFilterBar === 'function' ? _boEduFilterBar("renderBoPlanMgmt") : ''}
 
   <!-- 계획 목록 -->
   <div class="bo-card" style="overflow:hidden;margin-bottom:20px">
     <div style="padding:14px 20px;border-bottom:1px solid #F3F4F6;display:flex;justify-content:space-between">
       <span class="bo-section-title">교육계획 목록 (${plans.length}건)</span>
-      <span style="font-size:12px;color:#9CA3AF">승인 대기: <strong style="color:#1D4ED8">${plans.filter(pl=>pl.status.startsWith('pending')).length}건</strong></span>
+      <span style="font-size:12px;color:#9CA3AF">승인 대기: <strong style="color:#1D4ED8">${plans.filter(pl => pl.status.startsWith('pending')).length}건</strong></span>
     </div>
     <table class="bo-table">
       <thead><tr>
@@ -40,12 +40,12 @@ function renderBoPlanMgmt() {
         ${canApprove ? '<th style="text-align:center">처리</th>' : ''}
       </tr></thead>
       <tbody>
-        ${plans.map(pl=>`
+        ${plans.map(pl => `
         <tr>
           <td><code style="font-size:11px;background:#F3F4F6;padding:2px 6px;border-radius:4px">${pl.id}</code></td>
           <td>
             <div style="font-weight:700;font-size:13px">${pl.team}</div>
-            <div style="font-size:11px;color:#9CA3AF">${pl.hq||pl.center||''}</div>
+            <div style="font-size:11px;color:#9CA3AF">${pl.hq || pl.center || ''}</div>
           </td>
           <td>
             <div style="font-weight:700">${pl.title}</div>
@@ -76,18 +76,18 @@ function renderBoPlanMgmt() {
     <div class="bo-section-title" style="margin-bottom:16px">결재 흐름 (BP26-101 예시)</div>
     <div style="display:flex;gap:0;align-items:center">
       ${[
-        { step:'팀 상신', who:'조O성 책임', status:'done', date:'2026-01-10' },
-        { step:'본부 검토', who:'이O현 매니저', status:'pending', date:'—' },
-        { step:'총괄 최종승인', who:'신O남 매니저', status:'wait', date:'—' },
-      ].map((s,i,arr)=>`
+      { step: '팀 상신', who: '조O성 책임', status: 'done', date: '2026-01-10' },
+      { step: '본부 검토', who: '이O현 매니저', status: 'pending', date: '—' },
+      { step: '총괄 최종승인', who: '신O남 매니저', status: 'wait', date: '—' },
+    ].map((s, i, arr) => `
       <div style="display:flex;align-items:center;flex:1">
         <div style="text-align:center;flex:1">
-          <div class="approval-dot ${s.status}" style="margin:0 auto 6px">${s.status==='done'?'✓':i+1}</div>
-          <div style="font-size:12px;font-weight:900;color:${s.status==='done'?'#002C5F':s.status==='pending'?'#B45309':'#9CA3AF'}">${s.step}</div>
+          <div class="approval-dot ${s.status}" style="margin:0 auto 6px">${s.status === 'done' ? '✓' : i + 1}</div>
+          <div style="font-size:12px;font-weight:900;color:${s.status === 'done' ? '#002C5F' : s.status === 'pending' ? '#B45309' : '#9CA3AF'}">${s.step}</div>
           <div style="font-size:11px;color:#9CA3AF;margin-top:2px">${s.who}</div>
           <div style="font-size:10px;color:#D1D5DB">${s.date}</div>
         </div>
-        ${i<arr.length-1?`<div style="flex:1;height:2px;background:${s.status==='done'?'#007AFF':'#E5E7EB'};max-width:60px;margin:0 4px"></div>`:''}
+        ${i < arr.length - 1 ? `<div style="flex:1;height:2px;background:${s.status === 'done' ? '#007AFF' : '#E5E7EB'};max-width:60px;margin:0 4px"></div>` : ''}
       </div>`).join('')}
     </div>
   </div>

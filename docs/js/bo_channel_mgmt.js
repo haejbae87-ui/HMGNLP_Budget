@@ -102,27 +102,40 @@ async function renderChannelMgmt() {
 
   <!-- 채널 생성/수정 모달 -->
   <div id="ch-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
-    <div style="background:#fff;border-radius:16px;width:520px;max-height:90vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+    <div style="background:#fff;border-radius:16px;width:600px;max-height:90vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
       <div style="display:flex;justify-content:space-between;margin-bottom:18px">
         <h3 id="ch-modal-title" style="font-size:15px;font-weight:800;margin:0">채널 생성</h3>
         <button onclick="document.getElementById('ch-modal').style.display='none'" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">✕</button>
       </div>
       <input type="hidden" id="ch-edit-idx">
+
+      <!-- 테넌트 표시 -->
+      <div style="margin-bottom:14px;padding:10px 14px;background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:10px;display:flex;align-items:center;gap:8px">
+        <span style="font-size:11px;font-weight:900;color:#64748B">🏢 테넌트</span>
+        <span id="ch-modal-tenant" style="font-size:13px;font-weight:800;color:#1E293B"></span>
+      </div>
+
+      <!-- 기본 정보 -->
       <div style="margin-bottom:14px">
         <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">채널명 <span style="color:#EF4444">*</span></label>
         <input id="ch-name" type="text" placeholder="예) HRD교육채널" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;outline:none">
       </div>
-      <div style="margin-bottom:14px">
+      <div style="margin-bottom:18px">
         <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">설명</label>
         <textarea id="ch-desc" placeholder="채널 설명" rows="2" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;outline:none;resize:vertical"></textarea>
       </div>
-      <div style="margin-bottom:14px">
-        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">채널 담당자</label>
-        <div id="ch-mgr-chips" style="margin-bottom:8px"></div>
-        <div style="display:flex;gap:6px">
-          <input id="ch-mgr-search" type="text" placeholder="🔍 사용자 검색..." oninput="_chSearchUsers()" style="flex:1;padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;outline:none">
+
+      <!-- 채널 담당자 섹션 -->
+      <div style="border-top:1.5px solid #E5E7EB;padding-top:16px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <label style="font-size:13px;font-weight:800;color:#1E293B">👤 채널 담당자 매핑</label>
+          <span id="ch-mgr-count" style="font-size:11px;color:#6B7280;font-weight:700">0명 선택</span>
         </div>
-        <div id="ch-mgr-results" style="max-height:150px;overflow-y:auto;margin-top:6px"></div>
+        <div id="ch-mgr-chips" style="margin-bottom:10px;min-height:28px"></div>
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <input id="ch-mgr-search" type="text" placeholder="🔍 이름으로 검색... (빈 칸이면 전체 목록)" oninput="_chSearchUsers()" style="flex:1;padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;outline:none">
+        </div>
+        <div id="ch-mgr-results" style="max-height:200px;overflow-y:auto;border:1px solid #F3F4F6;border-radius:8px"></div>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="bo-btn-secondary bo-btn-sm" onclick="document.getElementById('ch-modal').style.display='none'">취소</button>
@@ -139,10 +152,17 @@ function _chOpenCreate() {
   document.getElementById('ch-edit-idx').value = '';
   document.getElementById('ch-name').value = '';
   document.getElementById('ch-desc').value = '';
+  // 테넌트명 표시
+  const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
+  const tn = tenants.find(t => t.id === _chTenant);
+  const tenantEl = document.getElementById('ch-modal-tenant');
+  if (tenantEl) tenantEl.textContent = tn ? `${tn.name} (${tn.id})` : _chTenant;
   _chSelectedMgrs = [];
   _chRenderMgrChips();
-  document.getElementById('ch-mgr-results').innerHTML = '';
   document.getElementById('ch-modal').style.display = 'flex';
+  // 초기 사용자 목록 자동 로드
+  document.getElementById('ch-mgr-search').value = '';
+  _chLoadInitialUsers();
 }
 
 async function _chOpenEdit(idx) {
@@ -152,6 +172,11 @@ async function _chOpenEdit(idx) {
   document.getElementById('ch-edit-idx').value = String(idx);
   document.getElementById('ch-name').value = ch.name;
   document.getElementById('ch-desc').value = ch.description || '';
+  // 테넌트명 표시
+  const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
+  const tn = tenants.find(t => t.id === _chTenant);
+  const tenantEl = document.getElementById('ch-modal-tenant');
+  if (tenantEl) tenantEl.textContent = tn ? `${tn.name} (${tn.id})` : _chTenant;
 
   // 역할 기반 담당자 로드
   _chSelectedMgrs = [];
@@ -170,15 +195,20 @@ async function _chOpenEdit(idx) {
   }
 
   _chRenderMgrChips();
-  document.getElementById('ch-mgr-results').innerHTML = '';
   document.getElementById('ch-modal').style.display = 'flex';
+  // 초기 사용자 목록 자동 로드
+  document.getElementById('ch-mgr-search').value = '';
+  _chLoadInitialUsers();
 }
 
 function _chRenderMgrChips() {
   const el = document.getElementById('ch-mgr-chips');
   if (!el) return;
+  // 카운터 업데이트
+  const countEl = document.getElementById('ch-mgr-count');
+  if (countEl) countEl.textContent = `${_chSelectedMgrs.length}명 선택`;
   if (_chSelectedMgrs.length === 0) {
-    el.innerHTML = '<span style="font-size:11px;color:#9CA3AF">담당자 없음</span>';
+    el.innerHTML = '<span style="font-size:11px;color:#9CA3AF">아래에서 사용자를 검색하여 담당자를 추가하세요</span>';
     return;
   }
   el.innerHTML = _chSelectedMgrs.map((m, i) =>
@@ -194,31 +224,65 @@ function _chRemoveMgr(idx) {
   _chRenderMgrChips();
 }
 
+// 초기 사용자 목록 자동 로드 (모달 열릴 때)
+async function _chLoadInitialUsers() {
+  const el = document.getElementById('ch-mgr-results');
+  if (!el) return;
+  const sb = getSB();
+  if (!sb) { el.innerHTML = ''; return; }
+  try {
+    el.innerHTML = '<div style="padding:12px;text-align:center;font-size:11px;color:#9CA3AF">⏳ 사용자 로딩 중...</div>';
+    const { data } = await sb.from('users').select('id,name,department,position').eq('tenant_id', _chTenant).order('name').limit(50);
+    if (!data || data.length === 0) {
+      el.innerHTML = '<div style="padding:16px;text-align:center;font-size:12px;color:#9CA3AF">등록된 사용자가 없습니다</div>';
+      return;
+    }
+    _chRenderUserList(data, data.length >= 50 ? '상위 50명 표시 · 이름으로 검색하여 추가 조회' : `총 ${data.length}명`);
+  } catch (e) { el.innerHTML = ''; }
+}
+
 async function _chSearchUsers() {
   const q = document.getElementById('ch-mgr-search')?.value?.trim();
   const el = document.getElementById('ch-mgr-results');
-  if (!q || q.length < 1) { el.innerHTML = ''; return; }
+  if (!q || q.length < 1) { _chLoadInitialUsers(); return; }
   const sb = getSB();
   if (!sb) return;
   try {
-    const { data } = await sb.from('users').select('id,name,department').eq('tenant_id', _chTenant).ilike('name', `%${q}%`).limit(15);
-    if (!data || data.length === 0) { el.innerHTML = '<div style="padding:8px;font-size:11px;color:#9CA3AF">검색 결과 없음</div>'; return; }
-    el.innerHTML = data.map(u => {
-      const already = _chSelectedMgrs.some(m => m.user_id === u.id);
-      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #F3F4F6;cursor:${already ? 'default' : 'pointer'};opacity:${already ? '.5' : '1'}"
-        ${already ? '' : `onclick="_chAddMgr('${u.id}','${(u.name || '').replace(/'/g, "\\'")}','${(u.department || '').replace(/'/g, "\\'")}')" `}>
-        <div><span style="font-size:12px;font-weight:700">${u.name}</span> <span style="font-size:10px;color:#6B7280">${u.department || ''}</span></div>
-        ${already ? '<span style="font-size:10px;color:#6B7280">추가됨</span>' : '<span style="font-size:10px;color:#1D4ED8">+ 추가</span>'}
-      </div>`;
-    }).join('');
+    const { data } = await sb.from('users').select('id,name,department,position').eq('tenant_id', _chTenant).ilike('name', `%${q}%`).limit(30);
+    if (!data || data.length === 0) { el.innerHTML = '<div style="padding:12px;text-align:center;font-size:11px;color:#9CA3AF">검색 결과 없음</div>'; return; }
+    _chRenderUserList(data, `"${q}" 검색 결과 ${data.length}건`);
   } catch (e) { el.innerHTML = ''; }
+}
+
+function _chRenderUserList(users, subtitle) {
+  const el = document.getElementById('ch-mgr-results');
+  if (!el) return;
+  let html = subtitle ? `<div style="padding:6px 12px;font-size:10px;color:#9CA3AF;font-weight:700;background:#F9FAFB;border-bottom:1px solid #F3F4F6">${subtitle}</div>` : '';
+  html += users.map(u => {
+    const already = _chSelectedMgrs.some(m => m.user_id === u.id);
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #F3F4F6;cursor:${already ? 'default' : 'pointer'};background:${already ? '#F0F9FF' : '#fff'};transition:background .1s"
+      ${already ? '' : `onclick="_chAddMgr('${u.id}','${(u.name || '').replace(/'/g, "\\'")}','${(u.department || '').replace(/'/g, "\\'")}')" `}
+      onmouseover="if(!${already})this.style.background='#F8FAFC'" onmouseout="this.style.background='${already ? '#F0F9FF' : '#fff'}'">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="width:28px;height:28px;border-radius:50%;background:${already ? '#DBEAFE' : '#F3F4F6'};display:flex;align-items:center;justify-content:center;font-size:12px">${already ? '✅' : '👤'}</span>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#1E293B">${u.name}</div>
+          <div style="font-size:10px;color:#6B7280">${u.department || ''} ${u.position ? '· ' + u.position : ''}</div>
+        </div>
+      </div>
+      ${already ? '<span style="font-size:10px;color:#3B82F6;font-weight:700">추가됨</span>' : '<span style="font-size:10px;color:#1D4ED8;font-weight:700">+ 추가</span>'}
+    </div>`;
+  }).join('');
+  el.innerHTML = html;
 }
 
 function _chAddMgr(userId, name, dept) {
   if (_chSelectedMgrs.some(m => m.user_id === userId)) return;
   _chSelectedMgrs.push({ user_id: userId, name: name.trim(), dept: dept.trim() });
   _chRenderMgrChips();
-  _chSearchUsers();
+  // 목록 즉시 갱신 (추가됨 상태 반영)
+  const q = document.getElementById('ch-mgr-search')?.value?.trim();
+  if (q) _chSearchUsers(); else _chLoadInitialUsers();
 }
 
 // ★ 역할 자동 생성 함수

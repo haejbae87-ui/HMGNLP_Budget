@@ -92,6 +92,7 @@ async function _loadFoPolicies() {
           const mapped = {
             id: row.id, tenantId: row.tenant_id, domainId: row.domain_id,
             name: row.name, purpose: row.purpose, eduTypes: row.edu_types || [],
+            selectedEduItem: row.selected_edu_item || null,
             targetType: row.target_type, accountCodes: row.account_codes || [],
             budgetLinked: row.budget_linked !== false, processPattern: row.process_pattern,
             approvalConfig: row.approval_config,

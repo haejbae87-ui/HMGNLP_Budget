@@ -226,7 +226,18 @@ function getPolicyEduTypes(persona, purposeId, budgetAccountType) {
         return true;
       });
       if (matched.length > 0) {
-        return [...new Set(matched.flatMap(p => p.eduTypes || []))];
+        // selectedEduItem이 있는 정책은 세부항목(subId) 레벨로 반환
+        const types = [];
+        matched.forEach(p => {
+          if (p.selectedEduItem?.subId) {
+            types.push(p.selectedEduItem.subId);  // 예: 'elearning'
+          } else if (p.selectedEduItem?.typeId) {
+            types.push(p.selectedEduItem.typeId);  // 세부항목 없는 리프
+          } else {
+            (p.eduTypes || []).forEach(t => types.push(t));
+          }
+        });
+        return [...new Set(types)];
       }
     } else {
       const matched = policies.filter(p =>
@@ -257,8 +268,11 @@ function getPolicyEduTree(persona, purposeId, budgetAccountType) {
 
   return eduTypes.map(t => {
     const label = (typeof EDU_TYPE_LABELS !== 'undefined' && EDU_TYPE_LABELS[t]) || t;
-    const subs = (typeof EDU_TYPE_SUBTYPES !== 'undefined' && EDU_TYPE_SUBTYPES[t]) || [];
-    return { id: t, label, subs: subs.map(s => ({ key: s.key, label: s.label })) };
+    // 세부항목 레벨 키(elearning, class 등)이면 상위 subtypes 확장 불필요 → 리프 노드
+    const parentSubs = (typeof EDU_TYPE_SUBTYPES !== 'undefined' && EDU_TYPE_SUBTYPES[t]) || [];
+    // 이미 세부 레벨 키인지 확인: EDU_TYPE_SUBTYPES에 상위로 존재하지 않으면 리프
+    const isLeafKey = parentSubs.length === 0;
+    return { id: t, label, subs: isLeafKey ? [] : parentSubs.map(s => ({ key: s.key, label: s.label })) };
   });
 }
 

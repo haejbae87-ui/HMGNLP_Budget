@@ -1294,18 +1294,18 @@ async function cancelApply(appId) {
         alert('⚠️ 이미 승인된 신청은 상위 승인자가 취소해야 합니다.');
         return;
       }
-      if (data?.status === 'cancelled') {
-        alert('이미 취소된 신청입니다.');
+      if (data?.status === 'draft') {
+        alert('이미 임시저장 상태입니다.');
         return;
       }
     } catch (e) { /* pass */ }
   }
-  if (!confirm('이 교육신청을 취소하시겠습니까?')) return;
+  if (!confirm('이 교육신청을 취소하고 임시저장 상태로 되돌리시겠습니까?')) return;
   if (sb) {
     try {
-      const { error } = await sb.from('applications').update({ status: 'cancelled' }).eq('id', appId);
+      const { error } = await sb.from('applications').update({ status: 'draft' }).eq('id', appId);
       if (error) throw error;
-      alert('교육신청이 취소되었습니다.');
+      alert('교육신청이 임시저장 상태로 되돌려졌습니다.\n수정 후 다시 제출할 수 있습니다.');
     } catch (err) { alert('취소 실패: ' + _friendlyApplyError(err.message)); return; }
   }
   _appsDbLoaded = false;

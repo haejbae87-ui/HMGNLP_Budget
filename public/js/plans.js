@@ -1069,21 +1069,22 @@ async function cancelPlan(planId) {
         alert('⚠️ 이미 승인된 계획은 상위 승인자가 취소해야 합니다.\n\n결재라인 관리자에게 문의해주세요.');
         return;
       }
-      if (data?.status === 'cancelled') {
-        alert('이미 취소된 계획입니다.');
+      if (data?.status === 'draft') {
+        alert('이미 임시저장 상태입니다.');
         return;
       }
     } catch (e) { /* pass */ }
   }
-  if (!confirm('이 교육계획을 취소하시겠습니까?')) return;
+  if (!confirm('이 교육계획을 취소하고 임시저장 상태로 되돌리시겠습니까?')) return;
   if (sb) {
     try {
-      const { error } = await sb.from('plans').update({ status: 'cancelled' }).eq('id', planId);
+      const { error } = await sb.from('plans').update({ status: 'draft' }).eq('id', planId);
       if (error) throw error;
-      alert('교육계획이 취소되었습니다.');
+      alert('교육계획이 임시저장 상태로 되돌려졌습니다.\n수정 후 다시 제출할 수 있습니다.');
     } catch (err) { alert('취소 실패: ' + _friendlyStatusError(err.message)); return; }
   }
   _plansDbLoaded = false;
+  _viewingPlanDetail = null;
   renderPlans();
 }
 

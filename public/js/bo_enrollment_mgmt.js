@@ -5,6 +5,7 @@ let _enSessionId = null;
 let _enList = [];
 let _enCourses = [];
 let _enSessions = [];
+let _enSelectedRows = new Set(); // 일괄 처리를 위한 선택된 학습자 ID 목록
 
 async function renderEnrollmentMgmt() {
   const el = document.getElementById('bo-content');
@@ -16,6 +17,8 @@ async function renderEnrollmentMgmt() {
   if (!_enTenant) _enTenant = isPlatform ? 'HMC' : (boCurrentPersona.tenantId || 'HMC');
 
   el.innerHTML = '<div class="bo-fade" style="padding:40px;text-align:center;color:#9CA3AF"><div style="font-size:32px;margin-bottom:8px">⏳</div>로딩 중...</div>';
+
+  _enSelectedRows.clear();
 
   // 과정 목록
   try {
@@ -81,6 +84,11 @@ async function renderEnrollmentMgmt() {
         <div style="flex:1;max-width:200px;height:8px;background:#E5E7EB;border-radius:4px;overflow:hidden">
           <div style="width:${Math.min(100, enrolledCount / curSession.capacity * 100)}%;height:100%;background:${enrolledCount >= curSession.capacity ? '#DC2626' : '#059669'};border-radius:4px;transition:width .3s"></div>
         </div>` : ''}
+        
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button class="bo-btn-secondary bo-btn-sm" style="font-size:11px;padding:4px 10px;background:#EF4444;color:#fff;border-color:#EF4444" onclick="_enBulkUpdateStatus('no_show')">🚫 시스템 미이수 처리</button>
+          <button class="bo-btn-secondary bo-btn-sm" style="font-size:11px;padding:4px 10px;background:#059669;color:#fff;border-color:#059669" onclick="_enBulkUpdateStatus('completed')">☑️ 이수 완료 처리</button>
+        </div>
       </div>
     </div>` : ''}
 
@@ -88,11 +96,13 @@ async function renderEnrollmentMgmt() {
     <div class="bo-card" style="overflow:hidden">
       <table class="bo-table" style="font-size:12px">
         <thead><tr>
+          <th style="width:30px;text-align:center"><input type="checkbox" id="en-chk-all" onchange="_enToggleAllRows(this.checked)" style="accent-color:#1D4ED8"></th>
           <th>이름</th><th>부서</th><th style="text-align:center">입과유형</th>
           <th style="text-align:center">상태</th><th style="text-align:center">입과일</th><th style="text-align:center">관리</th>
         </tr></thead>
         <tbody>
         ${_enList.map((e, i) => `<tr>
+          <td style="text-align:center"><input type="checkbox" class="en-chk-row" value="${e.id}" onchange="_enToggleRow('${e.id}', this.checked)" style="accent-color:#1D4ED8"></td>
           <td style="font-weight:800">${e.user_name || '-'}</td>
           <td style="color:#6B7280">${e.dept_name || '-'}</td>
           <td style="text-align:center"><span style="font-size:10px;background:${e.enroll_type === 'self' ? '#D1FAE5' : '#EFF6FF'};color:${e.enroll_type === 'self' ? '#065F46' : '#1D4ED8'};padding:2px 8px;border-radius:6px;font-weight:700">${e.enroll_type === 'self' ? '자가신청' : '관리자'}</span></td>
@@ -283,4 +293,49 @@ async function _enRemove(idx) {
   if (!sb) return;
   await sb.from('edu_enrollments').delete().eq('id', e.id);
   renderEnrollmentMgmt();
+}
+
+// ─── ✨ 일괄 처리 로직 ───
+function _enToggleAllRows(checked) {
+  const checkboxes = document.querySelectorAll('.en-chk-row');
+  checkboxes.forEach(cb => {
+    cb.checked = checked;
+    if (checked) _enSelectedRows.add(cb.value);
+    else _enSelectedRows.delete(cb.value);
+  });
+}
+
+function _enToggleRow(id, checked) {
+  if (checked) _enSelectedRows.add(id);
+  else _enSelectedRows.delete(id);
+
+  const allCb = document.getElementById('en-chk-all');
+  if (allCb) {
+    const checkboxes = document.querySelectorAll('.en-chk-row');
+    allCb.checked = Array.from(checkboxes).every(cb => cb.checked);
+  }
+}
+
+async function _enBulkUpdateStatus(status) {
+  if (_enSelectedRows.size === 0) {
+    alert('처리할 학습자를 왼쪽 체크박스로 선택해주세요.');
+    return;
+  }
+
+  const statusLabel = { completed: '이수', no_show: '미이수' };
+  if (!confirm(`선택한 ${_enSelectedRows.size}명의 학습자를 일괄 [${statusLabel[status]}] 처리하시겠습니까?`)) return;
+
+  const sb = getSB();
+  if (!sb) return;
+  const ids = Array.from(_enSelectedRows);
+
+  try {
+    const { error } = await sb.from('edu_enrollments').update({ status }).in('id', ids);
+    if (error) throw error;
+    alert(`${ids.length}명 일괄 처리가 완료되었습니다.`);
+    _enSelectedRows.clear();
+    renderEnrollmentMgmt();
+  } catch (e) {
+    alert('일괄 업데이트 실패: ' + e.message);
+  }
 }

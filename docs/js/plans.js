@@ -439,6 +439,8 @@ function _renderPlanDetailView(plan) {
           </tr>
         </table>
       </div>
+      <!-- 결재/검토 진행현황 -->
+      ${typeof renderApprovalStepper === 'function' ? renderApprovalStepper(st, 'plan') : ''}
       <!-- 액션 -->
       <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6">
         <button onclick="_viewingPlanDetail=null;renderPlans()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">← 목록으로</button>

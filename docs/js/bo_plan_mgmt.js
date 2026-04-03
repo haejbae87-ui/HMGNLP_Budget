@@ -207,6 +207,9 @@ function _renderBoPlanDetail(el, plan) {
         </table>
       </div>
 
+      <!-- 결재/검토 진행현황 -->
+      ${typeof renderApprovalStepper === 'function' ? renderApprovalStepper(status, 'plan') : ''}
+
       <!-- 산출근거 -->
       ${d.calcGrounds && d.calcGrounds.length > 0 ? `
       <div style="padding:0 28px 24px">

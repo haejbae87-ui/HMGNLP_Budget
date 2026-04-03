@@ -93,12 +93,18 @@ function isLearnerTargetType(persona, purposeId) {
 function _resolveVorgId(persona) {
   const domains = typeof VORG_TEMPLATES !== 'undefined' ? VORG_TEMPLATES
     : typeof EDU_SUPPORT_DOMAINS !== 'undefined' ? EDU_SUPPORT_DOMAINS : [];
-  if (!domains.length) return null;
+  if (!persona.vorgId) return null;
+  if (!domains.length) {
+    // VORG_TEMPLATES 미로드: persona.vorgId가 이미 DB TPL id 형식이면 그대로 반환
+    return persona.vorgId;
+  }
+  // code 또는 id로 매칭
   const byCode = domains.find(g =>
     g.code === persona.vorgId ||
-    g.id === persona.vorgId
+    g.id === persona.vorgId          // persona.vorgId가 이미 TPL id인 경우 직접 매칭
   );
-  return byCode?.id || null;
+  // 매칭 없으면 persona.vorgId를 그대로 사용 (TPL id를 직접 설정한 경우)
+  return byCode?.id || persona.vorgId;
 }
 
 // 페르소나의 VOrg + 테넌트에 해당하는 활성 정책 목록 (SERVICE_POLICIES DB 기반 전용)

@@ -11,7 +11,7 @@ const PERSONAS = {
     company: '현대자동차', tenantId: 'HMC',
     role: 'team_general', jobType: '일반직',
     orgId: '25b3b685-594d-426a-9016-ae63c6266d7f', // 역량혁신팀 (DB)
-    vorgId: 'HMC-GENERAL',
+    vorgId: 'TPL_1774867919831',  // HMC 일반교육예산 가상교육조직 (DB id 직접 참조)
     desc: '일반예산(운영/기타) 활용 교육담당자. 운영·기타 계정으로 교육계획 수립 후 신청.',
     // allowedAccounts, budgets → fo_persona_loader.js가 DB에서 로드
     allowedAccounts: [], budgets: [] // DB 로드 전 빈 배열 (fallback)
@@ -23,7 +23,7 @@ const PERSONAS = {
     role: 'learner', jobType: '연구직',
     orgId: '1510fb8a-f5bb-42e0-b1dc-cbdfc4181745',  // 내구기술팀 (DB)
     orgHqId: '0cea84e6-3821-45e1-9e0c-e232af019a1d', // 연구개발본부 (shared 모드 대비)
-    vorgId: 'HMC-RND',
+    vorgId: 'TPL_1774870843727',  // HMC R&D교육예산 가상교육조직 (DB id 직접 참조)
     desc: '내구기술팀 연구직 학습자. 연구개발본부 소속. DB에서 계정·잔액 동적 로드.',
     allowedAccounts: [], budgets: [] // DB 로드 전 빈 배열 (fallback)
   },

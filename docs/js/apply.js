@@ -91,7 +91,20 @@ function _renderResultForm() {
 
   // Step 1: 교육 정보
   if (s.step === 1) {
-    body = `
+    // BO form_templates 다이나믹 렌더링 시도
+    const dyHtml = (s.formTemplate && s.formTemplate.fields && s.formTemplate.fields.length > 0
+      && typeof renderDynamicFormFields === 'function')
+      ? renderDynamicFormFields(s.formTemplate.fields, s, '_resultState') : '';
+
+    if (dyHtml) {
+      const tplBadge = s.formTemplate.name
+        ? `<div style="margin-bottom:14px;padding:8px 14px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;font-size:11px;font-weight:700;color:#1D4ED8">📋 양식: ${s.formTemplate.name}</div>` : '';
+      body = `<h2 style="font-size:15px;font-weight:900;margin-bottom:16px">01. 교육 정보 입력</h2>${tplBadge}${dyHtml}`;
+    } else if (s.formTemplateLoading) {
+      body = `<h2 style="font-size:15px;font-weight:900;margin-bottom:16px">01. 교육 정보 입력</h2>
+        <div style="padding:32px;text-align:center;color:#6B7280;font-size:14px;font-weight:600"><div style="font-size:28px;margin-bottom:8px">⌛</div>양식 로딩 중...</div>`;
+    } else {
+      body = `
     <h2 style="font-size:15px;font-weight:900;margin-bottom:16px">01. 교육 정보 입력</h2>
     <div style="display:grid;gap:14px">
       <div>
@@ -125,6 +138,7 @@ function _renderResultForm() {
         </div>
       </div>
     </div>`;
+    }
   }
 
   // Step 2: 비용 정보 (후정산 여부 선택)
@@ -934,6 +948,22 @@ ${policyBudgets.map(b => {
       </div>
 
       <div class="space-y-5">
+        ${(() => {
+      // BO 양식이 로드된 경우 → 동적 렌더링
+      if (s.formTemplate && s.formTemplate.fields && s.formTemplate.fields.length > 0) {
+        const dynamicHtml = (typeof renderDynamicFormFields === 'function')
+          ? renderDynamicFormFields(s.formTemplate.fields, s, 'applyState') : '';
+        if (dynamicHtml) {
+          const tplBadge = s.formTemplate.name
+            ? `<div style="margin-bottom:16px;padding:8px 14px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;font-size:11px;font-weight:700;color:#1D4ED8">📋 양식: ${s.formTemplate.name}</div>` : '';
+          return tplBadge + dynamicHtml;
+        }
+      }
+      if (s.formTemplateLoading) {
+        return `<div style="padding:32px;text-align:center;color:#6B7280;font-size:14px;font-weight:600"><div style="font-size:28px;margin-bottom:8px">⌛</div>양식 로딩 중...</div>`;
+      }
+      // ── Fallback: 양식 미설정 ──
+      return `
         <!-- Region toggle -->
         <div class="inline-flex bg-gray-100 rounded-xl p-1">
           <button onclick="applyState.region='domestic';renderApply()" class="px-5 py-2 rounded-lg text-sm font-bold transition ${s.region === 'domestic' ? 'bg-white text-accent shadow' : ' text-gray-500'}">🗺 국내</button>
@@ -960,7 +990,8 @@ ${policyBudgets.map(b => {
         <div>
           <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">학습 내용 <span class="text-red-500">*</span></label>
           <textarea oninput="applyState.content=this.value" rows="3" placeholder="학습 목표, 주요 커리큘럼 및 활용 방안을 입력하세요." class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-medium text-gray-700 focus:border-accent focus:bg-white transition resize-none">${s.content}</textarea>
-        </div>
+        </div>`;
+    })()}
 
         <!-- Cost section -->
         ${s.useBudget === true ? `
@@ -1241,6 +1272,35 @@ function applyNext() {
     s.step = 4; // R&D: 교육유형 건너뜀 → 바로 세부정보
   } else {
     s.step = Math.min(s.step + 1, 4);
+  }
+  // Step4 진입 시 BO form_template 비동기 로드
+  const nextStep = s.step;
+  if (nextStep === 4 && !s.formTemplate) {
+    s.formTemplateLoading = true;
+    renderApply();
+    const policies = (typeof _getActivePolicies === 'function')
+      ? (_getActivePolicies(currentPersona)?.policies || []) : [];
+    const purposeId = s.purpose?.id;
+    const accCode = (() => {
+      const budgets = currentPersona?.budgets || [];
+      const b = budgets.find(x => x.id === s.budgetId);
+      return b?.accountCode || b?.account_code || null;
+    })();
+    const matched = policies.find(p => {
+      const acc = p.account_codes || p.accountCodes || [];
+      return (!purposeId || p.purpose === purposeId) && (!accCode || acc.includes(accCode));
+    }) || policies.find(p => (p.account_codes || p.accountCodes || []).includes(accCode))
+      || policies[0] || null;
+    (async () => {
+      let tpl = null;
+      if (matched && typeof getFoFormTemplate === 'function') {
+        tpl = await getFoFormTemplate(matched, 'apply');
+      }
+      s.formTemplate = tpl || null;
+      s.formTemplateLoading = false;
+      renderApply();
+    })();
+    return;
   }
   renderApply();
 }

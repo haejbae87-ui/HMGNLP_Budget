@@ -1058,6 +1058,43 @@ function renderPolicyWizard() {
           </div>`).join('')}
         </div>
       </div>
+      <!-- 🔍 결재 후 검토자 -->
+      ${(() => {
+          const rv = c.reviewers || [];
+          const maxReviewers = 2;
+          const canAdd = rv.length < maxReviewers;
+          const roleLabel = (r) => r.role === 'first' ? '1차 검토자' : '최종 검토자';
+          const roleIcon = (r) => r.role === 'first' ? '👤' : '🏛️';
+          const sourceLabel = (r) => r.sourceType === 'vorg_manager' ? '가상조직 담당자' : r.sourceType === 'global_admin' ? '총괄담당자' : '수동 지정';
+          return `
+      <div style="border-top:1px dashed #E5E7EB;padding-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <label style="font-size:11px;font-weight:800;color:#374151;display:flex;align-items:center;gap:6px">
+            🔍 ${stageLabel[s]} 결재 후 검토자
+            <span style="font-size:9px;padding:1px 7px;border-radius:8px;background:#FEF3C7;color:#92400E;font-weight:700">${rv.length}/${maxReviewers}</span>
+          </label>
+          ${canAdd ? `<button onclick="_addStageReviewer('${s}')" style="font-size:11px;padding:5px 12px;border-radius:8px;border:1.5px solid #D97706;color:#D97706;background:white;cursor:pointer;font-weight:700">+ 검토자 추가</button>` : `<span style="font-size:10px;color:#9CA3AF;font-weight:700">최대 ${maxReviewers}명</span>`}
+        </div>
+        <div style="display:grid;gap:8px">
+          ${rv.length === 0 ? `
+          <div style="padding:14px;text-align:center;background:#FFFBEB;border:1px dashed #FDE68A;border-radius:8px;color:#92400E;font-size:11px">
+            검토자 없음 — 결재 승인 후 별도 검토 없이 처리됩니다.
+          </div>` :
+              rv.map((r, ri) => `
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${r.role === 'final' ? '#EFF6FF' : '#FEF3C7'};border:1.5px solid ${r.role === 'final' ? '#BFDBFE' : '#FDE68A'};border-radius:10px">
+            <span style="font-size:18px">${roleIcon(r)}</span>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:900;color:${r.role === 'final' ? '#1D4ED8' : '#D97706'}">${roleLabel(r)}</div>
+              <div style="font-size:11px;color:#6B7280;margin-top:1px">
+                ${r.userName || '미지정'}
+                <span style="font-size:9px;padding:1px 6px;border-radius:4px;background:${r.role === 'final' ? '#DBEAFE' : '#FEF3C7'};color:${r.role === 'final' ? '#1E40AF' : '#92400E'};font-weight:700;margin-left:4px">${sourceLabel(r)}</span>
+              </div>
+            </div>
+            <button onclick="_removeStageReviewer('${s}',${ri})" style="padding:5px 10px;border-radius:8px;border:1.5px solid #FCA5A5;color:#DC2626;background:white;cursor:pointer;font-size:10px;font-weight:700">삭제</button>
+          </div>`).join('')}
+        </div>
+      </div>`;
+        })()}
     </div>
   </div>`;
     }).join('')}
@@ -1138,6 +1175,56 @@ function _addStageThreshold(stage) {
 }
 function _removeStageThreshold(stage, i) {
   _policyWizardData.approvalConfig[stage].thresholds.splice(i, 1);
+  _policyWizardData._approvalTab = stage;
+  renderPolicyWizard();
+}
+// ── 검토자 추가/삭제 헬퍼 ─────────────────────────────────────────────────
+function _addStageReviewer(stage) {
+  if (!_policyWizardData.approvalConfig) _policyWizardData.approvalConfig = {};
+  if (!_policyWizardData.approvalConfig[stage]) _policyWizardData.approvalConfig[stage] = { thresholds: [], approvalType: 'platform' };
+  const cfg = _policyWizardData.approvalConfig[stage];
+  if (!cfg.reviewers) cfg.reviewers = [];
+  if (cfg.reviewers.length >= 2) return; // 최대 2명
+
+  // 자동 매핑: 가상조직 담당자 + 총괄담당자
+  const vorgId = _policyWizardData.vorgTemplateId || '';
+  const _vorgList = typeof _pbTplList !== 'undefined' ? _pbTplList : [];
+  const vorg = _vorgList.find(v => v.id === vorgId);
+  const acctCodes = _policyWizardData.accountCodes || [];
+  const _igList = typeof ISOLATION_GROUPS !== 'undefined' ? ISOLATION_GROUPS : [];
+  // 총괄담당자: isolation_group의 global_admin_key
+  const ig = _igList.find(g => (g.owned_accounts || []).some(a => acctCodes.includes(a)));
+
+  if (cfg.reviewers.length === 0) {
+    // 첫 추가 → 최종 검토자 (총괄담당자)
+    const globalAdminKey = ig?.global_admin_key || '';
+    const adminPersona = globalAdminKey && typeof BO_PERSONAS !== 'undefined' ? BO_PERSONAS[globalAdminKey] : null;
+    cfg.reviewers.push({
+      role: 'final', sourceType: 'global_admin',
+      userId: globalAdminKey, userName: adminPersona?.name || globalAdminKey || '(미지정)',
+    });
+  } else if (cfg.reviewers.length === 1) {
+    // 두번째 추가 → 기존 최종을 1차로 변경, 새 최종 = 가상조직 담당자
+    // 먼저 기존 최종의 role을 first로 변경하고 source를 global_admin으로 유지
+    // 새 1차 = 가상조직 담당자
+    const vorgManager = vorg?.head_manager_user || null;
+    const newFirst = {
+      role: 'first', sourceType: 'vorg_manager',
+      userId: vorgManager?.id || '', userName: vorgManager?.name || '(가상조직 담당자 미설정)',
+    };
+    // 기존 최종은 그대로 유지
+    cfg.reviewers.unshift(newFirst); // 1차를 앞에 삽입
+  }
+
+  _policyWizardData._approvalTab = stage;
+  renderPolicyWizard();
+}
+function _removeStageReviewer(stage, idx) {
+  const cfg = _policyWizardData.approvalConfig?.[stage];
+  if (!cfg || !cfg.reviewers) return;
+  cfg.reviewers.splice(idx, 1);
+  // 1명 남았을 때 role을 final로 보정
+  if (cfg.reviewers.length === 1) cfg.reviewers[0].role = 'final';
   _policyWizardData._approvalTab = stage;
   renderPolicyWizard();
 }

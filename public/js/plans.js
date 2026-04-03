@@ -1056,7 +1056,34 @@ async function resumePlanDraft(planId) {
       }
     }
 
-    planState.step = 4; // 양식 작성 단계로 이동
+    planState.step = 4;
+
+    // ★ step 4 진입 시 formTemplate 비동기 로드 (정상 위저드 흐름과 동일)
+    planState.formTemplateLoading = true;
+    renderPlans(); // 로딩 중 표시
+
+    const policies = (typeof _getActivePolicies === 'function')
+      ? (_getActivePolicies(currentPersona)?.policies || []) : [];
+    const rPurposeId = planState.purpose?.id;
+    const rAccCode = data.account_code || planState.accountCode || (() => {
+      const budgets = currentPersona?.budgets || [];
+      const b = budgets.find(x => x.id === planState.budgetId);
+      return b?.accountCode || b?.account_code || null;
+    })();
+    const rMatched = policies.find(p => {
+      const acc = p.account_codes || p.accountCodes || [];
+      return (!rPurposeId || p.purpose === rPurposeId) && (!rAccCode || acc.includes(rAccCode));
+    }) || policies.find(p => (p.account_codes || p.accountCodes || []).includes(rAccCode))
+      || policies[0] || null;
+
+    if (rMatched) planState.policyId = rMatched.id;
+
+    let tpl = null;
+    if (rMatched && typeof getFoFormTemplate === 'function') {
+      tpl = await getFoFormTemplate(rMatched, 'plan');
+    }
+    planState.formTemplate = tpl || null;
+    planState.formTemplateLoading = false;
     renderPlans();
   } catch (err) { alert('불러오기 실패: ' + err.message); }
 }

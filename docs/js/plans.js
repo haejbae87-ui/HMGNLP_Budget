@@ -1026,6 +1026,7 @@ async function resumePlanDraft(planId) {
     planState.title = data.edu_name || '';
     planState.eduType = data.edu_type || data.detail?.eduType || '';
     planState.eduSubType = data.detail?.eduSubType || '';
+    planState.subType = data.detail?.eduSubType || '';
     planState.amount = data.amount || '';
     planState.content = data.detail?.content || '';
     planState.startDate = data.detail?.startDate || '';
@@ -1033,7 +1034,28 @@ async function resumePlanDraft(planId) {
     planState.budgetId = data.detail?.budgetId || '';
     planState.calcGrounds = data.detail?.calcGrounds || [];
     planState.policyId = data.policy_id || null;
-    if (data.detail?.purpose) planState.purpose = { id: data.detail.purpose };
+    planState.region = data.detail?.region || 'domestic';
+    planState.accountCode = data.account_code || '';
+
+    // ★ purpose 복원: PURPOSES 배열에서 id로 풀 오브젝트 매칭
+    const purposeId = data.detail?.purpose;
+    if (purposeId) {
+      const PURPOSES_ARR = typeof PURPOSES !== 'undefined' ? PURPOSES : [];
+      const matched = PURPOSES_ARR.find(p => p.id === purposeId);
+      if (matched) {
+        planState.purpose = matched;
+      } else {
+        // 폴백: EDU_PURPOSE_GROUPS에서 찾기
+        const groups = typeof EDU_PURPOSE_GROUPS !== 'undefined' ? EDU_PURPOSE_GROUPS : [];
+        for (const g of groups) {
+          const found = (g.items || g.purposes || []).find(p => p.id === purposeId);
+          if (found) { planState.purpose = found; break; }
+        }
+        // 최종 폴백: id만이라도 설정
+        if (!planState.purpose) planState.purpose = { id: purposeId, label: purposeId };
+      }
+    }
+
     planState.step = 4; // 양식 작성 단계로 이동
     renderPlans();
   } catch (err) { alert('불러오기 실패: ' + err.message); }

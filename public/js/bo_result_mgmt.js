@@ -100,28 +100,29 @@ let _resultMgmtData = null;
 
 async function renderResultMgmt() {
   const el = document.getElementById('bo-content');
-  const sb = typeof getSB === 'function' ? getSB() : null;
+  try {
+    const sb = typeof getSB === 'function' ? getSB() : null;
 
-  // DB에서 결과(status=completed) 조회
-  if (!_resultMgmtData && sb) {
-    try {
-      const tenantId = boCurrentPersona?.tenantId || 'HMC';
-      const { data, error } = await sb.from('applications').select('*')
-        .eq('tenant_id', tenantId)
-        .eq('status', 'completed')
-        .order('created_at', { ascending: false });
-      if (!error) _resultMgmtData = data || [];
-    } catch (err) {
-      console.error('[renderResultMgmt] DB 조회 실패:', err.message);
-      _resultMgmtData = [];
+    // DB에서 결과(status=completed) 조회
+    if (!_resultMgmtData && sb) {
+      try {
+        const tenantId = boCurrentPersona?.tenantId || 'HMC';
+        const { data, error } = await sb.from('applications').select('*')
+          .eq('tenant_id', tenantId)
+          .eq('status', 'completed')
+          .order('created_at', { ascending: false });
+        if (!error) _resultMgmtData = data || [];
+      } catch (err) {
+        console.error('[renderResultMgmt] DB 조회 실패:', err.message);
+        _resultMgmtData = [];
+      }
     }
-  }
 
-  const results = _boApplyEduFilter(_resultMgmtData || []);
+    const results = _boApplyEduFilter(_resultMgmtData || []);
 
-  const rows = results.map(r => {
-    const amt = Number(r.amount || 0);
-    return `
+    const rows = results.map(r => {
+      const amt = Number(r.amount || 0);
+      return `
     <tr>
       <td><code style="font-size:11px;background:#F3F4F6;padding:2px 6px;border-radius:4px">${r.id}</code></td>
       <td style="font-weight:700">${r.applicant_name || ''}</td>
@@ -133,9 +134,9 @@ async function renderResultMgmt() {
       <td style="font-size:12px;color:#6B7280">${r.created_at?.slice(0, 10) || ''}</td>
       <td><span style="font-size:10px;padding:2px 8px;border-radius:6px;background:#D1FAE5;color:#059669;font-weight:800">완료</span></td>
     </tr>`;
-  }).join('');
+    }).join('');
 
-  el.innerHTML = `
+    el.innerHTML = `
 <div class="bo-fade">
   ${typeof boIsolationGroupBanner === 'function' ? boIsolationGroupBanner() : ''}
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
@@ -167,4 +168,12 @@ async function renderResultMgmt() {
     </div>`}
   </div>
 </div>`;
+  } catch (err) {
+    console.error('[renderResultMgmt] 렌더링 에러:', err);
+    el.innerHTML = `<div class="bo-fade" style="padding:40px;text-align:center;color:#EF4444">
+      <h2>📄 교육결과 관리 로드 실패</h2>
+      <p style="font-size:13px">${err.message}</p>
+      <button onclick="_resultMgmtData=null;renderResultMgmt()" class="bo-btn-primary" style="margin-top:12px">🔄 재시도</button>
+    </div>`;
+  }
 }

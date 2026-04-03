@@ -118,7 +118,7 @@ function resetPlanState() {
     step: 1,
     purpose: null,
     subType: '',
-    eduType: '',      // 교육유형 트리 상위 노드 ID
+    eduType: '',
     budgetId: '',
     region: 'domestic',
     title: '',
@@ -126,8 +126,10 @@ function resetPlanState() {
     endDate: '',
     amount: '',
     content: '',
-    calcGrounds: [],          // [{ itemId, qty, unitPrice, total, limitOverrideReason }]
+    calcGrounds: [],
     hardLimitViolated: false,
+    editId: null,       // 임시저장 편집 ID
+    confirmMode: false, // 작성확인 화면 모드
   };
 }
 
@@ -139,7 +141,7 @@ let _planYear = new Date().getFullYear(); // 연도 필터
 let _dbMyPlans = [];
 let _plansDbLoaded = false;
 function _mapDbStatus(s) {
-  const m = { pending: '신청중', approved: '진행중', completed: '완료', rejected: '반려' };
+  const m = { draft: '작성중', pending: '신청중', approved: '진행중', completed: '완료', rejected: '반려', cancelled: '취소' };
   return m[s] || s || '신청중';
 }
 
@@ -150,6 +152,8 @@ function renderPlans() {
     return;
   }
 
+  // 작성확인 화면
+  if (planState && planState.confirmMode) { renderPlanConfirm(); return; }
   // 위저드 뷰
   if (planState) { renderPlanWizard(); return; }
 
@@ -188,6 +192,7 @@ function renderPlans() {
     active: plans.filter(p => p.status === '진행중' || p.status === '신청중').length,
     done: plans.filter(p => p.status === '완료').length,
     rejected: plans.filter(p => p.status === '반려').length,
+    draft: plans.filter(p => p.status === '작성중').length,
   };
 
   // 연도 선택
@@ -280,14 +285,30 @@ function _getSampleTeamPlans() {
 function _renderPlanCard(p) {
   const STATUS_CFG = {
     '승인완료': { color: '#059669', bg: '#F0FDF4', border: '#BBF7D0', icon: '✅' },
+    '진행중': { color: '#059669', bg: '#F0FDF4', border: '#BBF7D0', icon: '✅' },
     '반려': { color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', icon: '❌' },
     '결재진행중': { color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', icon: '⏳' },
+    '신청중': { color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', icon: '⏳' },
     '승인대기': { color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB', icon: '🕐' },
     '작성중': { color: '#0369A1', bg: '#EFF6FF', border: '#BFDBFE', icon: '📝' },
+    '취소': { color: '#9CA3AF', bg: '#F9FAFB', border: '#E5E7EB', icon: '🚫' },
   };
-  const status = p.status || '승인완료'; // 목데이터에 status가 없는 경우 기본값 부여
+  const status = p.status || '승인완료';
   const cfg = STATUS_CFG[status] || STATUS_CFG['승인대기'];
   const authorBadge = p.author ? `<span style="font-size:10px;background:#E5E7EB;color:#374151;padding:2px 8px;border-radius:10px;margin-left:6px">👤 ${p.author}</span>` : '';
+  const isDraft = status === '작성중';
+  const isPending = status === '신청중' || status === '결재진행중';
+  const safeId = String(p.id || '').replace(/'/g, "\\'");
+  const actionBtns = isDraft
+    ? `<div style="display:flex;gap:6px;margin-top:8px">
+        <button onclick="resumePlanDraft('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:#0369A1;color:white;border:none;cursor:pointer">✏️ 이어쓰기</button>
+        <button onclick="deletePlanDraft('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#DC2626;border:1.5px solid #FECACA;cursor:pointer">🗑 삭제</button>
+       </div>`
+    : isPending
+      ? `<div style="margin-top:8px">
+        <button onclick="cancelPlan('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#DC2626;border:1.5px solid #FECACA;cursor:pointer">취소 요청</button>
+       </div>`
+      : '';
 
   return `
     <div style="display:flex;align-items:flex-start;gap:16px;padding:18px 20px;border-radius:14px;
@@ -300,9 +321,10 @@ function _renderPlanCard(p) {
           ${authorBadge}
         </div>
         <div style="font-size:11px;color:#6B7280;display:flex;gap:12px;flex-wrap:wrap">
-          <span>💳 ${p.account} 예산</span>
+          <span>💳 ${p.account || '-'} 예산</span>
           <span>💰 ${(p.amount || 0).toLocaleString()}원</span>
         </div>
+        ${actionBtns}
       </div>
     </div>`;
 }
@@ -656,9 +678,12 @@ function renderPlanWizard() {
       <button onclick="planPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
       <div class="flex gap-3">
         <button onclick="closePlanWizard()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">취소</button>
+        <button onclick="savePlanDraft()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-blue-200 text-blue-700 hover:bg-blue-50 transition">
+          💾 임시저장
+        </button>
         <button onclick="savePlan()" ${s.hardLimitViolated ? 'disabled' : ''}
           class="px-10 py-3 rounded-xl font-black text-sm transition shadow-lg ${s.hardLimitViolated ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-brand text-white hover:bg-blue-900'}">
-          계획 저장 ✓
+          제출 →
         </button>
       </div>
   </div>
@@ -725,19 +750,126 @@ function planPrev() {
   renderPlanWizard();
 }
 
-async function savePlan() {
+// ─── 임시저장 ──────────────────────────────────────────────────────────────
+async function savePlanDraft() {
   const total = _calcGroundsTotal();
   const amount = total || Number(planState.amount || 0);
-  const budgetStr = fmt(amount);
   const curBudget = planState.budgetId
     ? (currentPersona.budgets || []).find(b => b.id === planState.budgetId) : null;
   const accountCode = curBudget?.accountCode || _getPlanAccountCode(curBudget) || '';
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 실패'); return; }
+  try {
+    const planId = planState.editId || `DRAFT-${Date.now()}`;
+    const row = {
+      id: planId, tenant_id: currentPersona.tenantId, account_code: accountCode,
+      applicant_id: currentPersona.id, applicant_name: currentPersona.name,
+      edu_name: planState.title || planState.eduTypeName || '교육계획',
+      edu_type: planState.eduType || planState.eduSubType || null,
+      amount: amount, status: 'draft', policy_id: planState.policyId || null,
+      detail: {
+        purpose: planState.purpose?.id || null, budgetId: planState.budgetId || null,
+        eduType: planState.eduType, eduSubType: planState.eduSubType,
+        calcGrounds: planState.calcGrounds || [], period: planState.period || null,
+        institution: planState.institution || null, notes: planState.notes || null,
+        dept: currentPersona.dept, content: planState.content || '',
+        startDate: planState.startDate || '', endDate: planState.endDate || '',
+      },
+    };
+    const { error } = await sb.from('plans').upsert(row, { onConflict: 'id' });
+    if (error) throw error;
+    planState.editId = planId;
+    alert('💾 임시저장되었습니다.\n\n목록에서 이어쓰기할 수 있습니다.');
+    console.log(`[savePlanDraft] 임시저장 성공: ${planId}`);
+  } catch (err) {
+    alert('임시저장 실패: ' + err.message);
+    console.error('[savePlanDraft] 실패:', err.message);
+  }
+}
 
-  // DB 저장
+// ─── 제출 → 작성확인 화면 ─────────────────────────────────────────────────
+function savePlan() {
+  if (!planState.title) { alert('계획명을 입력해주세요.'); return; }
+  planState.confirmMode = true;
+  renderPlans();
+}
+
+// ─── 작성확인 화면 렌더링 ──────────────────────────────────────────────────
+function renderPlanConfirm() {
+  const s = planState;
+  const total = typeof _calcGroundsTotal === 'function' ? _calcGroundsTotal() : 0;
+  const amount = total || Number(s.amount || 0);
+  const curBudget = s.budgetId
+    ? (currentPersona.budgets || []).find(b => b.id === s.budgetId) : null;
+  const accountCode = curBudget?.accountCode || (typeof _getPlanAccountCode === 'function' ? _getPlanAccountCode(curBudget) : '') || '';
+  const purposeLabel = s.purpose?.label || s.purpose?.id || '-';
+
+  document.getElementById('page-plans').innerHTML = `
+  <div class="max-w-3xl mx-auto">
+    <div style="background:white;border-radius:20px;border:1.5px solid #E5E7EB;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.08)">
+      <!-- 헤더 -->
+      <div style="padding:24px 28px;background:linear-gradient(135deg,#002C5F,#0369A1);color:white">
+        <div style="font-size:11px;font-weight:700;opacity:.7;margin-bottom:4px">✅ 작성 확인</div>
+        <h2 style="margin:0;font-size:20px;font-weight:900">교육계획 제출 전 확인</h2>
+        <p style="margin:6px 0 0;font-size:12px;opacity:.8">아래 내용을 확인한 후 확정하면 결재라인으로 전달됩니다.</p>
+      </div>
+      <!-- 요약 -->
+      <div style="padding:24px 28px">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <tr style="border-bottom:1px solid #F3F4F6">
+            <td style="padding:12px 0;font-weight:800;color:#6B7280;width:120px">계획명</td>
+            <td style="padding:12px 0;font-weight:900;color:#111827">${s.title || '-'}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #F3F4F6">
+            <td style="padding:12px 0;font-weight:800;color:#6B7280">교육목적</td>
+            <td style="padding:12px 0;color:#374151">${purposeLabel}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #F3F4F6">
+            <td style="padding:12px 0;font-weight:800;color:#6B7280">교육유형</td>
+            <td style="padding:12px 0;color:#374151">${s.eduType || '-'} ${s.eduSubType ? '> ' + s.eduSubType : ''}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #F3F4F6">
+            <td style="padding:12px 0;font-weight:800;color:#6B7280">예산계정</td>
+            <td style="padding:12px 0;color:#374151">${accountCode || '-'}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #F3F4F6">
+            <td style="padding:12px 0;font-weight:800;color:#6B7280">계획액</td>
+            <td style="padding:12px 0;font-weight:900;color:#002C5F;font-size:16px">${amount.toLocaleString()}원</td>
+          </tr>
+          <tr style="border-bottom:1px solid #F3F4F6">
+            <td style="padding:12px 0;font-weight:800;color:#6B7280">기간</td>
+            <td style="padding:12px 0;color:#374151">${s.startDate || '-'} ~ ${s.endDate || '-'}</td>
+          </tr>
+          <tr>
+            <td style="padding:12px 0;font-weight:800;color:#6B7280;vertical-align:top">상세 내용</td>
+            <td style="padding:12px 0;color:#374151;white-space:pre-wrap">${s.content || '-'}</td>
+          </tr>
+        </table>
+
+        <div style="margin-top:20px;padding:12px 16px;background:#FEF3C7;border-radius:10px;border:1.5px solid #FDE68A;font-size:12px;color:#92400E">
+          ⚠️ 제출 후에는 결재라인이 자동 구성되며, 상위 승인자가 취소하기 전까지 취소가 불가합니다.
+        </div>
+      </div>
+      <!-- 버튼 -->
+      <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6">
+        <button onclick="planState.confirmMode=false;renderPlans()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">← 수정하기</button>
+        <button onclick="confirmPlan()" style="padding:10px 28px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#002C5F;color:white;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">✅ 확정 제출</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ─── 확정 제출 ─────────────────────────────────────────────────────────────
+async function confirmPlan() {
+  const total = typeof _calcGroundsTotal === 'function' ? _calcGroundsTotal() : 0;
+  const amount = total || Number(planState.amount || 0);
+  const curBudget = planState.budgetId
+    ? (currentPersona.budgets || []).find(b => b.id === planState.budgetId) : null;
+  const accountCode = curBudget?.accountCode || (typeof _getPlanAccountCode === 'function' ? _getPlanAccountCode(curBudget) : '') || '';
   const sb = typeof getSB === 'function' ? getSB() : null;
   if (sb) {
     try {
-      const planId = `PLAN-${Date.now()}`;
+      const planId = planState.editId || `PLAN-${Date.now()}`;
       const row = {
         id: planId, tenant_id: currentPersona.tenantId, account_code: accountCode,
         applicant_id: currentPersona.id, applicant_name: currentPersona.name,
@@ -749,22 +881,84 @@ async function savePlan() {
           eduType: planState.eduType, eduSubType: planState.eduSubType,
           calcGrounds: planState.calcGrounds || [], period: planState.period || null,
           institution: planState.institution || null, notes: planState.notes || null,
-          dept: currentPersona.dept,
+          dept: currentPersona.dept, content: planState.content || '',
         },
       };
-      const { error } = await sb.from('plans').insert(row);
+      const { error } = await sb.from('plans').upsert(row, { onConflict: 'id' });
       if (error) throw error;
-      console.log(`[savePlan] DB 저장 성공: ${planId}`);
+      console.log(`[confirmPlan] DB 제출 성공: ${planId}`);
     } catch (err) {
-      console.error('[savePlan] DB 저장 실패:', err.message);
+      alert('제출 실패: ' + err.message);
+      console.error('[confirmPlan] 실패:', err.message);
+      return;
     }
   }
-
-  alert(`✅ 교육계획이 상신되었습니다.\n\n계획액: ${budgetStr}원\n\n` +
-    `📋 승인 완료 시 이 계획은 '교육 실행의 증빙 근거'로 확정됩니다.\n` +
-    `⚠ 예산 할당(본부/팀별 분배)은 별도의 관리자 배분 절차를 통해 진행됩니다.\n\n` +
-    `담당자 검토 후 결재선이 자동 구성됩니다.`);
+  alert(`✅ 교육계획이 상신되었습니다.\n\n계획액: ${amount.toLocaleString()}원\n담당자 검토 후 결재선이 자동 구성됩니다.`);
   closePlanWizard();
+  _plansDbLoaded = false;
+  renderPlans();
+}
+
+// ─── 임시저장 이어쓰기 ─────────────────────────────────────────────────────
+async function resumePlanDraft(planId) {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) return;
+  try {
+    const { data, error } = await sb.from('plans').select('*').eq('id', planId).single();
+    if (error || !data) { alert('임시저장 건을 불러올 수 없습니다.'); return; }
+    planState = resetPlanState();
+    planState.editId = data.id;
+    planState.title = data.edu_name || '';
+    planState.eduType = data.edu_type || data.detail?.eduType || '';
+    planState.eduSubType = data.detail?.eduSubType || '';
+    planState.amount = data.amount || '';
+    planState.content = data.detail?.content || '';
+    planState.startDate = data.detail?.startDate || '';
+    planState.endDate = data.detail?.endDate || '';
+    planState.budgetId = data.detail?.budgetId || '';
+    planState.calcGrounds = data.detail?.calcGrounds || [];
+    planState.policyId = data.policy_id || null;
+    if (data.detail?.purpose) planState.purpose = { id: data.detail.purpose };
+    planState.step = 4; // 양식 작성 단계로 이동
+    renderPlans();
+  } catch (err) { alert('불러오기 실패: ' + err.message); }
+}
+
+// ─── 임시저장 삭제 ─────────────────────────────────────────────────────────
+async function deletePlanDraft(planId) {
+  if (!confirm('임시저장된 계획을 삭제하시겠습니까?')) return;
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (sb) {
+    try {
+      await sb.from('plans').delete().eq('id', planId).eq('status', 'draft');
+    } catch (err) { console.error('[deletePlanDraft]', err.message); }
+  }
+  _plansDbLoaded = false;
+  renderPlans();
+}
+
+// ─── 교육계획 취소 ─────────────────────────────────────────────────────────
+async function cancelPlan(planId) {
+  // 결재라인 체크 (추후 상세 로직 적용 예정)
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (sb) {
+    try {
+      const { data } = await sb.from('plans').select('status').eq('id', planId).single();
+      if (data?.status === 'approved') {
+        alert('⚠️ 이미 승인된 계획은 상위 승인자가 취소해야 합니다.\n\n결재라인 관리자에게 문의해주세요.');
+        return;
+      }
+    } catch (e) { /* pass */ }
+  }
+  if (!confirm('이 교육계획을 취소하시겠습니까?')) return;
+  if (sb) {
+    try {
+      const { error } = await sb.from('plans').update({ status: 'cancelled' }).eq('id', planId);
+      if (error) throw error;
+      alert('교육계획이 취소되었습니다.');
+    } catch (err) { alert('취소 실패: ' + err.message); return; }
+  }
+  _plansDbLoaded = false;
   renderPlans();
 }
 

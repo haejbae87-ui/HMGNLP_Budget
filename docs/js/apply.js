@@ -10,7 +10,9 @@ function _resetResultState() {
 
 function renderApply() {
   if (typeof applyViewMode === 'undefined') applyViewMode = 'list';
-  if (applyViewMode === 'form') {
+  if (applyState && applyState.confirmMode) {
+    _renderApplyConfirm();
+  } else if (applyViewMode === 'form') {
     _renderApplyForm();
   } else if (applyViewMode === 'resultForm') {
     _renderResultForm();
@@ -333,6 +335,8 @@ function _renderApplyList() {
     '반려': { color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', icon: '❌' },
     '결재진행중': { color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', icon: '⏳' },
     '승인대기': { color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB', icon: '🕐' },
+    '작성중': { color: '#0369A1', bg: '#EFF6FF', border: '#BFDBFE', icon: '📝' },
+    '취소': { color: '#9CA3AF', bg: '#F9FAFB', border: '#E5E7EB', icon: '🚫' },
   };
 
   const teamViewEnabled = currentPersona.teamViewEnabled ?? currentPersona.team_view_enabled ?? false;
@@ -351,8 +355,9 @@ function _renderApplyList() {
             id: d.id, title: d.edu_name, type: d.edu_type || '교육',
             date: d.created_at?.slice(0, 10) || '', endDate: d.created_at?.slice(0, 10) || '',
             hours: 0, amount: Number(d.amount || 0),
-            budget: d.account_code || '', applyStatus: _mapAppStatus(d.status),
+            budget: d.account_code || '', applyStatus: _mapAppDbStatus(d.status),
             resultDone: d.status === 'completed', author: d.applicant_name,
+            rawStatus: d.status,
           }));
         }
         _renderApplyList();
@@ -434,6 +439,11 @@ function _renderApplyList() {
         </div>` : ''}
       </div>
       <div style="flex-shrink:0;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        ${h.applyStatus === '작성중' ? `
+        <button onclick="resumeApplyDraft('${h.id.replace(/'/g, "\\\'")}')" style="padding:8px 14px;border-radius:8px;background:#0369A1;color:white;font-size:11px;font-weight:800;border:none;cursor:pointer;white-space:nowrap">✏️ 이어쓰기</button>
+        <button onclick="deleteApplyDraft('${h.id.replace(/'/g, "\\\'")}')" style="padding:8px 14px;border-radius:8px;background:white;color:#DC2626;font-size:11px;font-weight:800;border:1.5px solid #FECACA;cursor:pointer;white-space:nowrap">🗑 삭제</button>` : ''}
+        ${(h.applyStatus === '승인대기' || h.applyStatus === '결재진행중') ? `
+        <button onclick="cancelApply('${h.id.replace(/'/g, "\\\'")}')" style="padding:8px 14px;border-radius:8px;background:white;color:#DC2626;font-size:11px;font-weight:800;border:1.5px solid #FECACA;cursor:pointer;white-space:nowrap">취소 요청</button>` : ''}
         ${canResult && !h.resultDone ? `
         <button onclick="alert('교육결과 작성 기능 준비 중입니다.')"
           style="padding:8px 14px;border-radius:8px;background:#002C5F;color:white;font-size:11px;font-weight:800;border:none;cursor:pointer;white-space:nowrap">
@@ -1046,7 +1056,7 @@ ${policyBudgets.map(b => {
       <div class="flex justify-between mt-8 border-t border-gray-100 pt-6">
         <button onclick="applyPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
         <div class="flex gap-3">
-          <button class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">임시저장</button>
+          <button onclick="saveApplyDraft()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-blue-200 text-blue-700 hover:bg-blue-50 transition">💾 임시저장</button>
           <button onclick="submitApply()" ${over ? 'disabled' : ''}
             class="px-10 py-3 rounded-xl font-black text-sm transition shadow-lg ${over ? 'bg-gray-300 text-gray-400 cursor-not-allowed' : 'bg-brand text-white hover:bg-blue-900'}">
             신청서 제출 →
@@ -1106,21 +1116,69 @@ function applyPrev() { applyState.step = Math.max(applyState.step - 1, 1); rende
 function addExpRow() { applyState.expenses.push({ id: Date.now(), type: '교육비/등록비', price: 0, qty: 1 }); renderApply(); }
 function removeExpRow(i) { applyState.expenses.splice(i, 1); renderApply(); }
 async function submitApply() {
+  if (!applyState.eduName && !applyState.title) { alert('교육명을 입력해주세요.'); return; }
+  applyState.confirmMode = true;
+  renderApply();
+}
+
+// ─── 신청 작성확인 화면 ──────────────────────────────────────────
+function _renderApplyConfirm() {
+  const s = applyState;
+  const totalExp = s.expenses.reduce((sum, e) => sum + Number(e.price) * Number(e.qty), 0);
+  const curBudget = s.budgetId
+    ? (currentPersona.budgets || []).find(b => b.id === s.budgetId) : null;
+  const accountCode = curBudget?.accountCode || '';
+
+  document.getElementById('page-apply').innerHTML = `
+  <div class="max-w-3xl mx-auto">
+    <div style="background:white;border-radius:20px;border:1.5px solid #E5E7EB;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.08)">
+      <div style="padding:24px 28px;background:linear-gradient(135deg,#002C5F,#0369A1);color:white">
+        <div style="font-size:11px;font-weight:700;opacity:.7;margin-bottom:4px">✅ 작성 확인</div>
+        <h2 style="margin:0;font-size:20px;font-weight:900">교육신청 제출 전 확인</h2>
+        <p style="margin:6px 0 0;font-size:12px;opacity:.8">아래 내용을 확인한 후 확정하면 결재라인으로 전달됩니다.</p>
+      </div>
+      <div style="padding:24px 28px">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <tr style="border-bottom:1px solid #F3F4F6">
+            <td style="padding:12px 0;font-weight:800;color:#6B7280;width:120px">교육명</td>
+            <td style="padding:12px 0;font-weight:900;color:#111827">${s.eduName || s.title || '-'}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #F3F4F6">
+            <td style="padding:12px 0;font-weight:800;color:#6B7280">예산계정</td>
+            <td style="padding:12px 0;color:#374151">${accountCode || '-'}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #F3F4F6">
+            <td style="padding:12px 0;font-weight:800;color:#6B7280">신청 금액</td>
+            <td style="padding:12px 0;font-weight:900;color:#002C5F;font-size:16px">${totalExp.toLocaleString()}원</td>
+          </tr>
+          <tr style="border-bottom:1px solid #F3F4F6">
+            <td style="padding:12px 0;font-weight:800;color:#6B7280">교육등록비 내역</td>
+            <td style="padding:12px 0;color:#374151">${s.expenses.map(e => e.type + ' ' + Number(e.price).toLocaleString() + '원 x' + e.qty).join(', ') || '-'}</td>
+          </tr>
+        </table>
+        <div style="margin-top:20px;padding:12px 16px;background:#FEF3C7;border-radius:10px;border:1.5px solid #FDE68A;font-size:12px;color:#92400E">
+          ⚠️ 제출 후에는 결재라인이 자동 구성되며, 상위 승인자가 취소하기 전까지 취소가 불가합니다.
+        </div>
+      </div>
+      <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6">
+        <button onclick="applyState.confirmMode=false;renderApply()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">← 수정하기</button>
+        <button onclick="confirmApply()" style="padding:10px 28px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#002C5F;color:white;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">✅ 확정 제출</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ─── 신청 확정 제출 ────────────────────────────────────────────
+async function confirmApply() {
   const svc = typeof SERVICE_DEFINITIONS !== 'undefined' && applyState.serviceId
     ? SERVICE_DEFINITIONS.find(sv => sv.id === applyState.serviceId) : null;
-  const modeLabel = svc?.applyMode === 'reimbursement' ? '후정산형 신청' : '교육 신청';
-  const budgetNote = svc?.budgetLinked === false ? '\n\n📝 무예산 이력 등록으로 예산 잔액에는 영향을 주지 않습니다.'
-    : svc?.applyMode === 'reimbursement' ? '\n\n🧾 후정산 신청이 승인되면 예산에서 즉시 차감됩니다.'
-      : '\n\n💳 승인 시 예산이 가점유 처리됩니다.';
-
-  // DB 저장
   const sb = typeof getSB === 'function' ? getSB() : null;
   if (sb) {
     try {
       const curBudget = applyState.budgetId
         ? (currentPersona.budgets || []).find(b => b.id === applyState.budgetId) : null;
       const totalExp = applyState.expenses.reduce((sum, e) => sum + Number(e.price) * Number(e.qty), 0);
-      const appId = `APP-${Date.now()}`;
+      const appId = applyState.editId || `APP-${Date.now()}`;
       const row = {
         id: appId, tenant_id: currentPersona.tenantId,
         plan_id: applyState.planId || null,
@@ -1140,17 +1198,116 @@ async function submitApply() {
           applyMode: svc?.applyMode || null,
         },
       };
-      const { error } = await sb.from('applications').insert(row);
+      const { error } = await sb.from('applications').upsert(row, { onConflict: 'id' });
       if (error) throw error;
-      console.log(`[submitApply] DB 저장 성공: ${appId}`);
+      console.log(`[confirmApply] DB 제출 성공: ${appId}`);
     } catch (err) {
-      console.error('[submitApply] DB 저장 실패:', err.message);
+      alert('제출 실패: ' + err.message);
+      return;
     }
   }
-
-  alert(`✅ ${modeLabel}서가 성공적으로 제출되었습니다.${budgetNote} \n\n담당자 검토 후 알림이 발송됩니다.`);
+  alert('✅ 교육신청서가 성공적으로 제출되었습니다.\n\n담당자 검토 후 알림이 발송됩니다.');
   applyState = resetApplyState();
+  applyViewMode = 'list';
+  _appsDbLoaded = false;
   navigate('history');
+}
+
+// ─── 신청 임시저장 ──────────────────────────────────────────────
+async function saveApplyDraft() {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 실패'); return; }
+  try {
+    const curBudget = applyState.budgetId
+      ? (currentPersona.budgets || []).find(b => b.id === applyState.budgetId) : null;
+    const totalExp = applyState.expenses.reduce((sum, e) => sum + Number(e.price) * Number(e.qty), 0);
+    const appId = applyState.editId || `DRAFT-APP-${Date.now()}`;
+    const row = {
+      id: appId, tenant_id: currentPersona.tenantId,
+      plan_id: applyState.planId || null,
+      account_code: curBudget?.accountCode || '',
+      applicant_id: currentPersona.id,
+      applicant_name: currentPersona.name,
+      dept: currentPersona.dept || '',
+      edu_name: applyState.eduName || applyState.title || '교육신청',
+      edu_type: applyState.eduType || applyState.eduSubType || null,
+      amount: totalExp, status: 'draft',
+      policy_id: applyState.policyId || null,
+      detail: {
+        purpose: applyState.purpose?.id || null,
+        budgetId: applyState.budgetId || null,
+        expenses: applyState.expenses,
+      },
+    };
+    const { error } = await sb.from('applications').upsert(row, { onConflict: 'id' });
+    if (error) throw error;
+    applyState.editId = appId;
+    alert('💾 임시저장되었습니다.');
+  } catch (err) {
+    alert('임시저장 실패: ' + err.message);
+  }
+}
+
+// ─── 신청 취소 ────────────────────────────────────────────────────
+async function cancelApply(appId) {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (sb) {
+    try {
+      const { data } = await sb.from('applications').select('status').eq('id', appId).single();
+      if (data?.status === 'approved') {
+        alert('⚠️ 이미 승인된 신청은 상위 승인자가 취소해야 합니다.');
+        return;
+      }
+    } catch (e) { /* pass */ }
+  }
+  if (!confirm('이 교육신청을 취소하시겠습니까?')) return;
+  if (sb) {
+    try {
+      await sb.from('applications').update({ status: 'cancelled' }).eq('id', appId);
+      alert('교육신청이 취소되었습니다.');
+    } catch (err) { alert('취소 실패: ' + err.message); return; }
+  }
+  _appsDbLoaded = false;
+  _renderApplyList();
+}
+
+// ─── 신청 임시저장 이어쓰기/삭제 ────────────────────────────────────
+async function resumeApplyDraft(appId) {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) return;
+  try {
+    const { data, error } = await sb.from('applications').select('*').eq('id', appId).single();
+    if (error || !data) { alert('임시저장 건을 불러올 수 없습니다.'); return; }
+    applyState = resetApplyState();
+    applyState.editId = data.id;
+    applyState.eduName = data.edu_name || '';
+    applyState.title = data.edu_name || '';
+    applyState.eduType = data.edu_type || '';
+    applyState.budgetId = data.detail?.budgetId || '';
+    applyState.expenses = data.detail?.expenses || [{ id: 1, type: '교육비/등록비', price: 0, qty: 1 }];
+    applyState.policyId = data.policy_id || null;
+    if (data.detail?.purpose) applyState.purpose = { id: data.detail.purpose };
+    applyState.step = 3;
+    applyViewMode = 'form';
+    renderApply();
+  } catch (err) { alert('불러오기 실패: ' + err.message); }
+}
+
+async function deleteApplyDraft(appId) {
+  if (!confirm('임시저장된 신청을 삭제하시겠습니까?')) return;
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (sb) {
+    try { await sb.from('applications').delete().eq('id', appId).eq('status', 'draft'); }
+    catch (err) { console.error('[deleteApplyDraft]', err.message); }
+  }
+  _appsDbLoaded = false;
+  _renderApplyList();
+}
+
+// ─── DB 상태 매핑 ────────────────────────────────────────────────────
+function _mapAppDbStatus(s) {
+  const m = { draft: '작성중', pending: '승인대기', approved: '승인완료', completed: '승인완료', rejected: '반려', cancelled: '취소' };
+  return m[s] || s || '승인대기';
 }
 
 function selectService(id) {

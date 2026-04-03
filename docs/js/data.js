@@ -145,6 +145,8 @@ function resetApplyState() {
     receiptFile: null,      // 후정산형 영수증
     receiptAmt: 0,          // 후정산 요청 금액
     receiptDesc: '',        // 후정산 지출 내용
+    editId: null,           // 임시저장 편집 ID
+    confirmMode: false,     // 작성확인 화면 모드
   };
 }
 

@@ -119,18 +119,15 @@ function _getActivePolicies(persona) {
     if (pStatus && pStatus !== 'active') return false;
     if (pTenantId && pTenantId !== persona.tenantId) return false;
 
-    // ① persona.allowedAccounts와 정책 account_codes 교차 매칭 (가장 신뢰도 높음)
-    if (pAcctCodes.length > 0 && pAcctCodes.some(c => allowedAcctCodes.has(c))) return true;
-
-    // ② 페르소나의 VOrg ID와 정책 VOrg(vorg_template_id) 일치
+    // ① vorgId 기반 매칭 (정책 매칭의 주 기준)
+    // 통장(allowedAccounts)이 아닌 페르소나의 소속 VOrg로 정책을 결정
     if (vorgId && pDomainId && pDomainId === vorgId) return true;
 
-    // ③ vorgId 미해석 + 직접 비교
-    if (!vorgId && pDomainId) {
-      if (persona.vorgId && pDomainId !== persona.vorgId) return false;
-    }
+    // ② allowedAccounts 교차매칭은 vorgId 미해석 시에만 폴백으로 사용
+    // (VORG_TEMPLATES 미로드 등으로 vorgId 해석 실패 시 한정)
+    if (!vorgId && pAcctCodes.length > 0 && pAcctCodes.some(c => allowedAcctCodes.has(c))) return true;
 
-    // ④ VOrg/account 미설정 정책은 테넌트 내 전체 허용
+    // ③ VOrg/account 미설정 정책 = 테넌트 내 전체 허용
     if (!pDomainId && pAcctCodes.length === 0) return true;
 
     return false;

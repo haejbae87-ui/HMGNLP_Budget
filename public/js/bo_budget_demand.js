@@ -31,38 +31,42 @@ async function renderBudgetDemand() {
   const isPlatform = role === 'platform_admin' || role === 'tenant_global_admin';
   if (!_bdTenant) _bdTenant = isPlatform ? (tenants.find(t => t.id !== 'SYSTEM')?.id || 'HMC') : (boCurrentPersona.tenantId || 'HMC');
 
-  // 템플릿 로드
+  // ── 1. 전체 계정 로드 (template에 연결된 것만) ──
+  let allAccts = [];
   try {
-    const { data } = await sb.from('virtual_org_templates').select('id,name,isolation_group_id,tree_data')
-      .eq('tenant_id', _bdTenant);
+    const { data } = await sb.from('budget_accounts').select('id,name,code,virtual_org_template_id')
+      .eq('tenant_id', _bdTenant).eq('active', true).eq('uses_budget', true);
+    allAccts = data || [];
+  } catch (e) { allAccts = []; }
+
+  // ── 2. 템플릿 로드 (예산계정이 연결된 것만 = 교육지원 유형만, 자격증 제외) ──
+  const tplIdsWithAccounts = [...new Set(allAccts.map(a => a.virtual_org_template_id).filter(Boolean))];
+  try {
+    const { data } = await sb.from('virtual_org_templates').select('id,name,tree_data')
+      .eq('tenant_id', _bdTenant).in('id', tplIdsWithAccounts.length > 0 ? tplIdsWithAccounts : ['__NONE__']);
     _bdTplList = data || [];
   } catch (e) { _bdTplList = []; }
   if (!_bdTplId || !_bdTplList.find(t => t.id === _bdTplId)) _bdTplId = _bdTplList[0]?.id || null;
 
-  // 선택된 템플릿의 tree 그룹 로드
+  // ── 3. 선택된 템플릿의 tree 그룹 + 해당 계정 로드 ──
   const selTpl = _bdTplList.find(t => t.id === _bdTplId);
   _bdGroups = selTpl?.tree_data?.hqs || [];
+  _bdAcctList = allAccts.filter(a => a.virtual_org_template_id === _bdTplId);
 
-  // 계정 로드
-  if (_bdTplId) {
-    try {
-      const { data } = await sb.from('budget_accounts').select('id,name,code')
-        .eq('tenant_id', _bdTenant).eq('active', true);
-      _bdAcctList = data || [];
-    } catch (e) { _bdAcctList = []; }
-  } else { _bdAcctList = []; }
-
-  // plans 로드
+  // ── 4. plans 로드 (account_code 기반 필터 — 올바른 template 매핑) ──
+  const tplAccountCodes = _bdAcctList.map(a => a.code);
   try {
     let q = sb.from('plans').select('*').eq('tenant_id', _bdTenant).neq('status', 'draft')
       .order('created_at', { ascending: false });
     // 연도 필터
     q = q.gte('created_at', `${_bdYear}-01-01T00:00:00`).lt('created_at', `${_bdYear + 1}-01-01T00:00:00`);
-    // isolation_group_id 필터 (선택된 템플릿 기준)
-    if (selTpl?.isolation_group_id) {
-      q = q.eq('isolation_group_id', selTpl.isolation_group_id);
+    // 선택된 템플릿에 속한 계정의 plans만 조회
+    if (tplAccountCodes.length > 0) {
+      q = q.in('account_code', tplAccountCodes);
+    } else {
+      q = q.eq('account_code', '__NONE__'); // 계정 없으면 빈 결과
     }
-    // 계정 필터
+    // 특정 계정 필터 (드롭다운 선택 시)
     if (_bdAccountId) {
       const acct = _bdAcctList.find(a => a.id === _bdAccountId);
       if (acct) q = q.eq('account_code', acct.code);

@@ -2,6 +2,32 @@
 // 정책 기반 결재 자동 라우팅 — 단계별 승인함: 계획승인대기 / 신청승인대기 / 결과정산대기
 
 let _myOpsTab = 'plan';
+let _boApprovalLoaded = false;
+let _boDbApps = [];
+let _boDbPlans = [];
+
+async function _loadBoApprovalData() {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  const tenantId = boCurrentPersona?.tenantId || 'HMC';
+  if (sb) {
+    try {
+      const [appsRes, plansRes] = await Promise.all([
+        sb.from('applications').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
+        sb.from('plans').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
+      ]);
+      _boDbApps = appsRes.data || [];
+      _boDbPlans = plansRes.data || [];
+    } catch (err) {
+      console.error('[_loadBoApprovalData] DB 조회 실패:', err.message);
+      _boDbApps = [];
+      _boDbPlans = [];
+    }
+  } else {
+    // MOCK 폴백
+    _boDbApps = typeof MOCK_BO_APPS !== 'undefined' ? MOCK_BO_APPS : [];
+    _boDbPlans = typeof MOCK_BO_PLANS !== 'undefined' ? MOCK_BO_PLANS : [];
+  }
+}
 
 function renderMyOperations() {
   const el = document.getElementById('bo-content');

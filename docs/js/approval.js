@@ -393,6 +393,38 @@ async function _approvalAction(id, table, action) {
     const { error } = await sb.from(table).update(updateData).eq('id', id);
     if (error) throw error;
 
+    // 항목 7: 승인 시 예산 차감
+    if (action === 'approve') {
+      try {
+        const { data: doc } = await sb.from(table).select('amount, account_code, tenant_id, applicant_id').eq('id', id).single();
+        if (doc && doc.amount && doc.account_code) {
+          // 신청자의 org_id 조회
+          const { data: user } = await sb.from('users').select('org_id').eq('id', doc.applicant_id).single();
+          if (user?.org_id) {
+            // bankbook 조회
+            const { data: bbs } = await sb.from('org_budget_bankbooks')
+              .select('id').eq('org_id', user.org_id).eq('tenant_id', doc.tenant_id);
+            // account_id 매칭
+            if (bbs && bbs.length > 0) {
+              for (const bb of bbs) {
+                const { data: alloc } = await sb.from('budget_allocations')
+                  .select('id, used_amount').eq('bankbook_id', bb.id).order('created_at', { ascending: false }).limit(1).single();
+                if (alloc) {
+                  await sb.from('budget_allocations').update({
+                    used_amount: Number(alloc.used_amount || 0) + Number(doc.amount),
+                  }).eq('id', alloc.id);
+                  console.log(`[예산차감] ${doc.amount}원 차감 완료 (alloc ${alloc.id})`);
+                  break; // 첫 매칭 bankbook만 차감
+                }
+              }
+            }
+          }
+        }
+      } catch (budgetErr) {
+        console.warn('[예산차감] 예산 자동 차감 실패 (비치명적):', budgetErr.message);
+      }
+    }
+
     alert(`✅ ${actionLabel} 처리가 완료되었습니다.${comment ? '\n의견: ' + comment : ''}`);
 
     // 목록 갱신

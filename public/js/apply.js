@@ -633,7 +633,7 @@ function _renderApplyForm() {
   const learnerPurposes = allPurposes.filter(p => p.id === 'external_personal');
   const operatorPurposes = allPurposes.filter(p => p.id !== 'external_personal');
 
-  const availBudgets = s.purpose ? getPersonaBudgets(currentPersona, s.purpose.accounts) : [];
+  const availBudgets = s.purpose ? getPersonaBudgets(currentPersona, s.purpose.id) : [];
 
   const curBudget = availBudgets.find(b => b.id === s.budgetId) || null;
   const isRndBudget = curBudget?.account === '연구투자';

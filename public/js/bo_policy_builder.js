@@ -602,17 +602,18 @@ function renderPolicyWizard() {
         }).join('')}
   </div>`;
       } else {
-        // 기타 목적: 복수 체크박스
+        // 기타 목적
+        const isOperator = d.targetType === 'operator';
         eduTypeBlock = `
   <div style="border-top:1px dashed #E5E7EB;padding-top:16px">
-    <label class="bo-label">교육 유형 <span style="font-size:10px;color:#9CA3AF">(복수 선택 가능)</span></label>
+    <label class="bo-label">교육 유형 <span style="font-size:10px;color:#9CA3AF">${isOperator ? '(하나만 선택)' : '(복수 선택 가능)'}</span></label>
     <div style="display:grid;gap:6px">
       ${types.map(t => {
           const isChecked = (d.eduTypes || []).includes(t.id);
           return `
       <div style="border-radius:10px;border:1.5px solid ${isChecked ? '#7C3AED' : '#E5E7EB'};background:${isChecked ? '#F5F3FF' : 'white'};overflow:hidden">
-        <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer" onclick="_wizSaveStep0Inputs();_toggleEduType('${t.id}')">
-          <input type="checkbox" ${isChecked ? 'checked' : ''} style="margin:0;flex-shrink:0">
+        <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer" onclick="_wizSaveStep0Inputs();${isOperator ? `_policyWizardData.eduTypes=['${t.id}'];if(_policyWizardData.eduSubTypes) _policyWizardData.eduSubTypes={};renderPolicyWizard()` : `_toggleEduType('${t.id}')`}">
+          <input type="${isOperator ? 'radio' : 'checkbox'}" ${isOperator ? 'name="wiz-edu-op"' : ''} ${isChecked ? 'checked' : ''} style="margin:0;flex-shrink:0">
           <div style="font-size:13px;font-weight:800;color:${isChecked ? '#7C3AED' : '#374151'}">${t.label}</div>
         </label>
       </div>`;

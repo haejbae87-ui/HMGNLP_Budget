@@ -2,6 +2,23 @@
 let _boPlanMgmtData = null;
 let _boPlanDetailView = null;  // 상세 보기 대상 계획
 
+// ── 영문 KEY → 한글 변환 룩업 ──
+const _PLAN_PURPOSE_KR = {
+  external_personal: '개인직무 사외학습',
+  elearning_class: '이러닝/집합(비대면) 운영',
+  conf_seminar: '워크샵/세미나/콘퍼런스 등 운영',
+  misc_ops: '기타 운영',
+};
+const _PLAN_EDUTYPE_KR = {
+  regular: '정규교육', elearning: '이러닝', class: '집합', live: '라이브',
+  academic: '학술 및 연구활동', conf: '학회/컨퍼런스', seminar: '세미나',
+  knowledge: '지식자원 학습', book: '도서구입', online: '온라인콘텐츠',
+  competency: '역량개발지원', lang: '어학학습비 지원', cert: '자격증 취득지원',
+  집합교육: '집합교육',
+};
+function _planPurposeKr(k) { return _PLAN_PURPOSE_KR[k] || k || '-'; }
+function _planEduTypeKr(k) { return _PLAN_EDUTYPE_KR[k] || k || '-'; }
+
 async function renderBoPlanMgmt() {
   const el = document.getElementById('bo-content');
   const sb = typeof getSB === 'function' ? getSB() : null;
@@ -167,11 +184,11 @@ function _renderBoPlanDetail(el, plan) {
           </tr>
           <tr style="border-bottom:1px solid #F3F4F6">
             <td style="padding:12px 0;font-weight:800;color:#6B7280">교육목적</td>
-            <td style="padding:12px 0;color:#374151">${d.purpose || plan.purpose || '-'}</td>
+            <td style="padding:12px 0;color:#374151">${_planPurposeKr(d.purpose || plan.purpose)}</td>
           </tr>
           <tr style="border-bottom:1px solid #F3F4F6">
             <td style="padding:12px 0;font-weight:800;color:#6B7280">교육유형</td>
-            <td style="padding:12px 0;color:#374151">${plan.edu_type || d.eduType || '-'} ${d.eduSubType ? '› ' + d.eduSubType : ''}</td>
+            <td style="padding:12px 0;color:#374151">${_planEduTypeKr(plan.edu_type || d.eduType)} ${d.eduSubType ? '› ' + _planEduTypeKr(d.eduSubType) : ''}</td>
           </tr>
           <tr style="border-bottom:1px solid #F3F4F6">
             <td style="padding:12px 0;font-weight:800;color:#6B7280">예산계정</td>

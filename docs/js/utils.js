@@ -133,8 +133,10 @@ function _getActivePolicies(persona) {
     // (VORG_TEMPLATES 미로드 등으로 vorgId 해석 실패 시 한정)
     if (!vorgId && pAcctCodes.length > 0 && pAcctCodes.some(c => allowedAcctCodes.has(c))) return true;
 
-    // ③ VOrg/account 미설정 정책 = 테넌트 내 전체 허용
-    if (!pDomainId && pAcctCodes.length === 0) return true;
+    // ③ VOrg/account 미설정 정책 → 무조건 통과 제거 (정책 누수 방지)
+    // 명시적 vorgId 또는 accountCodes 매칭만 허용
+    // 단, vorgId도 없고 persona에도 vorgId 없는 경우에만 accountCodes 폴백
+    if (!vorgId && !pDomainId && pAcctCodes.length > 0 && pAcctCodes.some(c => allowedAcctCodes.has(c))) return true;
 
     return false;
   });

@@ -503,7 +503,7 @@ function _renderApplyList() {
         ${(h.applyStatus === '승인대기' || h.applyStatus === '결재진행중') ? `
         <button onclick="cancelApply('${h.id.replace(/'/g, "\\\'")}')" style="padding:8px 14px;border-radius:8px;background:white;color:#DC2626;font-size:11px;font-weight:800;border:1.5px solid #FECACA;cursor:pointer;white-space:nowrap">취소 요청</button>` : ''}
         ${canResult && !h.resultDone ? `
-        <button onclick="alert('교육결과 작성 기능 준비 중입니다.')"
+        <button onclick="_openResultForm('${h.id.replace(/'/g, "\\\\\'")}','${(h.title || '').replace(/'/g, "\\\\\'")}',${h.amount || 0})"
           style="padding:8px 14px;border-radius:8px;background:#002C5F;color:white;font-size:11px;font-weight:800;border:none;cursor:pointer;white-space:nowrap">
           📝 결과 작성
         </button>` : ''}
@@ -1632,3 +1632,143 @@ function applyPrev() {
   renderApply();
 }
 
+// ─── 교육결과 작성 폼 ──────────────────────────────────────────────────────
+let _resultFormData = null;
+
+function _openResultForm(appId, title, amount) {
+  _resultFormData = {
+    applicationId: appId,
+    title: title || '-',
+    amount: amount || 0,
+    completed: 'yes',       // 수료여부
+    actualHours: '',        // 실참석시간
+    actualCost: amount,     // 실비용
+    satisfaction: 5,        // 만족도 (1~5)
+    feedback: '',           // 소감
+  };
+  _renderResultView();
+}
+
+function _renderResultView() {
+  const f = _resultFormData;
+  if (!f) return;
+  document.getElementById('page-apply').innerHTML = `
+  <div class="max-w-3xl mx-auto">
+    <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육신청 › 교육결과</div>
+    <h1 class="text-2xl font-black text-brand tracking-tight mb-6">📝 교육결과 작성</h1>
+
+    <div style="background:white;border-radius:20px;border:1.5px solid #E5E7EB;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.08)">
+      <!-- 헤더: 신청 정보 -->
+      <div style="padding:20px 24px;background:linear-gradient(135deg,#002C5F,#0369A1);color:white">
+        <div style="font-size:11px;font-weight:700;opacity:.7;margin-bottom:4px">승인된 교육신청 기반</div>
+        <h2 style="margin:0;font-size:18px;font-weight:900">${f.title}</h2>
+        <p style="margin:6px 0 0;font-size:12px;opacity:.8">승인 금액: ${f.amount.toLocaleString()}원</p>
+      </div>
+
+      <div style="padding:24px">
+        <!-- 수료여부 -->
+        <div style="margin-bottom:20px">
+          <label style="font-size:13px;font-weight:800;color:#374151;display:block;margin-bottom:8px">수료여부 <span style="color:#EF4444">*</span></label>
+          <div style="display:flex;gap:10px">
+            ${['yes', 'no'].map(v => `
+            <button onclick="_resultFormData.completed='${v}';_renderResultView()"
+              style="flex:1;padding:12px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;
+                     border:2px solid ${f.completed === v ? '#059669' : '#E5E7EB'};
+                     background:${f.completed === v ? '#F0FDF4' : 'white'};
+                     color:${f.completed === v ? '#059669' : '#6B7280'}">
+              ${v === 'yes' ? '✅ 수료' : '❌ 미수료'}
+            </button>`).join('')}
+          </div>
+        </div>
+
+        <!-- 실참석시간 -->
+        <div style="margin-bottom:20px">
+          <label style="font-size:13px;font-weight:800;color:#374151;display:block;margin-bottom:8px">실 참석시간 (시간)</label>
+          <input type="number" value="${f.actualHours}" placeholder="예: 16"
+            oninput="_resultFormData.actualHours=this.value"
+            style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px">
+        </div>
+
+        <!-- 실비용 -->
+        <div style="margin-bottom:20px">
+          <label style="font-size:13px;font-weight:800;color:#374151;display:block;margin-bottom:8px">실 지출비용 (원)</label>
+          <input type="number" value="${f.actualCost}" placeholder="예: 1500000"
+            oninput="_resultFormData.actualCost=Number(this.value)"
+            style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px">
+        </div>
+
+        <!-- 만족도 -->
+        <div style="margin-bottom:20px">
+          <label style="font-size:13px;font-weight:800;color:#374151;display:block;margin-bottom:8px">만족도 (1~5)</label>
+          <div style="display:flex;gap:8px">
+            ${[1, 2, 3, 4, 5].map(v => `
+            <button onclick="_resultFormData.satisfaction=${v};_renderResultView()"
+              style="width:44px;height:44px;border-radius:10px;font-size:18px;cursor:pointer;
+                     border:2px solid ${f.satisfaction >= v ? '#F59E0B' : '#E5E7EB'};
+                     background:${f.satisfaction >= v ? '#FFFBEB' : 'white'}">
+              ${'⭐'}
+            </button>`).join('')}
+          </div>
+        </div>
+
+        <!-- 소감 -->
+        <div style="margin-bottom:20px">
+          <label style="font-size:13px;font-weight:800;color:#374151;display:block;margin-bottom:8px">교육 소감</label>
+          <textarea oninput="_resultFormData.feedback=this.value" rows="4"
+            placeholder="교육의 유익한 점, 실무 적용 계획 등을 작성해주세요."
+            style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;resize:vertical">${f.feedback}</textarea>
+        </div>
+      </div>
+
+      <!-- 하단 버튼 -->
+      <div style="padding:16px 24px;border-top:1px solid #F3F4F6;display:flex;justify-content:space-between">
+        <button onclick="_resultFormData=null;applyViewMode='list';renderApply()"
+          style="padding:10px 24px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:13px;font-weight:800;color:#6B7280;cursor:pointer">
+          ← 목록으로
+        </button>
+        <button onclick="_submitResult()"
+          style="padding:10px 28px;border-radius:10px;background:#002C5F;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">
+          📤 결과 제출
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function _submitResult() {
+  const f = _resultFormData;
+  if (!f) return;
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 실패'); return; }
+
+  try {
+    // 기존 detail 유지하며 result 추가
+    const { data: existing } = await sb.from('applications').select('detail').eq('id', f.applicationId).single();
+    const prevDetail = existing?.detail || {};
+
+    const resultData = {
+      completed: f.completed === 'yes',
+      actual_hours: Number(f.actualHours) || 0,
+      actual_cost: Number(f.actualCost) || 0,
+      satisfaction: f.satisfaction,
+      feedback: f.feedback,
+      submitted_at: new Date().toISOString(),
+      submitted_by: currentPersona.name,
+    };
+
+    const { error } = await sb.from('applications').update({
+      status: 'completed',
+      detail: { ...prevDetail, result: resultData },
+    }).eq('id', f.applicationId);
+
+    if (error) throw error;
+    alert('✅ 교육결과가 제출되었습니다.');
+    _resultFormData = null;
+    _appsDbLoaded = false; _dbMyApps = []; // 목록 갱신
+    applyViewMode = 'list';
+    renderApply();
+  } catch (err) {
+    alert('제출 실패: ' + err.message);
+    console.error('[_submitResult]', err.message);
+  }
+}

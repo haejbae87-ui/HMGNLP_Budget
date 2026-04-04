@@ -1,4 +1,4 @@
-// ─── FO 결재 페이지 ────────────────────────────────────────────────────────────
+// ─── FO 결재 페이지 (DB 연동) ────────────────────────────────────────────────
 // 팀원용 결재함 / 리더용 결재함
 
 // 리더 역할 판별 (pos 기반)
@@ -7,118 +7,145 @@ function _isLeaderPersona() {
   return leaderTitles.some(t => (currentPersona.pos || '').includes(t));
 }
 
+// ─── 한글 라벨 변환 ──────────────────────────────────────────────────────────
+const _APR_PURPOSE_KR = {
+  external_personal: '개인직무 사외학습',
+  elearning_class: '이러닝/집합(비대면) 운영',
+  conf_seminar: '워크샵/세미나/콘퍼런스 등 운영',
+  misc_ops: '기타 운영',
+};
+const _APR_EDU_TYPE_KR = {
+  regular: '정규교육', elearning: '이러닝', class: '집합', live: '라이브',
+  academic: '학술 및 연구활동', conf: '학회/컨퍼런스', seminar: '세미나',
+  knowledge: '지식자원 학습', book: '도서구입', online: '온라인콘텐츠',
+  competency: '역량개발지원', lang: '어학학습비 지원', cert: '자격증 취득지원',
+};
+function _aprPurpose(k) { return _APR_PURPOSE_KR[k] || k || '-'; }
+function _aprEduType(k) { return _APR_EDU_TYPE_KR[k] || k || '-'; }
+
+// ─── 상태 매핑 ───────────────────────────────────────────────────────────────
+function _aprStatusLabel(s) {
+  const m = {
+    draft: '작성중', pending: '결재대기', pending_approval: '결재대기',
+    approved: '승인완료', rejected: '반려', cancelled: '취소', completed: '완료',
+  };
+  return m[s] || s || '결재대기';
+}
+
+// ─── DB 캐시 ─────────────────────────────────────────────────────────────────
+let _aprMemberLoaded = false;
+let _aprMemberData = [];   // plans + applications (내가 신청한 것)
+let _aprLeaderLoaded = false;
+let _aprLeaderData = [];   // plans + applications (결재대기, 남이 신청한 것)
+
 // ─── 팀원용 결재함 ────────────────────────────────────────────────────────────
-// 내가 신청한 교육의 결재 단계·상태 확인
+// 내가 신청한 교육의 결재 상태 확인 (DB 실시간)
 
-const _MEMBER_APPROVAL_SAMPLE = [
-  {
-    id: 'APR-2026-001', title: 'AWS 클라우드 아키텍처 전문가 과정',
-    applyDate: '2026-03-15', amount: 1500000, type: '사외교육',
-    steps: [
-      { role: '팀장', name: '김O훈', status: '승인', date: '2026-03-16' },
-      { role: '실장', name: '이O민', status: '승인', date: '2026-03-17' },
-      { role: '예산담당', name: '박O영', status: '승인', date: '2026-03-18' },
-    ],
-    finalStatus: '승인완료',
-  },
-  {
-    id: 'APR-2026-002', title: 'SDV 소프트웨어 개발 세미나',
-    applyDate: '2026-03-20', amount: 300000, type: '세미나',
-    steps: [
-      { role: '팀장', name: '김O훈', status: '승인', date: '2026-03-21' },
-      { role: '실장', name: '이O민', status: '대기중', date: null },
-      { role: '예산담당', name: '박O영', status: '대기중', date: null },
-    ],
-    finalStatus: '결재진행중',
-  },
-  {
-    id: 'APR-2026-003', title: '에자일 PM 자격증 취득',
-    applyDate: '2026-03-22', amount: 450000, type: '자격증',
-    steps: [
-      { role: '팀장', name: '김O훈', status: '반려', date: '2026-03-23' },
-    ],
-    finalStatus: '반려',
-    rejectReason: '예산 분기 초과로 반려. 다음 분기에 재신청 바랍니다.',
-  },
-  {
-    id: 'APR-2026-004', title: 'AI/ML 실무 활용 강의',
-    applyDate: '2026-03-25', amount: 800000, type: '사외교육',
-    steps: [
-      { role: '팀장', name: '김O훈', status: '대기중', date: null },
-      { role: '실장', name: '이O민', status: '대기중', date: null },
-      { role: '예산담당', name: '박O영', status: '대기중', date: null },
-    ],
-    finalStatus: '승인대기',
-  },
-];
+async function renderApprovalMember() {
+  const el = document.getElementById('page-approval-member');
+  const sb = typeof getSB === 'function' ? getSB() : null;
 
-function renderApprovalMember() {
-  const STATUS_FINAL = {
-    '승인완료':   { color: '#059669', bg: '#F0FDF4', icon: '✅' },
-    '결재진행중': { color: '#D97706', bg: '#FFFBEB', icon: '⏳' },
-    '반려':       { color: '#DC2626', bg: '#FEF2F2', icon: '❌' },
-    '승인대기':   { color: '#6B7280', bg: '#F9FAFB', icon: '🕐' },
-  };
-  const STEP_STATUS = {
-    '승인':   { color: '#059669', bg: '#DCFCE7', icon: '✓' },
-    '반려':   { color: '#DC2626', bg: '#FEE2E2', icon: '✕' },
-    '대기중': { color: '#9CA3AF', bg: '#F3F4F6', icon: '·' },
-  };
+  // DB 조회 (최초 1회)
+  if (sb && !_aprMemberLoaded) {
+    _aprMemberLoaded = true;
+    try {
+      const pid = currentPersona.id;
+      const tid = currentPersona.tenantId;
 
-  const data = _MEMBER_APPROVAL_SAMPLE;
+      // plans 조회 (draft 제외 — 결재함에는 상신된 것만)
+      const { data: plans, error: pe } = await sb.from('plans').select('*')
+        .eq('applicant_id', pid).eq('tenant_id', tid)
+        .neq('status', 'draft')
+        .order('created_at', { ascending: false });
+      if (pe) throw pe;
+
+      // applications 조회
+      const { data: apps, error: ae } = await sb.from('applications').select('*')
+        .eq('applicant_id', pid).eq('tenant_id', tid)
+        .neq('status', 'draft')
+        .order('created_at', { ascending: false });
+      if (ae) throw ae;
+
+      // 통합
+      _aprMemberData = [
+        ...(plans || []).map(p => ({
+          _type: 'plan', id: p.id, title: p.edu_name || p.title || '-',
+          type: _aprEduType(p.edu_type), purpose: _aprPurpose(p.detail?.purpose),
+          amount: Number(p.amount || 0), status: p.status,
+          date: (p.created_at || '').slice(0, 10),
+          rejectReason: p.reject_reason || null,
+        })),
+        ...(apps || []).map(a => ({
+          _type: 'app', id: a.id, title: a.edu_name || '-',
+          type: _aprEduType(a.edu_type), purpose: _aprPurpose(a.detail?.purpose),
+          amount: Number(a.amount || 0), status: a.status,
+          date: (a.created_at || '').slice(0, 10),
+          rejectReason: a.reject_reason || null,
+        })),
+      ];
+    } catch (err) {
+      console.error('[renderApprovalMember] DB 조회 실패:', err.message);
+      _aprMemberData = [];
+    }
+  }
+
+  const data = _aprMemberData;
+
+  // 상태별 통계
   const stats = {
     total: data.length,
-    approved: data.filter(d => d.finalStatus === '승인완료').length,
-    inProgress: data.filter(d => d.finalStatus === '결재진행중' || d.finalStatus === '승인대기').length,
-    rejected: data.filter(d => d.finalStatus === '반려').length,
+    approved: data.filter(d => d.status === 'approved').length,
+    inProgress: data.filter(d => d.status === 'pending' || d.status === 'pending_approval').length,
+    rejected: data.filter(d => d.status === 'rejected').length,
+  };
+
+  const STATUS_FINAL = {
+    approved: { label: '승인완료', color: '#059669', bg: '#F0FDF4', icon: '✅' },
+    pending: { label: '결재대기', color: '#D97706', bg: '#FFFBEB', icon: '⏳' },
+    pending_approval: { label: '결재대기', color: '#D97706', bg: '#FFFBEB', icon: '⏳' },
+    rejected: { label: '반려', color: '#DC2626', bg: '#FEF2F2', icon: '❌' },
+    cancelled: { label: '취소', color: '#9CA3AF', bg: '#F9FAFB', icon: '🚫' },
+    completed: { label: '완료', color: '#059669', bg: '#F0FDF4', icon: '✅' },
   };
 
   const cards = data.map(item => {
-    const fc = STATUS_FINAL[item.finalStatus] || STATUS_FINAL['승인대기'];
-    const stepHtml = item.steps.map((s, i) => {
-      const sc = STEP_STATUS[s.status] || STEP_STATUS['대기중'];
-      return `
-      <div style="display:flex;align-items:center;gap:0">
-        ${i > 0 ? `<div style="width:28px;height:1.5px;background:${s.status !== '대기중' ? sc.color : '#E5E7EB'}"></div>` : ''}
-        <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
-          <div style="width:28px;height:28px;border-radius:50%;background:${sc.bg};border:2px solid ${sc.color};
-                      display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:${sc.color}">
-            ${sc.icon}
-          </div>
-          <div style="font-size:9px;font-weight:700;color:#6B7280;white-space:nowrap">${s.role}</div>
-          <div style="font-size:9px;color:#9CA3AF;white-space:nowrap">${s.name}</div>
-          ${s.date ? `<div style="font-size:8px;color:#D1D5DB">${s.date.slice(5)}</div>` : ''}
-        </div>
-      </div>`;
-    }).join('');
+    const fc = STATUS_FINAL[item.status] || { label: _aprStatusLabel(item.status), color: '#6B7280', bg: '#F9FAFB', icon: '🕐' };
+    const typeBadge = item._type === 'plan'
+      ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#DBEAFE;color:#1D4ED8;margin-left:4px">📋 교육계획</span>'
+      : '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#FEF3C7;color:#B45309;margin-left:4px">📝 교육신청</span>';
 
     return `
     <div style="border-radius:14px;border:1.5px solid ${fc.color}30;background:white;padding:18px 20px;margin-bottom:12px">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
-        <div>
-          <div style="font-size:14px;font-weight:900;color:#111827;margin-bottom:4px">${item.title}</div>
-          <div style="font-size:11px;color:#6B7280;display:flex;gap:10px">
-            <span>📅 신청 ${item.applyDate}</span>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+            <span style="font-size:14px;font-weight:900;color:#111827">${item.title}</span>
+            ${typeBadge}
+          </div>
+          <div style="font-size:11px;color:#6B7280;display:flex;gap:10px;flex-wrap:wrap">
+            <span>📅 신청 ${item.date}</span>
             <span>📚 ${item.type}</span>
-            <span>💰 ${(item.amount).toLocaleString()}원</span>
+            <span>💰 ${item.amount.toLocaleString()}원</span>
+            ${item.purpose !== '-' ? `<span>🎯 ${item.purpose}</span>` : ''}
           </div>
         </div>
         <span style="flex-shrink:0;font-size:11px;font-weight:900;padding:4px 12px;border-radius:10px;
-                     background:${fc.bg};color:${fc.color}">${fc.icon} ${item.finalStatus}</span>
-      </div>
-      <!-- 결재 단계 -->
-      <div style="background:#F9FAFB;border-radius:10px;padding:14px 16px">
-        <div style="font-size:10px;font-weight:800;color:#9CA3AF;margin-bottom:10px">결재 단계</div>
-        <div style="display:flex;align-items:flex-start;gap:0">${stepHtml}</div>
+                     background:${fc.bg};color:${fc.color}">${fc.icon} ${fc.label}</span>
       </div>
       ${item.rejectReason ? `
-      <div style="margin-top:10px;padding:10px 14px;border-radius:8px;background:#FEE2E2;border:1px solid #FECACA;font-size:11px;color:#DC2626;font-weight:700">
+      <div style="margin-top:8px;padding:10px 14px;border-radius:8px;background:#FEE2E2;border:1px solid #FECACA;font-size:11px;color:#DC2626;font-weight:700">
         ⚠️ 반려 사유: ${item.rejectReason}
       </div>` : ''}
     </div>`;
   }).join('');
 
-  document.getElementById('page-approval-member').innerHTML = `
+  const emptyMsg = `<div style="padding:60px 20px;text-align:center;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB">
+    <div style="font-size:48px;margin-bottom:16px">📭</div>
+    <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">결재 내역이 없습니다</div>
+    <div style="font-size:12px;color:#9CA3AF">교육계획 또는 교육신청을 제출하면 결재 현황을 이 화면에서 확인할 수 있습니다.</div>
+  </div>`;
+
+  el.innerHTML = `
 <div class="max-w-4xl mx-auto space-y-4">
   <div style="display:flex;align-items:flex-end;justify-content:space-between">
     <div>
@@ -126,15 +153,17 @@ function renderApprovalMember() {
       <h1 class="text-3xl font-black text-brand tracking-tight">팀원용 결재함</h1>
       <p style="font-size:12px;color:#9CA3AF;margin-top:4px">${currentPersona.name} · ${currentPersona.dept} — 내 교육신청의 결재 현황</p>
     </div>
+    <button onclick="_aprMemberLoaded=false;_aprMemberData=[];renderApprovalMember()"
+      style="padding:8px 16px;border-radius:10px;background:white;border:1.5px solid #E5E7EB;font-size:12px;font-weight:800;color:#374151;cursor:pointer">🔄 새로고침</button>
   </div>
 
   <!-- 통계 카드 -->
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
     ${[
-      { label:'전체',   val: stats.total,      color:'#002C5F', bg:'#EFF6FF', icon:'📋' },
-      { label:'승인완료', val: stats.approved,  color:'#059669', bg:'#F0FDF4', icon:'✅' },
-      { label:'진행중', val: stats.inProgress,  color:'#D97706', bg:'#FFFBEB', icon:'⏳' },
-      { label:'반려',   val: stats.rejected,    color:'#DC2626', bg:'#FEF2F2', icon:'❌' },
+      { label: '전체', val: stats.total, color: '#002C5F', bg: '#EFF6FF', icon: '📋' },
+      { label: '승인완료', val: stats.approved, color: '#059669', bg: '#F0FDF4', icon: '✅' },
+      { label: '결재대기', val: stats.inProgress, color: '#D97706', bg: '#FFFBEB', icon: '⏳' },
+      { label: '반려', val: stats.rejected, color: '#DC2626', bg: '#FEF2F2', icon: '❌' },
     ].map(s => `
     <div style="background:${s.bg};border-radius:14px;padding:14px 16px;border:1.5px solid ${s.color}20">
       <div style="font-size:11px;font-weight:700;color:${s.color};margin-bottom:6px">${s.icon} ${s.label}</div>
@@ -143,44 +172,19 @@ function renderApprovalMember() {
   </div>
 
   <!-- 결재 목록 -->
-  <div>${cards}</div>
+  <div>${data.length === 0 ? emptyMsg : cards}</div>
 </div>`;
 }
 
 // ─── 리더용 결재함 ────────────────────────────────────────────────────────────
-// 팀원의 교육신청 결재 처리
+// 같은 테넌트 내 결재대기 문서 (본인 제외) 조회 + 승인/반려 처리
 
-const _LEADER_PENDING_SAMPLE = [
-  {
-    id: 'APR-2026-010', applicant: '김O수', dept: '역량혁신팀', pos: '책임',
-    title: '리더십 코칭 프로그램 참가',
-    applyDate: '2026-03-24', amount: 1200000, type: '사외교육',
-    purpose: '개인 직무 사외학습',
-    myRole: '팀장 결재',
-    urgency: 'normal',
-  },
-  {
-    id: 'APR-2026-011', applicant: '이O진', dept: '역량혁신팀', pos: '매니저',
-    title: 'UX 디자인 사고 워크숍',
-    applyDate: '2026-03-25', amount: 450000, type: '워크샵',
-    purpose: '집합/이러닝 운영',
-    myRole: '팀장 결재',
-    urgency: 'urgent',
-  },
-  {
-    id: 'APR-2026-012', applicant: '박O연', dept: '역량혁신팀', pos: '책임',
-    title: 'AI 프롬프트 엔지니어링 세미나',
-    applyDate: '2026-03-26', amount: 300000, type: '세미나',
-    purpose: '워크샵/세미나/콘퍼런스 등 운영',
-    myRole: '팀장 결재',
-    urgency: 'normal',
-  },
-];
+async function renderApprovalLeader() {
+  const el = document.getElementById('page-approval-leader');
 
-function renderApprovalLeader() {
   // 권한 체크
   if (!_isLeaderPersona()) {
-    document.getElementById('page-approval-leader').innerHTML = `
+    el.innerHTML = `
     <div class="max-w-4xl mx-auto">
       <div class="card p-16 text-center">
         <div style="font-size:48px;margin-bottom:16px">🔒</div>
@@ -191,12 +195,66 @@ function renderApprovalLeader() {
     return;
   }
 
-  const pending = _LEADER_PENDING_SAMPLE;
+  const sb = typeof getSB === 'function' ? getSB() : null;
+
+  // DB 조회 (최초 1회)
+  if (sb && !_aprLeaderLoaded) {
+    _aprLeaderLoaded = true;
+    try {
+      const pid = currentPersona.id;
+      const tid = currentPersona.tenantId;
+
+      // plans: pending 상태 + 본인이 아닌 문서
+      const { data: plans, error: pe } = await sb.from('plans').select('*')
+        .eq('tenant_id', tid).eq('status', 'pending')
+        .neq('applicant_id', pid)
+        .order('created_at', { ascending: false });
+      if (pe) throw pe;
+
+      // applications: pending 상태 + 본인이 아닌 문서
+      const { data: apps, error: ae } = await sb.from('applications').select('*')
+        .eq('tenant_id', tid).eq('status', 'pending')
+        .neq('applicant_id', pid)
+        .order('created_at', { ascending: false });
+      if (ae) throw ae;
+
+      _aprLeaderData = [
+        ...(plans || []).map(p => ({
+          _type: 'plan', _table: 'plans', id: p.id,
+          applicant: p.applicant_name || '-',
+          dept: p.detail?.dept || p.dept || '-',
+          title: p.edu_name || p.title || '-',
+          type: _aprEduType(p.edu_type),
+          purpose: _aprPurpose(p.detail?.purpose),
+          amount: Number(p.amount || 0),
+          date: (p.created_at || '').slice(0, 10),
+        })),
+        ...(apps || []).map(a => ({
+          _type: 'app', _table: 'applications', id: a.id,
+          applicant: a.applicant_name || '-',
+          dept: a.dept || a.detail?.dept || '-',
+          title: a.edu_name || '-',
+          type: _aprEduType(a.edu_type),
+          purpose: _aprPurpose(a.detail?.purpose),
+          amount: Number(a.amount || 0),
+          date: (a.created_at || '').slice(0, 10),
+        })),
+      ];
+    } catch (err) {
+      console.error('[renderApprovalLeader] DB 조회 실패:', err.message);
+      _aprLeaderData = [];
+    }
+  }
+
+  const pending = _aprLeaderData;
 
   const cards = pending.map(item => {
-    const urgBadge = item.urgency === 'urgent'
-      ? `<span style="font-size:9px;font-weight:900;padding:2px 7px;border-radius:6px;background:#FEE2E2;color:#DC2626;margin-left:6px">⚡ 긴급</span>`
-      : '';
+    const typeBadge = item._type === 'plan'
+      ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#DBEAFE;color:#1D4ED8">📋 교육계획</span>'
+      : '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#FEF3C7;color:#B45309">📝 교육신청</span>';
+    const safeId = String(item.id).replace(/'/g, "\\'");
+    const safeTable = item._table;
+
     return `
     <div style="border-radius:14px;border:1.5px solid #E5E7EB;background:white;padding:18px 20px;margin-bottom:12px">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px">
@@ -206,16 +264,19 @@ function renderApprovalLeader() {
               ${item.applicant.charAt(0)}
             </div>
             <div>
-              <div style="font-size:13px;font-weight:900;color:#374151">${item.applicant} <span style="font-weight:600;color:#9CA3AF">${item.pos}</span></div>
+              <div style="font-size:13px;font-weight:900;color:#374151">${item.applicant}</div>
               <div style="font-size:11px;color:#9CA3AF">${item.dept}</div>
             </div>
           </div>
-          <div style="font-size:14px;font-weight:900;color:#111827;margin-bottom:4px">${item.title}${urgBadge}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
+            <span style="font-size:14px;font-weight:900;color:#111827">${item.title}</span>
+            ${typeBadge}
+          </div>
           <div style="font-size:11px;color:#6B7280;display:flex;gap:10px;flex-wrap:wrap">
-            <span>📅 신청 ${item.applyDate}</span>
+            <span>📅 신청 ${item.date}</span>
             <span>📚 ${item.type}</span>
             <span>💰 ${item.amount.toLocaleString()}원</span>
-            <span>🎯 ${item.purpose}</span>
+            ${item.purpose !== '-' ? `<span>🎯 ${item.purpose}</span>` : ''}
           </div>
         </div>
         <div style="flex-shrink:0;font-size:11px;font-weight:800;padding:4px 12px;border-radius:10px;background:#FFF7ED;color:#C2410C">
@@ -225,16 +286,16 @@ function renderApprovalLeader() {
       <!-- 결재 액션 -->
       <div style="display:flex;gap:10px;padding-top:14px;border-top:1px solid #F3F4F6">
         <div style="flex:1">
-          <textarea id="comment-${item.id}" placeholder="결재 의견 입력 (선택사항)" rows="2"
+          <textarea id="comment-${safeId}" placeholder="결재 의견 입력 (선택사항)" rows="2"
             style="width:100%;padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;resize:none;box-sizing:border-box"></textarea>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
-          <button onclick="_approvalAction('${item.id}','approve')"
+          <button onclick="_approvalAction('${safeId}','${safeTable}','approve')"
             style="padding:8px 20px;border-radius:8px;background:#059669;color:white;font-size:12px;font-weight:900;border:none;cursor:pointer;white-space:nowrap;min-width:80px"
             onmouseover="this.style.background='#047857'" onmouseout="this.style.background='#059669'">
             ✅ 승인
           </button>
-          <button onclick="_approvalAction('${item.id}','reject')"
+          <button onclick="_approvalAction('${safeId}','${safeTable}','reject')"
             style="padding:8px 20px;border-radius:8px;background:white;color:#DC2626;font-size:12px;font-weight:900;border:1.5px solid #DC2626;cursor:pointer;white-space:nowrap;min-width:80px"
             onmouseover="this.style.background='#FEF2F2'" onmouseout="this.style.background='white'">
             ❌ 반려
@@ -247,10 +308,10 @@ function renderApprovalLeader() {
   const emptyMsg = `<div class="card p-16 text-center">
     <div style="font-size:48px;margin-bottom:16px">📭</div>
     <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">결재 대기 건이 없습니다</div>
-    <div style="font-size:12px;color:#9CA3AF">팀원의 교육신청이 접수되면 여기서 결재할 수 있습니다.</div>
+    <div style="font-size:12px;color:#9CA3AF">팀원의 교육계획 또는 교육신청이 접수되면 여기서 결재할 수 있습니다.</div>
   </div>`;
 
-  document.getElementById('page-approval-leader').innerHTML = `
+  el.innerHTML = `
 <div class="max-w-4xl mx-auto space-y-4">
   <div style="display:flex;align-items:flex-end;justify-content:space-between">
     <div>
@@ -258,9 +319,13 @@ function renderApprovalLeader() {
       <h1 class="text-3xl font-black text-brand tracking-tight">리더용 결재함</h1>
       <p style="font-size:12px;color:#9CA3AF;margin-top:4px">${currentPersona.name} ${currentPersona.pos} · ${currentPersona.dept}</p>
     </div>
-    <div style="background:#EFF6FF;border-radius:12px;padding:10px 18px;text-align:center">
-      <div style="font-size:11px;font-weight:700;color:#1D4ED8;margin-bottom:2px">결재 대기</div>
-      <div style="font-size:28px;font-weight:900;color:#002C5F">${pending.length}<span style="font-size:14px">건</span></div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button onclick="_aprLeaderLoaded=false;_aprLeaderData=[];renderApprovalLeader()"
+        style="padding:8px 16px;border-radius:10px;background:white;border:1.5px solid #E5E7EB;font-size:12px;font-weight:800;color:#374151;cursor:pointer">🔄 새로고침</button>
+      <div style="background:#EFF6FF;border-radius:12px;padding:10px 18px;text-align:center">
+        <div style="font-size:11px;font-weight:700;color:#1D4ED8;margin-bottom:2px">결재 대기</div>
+        <div style="font-size:28px;font-weight:900;color:#002C5F">${pending.length}<span style="font-size:14px">건</span></div>
+      </div>
     </div>
   </div>
 
@@ -268,15 +333,50 @@ function renderApprovalLeader() {
 </div>`;
 }
 
-// 결재 액션 (승인/반려)
-function _approvalAction(id, action) {
+// ─── 결재 액션 (승인/반려) — DB 실반영 ───────────────────────────────────────
+async function _approvalAction(id, table, action) {
   const comment = document.getElementById('comment-' + id)?.value || '';
   const actionLabel = action === 'approve' ? '승인' : '반려';
+
   if (action === 'reject' && !comment.trim()) {
     alert('반려 시 의견을 입력해주세요.');
     return;
   }
-  // TODO: 실제 DB 업데이트 연동
-  alert(`${actionLabel} 처리 완료\n${comment ? '의견: ' + comment : ''}\n(실제 DB 연동 후 반영됩니다)`);
-  renderApprovalLeader();
+
+  if (!confirm(`이 문서를 ${actionLabel} 처리하시겠습니까?`)) return;
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 실패'); return; }
+
+  try {
+    const updateData = {
+      status: action === 'approve' ? 'approved' : 'rejected',
+    };
+    if (action === 'reject') {
+      updateData.reject_reason = comment;
+    }
+    // 승인 시 의견이 있으면 detail에 저장
+    if (action === 'approve' && comment.trim()) {
+      // detail JSONB에 approver_comment 추가는 복잡하므로 reject_reason 필드를 approval_comment로 활용
+      // 또는 별도 처리 생략 (간이 구현)
+    }
+
+    const { error } = await sb.from(table).update(updateData).eq('id', id);
+    if (error) throw error;
+
+    alert(`✅ ${actionLabel} 처리가 완료되었습니다.${comment ? '\n의견: ' + comment : ''}`);
+
+    // 목록 갱신
+    _aprLeaderLoaded = false;
+    _aprLeaderData = [];
+    renderApprovalLeader();
+
+    // 팀원 목록도 갱신 (다른 탭에서 볼 때 반영)
+    _aprMemberLoaded = false;
+    _aprMemberData = [];
+
+  } catch (err) {
+    alert('처리 실패: ' + err.message);
+    console.error('[_approvalAction]', err.message);
+  }
 }

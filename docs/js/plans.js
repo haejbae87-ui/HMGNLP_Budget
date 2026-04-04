@@ -142,7 +142,7 @@ let _dbMyPlans = [];
 let _plansDbCache = [];  // raw DB data for detail view
 let _plansDbLoaded = false;
 function _mapDbStatus(s) {
-  const m = { draft: '작성중', pending: '신청중', approved: '진행중', completed: '완료', rejected: '반려', cancelled: '취소' };
+  const m = { draft: '작성중', pending: '신청중', approved: '승인완료', completed: '완료', rejected: '반려', cancelled: '취소' };
   return m[s] || s || '신청중';
 }
 
@@ -196,7 +196,7 @@ function renderPlans() {
   // 통계
   const stats = {
     total: plans.length,
-    active: plans.filter(p => p.status === '진행중' || p.status === '신청중').length,
+    active: plans.filter(p => p.status === '승인완료' || p.status === '신청중' || p.status === '진행중' || p.status === '결재진행중').length,
     done: plans.filter(p => p.status === '완료').length,
     rejected: plans.filter(p => p.status === '반려').length,
     draft: plans.filter(p => p.status === '작성중').length,

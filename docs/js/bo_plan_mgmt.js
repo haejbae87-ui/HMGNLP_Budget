@@ -64,7 +64,7 @@ async function renderBoPlanMgmt() {
           <div style="display:flex;gap:6px;justify-content:center">
             <button onclick="boPlanApprove('${safeId}')" class="bo-btn-accent bo-btn-sm">승인</button>
             <button onclick="boPlanReject('${safeId}')" class="bo-btn-sm" style="border:1px solid #EF4444;color:#EF4444;background:#fff;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer">반려</button>
-          </div>` : '<span style="font-size:12px;color:#9CA3AF">처리완료</span>'}
+          </div>` : status === 'draft' ? '<span style="font-size:12px;color:#9CA3AF">—</span>' : '<span style="font-size:12px;color:#9CA3AF">처리완료</span>'}
         </td>` : ''}
       </tr>`;
     }).join('');

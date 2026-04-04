@@ -1,5 +1,38 @@
 // ─── APPLY (교육신청) — 목록 ↔ 신청폼 ↔ 결과폼 전환 허브 ────────────────────
 
+// ─── DB 승인된 교육계획 캐시 (MOCK_PLANS 대체) ──────────────────────────────
+let _dbApprovedPlans = [];
+let _dbApprovedPlansLoaded = false;
+let _dbApprPlanPersonaId = null;  // 캐시 무효화용
+
+async function _loadApprovedPlans() {
+  const pid = currentPersona.id;
+  if (_dbApprovedPlansLoaded && _dbApprPlanPersonaId === pid) return _dbApprovedPlans;
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { _dbApprovedPlans = []; _dbApprovedPlansLoaded = true; return []; }
+  try {
+    const { data, error } = await sb.from('plans').select('*')
+      .eq('applicant_id', pid).eq('tenant_id', currentPersona.tenantId)
+      .eq('status', 'approved')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    _dbApprovedPlans = (data || []).map(p => ({
+      id: p.id, title: p.edu_name || '-',
+      account: p.account_code || '', budgetId: p.detail?.budgetId || '',
+      amount: Number(p.amount || 0), used: 0,
+      edu_type: p.edu_type, purpose: p.detail?.purpose,
+      date: (p.created_at || '').slice(0, 10),
+    }));
+    _dbApprovedPlansLoaded = true;
+    _dbApprPlanPersonaId = pid;
+  } catch (err) {
+    console.error('[_loadApprovedPlans]', err.message);
+    _dbApprovedPlans = [];
+    _dbApprovedPlansLoaded = true;
+  }
+  return _dbApprovedPlans;
+}
+
 let _resultState = null;
 function _resetResultState() {
   return {
@@ -561,6 +594,15 @@ function _applySelectionBanner(s, currentStep) {
 
 // ─── 교육신청 폼 뷰 (기존 renderApply 로직) ──────────────────────────────────
 function _renderApplyForm() {
+  // DB 승인 교육계획 선로드 (최초 1회)
+  if (!_dbApprovedPlansLoaded || _dbApprPlanPersonaId !== currentPersona.id) {
+    _loadApprovedPlans().then(() => _renderApplyForm());
+    document.getElementById('page-apply').innerHTML = `<div class="max-w-4xl mx-auto" style="padding:60px 20px;text-align:center">
+      <div style="font-size:28px;margin-bottom:8px">⌛</div>
+      <div style="font-size:14px;font-weight:700;color:#6B7280">교육계획 데이터 로딩 중...</div>
+    </div>`;
+    return;
+  }
   const s = applyState;
 
   // 정책 우선: 역할이 아닌 매칭 정책으로 UI 결정
@@ -575,11 +617,11 @@ function _renderApplyForm() {
   const curBudget = availBudgets.find(b => b.id === s.budgetId) || null;
   const isRndBudget = curBudget?.account === '연구투자';
   const isOperBudget = curBudget?.account === '운영';
-  // R&D 예산 계정에 연계된 교육계획 목록
-  const rndPlans = MOCK_PLANS.filter(p => p.account === '연구투자');
+  // R&D 예산 계정에 연계된 교육계획 목록 (DB 실시간)
+  const rndPlans = _dbApprovedPlans.filter(p => (p.account || '').includes('RND') || p.account === '연구투자');
   const hasRndPlans = rndPlans.length > 0;
-  // 운영 예산 계정에 연계된 교육계획 목록
-  const operPlans = MOCK_PLANS.filter(p => p.budgetId === curBudget?.id);
+  // 운영 예산 계정에 연계된 교육계획 목록 (DB 실시간)
+  const operPlans = _dbApprovedPlans.filter(p => p.budgetId === curBudget?.id);
   const hasOperPlans = operPlans.length > 0;
   // 다음 버튼 활성 조건
   const step2Blocked = s.useBudget === true && ((isRndBudget && !hasRndPlans) || (isOperBudget && !hasOperPlans));
@@ -611,7 +653,7 @@ function _renderApplyForm() {
   <span style="font-size:20px">🔗</span>
   <div>
     <div style="font-size:12px;font-weight:900;color:#1D4ED8">교육계획 기반 신청</div>
-    <div style="font-size:11px;color:#3B82F6;margin-top:2px">${(MOCK_PLANS.find(p => p.id === s.planId) || {}).title || s.planId} · 예산계정이 자동 연동되었습니다</div>
+    <div style="font-size:11px;color:#3B82F6;margin-top:2px">${(_dbApprovedPlans.find(p => p.id === s.planId) || {}).title || s.planId} · 예산계정이 자동 연동되었습니다</div>
   </div>
 </div>` : ''}
   </div>
@@ -1103,7 +1145,7 @@ function selectPurpose(id) {
 }
 function setUseBudget(v) { applyState.useBudget = v; applyState.budgetId = ''; applyState.planId = ''; applyState.planIds = []; applyState.hasPlan = null; renderApply(); }
 function setHasPlan(v) { applyState.hasPlan = v; applyState.planId = ''; applyState.planIds = []; applyState.budgetId = ''; renderApply(); }
-function selectPlan(id) { applyState.planId = id; const pl = MOCK_PLANS.find(p => p.id === id); if (pl) { applyState.budgetId = pl.budgetId; } renderApply(); }
+function selectPlan(id) { applyState.planId = id; const pl = _dbApprovedPlans.find(p => p.id === id); if (pl) { applyState.budgetId = pl.budgetId; } renderApply(); }
 function toggleOperPlan(id) {
   if (!applyState.planIds) applyState.planIds = [];
   const idx = applyState.planIds.indexOf(id);
@@ -1425,49 +1467,96 @@ function selectBudgetChoice(choice) {
 }
 
 function selectRndPlan(id) {
-  applyState.planId = id;
-  const pl = MOCK_PLANS.find(p => p.id === id);
+  // 다건 선택 모드: planIds 토글
+  if (!applyState.planIds) applyState.planIds = [];
+  const idx = applyState.planIds.indexOf(id);
+  if (idx > -1) {
+    applyState.planIds.splice(idx, 1);
+  } else {
+    applyState.planIds.push(id);
+  }
+  // 첫 번째 선택을 planId로 설정 (하위 호환)
+  applyState.planId = applyState.planIds[0] || '';
+  // budgetId 자동 설정
+  const pl = _dbApprovedPlans.find(p => p.id === applyState.planId);
   if (pl) applyState.budgetId = pl.budgetId;
   renderApply();
 }
 
-// R&D 교육계획 선택 UI (Picker)
+// R&D 교육계획 선택 UI (DB 기반, 다건 선택 지원)
 function _renderRndPlanPicker(s) {
-  const rndPlans = MOCK_PLANS.filter(p => p.account === '연구투자' || (p.budgetId || '').includes('RND'));
+  const rndPlans = _dbApprovedPlans.filter(p => (p.account || '').includes('RND') || p.account === '연구투자');
   if (rndPlans.length === 0) {
-    return '<div style="margin-top:16px;padding:16px 20px;border-radius:12px;background:#FEF2F2;border:1.5px solid #FECACA">'
-      + '<div style="font-size:13px;font-weight:900;color:#EF4444;margin-bottom:4px">⚠️ 연동 가능한 R&D 교육계획이 없습니다</div>'
-      + '<div style="font-size:12px;color:#9CA3AF">R&D 교육예산을 사용하려면 사전에 교육계획을 수립하고 승인을 받아야 합니다.</div>'
-      + '<div style="margin-top:10px"><a href="#" onclick="navigate(\'plans\');return false" style="font-size:12px;font-weight:900;color:#7C3AED;text-decoration:underline">→ 교육계획 수립 바로가기</a></div>'
-      + '</div>';
+    return `
+    <div style="margin-top:16px;padding:16px 20px;border-radius:12px;background:#FEF2F2;border:1.5px solid #FECACA">
+      <div style="font-size:13px;font-weight:900;color:#EF4444;margin-bottom:4px">⚠️ 승인된 R&D 교육계획이 없습니다</div>
+      <div style="font-size:12px;color:#9CA3AF;line-height:1.6">
+        R&D 교육예산을 사용하려면 사전에 교육계획을 수립하고 승인을 받아야 합니다.<br>
+        교육계획 화면에서 먼저 계획을 수립한 후, 결재 승인을 받으세요.
+      </div>
+      <div style="margin-top:12px">
+        <a href="#" onclick="navigate('plans');return false"
+          style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:#7C3AED;color:white;font-size:12px;font-weight:900;text-decoration:none">
+          📋 교육계획 수립 바로가기
+        </a>
+      </div>
+    </div>`;
   }
-  let html = '<div style="margin-top:16px;padding:16px 20px;border-radius:12px;background:#F5F3FF;border:1.5px solid #DDD6FE">'
-    + '<div style="font-size:12px;font-weight:900;color:#7C3AED;margin-bottom:10px">🔬 승인된 R&D 교육계획 선택</div>'
-    + '<div style="display:grid;gap:8px">';
-  rndPlans.forEach(p => {
-    const active = s.planId === p.id;
-    html += '<label onclick="selectRndPlan(\'' + p.id + '\')" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;'
-      + 'border:1.5px solid ' + (active ? '#7C3AED' : '#E5E7EB') + ';background:' + (active ? '#F5F3FF' : 'white') + ';cursor:pointer">'
-      + '<input type="radio" ' + (active ? 'checked' : '') + ' style="flex-shrink:0">'
-      + '<div style="flex:1">'
-      + '<div style="font-size:12px;font-weight:800;color:' + (active ? '#7C3AED' : '#111827') + '">' + p.title + '</div>'
-      + '<div style="font-size:10px;color:#9CA3AF;margin-top:2px">예산: ' + (p.amount || 0).toLocaleString() + '원 &nbsp;·&nbsp; 잔액: ' + ((p.amount || 0) - (p.used || 0)).toLocaleString() + '원</div>'
-      + '</div>'
-      + (active ? '<span style="font-size:14px;color:#7C3AED;font-weight:900">✓</span>' : '')
-      + '</label>';
-  });
-  html += '</div>'
-    + '<div style="margin-top:10px;padding:10px 14px;background:#EDE9FE;border-radius:8px;font-size:11px;color:#5B21B6;font-weight:700">'
-    + '💡 교육계획에 이미 교육 유형이 포함되어 있어 다음 단계에서 유형을 별도로 선택하지 않아도 됩니다.'
-    + '</div></div>';
-  return html;
+
+  const selected = s.planIds || [];
+  const totalAmt = selected.reduce((sum, id) => {
+    const p = rndPlans.find(x => x.id === id);
+    return sum + (p ? p.amount : 0);
+  }, 0);
+
+  const planCards = rndPlans.map(p => {
+    const active = selected.includes(p.id);
+    const balance = (p.amount || 0) - (p.used || 0);
+    const isLow = balance <= 0;
+    return `
+    <label onclick="selectRndPlan('${p.id}')" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;
+      border:2px solid ${active ? '#7C3AED' : '#E5E7EB'};background:${active ? '#F5F3FF' : 'white'};cursor:pointer;transition:all .15s"
+      onmouseover="if(!${active})this.style.borderColor='#C4B5FD'" onmouseout="if(!${active})this.style.borderColor='#E5E7EB'">
+      <div style="width:22px;height:22px;border-radius:6px;border:2px solid ${active ? '#7C3AED' : '#D1D5DB'};
+        background:${active ? '#7C3AED' : 'white'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        ${active ? '<span style="color:white;font-size:12px;font-weight:900">✓</span>' : ''}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:900;color:${active ? '#7C3AED' : '#111827'};margin-bottom:3px">${p.title}</div>
+        <div style="font-size:11px;color:#6B7280;display:flex;gap:12px;flex-wrap:wrap">
+          <span>📅 ${p.date || '-'}</span>
+          <span>💰 예산 ${p.amount.toLocaleString()}원</span>
+          <span style="color:${isLow ? '#DC2626' : '#059669'}">${isLow ? '⚠️ 잔액 부족' : '✅ 잔액 ' + balance.toLocaleString() + '원'}</span>
+        </div>
+      </div>
+    </label>`;
+  }).join('');
+
+  return `
+  <div style="margin-top:16px;padding:16px 20px;border-radius:14px;background:#F5F3FF;border:1.5px solid #DDD6FE">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:900;color:#7C3AED">🔬 승인된 R&D 교육계획 선택</div>
+      <div style="font-size:11px;font-weight:700;color:#6B7280">${rndPlans.length}건 조회</div>
+    </div>
+    <div style="display:grid;gap:8px;max-height:320px;overflow-y:auto;padding-right:4px">
+      ${planCards}
+    </div>
+    ${selected.length > 0 ? `
+    <div style="margin-top:12px;padding:12px 16px;background:#EDE9FE;border-radius:10px;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:12px;font-weight:800;color:#5B21B6">📋 선택된 교육계획 ${selected.length}건</div>
+      <div style="font-size:14px;font-weight:900;color:#7C3AED">${totalAmt.toLocaleString()}원</div>
+    </div>` : ''}
+    <div style="margin-top:10px;padding:10px 14px;background:#EDE9FE;border-radius:8px;font-size:11px;color:#5B21B6;font-weight:700">
+      💡 교육계획에 이미 교육 유형이 포함되어 있어 다음 단계에서 유형을 별도로 선택하지 않아도 됩니다.
+    </div>
+  </div>`;
 }
 
 // ─── Step 이동 (R&D 시 교육유형 단계 건너뜀) ──────────────────────────────────
 function applyNext() {
   const s = applyState;
   // Step 2: R&D 선택시 교육계획 없으면 진행 차단
-  if (s.step === 2 && s.budgetChoice === 'rnd' && !s.planId) {
+  if (s.step === 2 && s.budgetChoice === 'rnd' && (!s.planId && (!s.planIds || s.planIds.length === 0))) {
     const picker = document.getElementById('rnd-plan-picker-alert');
     if (picker) {
       picker.style.animation = 'none';

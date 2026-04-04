@@ -340,8 +340,17 @@ async function _initCurrentPersona(persona) {
         // _getActivePolicies 기반 정책 매칭이 오염됨 (원인 2 수정)
         // 서비스 정책의 accountCodes ↔ allowedAccounts 교차 매칭으로만 정책 필터링
 
-        console.log(`[FO Loader] ${persona.name} → 계정: ${allowedAccounts.join(', ')}`);
-        return { ...persona, allowedAccounts, budgets };
+        // learner vorgIds: bankbook의 template_id에서 추출 (정책 매칭용)
+        const bbVorgIds = [...new Set(
+            (directBbs || []).map(bb => bb.template_id).filter(Boolean)
+        )];
+        if (bbVorgIds.length > 0 && !persona.vorgId) {
+            persona.vorgIds = bbVorgIds;
+            persona.vorgId = bbVorgIds[0]; // 주 VOrg (첫 번째)
+        }
+
+        console.log(`[FO Loader] ${persona.name} → 계정: ${allowedAccounts.join(', ')}, vorgIds: ${(persona.vorgIds || []).join(', ')}`);
+        return { ...persona, allowedAccounts, budgets, vorgId: persona.vorgId, vorgIds: persona.vorgIds || [] };
 
     } catch (err) {
         console.error('[FO Loader] _initCurrentPersona 오류 → mock 폴백', err.message);

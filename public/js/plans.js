@@ -138,6 +138,23 @@ function resetPlanState() {
 let _planViewTab = 'mine'; // 'mine' | 'team'
 let _planYear = new Date().getFullYear(); // 연도 필터
 
+// ── 영문 KEY → 한글 라벨 변환 맵 ──
+const _FO_PURPOSE_LABEL = {
+  external_personal: '개인직무 사외학습',
+  elearning_class: '이러닝/집합(비대면) 운영',
+  conf_seminar: '워크샵/세미나/콘퍼런스 등 운영',
+  misc_ops: '기타 운영',
+};
+const _FO_EDU_TYPE_LABEL = {
+  regular: '정규교육', elearning: '이러닝', class: '집합', live: '라이브',
+  academic: '학술 및 연구활동', conf: '학회/컨퍼런스', seminar: '세미나',
+  knowledge: '지식자원 학습', book: '도서구입', online: '온라인콘텐츠',
+  competency: '역량개발지원', lang: '어학학습비 지원', cert: '자격증 취득지원',
+  집합교육: '집합교육',
+};
+function _foPurposeLabel(key) { return _FO_PURPOSE_LABEL[key] || key || '-'; }
+function _foEduTypeLabel(key) { return _FO_EDU_TYPE_LABEL[key] || key || '-'; }
+
 let _dbMyPlans = [];
 let _plansDbCache = [];  // raw DB data for detail view
 let _plansDbLoaded = false;
@@ -405,11 +422,11 @@ function _renderPlanDetailView(plan) {
           </tr>
           <tr style="border-bottom:1px solid #F3F4F6">
             <td style="padding:12px 0;font-weight:800;color:#6B7280">교육목적</td>
-            <td style="padding:12px 0;color:#374151">${d.purpose || plan.purpose || '-'}</td>
+            <td style="padding:12px 0;color:#374151">${_foPurposeLabel(d.purpose || plan.purpose)}</td>
           </tr>
           <tr style="border-bottom:1px solid #F3F4F6">
             <td style="padding:12px 0;font-weight:800;color:#6B7280">교육유형</td>
-            <td style="padding:12px 0;color:#374151">${plan.edu_type || d.eduType || '-'} ${d.eduSubType ? '› ' + d.eduSubType : ''}</td>
+            <td style="padding:12px 0;color:#374151">${_foEduTypeLabel(plan.edu_type || d.eduType)} ${d.eduSubType ? '› ' + _foEduTypeLabel(d.eduSubType) : ''}</td>
           </tr>
           <tr style="border-bottom:1px solid #F3F4F6">
             <td style="padding:12px 0;font-weight:800;color:#6B7280">예산계정</td>

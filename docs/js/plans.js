@@ -205,9 +205,33 @@ function renderPlans() {
       });
     return;
   }
-  const myPlans = _dbMyPlans.length > 0 ? _dbMyPlans
-    : MOCK_PLANS.filter(p => p.year === _planYear);
-  const teamPlans = teamViewEnabled ? _getSampleTeamPlans() : [];
+  const myPlans = _dbMyPlans;
+  // 팀 뷰: DB에서 같은 org_id 멤버의 plans 조회
+  let teamPlans = [];
+  if (teamViewEnabled && _planViewTab === 'team') {
+    if (!_teamPlansLoaded) {
+      _teamPlansLoaded = true;
+      const sb = typeof getSB === 'function' ? getSB() : null;
+      if (sb && currentPersona.orgId) {
+        sb.from('plans').select('*')
+          .eq('tenant_id', currentPersona.tenantId)
+          .neq('applicant_id', currentPersona.id)
+          .neq('status', 'draft')
+          .order('created_at', { ascending: false })
+          .then(({ data }) => {
+            _dbTeamPlans = (data || []).map(d => ({
+              id: d.id, title: d.edu_name, type: d.edu_type || '',
+              amount: Number(d.amount || 0), status: _mapDbStatus(d.status),
+              account: d.account_code, date: d.created_at?.slice(0, 10) || '',
+              author: d.applicant_name || '-', authorDept: d.dept || '-',
+            }));
+            renderPlans();
+          });
+      }
+      return;
+    }
+    teamPlans = _dbTeamPlans;
+  }
   const plans = _planViewTab === 'mine' ? myPlans : teamPlans;
 
   // 통계
@@ -297,13 +321,9 @@ function renderPlans() {
 </div>`;
 }
 
-// 팀 계획 샘플 (실제에서는 DB 조회로 교체)
-function _getSampleTeamPlans() {
-  return [
-    { id: 'TP001', title: '팀원 A - AI 기술 세미나', account: '운영', amount: 500000, status: '승인완료', author: '김O수', authorDept: currentPersona.dept },
-    { id: 'TP002', title: '팀원 B - 클라우드 자격증', account: '운영', amount: 800000, status: '결재진행중', author: '이O진', authorDept: currentPersona.dept },
-  ];
-}
+// 팀 계획 DB 캐시
+let _dbTeamPlans = [];
+let _teamPlansLoaded = false;
 
 // 계획 카드 렌더러
 function _renderPlanCard(p) {
@@ -1176,10 +1196,10 @@ async function startApplyFromPlan(planId) {
       console.warn('[startApplyFromPlan] DB 조회 실패:', err.message);
     }
   }
-  // 2. mock 폴백
-  if (!plan) {
-    const mockPlan = MOCK_PLANS.find(p => p.id === planId);
-    if (mockPlan) plan = { id: mockPlan.id, title: mockPlan.title, budgetId: mockPlan.budgetId, purpose: mockPlan.purpose };
+  // 2. _plansDbCache 캐시 폴백
+  if (!plan && _plansDbCache) {
+    const cached = _plansDbCache.find(p => p.id === planId);
+    if (cached) plan = { id: cached.id, title: cached.edu_name, budgetId: cached.detail?.budgetId, purpose: cached.detail?.purpose };
   }
   if (!plan) { navigate('apply'); return; }
 

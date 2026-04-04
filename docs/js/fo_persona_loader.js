@@ -185,6 +185,7 @@ async function _buildPersonaFromEmployee(emp) {
         jobType: emp.job_type,
         roles: emp.roles || [],
         isLeader: emp.is_leader || false,
+        teamViewEnabled: emp.is_leader || false,  // 리더는 팀 뷰 기본 ON
         allowedAccounts: [],
         budgets: [],
     };
@@ -222,6 +223,14 @@ async function switchPersonaAndReload(key) {
     if (typeof renderGNB === 'function') renderGNB();
     if (typeof renderFloatingBudget === 'function') renderFloatingBudget();
     if (typeof _resetDashboard === 'function') _resetDashboard(); // 대시보드 캐시 리셋
+    // 팀 뷰 + 승인계획 캐시 리셋
+    if (typeof _teamPlansLoaded !== 'undefined') { _teamPlansLoaded = false; _dbTeamPlans = []; }
+    if (typeof _teamAppsLoaded !== 'undefined') { _teamAppsLoaded = false; _dbTeamApps = []; }
+    if (typeof _dbApprovedPlansLoaded !== 'undefined') { _dbApprovedPlansLoaded = false; _dbApprovedPlans = []; }
+    if (typeof _plansDbLoaded !== 'undefined') { _plansDbLoaded = false; _dbMyPlans = []; }
+    if (typeof _appsDbLoaded !== 'undefined') { _appsDbLoaded = false; _dbMyApps = []; }
+    if (typeof _aprMemberLoaded !== 'undefined') { _aprMemberLoaded = false; _aprMemberData = []; }
+    if (typeof _aprLeaderLoaded !== 'undefined') { _aprLeaderLoaded = false; _aprLeaderData = []; }
     if (typeof navigate === 'function') navigate(currentPage || 'dashboard');
 }
 

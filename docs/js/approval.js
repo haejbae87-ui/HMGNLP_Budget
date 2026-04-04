@@ -228,6 +228,7 @@ async function renderApprovalLeader() {
           purpose: _aprPurpose(p.detail?.purpose),
           amount: Number(p.amount || 0),
           date: (p.created_at || '').slice(0, 10),
+          account_code: p.account_code || '',
         })),
         ...(apps || []).map(a => ({
           _type: 'app', _table: 'applications', id: a.id,
@@ -238,8 +239,26 @@ async function renderApprovalLeader() {
           purpose: _aprPurpose(a.detail?.purpose),
           amount: Number(a.amount || 0),
           date: (a.created_at || '').slice(0, 10),
+          account_code: a.account_code || a.detail?.account_code || '',
         })),
       ];
+
+      // 결재라인 매칭 필터 — APPROVAL_ROUTING 기반
+      if (typeof APPROVAL_ROUTING !== 'undefined' && APPROVAL_ROUTING.length > 0) {
+        const myPos = currentPersona.pos || '';
+        _aprLeaderData = _aprLeaderData.filter(item => {
+          const routing = APPROVAL_ROUTING.find(r =>
+            r.tenantId === tid && r.accountCodes.some(c => item.account_code.includes(c))
+          );
+          if (!routing) return true; // 라우팅 미설정 → 기본 표시
+          // 금액 구간별 결재자 매칭
+          const range = routing.ranges.find(rng =>
+            rng.max === null || item.amount < rng.max
+          ) || routing.ranges[routing.ranges.length - 1];
+          if (!range) return true;
+          return range.approvers.some(a => a.includes(myPos) || myPos.includes(a.replace(' 전결', '')));
+        });
+      }
     } catch (err) {
       console.error('[renderApprovalLeader] DB 조회 실패:', err.message);
       _aprLeaderData = [];
@@ -349,16 +368,26 @@ async function _approvalAction(id, table, action) {
   if (!sb) { alert('DB 연결 실패'); return; }
 
   try {
+    // 결재 이력 기록 (detail.approval_logs)
+    const logEntry = {
+      actor: currentPersona.name,
+      actor_pos: currentPersona.pos,
+      action: action,
+      comment: comment || null,
+      timestamp: new Date().toISOString(),
+    };
+    // 기존 detail 조회 후 approval_logs 배열에 추가
+    const { data: existing } = await sb.from(table).select('detail').eq('id', id).single();
+    const prevDetail = existing?.detail || {};
+    const prevLogs = prevDetail.approval_logs || [];
+    prevLogs.push(logEntry);
+
     const updateData = {
       status: action === 'approve' ? 'approved' : 'rejected',
+      detail: { ...prevDetail, approval_logs: prevLogs },
     };
     if (action === 'reject') {
       updateData.reject_reason = comment;
-    }
-    // 승인 시 의견이 있으면 detail에 저장
-    if (action === 'approve' && comment.trim()) {
-      // detail JSONB에 approver_comment 추가는 복잡하므로 reject_reason 필드를 approval_comment로 활용
-      // 또는 별도 처리 생략 (간이 구현)
     }
 
     const { error } = await sb.from(table).update(updateData).eq('id', id);

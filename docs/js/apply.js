@@ -398,7 +398,32 @@ function _renderApplyList() {
     return;
   }
   const myHistory = _dbMyApps;
-  const teamHistory = teamViewEnabled ? _getSampleTeamHistory() : [];
+  // 팀 신청: DB에서 같은 테넌트 내 다른 사용자 신청 조회
+  let teamHistory = [];
+  if (teamViewEnabled && _applyListTab === 'team') {
+    if (!_teamAppsLoaded) {
+      _teamAppsLoaded = true;
+      if (sb && currentPersona.tenantId) {
+        sb.from('applications').select('*')
+          .eq('tenant_id', currentPersona.tenantId)
+          .neq('applicant_id', currentPersona.id)
+          .neq('status', 'draft')
+          .order('created_at', { ascending: false })
+          .then(({ data }) => {
+            _dbTeamApps = (data || []).map(d => ({
+              id: d.id, title: d.edu_name, type: d.edu_type || '교육',
+              date: d.created_at?.slice(0, 10) || '', endDate: '',
+              hours: 0, amount: Number(d.amount || 0),
+              budget: d.account_code || '', applyStatus: _mapAppDbStatus(d.status),
+              resultDone: d.status === 'completed', author: d.applicant_name || '-',
+            }));
+            _renderApplyList();
+          });
+      }
+      return;
+    }
+    teamHistory = _dbTeamApps;
+  }
   const history = _applyListTab === 'mine' ? myHistory : teamHistory;
 
   // 통계
@@ -532,13 +557,9 @@ function _renderApplyList() {
 </div>`;
 }
 
-// 팀 신청 샘플 (실제에서는 DB 조회)
-function _getSampleTeamHistory() {
-  return [
-    { id: 'TH001', title: '팀원 A - SDV 세미나', type: '세미나', date: '2026-03-01', endDate: '2026-03-01', hours: 8, amount: 300000, budget: '운영', applyStatus: '승인완료', resultDone: false, author: '김O수' },
-    { id: 'TH002', title: '팀원 B - 이러닝 과정', type: '이러닝', date: '2026-03-10', endDate: '2026-03-31', hours: 20, amount: 150000, budget: '운영', applyStatus: '결재진행중', resultDone: false, author: '이O진' },
-  ];
-}
+// 팀 신청 DB 캐시
+let _dbTeamApps = [];
+let _teamAppsLoaded = false;
 
 // ─── 스텝 선택 내용 배너 (교육계획 위저드와 동일한 스타일) ────────────────────
 function _applySelectionBanner(s, currentStep) {

@@ -151,20 +151,12 @@ function getPersonaBudgets(persona, purposeId) {
   if (result) {
     const { source, policies } = result;
     if (source === 'db') {
-      // 정책 우선: purpose 필터 후 target_type도 고려
-      // learner 역할이면 operator 전용 정책 제외, operator면 learner 전용 제외
+      // VOrg 기반 정책: purpose 필터만 적용 (target_type 무관)
+      // 팀이 소속한 VOrg의 정책이면 모두 허용
       const boPurposeKeys = purposeId ? (_FO_TO_BO_PURPOSE[purposeId] || [purposeId]) : null;
-      let filtered = boPurposeKeys
+      const filtered = boPurposeKeys
         ? policies.filter(p => boPurposeKeys.includes(p.purpose))
         : policies;
-      // target_type 필터: persona의 FO 역할 기반
-      const personaIsLearner = !persona.roles || persona.roles.length === 0 ||
-        persona.roles.every(r => r === 'learner' || r === 'HMC_learner' || r.endsWith('_learner'));
-      if (personaIsLearner) {
-        const learnerFiltered = filtered.filter(p => !p.target_type || p.target_type === 'learner');
-        if (learnerFiltered.length > 0) filtered = learnerFiltered;
-        // learner 정책이 0건이면 operator 정책도 허용 (교육담당자 대리신청 등)
-      }
       // 허용된 accountCodes로 persona.budgets 필터
       // !acctType 조건 제거: ACCOUNT_TYPE_MAP에 없는 코드가 있어도 전체 통과하지 않도록
       const allCodes = [...new Set(filtered.flatMap(p => p.accountCodes || p.account_codes || []))];

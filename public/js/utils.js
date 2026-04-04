@@ -125,13 +125,14 @@ function _getActivePolicies(persona) {
     if (pStatus && pStatus !== 'active') return false;
     if (pTenantId && pTenantId !== persona.tenantId) return false;
 
-    // ① vorgId 기반 매칭 (정책 매칭의 주 기준)
-    // 통장(allowedAccounts)이 아닌 페르소나의 소속 VOrg로 정책을 결정
+    // ① vorgId/vorgIds 기반 매칭 (정책 매칭의 주 기준)
+    const vorgIds = persona.vorgIds || (vorgId ? [vorgId] : []);
+    if (pDomainId && vorgIds.length > 0 && vorgIds.includes(pDomainId)) return true;
     if (vorgId && pDomainId && pDomainId === vorgId) return true;
 
     // ② allowedAccounts 교차매칭은 vorgId 미해석 시에만 폴백으로 사용
     // (VORG_TEMPLATES 미로드 등으로 vorgId 해석 실패 시 한정)
-    if (!vorgId && pAcctCodes.length > 0 && pAcctCodes.some(c => allowedAcctCodes.has(c))) return true;
+    if (!vorgId && vorgIds.length === 0 && pAcctCodes.length > 0 && pAcctCodes.some(c => allowedAcctCodes.has(c))) return true;
 
     // ③ VOrg/account 미설정 정책 → 무조건 통과 제거 (정책 누수 방지)
     // 명시적 vorgId 또는 accountCodes 매칭만 허용
@@ -150,12 +151,20 @@ function getPersonaBudgets(persona, purposeId) {
   if (result) {
     const { source, policies } = result;
     if (source === 'db') {
-      // 정책 우선: target_type 필터 없이 매칭된 정책 전부 사용
-      // (정책이 열려있으면 누구든 사용 가능)
+      // 정책 우선: purpose 필터 후 target_type도 고려
+      // learner 역할이면 operator 전용 정책 제외, operator면 learner 전용 제외
       const boPurposeKeys = purposeId ? (_FO_TO_BO_PURPOSE[purposeId] || [purposeId]) : null;
-      const filtered = boPurposeKeys
+      let filtered = boPurposeKeys
         ? policies.filter(p => boPurposeKeys.includes(p.purpose))
         : policies;
+      // target_type 필터: persona의 FO 역할 기반
+      const personaIsLearner = !persona.roles || persona.roles.length === 0 ||
+        persona.roles.every(r => r === 'learner' || r === 'HMC_learner' || r.endsWith('_learner'));
+      if (personaIsLearner) {
+        const learnerFiltered = filtered.filter(p => !p.target_type || p.target_type === 'learner');
+        if (learnerFiltered.length > 0) filtered = learnerFiltered;
+        // learner 정책이 0건이면 operator 정책도 허용 (교육담당자 대리신청 등)
+      }
       // 허용된 accountCodes로 persona.budgets 필터
       // !acctType 조건 제거: ACCOUNT_TYPE_MAP에 없는 코드가 있어도 전체 통과하지 않도록
       const allCodes = [...new Set(filtered.flatMap(p => p.accountCodes || p.account_codes || []))];

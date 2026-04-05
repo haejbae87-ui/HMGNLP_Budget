@@ -1,7 +1,7 @@
-// ─── 백오피스: 서비스 매뉴얼 (v6.0) ────────────────────────────────────────────
+// ─── 백오피스: 서비스 매뉴얼 (v7.0) ────────────────────────────────────────────
 // 대상: 차세대학습플랫폼 서비스 기획자 및 개발자
 // 내용: 멀티테넌트 교육예산 관리 시스템의 전체 구조·역할·메뉴·데이터 흐름 안내
-// 최종 업데이트: 2026-04-06 (FO 행위기반카테고리UI, VOrg레이블, 프로세스패턴안내, 기타운영누수수정)
+// 최종 업데이트: 2026-04-06 (Mock→DB전환 완료, misc_ops제거, PURPOSES정책기반, MOCK_HISTORY tenantId격리)
 
 function renderBoManual() {
   const el = document.getElementById('bo-content');
@@ -9,12 +9,12 @@ function renderBoManual() {
 <div class="bo-fade" style="max-width:960px">
   <div style="background:linear-gradient(135deg,#312E81,#6366F1);border-radius:16px;padding:28px 32px;color:#fff;margin-bottom:28px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-      <span style="background:rgba(255,255,255,.2);padding:3px 10px;border-radius:6px;font-size:9px;font-weight:900;letter-spacing:.1em">BACK-OFFICE MANUAL v6.0</span>
+      <span style="background:rgba(255,255,255,.2);padding:3px 10px;border-radius:6px;font-size:9px;font-weight:900;letter-spacing:.1em">BACK-OFFICE MANUAL v7.0</span>
     </div>
     <h1 style="font-size:22px;font-weight:900;margin:0 0 8px">백오피스 서비스 매뉴얼</h1>
     <p style="font-size:13px;color:rgba(255,255,255,.8);margin:0;line-height:1.6">
       차세대학습플랫폼(NLP) 서비스 기획자·개발자를 위한 멀티테넌트 교육예산 관리 시스템 안내서<br>
-      예산 정책 설계부터 결재 자동 라우팅까지 전체 흐름을 다룹니다. | 2026-04-06 v6.0
+      예산 정책 설계부터 결재 자동 라우팅까지 전체 흐름을 다룹니다. | 2026-04-06 v7.0
     </p>
   </div>
 
@@ -123,12 +123,12 @@ function _manOverview() {
   </div>
 
   <div class="bo-card" style="padding:18px;background:#F0FDF4;border:1.5px solid #A7F3D0">
-    <div style="font-size:13px;font-weight:800;color:#065F46;margin-bottom:8px">🔄 v6.0 주요 변경사항 (2026-04-06)</div>
+    <div style="font-size:13px;font-weight:800;color:#065F46;margin-bottom:8px">🔄 v7.0 주요 변경사항 (2026-04-06)</div>
     <div style="font-size:12px;color:#374151;line-height:1.8">
-      <strong>1. FO 행위기반 카테고리 UI:</strong> 교육계획·교육신청 Step 1이 📚직접학습 / 🎯교육운영 / 📝결과등록 카테고리로 통일. 학습자/교육담당자 구분 제거.<br>
-      <strong>2. VOrg 레이블 + 프로세스 안내:</strong> Step 2 예산카드에 가상조직명(일반교육예산/R&D교육예산) 배지 + 프로세스 패턴 안내 배너 추가.<br>
-      <strong>3. 기타운영 누수 근본 수정:</strong> plans.js <code>domainId: row.domain_id</code>→<code>row.vorg_template_id</code> 매핑 오류 수정. <code>_loadFoPolicies()</code> 게이트 + fallback misc_ops 방어.<br>
-      <strong>4. UI 통일:</strong> 교육계획과 교육신청이 동일한 카테고리·색상·레이아웃으로 통일되어 학습자 UX 일관성 확보.
+      <strong>1. Mock→DB 전환 완료:</strong> FO <code>PURPOSES</code> 배열이 DB <code>edu_purpose_groups</code> 테이블에서 동적 로드. <code>misc_ops</code>(기타운영)는 Mock 폴백에서 제거됨.<br>
+      <strong>2. 정책기반 PURPOSES 탐색:</strong> <code>plans.js</code>·<code>apply.js</code>의 <code>PURPOSES.find()</code> 직접참조를 <code>getPersonaPurposes()</code> 정책기반 탐색 + PURPOSES 폴백으로 전환.<br>
+      <strong>3. MOCK_HISTORY 테넌트 격리:</strong> <code>MOCK_HISTORY</code>/<code>MOCK_PLANS</code>에 <code>tenantId</code> 필드 추가. <code>budget.js</code>·<code>mypage.js</code>·<code>history.js</code>에서 페르소나 테넌트 기반 필터 적용.<br>
+      <strong>4. 매뉴얼 DB기준 재작성:</strong> FO·BO 매뉴얼의 구현참고(impl) 필드를 DB 우선 아키텍처 기준으로 전면 갱신.
     </div>
   </div>
 </div>`;
@@ -458,7 +458,7 @@ function _manTech() {
       └── js/<br>
       &nbsp;&nbsp;&nbsp;├── <span style="color:#DC2626">supabase_client.js</span>    — ★ Supabase DB 연동 (tenants, accounts, policies, users 로드)<br>
       &nbsp;&nbsp;&nbsp;├── <span style="color:#DC2626">fo_persona_loader.js</span>  — ★ FO 학습자 DB 로더 (users+user_roles → 페르소나 초기화)<br>
-      &nbsp;&nbsp;&nbsp;├── <span style="color:#1D4ED8">data.js</span>               — FO Mock 폴백 데이터 (PERSONAS, PURPOSES, budgets)<br>
+      &nbsp;&nbsp;&nbsp;├── <span style="color:#1D4ED8">data.js</span>               — FO Mock 폴백 데이터 (PERSONAS, PURPOSES[※misc_ops 제거됨], MOCK_HISTORY[tenantId필터])<br>
       &nbsp;&nbsp;&nbsp;├── <span style="color:#1D4ED8">bo_data.js</span>            — BO Mock (BO_PERSONAS, ACCOUNT_MASTER, CALC_GROUNDS_MASTER 등)<br>
       &nbsp;&nbsp;&nbsp;├── <span style="color:#059669">bo_layout.js</span>          — 사이드바·헤더·페르소나전환·boNavigate()<br>
       &nbsp;&nbsp;&nbsp;├── <span style="color:#7C3AED">bo_policy_builder.js</span>  — ★ 서비스 정책 설정 (6단계·패턴A/B/C/D·금액결재라인)<br>

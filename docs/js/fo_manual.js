@@ -1,6 +1,6 @@
-// ─── 프론트오피스: 서비스 매뉴얼 (v4.0) ─────────────────────────────────────
+// ─── 프론트오피스: 서비스 매뉴얼 (v5.0) ─────────────────────────────────────
 // 대상: 차세대학습플랫폼 서비스 기획자 및 학습자
-// 최종 업데이트: 2026-04-06 (행위기반카테고리UI, VOrg레이블, 프로세스패턴안내, 기타운영누수수정)
+// 최종 업데이트: 2026-04-06 (Mock→DB전환 완료, misc_ops제거, PURPOSES정책기반, MOCK_HISTORY tenantId격리)
 
 function renderFoManual() {
   const el = document.getElementById('page-fo-manual');
@@ -9,12 +9,12 @@ function renderFoManual() {
 <div style="max-width:940px;margin:0 auto">
   <div style="background:linear-gradient(135deg,#002C5F,#1D4ED8);border-radius:16px;padding:28px 32px;color:#fff;margin-bottom:28px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-      <span style="background:rgba(255,255,255,.2);padding:3px 10px;border-radius:6px;font-size:9px;font-weight:900;letter-spacing:.1em">FRONT-OFFICE MANUAL v4.0</span>
+      <span style="background:rgba(255,255,255,.2);padding:3px 10px;border-radius:6px;font-size:9px;font-weight:900;letter-spacing:.1em">FRONT-OFFICE MANUAL v5.0</span>
     </div>
     <h1 style="font-size:20px;font-weight:900;margin:0 0 8px">프론트오피스 서비스 매뉴얼</h1>
     <p style="font-size:13px;color:rgba(255,255,255,.8);margin:0;line-height:1.6">
       LXP 학습자·팀담당자를 위한 교육예산 활용 안내서<br>
-      차세대학습플랫폼 기획자·개발자가 학습자 화면 흐름을 파악하는 데도 활용하세요. | 2026-04-06 v4.0
+      차세대학습플랫폼 기획자·개발자가 학습자 화면 흐름을 파악하는 데도 활용하세요. | 2026-04-06 v5.0
     </p>
   </div>
 
@@ -66,7 +66,8 @@ function _foManOverview() {
     <p style="font-size:13px;color:#374151;line-height:1.8;margin:0">
       백오피스에서 설정한 <strong>서비스 정책(패턴A~E)</strong>에 따라 학습자 화면이 동적으로 구성됩니다.<br>
       학습자 소속팀의 <strong>가상교육조직(VOrg)</strong>에 연결된 정책만 노출되어 정책 외 항목(기타운영 등)은 자동 차단됩니다.<br>
-      Step 1에서 <strong>행위 기반 카테고리(📚직접학습 / 🎯교육운영 / 📝결과등록)</strong>로 목적을 선택하고, Step 2에서 <strong>VOrg 레이블 + 프로세스 패턴 안내</strong>를 확인하며 자연스럽게 진행합니다.
+      Step 1에서 <strong>행위 기반 카테고리(📚직접학습 / 🎯교육운영 / 📝결과등록)</strong>로 목적을 선택하고, Step 2에서 <strong>VOrg 레이블 + 프로세스 패턴 안내</strong>를 확인하며 자연스럽게 진행합니다.<br>
+      ⚠ <strong>Mock→DB 전환 완료</strong>: PURPOSES 배열은 DB <code>edu_purpose_groups</code> 테이블에서 동적 로드. 기타운영(misc_ops)은 Mock 폴백에서 제거됨. DB에 등록 시에만 노출됩니다.
     </p>
   </div>
 
@@ -218,7 +219,7 @@ function _foManMenus() {
       desc: `학습자의 <strong>예산 잔액·집행률·진행중 신청·교육이력</strong>을 한눈에 표시합니다.<br>
              계정별 잔액(일반참가·운영·R&D 등) 및 소진율 차트 포함.<br>
              우측 floating-budget 위젯에서 실시간 잔액 확인 가능.`,
-      impl: 'currentPersona.budgets 배열에서 balance-used 계산. 실제는 ERP 잔액 API 실시간 조회.',
+      impl: 'DB org_budget_bankbooks 테이블에서 페르소나 orgId 기반 잔액 조회. DB 로드 실패 시 data.js mock budgets 폴백. MOCK_HISTORY는 tenantId 필터로 격리.',
     },
     {
       icon: '📊', name: '교육계획 (4단계 위저드)',
@@ -228,7 +229,7 @@ function _foManMenus() {
              <strong>Step3.</strong> 교육유형 선택: DB edu_type_items 기반<br>
              <strong>Step4.</strong> 세부산출근거: 항목 선택 → 수량·단가 → 소계 합산 → 결재선 미리보기<br>
              ⚠ 정책에 없는 목적(기타운영 등)은 자동 차단. 계획 승인 = 예산 배분이 아님.`,
-      impl: 'planState 객체로 4단계 상태 관리. getPersonaPurposes()로 카테고리별 그룹핑.',
+      impl: 'planState 관리. getPersonaPurposes()가 SERVICE_POLICIES(DB)에서 정책 기반 목적 필터링. PURPOSES.find() 대신 정책기반 탐색 + PURPOSES 폴백.',
     },
     {
       icon: '📝', name: '교육신청',
@@ -237,7 +238,7 @@ function _foManMenus() {
              <strong>Step2.</strong> VOrg 레이블 부착 예산카드 선택 + 프로세스 패턴 안내(계획→신청→결과 등)<br>
              R&D 계정 선택 시 승인된 교육계획 선택 → 교육유형 자동 세팅(Step 3 Skip).<br>
              제출 시 서비스 정책 → 금액 구간 → 결재자 자동 라우팅.`,
-      impl: '_loadFoPolicies() 게이트로 SERVICE_POLICIES 로딩 보장. 카테고리별 UI 동적 구성.',
+      impl: '_loadFoPolicies() 게이트로 DB SERVICE_POLICIES 로딩 보장. selectPurpose()에서 정책기반 목적 탐색 + PURPOSES 폴백. misc_ops는 Mock에서 제거됨.',
     },
     {
       icon: '✅', name: '팀원용 결재함',

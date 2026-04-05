@@ -51,7 +51,7 @@ function renderBudget() {
         <th class="px-6 py-3 text-left">과정명</th><th class="px-4 py-3 text-left">예산 계정</th><th class="px-4 py-3 text-right">금액</th><th class="px-4 py-3 text-left">일자</th><th class="px-4 py-3 text-center">상태</th>
       </tr></thead>
       <tbody class="divide-y divide-gray-50">
-        ${MOCK_HISTORY.map(h => `<tr class="hover:bg-gray-50">
+        ${MOCK_HISTORY.filter(h => !h.tenantId || h.tenantId === currentPersona.tenantId).map(h => `<tr class="hover:bg-gray-50">
           <td class="px-6 py-4 font-bold text-gray-900">${h.title}</td>
           <td class="px-4 py-4"><span class="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">${h.budget}</span></td>
           <td class="px-4 py-4 text-right font-black text-gray-900">${fmt(h.amount)}원</td>

@@ -37,7 +37,7 @@ function renderHistory() {
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-50">
-        ${MOCK_HISTORY.map(h => `
+        ${MOCK_HISTORY.filter(h => !h.tenantId || h.tenantId === currentPersona.tenantId).map(h => `
         <tr class="hover:bg-gray-50 transition">
           <td class="px-6 py-4"><div class="font-bold text-gray-900">${h.title}</div><div class="text-[10px] text-gray-400">${h.id}</div></td>
           <td class="px-4 py-4"><span class="text-xs font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded-lg">${h.type}</span></td>
@@ -52,9 +52,9 @@ function renderHistory() {
       </tbody>
       <tfoot class="bg-blue-50 border-t-2 border-brand">
         <tr>
-          <td colspan="3" class="px-6 py-4 text-xs font-black text-gray-500 uppercase">합계 (${MOCK_HISTORY.length}건)</td>
-          <td class="px-4 py-4 text-right font-black text-brand">${MOCK_HISTORY.reduce((s, h) => s + h.hours, 0)}H</td>
-          <td class="px-4 py-4 text-right font-black text-brand">${fmt(MOCK_HISTORY.reduce((s, h) => s + h.amount, 0))}원</td>
+          <td colspan="3" class="px-6 py-4 text-xs font-black text-gray-500 uppercase">합계 (${MOCK_HISTORY.filter(h => !h.tenantId || h.tenantId === currentPersona.tenantId).length}건)</td>
+          <td class="px-4 py-4 text-right font-black text-brand">${MOCK_HISTORY.filter(h => !h.tenantId || h.tenantId === currentPersona.tenantId).reduce((s, h) => s + h.hours, 0)}H</td>
+          <td class="px-4 py-4 text-right font-black text-brand">${fmt(MOCK_HISTORY.filter(h => !h.tenantId || h.tenantId === currentPersona.tenantId).reduce((s, h) => s + h.amount, 0))}원</td>
           <td colspan="2"></td>
         </tr>
       </tfoot>

@@ -1,7 +1,7 @@
-// ─── 백오피스: 서비스 매뉴얼 (v5.0) ────────────────────────────────────────────
+// ─── 백오피스: 서비스 매뉴얼 (v6.0) ────────────────────────────────────────────
 // 대상: 차세대학습플랫폼 서비스 기획자 및 개발자
 // 내용: 멀티테넌트 교육예산 관리 시스템의 전체 구조·역할·메뉴·데이터 흐름 안내
-// 최종 업데이트: 2026-04-02 (FO 학습자 DB 전환, 서비스 정책 DB 연동, 통장 정책 UI, 매뉴얼 전면 개편)
+// 최종 업데이트: 2026-04-06 (FO 행위기반카테고리UI, VOrg레이블, 프로세스패턴안내, 기타운영누수수정)
 
 function renderBoManual() {
   const el = document.getElementById('bo-content');
@@ -9,12 +9,12 @@ function renderBoManual() {
 <div class="bo-fade" style="max-width:960px">
   <div style="background:linear-gradient(135deg,#312E81,#6366F1);border-radius:16px;padding:28px 32px;color:#fff;margin-bottom:28px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-      <span style="background:rgba(255,255,255,.2);padding:3px 10px;border-radius:6px;font-size:9px;font-weight:900;letter-spacing:.1em">BACK-OFFICE MANUAL v5.0</span>
+      <span style="background:rgba(255,255,255,.2);padding:3px 10px;border-radius:6px;font-size:9px;font-weight:900;letter-spacing:.1em">BACK-OFFICE MANUAL v6.0</span>
     </div>
     <h1 style="font-size:22px;font-weight:900;margin:0 0 8px">백오피스 서비스 매뉴얼</h1>
     <p style="font-size:13px;color:rgba(255,255,255,.8);margin:0;line-height:1.6">
       차세대학습플랫폼(NLP) 서비스 기획자·개발자를 위한 멀티테넌트 교육예산 관리 시스템 안내서<br>
-      예산 정책 설계부터 결재 자동 라우팅까지 전체 흐름을 다룹니다. | 2026-04-02 v5.0
+      예산 정책 설계부터 결재 자동 라우팅까지 전체 흐름을 다룹니다. | 2026-04-06 v6.0
     </p>
   </div>
 
@@ -123,12 +123,12 @@ function _manOverview() {
   </div>
 
   <div class="bo-card" style="padding:18px;background:#F0FDF4;border:1.5px solid #A7F3D0">
-    <div style="font-size:13px;font-weight:800;color:#065F46;margin-bottom:8px">🔄 v5.0 주요 변경사항 (2026-04-02)</div>
+    <div style="font-size:13px;font-weight:800;color:#065F46;margin-bottom:8px">🔄 v6.0 주요 변경사항 (2026-04-06)</div>
     <div style="font-size:12px;color:#374151;line-height:1.8">
-      <strong>1. FO 학습자 DB 전환 완료:</strong> 프론트오피스 페르소나가 <code>users</code>+<code>user_roles</code> DB 테이블 기반으로 동적 로드됩니다. 기존 Mock 데이터(PERSONAS)는 DB 장애 시 폴백용으로만 동작합니다.<br>
-      <strong>2. 통장 운영 정책:</strong> 예산계정별 통장 생성 방식(조직개별 isolated / 가상조직공유 shared)을 <code>budget_account_org_policy</code> 테이블에서 관리합니다.<br>
-      <strong>3. 서비스 정책 DB 실시간 연동:</strong> <code>service_policies</code> 테이블에서 활성 정책을 직접 로드하며, DB snake_case와 Mock camelCase 필드명을 호환 처리합니다.<br>
-      <strong>4. 테넌트 확장:</strong> HSC(현대제철) 테넌트 추가, HAE 5개 계정 확장 완료.
+      <strong>1. FO 행위기반 카테고리 UI:</strong> 교육계획·교육신청 Step 1이 📚직접학습 / 🎯교육운영 / 📝결과등록 카테고리로 통일. 학습자/교육담당자 구분 제거.<br>
+      <strong>2. VOrg 레이블 + 프로세스 안내:</strong> Step 2 예산카드에 가상조직명(일반교육예산/R&D교육예산) 배지 + 프로세스 패턴 안내 배너 추가.<br>
+      <strong>3. 기타운영 누수 근본 수정:</strong> plans.js <code>domainId: row.domain_id</code>→<code>row.vorg_template_id</code> 매핑 오류 수정. <code>_loadFoPolicies()</code> 게이트 + fallback misc_ops 방어.<br>
+      <strong>4. UI 통일:</strong> 교육계획과 교육신청이 동일한 카테고리·색상·레이아웃으로 통일되어 학습자 UX 일관성 확보.
     </div>
   </div>
 </div>`;
@@ -329,16 +329,16 @@ function _manPatterns() {
       flow: '교육계획 → 교육신청 → 교육결과',
       budget: '예산 가점유(Holding) → 결과 시 실차감',
       usecase: 'HMC R&D 교육예산, 대규모 집합교육 운영',
-      foFlow: `1. R&D교육예산 선택 → 2. 승인된 교육계획 선택(교육유형 자동 세팅) → 3. 세부정보 입력 → 4. 결과보고`,
-      note: 'FO에서 R&D예산 선택 시 교육유형 선택 단계 Skip(계획에서 이미 설정).',
+      foFlow: `1. 📚직접학습 카테고리 선택 → 2. VOrg레이블(R&D교육예산) 예산카드 + 프로세스안내 → 3. 승인된 계획 선택 → 4. 세부정보 → 5. 결과보고`,
+      note: 'FO에서 R&D예산 선택 시 Step 3 Skip. 프로세스 안내로 "계획→신청→결과" 흐름 표시.',
     },
     {
       id: 'B', name: '패턴 B: Standard (자율신청형)', color: '#1D4ED8',
       flow: '교육신청 → 교육결과',
       budget: '신청 승인 시 예산 가점유 → 결과 시 실차감',
       usecase: '일반교육예산 참가계정, 사외 집합교육 참가비',
-      foFlow: `1. 일반교육예산 선택 → 2. 교육유형 선택 → 3. 세부정보 입력 → 4. 결과보고`,
-      note: '가장 일반적인 흐름. 선지출-후정산(Reimbursement) 모드도 선택 가능.',
+      foFlow: `1. 📚직접학습 카테고리 선택 → 2. VOrg레이블(일반교육예산) 예산카드 + 프로세스안내 → 3. 교육유형 선택 → 4. 세부정보 → 5. 결과보고`,
+      note: '가장 일반적인 흐름. Step 2에서 VOrg 레이블과 프로세스 패턴 안내 표시.',
     },
     {
       id: 'C', name: '패턴 C: Reimbursement (정산특화형)', color: '#D97706',
@@ -474,9 +474,9 @@ function _manTech() {
       &nbsp;&nbsp;&nbsp;├── <span style="color:#D97706">bo_manual.js</span>          — 📌 이 파일<br>
       &nbsp;&nbsp;&nbsp;├── gnb.js                 — FO GNB (성장 드롭다운 + 페르소나 스위처 DB연동)<br>
       &nbsp;&nbsp;&nbsp;├── main.js                — FO 엔트리 (_loadAllEmployees → _resolveCurrentPersona → navigate)<br>
-      &nbsp;&nbsp;&nbsp;├── plans.js               — FO 교육계획 수립 위저드<br>
-      &nbsp;&nbsp;&nbsp;├── apply.js               — FO 교육신청 (예산선택3경로·R&D플랜피커)<br>
-      &nbsp;&nbsp;&nbsp;└── utils.js               — 공통 유틸 (_getActivePolicies, getPersonaPurposes 등)
+      &nbsp;&nbsp;&nbsp;├── plans.js               — FO 교육계획 수립 (행위기반카테고리+VOrg레이블+프로세스안내)<br>
+      &nbsp;&nbsp;&nbsp;├── apply.js               — FO 교육신청 (행위기반카테고리+VOrg레이블+policy게이트)<br>
+      &nbsp;&nbsp;&nbsp;└── utils.js               — 공통 유틸 (_getActivePolicies, getPersonaPurposes, getProcessPatternInfo)
     </div>
   </div>
 

@@ -90,7 +90,7 @@ async function _loadFoPolicies() {
       if (sPols) {
         sPols.forEach(row => {
           const mapped = {
-            id: row.id, tenantId: row.tenant_id, domainId: row.domain_id,
+            id: row.id, tenantId: row.tenant_id, domainId: row.vorg_template_id,
             name: row.name, purpose: row.purpose, eduTypes: row.edu_types || [],
             selectedEduItem: row.selected_edu_item || null,
             targetType: row.target_type, accountCodes: row.account_codes || [],

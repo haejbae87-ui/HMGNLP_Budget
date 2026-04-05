@@ -314,7 +314,14 @@ function getPersonaPurposes(persona) {
       ...p, category: _PURPOSE_CATEGORY[p.id] || 'edu-operation'
     }));
   }
-  // Fallback: 정책 없으면 카테고리 부여만
+  // Fallback: 정책 매칭 실패 시
+  // SERVICE_POLICIES가 이미 로드되었는데 매칭 0건이면 → 정책 기반 제어 의도, 빈 배열
+  // SERVICE_POLICIES 미로드(=빈배열)이면 → persona.allowedAccounts 기반 (misc_ops 제외 방어)
+  if (typeof SERVICE_POLICIES !== 'undefined' && SERVICE_POLICIES.length > 0) {
+    // 정책은 있는데 이 persona에 매칭되는 게 없음 → 빈 배열
+    console.warn('[getPersonaPurposes] SERVICE_POLICIES 존재하나 매칭 0건 → 빈 배열');
+    return [];
+  }
   const base = (() => {
     if (!persona.allowedAccounts || persona.allowedAccounts.includes('*')) return PURPOSES;
     const allowedTypes = (persona.allowedAccounts || []).map(code => ACCOUNT_TYPE_MAP[code]).filter(Boolean);
@@ -322,7 +329,9 @@ function getPersonaPurposes(persona) {
       !p.accounts || p.accounts.some(acc => allowedTypes.includes(acc))
     );
   })();
-  return base.map(p => ({ ...p, category: _PURPOSE_CATEGORY[p.id] || 'edu-operation' }));
+  // 방어: 서비스정책 DB에 없는 기타운영(misc_ops) 등은 정책 미검증 시 제외
+  return base.filter(p => p.id !== 'misc_ops' && p.id !== '_result_only')
+    .map(p => ({ ...p, category: _PURPOSE_CATEGORY[p.id] || 'edu-operation' }));
 }
 
 // 선택된 목적 + 예산 계정에 허용된 교육유형 목록 반환 (Step3용)

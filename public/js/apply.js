@@ -699,14 +699,24 @@ function _renderApplyForm() {
       <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육 신청</div>
       <h1 class="text-3xl font-black text-brand tracking-tight">교육 신청서 작성</h1>
     </div>
-    ${s.planId ? `
-<div style="margin-bottom:16px;padding:12px 18px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:12px;display:flex;align-items:center;gap:10px">
-  <span style="font-size:20px">🔗</span>
-  <div>
+    ${s.planId ? (() => {
+      const _linkedPlan = _dbApprovedPlans.find(p => p.id === s.planId);
+      const _lpTitle = _linkedPlan ? _linkedPlan.title : s.planId;
+      const _lpAmount = _linkedPlan ? (_linkedPlan.amount || 0).toLocaleString() : '-';
+      const _lpBudget = curBudget ? (curBudget.balance - curBudget.used).toLocaleString() : '-';
+      return `
+<div style="margin-bottom:16px;padding:14px 18px;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);border:1.5px solid #BFDBFE;border-radius:12px;display:flex;align-items:center;gap:12px">
+  <span style="font-size:22px">🔗</span>
+  <div style="flex:1">
     <div style="font-size:12px;font-weight:900;color:#1D4ED8">교육계획 기반 신청</div>
-    <div style="font-size:11px;color:#3B82F6;margin-top:2px">${(_dbApprovedPlans.find(p => p.id === s.planId) || {}).title || s.planId} · 예산계정이 자동 연동되었습니다</div>
+    <div style="font-size:11px;color:#3B82F6;margin-top:2px">${_lpTitle} · 계획액 ${_lpAmount}원 · 예산잔액 ${_lpBudget}원</div>
   </div>
-</div>` : ''}
+  <button onclick="_viewingPlanDetail=null;if(typeof viewPlanDetail==='function'){viewPlanDetail('${s.planId}');}navigate('plans');"
+    style="padding:6px 14px;border-radius:8px;border:1.5px solid #BFDBFE;background:white;font-size:11px;font-weight:800;color:#1D4ED8;cursor:pointer;white-space:nowrap">
+    📝 계획 상세 보기
+  </button>
+</div>`;
+    })() : ''}
   </div>
 
   <!--Stepper indicator-->
@@ -726,12 +736,12 @@ function _renderApplyForm() {
     <h2 class="text-lg font-black text-gray-800 mb-6">01. 교육 목적 선택</h2>
 
     ${['self-learning', 'edu-operation', 'result-only'].map(catKey => {
-    const items = categorized[catKey] || [];
-    if (items.length === 0) return '';
-    const meta = _catMeta[catKey] || _catMeta['edu-operation'];
-    const colors = _catColors[catKey] || _catColors['edu-operation'];
-    const cols = items.length === 1 ? 'grid-cols-1' : items.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-3';
-    return `
+      const items = categorized[catKey] || [];
+      if (items.length === 0) return '';
+      const meta = _catMeta[catKey] || _catMeta['edu-operation'];
+      const colors = _catColors[catKey] || _catColors['edu-operation'];
+      const cols = items.length === 1 ? 'grid-cols-1' : items.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-3';
+      return `
     <div class="mb-6">
       <div class="flex items-center gap-2 mb-3">
         <span class="text-[10px] font-black px-2.5 py-1 rounded-full ${colors.badge} tracking-wider">${meta.icon} ${meta.label}</span>
@@ -739,17 +749,17 @@ function _renderApplyForm() {
       </div>
       <div class="grid ${cols} gap-4">
         ${items.map(p => {
-      const active = s.purpose?.id === p.id;
-      return `
+        const active = s.purpose?.id === p.id;
+        return `
         <button onclick="selectPurpose('${p.id}')" class="p-6 rounded-2xl border-2 text-left transition-all ${colors.borderHover} ${active ? colors.border + ' ' + colors.bgActive + ' shadow-lg' : 'border-gray-200 bg-white'}">
           <div class="text-3xl mb-3">${p.icon}</div>
           <div class="font-black text-gray-900 text-sm mb-1 ${active ? colors.textActive : ''}">${p.label}</div>
           <div class="text-xs text-gray-500">${p.desc}</div>
         </button>`;
-    }).join('')}
+      }).join('')}
       </div>
     </div>`;
-  }).join('')}
+    }).join('')}
 
     <div class="flex justify-end mt-6">
       <button onclick="applyNext()" ${!s.purpose ? 'disabled' : ''}
@@ -1582,16 +1592,20 @@ function _renderRndPlanPicker(s) {
     const active = selected.includes(p.id);
     const balance = (p.amount || 0) - (p.used || 0);
     const isLow = balance <= 0;
+    const pExpired = p.endDate && new Date(p.endDate) < new Date();
     return `
     <label onclick="selectRndPlan('${p.id}')" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;
-      border:2px solid ${active ? '#7C3AED' : '#E5E7EB'};background:${active ? '#F5F3FF' : 'white'};cursor:pointer;transition:all .15s"
+      border:2px solid ${active ? '#7C3AED' : '#E5E7EB'};background:${active ? '#F5F3FF' : 'white'};cursor:pointer;transition:all .15s${pExpired ? ';opacity:.55' : ''}"
       onmouseover="if(!${active})this.style.borderColor='#C4B5FD'" onmouseout="if(!${active})this.style.borderColor='#E5E7EB'">
       <div style="width:22px;height:22px;border-radius:6px;border:2px solid ${active ? '#7C3AED' : '#D1D5DB'};
         background:${active ? '#7C3AED' : 'white'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
         ${active ? '<span style="color:white;font-size:12px;font-weight:900">✓</span>' : ''}
       </div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:900;color:${active ? '#7C3AED' : '#111827'};margin-bottom:3px">${p.title}</div>
+        <div style="font-size:13px;font-weight:900;color:${active ? '#7C3AED' : '#111827'};margin-bottom:3px;display:flex;align-items:center;gap:6px">
+          ${p.title}
+          ${pExpired ? '<span style="font-size:9px;font-weight:900;padding:1px 6px;border-radius:4px;background:#FEE2E2;color:#DC2626">기간만료</span>' : ''}
+        </div>
         <div style="font-size:11px;color:#6B7280;display:flex;gap:12px;flex-wrap:wrap">
           <span>📅 ${p.date || '-'}</span>
           <span>💰 예산 ${p.amount.toLocaleString()}원</span>

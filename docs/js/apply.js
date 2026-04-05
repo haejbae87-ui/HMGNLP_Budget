@@ -615,6 +615,16 @@ function _applySelectionBanner(s, currentStep) {
 
 // ─── 교육신청 폼 뷰 (기존 renderApply 로직) ──────────────────────────────────
 function _renderApplyForm() {
+  // ── SERVICE_POLICIES 로딩 게이트 (근본 수정) ──────────────────────────────
+  // SERVICE_POLICIES가 비어있으면 정책 필터링이 무력화되어 기타운영 등 누수 발생
+  if (typeof _foServicePoliciesLoaded !== 'undefined' && !_foServicePoliciesLoaded) {
+    _loadFoPolicies().then(() => _renderApplyForm());
+    document.getElementById('page-apply').innerHTML = `<div class="max-w-4xl mx-auto" style="padding:60px 20px;text-align:center">
+      <div style="font-size:28px;margin-bottom:8px">⌛</div>
+      <div style="font-size:14px;font-weight:700;color:#6B7280">서비스 정책 로딩 중...</div>
+    </div>`;
+    return;
+  }
   // DB 승인 교육계획 선로드 (최초 1회)
   if (!_dbApprovedPlansLoaded || _dbApprPlanPersonaId !== currentPersona.id) {
     _loadApprovedPlans().then(() => _renderApplyForm());

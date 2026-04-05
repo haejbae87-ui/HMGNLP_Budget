@@ -886,7 +886,9 @@ ${_processInfo ? `
 // ─── PLAN WIZARD HELPERS ─────────────────────────────────────────────────────
 
 function selectPlanPurpose(id) {
-  planState.purpose = PURPOSES.find(p => p.id === id);
+  // 정책 기반 목적 목록에서 우선 탐색 → PURPOSES 폴백
+  const policyPurposes = (typeof getPersonaPurposes === 'function') ? getPersonaPurposes(currentPersona) : [];
+  planState.purpose = policyPurposes.find(p => p.id === id) || PURPOSES.find(p => p.id === id) || null;
   planState.subType = '';
   planState.budgetId = '';
   planState.eduType = '';  // 예산 변경 시 교육유형 리 셋
@@ -1116,8 +1118,10 @@ async function resumePlanDraft(planId) {
     // ★ purpose 복원: PURPOSES 배열에서 id로 풀 오브젝트 매칭
     const purposeId = data.detail?.purpose;
     if (purposeId) {
+      // 정책 기반 목적에서 우선 탐색 → PURPOSES 폴백
+      const policyPurposes = (typeof getPersonaPurposes === 'function') ? getPersonaPurposes(currentPersona) : [];
       const PURPOSES_ARR = typeof PURPOSES !== 'undefined' ? PURPOSES : [];
-      const matched = PURPOSES_ARR.find(p => p.id === purposeId);
+      const matched = policyPurposes.find(p => p.id === purposeId) || PURPOSES_ARR.find(p => p.id === purposeId);
       if (matched) {
         planState.purpose = matched;
       } else {
@@ -1246,7 +1250,8 @@ async function startApplyFromPlan(planId) {
   applyState.planId = planId;
   if (plan.budgetId) applyState.budgetId = plan.budgetId;
   const purposeId = plan.purpose || 'internal_edu';
-  applyState.purpose = PURPOSES.find(p => p.id === purposeId) || null;
+  const policyPurposes2 = (typeof getPersonaPurposes === 'function') ? getPersonaPurposes(currentPersona) : [];
+  applyState.purpose = policyPurposes2.find(p => p.id === purposeId) || PURPOSES.find(p => p.id === purposeId) || null;
   applyViewMode = 'form';
   if (applyState.purpose) applyState.step = 2;
   navigate('apply');

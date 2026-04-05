@@ -91,20 +91,22 @@ const PERSONAS = {
 };
 
 
+// ⚠ MOCK: DB 이력 테이블 구축 전까지만 사용. tenantId 필터로 페르소나별 격리
 const MOCK_HISTORY = [
-  { id: 'H001', title: 'AWS 클라우드 아키텍처 전문가 과정', type: '사외교육', category: 'edu_offline', date: '2026-02-10', endDate: '2026-02-12', hours: 24, amount: 1500000, status: '완료', budget: '참가', applyStatus: '승인완료', resultDone: true },
-  { id: 'H002', title: 'SDV 소프트웨어 개발 세미나', type: '세미나', category: 'conf_present', date: '2026-01-20', endDate: '2026-01-20', hours: 8, amount: 300000, status: '완료', budget: '참가', applyStatus: '승인완료', resultDone: false },
-  { id: 'H003', title: '애자일 PM 자격증 취득', type: '자격증', category: 'edu_online', date: '2026-03-01', endDate: '2026-03-31', hours: 40, amount: 450000, status: '진행중', budget: '참가', applyStatus: '결재진행중', resultDone: false },
-  { id: 'H004', title: '데이터 분석 이러닝', type: '이러닝', category: 'edu_online', date: '2025-12-01', endDate: '2025-12-31', hours: 20, amount: 200000, status: '완료', budget: '참가', applyStatus: '반려', resultDone: false },
-  { id: 'H005', title: '리더십 워크샵', type: '워크샵', category: 'workshop', date: '2025-11-15', endDate: '2025-11-16', hours: 16, amount: 600000, status: '완료', budget: '운영', applyStatus: '승인완료', resultDone: true },
-  { id: 'H006', title: 'AI/ML 실무 활용 강의', type: '사외교육', category: 'edu_offline', date: '2026-03-20', endDate: '2026-03-21', hours: 16, amount: 800000, status: '대기중', budget: '참가', applyStatus: '승인대기', resultDone: false },
+  { id: 'H001', tenantId: 'HMC', title: 'AWS 클라우드 아키텍처 전문가 과정', type: '사외교육', category: 'edu_offline', date: '2026-02-10', endDate: '2026-02-12', hours: 24, amount: 1500000, status: '완료', budget: '참가', applyStatus: '승인완료', resultDone: true },
+  { id: 'H002', tenantId: 'HMC', title: 'SDV 소프트웨어 개발 세미나', type: '세미나', category: 'conf_present', date: '2026-01-20', endDate: '2026-01-20', hours: 8, amount: 300000, status: '완료', budget: '참가', applyStatus: '승인완료', resultDone: false },
+  { id: 'H003', tenantId: 'HMC', title: '애자일 PM 자격증 취득', type: '자격증', category: 'edu_online', date: '2026-03-01', endDate: '2026-03-31', hours: 40, amount: 450000, status: '진행중', budget: '참가', applyStatus: '결재진행중', resultDone: false },
+  { id: 'H004', tenantId: 'HMC', title: '데이터 분석 이러닝', type: '이러닝', category: 'edu_online', date: '2025-12-01', endDate: '2025-12-31', hours: 20, amount: 200000, status: '완료', budget: '참가', applyStatus: '반려', resultDone: false },
+  { id: 'H005', tenantId: 'HMC', title: '리더십 워크샵', type: '워크샵', category: 'workshop', date: '2025-11-15', endDate: '2025-11-16', hours: 16, amount: 600000, status: '완료', budget: '운영', applyStatus: '승인완료', resultDone: true },
+  { id: 'H006', tenantId: 'HMC', title: 'AI/ML 실무 활용 강의', type: '사외교육', category: 'edu_offline', date: '2026-03-20', endDate: '2026-03-21', hours: 16, amount: 800000, status: '대기중', budget: '참가', applyStatus: '승인대기', resultDone: false },
 ];
 
+// ⚠ MOCK: DB 계획 테이블로 전환 완료 (apply.js). 대시보드용 폴백
 const MOCK_PLANS = [
-  { id: 'BP26-001', title: '26년 글로벌 AI 포럼 참가', account: '참가', budgetId: 'b_hmc01', amount: 5000000 },
-  { id: 'BP26-002', title: 'SDV 아키텍처 전문가 양성', account: '연구투자', budgetId: 'b_hmc04', amount: 25000000 },
-  { id: 'BP26-003', title: '리더십 워크샵 (피플육성)', account: '참가', budgetId: 'b_hmc01', amount: 3000000 },
-  { id: 'BP26-004', title: '신규 입사자 온보딩 운영', account: '참가', budgetId: 'b_hmc01', amount: 8000000 },
+  { id: 'BP26-001', tenantId: 'HMC', title: '26년 글로벌 AI 포럼 참가', account: '참가', budgetId: 'b_hmc01', amount: 5000000 },
+  { id: 'BP26-002', tenantId: 'HMC', title: 'SDV 아키텍처 전문가 양성', account: '연구투자', budgetId: 'b_hmc04', amount: 25000000 },
+  { id: 'BP26-003', tenantId: 'HMC', title: '리더십 워크샵 (피플육성)', account: '참가', budgetId: 'b_hmc01', amount: 3000000 },
+  { id: 'BP26-004', tenantId: 'HMC', title: '신규 입사자 온보딩 운영', account: '참가', budgetId: 'b_hmc01', amount: 8000000 },
 ];
 
 // ─── GLOBAL STATE ────────────────────────────────────────────────────────────
@@ -153,7 +155,9 @@ function resetApplyState() {
 
 let applyState = resetApplyState();
 
-// ─── PURPOSES (교육 목적 정의) ──────────────────────────────────────────────
+// ─── PURPOSES (교육 목적 정의 — DB 폴백용) ──────────────────────────────────
+// ⚠ DB initSupabaseData() → sbLoadEduTypes() 성공 시 window.PURPOSES가 DB 데이터로 교체됨
+// ⚠ misc_ops(기타운영): DB edu_purpose_groups에 등록된 경우에만 자동 노출. Mock에서는 제거.
 
 const PURPOSES = [
   {
@@ -237,21 +241,8 @@ const PURPOSES = [
       },
     ]
   },
-  {
-    id: 'misc_ops',
-    label: '기타운영',
-    desc: '과정개발, 교안개발, 교육시설 운영 등',
-    icon: '📌',
-    accounts: ['운영', '연구투자'],
-    subtypes: [
-      {
-        group: '기타운영 유형', items: [
-          { id: 'ops_course_dev', label: '과정개발' },
-          { id: 'ops_material_dev', label: '교안개발' },
-          { id: 'ops_facility', label: '교육시설 운영' },
-        ]
-      },
-    ]
-  },
+  // misc_ops(기타운영): DB 서비스 정책에 등록된 경우에만 자동 노출.
+  // DB initSupabaseData() 성공 시 edu_purpose_groups 기반으로 PURPOSES가 교체되므로
+  // DB에 기타운영이 존재하면 자동으로 추가됩니다. Mock 폴백에서는 제거합니다.
 ];
 

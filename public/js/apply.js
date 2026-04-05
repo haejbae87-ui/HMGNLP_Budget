@@ -1201,7 +1201,9 @@ ${_processInfo ? `
 // ─── APPLY FORM HELPERS ─────────────────────────────────────────────────────
 
 function selectPurpose(id) {
-  applyState.purpose = PURPOSES.find(p => p.id === id);
+  // 정책 기반 목적 목록에서 우선 탐색 → PURPOSES 폴백
+  const policyPurposes = (typeof getPersonaPurposes === 'function') ? getPersonaPurposes(currentPersona) : [];
+  applyState.purpose = policyPurposes.find(p => p.id === id) || PURPOSES.find(p => p.id === id) || null;
   applyState.subType = '';
   applyState.budgetId = '';
   applyState.planId = '';

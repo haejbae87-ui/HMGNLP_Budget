@@ -196,7 +196,93 @@ function isFixedPlanProcess(persona) {
   return false;
 }
 
-// 정책 기반 교육 목적 필터 (Policy-First: target_type 구분 없이 오픈된 정책의 목적 전부 표시)
+// ── 개선1: 프로세스 패턴 안내 정보 반환 ───────────────────────────────────────
+// 선택된 목적+예산코드에 해당하는 정책의 process_pattern을 기반으로
+// Step 2에서 사용자에게 프로세스 흐름을 시각적으로 안내하기 위한 데이터 반환
+function getProcessPatternInfo(persona, purposeId, accountCode) {
+  const result = _getActivePolicies(persona);
+  if (!result || result.source !== 'db') return null;
+
+  const boPurposeKeys = purposeId ? (_FO_TO_BO_PURPOSE[purposeId] || [purposeId]) : null;
+  let matched = result.policies;
+  if (boPurposeKeys) matched = matched.filter(p => boPurposeKeys.includes(p.purpose));
+  if (accountCode) matched = matched.filter(p => (p.account_codes || p.accountCodes || []).includes(accountCode));
+  if (matched.length === 0 && boPurposeKeys) {
+    // accountCode 못 찾으면 purpose만으로 재시도
+    matched = result.policies.filter(p => boPurposeKeys.includes(p.purpose));
+  }
+  if (matched.length === 0) return null;
+
+  // 복수 매칭 시 가장 엄격한 패턴(A>E>B>C>D) 선정
+  const _PRIORITY = { A: 1, E: 2, B: 3, C: 4, D: 5 };
+  const sorted = [...matched].sort((a, b) =>
+    (_PRIORITY[(a.process_pattern || 'B')] || 9) - (_PRIORITY[(b.process_pattern || 'B')] || 9)
+  );
+  const pattern = sorted[0].process_pattern || sorted[0].processPattern || 'B';
+  const policyName = sorted[0].name || '';
+
+  const PATTERNS = {
+    A: {
+      label: '계획 → 신청 → 결과',
+      steps: [
+        { icon: '📋', name: '교육계획', hint: '승인 필요' },
+        { icon: '✏️', name: '교육신청', hint: '계획 기반' },
+        { icon: '📝', name: '결과보고', hint: '이수 후' }
+      ],
+      hint: '교육계획 승인 후 신청이 가능합니다.'
+    },
+    B: {
+      label: '신청 → 결과',
+      steps: [
+        { icon: '✏️', name: '교육신청', hint: '바로 신청' },
+        { icon: '📝', name: '결과보고', hint: '이수 후' }
+      ],
+      hint: '교육계획 없이 바로 신청할 수 있습니다.'
+    },
+    C: {
+      label: '결과 등록 (후정산)',
+      steps: [
+        { icon: '📝', name: '결과등록', hint: '수료 후' },
+        { icon: '💰', name: '정산', hint: '사후 처리' }
+      ],
+      hint: '교육 이수 후 결과를 등록하면 정산됩니다.'
+    },
+    D: {
+      label: '결과 등록 (간편)',
+      steps: [
+        { icon: '📝', name: '결과등록', hint: '수료 후' }
+      ],
+      hint: '교육 이수 후 결과만 등록합니다.'
+    },
+    E: {
+      label: '자유 선택',
+      steps: [
+        { icon: '📋', name: '교육계획', hint: '선택' },
+        { icon: '✏️', name: '교육신청', hint: '선택' },
+        { icon: '📝', name: '결과보고', hint: '선택' }
+      ],
+      hint: '계획·신청·결과를 자유롭게 선택할 수 있습니다.'
+    },
+  };
+  const info = PATTERNS[pattern] || PATTERNS['B'];
+  return { pattern, policyName, ...info };
+}
+
+// ── 개선3: 행위 기반 카테고리 분류 매핑 ──────────────────────────────────────
+// FO purpose ID → 행위 카테고리
+const _PURPOSE_CATEGORY = {
+  'external_personal': 'self-learning',   // 직접 학습
+  'internal_edu': 'edu-operation',        // 교육 운영
+  'conf_seminar': 'edu-operation',        // 교육 운영
+  'misc_ops': 'edu-operation',            // 교육 운영
+};
+const _CATEGORY_META = {
+  'self-learning': { icon: '📚', label: '직접 학습', desc: '본인이 직접 참여하는 교육' },
+  'edu-operation': { icon: '🎯', label: '교육 운영', desc: '교육과정을 기획하거나 운영하는 경우' },
+  'result-only': { icon: '📝', label: '결과만 등록', desc: '이미 수료한 교육의 결과를 등록' },
+};
+
+// 정책 기반 교육 목적 필터 (Policy-First + 행위 카테고리 부여)
 function getPersonaPurposes(persona) {
   const result = _getActivePolicies(persona);
   if (result) {
@@ -206,17 +292,37 @@ function getPersonaPurposes(persona) {
       const foPurposeIds = [...new Set(
         policies.map(p => _BO_TO_FO_PURPOSE[p.purpose] || p.purpose).filter(Boolean)
       )];
-      return PURPOSES.filter(p => foPurposeIds.includes(p.id));
+      // 결과등록 전용(패턴 C/D) 정책 확인
+      const hasResultOnly = policies.some(p => {
+        const pt = p.process_pattern || p.processPattern || '';
+        return pt === 'C' || pt === 'D';
+      });
+      const purposes = PURPOSES.filter(p => foPurposeIds.includes(p.id)).map(p => ({
+        ...p, category: _PURPOSE_CATEGORY[p.id] || 'edu-operation'
+      }));
+      // C/D 패턴이 있으면 결과등록 전용 가상 목적 추가
+      if (hasResultOnly) {
+        purposes.push({
+          id: '_result_only', label: '교육 결과 등록', icon: '📝',
+          desc: '이미 수료한 교육의 결과를 등록합니다', category: 'result-only'
+        });
+      }
+      return purposes;
     }
     const activePurposeIds = [...new Set(policies.map(p => p.foPurpose))];
-    return PURPOSES.filter(p => activePurposeIds.includes(p.id));
+    return PURPOSES.filter(p => activePurposeIds.includes(p.id)).map(p => ({
+      ...p, category: _PURPOSE_CATEGORY[p.id] || 'edu-operation'
+    }));
   }
-  // Fallback
-  if (!persona.allowedAccounts || persona.allowedAccounts.includes('*')) return PURPOSES;
-  const allowedTypes = (persona.allowedAccounts || []).map(code => ACCOUNT_TYPE_MAP[code]).filter(Boolean);
-  return PURPOSES.filter(p =>
-    !p.accounts || p.accounts.some(acc => allowedTypes.includes(acc))
-  );
+  // Fallback: 정책 없으면 카테고리 부여만
+  const base = (() => {
+    if (!persona.allowedAccounts || persona.allowedAccounts.includes('*')) return PURPOSES;
+    const allowedTypes = (persona.allowedAccounts || []).map(code => ACCOUNT_TYPE_MAP[code]).filter(Boolean);
+    return PURPOSES.filter(p =>
+      !p.accounts || p.accounts.some(acc => allowedTypes.includes(acc))
+    );
+  })();
+  return base.map(p => ({ ...p, category: _PURPOSE_CATEGORY[p.id] || 'edu-operation' }));
 }
 
 // 선택된 목적 + 예산 계정에 허용된 교육유형 목록 반환 (Step3용)

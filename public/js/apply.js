@@ -630,8 +630,23 @@ function _renderApplyForm() {
   const policyResult = typeof _getActivePolicies !== 'undefined' ? _getActivePolicies(currentPersona) : null;
   const matchedPolicies = policyResult ? policyResult.policies : [];
   const allPurposes = getPersonaPurposes(currentPersona);
-  const learnerPurposes = allPurposes.filter(p => p.id === 'external_personal');
-  const operatorPurposes = allPurposes.filter(p => p.id !== 'external_personal');
+  // 개선3: 행위 기반 카테고리 그룹핑
+  const _catColors = {
+    'self-learning': { badge: 'bg-blue-100 text-blue-600', border: 'border-accent', borderHover: 'hover:border-accent', bgActive: 'bg-blue-50', textActive: 'text-accent' },
+    'edu-operation': { badge: 'bg-violet-100 text-violet-600', border: 'border-violet-500', borderHover: 'hover:border-violet-400', bgActive: 'bg-violet-50', textActive: 'text-violet-600' },
+    'result-only': { badge: 'bg-amber-100 text-amber-700', border: 'border-amber-500', borderHover: 'hover:border-amber-400', bgActive: 'bg-amber-50', textActive: 'text-amber-700' },
+  };
+  const _catMeta = typeof _CATEGORY_META !== 'undefined' ? _CATEGORY_META : {
+    'self-learning': { icon: '📚', label: '직접 학습', desc: '본인이 직접 참여하는 교육' },
+    'edu-operation': { icon: '🎯', label: '교육 운영', desc: '교육과정을 기획하거나 운영하는 경우' },
+    'result-only': { icon: '📝', label: '결과만 등록', desc: '이미 수료한 교육의 결과를 등록' },
+  };
+  const categorized = {};
+  allPurposes.forEach(p => {
+    const cat = p.category || 'edu-operation';
+    if (!categorized[cat]) categorized[cat] = [];
+    categorized[cat].push(p);
+  });
 
   const availBudgets = s.purpose ? getPersonaBudgets(currentPersona, s.purpose.id) : [];
 
@@ -656,6 +671,11 @@ function _renderApplyForm() {
   const totalExp = s.expenses.reduce((sum, e) => sum + Number(e.price) * Number(e.qty), 0);
   const totalAmt = isRndBudget ? Number(s.rndTotal) : totalExp;
   const over = curBudget && totalAmt > (curBudget.balance - curBudget.used);
+
+  // 개선1: 프로세스 패턴 안내 데이터
+  const _processInfo = curBudget && s.purpose
+    ? (typeof getProcessPatternInfo !== 'undefined' ? getProcessPatternInfo(currentPersona, s.purpose.id, curBudget.accountCode) : null)
+    : null;
 
   document.getElementById('page-apply').innerHTML = `
     <div class="max-w-4xl mx-auto space-y-6">
@@ -691,46 +711,35 @@ function _renderApplyForm() {
     </div>
   </div>
 
-  <!--Step 1: Purpose (정책 기반)-->
+  <!--Step 1: Purpose (개선3: 행위 기반 카테고리)-->
   <div class="card p-8 ${s.step === 1 ? '' : 'hidden'}">
     <h2 class="text-lg font-black text-gray-800 mb-6">01. 교육 목적 선택</h2>
 
-    ${learnerPurposes.length > 0 ? `
-    <!-- 👤 학습자 섹션 (정책 기반) -->
+    ${['self-learning', 'edu-operation', 'result-only'].map(catKey => {
+    const items = categorized[catKey] || [];
+    if (items.length === 0) return '';
+    const meta = _catMeta[catKey] || _catMeta['edu-operation'];
+    const colors = _catColors[catKey] || _catColors['edu-operation'];
+    const cols = items.length === 1 ? 'grid-cols-1' : items.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-3';
+    return `
     <div class="mb-6">
       <div class="flex items-center gap-2 mb-3">
-        <span class="text-[10px] font-black px-2.5 py-1 rounded-full bg-blue-100 text-blue-600 tracking-wider">👤 학습자</span>
-        <span class="text-[11px] text-gray-400">본인이 직접 학습에 참여하는 경우</span>
+        <span class="text-[10px] font-black px-2.5 py-1 rounded-full ${colors.badge} tracking-wider">${meta.icon} ${meta.label}</span>
+        <span class="text-[11px] text-gray-400">${meta.desc}</span>
       </div>
-      <div class="grid grid-cols-1 gap-4">
-        ${learnerPurposes.map(p => `
-        <button onclick="selectPurpose('${p.id}')" class="p-6 rounded-2xl border-2 text-left transition-all hover:border-accent ${s.purpose?.id === p.id ? 'border-accent bg-blue-50 shadow-lg' : 'border-gray-200 bg-white'}">
-          <div class="text-3xl mb-3">${p.icon}</div>
-          <div class="font-black text-gray-900 text-sm mb-1 ${s.purpose?.id === p.id ? 'text-accent' : ''}">${p.label}</div>
-          <div class="text-xs text-gray-500">${p.desc}</div>
-        </button>`).join('')}
-      </div>
-    </div>` : ''}
-
-    <!-- 🛠 교육담당자 섹션 (정책 기반) -->
-    ${(() => {
-      if (operatorPurposes.length === 0) return '';
+      <div class="grid ${cols} gap-4">
+        ${items.map(p => {
+      const active = s.purpose?.id === p.id;
       return `
-    <div>
-      <div class="flex items-center gap-2 mb-3">
-        <span class="text-[10px] font-black px-2.5 py-1 rounded-full bg-violet-100 text-violet-600 tracking-wider">🛠 교육담당자</span>
-        <span class="text-[11px] text-gray-400">교육과정을 기획·운영하는 담당자</span>
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        ${operatorPurposes.map(p => `
-        <button onclick="selectPurpose('${p.id}')" class="p-6 rounded-2xl border-2 text-left transition-all hover:border-violet-400 ${s.purpose?.id === p.id ? 'border-violet-500 bg-violet-50 shadow-lg' : 'border-gray-200 bg-gray-50/50'}">
+        <button onclick="selectPurpose('${p.id}')" class="p-6 rounded-2xl border-2 text-left transition-all ${colors.borderHover} ${active ? colors.border + ' ' + colors.bgActive + ' shadow-lg' : 'border-gray-200 bg-white'}">
           <div class="text-3xl mb-3">${p.icon}</div>
-          <div class="font-black text-gray-900 text-sm mb-1 ${s.purpose?.id === p.id ? 'text-violet-600' : ''}">${p.label}</div>
+          <div class="font-black text-gray-900 text-sm mb-1 ${active ? colors.textActive : ''}">${p.label}</div>
           <div class="text-xs text-gray-500">${p.desc}</div>
-        </button>`).join('')}
+        </button>`;
+    }).join('')}
       </div>
     </div>`;
-    })()}
+  }).join('')}
 
     <div class="flex justify-end mt-6">
       <button onclick="applyNext()" ${!s.purpose ? 'disabled' : ''}
@@ -867,19 +876,46 @@ ${bc === 'rnd' ? _renderRndPlanPicker(s) : ''}`;
 ${policyBudgets.map(b => {
         const active = s.budgetId === b.id;
         const acctTypeLabel = b.account === '운영' ? '운영 계정' : b.account === '참가' ? '참가 계정' : b.account + ' 계정';
+        const vorgLabel = b.vorgName ? `<span style="font-size:10px;font-weight:900;padding:2px 7px;border-radius:5px;background:#F0F9FF;color:#0369A1;margin-left:6px">${b.vorgName}</span>` : '';
         return `<button onclick="selectApplyBudget('${b.id}')"
   style="text-align:left;padding:18px 20px;border-radius:14px;border:2px solid ${active ? '#002C5F' : '#E5E7EB'};
          background:${active ? '#EFF6FF' : 'white'};cursor:pointer;width:100%;transition:all .15s">
   <div style="display:flex;align-items:center;justify-content:space-between">
     <div>
-      <div style="font-size:14px;font-weight:900;color:${active ? '#002C5F' : '#111827'}">${b.name}</div>
+      <div style="display:flex;align-items:center;flex-wrap:wrap">
+        <span style="font-size:14px;font-weight:900;color:${active ? '#002C5F' : '#111827'}">${b.name}</span>
+        ${vorgLabel}
+      </div>
       <div style="font-size:11px;color:#9CA3AF;margin-top:3px">${acctTypeLabel}</div>
     </div>
     ${active ? '<span style="font-size:11px;font-weight:900;padding:3px 10px;border-radius:6px;background:#DBEAFE;color:#1D4ED8">선택됨</span>' : ''}
   </div>
 </button>`;
       }).join('')}
-</div>`;
+</div>
+${/* 개선1: 프로세스 패턴 안내 배너 */ ''}
+${_processInfo ? `
+<div style="margin-top:16px;background:#F0FDF4;border:1.5px solid #BBF7D0;border-radius:12px;padding:16px 18px">
+  <div style="font-size:10px;font-weight:900;color:#15803D;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+    <span style="width:5px;height:5px;background:#22C55E;border-radius:50%;display:inline-block"></span>
+    이 교육은 다음 절차로 진행됩니다
+  </div>
+  <div style="display:flex;align-items:center;gap:4px;margin-bottom:10px;flex-wrap:wrap">
+    ${_processInfo.steps.map((st, i) => `
+    <div style="display:flex;align-items:center;gap:4px">
+      <div style="text-align:center">
+        <div style="font-size:18px;margin-bottom:2px">${st.icon}</div>
+        <div style="font-size:11px;font-weight:900;color:#111827">${st.name}</div>
+        <div style="font-size:9px;color:#6B7280;font-weight:700">${st.hint}</div>
+      </div>
+      ${i < _processInfo.steps.length - 1 ? '<span style="color:#D1D5DB;font-size:16px;margin:0 6px;font-weight:bold">→</span>' : ''}
+    </div>`).join('')}
+  </div>
+  <div style="font-size:11px;color:#15803D;display:flex;align-items:flex-start;gap:5px">
+    <span style="font-size:12px;flex-shrink:0">ⓘ</span>
+    <span>${_processInfo.hint}${_processInfo.policyName ? ` <span style="color:#6B7280">(${_processInfo.policyName})</span>` : ''}</span>
+  </div>
+</div>` : ''}`;
     })()}
 
     <div class="flex justify-between mt-6">

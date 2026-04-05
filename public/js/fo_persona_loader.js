@@ -276,6 +276,20 @@ async function _initCurrentPersona(persona) {
             (allocs || []).forEach(a => { if (!allocMap[a.bankbook_id]) allocMap[a.bankbook_id] = a; });
         }
 
+        // 3-1. VOrg 이름 로드 (개선2: 예산 카드에 VOrg 레이블 표시)
+        const bbTemplateIds = [...new Set((directBbs || []).map(bb => bb.template_id).filter(Boolean))];
+        const vorgNameMap = {};
+        if (bbTemplateIds.length > 0) {
+            try {
+                const { data: vorgs } = await sb.from('virtual_org_templates')
+                    .select('id, name').in('id', bbTemplateIds);
+                (vorgs || []).forEach(v => {
+                    // "HMC 일반교육예산 가상교육조직" → "일반교육예산"
+                    vorgNameMap[v.id] = (v.name || '').replace(/^[A-Z]+\s+/, '').replace(/\s*가상교육조직$/, '') || v.name;
+                });
+            } catch (e) { console.warn('[FO Loader] VOrg 이름 로드 실패:', e.message); }
+        }
+
         // 4. allowedAccounts + budgets 구성
         //    예산 사용 계정 → allowedAccounts + budgets
         //    예산 미사용 계정 → allowedAccounts만 (정책 매칭용, 잔액 관리 불필요)
@@ -300,6 +314,7 @@ async function _initCurrentPersona(persona) {
                 frozen: Number(alloc?.frozen_amount || 0),
                 bankbookMode: mode,
                 parentOrgName: mode === 'shared' ? bb.org_name : null,
+                vorgName: vorgNameMap[bb.template_id] || '', // 개선2: VOrg 레이블
             });
         }
 

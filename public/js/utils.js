@@ -107,6 +107,18 @@ function _resolveVorgId(persona) {
   return byCode?.id || persona.vorgId;
 }
 
+// 계정코드 퍼지 매칭: 단축코드(HMC-ETC) ↔ 풀코드(BA-HMC-ETC-TPL_...) 상호 호환
+function _accountMatch(pAcctCodes, allowedSet) {
+  return pAcctCodes.some(pc => {
+    if (allowedSet.has(pc)) return true; // 완전 일치
+    for (const ac of allowedSet) {
+      // 부분 매칭: HMC-ETC가 BA-HMC-ETC-TPL_xxx에 포함되는지
+      if (ac.includes(pc) || pc.includes(ac)) return true;
+    }
+    return false;
+  });
+}
+
 // 페르소나의 VOrg + 테넌트에 해당하는 활성 정책 목록 (SERVICE_POLICIES DB 기반 전용)
 // ※ DB 직접 로드 시 snake_case(tenant_id, vorg_template_id, account_codes),
 //    mock 데이터는 camelCase(tenantId, domainId, accountCodes) — 둘 다 처리
@@ -130,19 +142,20 @@ function _getActivePolicies(persona) {
     if (pDomainId && vorgIds.length > 0 && vorgIds.includes(pDomainId)) return true;
     if (vorgId && pDomainId && pDomainId === vorgId) return true;
 
-    // ② allowedAccounts 교차매칭은 vorgId 미해석 시에만 폴백으로 사용
-    // (VORG_TEMPLATES 미로드 등으로 vorgId 해석 실패 시 한정)
-    if (!vorgId && vorgIds.length === 0 && pAcctCodes.length > 0 && pAcctCodes.some(c => allowedAcctCodes.has(c))) return true;
+    // ② allowedAccounts 퍼지 매칭 (vorgId 미해석 시 폴백)
+    if (!vorgId && vorgIds.length === 0 && pAcctCodes.length > 0 && _accountMatch(pAcctCodes, allowedAcctCodes)) return true;
 
-    // ③ VOrg/account 미설정 정책 → 무조건 통과 제거 (정책 누수 방지)
-    // 명시적 vorgId 또는 accountCodes 매칭만 허용
-    // 단, vorgId도 없고 persona에도 vorgId 없는 경우에만 accountCodes 폴백
-    if (!vorgId && !pDomainId && pAcctCodes.length > 0 && pAcctCodes.some(c => allowedAcctCodes.has(c))) return true;
+    // ③ VOrg/account 미설정 정책 → accountCodes 퍼지 매칭
+    if (!vorgId && !pDomainId && pAcctCodes.length > 0 && _accountMatch(pAcctCodes, allowedAcctCodes)) return true;
 
     return false;
   });
+  if (matched.length > 0) {
+    console.log(`[_getActivePolicies] ${persona.name}: ${matched.length}건 매칭 → ${matched.map(p => p.name || p.purpose).join(', ')}`);
+  }
   return matched.length > 0 ? { source: 'db', policies: matched } : null;
 }
+
 
 
 // 현재 페르소나에 오픈된 정책 기반 예산 목록 반환 (Policy-First: 역할 무관, 정책만 기준)

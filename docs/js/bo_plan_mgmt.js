@@ -3,7 +3,8 @@ let _boPlanMgmtData = null;
 let _boPlanDetailView = null;  // 상세 보기 대상 계획
 let _boPlanFiscalYear = new Date().getFullYear(); // 연도 필터
 let _boPlanTypeFilter = 'all'; // 'all' | 'forecast' | 'ongoing'
-let _boForecastDeadline = null; // 수요예측 마감 상태
+let _boForecastDeadlines = []; // 수요예측 마감 상태 (다건, 계정별)
+let _boTenantAccounts = [];    // 테넌트 예산계정 목록
 
 // ── 영문 KEY → 한글 변환 룩업 ──
 const _PLAN_PURPOSE_KR = {
@@ -53,14 +54,21 @@ async function renderBoPlanMgmt() {
   }
 
   try {
-    // 수요예측 마감 상태 조회
+    // 수요예측 마감 상태 조회 (계정별 다건)
     if (sb) {
       try {
-        const nextYear = new Date().getFullYear() + 1;
-        const { data: dl } = await sb.from('forecast_deadlines')
-          .select('*').eq('tenant_id', tenantId).eq('fiscal_year', _boPlanFiscalYear).single();
-        _boForecastDeadline = dl || null;
-      } catch { _boForecastDeadline = null; }
+        const { data: dls } = await sb.from('forecast_deadlines')
+          .select('*').eq('tenant_id', tenantId).eq('fiscal_year', _boPlanFiscalYear);
+        _boForecastDeadlines = dls || [];
+      } catch { _boForecastDeadlines = []; }
+      // 테넌트 예산계정 목록
+      if (_boTenantAccounts.length === 0) {
+        try {
+          const { data: accs } = await sb.from('budget_accounts')
+            .select('id, name, account_type').eq('tenant_id', tenantId);
+          _boTenantAccounts = accs || [];
+        } catch { _boTenantAccounts = []; }
+      }
     }
 
     let plans = _boApplyEduFilter(_boPlanMgmtData);
@@ -81,8 +89,8 @@ async function renderBoPlanMgmt() {
     const forecastCount = forecastPlans.length;
     const forecastPending = forecastPlans.filter(p => p.status === 'pending' || p.status === 'pending_approval').length;
     const forecastTotal = forecastPlans.reduce((s, p) => s + Number(p.amount || 0), 0);
-    const isClosed = _boForecastDeadline?.is_closed || false;
     const isNextYear = _boPlanFiscalYear > new Date().getFullYear();
+    const hasAnyDeadline = _boForecastDeadlines.length > 0;
 
     const canApprove = ['platform_admin', 'tenant_global_admin', 'total_general', 'total_rnd', 'hq_general', 'center_rnd'].includes(boCurrentPersona.role);
 
@@ -133,24 +141,45 @@ async function renderBoPlanMgmt() {
         <button onclick="_boPlanMgmtData=null;renderBoPlanMgmt()" class="bo-btn-primary">🔄 새로고침</button>
       </div>
 
-      <!-- 수요예측 요약 카드 -->
-      ${isNextYear || forecastCount > 0 ? `
+      <!-- 수요예측 요약 카드 (계정별 접수기간) -->
+      ${isNextYear || hasAnyDeadline || forecastCount > 0 ? `
       <div style="margin-bottom:16px;padding:18px 22px;border-radius:14px;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);border:1.5px solid #BFDBFE">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
           <div style="font-size:14px;font-weight:900;color:#1D4ED8">📊 ${_boPlanFiscalYear}년도 수요예측 교육계획</div>
           <div style="display:flex;align-items:center;gap:8px">
-            <span style="font-size:11px;font-weight:800;padding:4px 10px;border-radius:6px;background:${isClosed ? '#FEE2E2' : '#D1FAE5'};color:${isClosed ? '#DC2626' : '#059669'}">${isClosed ? '🔒 접수 마감' : '🟢 접수중'}</span>
             ${canApprove ? `
-            <button onclick="_toggleForecastDeadline()" style="padding:6px 14px;border-radius:8px;border:1.5px solid ${isClosed ? '#059669' : '#DC2626'};background:white;font-size:11px;font-weight:800;color:${isClosed ? '#059669' : '#DC2626'};cursor:pointer">
-              ${isClosed ? '🔓 마감 해제' : '🔒 수요예측 접수 마감'}
-            </button>` : ''}
+            <button onclick="_openForecastPeriodModal()" style="padding:6px 14px;border-radius:8px;border:1.5px solid #BFDBFE;background:white;font-size:11px;font-weight:800;color:#1D4ED8;cursor:pointer">⚙ 기간 설정</button>
+            <button onclick="_bulkCloseForecast()" style="padding:6px 14px;border-radius:8px;border:1.5px solid #DC2626;background:white;font-size:11px;font-weight:800;color:#DC2626;cursor:pointer">🔒 전체 일괄 마감</button>` : ''}
           </div>
         </div>
+        ${_boForecastDeadlines.length > 0 ? `
+        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px">
+          <thead><tr style="border-bottom:2px solid #DBEAFE">
+            <th style="text-align:left;padding:6px 8px;font-weight:800;color:#6B7280">계정</th>
+            <th style="text-align:left;padding:6px 8px;font-weight:800;color:#6B7280">접수 시작</th>
+            <th style="text-align:left;padding:6px 8px;font-weight:800;color:#6B7280">접수 종료</th>
+            <th style="text-align:left;padding:6px 8px;font-weight:800;color:#6B7280">상태</th>
+          </tr></thead>
+          <tbody>
+          ${_boForecastDeadlines.map(dl => {
+      const acctLabel = dl.account_code === '__ALL__' ? '전체 (기본)' : (_boTenantAccounts.find(a => a.id === dl.account_code)?.name || dl.account_code);
+      const st = _getForecastPeriodStatus(dl);
+      return `<tr style="border-bottom:1px solid #EFF6FF">
+              <td style="padding:6px 8px;font-weight:700">${acctLabel}</td>
+              <td style="padding:6px 8px">${dl.recruit_start || '-'}</td>
+              <td style="padding:6px 8px">${dl.recruit_end || '-'}</td>
+              <td style="padding:6px 8px">${st.badge}</td>
+            </tr>`;
+    }).join('')}
+          </tbody>
+        </table>` : `
+        <div style="padding:10px;font-size:12px;color:#6B7280;background:white;border-radius:8px;text-align:center;margin-bottom:12px">
+          접수기간이 설정되지 않았습니다. <strong>⚙ 기간 설정</strong>을 클릭하여 설정하세요.
+        </div>`}
         <div style="display:flex;gap:24px;font-size:12px;color:#374151">
           <span>📝 접수: <strong>${forecastCount}건</strong></span>
           <span>⏳ 승인대기: <strong style="color:#D97706">${forecastPending}건</strong></span>
           <span>💰 수요예측 합계: <strong style="color:#1D4ED8">${forecastTotal.toLocaleString()}원</strong></span>
-          ${isClosed && _boForecastDeadline?.closed_at ? `<span>마감일: ${_boForecastDeadline.closed_at.slice(0, 10)}</span>` : ''}
         </div>
       </div>` : ''}
 
@@ -359,38 +388,138 @@ async function boPlanReject(id) {
   renderBoPlanMgmt();
 }
 
-// ─── 수요예측 접수 마감/해제 토글 ──────────────────────────────────────────
-async function _toggleForecastDeadline() {
-  const sb = typeof getSB === 'function' ? getSB() : null;
-  if (!sb) { alert('DB 연결이 필요합니다.'); return; }
-  const tenantId = boCurrentPersona?.tenantId || 'HMC';
-  const fiscalYear = _boPlanFiscalYear;
-  const isClosed = _boForecastDeadline?.is_closed || false;
+// ─── 수요예측 기간 상태 판별 ──────────────────────────────────────────────
+function _getForecastPeriodStatus(dl) {
+  if (dl.is_closed) return { status: 'closed', badge: '<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:4px;background:#FEE2E2;color:#DC2626">🔒 수동마감</span>' };
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const start = dl.recruit_start ? new Date(dl.recruit_start) : null;
+  const end = dl.recruit_end ? new Date(dl.recruit_end) : null;
+  if (start && now < start) {
+    const dDay = Math.ceil((start - now) / 86400000);
+    return { status: 'not_started', badge: `<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:4px;background:#FEF3C7;color:#B45309">⏳ 접수전 (D-${dDay})</span>` };
+  }
+  if (end && now > end) return { status: 'expired', badge: '<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:4px;background:#FEE2E2;color:#DC2626">🔴 기간만료</span>' };
+  if (start && end) {
+    const dDay = Math.ceil((end - now) / 86400000);
+    return { status: 'open', badge: `<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:4px;background:#D1FAE5;color:#059669">🟢 접수중 (D-${dDay})</span>` };
+  }
+  return { status: 'open', badge: '<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:4px;background:#D1FAE5;color:#059669">🟢 접수중</span>' };
+}
 
-  const action = isClosed ? '마감 해제' : '접수 마감';
-  if (!confirm(`${fiscalYear}년도 수요예측 교육계획을 ${action}하시겠습니까?`)) return;
+// ─── 기간 설정 모달 ───────────────────────────────────────────────────────
+function _openForecastPeriodModal() {
+  const existing = document.getElementById('forecast-period-modal');
+  if (existing) existing.remove();
+
+  const defaultDl = _boForecastDeadlines.find(d => d.account_code === '__ALL__') || {};
+  const acctRows = _boTenantAccounts.map(a => {
+    const dl = _boForecastDeadlines.find(d => d.account_code === a.id);
+    return { id: a.id, name: a.name, type: a.account_type, start: dl?.recruit_start || '', end: dl?.recruit_end || '', enabled: !!dl };
+  });
+
+  const modal = document.createElement('div');
+  modal.id = 'forecast-period-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999';
+  modal.innerHTML = `
+  <div style="background:white;border-radius:16px;width:580px;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+    <div style="padding:20px 24px;border-bottom:1px solid #E5E7EB">
+      <h3 style="margin:0;font-size:16px;font-weight:900;color:#111827">${_boPlanFiscalYear}년도 수요예측 접수기간 설정</h3>
+      <p style="margin:4px 0 0;font-size:12px;color:#6B7280">예산계정별 접수 시작일·종료일을 설정합니다</p>
+    </div>
+    <div style="padding:20px 24px">
+      <div style="margin-bottom:20px">
+        <div style="font-size:13px;font-weight:900;color:#1D4ED8;margin-bottom:8px">📌 전체 기본 기간</div>
+        <div style="display:flex;gap:12px;align-items:center">
+          <label style="font-size:12px;font-weight:700;color:#374151">시작:</label>
+          <input type="date" id="fp-default-start" value="${defaultDl.recruit_start || ''}" style="padding:6px 10px;border-radius:8px;border:1.5px solid #E5E7EB;font-size:12px">
+          <label style="font-size:12px;font-weight:700;color:#374151">종료:</label>
+          <input type="date" id="fp-default-end" value="${defaultDl.recruit_end || ''}" style="padding:6px 10px;border-radius:8px;border:1.5px solid #E5E7EB;font-size:12px">
+        </div>
+      </div>
+      <div style="font-size:13px;font-weight:900;color:#374151;margin-bottom:8px">📌 계정별 개별 기간 (선택)</div>
+      ${acctRows.map(a => `
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;padding:8px 10px;border-radius:8px;background:${a.enabled ? '#F0F9FF' : '#F9FAFB'};border:1px solid ${a.enabled ? '#BFDBFE' : '#F3F4F6'}">
+        <input type="checkbox" id="fp-chk-${a.id}" ${a.enabled ? 'checked' : ''} onchange="document.getElementById('fp-row-${a.id}').style.opacity=this.checked?1:.4" style="width:16px;height:16px">
+        <div style="width:160px;font-size:12px;font-weight:700;color:#374151">${a.name} <span style="font-size:10px;color:#9CA3AF">${a.type}</span></div>
+        <div id="fp-row-${a.id}" style="display:flex;gap:8px;align-items:center;opacity:${a.enabled ? 1 : .4}">
+          <input type="date" id="fp-start-${a.id}" value="${a.start}" style="padding:4px 8px;border-radius:6px;border:1px solid #E5E7EB;font-size:11px">
+          <span style="font-size:11px;color:#9CA3AF">~</span>
+          <input type="date" id="fp-end-${a.id}" value="${a.end}" style="padding:4px 8px;border-radius:6px;border:1px solid #E5E7EB;font-size:11px">
+        </div>
+      </div>`).join('')}
+    </div>
+    <div style="padding:16px 24px;border-top:1px solid #E5E7EB;display:flex;justify-content:flex-end;gap:10px">
+      <button onclick="document.getElementById('forecast-period-modal').remove()" style="padding:8px 20px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">취소</button>
+      <button onclick="_saveForecastPeriods()" style="padding:8px 20px;border-radius:10px;border:none;background:#1D4ED8;color:white;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(29,78,216,.3)">💾 저장</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+}
+
+// ─── 기간 저장 ────────────────────────────────────────────────────────────
+async function _saveForecastPeriods() {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 필요'); return; }
+  const tenantId = boCurrentPersona?.tenantId || 'HMC';
+  const fy = _boPlanFiscalYear;
+  const defStart = document.getElementById('fp-default-start')?.value || null;
+  const defEnd = document.getElementById('fp-default-end')?.value || null;
+
+  // 밸리데이션
+  if (defStart && defEnd && defStart > defEnd) { alert('⚠ 기본 기간: 종료일은 시작일 이후여야 합니다'); return; }
+
+  const rows = [];
+  // 기본 기간
+  if (defStart || defEnd) {
+    rows.push({ tenant_id: tenantId, fiscal_year: fy, account_code: '__ALL__', recruit_start: defStart, recruit_end: defEnd, is_closed: false });
+  }
+  // 개별 계정
+  for (const a of _boTenantAccounts) {
+    const chk = document.getElementById(`fp-chk-${a.id}`);
+    if (!chk?.checked) continue;
+    const s = document.getElementById(`fp-start-${a.id}`)?.value || null;
+    const e = document.getElementById(`fp-end-${a.id}`)?.value || null;
+    if (s && e && s > e) { alert(`⚠ ${a.name}: 종료일은 시작일 이후여야 합니다`); return; }
+    rows.push({ tenant_id: tenantId, fiscal_year: fy, account_code: a.id, recruit_start: s, recruit_end: e, is_closed: false });
+  }
 
   try {
-    if (isClosed) {
-      // 마감 해제
-      await sb.from('forecast_deadlines')
-        .update({ is_closed: false, closed_at: null, closed_by: null })
-        .eq('tenant_id', tenantId).eq('fiscal_year', fiscalYear);
-    } else {
-      // 마감 처리 (upsert)
-      await sb.from('forecast_deadlines').upsert({
-        tenant_id: tenantId,
-        fiscal_year: fiscalYear,
-        is_closed: true,
-        closed_at: new Date().toISOString(),
-        closed_by: boCurrentPersona?.name || 'admin',
-      }, { onConflict: 'tenant_id,fiscal_year' });
+    // 기존 삭제 후 삽입 (깔끔한 교체)
+    await sb.from('forecast_deadlines').delete().eq('tenant_id', tenantId).eq('fiscal_year', fy);
+    if (rows.length > 0) {
+      const { error } = await sb.from('forecast_deadlines').insert(rows);
+      if (error) throw error;
     }
-    alert(`✅ ${fiscalYear}년도 수요예측 ${action} 완료`);
-  } catch (err) {
-    alert('❌ 처리 실패: ' + err.message);
-  }
+    alert(`✅ ${fy}년도 수요예측 접수기간 저장 완료 (${rows.length}건)`);
+  } catch (err) { alert('❌ 저장 실패: ' + err.message); }
+
+  document.getElementById('forecast-period-modal')?.remove();
   _boPlanMgmtData = null;
-  _boForecastDeadline = null;
+  _boForecastDeadlines = [];
+  renderBoPlanMgmt();
+}
+
+// ─── 전체 일괄 마감 ───────────────────────────────────────────────────────
+async function _bulkCloseForecast() {
+  if (!confirm(`${_boPlanFiscalYear}년도 수요예측을 전체 일괄 마감하시겠습니까?`)) return;
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) return;
+  const tenantId = boCurrentPersona?.tenantId || 'HMC';
+  try {
+    await sb.from('forecast_deadlines')
+      .update({ is_closed: true, closed_at: new Date().toISOString(), closed_by: boCurrentPersona?.name || 'admin' })
+      .eq('tenant_id', tenantId).eq('fiscal_year', _boPlanFiscalYear);
+    // __ALL__ 없으면 하나 생성
+    const hasAll = _boForecastDeadlines.some(d => d.account_code === '__ALL__');
+    if (!hasAll) {
+      await sb.from('forecast_deadlines').insert({
+        tenant_id: tenantId, fiscal_year: _boPlanFiscalYear, account_code: '__ALL__',
+        is_closed: true, closed_at: new Date().toISOString(), closed_by: boCurrentPersona?.name || 'admin',
+      });
+    }
+    alert(`✅ ${_boPlanFiscalYear}년도 수요예측 전체 일괄 마감 완료`);
+  } catch (err) { alert('❌ 마감 실패: ' + err.message); }
+  _boPlanMgmtData = null;
+  _boForecastDeadlines = [];
   renderBoPlanMgmt();
 }

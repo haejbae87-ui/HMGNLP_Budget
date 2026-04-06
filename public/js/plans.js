@@ -110,14 +110,25 @@ async function _loadFoPolicies() {
   _foServicePoliciesLoaded = true;
 }
 
-// ─── 수요예측 마감 조회 헬퍼 ─────────────────────────────────────────────
-async function _checkForecastDeadline(tenantId, fiscalYear) {
+// ─── 수요예측 마감 조회 헬퍼 (계정별) ─────────────────────────────────────
+async function _checkForecastDeadline(tenantId, fiscalYear, accountCode) {
   const sb = typeof getSB === 'function' ? getSB() : null;
   if (!sb) return null;
   try {
-    const { data } = await sb.from('forecast_deadlines')
-      .select('*').eq('tenant_id', tenantId).eq('fiscal_year', fiscalYear).single();
-    return data || null;
+    const { data: rows } = await sb.from('forecast_deadlines')
+      .select('*').eq('tenant_id', tenantId).eq('fiscal_year', fiscalYear);
+    if (!rows || rows.length === 0) return null;
+    // 계정별 설정 우선, 없으면 __ALL__ 폴백
+    let dl = accountCode ? rows.find(r => r.account_code === accountCode) : null;
+    if (!dl) dl = rows.find(r => r.account_code === '__ALL__');
+    if (!dl) return null;
+    // 수동 마감 체크
+    if (dl.is_closed) return { ...dl, status: 'closed' };
+    // 기간 기반 자동 판별
+    const now = new Date(); now.setHours(0, 0, 0, 0);
+    if (dl.recruit_start && now < new Date(dl.recruit_start)) return { ...dl, status: 'not_started' };
+    if (dl.recruit_end && now > new Date(dl.recruit_end)) return { ...dl, status: 'expired', is_closed: true };
+    return { ...dl, status: 'open' };
   } catch { return null; }
 }
 

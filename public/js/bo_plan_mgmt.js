@@ -1,6 +1,9 @@
 // ─── 3 Depth: 교육계획 관리 (DB 연동) ──────────────────────────────────────
 let _boPlanMgmtData = null;
 let _boPlanDetailView = null;  // 상세 보기 대상 계획
+let _boPlanFiscalYear = new Date().getFullYear(); // 연도 필터
+let _boPlanTypeFilter = 'all'; // 'all' | 'forecast' | 'ongoing'
+let _boForecastDeadline = null; // 수요예측 마감 상태
 
 // ── 영문 KEY → 한글 변환 룩업 ──
 const _PLAN_PURPOSE_KR = {
@@ -50,7 +53,37 @@ async function renderBoPlanMgmt() {
   }
 
   try {
-    const plans = _boApplyEduFilter(_boPlanMgmtData);
+    // 수요예측 마감 상태 조회
+    if (sb) {
+      try {
+        const nextYear = new Date().getFullYear() + 1;
+        const { data: dl } = await sb.from('forecast_deadlines')
+          .select('*').eq('tenant_id', tenantId).eq('fiscal_year', _boPlanFiscalYear).single();
+        _boForecastDeadline = dl || null;
+      } catch { _boForecastDeadline = null; }
+    }
+
+    let plans = _boApplyEduFilter(_boPlanMgmtData);
+    // 연도 필터
+    plans = plans.filter(p => {
+      const fy = p.fiscal_year || new Date(p.created_at || '').getFullYear() || new Date().getFullYear();
+      return fy === _boPlanFiscalYear;
+    });
+    // 유형 필터
+    if (_boPlanTypeFilter !== 'all') {
+      plans = plans.filter(p => (p.plan_type || 'ongoing') === _boPlanTypeFilter);
+    }
+    // 수요예측 통계
+    const forecastPlans = (_boApplyEduFilter(_boPlanMgmtData) || []).filter(p => {
+      const fy = p.fiscal_year || new Date(p.created_at || '').getFullYear();
+      return fy === _boPlanFiscalYear && (p.plan_type === 'forecast');
+    });
+    const forecastCount = forecastPlans.length;
+    const forecastPending = forecastPlans.filter(p => p.status === 'pending' || p.status === 'pending_approval').length;
+    const forecastTotal = forecastPlans.reduce((s, p) => s + Number(p.amount || 0), 0);
+    const isClosed = _boForecastDeadline?.is_closed || false;
+    const isNextYear = _boPlanFiscalYear > new Date().getFullYear();
+
     const canApprove = ['platform_admin', 'tenant_global_admin', 'total_general', 'total_rnd', 'hq_general', 'center_rnd'].includes(boCurrentPersona.role);
 
     const rows = plans.map((pl, idx) => {
@@ -58,6 +91,9 @@ async function renderBoPlanMgmt() {
       const status = pl.status || 'pending';
       const statusBadge = typeof boPlanStatusBadge === 'function' ? boPlanStatusBadge(status) :
         `<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${status === 'approved' ? '#D1FAE5' : status === 'rejected' ? '#FEE2E2' : '#FEF3C7'};color:${status === 'approved' ? '#059669' : status === 'rejected' ? '#DC2626' : '#B45309'};font-weight:800">${status === 'approved' ? '승인' : status === 'rejected' ? '반려' : status === 'draft' ? '임시저장' : '대기'}</span>`;
+      const typeBadge = (pl.plan_type === 'forecast')
+        ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:4px;background:#DBEAFE;color:#1D4ED8">📅 수요예측</span>'
+        : '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:4px;background:#F3F4F6;color:#6B7280">📝 상시</span>';
       const safeId = String(pl.id || '').replace(/'/g, "\\'");
       return `
       <tr onclick="_openBoPlanDetail('${safeId}')" style="cursor:pointer;transition:background .12s"
@@ -71,6 +107,7 @@ async function renderBoPlanMgmt() {
           <div style="font-weight:700">${pl.title || pl.edu_name || pl.name || ''}</div>
           <div style="font-size:11px;color:#9CA3AF">상신자: ${pl.submitter || pl.applicant_name || ''}</div>
         </td>
+        <td>${typeBadge}</td>
         <td>${typeof boAccountBadge === 'function' ? boAccountBadge(pl.account || pl.account_code || '') : (pl.account_code || '')}</td>
         <td style="text-align:right;font-weight:900">${amt.toLocaleString()}원</td>
         <td style="font-size:12px;color:#6B7280">${(pl.submittedAt || pl.created_at || '').slice(0, 10)}</td>
@@ -96,6 +133,42 @@ async function renderBoPlanMgmt() {
         <button onclick="_boPlanMgmtData=null;renderBoPlanMgmt()" class="bo-btn-primary">🔄 새로고침</button>
       </div>
 
+      <!-- 수요예측 요약 카드 -->
+      ${isNextYear || forecastCount > 0 ? `
+      <div style="margin-bottom:16px;padding:18px 22px;border-radius:14px;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);border:1.5px solid #BFDBFE">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:14px;font-weight:900;color:#1D4ED8">📊 ${_boPlanFiscalYear}년도 수요예측 교육계획</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:11px;font-weight:800;padding:4px 10px;border-radius:6px;background:${isClosed ? '#FEE2E2' : '#D1FAE5'};color:${isClosed ? '#DC2626' : '#059669'}">${isClosed ? '🔒 접수 마감' : '🟢 접수중'}</span>
+            ${canApprove ? `
+            <button onclick="_toggleForecastDeadline()" style="padding:6px 14px;border-radius:8px;border:1.5px solid ${isClosed ? '#059669' : '#DC2626'};background:white;font-size:11px;font-weight:800;color:${isClosed ? '#059669' : '#DC2626'};cursor:pointer">
+              ${isClosed ? '🔓 마감 해제' : '🔒 수요예측 접수 마감'}
+            </button>` : ''}
+          </div>
+        </div>
+        <div style="display:flex;gap:24px;font-size:12px;color:#374151">
+          <span>📝 접수: <strong>${forecastCount}건</strong></span>
+          <span>⏳ 승인대기: <strong style="color:#D97706">${forecastPending}건</strong></span>
+          <span>💰 수요예측 합계: <strong style="color:#1D4ED8">${forecastTotal.toLocaleString()}원</strong></span>
+          ${isClosed && _boForecastDeadline?.closed_at ? `<span>마감일: ${_boForecastDeadline.closed_at.slice(0, 10)}</span>` : ''}
+        </div>
+      </div>` : ''}
+
+      <!-- 연도 + 유형 필터 -->
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
+        <select onchange="_boPlanFiscalYear=Number(this.value);_boPlanMgmtData=null;_boForecastDeadline=null;renderBoPlanMgmt()"
+          style="padding:6px 12px;border-radius:8px;border:1.5px solid #E5E7EB;font-size:12px;font-weight:700">
+          ${[new Date().getFullYear() + 1, new Date().getFullYear(), new Date().getFullYear() - 1].map(y =>
+      `<option value="${y}" ${_boPlanFiscalYear === y ? 'selected' : ''}>${y}년</option>`).join('')}
+        </select>
+        <select onchange="_boPlanTypeFilter=this.value;renderBoPlanMgmt()"
+          style="padding:6px 12px;border-radius:8px;border:1.5px solid #E5E7EB;font-size:12px;font-weight:700">
+          <option value="all" ${_boPlanTypeFilter === 'all' ? 'selected' : ''}>전체</option>
+          <option value="forecast" ${_boPlanTypeFilter === 'forecast' ? 'selected' : ''}>📅 수요예측</option>
+          <option value="ongoing" ${_boPlanTypeFilter === 'ongoing' ? 'selected' : ''}>📝 상시</option>
+        </select>
+      </div>
+
       ${typeof _boEduFilterBar === 'function' ? _boEduFilterBar('renderBoPlanMgmt') : ''}
 
       <div class="bo-card" style="overflow:hidden">
@@ -106,7 +179,7 @@ async function renderBoPlanMgmt() {
         ${plans.length > 0 ? `
         <table class="bo-table">
           <thead><tr>
-            <th>ID</th><th>제출팀</th><th>계획명</th><th>계정</th>
+            <th>ID</th><th>제출팀</th><th>계획명</th><th>유형</th><th>계정</th>
             <th style="text-align:right">계획액</th><th>제출일</th><th>상태</th>
             ${canApprove ? '<th style="text-align:center">처리</th>' : ''}
           </tr></thead>
@@ -114,7 +187,7 @@ async function renderBoPlanMgmt() {
         </table>` : `
         <div style="padding:60px;text-align:center;color:#9CA3AF">
           <div style="font-size:48px;margin-bottom:10px">📭</div>
-          <div style="font-weight:700">교육계획 데이터가 없습니다</div>
+          <div style="font-weight:700">${_boPlanFiscalYear}년 교육계획 데이터가 없습니다</div>
           <div style="font-size:12px;margin-top:6px">프론트 오피스에서 교육계획을 수립하면 이 화면에서 조회할 수 있습니다.</div>
         </div>`}
       </div>
@@ -283,5 +356,41 @@ async function boPlanReject(id) {
   }
   _boPlanMgmtData = null;
   _boPlanDetailView = null;
+  renderBoPlanMgmt();
+}
+
+// ─── 수요예측 접수 마감/해제 토글 ──────────────────────────────────────────
+async function _toggleForecastDeadline() {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결이 필요합니다.'); return; }
+  const tenantId = boCurrentPersona?.tenantId || 'HMC';
+  const fiscalYear = _boPlanFiscalYear;
+  const isClosed = _boForecastDeadline?.is_closed || false;
+
+  const action = isClosed ? '마감 해제' : '접수 마감';
+  if (!confirm(`${fiscalYear}년도 수요예측 교육계획을 ${action}하시겠습니까?`)) return;
+
+  try {
+    if (isClosed) {
+      // 마감 해제
+      await sb.from('forecast_deadlines')
+        .update({ is_closed: false, closed_at: null, closed_by: null })
+        .eq('tenant_id', tenantId).eq('fiscal_year', fiscalYear);
+    } else {
+      // 마감 처리 (upsert)
+      await sb.from('forecast_deadlines').upsert({
+        tenant_id: tenantId,
+        fiscal_year: fiscalYear,
+        is_closed: true,
+        closed_at: new Date().toISOString(),
+        closed_by: boCurrentPersona?.name || 'admin',
+      }, { onConflict: 'tenant_id,fiscal_year' });
+    }
+    alert(`✅ ${fiscalYear}년도 수요예측 ${action} 완료`);
+  } catch (err) {
+    alert('❌ 처리 실패: ' + err.message);
+  }
+  _boPlanMgmtData = null;
+  _boForecastDeadline = null;
   renderBoPlanMgmt();
 }

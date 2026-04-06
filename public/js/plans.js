@@ -110,6 +110,17 @@ async function _loadFoPolicies() {
   _foServicePoliciesLoaded = true;
 }
 
+// ─── 수요예측 마감 조회 헬퍼 ─────────────────────────────────────────────
+async function _checkForecastDeadline(tenantId, fiscalYear) {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) return null;
+  try {
+    const { data } = await sb.from('forecast_deadlines')
+      .select('*').eq('tenant_id', tenantId).eq('fiscal_year', fiscalYear).single();
+    return data || null;
+  } catch { return null; }
+}
+
 // 교육계획 수립 상태
 let planState = null;
 
@@ -380,6 +391,23 @@ function _renderPlanCard(p) {
 
 function startPlanWizard() {
   planState = resetPlanState();
+  // 자동 태그: 연도 기반 plan_type 결정
+  const curYear = new Date().getFullYear();
+  planState.fiscal_year = _planYear;
+  planState.plan_type = (_planYear > curYear) ? 'forecast' : 'ongoing';
+  // 수요예측 마감 체크 (비동기)
+  if (planState.plan_type === 'forecast') {
+    _checkForecastDeadline(currentPersona.tenantId || 'HMC', _planYear).then(dl => {
+      if (dl && dl.is_closed) {
+        const goOngoing = confirm(`⚠ ${_planYear}년도 수요예측 접수가 마감되었습니다.\n\n${curYear}년을 선택하여 상시 교육계획으로 수립하시겠습니까?\n\n[확인] ${curYear}년 상시 계획으로 전환\n[취소] 마감된 ${_planYear}년 수요예측으로 계속`);
+        if (goOngoing) {
+          _planYear = curYear;
+          planState.fiscal_year = curYear;
+          planState.plan_type = 'ongoing';
+        }
+      }
+    });
+  }
   _viewingPlanDetail = null;
   renderPlans(); // planState가 있으면 위저드 뷰 렌더
 }
@@ -988,6 +1016,8 @@ async function savePlanDraft() {
       edu_name: planState.title || planState.eduTypeName || '교육계획',
       edu_type: planState.eduType || planState.eduSubType || null,
       amount: amount, status: 'draft', policy_id: planState.policyId || null,
+      plan_type: planState.plan_type || 'ongoing',
+      fiscal_year: planState.fiscal_year || new Date().getFullYear(),
       detail: {
         purpose: planState.purpose?.id || null, budgetId: planState.budgetId || null,
         eduType: planState.eduType, eduSubType: planState.eduSubType,
@@ -1097,6 +1127,8 @@ async function confirmPlan() {
         edu_name: planState.title || planState.eduTypeName || '교육계획',
         edu_type: planState.eduType || planState.eduSubType || null,
         amount: amount, status: 'pending', policy_id: planState.policyId || null,
+        plan_type: planState.plan_type || 'ongoing',
+        fiscal_year: planState.fiscal_year || new Date().getFullYear(),
         detail: {
           purpose: planState.purpose?.id || null, budgetId: planState.budgetId || null,
           eduType: planState.eduType, eduSubType: planState.eduSubType,

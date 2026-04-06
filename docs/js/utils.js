@@ -313,6 +313,22 @@ function getPersonaPurposes(persona) {
       const purposes = PURPOSES.filter(p => foPurposeIds.includes(p.id)).map(p => ({
         ...p, category: _PURPOSE_CATEGORY[p.id] || 'edu-operation'
       }));
+      // 정책에 있지만 PURPOSES에 없는 목적 → DB edu_purpose_groups 기반 동적 생성 (misc_ops 등)
+      foPurposeIds.forEach(pid => {
+        if (!purposes.find(p => p.id === pid)) {
+          const dbPurpose = (typeof EDU_PURPOSE_MAP !== 'undefined' && EDU_PURPOSE_MAP[pid])
+            || (typeof EDU_PURPOSE_GROUPS !== 'undefined' && Array.isArray(EDU_PURPOSE_GROUPS)
+              && EDU_PURPOSE_GROUPS.find(g => g.id === pid));
+          if (dbPurpose) {
+            purposes.push({
+              id: dbPurpose.id, label: dbPurpose.label, icon: dbPurpose.icon || '📌',
+              desc: dbPurpose.description || '', subtypes: dbPurpose.subtypes || [],
+              accounts: [], category: _PURPOSE_CATEGORY[pid] || 'edu-operation'
+            });
+            console.log(`[getPersonaPurposes] 정책 기반 동적 목적 추가: ${pid} (${dbPurpose.label})`);
+          }
+        }
+      });
       // C/D 패턴이 있으면 결과등록 전용 가상 목적 추가
       if (hasResultOnly) {
         purposes.push({

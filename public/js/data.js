@@ -157,9 +157,10 @@ let applyState = resetApplyState();
 
 // ─── PURPOSES (교육 목적 정의 — DB 폴백용) ──────────────────────────────────
 // ⚠ DB initSupabaseData() → sbLoadEduTypes() 성공 시 window.PURPOSES가 DB 데이터로 교체됨
+// ⚠ let 사용 필수: const 사용 시 window.PURPOSES 재할당이 로컬 const에 가려져 DB 교체가 무시됨
 // ⚠ misc_ops(기타운영): DB edu_purpose_groups에 등록된 경우에만 자동 노출. Mock에서는 제거.
 
-const PURPOSES = [
+let PURPOSES = [
   {
     id: 'external_personal',
     label: '개인 직무 사외학습',

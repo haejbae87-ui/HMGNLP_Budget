@@ -365,6 +365,7 @@ function getPersonaPurposes(persona) {
 }
 
 // 선택된 목적 + 예산 계정에 허용된 교육유형 목록 반환 (Step3용)
+// ⚠ DB(snake_case) + mock(camelCase) 양쪽 호환 필수
 function getPolicyEduTypes(persona, purposeId, budgetAccountType) {
   const result = _getActivePolicies(persona);
   if (result && purposeId) {
@@ -375,21 +376,26 @@ function getPolicyEduTypes(persona, purposeId, budgetAccountType) {
       const acctCodeForType = Object.entries(ACCOUNT_TYPE_MAP).find(([, v]) => v === budgetAccountType)?.[0] || null;
       const matched = policies.filter(p => {
         if (!boPurposeKeys.includes(p.purpose)) return false;
-        if (acctCodeForType && p.accountCodes?.length && !p.accountCodes.includes(acctCodeForType)) return false;
+        // snake_case(DB) + camelCase(mock) 양쪽 호환
+        const pAcctCodes = p.account_codes || p.accountCodes || [];
+        if (acctCodeForType && pAcctCodes.length && !pAcctCodes.includes(acctCodeForType)) return false;
         return true;
       });
       if (matched.length > 0) {
-        // selectedEduItem이 있는 정책은 세부항목(subId) 레벨로 반환
+        // selected_edu_item(DB) / selectedEduItem(mock) 양쪽 호환
         const types = [];
         matched.forEach(p => {
-          if (p.selectedEduItem?.subId) {
-            types.push(p.selectedEduItem.subId);  // 예: 'elearning'
-          } else if (p.selectedEduItem?.typeId) {
-            types.push(p.selectedEduItem.typeId);  // 세부항목 없는 리프
+          const sei = p.selected_edu_item || p.selectedEduItem;
+          if (sei?.subId) {
+            types.push(sei.subId);       // 예: 'elearning'
+          } else if (sei?.typeId) {
+            types.push(sei.typeId);       // 세부항목 없는 리프
           } else {
-            (p.eduTypes || []).forEach(t => types.push(t));
+            const et = p.edu_types || p.eduTypes || [];
+            et.forEach(t => types.push(t));
           }
         });
+        console.log(`[getPolicyEduTypes] ${purposeId}+${budgetAccountType} → ${types.join(',')}`);
         return [...new Set(types)];
       }
     } else {

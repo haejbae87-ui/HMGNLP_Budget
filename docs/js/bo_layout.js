@@ -220,6 +220,10 @@ const PLATFORM_MENUS = [
   { id: 'budget-demand', icon: '📊', label: '예산 수요분석', section: null, gnb: GNB_CATE.PROGRAM },
   // 자격증 지원관리
   { id: 'cert-mapping', icon: '📜', label: '자격증 맵핑', section: '자격증 지원관리', gnb: GNB_CATE.PROGRAM },
+  // 뱃지제도 기준/운영
+  { id: 'badge-group-mgmt', icon: '📛', label: '뱃지 그룹 관리', section: '뱃지제도 기준정보', gnb: GNB_CATE.PROGRAM },
+  { id: 'badge-mgmt', icon: '🎖️', label: '뱃지 기준 설정', section: null, gnb: GNB_CATE.PROGRAM },
+  { id: 'badge-operation', icon: '🤝', label: '뱃지 심사 및 현황', section: '뱃지 발급 관리', gnb: GNB_CATE.PROGRAM },
   // 교육과정 운영
   { id: 'channel-mgmt', icon: '📺', label: '채널 관리', section: '교육과정 기준정보', gnb: GNB_CATE.COURSE },
   { id: 'course-mgmt', icon: '📚', label: '교육과정 관리', section: null, gnb: GNB_CATE.COURSE },
@@ -248,6 +252,10 @@ const TENANT_ADMIN_MENUS = [
   { id: 'budget-history', icon: '📒', label: '예산 사용이력', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'budget-demand', icon: '📊', label: '예산 수요분석', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'cert-mapping', icon: '📜', label: '자격증 맵핑', section: '자격증 지원관리', gnb: GNB_CATE.PROGRAM },
+  // 뱃지제도 기준/운영
+  { id: 'badge-group-mgmt', icon: '📛', label: '뱃지 그룹 관리', section: '뱃지제도 기준정보', gnb: GNB_CATE.PROGRAM },
+  { id: 'badge-mgmt', icon: '🎖️', label: '뱃지 기준 설정', section: null, gnb: GNB_CATE.PROGRAM },
+  { id: 'badge-operation', icon: '🤝', label: '뱃지 심사 및 현황', section: '뱃지 발급 관리', gnb: GNB_CATE.PROGRAM },
   // 교육과정 운영
   { id: 'channel-mgmt', icon: '📺', label: '채널 관리', section: '교육과정 기준정보', gnb: GNB_CATE.COURSE },
   { id: 'course-mgmt', icon: '📚', label: '교육과정 관리', section: null, gnb: GNB_CATE.COURSE },
@@ -272,6 +280,10 @@ const BUDGET_ADMIN_MENUS = [
   { id: 'budget-history', icon: '📒', label: '예산 사용이력', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'budget-demand', icon: '📊', label: '예산 수요분석', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'cert-mapping', icon: '📜', label: '자격증 맵핑', section: '자격증 지원관리', gnb: GNB_CATE.PROGRAM },
+  // 뱃지제도 기준/운영
+  { id: 'badge-group-mgmt', icon: '📛', label: '뱃지 그룹 관리', section: '뱃지제도 기준정보', gnb: GNB_CATE.PROGRAM },
+  { id: 'badge-mgmt', icon: '🎖️', label: '뱃지 기준 설정', section: null, gnb: GNB_CATE.PROGRAM },
+  { id: 'badge-operation', icon: '🤝', label: '뱃지 심사 및 현황', section: '뱃지 발급 관리', gnb: GNB_CATE.PROGRAM },
   // 교육과정 운영
   { id: 'channel-mgmt', icon: '📺', label: '채널 관리', section: '교육과정 기준정보', gnb: GNB_CATE.COURSE },
   { id: 'course-mgmt', icon: '📚', label: '교육과정 관리', section: null, gnb: GNB_CATE.COURSE },
@@ -647,6 +659,9 @@ function boNavigate(menuId) {
   if (menuId === 'virtual-org') renderVirtualOrgUnified();
   if (menuId === 'budget-account') renderBudgetAccountMenu(); // 신규 추가
   if (menuId === 'cert-mapping') renderCertMappingMenu();   // 신규 추가
+  if (menuId === 'badge-group-mgmt') renderBadgeGroupMgmt();
+  if (menuId === 'badge-mgmt') renderBadgeMgmt();
+  if (menuId === 'badge-operation') renderBadgeOperation();
   if (menuId === 'form-builder') renderFormBuilderMenu();
   if (menuId === 'field-mgmt') renderVirtualOrgUnified(); // 혹시나 남아있을 경우 대비
   if (menuId === 'calc-grounds') renderCalcGrounds();

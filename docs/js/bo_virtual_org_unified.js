@@ -51,6 +51,9 @@ async function renderVirtualOrgUnified() {
           tree: row.tree_data || { hqs: [] },
           headManagerRole: row.head_manager_role || null,
           headManagerUser: row.head_manager_user || null,
+          // 복수 총괄담당자: head_manager_users(array json) 우선, 없으면 단일 호환
+          headManagerUsers: Array.isArray(row.head_manager_users) ? row.head_manager_users
+            : (row.head_manager_user ? [row.head_manager_user] : []),
         }));
       }
     }
@@ -233,7 +236,9 @@ function _vuTabInfo(tpl) {
   const types = tpl.serviceTypes || [tpl.purpose];
   const roleIds = tpl.ownerRoleIds || [];
   const headRole = tpl.headManagerRole || null;
-  const headUser = tpl.headManagerUser || null;
+  // 복수 총괄담당자 지원: headManagerUsers(array) 우선, 없으면 headManagerUser(단일) 호환
+  const headUsers = Array.isArray(tpl.headManagerUsers) ? tpl.headManagerUsers
+    : (tpl.headManagerUser ? [tpl.headManagerUser] : []);
   return `
 <div style="max-width:640px">
   <h3 style="font-size:14px;font-weight:900;color:#111827;margin:0 0 16px">📋 기본정보</h3>
@@ -264,19 +269,21 @@ function _vuTabInfo(tpl) {
   <div class="bo-card" style="padding:20px;margin-top:12px;border-left:4px solid #C2410C">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <span style="font-size:13px;font-weight:800;color:#C2410C">👑 총괄담당자 설정</span>
-      <button onclick="_vuOpenHeadManagerSelector('${tpl.id}')" style="padding:5px 12px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;color:#C2410C">${headUser ? '변경' : '+ 설정'}</button>
+      <button onclick="_vuOpenHeadManagerSelector('${tpl.id}')" style="padding:5px 12px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;color:#C2410C">${headUsers.length ? '+ 추가/변경' : '+ 설정'}</button>
     </div>
     ${headRole ? `
-    <div style="margin-bottom:8px">
+    <div style="margin-bottom:10px">
       <span style="font-size:10px;font-weight:700;color:#9CA3AF;display:block;margin-bottom:4px">담당 역할</span>
       <code style="background:#FFF7ED;border:1px solid #FED7AA;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;color:#C2410C">${headRole.name} (${headRole.code})</code>
     </div>` : ''}
-    ${headUser ? `
-    <div style="display:flex;align-items:center;gap:8px">
+    ${headUsers.length ? `
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${headUsers.map((u, idx) => `
       <span style="padding:7px 14px;background:#fff;border:1.5px solid #C2410C;border-radius:8px;font-size:13px;font-weight:700;color:#C2410C;display:flex;align-items:center;gap:6px">
-        👑 ${headUser.name} <span style="font-size:10px;color:#9CA3AF">${headUser.dept || ''}</span>
-        <button onclick="_vuClearHeadManagerInfo('${tpl.id}')" style="border:none;background:none;color:#C2410C;cursor:pointer;font-size:10px">✕</button>
-      </span>
+        👑 ${u.name} <span style="font-size:10px;color:#9CA3AF">${u.dept || ''}</span>
+        ${u.start_date || u.end_date ? `<span style="font-size:9px;color:#94A3B8;font-weight:400">${u.start_date || ''} ~ ${u.end_date || ''}</span>` : ''}
+        <button onclick="_vuRemoveOneHeadManager('${tpl.id}', ${idx})" style="border:none;background:none;color:#C2410C;cursor:pointer;font-size:11px;padding:0 2px" title="이 담당자 해제">✕</button>
+      </span>`).join('')}
     </div>` : '<span style="font-size:12px;color:#9CA3AF">총괄담당자가 설정되지 않았습니다.<br><small>💡 총괄담당자 설정 후 협조처·담당자 탭에서 운영담당자를 추가할 수 있습니다.</small></span>'}
   </div>
 
@@ -474,25 +481,61 @@ function _vuAddManager(tplId, gi) {
   _vuShowUserPicker('운영담당자 추가', 'op_manager');
 }
 
-// 기본정보 총괄담당자 클리어
+// 기본정보 총괄담당자 전체 초기화
 async function _vuClearHeadManagerInfo(tplId) {
-  if (!confirm('총괄담당자 설정을 초기화하시겠습니까? (부여된 권한도 함께 회수됩니다)')) return;
+  if (!confirm('총괄담당자 설정을 전체 초기화하시겠습니까? (부여된 권한도 함께 회수됩니다)')) return;
   const tpl = _vuTplList.find(t => t.id === tplId);
   if (!tpl) return;
-  
-  if (tpl.headManagerUser && tpl.headManagerRole) {
+
+  const headUsers = Array.isArray(tpl.headManagerUsers) ? tpl.headManagerUsers
+    : (tpl.headManagerUser ? [tpl.headManagerUser] : []);
+
+  if (headUsers.length && tpl.headManagerRole) {
     try {
       if (_sb()) {
-        await _sb().from('user_roles').delete()
-          .eq('user_id', tpl.headManagerUser.id)
-          .eq('role_code', tpl.headManagerRole.code)
-          .eq('scope_id', tplId);
+        for (const u of headUsers) {
+          await _sb().from('user_roles').delete()
+            .eq('user_id', u.id)
+            .eq('role_code', tpl.headManagerRole.code)
+            .eq('scope_id', tplId);
+        }
       }
     } catch(e) { console.warn('총괄담당자 권한 회수 실패:', e.message); }
   }
 
   tpl.headManagerRole = null;
   tpl.headManagerUser = null;
+  tpl.headManagerUsers = [];
+  _vuAutoSaveTplMeta(tpl);
+  _vuSwitchTab(_vuActiveTab);
+}
+
+// 개별 총괄담당자 해제
+async function _vuRemoveOneHeadManager(tplId, idx) {
+  const tpl = _vuTplList.find(t => t.id === tplId);
+  if (!tpl) return;
+  const headUsers = Array.isArray(tpl.headManagerUsers) ? tpl.headManagerUsers
+    : (tpl.headManagerUser ? [tpl.headManagerUser] : []);
+  const target = headUsers[idx];
+  if (!target) return;
+  if (!confirm(`${target.name} 총괄담당자를 해제하시겠습니까? (권한도 함께 회수됩니다)`)) return;
+
+  if (tpl.headManagerRole) {
+    try {
+      if (_sb()) {
+        await _sb().from('user_roles').delete()
+          .eq('user_id', target.id)
+          .eq('role_code', tpl.headManagerRole.code)
+          .eq('scope_id', tplId);
+      }
+    } catch(e) { console.warn('개별 총괄담당자 권한 회수 실패:', e.message); }
+  }
+
+  headUsers.splice(idx, 1);
+  tpl.headManagerUsers = headUsers;
+  // 호환성: 단일 필드도 동기화
+  tpl.headManagerUser = headUsers.length ? headUsers[0] : null;
+  if (!headUsers.length) tpl.headManagerRole = null;
   _vuAutoSaveTplMeta(tpl);
   _vuSwitchTab(_vuActiveTab);
 }
@@ -553,6 +596,7 @@ async function _vuAutoSaveTplMeta(tpl) {
     await sb.from('virtual_org_templates').update({
       head_manager_role: tpl.headManagerRole || null,
       head_manager_user: tpl.headManagerUser || null,
+      head_manager_users: tpl.headManagerUsers || [],
       updated_at: new Date().toISOString(),
     }).eq('id', tpl.id);
   } catch (e) {
@@ -715,7 +759,7 @@ function _vuBuildHeadUserList(users) {
   return users.map(u => `
     <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:8px;cursor:pointer;"
            onmouseover="this.style.borderColor='#FED7AA'" onmouseout="this.style.borderColor='#E5E7EB'">
-      <input type="radio" name="vu-head-user" value="${u.id}" data-name="${(u.name || '').replace(/'/g, '&#39;')}" data-dept="${u.dept || ''}" style="accent-color:#C2410C;width:15px;height:15px">
+      <input type="checkbox" name="vu-head-user" value="${u.id}" data-name="${(u.name || '').replace(/'/g, '&#39;')}" data-dept="${u.dept || ''}" style="accent-color:#C2410C;width:15px;height:15px">
       <div>
         <div style="font-size:13px;font-weight:700;color:#111827">${u.name} <span style="font-size:10px;color:#9CA3AF">${u.pos || ''}</span></div>
         <div style="font-size:10px;color:#6B7280">${u.dept || ''} · ${u.emp_no || u.id || ''}</div>
@@ -734,40 +778,53 @@ function _vuBuildHeadUserList(users) {
 }
 
 async function _vuSaveHeadManager(tplId, roleCode, roleName) {
-  const sel = document.querySelector('input[name="vu-head-user"]:checked');
-  if (!sel) { alert('담당자를 선택하세요.'); return; }
-  
-  const userId = sel.value;
-  const sdInput = document.getElementById('vu-hm-sd-' + userId);
-  const edInput = document.getElementById('vu-hm-ed-' + userId);
-  const startDate = sdInput ? sdInput.value : null;
-  const endDate = edInput ? edInput.value : null;
+  const checked = [...document.querySelectorAll('input[name="vu-head-user"]:checked')];
+  if (!checked.length) { alert('담당자를 1명 이상 선택하세요.'); return; }
 
-  if (!endDate) {
-    alert('역할 사용 종료일을 필수로 지정해야 합니다.');
-    if (edInput) edInput.focus();
-    return;
-  }
-  if (startDate && endDate && startDate > endDate) {
-    alert('종료일이 시작일보다 빠를 수 없습니다.');
-    return;
+  const newUsers = [];
+  for (const chk of checked) {
+    const userId = chk.value;
+    const sdInput = document.getElementById('vu-hm-sd-' + userId);
+    const edInput = document.getElementById('vu-hm-ed-' + userId);
+    const startDate = sdInput ? sdInput.value : null;
+    const endDate = edInput ? edInput.value : null;
+
+    if (!endDate) {
+      alert(`${chk.dataset.name}의 역할 사용 종료일을 필수로 지정해야 합니다.`);
+      if (edInput) edInput.focus();
+      return;
+    }
+    if (startDate && endDate && startDate > endDate) {
+      alert(`${chk.dataset.name}: 종료일이 시작일보다 빠를 수 없습니다.`);
+      return;
+    }
+    newUsers.push({ id: userId, name: chk.dataset.name, dept: chk.dataset.dept, start_date: startDate || null, end_date: endDate });
   }
 
-  // Reverse Sync (역방향 동기화)
+  // Reverse Sync: 선택된 모든 사용자를 user_roles에 Upsert
   try {
     if (_sb()) {
-      const { error } = await _sb().from('user_roles').upsert(
-        { role_code: roleCode, user_id: userId, scope_id: tplId, tenant_id: _vuTenantId, start_date: startDate || null, end_date: endDate },
-        { onConflict: 'user_id,role_code,scope_id' }
-      );
-      if (error) throw error;
+      for (const u of newUsers) {
+        const { error } = await _sb().from('user_roles').upsert(
+          { role_code: roleCode, user_id: u.id, scope_id: tplId, tenant_id: _vuTenantId, start_date: u.start_date, end_date: u.end_date },
+          { onConflict: 'user_id,role_code,scope_id' }
+        );
+        if (error) throw error;
+      }
     }
   } catch(e) { alert('역할 맵핑 동기화 실패: ' + e.message); return; }
 
   const tpl = _vuTplList.find(t => t.id === tplId);
   if (!tpl) return;
   tpl.headManagerRole = { code: roleCode, name: roleName };
-  tpl.headManagerUser = { id: userId, name: sel.dataset.name, dept: sel.dataset.dept, start_date: startDate, end_date: endDate };
+  // 기존 목록에 중복 없이 追加 (이미 있으면 날짜 갱신)
+  const existing = Array.isArray(tpl.headManagerUsers) ? tpl.headManagerUsers : [];
+  for (const nu of newUsers) {
+    const idx = existing.findIndex(e => e.id === nu.id);
+    if (idx >= 0) existing[idx] = nu; else existing.push(nu);
+  }
+  tpl.headManagerUsers = existing;
+  tpl.headManagerUser = existing[0] || null; // 호환성 유지
   _vuAutoSaveTplMeta(tpl);
   document.getElementById('vu-head-mgr-modal')?.remove();
   _vuSwitchTab(_vuActiveTab);

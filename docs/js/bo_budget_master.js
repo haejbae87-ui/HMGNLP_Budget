@@ -131,9 +131,8 @@ async function renderBudgetAccount() {
       const { data } = await sb
         .from('virtual_org_templates')
         .select('id,name,service_type,purpose')
-        .eq('tenant_id', _baTenantId)
-        .eq('service_type', 'edu_support'); // 교육지원 유형만 조회
-      if (data) _baTplList = data;
+        .eq('tenant_id', _baTenantId);
+      if (data) _baTplList = data.filter(t => (t.purpose || t.service_type || 'edu_support') === 'edu_support');
     }
   } catch (e) { console.warn('[BudgetAccount] 템플릿 로드 실패:', e.message); }
 
@@ -1374,7 +1373,7 @@ async function _obLoadData() {
   const isPlatform = role === 'platform_admin' || role === 'tenant_global_admin';
   if (!_obTenant) _obTenant = isPlatform ? (tenants[0]?.id || 'HMC') : (boCurrentPersona.tenantId || 'HMC');
 
-  try { const { data } = await sb.from('virtual_org_templates').select('id,name,service_type,purpose,tree_data').eq('tenant_id', _obTenant).eq('service_type', 'edu_support'); _obTplList = data || []; } catch (e) { _obTplList = []; }
+  try { const { data } = await sb.from('virtual_org_templates').select('id,name,service_type,purpose,tree_data').eq('tenant_id', _obTenant); _obTplList = (data || []).filter(t => (t.purpose || t.service_type || 'edu_support') === 'edu_support'); } catch (e) { _obTplList = []; }
   if (!_obTplId || !_obTplList.find(t => t.id === _obTplId)) _obTplId = _obTplList[0]?.id || null;
 
   const curTpl = _obTplList.find(t => t.id === _obTplId);

@@ -100,8 +100,12 @@ async function renderVirtualOrgUnified() {
     <div style="padding:16px 14px 10px;border-bottom:1px solid #E5E7EB">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <span style="font-size:13px;font-weight:900;color:#111827">📋 템플릿 목록</span>
-        <button onclick="_vuOpenCreateModal()"
-          style="padding:4px 10px;background:#1D4ED8;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">+ 생성</button>
+        <div style="display:flex;gap:6px">
+          <button onclick="alert('요구사항 문서(PRD)는 AI 채팅창의 역추적 아티팩트를 확인하시거나, 시스템 내 docs/ 폴더를 참조해 주세요.\\n\\n[핵심 비즈니스 규칙]\\n1. 관리자는 목적별(교육지원/자격증) 템플릿을 생성\\n2. 다중 총괄담당자에게 트리구조(본부/팀맵핑/협조처/운영담당자) 위임\\n3. 하위 팀 변경 시 자동 예산 동기화 트리거 연동됨');"
+            style="padding:4px 10px;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">💡 요구사항</button>
+          <button onclick="_vuOpenCreateModal()"
+            style="padding:4px 10px;background:#1D4ED8;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">+ 생성</button>
+        </div>
       </div>
       ${tenantSelectHtml}
     </div>

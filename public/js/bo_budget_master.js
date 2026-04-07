@@ -106,9 +106,9 @@ async function _baLoadAccountsFromDB() {
 }
 
 // ─── 진입점: 예산 계정 관리 (가상교육조직 템플릿 종속) ──────────────────────────
-let _baTplId = null;   // 선택된 virtual_org_template id
-let _baTplList = [];   // 로드된 템플릿 목록 캐시
-let _baAccountList = []; // 로드된 계정 목록 캐시
+var _baTplId = null;   // 선택된 virtual_org_template id (var: window 접근 호환)
+var _baTplList = [];   // 로드된 템플릿 목록 캐시
+var _baAccountList = []; // 로드된 계정 목록 캐시
 
 async function renderBudgetAccount() {
   const role = boCurrentPersona.role;
@@ -324,25 +324,6 @@ async function openS1Modal(id) {
       style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
   </div>
   <div style="margin-bottom:12px">
-    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px">연동 방식</label>
-    <div style="display:flex;gap:12px">
-      <label style="display:flex;align-items:center;gap:8px;padding:10px 16px;border:1.5px solid ${(!a?.integration_type || a?.integration_type === 'sap') ? '#1D4ED8' : '#E5E7EB'};border-radius:10px;cursor:pointer;background:${(!a?.integration_type || a?.integration_type === 'sap') ? '#EFF6FF' : '#fff'};flex:1">
-        <input type="radio" name="s1-integration" value="sap" ${(!a?.integration_type || a?.integration_type === 'sap') ? 'checked' : ''} onchange="_s1ToggleIntegration()" style="accent-color:#1D4ED8">
-        <div>
-          <div style="font-size:12px;font-weight:800;color:#1D4ED8">🔗 SAP 연동</div>
-          <div style="font-size:10px;color:#6B7280">ERP 예산관리와 실시간 연동</div>
-        </div>
-      </label>
-      <label style="display:flex;align-items:center;gap:8px;padding:10px 16px;border:1.5px solid ${a?.integration_type === 'standalone' ? '#059669' : '#E5E7EB'};border-radius:10px;cursor:pointer;background:${a?.integration_type === 'standalone' ? '#F0FDF4' : '#fff'};flex:1">
-        <input type="radio" name="s1-integration" value="standalone" ${a?.integration_type === 'standalone' ? 'checked' : ''} onchange="_s1ToggleIntegration()" style="accent-color:#059669">
-        <div>
-          <div style="font-size:12px;font-weight:800;color:#059669">📋 자체관리 (미연동)</div>
-          <div style="font-size:10px;color:#6B7280">시스템 내 독립 예산 관리</div>
-        </div>
-      </label>
-    </div>
-  </div>
-  <div style="margin-bottom:4px">
     <label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px">예산 사용 여부</label>
     <div style="display:flex;gap:12px">
       <label id="s1-uses-yes-label" style="display:flex;align-items:center;gap:8px;padding:10px 16px;border:1.5px solid ${(a?.uses_budget !== false) ? '#059669' : '#E5E7EB'};border-radius:10px;cursor:pointer;background:${(a?.uses_budget !== false) ? '#F0FDF4' : '#fff'};flex:1" onclick="_s1ToggleUsesBudget(true)">
@@ -361,6 +342,25 @@ async function openS1Modal(id) {
       </label>
     </div>
   </div>
+  <div id="s1-integration-section" style="margin-bottom:12px;${(a?.uses_budget === false) ? 'display:none' : ''}">
+    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px">연동 방식</label>
+    <div style="display:flex;gap:12px">
+      <label style="display:flex;align-items:center;gap:8px;padding:10px 16px;border:1.5px solid ${(!a?.integration_type || a?.integration_type === 'sap') ? '#1D4ED8' : '#E5E7EB'};border-radius:10px;cursor:pointer;background:${(!a?.integration_type || a?.integration_type === 'sap') ? '#EFF6FF' : '#fff'};flex:1">
+        <input type="radio" name="s1-integration" value="sap" ${(!a?.integration_type || a?.integration_type === 'sap') ? 'checked' : ''} onchange="_s1ToggleIntegration()" style="accent-color:#1D4ED8">
+        <div>
+          <div style="font-size:12px;font-weight:800;color:#1D4ED8">🔗 SAP 연동</div>
+          <div style="font-size:10px;color:#6B7280">ERP 예산관리와 실시간 연동</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;padding:10px 16px;border:1.5px solid ${a?.integration_type === 'standalone' ? '#059669' : '#E5E7EB'};border-radius:10px;cursor:pointer;background:${a?.integration_type === 'standalone' ? '#F0FDF4' : '#fff'};flex:1">
+        <input type="radio" name="s1-integration" value="standalone" ${a?.integration_type === 'standalone' ? 'checked' : ''} onchange="_s1ToggleIntegration()" style="accent-color:#059669">
+        <div>
+          <div style="font-size:12px;font-weight:800;color:#059669">📋 자체관리 (미연동)</div>
+          <div style="font-size:10px;color:#6B7280">시스템 내 독립 예산 관리</div>
+        </div>
+      </label>
+    </div>
+  </div>
   <div id="s1-bankbook-mode-section" style="margin-bottom:4px;${(a?.uses_budget === false) ? 'display:none' : ''}">
     <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px">통장 생성 정책</label>
     <div style="font-size:10px;color:#9CA3AF;margin-bottom:8px">가상교육조직에 상위 조직(본부)을 맵핑했을 때 통장을 어떻게 만들지 결정합니다.</div>
@@ -368,7 +368,7 @@ async function openS1Modal(id) {
       <label id="s1-mode-isolated-label" style="display:flex;align-items:flex-start;gap:8px;padding:10px 14px;border:1.5px solid ${(policy?.bankbook_mode !== 'shared') ? '#7C3AED' : '#E5E7EB'};border-radius:10px;cursor:pointer;background:${(policy?.bankbook_mode !== 'shared') ? '#F5F3FF' : '#fff'};flex:1" onclick="_s1ToggleBankbookMode('isolated')">
         <input type="radio" name="s1-bankbook-mode" value="isolated" ${(policy?.bankbook_mode !== 'shared') ? 'checked' : ''} style="accent-color:#7C3AED;margin-top:2px">
         <div>
-          <div style="font-size:11px;font-weight:800;color:#7C3AED">팔별 분리 통장</div>
+          <div style="font-size:11px;font-weight:800;color:#7C3AED">팀별 분리 통장</div>
           <div style="font-size:10px;color:#6B7280;margin-top:2px">하위 팀마다 개별 통장<br>예) 내구기술팀 통장, 전동화설계팀 통장</div>
         </div>
       </label>
@@ -415,8 +415,10 @@ function _s1ToggleUsesBudget(val) {
   yesLabel.style.background = val ? '#F0FDF4' : '#fff';
   noLabel.style.borderColor = !val ? '#DC2626' : '#E5E7EB';
   noLabel.style.background = !val ? '#FEF2F2' : '#fff';
-  // 미사용이면 통장 생성 정책 숨김
+  // 미사용이면 연동 방식 + 통장 생성 정책 모두 숨김
+  const intSection = document.getElementById('s1-integration-section');
   const modeSection = document.getElementById('s1-bankbook-mode-section');
+  if (intSection) intSection.style.display = val ? '' : 'none';
   if (modeSection) modeSection.style.display = val ? '' : 'none';
 }
 

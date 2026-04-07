@@ -59,18 +59,22 @@ const PAGE_GUIDE_DATA = {
     ]
   },
   'virtual-org': {
-    title: '🌐 가상조직 템플릿',
+    title: '🌐 가상교육조직 관리',
     layers: [
       { icon: '🎯', label: '목적', color: '#7C3AED',
-        content: '실조직(하위팀)을 가상으로 묶어 예산 적용 범위를 정의. 하나의 격리그룹 예산이 어떤 조직·팀에 적용되는지 구성.' },
-      { icon: '📌', label: '주요 기능', color: '#1D4ED8',
-        items: ['HMG 조직도 기반 하위 팀 배치', '협력팀·직군 제한 설정',
-                '정책 위저드 Step5(대상 조직)에서 선택'] },
-      { icon: '📏', label: '정책', color: '#059669',
-        items: ['템플릿은 격리그룹과 1:N 관계', '동일 팀이 여러 템플릿에 포함 가능'] },
-      { icon: '🗄️', label: 'DB 힌트', color: '#0369A1',
-        items: ['virtual_edu_orgs: id, tenant_id, name, domain_id',
-                'virtual_org_nodes: id, template_id, org_id, parent_node_id, allowed_job_types[]'] }
+        content: '테넌트별로 조작할 수 있는 가상 교육 조직 템플릿을 생성 및 관리. 예산/학습 등 용도(교육지원, 자격증 등)별로 다중 총괄담당자를 지정하고 실제 조직/팀을 맵핑하여 권한 범위를 확정합니다.' },
+      { icon: '📌', label: '주요 탭 및 기능', color: '#1D4ED8',
+        items: ['① 기본정보: 템플릿 명칭, 용도 태깅 및 다중 총괄담당자 권한 부여/회수', 
+                '② 가상조직 구성: 트리 구조로 본부 추가 및 실제 팀 맵핑',
+                '③ 협조처·담당자: 하위 팀 결재 협조처 및 총괄 하위 운영 담당자 권한 부여'] },
+      { icon: '📏', label: '핵심 비즈니스 규칙', color: '#059669',
+        items: ['(권한 동기화) 화면 내 담당자 추가/해제 시 즉각 user_roles 테이블에 동기화됨', 
+                '(총괄-운영 계층) 운영담당자 롤은 총괄담당자 롤의 하위(child) 역할로 필터링됨',
+                '(예산 연동) 팀 맵핑 등 구조 변경 시 자동 통장 동기화(_syncBankbooksForTemplate) 실행'] },
+      { icon: '🗄️', label: '데이터베이스 파이프라인', color: '#0369A1',
+        items: ['virtual_org_templates: 템플릿 테이블 (service_type, tree_data JSON 구조)',
+                'head_manager_users: JSON 배열로 복수 총괄 관리 (이전 head_manager_user 하위 호환 포함)',
+                'user_roles: 권한 추가 변경 시 등록 삭제 트리거 역할'] }
     ]
   },
   'user-mgmt': {

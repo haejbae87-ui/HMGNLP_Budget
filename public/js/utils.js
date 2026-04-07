@@ -372,8 +372,11 @@ function getPolicyEduTypes(persona, purposeId, budgetAccountType) {
     const { source, policies } = result;
     if (source === 'db') {
       const boPurposeKeys = _FO_TO_BO_PURPOSE[purposeId] || [purposeId];
-      // budgetAccountType → accountCode 역매핑
-      const acctCodeForType = Object.entries(ACCOUNT_TYPE_MAP).find(([, v]) => v === budgetAccountType)?.[0] || null;
+      // budgetAccountType → accountCode: ① persona.budgets에서 직접 조회, ② ACCOUNT_TYPE_MAP 폴백
+      const directBudget = (persona.budgets || []).find(b => b.account === budgetAccountType);
+      const acctCodeForType = directBudget?.accountCode
+        || Object.entries(ACCOUNT_TYPE_MAP).find(([, v]) => v === budgetAccountType)?.[0]
+        || null;
       const matched = policies.filter(p => {
         if (!boPurposeKeys.includes(p.purpose)) return false;
         // snake_case(DB) + camelCase(mock) 양쪽 호환
@@ -395,7 +398,7 @@ function getPolicyEduTypes(persona, purposeId, budgetAccountType) {
             et.forEach(t => types.push(t));
           }
         });
-        console.log(`[getPolicyEduTypes] ${purposeId}+${budgetAccountType} → ${types.join(',')}`);
+        console.log(`[getPolicyEduTypes] ${purposeId}+${budgetAccountType}(code:${acctCodeForType}) → ${types.join(',')} (matched: ${matched.map(p=>p.name||p.id).join(', ')})`);
         return [...new Set(types)];
       }
     } else {

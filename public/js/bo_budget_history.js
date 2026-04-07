@@ -55,7 +55,7 @@ async function renderBudgetHistory() {
     if (!_bhDateTo) _bhDateTo = new Date().toISOString().split('T')[0];
 
     // 템플릿 로드
-    try { const { data } = await sb.from('virtual_org_templates').select('id,name').eq('tenant_id', _bhTenant); _bhTplList = data || []; } catch (e) { _bhTplList = []; }
+    try { const { data } = await sb.from('virtual_org_templates').select('id,name,service_type,purpose').eq('tenant_id', _bhTenant); _bhTplList = (data || []).filter(t => (t.purpose || t.service_type || 'edu_support') === 'edu_support'); } catch (e) { _bhTplList = []; }
     if (!_bhTplId || !_bhTplList.find(t => t.id === _bhTplId)) _bhTplId = _bhTplList[0]?.id || null;
 
     // 그룹 로드

@@ -42,6 +42,7 @@ const _BO_TO_FO_PURPOSE = {
   'misc_ops': 'misc_ops',         // 기타운영
   'etc': 'misc_ops',         // 구버전 코드 호환
   'external_personal': 'external_personal',// 개인직무 사외학습
+  'external_group': 'external_personal',   // 그룹 사외학습 → 학습자는 개인직무로 접근
 };
 // FO purpose → BO purpose (역매핑, 복수 가능)
 const _FO_TO_BO_PURPOSE = {};

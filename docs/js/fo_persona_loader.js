@@ -356,12 +356,15 @@ async function _initCurrentPersona(persona) {
         // 서비스 정책의 accountCodes ↔ allowedAccounts 교차 매칭으로만 정책 필터링
 
         // learner vorgIds: bankbook의 template_id에서 추출 (정책 매칭용)
+        // ⚠ persona.vorgId가 이미 설정되어 있어도 DB 통장의 template_id를 병합
+        //    (예: data.js의 vorgId=R&D이지만 일반교육예산 참가계정 통장도 있는 경우)
         const bbVorgIds = [...new Set(
             (directBbs || []).map(bb => bb.template_id).filter(Boolean)
         )];
-        if (bbVorgIds.length > 0 && !persona.vorgId) {
-            persona.vorgIds = bbVorgIds;
-            persona.vorgId = bbVorgIds[0]; // 주 VOrg (첫 번째)
+        if (bbVorgIds.length > 0) {
+            const existingIds = persona.vorgIds || (persona.vorgId ? [persona.vorgId] : []);
+            persona.vorgIds = [...new Set([...existingIds, ...bbVorgIds])];
+            if (!persona.vorgId) persona.vorgId = persona.vorgIds[0];
         }
 
         console.log(`[FO Loader] ${persona.name} → 계정: ${allowedAccounts.join(', ')}, vorgIds: ${(persona.vorgIds || []).join(', ')}`);

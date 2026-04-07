@@ -316,7 +316,13 @@ async function _rmRefreshPanel(roleCode, roleName, panel) {
   window._rmCurrentRole = roleCode;
   window._rmCurrentRoleName = roleName;
 
-  const assignedHtml = assignedUsers.length ? assignedUsers.map(u => `
+  const assignedIdsMap = {};
+  urList.forEach(r => { assignedIdsMap[r.user_id] = r; });
+  const assignedHtml = assignedUsers.length ? assignedUsers.map(u => {
+    const rData = assignedIdsMap[u.id] || {};
+    const sd = rData.start_date ? rData.start_date.substring(0, 10) : '';
+    const ed = rData.end_date ? rData.end_date.substring(0, 10) : '영구권한';
+    return `
     <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:white;
          border:1.5px solid #E2E8F0;border-radius:8px;font-size:12px;font-weight:700;color:#374151">
       <span style="font-size:15px">👤</span>
@@ -324,10 +330,14 @@ async function _rmRefreshPanel(roleCode, roleName, panel) {
         <div>${u.name || '(이름없음)'}</div>
         <div style="font-size:10px;color:#94A3B8;font-weight:400">${u.emp_no || u.id || ''} · ${u.job_type || 'general'}</div>
       </div>
+      <div style="margin-left:auto;margin-right:8px;text-align:right">
+        <div style="font-size:10px;color:#64748B">기간: ${sd || '-'} ~ ${ed}</div>
+      </div>
       <button onclick="_rmRemoveUser('${roleCode}','${u.id}','${roleName}')"
-        style="margin-left:auto;padding:2px 8px;background:#FEF2F2;border:1px solid #FECACA;border-radius:5px;
+        style="padding:2px 8px;background:#FEF2F2;border:1px solid #FECACA;border-radius:5px;
                color:#DC2626;font-size:10px;font-weight:700;cursor:pointer">✕ 해제</button>
-    </div>`).join('') : `<p style="color:#94A3B8;font-size:12px;margin:0">아직 배정된 담당자가 없습니다.</p>`;
+    </div>`;
+  }).join('') : `<p style="color:#94A3B8;font-size:12px;margin:0">아직 배정된 담당자가 없습니다.</p>`;
 
   // ④ 미배정 사용자 목록
   const availableHtml = _rmBuildAvailableHtml(tenantUsers, assignedIds, roleCode, roleName);
@@ -382,8 +392,18 @@ function _rmBuildAvailableHtml(users, assignedIds, roleCode, roleName) {
         <div style="font-size:12px;font-weight:700;color:#1E293B">${u.name || '(이름없음)'}</div>
         <div style="font-size:10px;color:#94A3B8">${u.emp_no || u.id || ''} · ${u.job_type || 'general'}</div>
       </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;align-items:center;gap:4px">
+          <span style="font-size:9px;color:#94A3B8;width:30px">시작일</span>
+          <input type="date" id="rm-sd-${u.id}" style="font-size:10px;padding:2px;border:1px solid #CBD5E1;border-radius:4px">
+        </div>
+        <div style="display:flex;align-items:center;gap:4px">
+          <span style="font-size:9px;color:#94A3B8;width:30px">종료일*</span>
+          <input type="date" id="rm-ed-${u.id}" required style="font-size:10px;padding:2px;border:1px solid #CBD5E1;border-radius:4px">
+        </div>
+      </div>
       <button onclick="_rmAssignUser('${roleCode}','${u.id}','${safeName}')"
-        style="padding:4px 12px;background:#0B132B;color:#fff;border:none;border-radius:5px;
+        style="padding:8px 12px;height:100%;background:#0B132B;color:#fff;border:none;border-radius:5px;
                font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0">+ 배정</button>
     </div>`).join('');
 }
@@ -410,11 +430,26 @@ window._rmFilterUsers = function (q) {
 
 // ── 배정 (Bug Fix: tenant_id 포함, 카운트 즉시 업데이트) ─────────────────
 window._rmAssignUser = async function (roleCode, userId, roleName) {
+  const sdInput = document.getElementById('rm-sd-' + userId);
+  const edInput = document.getElementById('rm-ed-' + userId);
+  const startDate = sdInput ? sdInput.value : null;
+  const endDate = edInput ? edInput.value : null;
+
+  if (!endDate) {
+    alert('역할 사용 종료일을 필수로 지정해야 합니다.');
+    if (edInput) edInput.focus();
+    return;
+  }
+  if (startDate && endDate && startDate > endDate) {
+    alert('종료일이 시작일보다 빠를 수 없습니다.');
+    return;
+  }
+
   try {
     if (_sb()) {
       const tenantId = window._rmFilterTenant;
       const { error } = await _sb().from('user_roles').upsert(
-        { role_code: roleCode, user_id: userId, scope_id: 'role_assignment', tenant_id: tenantId },
+        { role_code: roleCode, user_id: userId, scope_id: 'role_assignment', tenant_id: tenantId, start_date: startDate || null, end_date: endDate },
         { onConflict: 'user_id,role_code,scope_id' }
       );
       if (error) throw error;

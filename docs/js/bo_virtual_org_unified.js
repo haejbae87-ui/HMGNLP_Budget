@@ -475,21 +475,52 @@ function _vuAddManager(tplId, gi) {
 }
 
 // 기본정보 총괄담당자 클리어
-function _vuClearHeadManagerInfo(tplId) {
-  if (!confirm('총괄담당자 설정을 초기화하시겠습니까?')) return;
+async function _vuClearHeadManagerInfo(tplId) {
+  if (!confirm('총괄담당자 설정을 초기화하시겠습니까? (부여된 권한도 함께 회수됩니다)')) return;
   const tpl = _vuTplList.find(t => t.id === tplId);
   if (!tpl) return;
+  
+  if (tpl.headManagerUser && tpl.headManagerRole) {
+    try {
+      if (_sb()) {
+        await _sb().from('user_roles').delete()
+          .eq('user_id', tpl.headManagerUser.id)
+          .eq('role_code', tpl.headManagerRole.code)
+          .eq('scope_id', tplId);
+      }
+    } catch(e) { console.warn('총괄담당자 권한 회수 실패:', e.message); }
+  }
+
   tpl.headManagerRole = null;
   tpl.headManagerUser = null;
   _vuAutoSaveTplMeta(tpl);
   _vuSwitchTab(_vuActiveTab);
 }
 
-function _vuRemoveManager(tplId, gi, mi) {
+async function _vuRemoveManager(tplId, gi, mi) {
+  if (!confirm('운영담당자를 삭제하시겠습니까? (부여된 권한도 함께 회수됩니다)')) return;
   const tpl = _vuTplList.find(t => t.id === tplId);
   if (!tpl) return;
   const g = (tpl.tree?.hqs || [])[gi];
   if (!g || !g.managers) return;
+  
+  const removedManager = g.managers[mi];
+  
+  if (removedManager && window._vuHeadRoleCode) {
+    try {
+      if (_sb()) {
+        const { data: childRoles } = await _sb().from('roles').select('code').eq('parent_role_id', window._vuHeadRoleCode);
+        if (childRoles && childRoles.length > 0) {
+          const opCode = childRoles.find(r => r.role_level_type === 'ops')?.code || childRoles[0].code;
+          await _sb().from('user_roles').delete()
+            .eq('user_id', removedManager.id)
+            .eq('role_code', opCode)
+            .eq('scope_id', tplId);
+        }
+      }
+    } catch(e) { console.warn('운영담당자 권한 회수 실패:', e.message); }
+  }
+
   g.managers.splice(mi, 1);
   _vuAutoSave(tpl);
   _vuSwitchTab(_vuActiveTab);
@@ -620,73 +651,123 @@ async function _vuConfirmHeadManagerRole() {
   const roleName = sel.dataset.name;
   const tplId = window._vuHeadSelectorTplId;
 
-  // 해당 역할에 배정된 사용자 로드 (user_roles + users join)
+  // 모든 테넌트 소속 사용자 조회 (기존의 특정 역할 필터 제거)
   let users = [];
   try {
     const sb = typeof _sb === 'function' ? _sb() : null;
     if (sb) {
-      const { data: ur } = await sb.from('user_roles').select('user_id').eq('role_code', roleCode);
-      const ids = (ur || []).map(r => r.user_id);
-      if (ids.length) {
-        const { data: us, error: usErr } = await sb.from('users').select('id,name,emp_no,org_id').in('id', ids);
-        if (usErr) console.warn('사용자 조회 오류:', usErr.message);
-        // org_id로 조직명 가져오기
-        const orgIds = (us || []).map(u => u.org_id).filter(Boolean);
-        let orgMap = {};
-        if (orgIds.length) {
-          const { data: orgs } = await sb.from('organizations').select('id,name').in('id', orgIds);
-          (orgs || []).forEach(o => { orgMap[o.id] = o.name; });
-        }
-        users = (us || []).map(u => ({ ...u, dept: orgMap[u.org_id] || '' }));
+      const { data: us, error: usErr } = await sb.from('users').select('id,name,emp_no,org_id').eq('tenant_id', _vuTenantId);
+      if (usErr) console.warn('사용자 조회 오류:', usErr.message);
+      const orgIds = (us || []).map(u => u.org_id).filter(Boolean);
+      let orgMap = {};
+      if (orgIds.length) {
+        const { data: orgs } = await sb.from('organizations').select('id,name').in('id', orgIds);
+        (orgs || []).forEach(o => { orgMap[o.id] = o.name; });
       }
+      users = (us || []).map(u => ({ ...u, dept: orgMap[u.org_id] || '' }));
     }
   } catch (e) { console.warn('사용자 로드 실패:', e.message); }
 
-  // BO_PERSONAS 폴백 (DB에서 못 찾거나, 로컬 mock일 때)
   if (!users.length && typeof BO_PERSONAS !== 'undefined') {
     Object.entries(BO_PERSONAS).forEach(([key, p]) => {
-      if (p.tenantId === _vuTenantId) {
-        // 해당 역할을 가진 사람만 필터링
-        const pRoles = p.roles || [p.role];
-        if (pRoles.some(r => r === roleCode || r.code === roleCode)) {
-          users.push({ id: key, name: p.name, dept: p.dept, pos: p.pos });
-        }
+      if (p.tenantId === _vuTenantId || !p.tenantId) {
+        users.push({ id: key, name: p.name, dept: p.dept, pos: p.pos });
       }
     });
   }
 
-  // 2단계 UI로 교체
+  // 2단계 UI로 교체 (검색 필터 추가 포함)
   const step = document.getElementById('vu-head-step');
   if (!step) return;
+  
+  // 전체 사용자 데이터를 window에 저장 (필터링 용도)
+  window._vuHeadAllUsers = users;
+  
   step.innerHTML = `
     <div style="margin-bottom:10px;padding:8px 12px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;font-size:11px;color:#C2410C;font-weight:700">
       선택된 역할: ${roleName} (${roleCode})
     </div>
-    <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:8px">담당자 선택 (역할에 배정된 사용자)</div>
-    ${users.length ? users.map(u => `
-    <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:8px;cursor:pointer;margin-bottom:6px"
-           onmouseover="this.style.borderColor='#FED7AA'" onmouseout="this.style.borderColor='#E5E7EB'">
-      <input type="radio" name="vu-head-user" value="${u.id}" data-name="${(u.name || '').replace(/'/g, '&#39;')}" data-dept="${u.dept || ''}" style="accent-color:#C2410C;width:15px;height:15px">
-      <div>
-        <div style="font-size:13px;font-weight:700;color:#111827">${u.name} <span style="font-size:10px;color:#9CA3AF">${u.pos || ''}</span></div>
-        <div style="font-size:10px;color:#6B7280">${u.dept || ''} · ${u.emp_no || u.id || ''}</div>
-      </div>
-    </label>`).join('') : '<div style="padding:20px;text-align:center;color:#9CA3AF;font-size:12px">이 역할에 배정된 사용자가 없습니다</div>'}`;
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-size:11px;font-weight:700;color:#374151">테넌트 내 담당자 선택 (전체 사용자)</div>
+      <input type="text" placeholder="이름 검색..." oninput="_vuFilterHeadUsers(this.value)" style="padding:4px 8px;border:1px solid #E5E7EB;border-radius:4px;font-size:11px;width:120px">
+    </div>
+    <div id="vu-head-user-list" style="display:flex;flex-direction:column;gap:6px">
+      ${_vuBuildHeadUserList(users)}
+    </div>`;
 
-  // 버튼 교체
   const footer = step.nextElementSibling;
   if (footer) footer.innerHTML = `
     <button class="bo-btn-secondary bo-btn-sm" onclick="_vuOpenHeadManagerSelector('${tplId}')">← 이전</button>
     <button class="bo-btn-primary bo-btn-sm" onclick="_vuSaveHeadManager('${tplId}','${roleCode}','${roleName}')" style="background:#C2410C;border-color:#C2410C">저장</button>`;
 }
 
+function _vuFilterHeadUsers(keyword) {
+  const listEl = document.getElementById('vu-head-user-list');
+  if (!listEl) return;
+  const kw = keyword.toLowerCase().trim();
+  const users = window._vuHeadAllUsers || [];
+  const filtered = kw ? users.filter(u => (u.name||'').toLowerCase().includes(kw)) : users;
+  listEl.innerHTML = _vuBuildHeadUserList(filtered);
+}
+
+function _vuBuildHeadUserList(users) {
+  if (!users.length) return '<div style="padding:20px;text-align:center;color:#9CA3AF;font-size:12px">결과가 없습니다</div>';
+  return users.map(u => `
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:8px;cursor:pointer;"
+           onmouseover="this.style.borderColor='#FED7AA'" onmouseout="this.style.borderColor='#E5E7EB'">
+      <input type="radio" name="vu-head-user" value="${u.id}" data-name="${(u.name || '').replace(/'/g, '&#39;')}" data-dept="${u.dept || ''}" style="accent-color:#C2410C;width:15px;height:15px">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#111827">${u.name} <span style="font-size:10px;color:#9CA3AF">${u.pos || ''}</span></div>
+        <div style="font-size:10px;color:#6B7280">${u.dept || ''} · ${u.emp_no || u.id || ''}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-left:auto;margin-right:10px">
+        <div style="display:flex;align-items:center;gap:4px">
+          <span style="font-size:9px;color:#94A3B8;width:30px">시작일</span>
+          <input type="date" id="vu-hm-sd-${u.id}" style="font-size:10px;padding:2px;border:1px solid #CBD5E1;border-radius:4px" onclick="event.stopPropagation()">
+        </div>
+        <div style="display:flex;align-items:center;gap:4px">
+          <span style="font-size:9px;color:#94A3B8;width:30px">종료일*</span>
+          <input type="date" id="vu-hm-ed-${u.id}" required style="font-size:10px;padding:2px;border:1px solid #CBD5E1;border-radius:4px" onclick="event.stopPropagation()">
+        </div>
+      </div>
+    </label>`).join('');
+}
+
 async function _vuSaveHeadManager(tplId, roleCode, roleName) {
   const sel = document.querySelector('input[name="vu-head-user"]:checked');
   if (!sel) { alert('담당자를 선택하세요.'); return; }
+  
+  const userId = sel.value;
+  const sdInput = document.getElementById('vu-hm-sd-' + userId);
+  const edInput = document.getElementById('vu-hm-ed-' + userId);
+  const startDate = sdInput ? sdInput.value : null;
+  const endDate = edInput ? edInput.value : null;
+
+  if (!endDate) {
+    alert('역할 사용 종료일을 필수로 지정해야 합니다.');
+    if (edInput) edInput.focus();
+    return;
+  }
+  if (startDate && endDate && startDate > endDate) {
+    alert('종료일이 시작일보다 빠를 수 없습니다.');
+    return;
+  }
+
+  // Reverse Sync (역방향 동기화)
+  try {
+    if (_sb()) {
+      const { error } = await _sb().from('user_roles').upsert(
+        { role_code: roleCode, user_id: userId, scope_id: tplId, tenant_id: _vuTenantId, start_date: startDate || null, end_date: endDate },
+        { onConflict: 'user_id,role_code,scope_id' }
+      );
+      if (error) throw error;
+    }
+  } catch(e) { alert('역할 맵핑 동기화 실패: ' + e.message); return; }
+
   const tpl = _vuTplList.find(t => t.id === tplId);
   if (!tpl) return;
   tpl.headManagerRole = { code: roleCode, name: roleName };
-  tpl.headManagerUser = { id: sel.value, name: sel.dataset.name, dept: sel.dataset.dept };
+  tpl.headManagerUser = { id: userId, name: sel.dataset.name, dept: sel.dataset.dept, start_date: startDate, end_date: endDate };
   _vuAutoSaveTplMeta(tpl);
   document.getElementById('vu-head-mgr-modal')?.remove();
   _vuSwitchTab(_vuActiveTab);
@@ -1077,35 +1158,22 @@ async function _vuShowUserPicker(title, roleFilter) {
 
   _vuUserPickerData = [];
 
-  // op_manager일 경우: headRole 하위 역할에서 사용자 필터링
-  if (roleFilter === 'op_manager' && window._vuHeadRoleCode) {
-    const headCode = window._vuHeadRoleCode;
-    try {
-      const sb = typeof _sb === 'function' ? _sb() : null;
-      if (sb) {
-        // headRole 하위 역할(parent_role_id = headCode) 조회
-        const { data: childRoles } = await sb.from('roles').select('code,name').eq('parent_role_id', headCode);
-        const opCodes = (childRoles || []).map(r => r.code);
-        // 하위 역할이 없으면 headRole 자체 코드로 fallback
-        const lookupCodes = opCodes.length ? opCodes : [headCode];
-        // user_roles에서 해당 역할들에 배정된 사용자 ID 조회
-        const { data: ur } = await sb.from('user_roles').select('user_id').in('role_code', lookupCodes);
-        const ids = (ur || []).map(r => r.user_id);
-        if (ids.length) {
-          const { data: us, error: usErr } = await sb.from('users').select('id,name,emp_no,org_id').in('id', ids);
-          if (usErr) console.warn('운영담당자 조회 오류:', usErr.message);
-          // org_id로 조직명 가져오기
-          const orgIds = (us || []).map(u => u.org_id).filter(Boolean);
-          let orgMap = {};
-          if (orgIds.length) {
-            const { data: orgs } = await sb.from('organizations').select('id,name').in('id', orgIds);
-            (orgs || []).forEach(o => { orgMap[o.id] = o.name; });
-          }
-          _vuUserPickerData = (us || []).map(u => ({ key: u.id, name: u.name, dept: orgMap[u.org_id] || '', pos: u.emp_no, role: '' }));
-        }
+  // roleFilter에 관계없이 테넌트의 모든 사용자 조회
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (sb) {
+      const { data: us, error: usErr } = await sb.from('users').select('id,name,emp_no,org_id').eq('tenant_id', _vuTenantId);
+      if (usErr) console.warn('사용자 조회 오류:', usErr.message);
+      
+      const orgIds = (us || []).map(u => u.org_id).filter(Boolean);
+      let orgMap = {};
+      if (orgIds.length) {
+        const { data: orgs } = await sb.from('organizations').select('id,name').in('id', orgIds);
+        (orgs || []).forEach(o => { orgMap[o.id] = o.name; });
       }
-    } catch (e) { console.warn('운영담당자 로드 실패:', e.message); }
-  }
+      _vuUserPickerData = (us || []).map(u => ({ key: u.id, name: u.name, dept: orgMap[u.org_id] || '', pos: u.emp_no, role: '' }));
+    }
+  } catch (e) { console.warn('사용자 로드 실패:', e.message); }
 
   // DB에 데이터가 없으면 BO_PERSONAS 폴백
   if (!_vuUserPickerData.length && typeof BO_PERSONAS !== 'undefined') {
@@ -1134,16 +1202,15 @@ function _vuRenderUserList(query) {
   // 현재 템플릿 내 모든 가상조직에서 각 사용자의 기존 맵핑 조회
   const curTpl = _vuTplList.find(t => t.id === _vuTplId);
   const hqs = curTpl?.tree?.hqs || curTpl?.tree?.centers || [];
-  const currentGi = window._vuPickerGi; // 현재 선택 중인 가상조직 인덱스
+  const currentGi = window._vuPickerGi; 
 
-  // 사용자별 기존 맵핑 맵 생성 { userId: [{orgName, orgIdx}] }
   const mappingMap = {};
   hqs.forEach((g, gi) => {
     const managers = g.managers || [];
     managers.forEach(m => {
       const uid = m.id || m.key;
       if (!mappingMap[uid]) mappingMap[uid] = [];
-      if (gi !== currentGi) { // 현재 조직은 제외 (다른 조직만 표시)
+      if (gi !== currentGi) { 
         mappingMap[uid].push({ orgName: g.name, orgIdx: gi });
       }
     });
@@ -1168,11 +1235,21 @@ function _vuRenderUserList(query) {
         <div style="font-size:10px;color:#6B7280">${u.dept || ''}</div>
         ${mappingBadge}
       </div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-left:auto;margin-right:10px">
+        <div style="display:flex;align-items:center;gap:4px">
+          <span style="font-size:9px;color:#94A3B8;width:30px">시작일</span>
+          <input type="date" id="vu-op-sd-${u.key}" style="font-size:10px;padding:2px;border:1px solid #CBD5E1;border-radius:4px" onclick="event.stopPropagation()">
+        </div>
+        <div style="display:flex;align-items:center;gap:4px">
+          <span style="font-size:9px;color:#94A3B8;width:30px">종료일*</span>
+          <input type="date" id="vu-op-ed-${u.key}" required style="font-size:10px;padding:2px;border:1px solid #CBD5E1;border-radius:4px" onclick="event.stopPropagation()">
+        </div>
+      </div>
     </label>`;
   }).join('');
 }
 
-function _vuConfirmUserPick() {
+async function _vuConfirmUserPick() {
   const checked = [...document.querySelectorAll('.vu-user-chk:checked')];
   if (!checked.length) { alert('사용자를 선택하세요.'); return; }
   const tpl = _vuTplList.find(t => t.id === window._vuPickerTplId);
@@ -1180,13 +1257,44 @@ function _vuConfirmUserPick() {
   const g = (tpl.tree?.hqs || [])[window._vuPickerGi];
   if (!g) return;
 
+  // 선택된 사용자들에 대해 시작/종료일 검증 (하나는 무조건 있어야 함)
+  const userMaps = [];
+  for (const chk of checked) {
+    const userId = chk.value;
+    const sdInput = document.getElementById('vu-op-sd-' + userId);
+    const edInput = document.getElementById('vu-op-ed-' + userId);
+    const startDate = sdInput ? sdInput.value : null;
+    const endDate = edInput ? edInput.value : null;
+
+    if (!endDate) { alert(chk.dataset.name + '의 역할 사용 종료일을 필수로 지정해야 합니다.'); if (edInput) edInput.focus(); return; }
+    if (startDate && endDate && startDate > endDate) { alert(chk.dataset.name + '의 종료일이 시작일보다 빠를 수 없습니다.'); return; }
+    userMaps.push({ id: userId, name: chk.dataset.name, dept: chk.dataset.dept, start_date: startDate, end_date: endDate });
+  }
+
+  // Reverse Sync
+  if (window._vuPickerMode === 'manager' && window._vuHeadRoleCode) {
+    try {
+      if (_sb()) {
+        const { data: childRoles } = await _sb().from('roles').select('code, role_level_type').eq('parent_role_id', window._vuHeadRoleCode);
+        if (childRoles && childRoles.length > 0) {
+          const opCode = childRoles.find(r => r.role_level_type === 'ops')?.code || childRoles[0].code;
+          for (const um of userMaps) {
+            await _sb().from('user_roles').upsert({
+              role_code: opCode, user_id: um.id, scope_id: window._vuPickerTplId, tenant_id: _vuTenantId, start_date: um.start_date || null, end_date: um.end_date
+            }, { onConflict: 'user_id,role_code,scope_id' });
+          }
+        } else {
+          console.warn('할당할 하위(운영) 역할 코드가 없습니다.');
+        }
+      }
+    } catch(e) { console.warn('운영담당자 역방향 동기화 실패:', e.message); }
+  }
+
   if (window._vuPickerMode === 'head_manager') {
-    const chk = checked[0];
-    g.headManager = { id: chk.value, name: chk.dataset.name, dept: chk.dataset.dept };
+    g.headManager = userMaps[0];
   } else {
     if (!g.managers) g.managers = [];
-    checked.forEach(chk => {
-      const item = { id: chk.value, name: chk.dataset.name, dept: chk.dataset.dept };
+    userMaps.forEach(item => {
       if (!g.managers.find(m => m.id === item.id)) g.managers.push(item);
     });
   }

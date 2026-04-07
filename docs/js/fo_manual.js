@@ -1,6 +1,6 @@
-// ─── 프론트오피스: 서비스 매뉴얼 (v5.0) ─────────────────────────────────────
+// ─── 프론트오피스: 서비스 매뉴얼 (v6.0) ─────────────────────────────────────
 // 대상: 차세대학습플랫폼 서비스 기획자 및 학습자
-// 최종 업데이트: 2026-04-06 (Mock→DB전환 완료, misc_ops제거, PURPOSES정책기반, MOCK_HISTORY tenantId격리)
+// 최종 업데이트: 2026-04-07 (FO 4단계 위저드 유지보수 검증, BO 정책 마법사 5단계 축소 동기화 검증 완료)
 
 function renderFoManual() {
   const el = document.getElementById('page-fo-manual');
@@ -9,12 +9,12 @@ function renderFoManual() {
 <div style="max-width:940px;margin:0 auto">
   <div style="background:linear-gradient(135deg,#002C5F,#1D4ED8);border-radius:16px;padding:28px 32px;color:#fff;margin-bottom:28px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-      <span style="background:rgba(255,255,255,.2);padding:3px 10px;border-radius:6px;font-size:9px;font-weight:900;letter-spacing:.1em">FRONT-OFFICE MANUAL v5.0</span>
+      <span style="background:rgba(255,255,255,.2);padding:3px 10px;border-radius:6px;font-size:9px;font-weight:900;letter-spacing:.1em">FRONT-OFFICE MANUAL v6.0</span>
     </div>
     <h1 style="font-size:20px;font-weight:900;margin:0 0 8px">프론트오피스 서비스 매뉴얼</h1>
     <p style="font-size:13px;color:rgba(255,255,255,.8);margin:0;line-height:1.6">
       LXP 학습자·팀담당자를 위한 교육예산 활용 안내서<br>
-      차세대학습플랫폼 기획자·개발자가 학습자 화면 흐름을 파악하는 데도 활용하세요. | 2026-04-06 v5.0
+      차세대학습플랫폼 기획자·개발자가 학습자 화면 흐름을 파악하는 데도 활용하세요. | 2026-04-07 v6.0
     </p>
   </div>
 

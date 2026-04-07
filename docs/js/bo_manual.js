@@ -1,7 +1,7 @@
-// ─── 백오피스: 서비스 매뉴얼 (v7.0) ────────────────────────────────────────────
+// ─── 백오피스: 서비스 매뉴얼 (v8.0) ────────────────────────────────────────────
 // 대상: 차세대학습플랫폼 서비스 기획자 및 개발자
 // 내용: 멀티테넌트 교육예산 관리 시스템의 전체 구조·역할·메뉴·데이터 흐름 안내
-// 최종 업데이트: 2026-04-06 (Mock→DB전환 완료, misc_ops제거, PURPOSES정책기반, MOCK_HISTORY tenantId격리)
+// 최종 업데이트: 2026-04-07 (서비스 정책 설정 5단계 위저드 간소화, 폼빌더 isolation_group_id·account_code 추가 반영)
 
 function renderBoManual() {
   const el = document.getElementById('bo-content');
@@ -9,12 +9,12 @@ function renderBoManual() {
 <div class="bo-fade" style="max-width:960px">
   <div style="background:linear-gradient(135deg,#312E81,#6366F1);border-radius:16px;padding:28px 32px;color:#fff;margin-bottom:28px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-      <span style="background:rgba(255,255,255,.2);padding:3px 10px;border-radius:6px;font-size:9px;font-weight:900;letter-spacing:.1em">BACK-OFFICE MANUAL v7.0</span>
+      <span style="background:rgba(255,255,255,.2);padding:3px 10px;border-radius:6px;font-size:9px;font-weight:900;letter-spacing:.1em">BACK-OFFICE MANUAL v8.0</span>
     </div>
     <h1 style="font-size:22px;font-weight:900;margin:0 0 8px">백오피스 서비스 매뉴얼</h1>
     <p style="font-size:13px;color:rgba(255,255,255,.8);margin:0;line-height:1.6">
       차세대학습플랫폼(NLP) 서비스 기획자·개발자를 위한 멀티테넌트 교육예산 관리 시스템 안내서<br>
-      예산 정책 설계부터 결재 자동 라우팅까지 전체 흐름을 다룹니다. | 2026-04-06 v7.0
+      예산 정책 설계부터 결재 자동 라우팅까지 전체 흐름을 다룹니다. | 2026-04-07 v8.0
     </p>
   </div>
 
@@ -123,12 +123,11 @@ function _manOverview() {
   </div>
 
   <div class="bo-card" style="padding:18px;background:#F0FDF4;border:1.5px solid #A7F3D0">
-    <div style="font-size:13px;font-weight:800;color:#065F46;margin-bottom:8px">🔄 v7.0 주요 변경사항 (2026-04-06)</div>
+    <div style="font-size:13px;font-weight:800;color:#065F46;margin-bottom:8px">🔄 v8.0 주요 변경사항 (2026-04-07)</div>
     <div style="font-size:12px;color:#374151;line-height:1.8">
-      <strong>1. Mock→DB 전환 완료:</strong> FO <code>PURPOSES</code> 배열이 DB <code>edu_purpose_groups</code> 테이블에서 동적 로드. <code>misc_ops</code>(기타운영)는 Mock 폴백에서 제거됨.<br>
-      <strong>2. 정책기반 PURPOSES 탐색:</strong> <code>plans.js</code>·<code>apply.js</code>의 <code>PURPOSES.find()</code> 직접참조를 <code>getPersonaPurposes()</code> 정책기반 탐색 + PURPOSES 폴백으로 전환.<br>
-      <strong>3. MOCK_HISTORY 테넌트 격리:</strong> <code>MOCK_HISTORY</code>/<code>MOCK_PLANS</code>에 <code>tenantId</code> 필드 추가. <code>budget.js</code>·<code>mypage.js</code>·<code>history.js</code>에서 페르소나 테넌트 기반 필터 적용.<br>
-      <strong>4. 매뉴얼 DB기준 재작성:</strong> FO·BO 매뉴얼의 구현참고(impl) 필드를 DB 우선 아키텍처 기준으로 전면 갱신.
+      <strong>1. 서비스 정책 5단계 위저드:</strong> 7~8단계로 복잡했던 정책 생성 과정을 "정책 정의 → 정책 범위 → 패턴 → 양식 → 결재라인" 5단계로 대폭 간소화 설계 적용.<br>
+      <strong>2. 양식 빌더 DB 동기화:</strong> form_templates 테이블에 isolation_group_id와 account_code를 추가하여, 정책 생성 시 양식 선택 과정에서 완벽한 권한·데이터 격리 구현.<br>
+      <strong>3. 매뉴얼 동기화 누락 수정:</strong> 파일 수정 중 끊긴 부분 복구 및 최신화 완료. FO 카테고리 (책/과정 등 행위기반) 구조와 BO 운영 동기화.<br>
     </div>
   </div>
 </div>`;
@@ -151,7 +150,7 @@ function _manPersonas() {
       desc: 'HMC 일반예산(HMC-OPS·PART·ETC) 소유. 마스터 설정·서비스 정책·배정·계획 검토가 주요 업무.',
       steps: [
         { i: '💳', t: '예산 계정 설정 (6단계 위저드)', d: '기본정보→가상조직→학습유형→산출근거→역할권한→기간상태' },
-        { i: '🔧', t: '서비스 정책 설정 (6단계)', d: '서비스명→예산연동→결재라인→대상조직→양식유형→결재권한. 패턴A/B/C/D 선택.' },
+        { i: '🔧', t: '서비스 정책 설정 (5단계 위저드)', d: '정책정의→정책범위→패턴선택→양식연결→결재라인. 패턴A/B/C/D/E 선택.' },
         { i: '🏢', t: '가상조직 관리', d: '본부/팀 구조를 VOrg 템플릿으로 정의. 관리자·협력팀·직무유형 설정.' },
         { i: '📐', t: '세부산출근거 관리', d: '운영(21종)/기타(7종) 항목별 기준단가·Soft/Hard Limit·사용단계 설정.' },
         { i: '📊', t: '결재라인 설정', d: '계정별 금액 구간→결재자 자동 라우팅. 예: 100만↓팀장전결 / 초과→본부장승인.' },
@@ -239,7 +238,7 @@ function _manMenus() {
       icon: '🔧', id: 'service-policy', name: '서비스 정책 설정 ★',
       roles: 'platform_admin(회사+그룹 필터) / tenant_global_admin(그룹 필터) / budget_op_manager(그룹 자동 고정)',
       desc: `<strong>핵심 메뉴</strong>: 학습자 시나리오 기반으로 예산·조직·양식·프로세스를 하나의 정책으로 통합 설계합니다.<br>
-            <strong>6단계 위저드</strong>: Step1 기본정보(서비스명+패턴A/B/C/D) → Step2 예산연동 → Step3 금액별 결재라인 → Step4 대상조직 → Step5 양식·유형 → Step6 결재권한<br>
+            <strong>5단계 위저드</strong>: Step0 정책 정의(이름+대상자+목적+유형) → Step1 정책 범위(회사+조직+계정) → Step2 프로세스 패턴 → Step3 양식 연결 → Step4 결재라인<br>
             <strong>조회 필터</strong>: 플랫폼 총괄은 회사+격리그룹 선택, 테넌트 총괄은 격리그룹 선택, 예산운영담당자는 본인 격리그룹 자동 고정(🔒배지).<br>
             <strong>정책 카드</strong>: 플랫폼 총괄 조회 시 테넌트ID 배지 추가 표시.`,
       impl: '_pbTenantFilter/_pbGroupFilter 상태변수로 필터링. isBudgetOp 분기로 격리그룹 자동 고정. approvalThresholds[] 배열로 구간 관리.',
@@ -461,7 +460,7 @@ function _manTech() {
       &nbsp;&nbsp;&nbsp;├── <span style="color:#1D4ED8">data.js</span>               — FO Mock 폴백 데이터 (PERSONAS, PURPOSES[※misc_ops 제거됨], MOCK_HISTORY[tenantId필터])<br>
       &nbsp;&nbsp;&nbsp;├── <span style="color:#1D4ED8">bo_data.js</span>            — BO Mock (BO_PERSONAS, ACCOUNT_MASTER, CALC_GROUNDS_MASTER 등)<br>
       &nbsp;&nbsp;&nbsp;├── <span style="color:#059669">bo_layout.js</span>          — 사이드바·헤더·페르소나전환·boNavigate()<br>
-      &nbsp;&nbsp;&nbsp;├── <span style="color:#7C3AED">bo_policy_builder.js</span>  — ★ 서비스 정책 설정 (6단계·패턴A/B/C/D·금액결재라인)<br>
+      &nbsp;&nbsp;&nbsp;├── <span style="color:#7C3AED">bo_policy_builder.js</span>  — ★ 서비스 정책 설정 (5단계 위저드·패턴A/B/C/D/E·결재라인)<br>
       &nbsp;&nbsp;&nbsp;├── <span style="color:#7C3AED">bo_approval.js</span>        — ★ 나의 운영 업무 (3탭 단계별 승인함)<br>
       &nbsp;&nbsp;&nbsp;├── bo_budget_master.js    — 예산 계정 관리 (통장정책 UI 포함)<br>
       &nbsp;&nbsp;&nbsp;├── bo_virtual_org.js      — 가상조직 템플릿<br>
@@ -542,7 +541,7 @@ function _manDevPlan() {
         { task: '가상조직 템플릿 API', detail: 'VOrg 트리 구조 저장·조회, 관리자/협력팀/직무유형', days: 4 },
         { task: '세부산출근거 API', detail: '항목 CRUD, usageScope/visibleFor/softLimit/hardLimit', days: 3 },
         { task: '양식 빌더 API', detail: 'Form Schema JSON 저장·버전관리, 공지사항/첨부파일 포함', days: 4 },
-        { task: '서비스 정책 API', detail: '6단계 위저드 저장, 패턴A/B/C/D, approvalThresholds[]', days: 5 },
+        { task: '서비스 정책 API', detail: '5단계 위저드 저장, 패턴A~E, approvalConfig{}', days: 5 },
       ]
     },
     {
@@ -659,7 +658,7 @@ function _manIA() {
     { area: '테넌트운영', menu: 'VOrg 템플릿 편집', screen: 'VOrg 트리 편집', type: '화면', role: '테넌트', diff: '★★★', note: 'tree jsonb + allowedJobTypes' },
     { area: '테넌트운영', menu: '산정기준 관리', screen: '산정기준 목록·편집', type: '화면', role: '테넌트', diff: '★★☆', note: '' },
     { area: '테넌트운영', menu: '서비스 정책', screen: '정책 목록 (필터 포함)', type: '화면', role: '플랫폼·테넌트·예산운영', diff: '★★★', note: '' },
-    { area: '테넌트운영', menu: '서비스 정책', screen: '정책 생성 위저드 (Step 0~7)', type: '화면', role: '전체', diff: '★★★', note: '8단계 멀티스텝 위저드' },
+    { area: '테넌트운영', menu: '서비스 정책', screen: '정책 생성 위저드 (Step 0~4)', type: '화면', role: '전체', diff: '★★★', note: '5단계 멀티스텝 위저드' },
     { area: '테넌트운영', menu: '결제 라우팅', screen: '결재선 설정', type: '화면', role: '테넌트', diff: '★★★', note: '' },
     // ── 운영 업무 ──
     { area: '운영업무', menu: '계획 관리', screen: '교육계획 목록·상세', type: '화면', role: '예산운영', diff: '★★☆', note: '' },
@@ -691,8 +690,8 @@ function _manIA() {
     { label: '산정기준 관리', indent: 2, icon: '└', bold: false },
     { label: '서비스 정책 관리', indent: 1, icon: '🔧', bold: true },
     { label: '정책 목록 (격리그룹·계정 필터)', indent: 2, icon: '└', bold: false },
-    { label: '정책 생성 위저드 (8단계)', indent: 2, icon: '└', bold: false },
-    { label: 'Step 0 범위설정 ~ Step 7 결재라인', indent: 3, icon: '△', bold: false },
+    { label: '정책 생성 위저드 (5단계)', indent: 2, icon: '└', bold: false },
+    { label: 'Step 0 정책 정의 ~ Step 4 결재라인', indent: 3, icon: '△', bold: false },
     { label: '결제 라우팅 설정', indent: 2, icon: '└', bold: false },
     { label: '운영 업무', indent: 1, icon: '📋', bold: true },
     { label: '계획 관리·상세', indent: 2, icon: '└', bold: false },
@@ -760,14 +759,14 @@ function _manDbSchema() {
     { name: 'organizations', layer: 'L3 조직', color: '#B45309', bg: '#FEF3C7', desc: 'HR 조직 트리 (본부>센터>실>팀). parent_id 자기참조', cols: ['id PK', 'tenant_id FK', 'parent_id FK(self)', 'name', 'type', 'order_seq'] },
     { name: 'users', layer: 'L4 사용자', color: '#7C3AED', bg: '#EDE9FE', desc: '시스템 사용자. 조직 소속 + 직군(job_type) 구분. FO 학습자의 원천', cols: ['id PK', 'tenant_id FK', 'emp_no', 'name', 'email', 'org_id FK', 'job_type', 'status'] },
     { name: 'roles', layer: 'L4 역할', color: '#7C3AED', bg: '#EDE9FE', desc: '역할 정의 (platform_admin, learner, team_leader 등)', cols: ['code PK', 'name', 'descr', 'level'] },
-    { name: 'user_roles', layer: 'L4 역할', color: '#7C3AED', bg: '#EDE9FE', desc: '사용자-역할 N:M 매핑. scope_id로 적용 범위 제한', cols: ['id PK', 'user_id FK', 'role_code FK', 'tenant_id FK', 'scope_id'] },
+    { name: 'user_roles', layer: 'L4 역할', color: '#7C3AED', bg: '#EDE9FE', desc: '사용자-역할 N:M 매핑. scope_id로 적용 범위 제한. start_date/end_date로 권한 기간 설정.', cols: ['id PK', 'user_id FK', 'role_code FK', 'tenant_id FK', 'scope_id', 'start_date', 'end_date'] },
     { name: 'role_menu_permissions', layer: 'L4 역할', color: '#7C3AED', bg: '#EDE9FE', desc: '역할별 접근 가능 메뉴 ID 목록', cols: ['role_code FK', 'menu_id'] },
     { name: 'budget_accounts', layer: 'L5 예산설정', color: '#0369A1', bg: '#E0F2FE', desc: '예산 계정. 테넌트별 OPS/PART/RND/CERT 등 계정 정의', cols: ['id PK', 'code', 'name', 'tenant_id FK', 'uses_budget', 'active', 'virtual_org_template_id FK'] },
     { name: 'budget_account_org_policy', layer: 'L5 예산설정', color: '#0369A1', bg: '#E0F2FE', desc: '통장 생성 정책. 계정별 bankbook_mode(isolated/shared) 설정', cols: ['id PK', 'budget_account_id FK', 'vorg_template_id FK', 'bankbook_mode', 'bankbook_level'] },
     { name: 'org_budget_bankbooks', layer: 'L5 예산설정', color: '#0369A1', bg: '#E0F2FE', desc: '조직별 예산 통장. 각 팀/본부의 계정별 금고 역할', cols: ['id PK', 'org_id', 'org_name', 'tenant_id', 'account_id FK', 'template_id FK', 'vorg_group_id'] },
     { name: 'virtual_org_templates', layer: 'L5 예산설정', color: '#0369A1', bg: '#E0F2FE', desc: '가상조직 템플릿. tree jsonb에 본부/센터/실/팀 저장', cols: ['id PK', 'tenant_id FK', 'isolation_group_id FK', 'name', 'tree jsonb'] },
     { name: 'service_policies', layer: 'L6 서비스구성', color: '#9D174D', bg: '#FCE7F3', desc: '서비스 정책. 예산계정·양식·가상조직·결재선을 묶는 허브', cols: ['id PK', 'tenant_id FK', 'isolation_group_id FK', 'name', 'target_type', 'purpose', 'account_codes[]', 'vorg_template_id FK', 'edu_types[]', 'process_pattern', 'approval_config jsonb', 'status'] },
-    { name: 'form_templates', layer: 'L6 서비스구성', color: '#9D174D', bg: '#FCE7F3', desc: '교육신청 양식. fields jsonb에 입력 필드 구성', cols: ['id PK', 'tenant_id FK', 'name', 'type', 'purpose', 'target_user', 'fields jsonb', 'attachments jsonb', 'active'] },
+    { name: 'form_templates', layer: 'L6 서비스구성', color: '#9D174D', bg: '#FCE7F3', desc: '교육신청 양식. fields jsonb에 입력 필드 구성', cols: ['id PK', 'tenant_id FK', 'isolation_group_id FK', 'account_code', 'name', 'type', 'purpose', 'target_user', 'fields jsonb', 'attachments jsonb', 'active'] },
     { name: 'plans', layer: 'L7 예산실행', color: '#DC2626', bg: '#FEE2E2', desc: '교육계획. 정책 기반으로 생성. status: draft→submitted→approved', cols: ['id PK', 'tenant_id FK', 'account_code', 'policy_id FK', 'edu_name', 'amount', 'status', 'detail jsonb'] },
     { name: 'applications', layer: 'L7 예산실행', color: '#DC2626', bg: '#FEE2E2', desc: '교육신청. 학습자 신청서 데이터 저장', cols: ['id PK', 'tenant_id FK', 'policy_id FK', 'plan_id FK', 'amount', 'status', 'detail jsonb'] },
     { name: 'ledger', layer: 'L7 예산실행', color: '#DC2626', bg: '#FEE2E2', desc: '예산 원장. 모든 예산 변동을 tx_type으로 순차 기록', cols: ['id PK', 'tenant_id FK', 'account_code', 'application_id FK', 'tx_type', 'amount', 'balance_after', 'memo'] },

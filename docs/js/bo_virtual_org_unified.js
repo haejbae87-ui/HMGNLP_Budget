@@ -296,9 +296,51 @@ function _vuTabInfo(tpl) {
 </div>`;
 }
 
-// ═══ 탭②: 가상조직 구성 ═════════════════════════════════════════════════════
+// ═══ 탭②: 가상조직 구성 (트리 체크박스 뷰) ═══════════════════════════════════
+// 전역 캐시: 조직도 트리 (탭 진입 시 한 번 로드)
+let _vuOrgTreeCache = null;
+let _vuOrgFlatCache = {};
+
+async function _vuEnsureOrgTree() {
+  if (_vuOrgTreeCache) return;
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (!sb) return;
+    const { data } = await sb.from('organizations')
+      .select('id,name,parent_id,type,tenant_id')
+      .eq('tenant_id', _vuTenantId).order('name');
+    if (!data || !data.length) return;
+    _vuOrgFlatCache = {};
+    data.forEach(o => { _vuOrgFlatCache[o.id] = { ...o, children: [] }; });
+    const roots = [];
+    data.forEach(o => {
+      if (o.parent_id && _vuOrgFlatCache[o.parent_id]) {
+        _vuOrgFlatCache[o.parent_id].children.push(_vuOrgFlatCache[o.id]);
+      } else { roots.push(_vuOrgFlatCache[o.id]); }
+    });
+    _vuOrgTreeCache = roots;
+  } catch (e) { console.warn('조직도 로드 실패:', e.message); }
+}
+
+function _vuCountLeafs(nodes) {
+  let arr = [];
+  nodes.forEach(n => {
+    if (!n.children || !n.children.length) arr.push(n);
+    else arr.push(..._vuCountLeafs(n.children));
+  });
+  return arr;
+}
+
 function _vuTabOrg(tpl) {
   const groups = tpl.tree?.hqs || tpl.tree?.centers || [];
+  if (!_vuOrgTreeCache) {
+    _vuEnsureOrgTree().then(() => {
+      const tabEl = document.getElementById('vu-tab-content');
+      if (tabEl) tabEl.innerHTML = _vuTabOrg(tpl);
+    });
+    return `<div style="padding:30px;text-align:center;color:#9CA3AF;font-size:12px">🔄 조직도 로딩 중...</div>`;
+  }
+  const allLeafs = _vuCountLeafs(_vuOrgTreeCache);
   return `
 <div>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -306,32 +348,37 @@ function _vuTabOrg(tpl) {
     <button onclick="_vuAddGroup('${tpl.id}')" class="bo-btn-primary bo-btn-sm">+ 가상 본부 추가</button>
   </div>
   ${groups.length ? groups.map((g, gi) => {
-    const teams = g.teams || g.children || [];
+    const teams = g.teams || [];
+    const mappedIds = new Set(teams.map(t => t.id));
+    const totalLeafs = allLeafs.length;
+    const mappedCount = teams.length;
+    const pct = totalLeafs > 0 ? Math.round((mappedCount / totalLeafs) * 100) : 0;
     return `
-  <div class="bo-card" style="padding:16px 20px;margin-bottom:12px;border-left:4px solid #1D4ED8">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+  <div class="bo-card" style="padding:16px 20px;margin-bottom:14px;border-left:4px solid #1D4ED8">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:16px">🏢</span>
         <span style="font-size:14px;font-weight:800;color:#111827">${g.name}</span>
-        <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#EFF6FF;color:#1D4ED8;font-weight:700">${teams.length}팀</span>
+        <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#EFF6FF;color:#1D4ED8;font-weight:700">${mappedCount}팀</span>
         ${g.managers ? `<span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#FEF3C7;color:#92400E;font-weight:700">담당자 ${g.managers.length}명</span>` : ''}
       </div>
       <div style="display:flex;gap:6px">
         <button onclick="_vuEditGroup('${tpl.id}',${gi})" class="bo-btn-secondary bo-btn-sm">수정</button>
-        <button onclick="_vuMapTeams('${tpl.id}',${gi})" class="bo-btn-secondary bo-btn-sm">+ 팀 매핑</button>
         <button onclick="_vuDeleteGroup('${tpl.id}',${gi})" class="bo-btn-secondary bo-btn-sm" style="color:#EF4444;border-color:#FCA5A5">삭제</button>
       </div>
     </div>
-    ${teams.length ? `
-    <div style="display:flex;flex-wrap:wrap;gap:6px;padding-left:28px">
-      ${teams.map(t => `
-      <div style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px">
-        <span style="font-size:11px">👥</span>
-        <span style="font-size:12px;font-weight:600;color:#374151">${t.name}</span>
-        <span style="font-size:10px;color:#9CA3AF">${t.parentName || ''}</span>
-        <button onclick="_vuRemoveTeam('${tpl.id}',${gi},'${t.id}')" style="border:none;background:none;color:#D1D5DB;cursor:pointer;font-size:12px;padding:0 2px">✕</button>
-      </div>`).join('')}
-    </div>` : '<div style="padding:8px 28px;font-size:11px;color:#9CA3AF">매핑된 팀이 없습니다. + 팀 매핑 버튼을 클릭하세요.</div>'}
+    <div style="margin:8px 0 12px;padding:0 4px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:10px;font-weight:700;color:#6B7280">📊 매핑 커버리지</span>
+        <span style="font-size:11px;font-weight:800;color:${pct>=80?'#059669':pct>=40?'#D97706':'#DC2626'}">${mappedCount} / ${totalLeafs}팀 (${pct}%)</span>
+      </div>
+      <div style="width:100%;height:6px;background:#F3F4F6;border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${pct>=80?'#059669':pct>=40?'#D97706':'#DC2626'};border-radius:4px;transition:width .3s"></div>
+      </div>
+    </div>
+    <div style="max-height:420px;overflow-y:auto;border:1px solid #E5E7EB;border-radius:10px;padding:8px">
+      ${_vuBuildInlineTree(_vuOrgTreeCache, 0, mappedIds, tpl.id, gi)}
+    </div>
   </div>`;
   }).join('') : `
   <div style="padding:40px;text-align:center;background:#F9FAFB;border-radius:14px;border:1px dashed #D1D5DB">
@@ -340,6 +387,82 @@ function _vuTabOrg(tpl) {
     <div style="font-size:11px;color:#9CA3AF;margin-top:4px">+ 가상 본부 추가 버튼으로 조직을 구성하세요</div>
   </div>`}
 </div>`;
+}
+
+function _vuBuildInlineTree(nodes, depth, mappedIds, tplId, gi) {
+  if (!nodes || !nodes.length) return '';
+  let html = '';
+  const ST = {
+    headquarters:{icon:'🏢',color:'#1E40AF',bg:'#EFF6FF'},
+    center:{icon:'🔬',color:'#6D28D9',bg:'#F5F3FF'},
+    office:{icon:'📋',color:'#065F46',bg:'#ECFDF5'},
+    division:{icon:'🏭',color:'#92400E',bg:'#FFFBEB'},
+    team:{icon:'👥',color:'#374151',bg:'#F9FAFB'}
+  };
+  nodes.forEach(node => {
+    const st = ST[node.type] || ST.team;
+    const hasChildren = node.children && node.children.length > 0;
+    const isLeaf = !hasChildren;
+    const isMapped = mappedIds.has(node.id);
+    const indent = depth * 18;
+    if (isLeaf) {
+      const safeName = (node.name||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+      html += `
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 10px;padding-left:${10+indent}px;
+                  border-radius:7px;margin-bottom:2px;background:${isMapped?'#F0FDF4':'#FAFAFA'};
+                  border:1px ${isMapped?'solid #A7F3D0':'dashed #E5E7EB'};cursor:pointer;transition:all .15s"
+           onclick="event.preventDefault();_vuToggleTeamInline('${tplId}',${gi},'${node.id}','${safeName}',${!isMapped})">
+        <input type="checkbox" ${isMapped?'checked':''} style="width:14px;height:14px;accent-color:#059669;pointer-events:none;flex-shrink:0">
+        <span style="font-size:12px">${st.icon}</span>
+        <span style="font-size:12px;font-weight:${isMapped?'700':'500'};color:${isMapped?'#065F46':'#9CA3AF'};flex:1">${node.name}</span>
+        ${isMapped
+          ? '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:8px;background:#D1FAE5;color:#059669">✓ 매핑</span>'
+          : '<span style="font-size:9px;font-weight:600;padding:2px 6px;border-radius:8px;background:#FEF2F2;color:#DC2626">미매핑</span>'}
+      </div>`;
+    } else {
+      let childMapped=0, childTotal=0;
+      _vuCountLeafs(node.children).forEach(l => { childTotal++; if(mappedIds.has(l.id)) childMapped++; });
+      const statusColor = childTotal>0&&childMapped===childTotal ? '#059669' : (childMapped>0?'#D97706':'#DC2626');
+      const collapseId = `vu-tc-${gi}-${node.id}`;
+      html += `
+      <div style="margin-bottom:2px">
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;padding-left:${10+indent}px;
+                    border-radius:7px;background:${st.bg};cursor:pointer;user-select:none"
+             onclick="_vuToggleTreeCollapse('${collapseId}',this)">
+          <span class="vu-collapse-arrow" style="font-size:10px;color:#9CA3AF;transition:transform .2s;display:inline-block">▼</span>
+          <span style="font-size:13px">${st.icon}</span>
+          <span style="font-size:12px;font-weight:800;color:${st.color};flex:1">${node.name}
+            <span style="font-size:10px;font-weight:600;color:#9CA3AF;margin-left:4px">(${node.children.length}개 하위)</span>
+          </span>
+          <span style="font-size:10px;font-weight:800;color:${statusColor};padding:2px 8px;border-radius:6px;background:${statusColor}15">${childMapped}/${childTotal}</span>
+        </div>
+        <div id="${collapseId}" style="border-left:2px solid ${st.color}30;margin-left:${20+indent}px;padding-left:4px;margin-top:2px">
+          ${_vuBuildInlineTree(node.children, depth+1, mappedIds, tplId, gi)}
+        </div>
+      </div>`;
+    }
+  });
+  return html;
+}
+
+function _vuToggleTreeCollapse(id, headerEl) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const arrow = headerEl.querySelector('.vu-collapse-arrow');
+  if (el.style.display === 'none') { el.style.display = ''; if (arrow) arrow.style.transform = ''; }
+  else { el.style.display = 'none'; if (arrow) arrow.style.transform = 'rotate(-90deg)'; }
+}
+
+function _vuToggleTeamInline(tplId, gi, teamId, teamName, shouldAdd) {
+  const tpl = _vuTplList.find(t => t.id === tplId);
+  if (!tpl) return;
+  const g = (tpl.tree?.hqs || [])[gi];
+  if (!g) return;
+  if (!g.teams) g.teams = [];
+  if (shouldAdd) { if (!g.teams.find(t => t.id === teamId)) g.teams.push({ id: teamId, name: teamName }); }
+  else { g.teams = g.teams.filter(t => t.id !== teamId); }
+  _vuAutoSave(tpl);
+  _vuSwitchTab(_vuActiveTab);
 }
 
 // ═══ 탭③: 협조처·담당자 ═════════════════════════════════════════════════════

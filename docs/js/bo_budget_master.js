@@ -1,4 +1,4 @@
-﻿// ─── Tenant Admin: 예산 기초 관리 (7탭) ──────────────────────────────────────
+// ─── Tenant Admin: 예산 기초 관리 (7탭) ──────────────────────────────────────
 // Step1:계정마스터CRUD  Step2:조직-계정매핑  Step3:양식빌더(FORM_MASTER)
 // Step4:양식접근권한    Step5:양식-예산-계획룰  Step6:공지관리  +가상조직+권한
 
@@ -131,7 +131,8 @@ async function renderBudgetAccount() {
       const { data } = await sb
         .from('virtual_org_templates')
         .select('id,name,service_type,purpose')
-        .eq('tenant_id', _baTenantId);
+        .eq('tenant_id', _baTenantId)
+        .eq('service_type', 'edu_support'); // 교육지원 유형만 조회
       if (data) _baTplList = data;
     }
   } catch (e) { console.warn('[BudgetAccount] 템플릿 로드 실패:', e.message); }
@@ -1373,7 +1374,7 @@ async function _obLoadData() {
   const isPlatform = role === 'platform_admin' || role === 'tenant_global_admin';
   if (!_obTenant) _obTenant = isPlatform ? (tenants[0]?.id || 'HMC') : (boCurrentPersona.tenantId || 'HMC');
 
-  try { const { data } = await sb.from('virtual_org_templates').select('id,name,service_type,purpose,tree_data').eq('tenant_id', _obTenant); _obTplList = data || []; } catch (e) { _obTplList = []; }
+  try { const { data } = await sb.from('virtual_org_templates').select('id,name,service_type,purpose,tree_data').eq('tenant_id', _obTenant).eq('service_type', 'edu_support'); _obTplList = data || []; } catch (e) { _obTplList = []; }
   if (!_obTplId || !_obTplList.find(t => t.id === _obTplId)) _obTplId = _obTplList[0]?.id || null;
 
   const curTpl = _obTplList.find(t => t.id === _obTplId);

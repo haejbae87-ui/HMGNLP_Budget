@@ -647,7 +647,7 @@ function renderPlanWizard() {
       </div>
     </div>` : ''}
 
-    ${['self-learning', 'edu-operation', 'result-only'].map(catKey => {
+    ${['self-learning', 'edu-operation'].map(catKey => {
     const items = categorized[catKey] || [];
     if (items.length === 0) return '';
     const meta = _catMeta[catKey] || _catMeta['edu-operation'];

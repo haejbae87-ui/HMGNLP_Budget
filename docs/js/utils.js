@@ -341,13 +341,7 @@ function getPersonaPurposes(persona) {
           }
         }
       });
-      // C/D 패턴이 있으면 결과등록 전용 가상 목적 추가
-      if (hasResultOnly) {
-        purposes.push({
-          id: '_result_only', label: '교육 결과 등록', icon: '📝',
-          desc: '이미 수료한 교육의 결과를 등록합니다', category: 'result-only'
-        });
-      }
+      // C/D 패턴 결과등록은 result.js 독립 화면에서 처리 (가상 목적 추가 없음)
       return purposes;
     }
     const activePurposeIds = [...new Set(policies.map(p => p.foPurpose))];
@@ -471,6 +465,7 @@ function navigate(page) {
   if (page === 'history') renderHistory();
   if (page === 'budget') renderBudget();
   if (page === 'apply') { applyViewMode = 'list'; renderApply(); }
+  if (page === 'result') { if (typeof renderResult === 'function') renderResult(); }
   if (page === 'mypage') renderMypage();
   if (page === 'fo-manual') renderFoManual();
   if (page === 'approval-member') renderApprovalMember();

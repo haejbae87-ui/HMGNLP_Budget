@@ -77,55 +77,23 @@ const EDU_TYPE_SUBTYPES = {
   etc: [{ key: 'teach', label: '교육출강(사/내외)' }, { key: 'team_build', label: '팀빌딩' }],
 };
 
-// 페르소나 역할 기반 학습자/운영자 판별
-// 판별 우선순위: operator 계열 역할 > learner 역할 > role 문자열
-// - 이유: 조O성처럼 learner + 관리자 역할을 동시에 갖는 경우, 관리자(operator)로 처리
-// - jobType(일반직/연구직) 분기 완전 제거
-function _isLearnerPersona(persona) {
-  const roles = persona.roles || [];
+// 교육유형 UI 판별: 선택한 목적+예산의 정책이 학습자형(세부항목 선택 포함) UI인지 여부
+// ※ 이 함수는 learner/operator 접근 제어가 아닌, Step3 교육유형 UI 렌더링 방식 결정용
+//    - true  → 학습자 스타일 UI (세부항목 트리, 개인학습 중심)
+//    - false → 운영자 스타일 UI (과정명 직접 입력, 운영 중심)
+// vorg 기반 정책이 있으면 정책의 target_type으로 판별, 없으면 기본(true) 반환
 
-  // ① operator 계열 역할이 하나라도 있으면 → operator (learner 역할이 있어도 override)
-  // ch_mgr = 교육담당자채널 관리자, budget_ops = 예산 운영자, team_leader = 팀장
-  const OPERATOR_ROLE_PATTERNS = ['_ch_mgr', 'budget_ops', 'team_leader', 'hq_leader',
-    'division_leader', 'center_leader', 'office_leader', 'team_mgr', 'operator'];
-  if (roles.some(r => OPERATOR_ROLE_PATTERNS.some(p => r.includes(p)))) return false;
-
-  // ② learner 역할이 있으면 → learner
-  if (roles.some(r => r === 'learner' || r.endsWith('_learner'))) return true;
-
-  // ③ mock 기반 페르소나: role 문자열로 판별
-  const role = persona.role || '';
-  return role === 'learner';
-}
-
-// target_type 기반 정책 필터: 학습자는 'learner', 운영자는 'learner' 제외
-function _filterPoliciesByTargetType(policies, persona) {
-  const isLearner = _isLearnerPersona(persona);
-  // target_type 미설정 정책은 양쪽 모두에게 허용
-  if (isLearner) {
-    return policies.filter(p => {
-      const tt = p.target_type || p.targetType || '';
-      return tt === 'learner' || tt === '';
-    });
-  } else {
-    // 운영자: learner 전용 정책은 제외 (operator 또는 미설정만)
-    return policies.filter(p => {
-      const tt = p.target_type || p.targetType || '';
-      return tt === 'operator' || tt === '';
-    });
-  }
-}
-
-// 현재 페르소나의 활성 정책이 학습자 대상인지 판별
+// Step3 교육유형 UI 방식 결정: 선택한 목적의 정책이 학습자형 UI인지 판별
+// (접근 제어 아님 — 모든 사용자는 vorg 기반 정책의 모든 목적에 접근 가능)
 function isLearnerTargetType(persona, purposeId) {
   const result = _getActivePolicies(persona);
-  if (!result) return true; // 정책 없으면 학습자 기본
+  if (!result) return true; // 정책 없으면 학습자형 기본 UI
   const { policies } = result;
   const boPurposeKeys = typeof _FO_TO_BO_PURPOSE !== 'undefined'
     ? (_FO_TO_BO_PURPOSE[purposeId] || [purposeId]) : [purposeId];
   const matched = policies.filter(p => boPurposeKeys.includes(p.purpose));
   if (matched.length === 0) return true;
-  // targetType이 'learner'이면 학습자, 아니면 교육담당자
+  // target_type='learner'이면 학습자형 UI, 'operator'이면 운영자형 UI
   return matched.some(p => (p.target_type || p.targetType) === 'learner' || !p.targetType);
 }
 
@@ -198,25 +166,24 @@ function _getActivePolicies(persona) {
 
 
 
-// 현재 페르소나에 오픈된 정책 기반 예산 목록 반환 (Policy-First: target_type 기반 분리)
-// ⚠ jobType(일반직/연구직) 분기 완전 제거: 오직 서비스 정책의 target_type + purpose만으로 판별
+// 현재 페르소나에 오픈된 정책 기반 예산 목록 반환
+// ★ vorg(가상조직) 기반 정책 매칭 → 해당 vorg 정책의 purpose로 필터
+// ★ target_type 기반 접근 제어 없음: 모든 사용자는 자신의 vorg 정책의 모든 예산에 접근 가능
 function getPersonaBudgets(persona, purposeId) {
   const result = _getActivePolicies(persona);
   if (result) {
     const { source, policies } = result;
     if (source === 'db') {
-      // ★ 핵심 수정: target_type 필터 적용 후 purpose 필터
-      const targetFilteredPolicies = _filterPoliciesByTargetType(policies, persona);
+      // purpose 필터만 적용 (target_type 필터 없음)
       const boPurposeKeys = purposeId ? (_FO_TO_BO_PURPOSE[purposeId] || [purposeId]) : null;
       const filtered = boPurposeKeys
-        ? targetFilteredPolicies.filter(p => boPurposeKeys.includes(p.purpose))
-        : targetFilteredPolicies;
+        ? policies.filter(p => boPurposeKeys.includes(p.purpose))
+        : policies;
       // 허용된 accountCodes로 persona.budgets 필터
       const allCodes = [...new Set(filtered.flatMap(p => p.accountCodes || p.account_codes || []))];
       return (persona.budgets || []).filter(b =>
         allCodes.some(code => {
           const acctType = ACCOUNT_TYPE_MAP[code];
-          // acctType이 있으면 account 유형명으로 매칭, 없으면 accountCode 직접 매칭만 허용
           return (acctType && acctType === b.account) || code === b.accountCode;
         })
       );
@@ -335,23 +302,23 @@ const _CATEGORY_META = {
   'result-only': { icon: '📝', label: '결과만 등록', desc: '이미 수료한 교육의 결과를 등록' },
 };
 
-// 정책 기반 교육 목적 필터 (Policy-First + target_type 기반 학습자/운영자 분리)
-// ⚠ jobType(일반직/연구직) 분기 완전 제거: 오직 서비스 정책의 target_type만으로 판별
+// 정책 기반 교육 목적 목록 반환
+// ★ vorg(가상조직) 기반 정책 매칭 → 해당 vorg에 설정된 모든 서비스 정책의 목적을 표시
+// ★ target_type 접근 제어 없음: 조O성·이O봉 모두 자신의 vorg 정책 목적 전체에 접근 가능
+// (직접학습·교육운영 모두 vorg 정책 설정에 의해 결정됨)
 function getPersonaPurposes(persona) {
   const result = _getActivePolicies(persona);
   if (result) {
     const { source, policies } = result;
     if (source === 'db') {
-      // ★ 핵심 수정: target_type 기반 필터 적용 (jobType 분기 제거)
-      // 학습자 페르소나 → target_type='learner' 정책만, 운영자 → 'operator' 정책만
-      const targetFilteredPolicies = _filterPoliciesByTargetType(policies, persona);
-      console.log(`[getPersonaPurposes] ${persona.name}: 전체 ${policies.length}건 → target_type 필터 후 ${targetFilteredPolicies.length}건`);
+      // vorg 매칭된 전체 정책의 purpose를 FO purpose id로 변환
+      console.log(`[getPersonaPurposes] ${persona.name}: vorg 매칭 정책 ${policies.length}건`);
 
       const foPurposeIds = [...new Set(
-        targetFilteredPolicies.map(p => _BO_TO_FO_PURPOSE[p.purpose] || p.purpose).filter(Boolean)
+        policies.map(p => _BO_TO_FO_PURPOSE[p.purpose] || p.purpose).filter(Boolean)
       )];
       // 결과등록 전용(패턴 C/D) 정책 확인
-      const hasResultOnly = targetFilteredPolicies.some(p => {
+      const hasResultOnly = policies.some(p => {
         const pt = p.process_pattern || p.processPattern || '';
         return pt === 'C' || pt === 'D';
       });

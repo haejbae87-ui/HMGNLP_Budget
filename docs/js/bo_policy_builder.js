@@ -1347,8 +1347,13 @@ function togglePolicyAcct(code) {
   renderPolicyWizard();
 }
 function _selectPolicyAcct(code) {
-  const isNoBudget = code === '__none__';
-  _policyWizardData.accountCodes = isNoBudget ? [] : [code];
+  const isNoBudgetCode = code === '__none__';
+  // ★ 핵심 수정: 실제 계정의 uses_budget=false도 무예산으로 판별
+  // _pbAccountList는 Step1에서 DB 로드된 budget_accounts 목록
+  const acctInDb = (typeof _pbAccountList !== 'undefined' ? _pbAccountList : [])
+    .find(a => a.code === code);
+  const isNoBudget = isNoBudgetCode || (acctInDb && acctInDb.uses_budget === false);
+  _policyWizardData.accountCodes = isNoBudgetCode ? [] : [code];
   _policyWizardData.budgetLinked = !isNoBudget;
   // 패턴 자동 보정: 예산↔무예산 전환 시 패턴 리셋
   const pat = _policyWizardData.processPattern || '';

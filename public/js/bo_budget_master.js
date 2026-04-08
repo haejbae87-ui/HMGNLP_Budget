@@ -251,6 +251,7 @@ function _baRenderAccountCard(a, canEdit) {
         <span style="font-size:10px;padding:2px 8px;border-radius:6px;font-weight:700;background:${tc.bg};color:${tc.text};border:1px solid ${tc.border}">${tc.label}</span>
         <span style="font-size:13px;font-weight:800;color:#111827">${a.name}</span>
         <span style="font-size:10px;padding:2px 7px;border-radius:5px;font-weight:700;background:${a.active ? '#D1FAE5' : '#F3F4F6'};color:${a.active ? '#065F46' : '#9CA3AF'}">${a.active ? '✅ 활성' : '⏸️ 비활성'}</span>
+        ${a.uses_budget === false ? `<span style="font-size:10px;padding:2px 7px;border-radius:5px;font-weight:700;background:#FEF3C7;color:#92400E">📝 예산 미사용</span>` : ''}
       </div>
       <div style="font-size:11px;color:#6B7280">${a.description || ''}</div>
     </div>
@@ -452,7 +453,7 @@ async function s1SaveAccount() {
     code, name,
     account_type: integration,
     description: document.getElementById('s1-desc').value.trim(),
-    active: usesBudget,
+    active: true,  // uses_budget=false여도 active는 true 유지 (비활성≠예산미사용)
     uses_budget: usesBudget,
     updated_at: new Date().toISOString(),
   };

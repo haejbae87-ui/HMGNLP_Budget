@@ -281,7 +281,7 @@ function renderReqs() {
 
     return `
       <tr style="border-bottom:1px solid #f3f4f6">
-        <td style="padding:14px;color:var(--text-sub)">${r.requested_at ? r.requested_at.substring(0,10) : '-'}</td>
+        <td style="padding:14px;color:var(--text-sub)">${r.requested_at ? r.requested_at.substring(0, 10) : '-'}</td>
         <td style="padding:14px;font-weight:700">${r.user_id}</td>
         <td style="padding:14px;color:var(--brand);font-weight:700">${r._badgeName}</td>
         <td style="padding:14px">${r.proof_file_url ? `<a href="${r.proof_file_url}" target="_blank" style="color:#3b82f6;text-decoration:none">📎 첨부파일</a>` : '-'}</td>
@@ -351,7 +351,7 @@ async function loadProgressData() {
 
     let q = _sb()
       .from('user_badges')
-      .select('id, user_id, badge_id, status, acquired_at, expires_at, created_at')
+      .select('user_id, badge_id, status, acquired_at, expires_at, created_at')
       .order('created_at', { ascending: false })
       .limit(300);
 
@@ -408,8 +408,8 @@ function renderProgs() {
         <td style="padding:14px;color:var(--brand);font-weight:800">${p._badgeName}</td>
         <td style="padding:14px;font-weight:700">${p.user_id}</td>
         <td style="padding:14px"><span style="${statStyle}">${statText}</span></td>
-        <td style="padding:14px;color:var(--text-sub)">${p.acquired_at ? p.acquired_at.substring(0,10) : '-'}</td>
-        <td style="padding:14px;color:var(--text-sub)">${p.expires_at ? p.expires_at.substring(0,10) : '영구'}</td>
+        <td style="padding:14px;color:var(--text-sub)">${p.acquired_at ? p.acquired_at.substring(0, 10) : '-'}</td>
+        <td style="padding:14px;color:var(--text-sub)">${p.expires_at ? p.expires_at.substring(0, 10) : '영구'}</td>
         <td style="padding:14px;text-align:right">
           ${p.status === 'COURSE_COMPLETED' ? `<button style="padding:4px 8px;background:#3b82f6;color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer">시험 안내 메일</button>` : ''}
           ${flt === 'EXPIRED_SOON' ? `<button style="padding:4px 8px;background:#f59e0b;color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer">갱신 독려 발송</button>` : ''}

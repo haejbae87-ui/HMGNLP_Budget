@@ -77,15 +77,24 @@ const EDU_TYPE_SUBTYPES = {
   etc: [{ key: 'teach', label: '교육출강(사/내외)' }, { key: 'team_build', label: '팀빌딩' }],
 };
 
-// 페르소나 역할 기반 학습자 여부 판별 (roles 배열 또는 role 문자열 참조)
-// jobType(일반직/연구직) 기반 분기 완전 제거 → 오직 role/roles 기반으로 판별
+// 페르소나 역할 기반 학습자/운영자 판별
+// 판별 우선순위: operator 계열 역할 > learner 역할 > role 문자열
+// - 이유: 조O성처럼 learner + 관리자 역할을 동시에 갖는 경우, 관리자(operator)로 처리
+// - jobType(일반직/연구직) 분기 완전 제거
 function _isLearnerPersona(persona) {
-  // DB 기반 페르소나: roles 배열에 'learner' 포함 여부
   const roles = persona.roles || [];
-  if (roles.some(r => r === 'learner' || r.includes('learner'))) return true;
-  // mock 기반 페르소나: role 문자열로 판별
+
+  // ① operator 계열 역할이 하나라도 있으면 → operator (learner 역할이 있어도 override)
+  // ch_mgr = 교육담당자채널 관리자, budget_ops = 예산 운영자, team_leader = 팀장
+  const OPERATOR_ROLE_PATTERNS = ['_ch_mgr', 'budget_ops', 'team_leader', 'hq_leader',
+    'division_leader', 'center_leader', 'office_leader', 'team_mgr', 'operator'];
+  if (roles.some(r => OPERATOR_ROLE_PATTERNS.some(p => r.includes(p)))) return false;
+
+  // ② learner 역할이 있으면 → learner
+  if (roles.some(r => r === 'learner' || r.endsWith('_learner'))) return true;
+
+  // ③ mock 기반 페르소나: role 문자열로 판별
   const role = persona.role || '';
-  // 'learner' 역할만 학습자, 'team_general' 등 운영자 역할은 false
   return role === 'learner';
 }
 

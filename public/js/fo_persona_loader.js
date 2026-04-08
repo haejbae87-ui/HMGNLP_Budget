@@ -355,16 +355,32 @@ async function _initCurrentPersona(persona) {
         // _getActivePolicies 기반 정책 매칭이 오염됨 (원인 2 수정)
         // 서비스 정책의 accountCodes ↔ allowedAccounts 교차 매칭으로만 정책 필터링
 
-        // learner vorgIds: bankbook의 template_id에서 추출 (정책 매칭용)
-        // ⚠ persona.vorgId가 이미 설정되어 있어도 DB 통장의 template_id를 병합
-        //    (예: data.js의 vorgId=R&D이지만 일반교육예산 참가계정 통장도 있는 경우)
+        // ─── VOrg 멤버십: virtual_org_templates.tree_data 기반 조회 (핵심 수정) ───
+        // PRD: 직종/역할 무관, 조직→VOrg 멤버십→서비스 정책이 primary key
+        // 통장(bankbook)이 없는 VOrg(무예산 계정 포함)도 매칭 가능하도록 tree_data 검색
+        let treeVorgIds = [];
+        try {
+            const { data: allVorgs } = await sb
+                .from('virtual_org_templates')
+                .select('id, tree_data')
+                .eq('tenant_id', persona.tenantId);
+            treeVorgIds = (allVorgs || [])
+                .filter(v => _orgIdInTreeData(v.tree_data, persona.orgId))
+                .map(v => v.id);
+        } catch (e) {
+            console.warn('[FO Loader] tree_data 기반 VOrg 조회 실패 → bankbook 폴백', e.message);
+        }
+
+        // bankbook template_id도 병합 (하위 호환 및 누락 방지)
         const bbVorgIds = [...new Set(
             (directBbs || []).map(bb => bb.template_id).filter(Boolean)
         )];
-        if (bbVorgIds.length > 0) {
-            const existingIds = persona.vorgIds || (persona.vorgId ? [persona.vorgId] : []);
-            persona.vorgIds = [...new Set([...existingIds, ...bbVorgIds])];
-            if (!persona.vorgId) persona.vorgId = persona.vorgIds[0];
+        const allVorgIds = [...new Set([...treeVorgIds, ...bbVorgIds])];
+
+        if (allVorgIds.length > 0) {
+            persona.vorgIds = allVorgIds;
+            // vorgId: mock data에서 설정된 게 있으면 유지, 없으면 tree 기반 첫 번째
+            if (!persona.vorgId) persona.vorgId = allVorgIds[0];
         }
 
         console.log(`[FO Loader] ${persona.name} → 계정: ${allowedAccounts.join(', ')}, vorgIds: ${(persona.vorgIds || []).join(', ')}`);
@@ -381,6 +397,27 @@ async function _fetchAccount(sb, accountId) {
     const { data } = await sb.from('budget_accounts')
         .select('id, code, name, uses_budget, active').eq('id', accountId).single();
     return data;
+}
+
+/**
+ * virtual_org_templates.tree_data JSONB에서 orgId 포함 여부 탐색
+ * tree_data 구조: { hqs: [{ teams: [{ id, name }], divisions: [{ teams: [...] }] }] }
+ * 역할/직종 무관: 모든 hq/그룹에서 orgId를 검색 (일반직/연구직 그룹 구분 없음)
+ */
+function _orgIdInTreeData(treeData, orgId) {
+    if (!treeData || !orgId) return false;
+    const hqs = Array.isArray(treeData.hqs) ? treeData.hqs : [];
+    for (const hq of hqs) {
+        // hq.teams 직접 탐색
+        if (Array.isArray(hq.teams) && hq.teams.some(t => t.id === orgId)) return true;
+        // hq.divisions → division.teams 탐색 (중간 계층이 있는 경우)
+        if (Array.isArray(hq.divisions)) {
+            for (const div of hq.divisions) {
+                if (Array.isArray(div.teams) && div.teams.some(t => t.id === orgId)) return true;
+            }
+        }
+    }
+    return false;
 }
 
 // ─── CSS 스피너 ─────────────────────────────────────────────────────────────

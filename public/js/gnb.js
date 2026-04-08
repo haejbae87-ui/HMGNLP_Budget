@@ -31,6 +31,10 @@ function renderGNB() {
           id: 'apply', label: '교육신청', icon: '📝', navigate: true,
           desc: '개인직무·운영교육 신청'
         },
+        {
+          id: 'result', label: '교육결과 등록', icon: '📄', navigate: true,
+          desc: '교육 이수 후 결과 등록'
+        },
         { divider: true },
         {
           id: 'history-register', label: '교육이력등록', icon: '📚', navigate: false,

@@ -47,8 +47,7 @@ function renderApply() {
     _renderApplyConfirm();
   } else if (applyViewMode === 'form') {
     _renderApplyForm();
-  } else if (applyViewMode === 'resultForm') {
-    _renderResultForm();
+  // resultForm 뷰모드는 result.js 독립 화면으로 이관됨
   } else {
     _renderApplyList();
   }
@@ -96,7 +95,7 @@ function _applySmartButtons() {
     </button>`;
   }
   if (hasResultOnlyPatterns) {
-    btns += `<button onclick="applyViewMode='resultForm';_resultState=_resetResultState();renderApply()"
+    btns += `<button onclick="navigate('result')"
       style="display:flex;align-items:center;gap:8px;padding:12px 22px;border-radius:12px;
              background:#D97706;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer;
              box-shadow:0 4px 16px rgba(217,119,6,.3);transition:all .15s"
@@ -735,7 +734,7 @@ function _renderApplyForm() {
   <div class="card p-8 ${s.step === 1 ? '' : 'hidden'}">
     <h2 class="text-lg font-black text-gray-800 mb-6">01. 교육 목적 선택</h2>
 
-    ${['self-learning', 'edu-operation', 'result-only'].map(catKey => {
+    ${['self-learning', 'edu-operation'].map(catKey => {
       const items = categorized[catKey] || [];
       if (items.length === 0) return '';
       const meta = _catMeta[catKey] || _catMeta['edu-operation'];

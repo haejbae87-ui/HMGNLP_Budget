@@ -134,7 +134,7 @@ async function renderBadgeOperation() {
 async function _opLoadTenants(isSuperAdmin, myTenantId) {
   if (!isSuperAdmin) return;
   try {
-    const { data } = await window._supabase.from('tenants').select('id, name').order('name');
+    const { data } = await _sb().from('tenants').select('id, name').order('name');
     const sel = document.getElementById('op-filter-tenant');
     if (!sel) return;
     sel.innerHTML = `<option value="">전체 회사</option>` +
@@ -146,7 +146,7 @@ async function _opLoadTenants(isSuperAdmin, myTenantId) {
 
 async function _opLoadVorgs(tenantId) {
   try {
-    let q = window._supabase.from('virtual_org_templates').select('id, name').eq('service_type', 'badge').order('name');
+    let q = _sb().from('virtual_org_templates').select('id, name').eq('service_type', 'badge').order('name');
     if (tenantId) q = q.eq('tenant_id', tenantId);
     const { data } = await q;
     _opVorgTemplates = data || [];
@@ -164,7 +164,7 @@ async function _opLoadVorgs(tenantId) {
 async function _opLoadGroups(vorgId) {
   try {
     const tenantId = _opFilterTenantId || boCurrentPersona?.tenantId || 'HMC';
-    let q = window._supabase.from('badge_groups').select('id, name').eq('tenant_id', tenantId);
+    let q = _sb().from('badge_groups').select('id, name').eq('tenant_id', tenantId);
     if (vorgId) q = q.eq('vorg_template_id', vorgId);
     const { data } = await q.order('name');
     _opBadgeGroups = data || [];
@@ -208,7 +208,7 @@ async function _getFilteredBadgeIds() {
     if (_opFilterGroupId) {
       groupIds = [_opFilterGroupId];
     } else {
-      let gq = window._supabase.from('badge_groups').select('id').eq('tenant_id', tenantId);
+      let gq = _sb().from('badge_groups').select('id').eq('tenant_id', tenantId);
       if (_opFilterVorgId) gq = gq.eq('vorg_template_id', _opFilterVorgId);
       const { data: gData } = await gq;
       groupIds = (gData || []).map(g => g.id);
@@ -216,7 +216,7 @@ async function _getFilteredBadgeIds() {
 
     if (groupIds.length === 0) return null; // 필터 없이 전체 조회
 
-    const { data: bData } = await window._supabase.from('badges').select('id').in('group_id', groupIds);
+    const { data: bData } = await _sb().from('badges').select('id').in('group_id', groupIds);
     _opAllBadges = bData || [];
     return _opAllBadges.map(b => b.id);
   } catch (e) {
@@ -235,7 +235,7 @@ async function loadRequestsData() {
     const badgeIds = await _getFilteredBadgeIds();
 
     // badge_award_requests + badge 이름 별도 조회 (조인 오류 방어)
-    let q = window._supabase
+    let q = _sb()
       .from('badge_award_requests')
       .select('id, user_id, badge_id, status, proof_file_url, admin_comment, requested_at, reviewed_at')
       .order('requested_at', { ascending: false })
@@ -253,7 +253,7 @@ async function loadRequestsData() {
     const uniqueBadgeIds = [...new Set(requestsData.map(r => r.badge_id).filter(Boolean))];
     let badgeNameMap = {};
     if (uniqueBadgeIds.length > 0) {
-      const { data: badgesInfo } = await window._supabase
+      const { data: badgesInfo } = await _sb()
         .from('badges').select('id, name').in('id', uniqueBadgeIds);
       (badgesInfo || []).forEach(b => { badgeNameMap[b.id] = b.name; });
     }
@@ -300,7 +300,7 @@ function renderReqs() {
 async function approveRequest(reqId, userId, badgeId) {
   if (!confirm('해당 사용자의 뱃지를 승인(발급) 처리하시겠습니까?')) return;
   try {
-    const { data: badgeArr } = await window._supabase.from('badges').select('valid_months').eq('id', badgeId);
+    const { data: badgeArr } = await _sb().from('badges').select('valid_months').eq('id', badgeId);
     const valid_months = badgeArr?.[0]?.valid_months || null;
     let expiresAt = null;
     if (valid_months) {
@@ -309,7 +309,7 @@ async function approveRequest(reqId, userId, badgeId) {
       expiresAt = d.toISOString();
     }
 
-    const { error: e1 } = await window._supabase.from('user_badges').upsert({
+    const { error: e1 } = await _sb().from('user_badges').upsert({
       user_id: userId, badge_id: badgeId,
       tenant_id: _opFilterTenantId || boCurrentPersona?.tenantId || 'HMC',
       status: 'ACTIVE',
@@ -318,7 +318,7 @@ async function approveRequest(reqId, userId, badgeId) {
     });
     if (e1) throw e1;
 
-    const { error: e2 } = await window._supabase.from('badge_award_requests').update({
+    const { error: e2 } = await _sb().from('badge_award_requests').update({
       status: 'APPROVED', reviewed_at: new Date().toISOString()
     }).eq('id', reqId);
     if (e2) throw e2;
@@ -333,7 +333,7 @@ async function approveRequest(reqId, userId, badgeId) {
 async function rejectRequest(reqId) {
   const comment = prompt('반려 사유를 입력하세요:');
   if (comment === null) return;
-  const { error } = await window._supabase.from('badge_award_requests').update({
+  const { error } = await _sb().from('badge_award_requests').update({
     status: 'REJECTED', admin_comment: comment, reviewed_at: new Date().toISOString()
   }).eq('id', reqId);
   if (!error) loadRequestsData();
@@ -349,7 +349,7 @@ async function loadProgressData() {
   try {
     const badgeIds = await _getFilteredBadgeIds();
 
-    let q = window._supabase
+    let q = _sb()
       .from('user_badges')
       .select('id, user_id, badge_id, status, acquired_at, expires_at, created_at')
       .order('created_at', { ascending: false })
@@ -375,7 +375,7 @@ async function loadProgressData() {
     const uniqueBadgeIds = [...new Set(progressData.map(p => p.badge_id).filter(Boolean))];
     let badgeNameMap = {};
     if (uniqueBadgeIds.length > 0) {
-      const { data: badgesInfo } = await window._supabase.from('badges').select('id, name').in('id', uniqueBadgeIds);
+      const { data: badgesInfo } = await _sb().from('badges').select('id, name').in('id', uniqueBadgeIds);
       (badgesInfo || []).forEach(b => { badgeNameMap[b.id] = b.name; });
     }
     progressData = progressData.map(p => ({ ...p, _badgeName: badgeNameMap[p.badge_id] || 'Unknown' }));

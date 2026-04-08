@@ -77,6 +77,36 @@ const EDU_TYPE_SUBTYPES = {
   etc: [{ key: 'teach', label: '교육출강(사/내외)' }, { key: 'team_build', label: '팀빌딩' }],
 };
 
+// 페르소나 역할 기반 학습자 여부 판별 (roles 배열 또는 role 문자열 참조)
+// jobType(일반직/연구직) 기반 분기 완전 제거 → 오직 role/roles 기반으로 판별
+function _isLearnerPersona(persona) {
+  // DB 기반 페르소나: roles 배열에 'learner' 포함 여부
+  const roles = persona.roles || [];
+  if (roles.some(r => r === 'learner' || r.includes('learner'))) return true;
+  // mock 기반 페르소나: role 문자열로 판별
+  const role = persona.role || '';
+  // 'learner' 역할만 학습자, 'team_general' 등 운영자 역할은 false
+  return role === 'learner';
+}
+
+// target_type 기반 정책 필터: 학습자는 'learner', 운영자는 'learner' 제외
+function _filterPoliciesByTargetType(policies, persona) {
+  const isLearner = _isLearnerPersona(persona);
+  // target_type 미설정 정책은 양쪽 모두에게 허용
+  if (isLearner) {
+    return policies.filter(p => {
+      const tt = p.target_type || p.targetType || '';
+      return tt === 'learner' || tt === '';
+    });
+  } else {
+    // 운영자: learner 전용 정책은 제외 (operator 또는 미설정만)
+    return policies.filter(p => {
+      const tt = p.target_type || p.targetType || '';
+      return tt === 'operator' || tt === '';
+    });
+  }
+}
+
 // 현재 페르소나의 활성 정책이 학습자 대상인지 판별
 function isLearnerTargetType(persona, purposeId) {
   const result = _getActivePolicies(persona);
@@ -87,7 +117,7 @@ function isLearnerTargetType(persona, purposeId) {
   const matched = policies.filter(p => boPurposeKeys.includes(p.purpose));
   if (matched.length === 0) return true;
   // targetType이 'learner'이면 학습자, 아니면 교육담당자
-  return matched.some(p => p.targetType === 'learner' || !p.targetType);
+  return matched.some(p => (p.target_type || p.targetType) === 'learner' || !p.targetType);
 }
 
 // 페르소나 vorgId 코드 → VORG_TEMPLATES(EDU_SUPPORT_DOMAINS) id 변환
@@ -159,22 +189,22 @@ function _getActivePolicies(persona) {
 
 
 
-// 현재 페르소나에 오픈된 정책 기반 예산 목록 반환 (Policy-First: 역할 무관, 정책만 기준)
+// 현재 페르소나에 오픈된 정책 기반 예산 목록 반환 (Policy-First: target_type 기반 분리)
+// ⚠ jobType(일반직/연구직) 분기 완전 제거: 오직 서비스 정책의 target_type + purpose만으로 판별
 function getPersonaBudgets(persona, purposeId) {
   const result = _getActivePolicies(persona);
   if (result) {
     const { source, policies } = result;
     if (source === 'db') {
-      // VOrg 기반 정책: purpose 필터만 적용 (target_type 무관)
-      // 팀이 소속한 VOrg의 정책이면 모두 허용
+      // ★ 핵심 수정: target_type 필터 적용 후 purpose 필터
+      const targetFilteredPolicies = _filterPoliciesByTargetType(policies, persona);
       const boPurposeKeys = purposeId ? (_FO_TO_BO_PURPOSE[purposeId] || [purposeId]) : null;
       const filtered = boPurposeKeys
-        ? policies.filter(p => boPurposeKeys.includes(p.purpose))
-        : policies;
+        ? targetFilteredPolicies.filter(p => boPurposeKeys.includes(p.purpose))
+        : targetFilteredPolicies;
       // 허용된 accountCodes로 persona.budgets 필터
-      // !acctType 조건 제거: ACCOUNT_TYPE_MAP에 없는 코드가 있어도 전체 통과하지 않도록
       const allCodes = [...new Set(filtered.flatMap(p => p.accountCodes || p.account_codes || []))];
-      return persona.budgets.filter(b =>
+      return (persona.budgets || []).filter(b =>
         allCodes.some(code => {
           const acctType = ACCOUNT_TYPE_MAP[code];
           // acctType이 있으면 account 유형명으로 매칭, 없으면 accountCode 직접 매칭만 허용
@@ -185,14 +215,14 @@ function getPersonaBudgets(persona, purposeId) {
     // FO legacy
     const purposeFilter = purposeId ? p => p.foPurpose === purposeId : () => true;
     const allowedAccountTypes = [...new Set(policies.filter(purposeFilter).map(p => p.accountType))];
-    return persona.budgets.filter(b => allowedAccountTypes.includes(b.account));
+    return (persona.budgets || []).filter(b => allowedAccountTypes.includes(b.account));
   }
   // Fallback
   const allowed = persona.allowedAccounts || [];
-  if (allowed.includes('*')) return persona.budgets;
+  if (allowed.includes('*')) return persona.budgets || [];
   const allowedTypes = allowed.map(code => ACCOUNT_TYPE_MAP[code]).filter(Boolean);
   const purposeAccounts = Array.isArray(purposeId) ? purposeId : null;
-  return persona.budgets.filter(b =>
+  return (persona.budgets || []).filter(b =>
     (!purposeAccounts || purposeAccounts.includes(b.account)) &&
     allowedTypes.includes(b.account)
   );
@@ -296,18 +326,23 @@ const _CATEGORY_META = {
   'result-only': { icon: '📝', label: '결과만 등록', desc: '이미 수료한 교육의 결과를 등록' },
 };
 
-// 정책 기반 교육 목적 필터 (Policy-First + 행위 카테고리 부여)
+// 정책 기반 교육 목적 필터 (Policy-First + target_type 기반 학습자/운영자 분리)
+// ⚠ jobType(일반직/연구직) 분기 완전 제거: 오직 서비스 정책의 target_type만으로 판별
 function getPersonaPurposes(persona) {
   const result = _getActivePolicies(persona);
   if (result) {
     const { source, policies } = result;
     if (source === 'db') {
-      // 정책 우선: target_type 구분 없이 모든 매칭 정책의 목적을 표시
+      // ★ 핵심 수정: target_type 기반 필터 적용 (jobType 분기 제거)
+      // 학습자 페르소나 → target_type='learner' 정책만, 운영자 → 'operator' 정책만
+      const targetFilteredPolicies = _filterPoliciesByTargetType(policies, persona);
+      console.log(`[getPersonaPurposes] ${persona.name}: 전체 ${policies.length}건 → target_type 필터 후 ${targetFilteredPolicies.length}건`);
+
       const foPurposeIds = [...new Set(
-        policies.map(p => _BO_TO_FO_PURPOSE[p.purpose] || p.purpose).filter(Boolean)
+        targetFilteredPolicies.map(p => _BO_TO_FO_PURPOSE[p.purpose] || p.purpose).filter(Boolean)
       )];
       // 결과등록 전용(패턴 C/D) 정책 확인
-      const hasResultOnly = policies.some(p => {
+      const hasResultOnly = targetFilteredPolicies.some(p => {
         const pt = p.process_pattern || p.processPattern || '';
         return pt === 'C' || pt === 'D';
       });

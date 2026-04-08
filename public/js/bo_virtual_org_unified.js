@@ -341,18 +341,61 @@ function _vuTabOrg(tpl) {
     return `<div style="padding:30px;text-align:center;color:#9CA3AF;font-size:12px">🔄 조직도 로딩 중...</div>`;
   }
   const allLeafs = _vuCountLeafs(_vuOrgTreeCache);
+  const totalLeafCount = allLeafs.length;
+
+  // 전체 VOrg 에서 맵핑된 팀 ID 수집 (중복 방지용)
+  const globalMapped = _vuGetGlobalMappedTeams(null, -1);
+
   return `
 <div>
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
     <h3 style="font-size:14px;font-weight:900;color:#111827;margin:0">🏗️ 가상조직 구성</h3>
-    <button onclick="_vuAddGroup('${tpl.id}')" class="bo-btn-primary bo-btn-sm">+ 가상 본부 추가</button>
+    <div style="display:flex;gap:8px">
+      <button onclick="_vuCleanupDuplicateMappings('${tpl.id}')" class="bo-btn-secondary bo-btn-sm" style="color:#D97706;border-color:#FDE68A;font-size:10px" title="여러 가상조직에 중복 맵핑된 팀을 자동 정리합니다">🔧 중복 정리</button>
+      <button onclick="_vuAddGroup('${tpl.id}')" class="bo-btn-primary bo-btn-sm">+ 가상 본부 추가</button>
+    </div>
   </div>
+
   ${groups.length ? groups.map((g, gi) => {
     const teams = g.teams || [];
-    const mappedIds = new Set(teams.map(t => t.id));
-    const totalLeafs = allLeafs.length;
     const mappedCount = teams.length;
-    const pct = totalLeafs > 0 ? Math.round((mappedCount / totalLeafs) * 100) : 0;
+    const pct = totalLeafCount > 0 ? Math.round((mappedCount / totalLeafCount) * 100) : 0;
+
+    // breadcrumb 경로 계산 (org ID -> ancestors)
+    const teamCards = teams.map(t => {
+      const orgNode = _vuOrgFlatCache[t.id];
+      const isDeprecated = orgNode?.status === 'deprecated';
+      // 상위경로 breadcrumb
+      const breadcrumb = _vuBuildBreadcrumb(t.id);
+
+      if (isDeprecated) {
+        return { deprecated: true, html: `
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;
+                    background:#FFF7ED;border:1.5px solid #FDE68A;margin-bottom:6px">
+          <span style="font-size:13px">⚠️</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:10px;color:#D97706;font-weight:700;margin-bottom:2px">미사용 조직 (조직개편)</div>
+            <div style="font-size:11px;color:#9CA3AF;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${breadcrumb}</div>
+            <div style="font-size:12px;font-weight:700;color:#92400E">${t.name}</div>
+          </div>
+          <button onclick="_vuRemoveTeamWithCheck('${tpl.id}',${gi},'${t.id}')" style="padding:3px 8px;font-size:10px;border:1px solid #FDE68A;border-radius:5px;background:#FFFBEB;color:#D97706;cursor:pointer;flex-shrink:0">이관 후 해제</button>
+        </div>` };
+      }
+      return { deprecated: false, html: `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;
+                  background:#F0FDF4;border:1.5px solid #A7F3D0;margin-bottom:6px">
+        <span style="font-size:13px">✅</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:10px;color:#6B7280;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px">${breadcrumb}</div>
+          <div style="font-size:12px;font-weight:700;color:#065F46">${t.name}</div>
+        </div>
+        <button onclick="_vuRemoveTeamWithCheck('${tpl.id}',${gi},'${t.id}')" style="padding:3px 8px;font-size:10px;border:1px solid #D1D5DB;border-radius:5px;background:#fff;color:#6B7280;cursor:pointer;flex-shrink:0" title="맵핑 해제">✕ 해제</button>
+      </div>` };
+    });
+
+    const normalCards = teamCards.filter(c => !c.deprecated).map(c => c.html).join('');
+    const deprecatedCards = teamCards.filter(c => c.deprecated).map(c => c.html).join('');
+
     return `
   <div class="bo-card" style="padding:16px 20px;margin-bottom:14px;border-left:4px solid #1D4ED8">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
@@ -363,6 +406,7 @@ function _vuTabOrg(tpl) {
         ${g.managers ? `<span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#FEF3C7;color:#92400E;font-weight:700">담당자 ${g.managers.length}명</span>` : ''}
       </div>
       <div style="display:flex;gap:6px">
+        <button onclick="_vuMapTeams('${tpl.id}',${gi})" style="padding:5px 12px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;color:#1D4ED8">+ 팀 맵핑</button>
         <button onclick="_vuEditGroup('${tpl.id}',${gi})" class="bo-btn-secondary bo-btn-sm">수정</button>
         <button onclick="_vuDeleteGroup('${tpl.id}',${gi})" class="bo-btn-secondary bo-btn-sm" style="color:#EF4444;border-color:#FCA5A5">삭제</button>
       </div>
@@ -370,14 +414,21 @@ function _vuTabOrg(tpl) {
     <div style="margin:8px 0 12px;padding:0 4px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <span style="font-size:10px;font-weight:700;color:#6B7280">📊 매핑 커버리지</span>
-        <span style="font-size:11px;font-weight:800;color:${pct>=80?'#059669':pct>=40?'#D97706':'#DC2626'}">${mappedCount} / ${totalLeafs}팀 (${pct}%)</span>
+        <span style="font-size:11px;font-weight:800;color:${pct>=80?'#059669':pct>=40?'#D97706':'#DC2626'}">${mappedCount} / ${totalLeafCount}팀 (${pct}%)</span>
       </div>
       <div style="width:100%;height:6px;background:#F3F4F6;border-radius:4px;overflow:hidden">
         <div style="height:100%;width:${pct}%;background:${pct>=80?'#059669':pct>=40?'#D97706':'#DC2626'};border-radius:4px;transition:width .3s"></div>
       </div>
     </div>
-    <div style="max-height:420px;overflow-y:auto;border:1px solid #E5E7EB;border-radius:10px;padding:8px">
-      ${_vuBuildInlineTree(_vuOrgTreeCache, 0, mappedIds, tpl.id, gi)}
+    <!-- 맵핑된 팀 목록 -->
+    <div style="padding:4px 0">
+      ${normalCards || `<div style="padding:20px;text-align:center;background:#F9FAFB;border:1.5px dashed #E5E7EB;border-radius:10px;color:#9CA3AF;font-size:12px">
+        맵핑된 팀이 없습니다. <br><span style="font-size:11px">위 [+ 팀 맵핑] 버튼으로 팀을 추가하세요</span></div>`}
+      ${deprecatedCards ? `
+      <div style="margin-top:10px;padding:10px;background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:10px">
+        <div style="font-size:10px;font-weight:800;color:#D97706;margin-bottom:8px">⚠️ 조직개편 대상 (폐지된 팀)</div>
+        ${deprecatedCards}
+      </div>` : ''}
     </div>
   </div>`;
   }).join('') : `
@@ -389,60 +440,144 @@ function _vuTabOrg(tpl) {
 </div>`;
 }
 
-function _vuBuildInlineTree(nodes, depth, mappedIds, tplId, gi) {
-  if (!nodes || !nodes.length) return '';
-  let html = '';
-  const ST = {
-    headquarters:{icon:'🏢',color:'#1E40AF',bg:'#EFF6FF'},
-    center:{icon:'🔬',color:'#6D28D9',bg:'#F5F3FF'},
-    office:{icon:'📋',color:'#065F46',bg:'#ECFDF5'},
-    division:{icon:'🏭',color:'#92400E',bg:'#FFFBEB'},
-    team:{icon:'👥',color:'#374151',bg:'#F9FAFB'}
-  };
-  nodes.forEach(node => {
-    const st = ST[node.type] || ST.team;
-    const hasChildren = node.children && node.children.length > 0;
-    const isLeaf = !hasChildren;
-    const isMapped = mappedIds.has(node.id);
-    const indent = depth * 18;
-    if (isLeaf) {
-      const safeName = (node.name||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
-      html += `
-      <div style="display:flex;align-items:center;gap:8px;padding:5px 10px;padding-left:${10+indent}px;
-                  border-radius:7px;margin-bottom:2px;background:${isMapped?'#F0FDF4':'#FAFAFA'};
-                  border:1px ${isMapped?'solid #A7F3D0':'dashed #E5E7EB'};cursor:pointer;transition:all .15s"
-           onclick="event.preventDefault();_vuToggleTeamInline('${tplId}',${gi},'${node.id}','${safeName}',${!isMapped})">
-        <input type="checkbox" ${isMapped?'checked':''} style="width:14px;height:14px;accent-color:#059669;pointer-events:none;flex-shrink:0">
-        <span style="font-size:12px">${st.icon}</span>
-        <span style="font-size:12px;font-weight:${isMapped?'700':'500'};color:${isMapped?'#065F46':'#9CA3AF'};flex:1">${node.name}</span>
-        ${isMapped
-          ? '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:8px;background:#D1FAE5;color:#059669">✓ 매핑</span>'
-          : '<span style="font-size:9px;font-weight:600;padding:2px 6px;border-radius:8px;background:#FEF2F2;color:#DC2626">미매핑</span>'}
-      </div>`;
-    } else {
-      let childMapped=0, childTotal=0;
-      _vuCountLeafs(node.children).forEach(l => { childTotal++; if(mappedIds.has(l.id)) childMapped++; });
-      const statusColor = childTotal>0&&childMapped===childTotal ? '#059669' : (childMapped>0?'#D97706':'#DC2626');
-      const collapseId = `vu-tc-${gi}-${node.id}`;
-      html += `
-      <div style="margin-bottom:2px">
-        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;padding-left:${10+indent}px;
-                    border-radius:7px;background:${st.bg};cursor:pointer;user-select:none"
-             onclick="_vuToggleTreeCollapse('${collapseId}',this)">
-          <span class="vu-collapse-arrow" style="font-size:10px;color:#9CA3AF;transition:transform .2s;display:inline-block">▼</span>
-          <span style="font-size:13px">${st.icon}</span>
-          <span style="font-size:12px;font-weight:800;color:${st.color};flex:1">${node.name}
-            <span style="font-size:10px;font-weight:600;color:#9CA3AF;margin-left:4px">(${node.children.length}개 하위)</span>
-          </span>
-          <span style="font-size:10px;font-weight:800;color:${statusColor};padding:2px 8px;border-radius:6px;background:${statusColor}15">${childMapped}/${childTotal}</span>
-        </div>
-        <div id="${collapseId}" style="border-left:2px solid ${st.color}30;margin-left:${20+indent}px;padding-left:4px;margin-top:2px">
-          ${_vuBuildInlineTree(node.children, depth+1, mappedIds, tplId, gi)}
-        </div>
-      </div>`;
+// 조직 ID -> 상위 경로 breadcrumb 문자열 생성
+function _vuBuildBreadcrumb(orgId) {
+  const parts = [];
+  let cur = _vuOrgFlatCache[orgId];
+  // 현재 노드 제외하고 상위만 탐색
+  if (cur && cur.parent_id) {
+    let p = _vuOrgFlatCache[cur.parent_id];
+    while (p) {
+      parts.unshift(p.name);
+      p = p.parent_id ? _vuOrgFlatCache[p.parent_id] : null;
     }
+  }
+  return parts.length ? parts.join(' > ') : '';
+}
+
+// 현재 tplId/gi 를 제외한 모든 VOrg 맵핑 팀 ID 수집
+function _vuGetGlobalMappedTeams(excludeTplId, excludeGi) {
+  const mapped = {}; // { teamId: "템플릿명 > 그룹명" }
+  _vuTplList.forEach(tpl => {
+    (tpl.tree?.hqs || []).forEach((group, gi) => {
+      if (tpl.id === excludeTplId && gi === excludeGi) return;
+      (group.teams || []).forEach(team => {
+        mapped[team.id] = `${tpl.name} > ${group.name}`;
+      });
+    });
   });
-  return html;
+  return mapped;
+}
+
+// 중복 맵핑 자동 정리: 같은 팀이 여러 VOrg에 맵핑된 경우 나중 것은 제거
+async function _vuCleanupDuplicateMappings(tplId) {
+  const seenIds = {}; // teamId -> "tplName > groupName"
+  let removedCount = 0;
+  const toSave = [];
+
+  // 전체 템플릿 순회, 먼저 나오는 쪽을 우선 유지
+  _vuTplList.forEach(tpl => {
+    const hqs = tpl.tree?.hqs || [];
+    let tplModified = false;
+    hqs.forEach(g => {
+      const before = (g.teams || []).length;
+      g.teams = (g.teams || []).filter(team => {
+        if (seenIds[team.id]) {
+          removedCount++;
+          tplModified = true;
+          console.log(`[중복제거] ${team.name} : ${seenIds[team.id]} 에서 이미 맵핑됨 -> ${tpl.name} > ${g.name} 에서 제거`);
+          return false;
+        }
+        seenIds[team.id] = `${tpl.name} > ${g.name}`;
+        return true;
+      });
+    });
+    if (tplModified) toSave.push(tpl);
+  });
+
+  if (removedCount === 0) {
+    alert('중복 맵핑된 팀이 없습니다.');
+    return;
+  }
+
+  // 수정된 템플릿 저장
+  for (const tpl of toSave) {
+    await _vuAutoSave(tpl);
+  }
+  alert(`✅ ${removedCount}건의 중복 맵핑이 정리되었습니다.`);
+  _vuSwitchTab(_vuActiveTab);
+}
+
+// 팀 해제 시 통장 잔액/동결 체크 후 처리
+async function _vuRemoveTeamWithCheck(tplId, gi, teamId) {
+  const tpl = _vuTplList.find(t => t.id === tplId);
+  if (!tpl) return;
+  const g = (tpl.tree?.hqs || [])[gi];
+  if (!g) return;
+  const team = (g.teams || []).find(t => t.id === teamId);
+  if (!team) return;
+
+  // 통장 잔액/동결 조회
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (sb) {
+      const { data: bbs } = await sb.from('org_budget_bankbooks')
+        .select('id,org_name')
+        .eq('org_id', teamId)
+        .eq('template_id', tplId)
+        .eq('status', 'active');
+
+      if (bbs && bbs.length > 0) {
+        const bbIds = bbs.map(b => b.id);
+        const { data: allocs } = await sb.from('budget_allocations')
+          .select('bankbook_id,allocated_amount,used_amount,frozen_amount')
+          .in('bankbook_id', bbIds);
+
+        let totalFrozen = 0, totalBalance = 0;
+        (allocs || []).forEach(a => {
+          const alloc = Number(a.allocated_amount || 0);
+          const used = Number(a.used_amount || 0);
+          const frozen = Number(a.frozen_amount || 0);
+          totalFrozen += frozen;
+          totalBalance += alloc - used - frozen;
+        });
+        const fmt = n => Number(n).toLocaleString();
+
+        if (totalFrozen > 0) {
+          alert(`⛔ "${team.name}" 통장에 동결 예산 ${fmt(totalFrozen)}원이 있습니다.\n→ 진행 중인 교육이 완료될 때까지 해제할 수 없습니다.`);
+          return;
+        }
+        if (totalBalance > 0) {
+          const ok = confirm(`⚠️ "${team.name}" 통장에 잔액 ${fmt(totalBalance)}원이 있습니다.\n\n예산 배정 현황에서 다른 조직으로 이관 후 해제하시겠습니까?\n\n[확인]: 이관 처리 없이 강제 해제 (잔액 회수됨)\n[취소]: 취소`);
+          if (!ok) return;
+          // 잔액 강제 회수 + 통장 비활성화
+          for (const bb of bbs) {
+            const alloc = (allocs || []).find(a => a.bankbook_id === bb.id);
+            if (alloc) {
+              const allocated = Number(alloc.allocated_amount || 0);
+              await sb.from('budget_allocations').update({ allocated_amount: 0 }).eq('bankbook_id', bb.id);
+              await sb.from('budget_allocation_log').insert({
+                allocation_id: (await sb.from('budget_allocations').select('id').eq('bankbook_id', bb.id).single()).data?.id,
+                action: 'adjust', amount: -allocated, prev_balance: allocated, new_balance: 0,
+                reason: '가상조직 팀 해제 - 잔액 회수', performed_by: boCurrentPersona?.name || ''
+              });
+            }
+            await sb.from('org_budget_bankbooks').update({ status: 'inactive' }).eq('id', bb.id);
+          }
+        } else {
+          // 잔액 없음: 통장만 비활성화
+          for (const bb of bbs) {
+            await sb.from('org_budget_bankbooks').update({ status: 'inactive' }).eq('id', bb.id);
+          }
+        }
+      }
+    }
+  } catch (e) { console.warn('[팀 해제] 통장 처리 실패:', e.message); }
+
+  // tree_data에서 팀 제거
+  g.teams = (g.teams || []).filter(t => t.id !== teamId);
+  _vuAutoSave(tpl);
+  _vuSwitchTab(_vuActiveTab);
 }
 
 function _vuToggleTreeCollapse(id, headerEl) {
@@ -451,18 +586,6 @@ function _vuToggleTreeCollapse(id, headerEl) {
   const arrow = headerEl.querySelector('.vu-collapse-arrow');
   if (el.style.display === 'none') { el.style.display = ''; if (arrow) arrow.style.transform = ''; }
   else { el.style.display = 'none'; if (arrow) arrow.style.transform = 'rotate(-90deg)'; }
-}
-
-function _vuToggleTeamInline(tplId, gi, teamId, teamName, shouldAdd) {
-  const tpl = _vuTplList.find(t => t.id === tplId);
-  if (!tpl) return;
-  const g = (tpl.tree?.hqs || [])[gi];
-  if (!g) return;
-  if (!g.teams) g.teams = [];
-  if (shouldAdd) { if (!g.teams.find(t => t.id === teamId)) g.teams.push({ id: teamId, name: teamName }); }
-  else { g.teams = g.teams.filter(t => t.id !== teamId); }
-  _vuAutoSave(tpl);
-  _vuSwitchTab(_vuActiveTab);
 }
 
 // ═══ 탭③: 협조처·담당자 ═════════════════════════════════════════════════════
@@ -1132,6 +1255,7 @@ function _vuOrgPickerModal() {
 }
 
 let _vuOrgPickerData = [];
+let _vuGlobalMappedOrgs = {}; // { orgId: "tplName > groupName" } - 다른 VOrg보에 이미 맵핑된 팀
 
 async function _vuShowOrgPicker(title) {
   document.getElementById('vu-org-picker-title').textContent = title;
@@ -1140,13 +1264,20 @@ async function _vuShowOrgPicker(title) {
   listEl.innerHTML = '<div style="padding:20px;text-align:center;color:#9CA3AF">로딩 중...</div>';
   document.getElementById('vu-org-picker').style.display = 'flex';
 
-  // 현재 그룹에 이미 매핑된 org ID 수집 (기매핑 표시용)
+  // 현재 그룹에 이미 매핑된 org ID 수집
   _vuMappedOrgIds = new Set();
   const _curTpl = _vuTplList.find(t => t.id === window._vuPickerTplId);
   const _curGrp = _curTpl ? (_curTpl.tree?.hqs || [])[window._vuPickerGi] : null;
   if (_curGrp) {
     const existing = window._vuPickerMode === 'coop' ? (_curGrp.coopTeams || []) : (_curGrp.teams || []);
     existing.forEach(t => _vuMappedOrgIds.add(t.id));
+  }
+
+  // 전체 VOrg 중 현재 tpl/gi 를 제외한 모든 맵핑 팀 ID 수집 (4가지 상태 구분용)
+  if (window._vuPickerMode === 'team') {
+    _vuGlobalMappedOrgs = _vuGetGlobalMappedTeams(window._vuPickerTplId, window._vuPickerGi);
+  } else {
+    _vuGlobalMappedOrgs = {};
   }
 
   // DB에서 조직 데이터 로드
@@ -1156,7 +1287,7 @@ async function _vuShowOrgPicker(title) {
     const sb = typeof _sb === 'function' ? _sb() : null;
     if (sb) {
       const { data } = await sb.from('organizations')
-        .select('id,name,parent_id,type,tenant_id')
+        .select('id,name,parent_id,type,tenant_id,status')
         .eq('tenant_id', _vuTenantId)
         .order('name');
       if (data) rawOrgs = data;
@@ -1175,8 +1306,9 @@ async function _vuShowOrgPicker(title) {
       }
     });
     _vuOrgPickerData = roots;
+    // flat cache 동기화
+    rawOrgs.forEach(o => { _vuOrgFlatCache[o.id] = orgMap[o.id]; });
   } else if (typeof BO_PERSONAS !== 'undefined') {
-    // 폴백 로직
     const deptSet = new Map();
     Object.values(BO_PERSONAS).forEach(p => {
       if (p.tenantId === _vuTenantId && p.dept) {
@@ -1213,33 +1345,57 @@ function _vuBuildOrgTreeHtml(nodes, depth, q) {
     }[node.type] || { icon: '👥', color: '#374151', bg: '#F9FAFB', border: '#E5E7EB', label: node.type || '팀' };
 
     const indent = depth * 20;
-    const isMapped = _vuMappedOrgIds.has(node.id);
+    const isMapped = _vuMappedOrgIds.has(node.id);       // 현재 VOrg 이 그룹에 맵핑된
+    const isOtherVorg = !!_vuGlobalMappedOrgs[node.id];  // 다른 VOrg에 맵핑된
+    const isDeprecated = node.status === 'deprecated';    // 폐지된 조직
     const hasChildren = node.children && node.children.length > 0;
 
-    // 이미 매핑된 경우 다른 스타일
-    const rowBg = isMapped ? '#F0FDF4' : '#fff';
-    const rowBdr = isMapped ? '1.5px solid #6EE7B7' : '1px solid #E5E7EB';
+    // 보여지는 상태에 따라 4가지 스타일
+    let rowBg, rowBdr, checkboxDisabled, checkboxChecked, badgeHtml;
+    if (isDeprecated) {
+      // 폐지 조직: 회색에 기울기, 선택 불가
+      rowBg = '#F9FAFB'; rowBdr = '1px dashed #D1D5DB';
+      checkboxDisabled = true; checkboxChecked = false;
+      badgeHtml = '<span style="font-size:9px;padding:2px 7px;border-radius:10px;background:#F3F4F6;color:#9CA3AF;white-space:nowrap">폐지</span>';
+    } else if (isOtherVorg) {
+      // 다른 VOrg에 이미 맵핑된: 주황에 선택 불가
+      rowBg = '#FFFBEB'; rowBdr = '1.5px solid #FDE68A';
+      checkboxDisabled = false; checkboxChecked = false; // 선택 가능 (conflicts 경고 후 재맵핑)
+      badgeHtml = `<span style="font-size:9px;padding:2px 7px;border-radius:10px;background:#FEF3C7;color:#92400E;white-space:nowrap" title="다른 가상조직: ${_vuGlobalMappedOrgs[node.id]}">⚠️ ${_vuGlobalMappedOrgs[node.id].split(' > ')[1]}에서 맵핑 중</span>`;
+    } else if (isMapped) {
+      // 이미 현재 VOrg에 맵핑된: 녹색에 체크되어 있음
+      rowBg = '#F0FDF4'; rowBdr = '1.5px solid #6EE7B7';
+      checkboxDisabled = true; checkboxChecked = true;
+      badgeHtml = '<span style="font-size:9px;padding:2px 7px;border-radius:10px;background:#D1FAE5;color:#059669;white-space:nowrap">✓ 맵핑됨</span>';
+    } else {
+      // 미맵핑: 기본 흰색
+      rowBg = '#fff'; rowBdr = '1px solid #E5E7EB';
+      checkboxDisabled = false; checkboxChecked = false;
+      badgeHtml = '';
+    }
 
-    // 상위 노드 선택 시 하위 자동 체크용 data 속성
-    const childIds = hasChildren ? _vuCollectChildIds(node.children) : [];
-    const childIdsAttr = childIds.length ? `data-child-ids="${childIds.join(',')}"` : '';
+    // 하위 선택용 data 속성 (상위 선택 시 하위 자동 체크)
+    const childLeafIds = hasChildren ? _vuCollectLeafIds(node.children) : [];
+    const childIdsAttr = childLeafIds.length ? `data-child-ids="${childLeafIds.join(',')}"` : '';
 
     html += `
     <div style="margin-bottom:5px" data-org-id="${node.id}">
       <label style="display:flex;align-items:center;gap:9px;padding:9px 14px;padding-left:${14 + indent}px;
-             border-radius:9px;cursor:pointer;background:${rowBg};border:${rowBdr};
-             transition:all 0.15s;user-select:none"
-             onmouseover="if(!${isMapped})this.style.background='#F9FAFB'" onmouseout="if(!${isMapped})this.style.background='${rowBg}'">
+             border-radius:9px;cursor:${checkboxDisabled ? 'default' : 'pointer'};background:${rowBg};border:${rowBdr};
+             transition:all 0.15s;user-select:none" 
+             ${!checkboxDisabled && !isMapped && !isOtherVorg ? `onmouseover="this.style.background='#F0F9FF'" onmouseout="this.style.background='${rowBg}'"` : ''}>
         <input type="checkbox" class="vu-org-chk" value="${node.id}" data-name="${node.name}"
-          ${isMapped ? 'checked disabled' : ''}
+          ${checkboxChecked ? 'checked' : ''}
+          ${checkboxDisabled ? 'disabled' : ''}
           ${childIdsAttr}
           onchange="if(this.checked)_vuCheckChildren(this)"
-          style="width:15px;height:15px;accent-color:#1D4ED8;margin:0;flex-shrink:0${isMapped ? ';opacity:0.5' : ''}">
-        <span style="font-size:14px">${st.icon}</span>
-        <span style="font-size:13px;font-weight:${isMapped ? '800' : '600'};color:${isMapped ? '#059669' : '#374151'};flex:1">
+          style="width:15px;height:15px;accent-color:#1D4ED8;margin:0;flex-shrink:0${checkboxDisabled ? ';opacity:0.5' : ''}"
+          ${isOtherVorg ? `title="⚠️ 선택 시 ${_vuGlobalMappedOrgs[node.id]}에서 이관됩니다"` : ''}>
+        <span style="font-size:14px">${isDeprecated ? '😶' : st.icon}</span>
+        <span style="font-size:13px;font-weight:${isMapped ? '800' : isOtherVorg ? '600' : '600'};color:${isMapped ? '#059669' : isDeprecated ? '#9CA3AF' : isOtherVorg ? '#92400E' : '#374151'};flex:1">
           ${node.name}${hasChildren ? ` <span style="font-size:10px;color:#9CA3AF;font-weight:400">(${node.children.length}개 하위)</span>` : ''}
         </span>
-        ${isMapped ? '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;background:#D1FAE5;color:#059669;white-space:nowrap">✓ 매핑됨</span>' : ''}
+        ${badgeHtml}
         <span style="font-size:10px;color:${st.color};background:${st.bg};border:1px solid ${st.border};
               padding:1px 7px;border-radius:5px;font-weight:700;white-space:nowrap">${st.label}</span>
       </label>
@@ -1249,12 +1405,13 @@ function _vuBuildOrgTreeHtml(nodes, depth, q) {
   return html;
 }
 
-// 하위 노드의 모든 ID를 재귀적으로 수집
-function _vuCollectChildIds(nodes) {
+// 푸리 노드의 모든 leaf(team)의 ID 수집 (하위 전체 선택용)
+function _vuCollectLeafIds(nodes) {
   const ids = [];
   nodes.forEach(n => {
-    ids.push(n.id);
-    if (n.children && n.children.length) ids.push(..._vuCollectChildIds(n.children));
+    const hasChildren = n.children && n.children.length > 0;
+    if (!hasChildren) ids.push(n.id);
+    else ids.push(..._vuCollectLeafIds(n.children));
   });
   return ids;
 }
@@ -1285,14 +1442,41 @@ function _vuRenderOrgList(query) {
 }
 
 function _vuConfirmOrgPick() {
-  const checked = [...document.querySelectorAll('.vu-org-chk:checked')];
-  if (!checked.length) { alert('조직을 선택하세요.'); return; }
+  const checked = [...document.querySelectorAll('.vu-org-chk:checked:not([disabled])')] // disabled 제외
+    .concat([...document.querySelectorAll('.vu-org-chk[disabled]:checked')]); // 이미맵핑 포함
+  const newlyChecked = [...document.querySelectorAll('.vu-org-chk:checked:not([disabled])')]; // 실제 신규선택
+
+  if (!newlyChecked.length) { alert('조직을 선택하세요.'); return; }
+
   const tpl = _vuTplList.find(t => t.id === window._vuPickerTplId);
   if (!tpl) return;
   const g = (tpl.tree?.hqs || [])[window._vuPickerGi];
   if (!g) return;
 
-  checked.forEach(chk => {
+  // 충돌 확인: 다른 VOrg에 이미 맵핑된 팀이 없는지 체크
+  const conflicts = newlyChecked.filter(chk => _vuGlobalMappedOrgs[chk.value]);
+  if (conflicts.length > 0) {
+    const conflictList = conflicts.map(c => `• ${c.dataset.name}: ${_vuGlobalMappedOrgs[c.value]}`).join('\n');
+    const ok = confirm(`⚠️ 다음 팀은 다른 가상조직에 이미 맵핑되어 있습니다:\n${conflictList}\n\n[확인]: 기존 맵핑을 이 가상조직으로 재맵핑 (\uae30존 VOrg에서 자동 제거)\n[취소]: 취소`);
+    if (!ok) return;
+
+    // 충돌 팀 기존 맵핑 제거
+    conflicts.forEach(chk => {
+      const conflictInfo = _vuGlobalMappedOrgs[chk.value]; // "tplName > groupName"
+      _vuTplList.forEach(otherTpl => {
+        (otherTpl.tree?.hqs || []).forEach(group => {
+          const before = (group.teams || []).length;
+          group.teams = (group.teams || []).filter(t => t.id !== chk.value);
+          if ((group.teams || []).length !== before) {
+            console.log(`[재맵핑] ${chk.dataset.name} : ${conflictInfo} 에서 제거`);
+          }
+        });
+      });
+    });
+  }
+
+  // 현재 그룹에 팀 추가
+  newlyChecked.forEach(chk => {
     const item = { id: chk.value, name: chk.dataset.name };
     if (window._vuPickerMode === 'team') {
       if (!g.teams) g.teams = [];
@@ -1303,6 +1487,7 @@ function _vuConfirmOrgPick() {
     }
   });
 
+  // 변경된 모든 템플릿 저장
   _vuAutoSave(tpl);
   document.getElementById('vu-org-picker').style.display = 'none';
   _vuSwitchTab(_vuActiveTab);

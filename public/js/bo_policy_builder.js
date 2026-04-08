@@ -203,10 +203,10 @@ async function renderServicePolicy() {
   // 조회 가능한 예산계정 목록
   const availAccounts = (() => {
     if (pbVorgId) {
-      return _pbAccountList.filter(a => a.active && a.virtual_org_template_id === pbVorgId);
+      // active 필터 제거: 무예산 계정(uses_budget=false)도 정책에서 선택 가능해야 함
+      return _pbAccountList.filter(a => a.virtual_org_template_id === pbVorgId);
     }
     return _pbAccountList.filter(a =>
-      a.active &&
       a.code !== 'COMMON-FREE' &&
       (activeTenantId ? a.tenant_id === activeTenantId : true)
     );
@@ -649,9 +649,9 @@ function renderPolicyWizard() {
     const scopeVorgId = d.vorgTemplateId || (isBudgetOp ? (persona.domainId || '') : '');
     const scopeVorg = scopeVorgs.find(g => g.id === scopeVorgId);
 
-    // 예산계정
+    // active 필터 제거: 무예산 계정(uses_budget=false)도 정책에서 선택 가능
     const scopeAccts = scopeVorgId
-      ? _pbAccountList.filter(a => a.active && a.virtual_org_template_id === scopeVorgId)
+      ? _pbAccountList.filter(a => a.virtual_org_template_id === scopeVorgId)
       : [];
 
     stepContent = `

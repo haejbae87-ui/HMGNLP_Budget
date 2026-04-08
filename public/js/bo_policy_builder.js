@@ -116,7 +116,7 @@ async function renderServicePolicy() {
   if (typeof _sb === 'function' && _sb()) {
     try {
       const p1 = _sb().from('virtual_org_templates').select('id,name,tenant_id').eq('service_type', 'edu_support');
-      const p2 = _sb().from('budget_accounts').select('code,name,virtual_org_template_id,tenant_id,active');
+      const p2 = _sb().from('budget_accounts').select('code,name,virtual_org_template_id,tenant_id,active,uses_budget');
       const p3 = _sb().from('service_policies').select('*');
       const [res1, res2, res3] = await Promise.all([p1, p2, p3]);
 

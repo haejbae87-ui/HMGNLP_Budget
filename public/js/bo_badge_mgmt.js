@@ -163,7 +163,7 @@ async function renderBadgeMgmt() {
 async function _bmLoadTenants(isSuperAdmin, myTenantId) {
   if (!isSuperAdmin) return;
   try {
-    const { data } = await window._supabase.from('tenants').select('id, name').order('name');
+    const { data } = await _sb().from('tenants').select('id, name').order('name');
     _bmAllTenants = data || [];
     const sel = document.getElementById('bm-filter-tenant');
     if (!sel) return;
@@ -176,7 +176,7 @@ async function _bmLoadTenants(isSuperAdmin, myTenantId) {
 
 async function _bmLoadVorgs(tenantId) {
   try {
-    let q = window._supabase.from('virtual_org_templates').select('id, name').eq('service_type', 'badge').order('name');
+    let q = _sb().from('virtual_org_templates').select('id, name').eq('service_type', 'badge').order('name');
     if (tenantId) q = q.eq('tenant_id', tenantId);
     const { data } = await q;
     _bmVorgTemplates = data || [];
@@ -194,7 +194,7 @@ async function _bmLoadVorgs(tenantId) {
 
 async function _bmLoadGroups(vorgId) {
   try {
-    let q = window._supabase.from('badge_groups').select('id, name');
+    let q = _sb().from('badge_groups').select('id, name');
     const tenantId = _bmFilterTenantId || boCurrentPersona?.tenantId || 'HMC';
     if (tenantId) q = q.eq('tenant_id', tenantId);
     if (vorgId) q = q.eq('vorg_template_id', vorgId);
@@ -233,7 +233,7 @@ async function loadBadgeMgmtData() {
   try {
     // 1. 뱃지 그룹 목록 (필터 조건 적용)
     if (!mgmtBadgeGroups.length || !_bmFilterVorgId) {
-      let gq = window._supabase.from('badge_groups').select('id, name').eq('tenant_id', tenantId);
+      let gq = _sb().from('badge_groups').select('id, name').eq('tenant_id', tenantId);
       if (_bmFilterVorgId) gq = gq.eq('vorg_template_id', _bmFilterVorgId);
       const { data: gData } = await gq;
       mgmtBadgeGroups = gData || [];
@@ -251,7 +251,7 @@ async function loadBadgeMgmtData() {
       return;
     }
 
-    const { data: bList, error: bErr } = await window._supabase
+    const { data: bList, error: bErr } = await _sb()
       .from('badges')
       .select('*')
       .in('group_id', groupIdFilter)
@@ -387,10 +387,10 @@ async function saveBadgeDef() {
 
   let error;
   if (!id) {
-    ({ error } = await window._supabase.from('badges').insert([payload]));
+    ({ error } = await _sb().from('badges').insert([payload]));
   } else {
     payload.updated_at = new Date().toISOString();
-    ({ error } = await window._supabase.from('badges').update(payload).eq('id', id));
+    ({ error } = await _sb().from('badges').update(payload).eq('id', id));
   }
   if (error) return alert('저장 오류: ' + error.message);
 

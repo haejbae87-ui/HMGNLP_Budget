@@ -102,7 +102,7 @@ async function renderBadgeGroupMgmt() {
 async function _bgLoadTenants(isSuperAdmin, myTenantId) {
   if (!isSuperAdmin) return;
   try {
-    const { data } = await window._supabase.from('tenants').select('id, name').order('name');
+    const { data } = await _sb().from('tenants').select('id, name').order('name');
     _bgAllTenants = data || [];
     const sel = document.getElementById('bg-filter-tenant');
     if (!sel) return;
@@ -115,7 +115,7 @@ async function _bgLoadTenants(isSuperAdmin, myTenantId) {
 
 async function _bgLoadVorgs(tenantId) {
   try {
-    let q = window._supabase.from('virtual_org_templates').select('id, name').eq('service_type', 'badge').order('name');
+    let q = _sb().from('virtual_org_templates').select('id, name').eq('service_type', 'badge').order('name');
     if (tenantId) q = q.eq('tenant_id', tenantId);
     const { data } = await q;
     vorgBadgeTemplates = data || [];
@@ -148,7 +148,7 @@ async function loadBadgeGroupData() {
 
   try {
     // 뱃지 그룹 조회
-    let q = window._supabase.from('badge_groups').select('*').order('created_at', { ascending: false });
+    let q = _sb().from('badge_groups').select('*').order('created_at', { ascending: false });
     if (tenantId) q = q.eq('tenant_id', tenantId);
     if (_bgFilterVorgId) q = q.eq('vorg_template_id', _bgFilterVorgId);
 
@@ -216,7 +216,7 @@ async function saveBadgeGroup() {
   if (!name) return alert('그룹명을 입력해주세요.');
   if (!vorgId) return alert('가상조직을 선택해주세요.');
 
-  const { error } = await window._supabase.from('badge_groups').insert([{
+  const { error } = await _sb().from('badge_groups').insert([{
     tenant_id: tenantId,
     vorg_template_id: vorgId,
     name,
@@ -235,7 +235,7 @@ async function saveBadgeGroup() {
 
 async function deleteBadgeGroup(id) {
   if (!confirm('정말 삭제하시겠습니까?\n연결된 뱃지들의 그룹 참조가 끊어집니다.')) return;
-  const { error } = await window._supabase.from('badge_groups').delete().eq('id', id);
+  const { error } = await _sb().from('badge_groups').delete().eq('id', id);
   if (error) {
     console.error('Delete Error', error);
     alert('삭제 실패: ' + error.message);

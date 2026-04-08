@@ -959,8 +959,9 @@ ${_processInfo ? `
     <h2 class="text-lg font-black text-gray-800 mb-6">03. 교육유형 선택</h2>
     ${(() => {
       // 정책 기반 교육유형 트리 우선 사용
-      const tree = typeof getPolicyEduTree !== 'undefined' && curBudget
-        ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget.account)
+      // ★ curBudget이 null이어도 purpose만으로 시도 (budgetAccountType=null → accountCode 필터 스킵)
+      const tree = typeof getPolicyEduTree !== 'undefined'
+        ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget ? curBudget.account : null)
         : [];
 
       if (tree.length > 0) {
@@ -1031,8 +1032,8 @@ ${_processInfo ? `
     <div class="flex justify-between mt-6">
       <button onclick="applyPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
       ${(() => {
-      const tree2 = typeof getPolicyEduTree !== 'undefined' && curBudget
-        ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget.account) : [];
+      const tree2 = typeof getPolicyEduTree !== 'undefined'
+        ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget ? curBudget.account : null) : [];
       if (tree2.length > 0) {
         const selNode = tree2.find(n => n.id === s.eduType);
         const isLeaf = selNode && (!selNode.subs || selNode.subs.length === 0);
@@ -1542,7 +1543,16 @@ function selectBudgetChoice(choice) {
     );
     applyState.applyMode = matchedPolicy?.apply_mode || matchedPolicy?.applyMode || 'reimbursement';
     applyState.useBudget = true;
-    if (budgets.length >= 1) applyState.budgetId = budgets[0].id;
+    // ★ 핵심 수정: purpose에 맞는 예산 계정(참가계정)을 선택
+    // 이전: budgets[0]을 무조건 선택 → 운영/기타 계정이 먼저 오면 Step3에서 curBudget=null
+    const purposeId = applyState.purpose?.id || 'external_personal';
+    const purposeBudgets = typeof getPersonaBudgets !== 'undefined'
+      ? getPersonaBudgets(currentPersona, purposeId) : [];
+    if (purposeBudgets.length > 0) {
+      applyState.budgetId = purposeBudgets[0].id;
+    } else if (budgets.length >= 1) {
+      applyState.budgetId = budgets[0].id;
+    }
   } else {
     // 기타 선택지: 예산 목록에서 account name 매칭
     applyState.applyMode = 'holding';

@@ -771,10 +771,17 @@ ${_processInfo ? `
         ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget.account)
         : [];
 
-      if (tree.length === 0) return `
-      <div class="p-5 bg-gray-50 rounded-2xl text-sm font-bold text-gray-500 flex items-center gap-3">
-        <span class="text-accent text-xl">✓</span> 이 예산 계정은 모든 교육유형에 사용 가능합니다.
-      </div>`;
+      if (tree.length === 0) {
+        const hasPolicies = typeof SERVICE_POLICIES !== 'undefined' && SERVICE_POLICIES.length > 0;
+        return hasPolicies
+          ? `<div class="p-5 bg-yellow-50 border-2 border-yellow-200 rounded-2xl">
+              <div class="font-black text-yellow-700 text-sm">⚠️ 허용된 교육유형 정보가 없습니다</div>
+              <div class="text-xs text-yellow-600 mt-1">관리자에게 서비스 정책 설정을 요청해 주세요.</div>
+            </div>`
+          : `<div class="p-5 bg-gray-50 rounded-2xl text-sm font-bold text-gray-500 flex items-center gap-3">
+              <span class="text-accent text-xl">✓</span> 이 예산 계정은 모든 교육유형에 사용 가능합니다.
+            </div>`;
+      }
 
       return tree.map(node => {
         const isLeaf = !node.subs || node.subs.length === 0;

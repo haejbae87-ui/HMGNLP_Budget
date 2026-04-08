@@ -1005,7 +1005,16 @@ ${_processInfo ? `
         }).join('');
       }
 
-      // ── Fallback: PURPOSES subtypes 기반 (기존 방식) ──
+      // Fallback: SERVICE_POLICIES 로드 여부 확인
+      const hasPolicies = typeof SERVICE_POLICIES !== 'undefined' && SERVICE_POLICIES.length > 0;
+      if (hasPolicies) {
+        // 정책이 로드됐는데 tree가 비어있으면 → 이 계정/VOrg에 설정된 정책 없음
+        return `<div class="p-5 bg-yellow-50 border-2 border-yellow-200 rounded-2xl">
+          <div class="font-black text-yellow-700 text-sm">⚠️ 허용된 교육유형 정보가 없습니다</div>
+          <div class="text-xs text-yellow-600 mt-1">관리자에게 서비스 정책 설정을 요청해 주세요.</div>
+        </div>`;
+      }
+      // SERVICE_POLICIES 미로드: PURPOSES subtypes 기반 폴백
       const subtypes = s.purpose?.subtypes || null;
       if (!subtypes) return '<div class="p-5 bg-gray-50 rounded-2xl text-sm font-bold text-gray-500 flex items-center gap-3"><span class="text-accent text-xl">✓</span> 표준 프로세스가 자동 적용됩니다.</div>';
       return subtypes.map(g => `

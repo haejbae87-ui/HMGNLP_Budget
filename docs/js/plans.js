@@ -1039,21 +1039,34 @@ function planNext() {
     const policies = (typeof _getActivePolicies === 'function')
       ? (_getActivePolicies(currentPersona)?.policies || []) : [];
     const purposeId = planState.purpose?.id;
+    const eduType = planState.subType || planState.eduType || ''; // Step3에서 선택한 교육유형
     const accCode = (() => {
       const budgets = currentPersona?.budgets || [];
       const b = budgets.find(x => x.id === planState.budgetId);
       return b?.accountCode || b?.account_code || null;
     })();
-    // purpose + account 기준 최적 정책 선택
+    // ★ purpose + account + eduType 기준 최적 정책 선택
+    // 1순위: purpose + account + eduType 모두 일치
     const matched = policies.find(p => {
       const acc = p.account_codes || p.accountCodes || [];
+      const pTypes = p.edu_types || p.eduTypes || [];
+      const purposeOk = !purposeId || p.purpose === purposeId;
+      const accountOk = !accCode || acc.includes(accCode);
+      const eduTypeOk = !eduType || pTypes.length === 0 || pTypes.includes(eduType);
+      return purposeOk && accountOk && eduTypeOk;
+    })
+    // 2순위: purpose + account만 일치 (eduType 무시)
+    || policies.find(p => {
+      const acc = p.account_codes || p.accountCodes || [];
       return (!purposeId || p.purpose === purposeId) && (!accCode || acc.includes(accCode));
-    }) || policies.find(p => (p.account_codes || p.accountCodes || []).includes(accCode))
-      || policies[0] || null;
+    })
+    || policies[0] || null;
+
     (async () => {
       let tpl = null;
       if (matched && typeof getFoFormTemplate === 'function') {
-        tpl = await getFoFormTemplate(matched, 'plan');
+        // eduType 전달하여 교육유형별 양식 정확 매칭
+        tpl = await getFoFormTemplate(matched, 'plan', eduType);
       }
       planState.formTemplate = tpl || null;
       planState.formTemplateLoading = false;

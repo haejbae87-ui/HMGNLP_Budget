@@ -46,38 +46,65 @@ async function _loadFormTemplate(formId) {
     return data;
 }
 
-// ─── 3. vorg + account + stage 자동 매칭 (fallback, TTL 적용) ────────────────
-async function _loadFormTemplateByContext(vorgTemplateId, accountCode, stage) {
-    const cacheKey = `${vorgTemplateId}|${accountCode}|${stage}`;
+// ─── 3. vorg + account + stage + eduType 자동 매칭 (fallback, TTL 적용) ──────
+async function _loadFormTemplateByContext(vorgTemplateId, accountCode, stage, eduType) {
+    const cacheKey = `${vorgTemplateId}|${accountCode}|${stage}|${eduType || ''}`;
     const cached = _FORM_TPL_CACHE[cacheKey];
     if (cached && cached.data && (Date.now() - cached.loadedAt < _CACHE_TTL_MS)) return cached.data;
     const sb = typeof getSB === 'function' ? getSB() : null;
     if (!sb) return null;
-    let q = sb.from('form_templates').select('*').eq('active', true).eq('type', stage);
-    if (vorgTemplateId) q = q.eq('virtual_org_template_id', vorgTemplateId);
-    if (accountCode) q = q.eq('account_code', accountCode);
-    const { data, error } = await q.limit(1).maybeSingle();
-    if (error || !data) return null;
-    _FORM_TPL_CACHE[cacheKey] = { data, loadedAt: Date.now() };
-    return data;
+
+    // 1순위: vorg + account + stage + edu_type 정확 매칭
+    if (eduType) {
+        let q1 = sb.from('form_templates').select('*').eq('active', true).eq('type', stage);
+        if (vorgTemplateId) q1 = q1.eq('virtual_org_template_id', vorgTemplateId);
+        if (accountCode) q1 = q1.eq('account_code', accountCode);
+        q1 = q1.eq('edu_type', eduType);
+        const { data: d1 } = await q1.limit(1).maybeSingle();
+        if (d1) {
+            _FORM_TPL_CACHE[cacheKey] = { data: d1, loadedAt: Date.now() };
+            console.log(`[fo_form_loader] 양식 정확 매칭: ${d1.name} (eduType=${eduType})`);
+            return d1;
+        }
+    }
+
+    // 2순위: vorg + account + stage (eduType 없이)
+    let q2 = sb.from('form_templates').select('*').eq('active', true).eq('type', stage);
+    if (vorgTemplateId) q2 = q2.eq('virtual_org_template_id', vorgTemplateId);
+    if (accountCode) q2 = q2.eq('account_code', accountCode);
+    const { data: d2, error } = await q2.limit(1).maybeSingle();
+    if (error || !d2) return null;
+    _FORM_TPL_CACHE[cacheKey] = { data: d2, loadedAt: Date.now() };
+    console.log(`[fo_form_loader] 양식 폴백 매칭: ${d2.name} (eduType 미지정)`);
+    return d2;
 }
 
 // ─── 4. 정책에서 해당 단계 양식 해석 ─────────────────────────────────────────
-// stage: 'plan' | 'apply' | 'result'
-async function getFoFormTemplate(policy, stage) {
+// stage: 'plan' | 'apply' | 'result', eduType: 선택된 교육유형 (optional)
+async function getFoFormTemplate(policy, stage, eduType) {
     if (!policy) return null;
     await _loadFieldDefs(); // field_defs 사전 로드
-    // 1순위: stage_form_ids
+
+    // 1순위: stage_form_ids에서 eduType 매칭
     const formIds = policy?.stage_form_ids?.[stage] || [];
     if (formIds.length > 0) {
+        // 복수 양식이 있으면 eduType으로 최적 선택
+        if (formIds.length > 1 && eduType) {
+            for (const fid of formIds) {
+                const tpl = await _loadFormTemplate(fid);
+                if (tpl && tpl.edu_type === eduType) return tpl;
+            }
+        }
+        // 단일 양식 또는 eduType 매칭 실패 시 첫 번째
         const tpl = await _loadFormTemplate(formIds[0]);
         if (tpl) return tpl;
     }
-    // 2순위: vorg_template_id + account_code 자동 매칭
+
+    // 2순위: vorg_template_id + account_code + eduType 자동 매칭
     const vorgId = policy.vorg_template_id || policy.vorgTemplateId;
     const accCode = (policy.account_codes || policy.accountCodes || [])[0];
     if (vorgId || accCode) {
-        return await _loadFormTemplateByContext(vorgId, accCode, stage);
+        return await _loadFormTemplateByContext(vorgId, accCode, stage, eduType);
     }
     return null;
 }

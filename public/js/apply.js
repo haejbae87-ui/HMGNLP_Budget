@@ -22,6 +22,7 @@ async function _loadApprovedPlans() {
       amount: Number(p.amount || 0), used: 0,
       edu_type: p.edu_type, purpose: p.detail?.purpose,
       date: (p.created_at || '').slice(0, 10),
+      detail: p.detail || {},  // raw detail 보존 (신청 자동 연동용)
     }));
     _dbApprovedPlansLoaded = true;
     _dbApprPlanPersonaId = pid;
@@ -1091,8 +1092,10 @@ ${(() => {
           <div class="bg-white rounded-xl px-4 py-3 border border-blue-100">
             <div class="text-[10px] text-blue-400 font-black uppercase tracking-wider mb-1">③ 교육유형</div>
             ${s.subType
-      ? (() => { const item = s.purpose?.subtypes?.flatMap(g => g.items).find(i => i.id === s.subType); const grp = s.purpose?.subtypes?.find(g => g.items.some(i => i.id === s.subType)); return `<div class="font-black text-sm text-gray-900">${item?.label || '—'}</div><div class="text-[11px] text-gray-400 mt-0.5">${grp?.group || ''}</div>`; })()
-      : '<div class="text-sm text-gray-400">—</div>'
+      ? (() => { const item = s.purpose?.subtypes?.flatMap(g => g.items).find(i => i.id === s.subType); const grp = s.purpose?.subtypes?.find(g => g.items.some(i => i.id === s.subType)); return `<div class="font-black text-sm text-gray-900">${item?.label || (typeof getEduTypeLabel !== 'undefined' ? getEduTypeLabel(s.subType) : s.subType)}</div><div class="text-[11px] text-gray-400 mt-0.5">${grp?.group || ''}</div>`; })()
+      : s.eduType
+        ? `<div class="font-black text-sm text-gray-900">${typeof getEduTypeLabel !== 'undefined' ? getEduTypeLabel(s.eduType) : s.eduType}</div><div class="text-[11px] text-blue-400 mt-0.5">계획에서 자동 설정됨</div>`
+        : '<div class="text-sm text-gray-400">—</div>'
     }
           </div>
         </div>
@@ -1246,7 +1249,16 @@ function selectPurpose(id) {
 }
 function setUseBudget(v) { applyState.useBudget = v; applyState.budgetId = ''; applyState.planId = ''; applyState.planIds = []; applyState.hasPlan = null; renderApply(); }
 function setHasPlan(v) { applyState.hasPlan = v; applyState.planId = ''; applyState.planIds = []; applyState.budgetId = ''; renderApply(); }
-function selectPlan(id) { applyState.planId = id; const pl = _dbApprovedPlans.find(p => p.id === id); if (pl) { applyState.budgetId = pl.budgetId; } renderApply(); }
+function selectPlan(id) {
+  applyState.planId = id;
+  const pl = _dbApprovedPlans.find(p => p.id === id);
+  if (pl) {
+    applyState.budgetId = pl.budgetId;
+    // ★ 계획 데이터 자동 연동
+    if (pl.edu_type) { applyState.eduType = pl.edu_type; applyState.subType = pl.edu_type; }
+  }
+  renderApply();
+}
 function toggleOperPlan(id) {
   if (!applyState.planIds) applyState.planIds = [];
   const idx = applyState.planIds.indexOf(id);
@@ -1834,31 +1846,65 @@ function applyNext() {
   }
   if (s.step === 2 && (isRndPatA || isOperPatA) && hasPlanSelected) {
     s.step = 4; // 패턴A: 교육유형 건너뜀 → 바로 세부정보
+
+    // ★ 패턴A: 계획 데이터 자동 연동 ★
+    const planId = s.planId || (s.planIds && s.planIds[0]) || '';
+    if (planId) {
+      const linkedPlan = _dbApprovedPlans.find(p => p.id === planId);
+      const rawPlan = (typeof _plansDbCache !== 'undefined' ? _plansDbCache : []).find(p => p.id === planId);
+      if (linkedPlan) {
+        // 교육유형 자동 설정
+        if (linkedPlan.edu_type && !s.eduType) s.eduType = linkedPlan.edu_type;
+        if (!s.subType && linkedPlan.edu_type) s.subType = linkedPlan.edu_type;
+      }
+      if (rawPlan) {
+        const d = rawPlan.detail || {};
+        // 계획 상세 데이터 → 신청 필드 자동 채우기
+        if (!s.title && (rawPlan.edu_name || d.title)) s.title = rawPlan.edu_name || d.title || '';
+        if (!s.startDate && d.startDate) s.startDate = d.startDate;
+        if (!s.endDate && d.endDate) s.endDate = d.endDate;
+        if (!s.institution && d.institution) s.institution = d.institution;
+        if (!s.content && d.content) s.content = d.content;
+        if (!s.amount && rawPlan.amount) s.amount = Number(rawPlan.amount);
+        if (!s.eduType && d.eduType) s.eduType = d.eduType;
+        if (!s.subType && d.eduSubType) s.subType = d.eduSubType;
+        if (!s.purpose_text && d.purpose_text) s.purpose_text = d.purpose_text;
+      }
+    }
   } else {
     s.step = Math.min(s.step + 1, 4);
   }
-  // Step4 진입 시 BO form_template 비동기 로드
+  // Step4 진입 시 BO form_template 항상 최신 로드
   const nextStep = s.step;
-  if (nextStep === 4 && !s.formTemplate) {
+  if (nextStep === 4) {
     s.formTemplateLoading = true;
+    s.formTemplate = null; // 캐시 무효화 → 항상 DB 재조회
     renderApply();
     const policies = (typeof _getActivePolicies === 'function')
       ? (_getActivePolicies(currentPersona)?.policies || []) : [];
     const purposeId = s.purpose?.id;
+    const eduType = s.subType || s.eduType || ''; // ★ 교육유형 전달
     const accCode = (() => {
       const budgets = currentPersona?.budgets || [];
       const b = budgets.find(x => x.id === s.budgetId);
       return b?.accountCode || b?.account_code || null;
     })();
+    // ★ purpose + account + eduType 3중 매칭
     const matched = policies.find(p => {
       const acc = p.account_codes || p.accountCodes || [];
+      const pTypes = p.edu_types || p.eduTypes || [];
+      const purposeOk = !purposeId || p.purpose === purposeId;
+      const accountOk = !accCode || acc.includes(accCode);
+      const eduTypeOk = !eduType || pTypes.length === 0 || pTypes.includes(eduType);
+      return purposeOk && accountOk && eduTypeOk;
+    }) || policies.find(p => {
+      const acc = p.account_codes || p.accountCodes || [];
       return (!purposeId || p.purpose === purposeId) && (!accCode || acc.includes(accCode));
-    }) || policies.find(p => (p.account_codes || p.accountCodes || []).includes(accCode))
-      || policies[0] || null;
+    }) || policies[0] || null;
     (async () => {
       let tpl = null;
       if (matched && typeof getFoFormTemplate === 'function') {
-        tpl = await getFoFormTemplate(matched, 'apply');
+        tpl = await getFoFormTemplate(matched, 'apply', eduType); // ★ eduType 전달
       }
       s.formTemplate = tpl || null;
       s.formTemplateLoading = false;

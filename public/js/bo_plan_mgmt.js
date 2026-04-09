@@ -93,7 +93,8 @@ async function renderBoPlanMgmt() {
     const isNextYear = _boPlanFiscalYear > new Date().getFullYear();
     const hasAnyDeadline = _boForecastDeadlines.length > 0;
 
-    const canApprove = ['platform_admin', 'tenant_global_admin', 'total_general', 'total_rnd', 'hq_general', 'center_rnd'].includes(boCurrentPersona.role);
+    const _approveRoles = ['platform_admin', 'tenant_global_admin', 'total_general', 'total_rnd', 'hq_general', 'center_rnd'];
+    const canApprove = _approveRoles.includes(boCurrentPersona.role) || /admin|budget|total|ops/i.test(boCurrentPersona.role || '');
 
     const rows = plans.map((pl, idx) => {
       const amt = Number(pl.amount || pl.planAmount || 0);
@@ -262,7 +263,8 @@ function _renderBoPlanDetail(el, plan) {
   const statusColor = { draft: '#0369A1', pending: '#D97706', approved: '#059669', rejected: '#DC2626', cancelled: '#9CA3AF', completed: '#059669' };
   const stLabel = statusLabel[status] || status;
   const stColor = statusColor[status] || '#6B7280';
-  const canApprove = ['platform_admin', 'tenant_global_admin', 'total_general', 'total_rnd', 'hq_general', 'center_rnd'].includes(boCurrentPersona.role);
+  const _approveRoles2 = ['platform_admin', 'tenant_global_admin', 'total_general', 'total_rnd', 'hq_general', 'center_rnd'];
+  const canApprove = _approveRoles2.includes(boCurrentPersona.role) || /admin|budget|total|ops/i.test(boCurrentPersona.role || '');
   const safeId = String(plan.id || '').replace(/'/g, "\\'");
 
   el.innerHTML = `

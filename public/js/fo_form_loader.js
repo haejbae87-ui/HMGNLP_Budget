@@ -5,38 +5,52 @@
 
 'use strict';
 
-// ─── 전역 캐시 ────────────────────────────────────────────────────────────────
+// ─── 전역 캐시 (TTL 기반 — BO 양식 수정 즉시 반영) ─────────────────────────
 let _FIELD_DEF_CACHE = null;   // field_definitions 전체
-let _FORM_TPL_CACHE = {};     // { formId: formTemplate }
+let _FIELD_DEF_LOADED_AT = 0;  // 타임스탬프
+let _FORM_TPL_CACHE = {};     // { formId: { data, loadedAt } }
+const _CACHE_TTL_MS = 60_000; // 60초 TTL — BO 수정 후 최대 1분 내 반영
 
-// ─── 1. field_definitions 로드 (한 번만) ─────────────────────────────────────
+// 캐시 무효화 (Step 이동 시 또는 수동 호출용)
+function invalidateFormCache() {
+    _FIELD_DEF_CACHE = null;
+    _FIELD_DEF_LOADED_AT = 0;
+    _FORM_TPL_CACHE = {};
+    console.log('[fo_form_loader] 양식 캐시 무효화 완료');
+}
+window.invalidateFormCache = invalidateFormCache;
+
+// ─── 1. field_definitions 로드 (TTL 만료 시 재조회) ──────────────────────────
 async function _loadFieldDefs() {
-    if (_FIELD_DEF_CACHE) return _FIELD_DEF_CACHE;
+    if (_FIELD_DEF_CACHE && (Date.now() - _FIELD_DEF_LOADED_AT < _CACHE_TTL_MS)) return _FIELD_DEF_CACHE;
     const sb = typeof getSB === 'function' ? getSB() : null;
     if (!sb) { _FIELD_DEF_CACHE = []; return []; }
     const { data, error } = await sb.from('field_definitions')
         .select('*').eq('active', true).order('sort_order');
     if (error) { console.warn('[fo_form_loader] field_defs load error:', error.message); _FIELD_DEF_CACHE = []; return []; }
     _FIELD_DEF_CACHE = data || [];
+    _FIELD_DEF_LOADED_AT = Date.now();
     return _FIELD_DEF_CACHE;
 }
 
-// ─── 2. 단일 form_template 로드 (캐싱) ───────────────────────────────────────
+// ─── 2. 단일 form_template 로드 (TTL 만료 시 DB 재조회) ─────────────────────
 async function _loadFormTemplate(formId) {
-    if (_FORM_TPL_CACHE[formId]) return _FORM_TPL_CACHE[formId];
+    const cached = _FORM_TPL_CACHE[formId];
+    if (cached && cached.data && (Date.now() - cached.loadedAt < _CACHE_TTL_MS)) return cached.data;
     const sb = typeof getSB === 'function' ? getSB() : null;
     if (!sb) return null;
     const { data, error } = await sb.from('form_templates')
         .select('*').eq('id', formId).eq('active', true).maybeSingle();
     if (error || !data) { console.warn('[fo_form_loader] template load error:', formId, error?.message); return null; }
-    _FORM_TPL_CACHE[formId] = data;
+    _FORM_TPL_CACHE[formId] = { data, loadedAt: Date.now() };
     return data;
 }
 
-// ─── 3. vorg + account + stage 자동 매칭 (fallback) ──────────────────────────
+// ─── 3. vorg + account + stage 자동 매칭 (fallback, TTL 적용) ────────────────
 async function _loadFormTemplateByContext(vorgTemplateId, accountCode, stage) {
     const cacheKey = `${vorgTemplateId}|${accountCode}|${stage}`;
-    if (_FORM_TPL_CACHE[cacheKey]) return _FORM_TPL_CACHE[cacheKey];
+    const cached = _FORM_TPL_CACHE[cacheKey];
+    if (cached && cached.data && (Date.now() - cached.loadedAt < _CACHE_TTL_MS)) return cached.data;
     const sb = typeof getSB === 'function' ? getSB() : null;
     if (!sb) return null;
     let q = sb.from('form_templates').select('*').eq('active', true).eq('type', stage);
@@ -44,7 +58,7 @@ async function _loadFormTemplateByContext(vorgTemplateId, accountCode, stage) {
     if (accountCode) q = q.eq('account_code', accountCode);
     const { data, error } = await q.limit(1).maybeSingle();
     if (error || !data) return null;
-    _FORM_TPL_CACHE[cacheKey] = data;
+    _FORM_TPL_CACHE[cacheKey] = { data, loadedAt: Date.now() };
     return data;
 }
 

@@ -1030,9 +1030,10 @@ function planSelectBudget(id) {
 function planNext() {
   const nextStep = Math.min(planState.step + 1, 4);
   planState.step = nextStep;
-  // Step4 진입 시 BO form_template 비동기 로드
-  if (nextStep === 4 && !planState.formTemplate) {
+  // Step4 진입 시 BO form_template 항상 최신 로드 (TTL 캐시는 fo_form_loader에서 관리)
+  if (nextStep === 4) {
     planState.formTemplateLoading = true;
+    planState.formTemplate = null; // 이전 캐시 무효화 → 항상 DB에서 재조회
     renderPlanWizard();
     // 매칭 정책 찾기
     const policies = (typeof _getActivePolicies === 'function')

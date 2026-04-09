@@ -526,14 +526,14 @@ function renderPolicyWizard() {
       style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-size:13px;box-sizing:border-box"/>
   </div>`;
 
-    // ── 대상자 ──
+    // ── 서비스 유형 ──
     let targetBlock = `
   <div>
-    <label class="bo-label">대상자 <span style="color:#EF4444">*</span></label>
+    <label class="bo-label">서비스 유형 <span style="color:#EF4444">*</span></label>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       ${[
-        { v: 'learner', icon: '👤', l: '학습자용', d: '개인 학습자가 교육비를 신청하는 서비스' },
-        { v: 'operator', icon: '👔', l: '교육담당자용', d: '교육담당자가 운영하는 집합·이러닝·외부행사' },
+        { v: 'learner', icon: '📚', l: '직접학습', d: '개인 학습자가 직접 참여하는 교육 서비스' },
+        { v: 'operator', icon: '🎯', l: '교육운영', d: '교육과정을 기획하거나 운영하는 서비스' },
       ].map(o => `
       <label style="display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border-radius:10px;
                     border:2px solid ${d.targetType === o.v ? '#7C3AED' : '#E5E7EB'};
@@ -626,7 +626,7 @@ function renderPolicyWizard() {
     stepContent = `
 <div style="display:grid;gap:18px">
   <div style="padding:12px 16px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;font-size:12px;color:#92400E">
-    💡 정책의 <strong>이름, 대상자, 교육 목적, 교육유형</strong>을 정의합니다.
+    💡 정책의 <strong>이름, 서비스 유형, 교육 목적, 교육유형</strong>을 정의합니다.
   </div>
   ${nameBlock}
   ${targetBlock}
@@ -1258,11 +1258,11 @@ window._wizSaveStep1Inputs = _wizSaveStep1Inputs;
 
 function advancePolicyWizard() {
   const d = _policyWizardData;
-  // Step 0: 정책 정의 (정책명 + 대상자 + 목적 + 교육유형)
+  // Step 0: 정책 정의 (정책명 + 서비스 유형 + 목적 + 교육유형)
   if (_policyWizardStep === 0) {
     _wizSaveStep0Inputs();
     if (!d.name?.trim()) { alert('정책명을 입력하세요.'); return; }
-    if (!d.targetType) { alert('대상자를 선택하세요.'); return; }
+    if (!d.targetType) { alert('서비스 유형을 선택하세요.'); return; }
     if (!d.purpose) { alert('교육 목적을 선택하세요.'); return; }
     if (d.purpose === 'external_personal') {
       if (!d.selectedEduItem) { alert('교육 유형 세부 항목을 하나 선택하세요.'); return; }

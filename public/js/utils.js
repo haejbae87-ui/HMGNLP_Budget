@@ -66,9 +66,9 @@ function getEduTypeLabel(key) {
   return EDU_TYPE_LABELS[key] || key;
 }
 
-// ── 학습자용 교육유형 → 세부항목 매핑 ──
-// 학습자 정책에서 교육유형이 상위 카테고리(예: regular)인 경우 세부항목을 선택하도록 합니다.
-// 교육담당자 정책은 이미 세부 레벨(elearning, class 등)이므로 서브타입 불필요.
+// ── 직접학습용 교육유형 → 세부항목 매핑 ──
+// 직접학습 정책에서 교육유형이 상위 카테고리(예: regular)인 경우 세부항목을 선택하도록 합니다.
+// 교육운영 정책은 이미 세부 레벨(elearning, class 등)이므로 서브타입 불필요.
 const EDU_TYPE_SUBTYPES = {
   regular: [{ key: 'elearning', label: '이러닝' }, { key: 'class', label: '집합' }, { key: 'live', label: '라이브' }],
   academic: [{ key: 'conf', label: '학회/세미나/컨퍼런스' }, { key: 'acad_present', label: '학회 직접 발표' }, { key: 'acad_study', label: '연수' }],
@@ -427,8 +427,8 @@ function getPolicyEduTypes(persona, purposeId, budgetAccountType) {
 
 // ── 교육유형 트리 반환 (Step3 트리 렌더링용) ──
 // 반환값: [{ id, label, subs: [{key, label}] }]
-// subs가 비어 있으면 해당 eduType이 리프 노드 (교육담당자용)
-// subs가 있으면 세부유형 선택 필요 (학습자용)
+// subs가 비어 있으면 해당 eduType이 리프 노드 (교육운영용)
+// subs가 있으면 세부유형 선택 필요 (직접학습용)
 function getPolicyEduTree(persona, purposeId, budgetAccountType) {
   const eduTypes = getPolicyEduTypes(persona, purposeId, budgetAccountType);
   if (eduTypes.length === 0) return [];

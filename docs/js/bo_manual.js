@@ -238,7 +238,7 @@ function _manMenus() {
       icon: '🔧', id: 'service-policy', name: '서비스 정책 설정 ★',
       roles: 'platform_admin(회사+그룹 필터) / tenant_global_admin(그룹 필터) / budget_op_manager(그룹 자동 고정)',
       desc: `<strong>핵심 메뉴</strong>: 학습자 시나리오 기반으로 예산·조직·양식·프로세스를 하나의 정책으로 통합 설계합니다.<br>
-            <strong>5단계 위저드</strong>: Step0 정책 정의(이름+대상자+목적+유형) → Step1 정책 범위(회사+조직+계정) → Step2 프로세스 패턴 → Step3 양식 연결 → Step4 결재라인<br>
+            <strong>5단계 위저드</strong>: Step0 정책 정의(이름+서비스 유형+목적+유형) → Step1 정책 범위(회사+조직+계정) → Step2 프로세스 패턴 → Step3 양식 연결 → Step4 결재라인<br>
             <strong>조회 필터</strong>: 플랫폼 총괄은 회사+격리그룹 선택, 테넌트 총괄은 격리그룹 선택, 예산운영담당자는 본인 격리그룹 자동 고정(🔒배지).<br>
             <strong>정책 카드</strong>: 플랫폼 총괄 조회 시 테넌트ID 배지 추가 표시.`,
       impl: '_pbTenantFilter/_pbGroupFilter 상태변수로 필터링. isBudgetOp 분기로 격리그룹 자동 고정. approvalThresholds[] 배열로 구간 관리.',
@@ -262,7 +262,7 @@ function _manMenus() {
       icon: '🧙', id: 'form-builder', name: '교육신청양식마법사',
       roles: 'budget_global_admin / tenant_global_admin',
       desc: `3탭 구조: 📚 양식 라이브러리 | 🔗 서비스 통합 매핑<br>
-            양식 빌더 모달: 사용대상(학습자용/교육담당자용) → 단계+목적 → 교육유형·세부유형 → 필드 구성 → <strong>공지사항</strong>(신청화면 상단 표시) + <strong>필수 첨부파일 목록</strong>(+ 추가/× 삭제)<br>
+            양식 빌더 모달: 서비스 유형(직접학습/교육운영) → 단계+목적 → 교육유형·세부유형 → 필드 구성 → <strong>공지사항</strong>(신청화면 상단 표시) + <strong>필수 첨부파일 목록</strong>(+ 추가/× 삭제)<br>
             FO(학습자 입력)·BO(승인자 보완)·시스템 필드 구분 설정 가능.`,
       impl: 'fbSaveForm()에서 noticeText, attachments[] FORM_MASTER에 저장. fbAddAttach/fbRemoveAttach DOM 직접 조작.',
     },

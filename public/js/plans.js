@@ -787,7 +787,7 @@ ${_processInfo ? `
         const isLeaf = !node.subs || node.subs.length === 0;
         const isSelected = s.eduType === node.id;
         if (isLeaf) {
-          // 리프 노드: 바로 선택 (교육담당자용)
+          // 리프 노드: 바로 선택 (교육운영용)
           const leafSelected = isSelected && !s.subType;
           return `
       <div class="mb-3">
@@ -796,7 +796,7 @@ ${_processInfo ? `
                  ${leafSelected ? 'bg-gray-900 border-gray-900 text-white shadow-xl' : 'border-gray-200 text-gray-700 hover:border-accent hover:text-accent'}">${node.label}</button>
       </div>`;
         } else {
-          // 중간 노드: 클릭 시 세부항목 펼침 (학습자용)
+          // 중간 노드: 클릭 시 세부항목 펼침 (직접학습용)
           return `
       <div class="mb-3 rounded-xl border-2 overflow-hidden ${isSelected ? 'border-gray-900' : 'border-gray-200'}">
         <button onclick="planState.eduType='${node.id}';planState.subType='';renderPlanWizard()"

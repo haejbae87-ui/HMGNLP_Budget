@@ -4,8 +4,8 @@
 
 // ── 상수 정의 ──────────────────────────────────────────────────────────────────
 const FORM_TARGET_TYPES = {
-  learner: { label: '학습자용', icon: '👤', color: '#059669', bg: '#F0FDF4', desc: '개인직무 사외학습 신청' },
-  manager: { label: '교육담당자용', icon: '🎓', color: '#7C3AED', bg: '#F5F3FF', desc: '집합/운영/세미나/기타' },
+  learner: { label: '직접학습', icon: '📚', color: '#059669', bg: '#F0FDF4', desc: '개인직무 사외학습 신청' },
+  manager: { label: '교육운영', icon: '🎯', color: '#7C3AED', bg: '#F5F3FF', desc: '집합/운영/세미나/기타' },
 };
 
 const FORM_SERVICE_TYPES = {
@@ -665,9 +665,9 @@ ${(_fbGroupId || _fbAccountCode) ? `
   ${_fbGroupId ? (() => { const g = _fbTplList.find(x => x.id === _fbGroupId); return `<span style="font-size:11px;font-weight:700;background:#EDE9FE;color:#5B21B6;padding:2px 8px;border-radius:6px">🏢 ${g?.name || _fbGroupId}</span>`; })() : ''}
   ${_fbAccountCode ? (() => { const a = _fbAccountList.find(x => x.code === _fbAccountCode); return `<span style="font-size:11px;font-weight:700;background:#DBEAFE;color:#1E40AF;padding:2px 8px;border-radius:6px">💳 ${a?.name || _fbAccountCode}</span>`; })() : ''}
 </div>` : ''}
-<!-- 사용대상 선택 (학습자용 / 교육담당자용) -->
+<!-- 서비스 유형 선택 (직접학습 / 교육운영) -->
 <div style="margin-bottom:12px">
-  <label style="font-size:11px;font-weight:800;display:block;margin-bottom:6px;color:#374151">사용대상 *</label>
+  <label style="font-size:11px;font-weight:800;display:block;margin-bottom:6px;color:#374151">서비스 유형 *</label>
   <div style="display:flex;gap:8px">
     <label id="fb-target-learner-lbl" onclick="_fbOnTargetUserChange('learner')"
       style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;cursor:pointer;
@@ -675,7 +675,7 @@ ${(_fbGroupId || _fbAccountCode) ? `
              background:${targetUser === 'learner' ? '#F0FDF4' : '#F9FAFB'}">
       <input type="radio" name="fb-target-user" value="learner" ${targetUser === 'learner' ? 'checked' : ''}
              style="accent-color:#059669;width:14px;height:14px">
-      <span style="font-size:12px;font-weight:800;color:${targetUser === 'learner' ? '#059669' : '#6B7280'}">🙋 학습자용</span>
+      <span style="font-size:12px;font-weight:800;color:${targetUser === 'learner' ? '#059669' : '#6B7280'}">📚 직접학습</span>
       <span style="font-size:10px;color:#9CA3AF">(개인 신청)</span>
     </label>
     <label id="fb-target-admin-lbl" onclick="_fbOnTargetUserChange('admin')"
@@ -684,7 +684,7 @@ ${(_fbGroupId || _fbAccountCode) ? `
              background:${targetUser === 'admin' ? '#F5F3FF' : '#F9FAFB'}">
       <input type="radio" name="fb-target-user" value="admin" ${targetUser === 'admin' ? 'checked' : ''}
              style="accent-color:#7C3AED;width:14px;height:14px">
-      <span style="font-size:12px;font-weight:800;color:${targetUser === 'admin' ? '#7C3AED' : '#6B7280'}">🏢 교육담당자용</span>
+      <span style="font-size:12px;font-weight:800;color:${targetUser === 'admin' ? '#7C3AED' : '#6B7280'}">🎯 교육운영</span>
       <span style="font-size:10px;color:#9CA3AF">(운영 관리)</span>
     </label>
   </div>

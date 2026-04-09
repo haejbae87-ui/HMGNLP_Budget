@@ -212,6 +212,7 @@ function renderPlans() {
     sb.from('plans').select('*')
       .eq('applicant_id', currentPersona.id)
       .eq('tenant_id', currentPersona.tenantId)
+      .is('deleted_at', null)  // 소프트 삭제 제외
       .order('created_at', { ascending: false })
       .then(({ data, error }) => {
         if (!error && data) {
@@ -239,6 +240,7 @@ function renderPlans() {
           .eq('tenant_id', currentPersona.tenantId)
           .neq('applicant_id', currentPersona.id)
           .neq('status', 'draft')
+          .is('deleted_at', null)  // 소프트 삭제 제외
           .order('created_at', { ascending: false })
           .then(({ data }) => {
             _dbTeamPlans = (data || []).map(d => ({

@@ -33,6 +33,7 @@ async function renderBoPlanMgmt() {
     try {
       const { data, error } = await sb.from('plans').select('*')
         .eq('tenant_id', tenantId)
+        .is('deleted_at', null)  // 소프트 삭제된 계획 제외
         .order('created_at', { ascending: false });
       if (error) throw error;
       _boPlanMgmtData = data || [];
@@ -126,7 +127,12 @@ async function renderBoPlanMgmt() {
           <div style="display:flex;gap:6px;justify-content:center">
             <button onclick="boPlanApprove('${safeId}')" class="bo-btn-accent bo-btn-sm">승인</button>
             <button onclick="boPlanReject('${safeId}')" class="bo-btn-sm" style="border:1px solid #EF4444;color:#EF4444;background:#fff;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer">반려</button>
-          </div>` : status === 'draft' ? '<span style="font-size:12px;color:#9CA3AF">—</span>' : '<span style="font-size:12px;color:#9CA3AF">처리완료</span>'}
+          </div>` : status === 'approved' ? `
+          <div style="display:flex;gap:4px;justify-content:center">
+            <button onclick="boPlanForceRevert('${safeId}')" title="승인 취소 → 임시저장" style="border:1px solid #F59E0B;color:#B45309;background:#FFFBEB;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:800;cursor:pointer">↩ 취소</button>
+            <button onclick="boPlanSoftDelete('${safeId}')" title="삭제(복구가능)" style="border:1px solid #EF4444;color:#DC2626;background:#FEF2F2;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:800;cursor:pointer">🗑</button>
+          </div>` : status === 'draft' ? `
+          <button onclick="boPlanSoftDelete('${safeId}')" title="삭제(복구가능)" style="border:1px solid #EF4444;color:#DC2626;background:#FEF2F2;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:800;cursor:pointer">🗑삭제</button>` : '<span style="font-size:12px;color:#9CA3AF">처리완료</span>'}
         </td>` : ''}
       </tr>`;
     }).join('');
@@ -364,11 +370,19 @@ function _renderBoPlanDetail(el, plan) {
       </div>` : ''}
 
       <!-- 액션 -->
-      <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6">
+      <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6;flex-wrap:wrap">
         <button onclick="_boPlanDetailView=null;renderBoPlanMgmt()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">← 목록으로</button>
+        <div style="flex:1"></div>
         ${canApprove && (status === 'pending' || status === 'pending_approval') ? `
         <button onclick="boPlanReject('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FECACA;background:white;color:#DC2626;cursor:pointer">❌ 반려</button>
         <button onclick="boPlanApprove('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#059669;color:white;cursor:pointer;box-shadow:0 4px 16px rgba(5,150,105,.3)">✅ 승인</button>
+        ` : ''}
+        ${canApprove && status === 'approved' ? `
+        <button onclick="boPlanForceRevert('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FCD34D;background:#FFFBEB;color:#B45309;cursor:pointer">↩ 승인 취소 (임시저장)</button>
+        <button onclick="boPlanSoftDelete('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FECACA;background:#FEF2F2;color:#DC2626;cursor:pointer">🗑 삭제</button>
+        ` : ''}
+        ${canApprove && status === 'draft' ? `
+        <button onclick="boPlanSoftDelete('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FECACA;background:#FEF2F2;color:#DC2626;cursor:pointer">🗑 삭제</button>
         ` : ''}
       </div>
     </div>
@@ -391,6 +405,51 @@ async function boPlanReject(id) {
   const sb = typeof getSB === 'function' ? getSB() : null;
   if (sb) {
     await sb.from('plans').update({ status: 'rejected', reject_reason: reason }).eq('id', id);
+  }
+  _boPlanMgmtData = null;
+  _boPlanDetailView = null;
+  renderBoPlanMgmt();
+}
+
+// ─── 승인 취소 (강제 → 임시저장) ──────────────────────────────────────────
+async function boPlanForceRevert(id) {
+  const plan = (_boPlanMgmtData || []).find(p => p.id === id);
+  const planName = plan?.title || plan?.edu_name || id;
+  if (!confirm(`⚠️ 승인 취소 확인\n\n"${planName}"\n\n승인을 취소하고 임시저장 상태로 되돌리시겠습니까?\n(예산 확정액이 차감될 수 있습니다)`)) return;
+  const reason = prompt('승인 취소 사유를 입력해주세요:');
+  if (reason === null) return; // 취소 클릭
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (sb) {
+    try {
+      await sb.from('plans').update({
+        status: 'draft',
+        reverted_at: new Date().toISOString(),
+        reverted_by: boCurrentPersona?.name || 'admin',
+        revert_reason: reason || '관리자 승인 취소',
+      }).eq('id', id);
+      alert(`✅ "${planName}" 승인이 취소되어 임시저장 상태로 변경되었습니다.`);
+    } catch (err) { alert('❌ 승인 취소 실패: ' + err.message); return; }
+  }
+  _boPlanMgmtData = null;
+  _boPlanDetailView = null;
+  renderBoPlanMgmt();
+}
+
+// ─── 소프트 삭제 (deleted_at 플래그) ──────────────────────────────────────
+async function boPlanSoftDelete(id) {
+  const plan = (_boPlanMgmtData || []).find(p => p.id === id);
+  const planName = plan?.title || plan?.edu_name || id;
+  const statusKr = plan?.status === 'approved' ? '승인완료' : plan?.status === 'draft' ? '임시저장' : plan?.status || '';
+  if (!confirm(`🗑 삭제 확인\n\n"${planName}" (${statusKr})\n\n이 교육계획을 삭제하시겠습니까?\n(데이터는 보존되며, 목록에서만 숨겨집니다)`)) return;
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (sb) {
+    try {
+      await sb.from('plans').update({
+        deleted_at: new Date().toISOString(),
+        deleted_by: boCurrentPersona?.name || 'admin',
+      }).eq('id', id);
+      alert(`✅ "${planName}" 삭제 완료 (복구 가능)`);
+    } catch (err) { alert('❌ 삭제 실패: ' + err.message); return; }
   }
   _boPlanMgmtData = null;
   _boPlanDetailView = null;

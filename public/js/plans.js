@@ -578,7 +578,26 @@ function renderPlanWizard() {
   const hasPlanRequiredPattern = matchedPolicies.some(p => (p.process_pattern || p.processPattern) === 'A');
 
   // 정책 기반 목적 필터 (apply.js 동일: 행위 기반 카테고리)
-  const allPurposes = getPersonaPurposes(currentPersona);
+  // ★★ 교육계획 화면 전용: 패턴 A(계획 필수) 정책이 있는 목적만 표시 ★★
+  // 패턴 B/C/D/E 전용 목적은 계획 수립이 불필요하므로 제외
+  const _allPurposes = getPersonaPurposes(currentPersona);
+
+  // 패턴 A 정책이 존재하는 BO purpose 키 수집
+  const _FO_TO_BO = typeof _FO_TO_BO_PURPOSE !== 'undefined' ? _FO_TO_BO_PURPOSE : {};
+  const _BO_TO_FO = typeof _BO_TO_FO_PURPOSE !== 'undefined' ? _BO_TO_FO_PURPOSE : {};
+  const planRequiredPurposes = new Set();
+  matchedPolicies.forEach(p => {
+    const pt = p.process_pattern || p.processPattern || '';
+    if (pt === 'A') {
+      // BO purpose → FO purpose ID로 변환하여 수집
+      const foPurpose = _BO_TO_FO[p.purpose] || p.purpose;
+      planRequiredPurposes.add(foPurpose);
+    }
+  });
+
+  // 패턴 A 정책이 있는 목적만 필터 (패턴 A 정책이 없으면 계획 수립 자체 불필요 → 빈 목록)
+  const allPurposes = _allPurposes.filter(p => planRequiredPurposes.has(p.id));
+
   const _catColors = {
     'self-learning': { badge: 'bg-blue-100 text-blue-600', border: 'border-accent', borderHover: 'hover:border-accent', bgActive: 'bg-blue-50', textActive: 'text-accent' },
     'edu-operation': { badge: 'bg-violet-100 text-violet-600', border: 'border-violet-500', borderHover: 'hover:border-violet-400', bgActive: 'bg-violet-50', textActive: 'text-violet-600' },
@@ -674,8 +693,17 @@ function renderPlanWizard() {
   }).join('')}
 
     ${allPurposes.length === 0 ? `
-    <div class="p-5 bg-yellow-50 border-2 border-yellow-200 rounded-2xl text-sm font-bold text-yellow-700">
-      ⚠️ 현재 사용자에게 오픈된 교육 정책이 없습니다. 관리자에게 문의해 주세요.
+    <div class="p-6 bg-blue-50 border-2 border-blue-200 rounded-2xl">
+      <div class="flex items-start gap-3">
+        <span class="text-2xl flex-shrink-0">📋</span>
+        <div>
+          <div class="font-black text-blue-700 text-sm mb-2">교육계획 수립이 필요한 정책이 없습니다</div>
+          <p class="text-xs text-blue-500 leading-relaxed mb-0">
+            현재 사용자의 예산 계정에는 교육계획 수립이 필수인 정책(패턴 A)이 설정되어 있지 않습니다.<br>
+            교육계획 없이 바로 <strong>교육신청</strong> 화면에서 신청하시면 됩니다.
+          </p>
+        </div>
+      </div>
     </div>` : ''}
 
     <div class="flex justify-end mt-6 pt-4 border-t border-gray-100">

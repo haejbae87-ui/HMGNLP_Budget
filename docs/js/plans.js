@@ -614,10 +614,33 @@ function renderPlanWizard() {
     if (!categorized[cat]) categorized[cat] = [];
     categorized[cat].push(p);
   });
+  // ★ 교육계획 전용: 패턴 A 정책의 account codes만으로 예산 필터링 ★
+  // (모든 목적의 예산이 아닌, 패턴 A 정책에 연결된 계정만 표시)
+  const _planPatternACodes = new Set();
+  if (s.purpose) {
+    const boPurposeKeys = typeof _FO_TO_BO_PURPOSE !== 'undefined'
+      ? (_FO_TO_BO_PURPOSE[s.purpose.id] || [s.purpose.id]) : [s.purpose.id];
+    matchedPolicies.forEach(p => {
+      const pt = p.process_pattern || p.processPattern || '';
+      const pPurpose = p.purpose;
+      if (pt === 'A' && boPurposeKeys.includes(pPurpose)) {
+        (p.account_codes || p.accountCodes || []).forEach(c => _planPatternACodes.add(c));
+      }
+    });
+  }
 
-  const availBudgets = s.purpose
+  const _rawBudgets = s.purpose
     ? getPersonaBudgets(currentPersona, s.purpose.id)
     : [];
+  // 패턴 A 계정 코드가 있으면 해당 코드만 필터, 없으면 전체 (폴백)
+  const availBudgets = _planPatternACodes.size > 0
+    ? _rawBudgets.filter(b => {
+        return [..._planPatternACodes].some(code => {
+          const acctType = ACCOUNT_TYPE_MAP[code];
+          return (acctType && acctType === b.account) || code === b.accountCode;
+        });
+      })
+    : _rawBudgets;
   const curBudget = availBudgets.find(b => b.id === s.budgetId) || null;
 
   // 프로세스 패턴 안내 (apply.js 동일)

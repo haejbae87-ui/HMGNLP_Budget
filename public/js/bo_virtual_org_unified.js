@@ -7,6 +7,7 @@ let _vuActiveTab = 0;
 let _vuTplId = null;   // 선택된 템플릿 ID
 let _vuTplList = [];     // 현재 테넌트의 템플릿 목록
 let _vuTenantId = null;
+let _vuPurposeFilter = 'all'; // 용도 필터: 'all'|'edu_support'|'cert'|'badge'|'language'
 
 // ── 탭 정의: 용도별 동적 생성 ──────────────────────────────────────────────────
 function _vuGetTabs(purpose) {
@@ -72,6 +73,21 @@ async function renderVirtualOrgUnified() {
     _vuActiveTab = 0;
   }
 
+  // 용도 필터 적용 (전체가 아니면 필터링)
+  const filteredTplList = _vuPurposeFilter === 'all'
+    ? _vuTplList
+    : _vuTplList.filter(t => {
+        const p = t.purpose || 'edu_support';
+        const types = t.serviceTypes || [p];
+        return types.includes(_vuPurposeFilter) || p === _vuPurposeFilter;
+      });
+
+  // 필터 후 선택 유지
+  if (_vuTplId && !filteredTplList.find(t => t.id === _vuTplId)) {
+    _vuTplId = filteredTplList[0]?.id || null;
+    _vuActiveTab = 0;
+  }
+
   const curTpl = _vuTplList.find(t => t.id === _vuTplId);
   const purpose = curTpl?.purpose || 'edu_support';
   const tabs = _vuGetTabs(purpose);
@@ -101,15 +117,24 @@ async function renderVirtualOrgUnified() {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <span style="font-size:13px;font-weight:900;color:#111827">📋 템플릿 목록</span>
         <div style="display:flex;gap:6px">
-          ${typeof pgGuideBtn !== 'undefined' ? pgGuideBtn('virtual-org') : ''}
           <button onclick="_vuOpenCreateModal()"
             style="padding:4px 10px;background:#1D4ED8;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">+ 생성</button>
         </div>
       </div>
-      ${tenantSelectHtml}
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        ${tenantSelectHtml}
+        <select onchange="_vuPurposeFilter=this.value;_vuTplId=null;_vuActiveTab=0;renderVirtualOrgUnified()"
+          style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:11px;font-weight:700;background:white;cursor:pointer;flex:1;min-width:0">
+          <option value="all" ${_vuPurposeFilter === 'all' ? 'selected' : ''}>전체</option>
+          <option value="edu_support" ${_vuPurposeFilter === 'edu_support' ? 'selected' : ''}>교육지원</option>
+          <option value="cert" ${_vuPurposeFilter === 'cert' ? 'selected' : ''}>자격증</option>
+          <option value="badge" ${_vuPurposeFilter === 'badge' ? 'selected' : ''}>뱃지</option>
+          <option value="language" ${_vuPurposeFilter === 'language' ? 'selected' : ''}>어학</option>
+        </select>
+      </div>
     </div>
     <div style="padding:6px 8px" id="vu-tpl-list-container">
-      ${_vuTplList.length ? _vuTplList.map((t, idx) => {
+      ${filteredTplList.length ? filteredTplList.map((t, idx) => {
     const pc = purposeColors[t.purpose] || purposeColors.edu_support;
     const isActive = t.id === _vuTplId;
     return `

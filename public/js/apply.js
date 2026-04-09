@@ -1713,14 +1713,28 @@ function _renderPlanPickerModalDOM() {
     return sum + (p ? (p.amount || 0) : 0);
   }, 0);
 
+  // 현재 선택된 계획들의 교육유형 판별 (복수선택 제한용)
+  const selectedType = (() => {
+    if (tempIds.length === 0) return null;
+    const first = plans.find(p => p.id === tempIds[0]);
+    return first?.edu_type || null;
+  })();
+  const eduTypeLabel = (t) => {
+    const map = { elearning: '이러닝', seminar: '세미나', class: '집합', conf: '컨퍼런스', book: '도서구입', cert: '자격증', lang: '어학', live: '라이브' };
+    return map[t] || t || '';
+  };
+
   const planCards = filtered.map(p => {
     const active = tempIds.includes(p.id);
     const balance = (p.amount || 0) - (p.used || 0);
     const isLow = balance <= 0;
     const pExpired = p.endDate && new Date(p.endDate) < new Date();
+    const pType = p.edu_type || '';
+    const isTypeMismatch = selectedType && pType && pType !== selectedType && !active;
+    const isDisabled = pExpired || isTypeMismatch;
     return `
-    <label onclick="_togglePlanPickerItem('${p.id}')" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;
-      border:2px solid ${active ? color : '#E5E7EB'};background:${active ? color + '10' : 'white'};cursor:${pExpired ? 'not-allowed' : 'pointer'};transition:all .15s${pExpired ? ';opacity:.45' : ''}">
+    <label onclick="${isDisabled ? '' : `_togglePlanPickerItem('${p.id}')`}" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;
+      border:2px solid ${active ? color : isTypeMismatch ? '#F3F4F6' : '#E5E7EB'};background:${active ? color + '10' : isTypeMismatch ? '#FAFAFA' : 'white'};cursor:${isDisabled ? 'not-allowed' : 'pointer'};transition:all .15s${isDisabled ? ';opacity:.4' : ''}">
       <div style="width:22px;height:22px;border-radius:6px;border:2px solid ${active ? color : '#D1D5DB'};
         background:${active ? color : 'white'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
         ${active ? '<span style="color:white;font-size:12px;font-weight:900">✓</span>' : ''}
@@ -1728,7 +1742,9 @@ function _renderPlanPickerModalDOM() {
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:900;color:${active ? color : '#111827'};margin-bottom:3px;display:flex;align-items:center;gap:6px">
           ${p.title}
+          ${pType ? `<span style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;background:#EFF6FF;color:#1D4ED8">${eduTypeLabel(pType)}</span>` : ''}
           ${pExpired ? '<span style="font-size:9px;font-weight:900;padding:1px 6px;border-radius:4px;background:#FEE2E2;color:#DC2626">기간만료</span>' : ''}
+          ${isTypeMismatch ? '<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:#F3F4F6;color:#9CA3AF">유형 다름</span>' : ''}
         </div>
         <div style="font-size:11px;color:#6B7280;display:flex;gap:12px;flex-wrap:wrap">
           <span>📅 ${p.date || '-'}</span>
@@ -1786,9 +1802,28 @@ function _togglePlanPickerItem(id) {
   // 기간 만료 체크
   const plan = _dbApprovedPlans.find(p => p.id === id);
   if (plan?.endDate && new Date(plan.endDate) < new Date()) return;
+
   const idx = tempIds.indexOf(id);
-  if (idx >= 0) tempIds.splice(idx, 1);
-  else tempIds.push(id);
+  if (idx >= 0) {
+    // 선택 해제
+    tempIds.splice(idx, 1);
+  } else {
+    // ★ 같은 교육유형만 복수 선택 가능
+    if (tempIds.length > 0 && plan) {
+      const firstPlan = _dbApprovedPlans.find(p => p.id === tempIds[0]);
+      const firstType = firstPlan?.edu_type || '';
+      const thisType = plan.edu_type || '';
+      if (firstType && thisType && firstType !== thisType) {
+        const typeLabel = (t) => {
+          const map = { elearning: '이러닝', seminar: '세미나', class: '집합', conf: '컨퍼런스', book: '도서구입', cert: '자격증', lang: '어학' };
+          return map[t] || t || '미지정';
+        };
+        alert(`⚠️ 같은 교육유형의 계획만 복수 선택 가능합니다.\n\n현재 선택된 유형: ${typeLabel(firstType)}\n선택하려는 유형: ${typeLabel(thisType)}`);
+        return;
+      }
+    }
+    tempIds.push(id);
+  }
   applyState._planPickerTempIds = tempIds;
   _renderPlanPickerModalDOM();
 }

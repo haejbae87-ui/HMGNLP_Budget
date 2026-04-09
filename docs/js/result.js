@@ -456,16 +456,72 @@ function _renderResultWizard() {
 </div>`;
 }
 
-// ─── 개인직무 예산 선택 카드 ────────────────────────────────────────────────
+// ─── 개인직무 예산 선택 카드 (페르소나 allowedAccounts 기반 동적 필터링) ──────
 function _renderResultBudgetChoices(s) {
+  const allowed = currentPersona.allowedAccounts || [];
+  const hasRnd = allowed.some(a => a.includes('RND'));
+  const hasHscExt = allowed.includes('HSC-EXT');
+  const hasHaeEdu = allowed.includes('HAE-EDU');
+  const hasHaeTeam = allowed.includes('HAE-TEAM');
+  const hasPart = allowed.some(a => a.includes('-PART') || a.includes('-OPS') || a.includes('-ETC'));
+  const hasFree = allowed.includes('COMMON-FREE');
+
   const choices = [
-    { key: 'general', icon: '💳', title: '일반교육예산', desc: '일반 교육예산에서 지원합니다.', tag: '예산 사용', tagBg: '#DBEAFE', tagColor: '#1D4ED8', nextColor: '#1D4ED8', next: '교육유형 선택 → 결과 등록' },
-    { key: 'rnd', icon: '🔬', title: 'R&D교육예산', desc: '사전 승인받은 R&D 교육계획과 연동합니다.', tag: '계획 연동 필수', tagBg: '#EDE9FE', tagColor: '#7C3AED', nextColor: '#7C3AED', next: '교육계획 선택 → 결과 등록' },
-    { key: 'none', icon: '📝', title: '예산 미사용', desc: '예산 차감 없이 교육 이력만 등록합니다.', tag: '무예산', tagBg: '#F0FDF4', tagColor: '#15803D', nextColor: '#15803D', next: '교육유형 선택 → 결과 등록' },
+    // HAE 전사교육예산
+    ...(hasHaeEdu ? [{
+      key: 'general', icon: '🏢', title: '전사교육예산',
+      desc: '전사교육예산에서 지원합니다.',
+      tag: '예산 사용', tagBg: '#EDE9FE', tagColor: '#7C3AED', nextColor: '#7C3AED',
+      next: '교육유형 선택 → 결과 등록',
+    }] : []),
+    // HAE 팀/프로젝트 할당예산
+    ...(hasHaeTeam ? [{
+      key: 'general', icon: '👥', title: '팀/프로젝트 할당예산',
+      desc: '팀 및 프로젝트 단위로 배정된 교육예산에서 결과를 등록합니다.',
+      tag: '예산 사용', tagBg: '#F0FDF4', tagColor: '#059669', nextColor: '#059669',
+      next: '교육유형 선택 → 결과 등록',
+    }] : []),
+    // HSC 사외교육 계정
+    ...(hasHscExt ? [{
+      key: 'general', icon: '🏭', title: '현대제철-사외교육 계정',
+      desc: '현대제철 사외교육 예산으로 결과를 등록합니다.',
+      tag: '예산 사용', tagBg: '#FFF1F2', tagColor: '#BE123C', nextColor: '#BE123C',
+      next: '교육유형 선택 → 결과 등록',
+    }] : []),
+    // 일반 참가계정 (HMC/KIA 등 — HAE, HSC 아닌 경우)
+    ...(!hasHscExt && !hasHaeEdu && hasPart ? [{
+      key: 'general', icon: '💳', title: '일반교육예산',
+      desc: '일반 교육예산에서 지원합니다.',
+      tag: '예산 사용', tagBg: '#DBEAFE', tagColor: '#1D4ED8', nextColor: '#1D4ED8',
+      next: '교육유형 선택 → 결과 등록',
+    }] : []),
+    // R&D 교육예산 (R&D VOrg 소속 팀만)
+    ...(hasRnd ? [{
+      key: 'rnd', icon: '🔬', title: 'R&D교육예산',
+      desc: '사전 승인받은 R&D 교육계획과 연동합니다.',
+      tag: '계획 연동 필수', tagBg: '#EDE9FE', tagColor: '#7C3AED', nextColor: '#7C3AED',
+      next: '교육계획 선택 → 결과 등록',
+    }] : []),
+    // 예산 미사용 (COMMON-FREE 정책 계정이 있을 때만)
+    ...(hasFree ? [{
+      key: 'none', icon: '📝', title: '예산 미사용',
+      desc: '예산 차감 없이 교육 이력만 등록합니다.',
+      tag: '무예산', tagBg: '#F0FDF4', tagColor: '#15803D', nextColor: '#15803D',
+      next: '교육유형 선택 → 결과 등록',
+    }] : []),
   ];
+
+  if (choices.length === 0) {
+    return `<div style="padding:24px;text-align:center;border-radius:14px;background:#FEF2F2;border:1.5px solid #FECACA">
+      <div style="font-size:36px;margin-bottom:8px">⚠️</div>
+      <div style="font-size:14px;font-weight:900;color:#DC2626;margin-bottom:4px">사용 가능한 예산 계정이 없습니다</div>
+      <div style="font-size:12px;color:#9CA3AF">백오피스 관리자에게 문의하세요.</div>
+    </div>`;
+  }
+
   return choices.map(ch => {
     const active = s.budgetChoice === ch.key;
-    const col = ch.key === 'general' ? '#1D4ED8' : ch.key === 'rnd' ? '#7C3AED' : '#15803D';
+    const col = ch.key === 'rnd' ? '#7C3AED' : ch.key === 'none' ? '#15803D' : ch.tagColor || '#1D4ED8';
     return `
   <button onclick="_resultSelectBudgetChoice('${ch.key}')"
     style="text-align:left;padding:20px;border-radius:16px;border:2px solid ${active ? col : '#E5E7EB'};

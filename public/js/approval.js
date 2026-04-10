@@ -203,19 +203,28 @@ async function renderApprovalLeader() {
     try {
       const pid = currentPersona.id;
       const tid = currentPersona.tenantId;
+      // 크로스 테넌트: 총괄부서 팀장이면 양쪽 회사 pending 문서 조회
+      const ctInfo = typeof getCrossTenantInfo === 'function' ? await getCrossTenantInfo(currentPersona) : null;
+      const filterTids = ctInfo?.linkedTids || [tid];
 
       // plans: pending 상태 + 본인이 아닌 문서
-      const { data: plans, error: pe } = await sb.from('plans').select('*')
-        .eq('tenant_id', tid).eq('status', 'pending')
+      let plansQ = sb.from('plans').select('*')
+        .eq('status', 'pending')
         .neq('applicant_id', pid)
         .order('created_at', { ascending: false });
+      if (filterTids.length > 1) plansQ = plansQ.in('tenant_id', filterTids);
+      else plansQ = plansQ.eq('tenant_id', tid);
+      const { data: plans, error: pe } = await plansQ;
       if (pe) throw pe;
 
       // applications: pending 상태 + 본인이 아닌 문서
-      const { data: apps, error: ae } = await sb.from('applications').select('*')
-        .eq('tenant_id', tid).eq('status', 'pending')
+      let appsQ = sb.from('applications').select('*')
+        .eq('status', 'pending')
         .neq('applicant_id', pid)
         .order('created_at', { ascending: false });
+      if (filterTids.length > 1) appsQ = appsQ.in('tenant_id', filterTids);
+      else appsQ = appsQ.eq('tenant_id', tid);
+      const { data: apps, error: ae } = await appsQ;
       if (ae) throw ae;
 
       _aprLeaderData = [
@@ -229,6 +238,7 @@ async function renderApprovalLeader() {
           amount: Number(p.amount || 0),
           date: (p.created_at || '').slice(0, 10),
           account_code: p.account_code || '',
+          tenantId: p.tenant_id || '',
         })),
         ...(apps || []).map(a => ({
           _type: 'app', _table: 'applications', id: a.id,
@@ -240,6 +250,7 @@ async function renderApprovalLeader() {
           amount: Number(a.amount || 0),
           date: (a.created_at || '').slice(0, 10),
           account_code: a.account_code || a.detail?.account_code || '',
+          tenantId: a.tenant_id || '',
         })),
       ];
 
@@ -271,6 +282,7 @@ async function renderApprovalLeader() {
     const typeBadge = item._type === 'plan'
       ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#DBEAFE;color:#1D4ED8">📋 교육계획</span>'
       : '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#FEF3C7;color:#B45309">📝 교육신청</span>';
+    const tenantBadge = typeof getTenantBadgeHtml === 'function' ? getTenantBadgeHtml(item.tenantId, currentPersona.tenantId) : '';
     const safeId = String(item.id).replace(/'/g, "\\'");
     const safeTable = item._table;
 
@@ -289,7 +301,7 @@ async function renderApprovalLeader() {
           </div>
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
             <span style="font-size:14px;font-weight:900;color:#111827">${item.title}</span>
-            ${typeBadge}
+            ${typeBadge}${tenantBadge}
           </div>
           <div style="font-size:11px;color:#6B7280;display:flex;gap:10px;flex-wrap:wrap">
             <span>📅 신청 ${item.date}</span>

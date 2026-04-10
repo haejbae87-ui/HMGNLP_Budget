@@ -209,23 +209,29 @@ function renderPlans() {
   const sb = typeof getSB === 'function' ? getSB() : null;
   if (sb && !_plansDbLoaded) {
     _plansDbLoaded = true;
-    sb.from('plans').select('*')
-      .eq('applicant_id', currentPersona.id)
-      .eq('tenant_id', currentPersona.tenantId)
-      .is('deleted_at', null)  // 소프트 삭제 제외
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (!error && data) {
-          _dbMyPlans = data.map(d => ({
-            id: d.id, title: d.edu_name, type: d.edu_type || '',
-            amount: Number(d.amount || 0), status: _mapDbStatus(d.status),
-            account: d.account_code, date: d.created_at?.slice(0, 10) || '',
-            budgetId: d.detail?.budgetId || null, purpose: d.detail?.purpose || null,
-          }));
-          _plansDbCache = data; // raw DB data 캐시
-        }
-        renderPlans();
-      });
+    // 크로스 테넌트: 총괄부서면 양쪽 회사 계획 조회
+    (async () => {
+      const ctInfo = typeof getCrossTenantInfo === 'function' ? await getCrossTenantInfo(currentPersona) : null;
+      const tids = ctInfo?.linkedTids || [currentPersona.tenantId];
+      let query = sb.from('plans').select('*')
+        .eq('applicant_id', currentPersona.id)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false });
+      if (tids.length > 1) query = query.in('tenant_id', tids);
+      else query = query.eq('tenant_id', currentPersona.tenantId);
+      const { data, error } = await query;
+      if (!error && data) {
+        _dbMyPlans = data.map(d => ({
+          id: d.id, title: d.edu_name, type: d.edu_type || '',
+          amount: Number(d.amount || 0), status: _mapDbStatus(d.status),
+          account: d.account_code, date: d.created_at?.slice(0, 10) || '',
+          budgetId: d.detail?.budgetId || null, purpose: d.detail?.purpose || null,
+          tenantId: d.tenant_id, // 크로스 테넌트 뱃지용
+        }));
+        _plansDbCache = data;
+      }
+      renderPlans();
+    })();
     return;
   }
   const myPlans = _dbMyPlans;
@@ -236,21 +242,26 @@ function renderPlans() {
       _teamPlansLoaded = true;
       const sb = typeof getSB === 'function' ? getSB() : null;
       if (sb && currentPersona.orgId) {
-        sb.from('plans').select('*')
-          .eq('tenant_id', currentPersona.tenantId)
-          .neq('applicant_id', currentPersona.id)
-          .neq('status', 'draft')
-          .is('deleted_at', null)  // 소프트 삭제 제외
-          .order('created_at', { ascending: false })
-          .then(({ data }) => {
-            _dbTeamPlans = (data || []).map(d => ({
-              id: d.id, title: d.edu_name, type: d.edu_type || '',
-              amount: Number(d.amount || 0), status: _mapDbStatus(d.status),
-              account: d.account_code, date: d.created_at?.slice(0, 10) || '',
-              author: d.applicant_name || '-', authorDept: d.dept || '-',
-            }));
-            renderPlans();
-          });
+        (async () => {
+          const ctInfo = typeof getCrossTenantInfo === 'function' ? await getCrossTenantInfo(currentPersona) : null;
+          const tids = ctInfo?.linkedTids || [currentPersona.tenantId];
+          let query = sb.from('plans').select('*')
+            .neq('applicant_id', currentPersona.id)
+            .neq('status', 'draft')
+            .is('deleted_at', null)
+            .order('created_at', { ascending: false });
+          if (tids.length > 1) query = query.in('tenant_id', tids);
+          else query = query.eq('tenant_id', currentPersona.tenantId);
+          const { data } = await query;
+          _dbTeamPlans = (data || []).map(d => ({
+            id: d.id, title: d.edu_name, type: d.edu_type || '',
+            amount: Number(d.amount || 0), status: _mapDbStatus(d.status),
+            account: d.account_code, date: d.created_at?.slice(0, 10) || '',
+            author: d.applicant_name || '-', authorDept: d.dept || '-',
+            tenantId: d.tenant_id,
+          }));
+          renderPlans();
+        })();
       }
       return;
     }
@@ -1098,6 +1109,7 @@ async function savePlanDraft() {
     const row = {
       id: planId, tenant_id: currentPersona.tenantId, account_code: accountCode,
       applicant_id: currentPersona.id, applicant_name: currentPersona.name,
+      applicant_org_id: currentPersona.orgId || null,
       edu_name: planState.title || planState.eduTypeName || '교육계획',
       edu_type: planState.eduType || planState.eduSubType || null,
       amount: amount, status: 'draft', policy_id: planState.policyId || null,
@@ -1209,6 +1221,7 @@ async function confirmPlan() {
       const row = {
         id: planId, tenant_id: currentPersona.tenantId, account_code: accountCode,
         applicant_id: currentPersona.id, applicant_name: currentPersona.name,
+        applicant_org_id: currentPersona.orgId || null,
         edu_name: planState.title || planState.eduTypeName || '교육계획',
         edu_type: planState.eduType || planState.eduSubType || null,
         amount: amount, status: 'pending', policy_id: planState.policyId || null,

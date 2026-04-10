@@ -156,8 +156,36 @@ PRD 파일 생성·수정 후 반드시 `docs/PRD/README.md`의 목록을 업데
 
 ---
 
+## BO 요구사항정의서 뷰어 자동 갱신 (필수)
+
+PRD 파일을 생성하거나 수정한 후 반드시 아래 작업을 수행한다:
+
+### Step 1 — PRD 빌드 실행
+```bash
+node scripts/build_prd_data.js
+```
+이 스크립트는 `docs/PRD/*.md` 파일을 읽어 `public/js/prd_data.js`로 변환한다.
+
+### Step 2 — 메타데이터 등록 확인
+신규 PRD를 추가한 경우, `scripts/build_prd_data.js`의 `PRD_META` 객체에
+해당 PRD의 메타정보(title, version, status, date, tags, summary)를 추가한다.
+메타데이터가 없으면 md 파일의 첫 번째 `# 제목`을 자동 추출하여 사용한다.
+
+### Step 3 — docs 동기화 시 PRD 보호
+`public → docs` 동기화 시 `docs/PRD/` 폴더는 public에 없으므로 삭제되지 않도록 주의.
+동기화 후 `docs/PRD/` 폴더가 유지되는지 확인한다.
+
+### Step 4 — 배포
+```bash
+node -e "..." # public → docs 동기화
+git add -A && git commit -m "docs: PRD 갱신" && git push
+```
+
+---
+
 ## 현재 PRD 목록 확인 방법
 
 ```
 docs/PRD/README.md 파일을 항상 먼저 읽어서 전체 PRD 현황을 파악한다.
 ```
+

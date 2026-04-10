@@ -28,7 +28,44 @@ const PRD_META = {
     tags: ['크로스테넌트', '총괄부서', '결재'],
     summary: 'HMC↔KIA 총괄부서 간 교육계획/신청/결재 크로스 테넌트 연동 아키텍처.',
   },
+  'edu_result': {
+    title: '교육결과 등록',
+    version: 'v1.0',
+    status: '구현 완료',
+    date: '2026-04-09',
+    tags: ['FO', '교육결과', '등록'],
+    summary: '교육결과 등록 독립 화면 신규 구축. 교육계획/신청과 분리된 결과 등록 프로세스.',
+  },
+  'service_policy': {
+    title: '서비스 정책 관리',
+    version: 'v1.0',
+    status: '구현 완료',
+    date: '2026-04-08',
+    tags: ['BO', '정책', '교육유형'],
+    summary: '서비스 정책 생성 위저드, 교육유형 필터링, VOrg 기반 정책 할당 체계.',
+  },
+  'learning_apply': {
+    title: '교육 신청 프로세스',
+    version: 'v1.0',
+    status: '구현 완료',
+    date: '2026-04-09',
+    tags: ['FO', '교육신청', '교육계획'],
+    summary: '통합 교육계획 선택 팝업, R&D/교육운영 패턴별 신청 프로세스.',
+  },
+  'badge_system': {
+    title: '뱃지 제도',
+    version: 'v1.0',
+    status: '구현 완료',
+    date: '2026-04-08',
+    tags: ['뱃지', '성장제도', 'BO'],
+    summary: '뱃지 그룹 관리, 뱃지 기준 설정, 취득 조건 빌더, 심사/발급 프로세스.',
+  },
 };
+
+function _extractTitleFromMd(content) {
+  const match = content.match(/^#\s+(.+)$/m);
+  return match ? match[1].trim() : null;
+}
 
 function buildPrdData() {
   if (!fs.existsSync(PRD_DIR)) {
@@ -36,7 +73,8 @@ function buildPrdData() {
     process.exit(1);
   }
 
-  const files = fs.readdirSync(PRD_DIR).filter(f => f.endsWith('.md'));
+  // README.md 제외
+  const files = fs.readdirSync(PRD_DIR).filter(f => f.endsWith('.md') && f !== 'README.md');
   console.log(`[PRD Build] ${files.length}개 .md 파일 발견`);
 
   const entries = [];
@@ -44,7 +82,7 @@ function buildPrdData() {
     const id = file.replace('.md', '');
     const content = fs.readFileSync(path.join(PRD_DIR, file), 'utf8');
     const meta = PRD_META[id] || {
-      title: id.replace(/_/g, ' '),
+      title: _extractTitleFromMd(content) || id.replace(/_/g, ' '),
       version: 'v1.0',
       status: '작성 중',
       date: new Date().toISOString().slice(0, 10),

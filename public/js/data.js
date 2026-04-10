@@ -12,6 +12,7 @@ const PERSONAS = {
     role: 'team_general', jobType: '일반직',
     orgId: '25b3b685-594d-426a-9016-ae63c6266d7f', // 역량혁신팀 (DB)
     vorgId: 'TPL_1774867919831',  // HMC 일반교육예산 가상교육조직 (DB id 직접 참조)
+    teamViewEnabled: true, // 총괄부서 → 학습자도 팀 뷰 ON
     desc: '일반예산(운영/기타) 활용 교육담당자. 운영·기타 계정으로 교육계획 수립 후 신청.',
     // allowedAccounts, budgets → fo_persona_loader.js가 DB에서 로드
     allowedAccounts: [], budgets: [] // DB 로드 전 빈 배열 (fallback)

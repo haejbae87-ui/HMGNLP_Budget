@@ -248,13 +248,18 @@ async function _initCurrentPersona(persona) {
     if (!sb) return persona;
 
     try {
-        // 1. 내 팀 직접 통장 조회
-        const { data: directBbs, error: e1 } = await sb
+        // 1. 내 팀 직접 통장 조회 (팀 통장 + 내 개인 통장)
+        const { data: rawBbs, error: e1 } = await sb
             .from('org_budget_bankbooks')
-            .select('id, org_name, org_type, parent_org_id, account_id, template_id, vorg_group_id')
-            .eq('org_id', persona.orgId)
-            .eq('tenant_id', persona.tenantId);
+            .select('id, org_id, org_name, org_type, parent_org_id, account_id, template_id, vorg_group_id, user_id, user_name, bb_status')
+            .or(`and(org_id.eq.${persona.orgId},user_id.is.null),user_id.eq.${persona.id}`)
+            .eq('tenant_id', persona.tenantId)
+            .or('bb_status.eq.active,bb_status.is.null');
         if (e1) throw e1;
+        // 타인 개인 통장 제외 (팀 통장=user_id null + 내 개인 통장=user_id=내id)
+        const directBbs = (rawBbs || []).filter(bb =>
+            !bb.user_id || bb.user_id === persona.id
+        );
 
         // 2. 계정 코드 + 정책 조회
         const accountIds = [...new Set((directBbs || []).map(bb => bb.account_id))];
@@ -265,7 +270,7 @@ async function _initCurrentPersona(persona) {
             (accts || []).forEach(a => { accountMap[a.id] = a; });
 
             const { data: policies } = await sb.from('budget_account_org_policy')
-                .select('budget_account_id, bankbook_mode').in('budget_account_id', accountIds);
+                .select('budget_account_id, bankbook_mode, individual_limit').in('budget_account_id', accountIds);
             (policies || []).forEach(p => { policyMap[p.budget_account_id] = p; });
         }
 
@@ -309,7 +314,7 @@ async function _initCurrentPersona(persona) {
             const mode = policy?.bankbook_mode || 'isolated';
             budgets.push({
                 id: bb.id,
-                name: `${bb.org_name} ${acct.name}`,
+                name: bb.user_id ? `${bb.user_name || persona.name} ${acct.name}` : `${bb.org_name} ${acct.name}`,
                 account: acct.name.replace('일반-', '').replace('계정', '').trim(),
                 accountCode: acct.code,
                 balance: Number(alloc?.allocated_amount || 0),
@@ -317,7 +322,8 @@ async function _initCurrentPersona(persona) {
                 frozen: Number(alloc?.frozen_amount || 0),
                 bankbookMode: mode,
                 parentOrgName: mode === 'shared' ? bb.org_name : null,
-                vorgName: vorgNameMap[bb.template_id] || '', // 개선2: VOrg 레이블
+                vorgName: vorgNameMap[bb.template_id] || '',
+                isPersonal: !!bb.user_id, // 개인 통장 플래그
             });
         }
 
@@ -384,6 +390,62 @@ async function _initCurrentPersona(persona) {
             persona.vorgIds = allVorgIds;
             // vorgId: mock data에서 설정된 게 있으면 유지, 없으면 tree 기반 첫 번째
             if (!persona.vorgId) persona.vorgId = allVorgIds[0];
+        }
+
+        // ── 개인 통장 자동 생성 (신규 입사자 / 통장 누락 보정) ──
+        try {
+            // VOrg에 맵핑된 계정 중 individual 정책인 것 조회
+            if (allVorgIds.length > 0 && persona.id) {
+                const { data: allPolicies } = await sb.from('budget_account_org_policy')
+                    .select('budget_account_id, bankbook_mode, individual_limit, vorg_template_id')
+                    .eq('bankbook_mode', 'individual')
+                    .in('vorg_template_id', allVorgIds);
+                for (const pol of (allPolicies || [])) {
+                    const myBb = directBbs.find(bb => bb.account_id === pol.budget_account_id && bb.user_id === persona.id);
+                    if (myBb) continue; // 이미 있음
+                    // 계정 활성 여부 확인
+                    let acct = accountMap[pol.budget_account_id];
+                    if (!acct) {
+                        acct = await _fetchAccount(sb, pol.budget_account_id);
+                    }
+                    if (!acct || !acct.active || acct.uses_budget === false) continue;
+                    // 자동 생성
+                    const newBb = {
+                        tenant_id: persona.tenantId,
+                        org_id: persona.orgId,
+                        org_name: persona.dept || persona.orgName || '',
+                        account_id: pol.budget_account_id,
+                        template_id: pol.vorg_template_id,
+                        user_id: persona.id,
+                        user_name: persona.name,
+                        bb_status: 'active',
+                    };
+                    const { data: created } = await sb.from('org_budget_bankbooks').insert(newBb).select().single();
+                    if (created) {
+                        // 기본 한도 배정
+                        const limitAmt = pol.individual_limit || 0;
+                        await sb.from('budget_allocations').insert({
+                            bankbook_id: created.id,
+                            allocated_amount: limitAmt,
+                            used_amount: 0, frozen_amount: 0,
+                        });
+                        allowedAccounts.push(acct.code);
+                        budgets.push({
+                            id: created.id,
+                            name: `${persona.name} ${acct.name}`,
+                            account: acct.name.replace('일반-', '').replace('계정', '').trim(),
+                            accountCode: acct.code,
+                            balance: limitAmt, used: 0, frozen: 0,
+                            bankbookMode: 'individual',
+                            isPersonal: true,
+                            vorgName: vorgNameMap[pol.vorg_template_id] || '',
+                        });
+                        console.log(`[FO Loader] 개인 통장 자동 생성: ${persona.name} - ${acct.code} (한도: ${limitAmt})`);
+                    }
+                }
+            }
+        } catch (autoErr) {
+            console.warn('[FO Loader] 개인 통장 자동 생성 실패:', autoErr.message);
         }
 
         console.log(`[FO Loader] ${persona.name} → 계정: ${allowedAccounts.join(', ')}, vorgIds: ${(persona.vorgIds || []).join(', ')}`);

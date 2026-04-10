@@ -298,7 +298,7 @@ async function openS1Modal(id) {
       const sb = typeof _sb === 'function' ? _sb() : getSB?.();
       if (sb) {
         const { data } = await sb.from('budget_account_org_policy')
-          .select('bankbook_mode, bankbook_level')
+          .select('bankbook_mode, bankbook_level, individual_limit')
           .eq('budget_account_id', id)
           .eq('vorg_template_id', _baTplId)
           .maybeSingle();
@@ -365,22 +365,36 @@ async function openS1Modal(id) {
   <div id="s1-bankbook-mode-section" style="margin-bottom:4px;${(a?.uses_budget === false) ? 'display:none' : ''}">
     <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px">통장 생성 정책</label>
     <div style="font-size:10px;color:#9CA3AF;margin-bottom:8px">가상교육조직에 상위 조직(본부)을 맵핑했을 때 통장을 어떻게 만들지 결정합니다.</div>
-    <div style="display:flex;gap:12px">
-      <label id="s1-mode-isolated-label" style="display:flex;align-items:flex-start;gap:8px;padding:10px 14px;border:1.5px solid ${(policy?.bankbook_mode !== 'shared') ? '#7C3AED' : '#E5E7EB'};border-radius:10px;cursor:pointer;background:${(policy?.bankbook_mode !== 'shared') ? '#F5F3FF' : '#fff'};flex:1" onclick="_s1ToggleBankbookMode('isolated')">
-        <input type="radio" name="s1-bankbook-mode" value="isolated" ${(policy?.bankbook_mode !== 'shared') ? 'checked' : ''} style="accent-color:#7C3AED;margin-top:2px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <label id="s1-mode-isolated-label" style="display:flex;align-items:flex-start;gap:8px;padding:10px 14px;border:1.5px solid ${(policy?.bankbook_mode || 'isolated') === 'isolated' ? '#7C3AED' : '#E5E7EB'};border-radius:10px;cursor:pointer;background:${(policy?.bankbook_mode || 'isolated') === 'isolated' ? '#F5F3FF' : '#fff'};flex:1;min-width:130px" onclick="_s1ToggleBankbookMode('isolated')">
+        <input type="radio" name="s1-bankbook-mode" value="isolated" ${(policy?.bankbook_mode || 'isolated') === 'isolated' ? 'checked' : ''} style="accent-color:#7C3AED;margin-top:2px">
         <div>
           <div style="font-size:11px;font-weight:800;color:#7C3AED">팀별 분리 통장</div>
-          <div style="font-size:10px;color:#6B7280;margin-top:2px">하위 팀마다 개별 통장<br>예) 내구기술팀 통장, 전동화설계팀 통장</div>
+          <div style="font-size:10px;color:#6B7280;margin-top:2px">하위 팀마다 개별 통장<br>예) 내구기술팀 통장</div>
         </div>
       </label>
-      <label id="s1-mode-shared-label" style="display:flex;align-items:flex-start;gap:8px;padding:10px 14px;border:1.5px solid ${(policy?.bankbook_mode === 'shared') ? '#D97706' : '#E5E7EB'};border-radius:10px;cursor:pointer;background:${(policy?.bankbook_mode === 'shared') ? '#FFFBEB' : '#fff'};flex:1" onclick="_s1ToggleBankbookMode('shared')">
-        <input type="radio" name="s1-bankbook-mode" value="shared" ${(policy?.bankbook_mode === 'shared') ? 'checked' : ''} style="accent-color:#D97706;margin-top:2px">
+      <label id="s1-mode-shared-label" style="display:flex;align-items:flex-start;gap:8px;padding:10px 14px;border:1.5px solid ${policy?.bankbook_mode === 'shared' ? '#D97706' : '#E5E7EB'};border-radius:10px;cursor:pointer;background:${policy?.bankbook_mode === 'shared' ? '#FFFBEB' : '#fff'};flex:1;min-width:130px" onclick="_s1ToggleBankbookMode('shared')">
+        <input type="radio" name="s1-bankbook-mode" value="shared" ${policy?.bankbook_mode === 'shared' ? 'checked' : ''} style="accent-color:#D97706;margin-top:2px">
         <div>
           <div style="font-size:11px;font-weight:800;color:#D97706">상위 조직 공유 통장</div>
-          <div style="font-size:10px;color:#6B7280;margin-top:2px">본부단위 통장 1개, 하위 팀이 공유<br>예) 연구개발본부 단일 통장</div>
+          <div style="font-size:10px;color:#6B7280;margin-top:2px">본부단위 통장 1개, 하위 팀 공유</div>
           <div style="font-size:10px;color:#D97706;margin-top:4px;font-weight:700">⚠️ 패더 소진 시 하위 팀 전체 영향</div>
         </div>
       </label>
+      <label id="s1-mode-individual-label" style="display:flex;align-items:flex-start;gap:8px;padding:10px 14px;border:1.5px solid ${policy?.bankbook_mode === 'individual' ? '#059669' : '#E5E7EB'};border-radius:10px;cursor:pointer;background:${policy?.bankbook_mode === 'individual' ? '#ECFDF5' : '#fff'};flex:1;min-width:130px" onclick="_s1ToggleBankbookMode('individual')">
+        <input type="radio" name="s1-bankbook-mode" value="individual" ${policy?.bankbook_mode === 'individual' ? 'checked' : ''} style="accent-color:#059669;margin-top:2px">
+        <div>
+          <div style="font-size:11px;font-weight:800;color:#059669">👤 개인별 분리 통장</div>
+          <div style="font-size:10px;color:#6B7280;margin-top:2px">팀원 1인당 개별 통장<br>예) 홍길동 참가통장</div>
+          <div style="font-size:10px;color:#059669;margin-top:4px;font-weight:700">💰 성장지원금 · 한도 엄격</div>
+        </div>
+      </label>
+    </div>
+    <div id="s1-individual-limit-section" style="margin-top:10px;${policy?.bankbook_mode === 'individual' ? '' : 'display:none'}">
+      <label style="font-size:11px;font-weight:700;color:#059669;display:block;margin-bottom:4px">💰 1인당 기본 한도 (원)</label>
+      <input id="s1-individual-limit" type="number" min="0" step="10000" placeholder="예) 500000" value="${policy?.individual_limit || ''}"
+        style="width:200px;padding:8px 12px;border:1.5px solid #A7F3D0;border-radius:8px;font-size:13px;font-weight:700">
+      <span style="font-size:10px;color:#6B7280;margin-left:8px">FO 첫 로그인 시 자동 생성 + 이 금액 배정</span>
     </div>
   </div>`;
   document.getElementById('s1-modal').style.display = 'flex';
@@ -427,13 +441,21 @@ function _s1ToggleUsesBudget(val) {
 function _s1ToggleBankbookMode(mode) {
   const isoLabel = document.getElementById('s1-mode-isolated-label');
   const sharedLabel = document.getElementById('s1-mode-shared-label');
+  const indLabel = document.getElementById('s1-mode-individual-label');
+  const limitSection = document.getElementById('s1-individual-limit-section');
   if (!isoLabel || !sharedLabel) return;
   isoLabel.querySelector('input').checked = (mode === 'isolated');
   sharedLabel.querySelector('input').checked = (mode === 'shared');
+  if (indLabel) indLabel.querySelector('input').checked = (mode === 'individual');
   isoLabel.style.borderColor = mode === 'isolated' ? '#7C3AED' : '#E5E7EB';
   isoLabel.style.background = mode === 'isolated' ? '#F5F3FF' : '#fff';
   sharedLabel.style.borderColor = mode === 'shared' ? '#D97706' : '#E5E7EB';
   sharedLabel.style.background = mode === 'shared' ? '#FFFBEB' : '#fff';
+  if (indLabel) {
+    indLabel.style.borderColor = mode === 'individual' ? '#059669' : '#E5E7EB';
+    indLabel.style.background = mode === 'individual' ? '#ECFDF5' : '#fff';
+  }
+  if (limitSection) limitSection.style.display = mode === 'individual' ? '' : 'none';
 }
 
 async function s1SaveAccount() {
@@ -465,18 +487,23 @@ async function s1SaveAccount() {
       const { error } = await sb.from('budget_accounts').update(payload).eq('id', _s1EditId);
       if (error) throw error;
       // 통장 생성 정책 upsert
-      await sb.from('budget_account_org_policy').upsert(
-        { budget_account_id: _s1EditId, vorg_template_id: _baTplId, bankbook_mode: bankbookMode, bankbook_level: 'team', updated_at: new Date().toISOString() },
-        { onConflict: 'budget_account_id,vorg_template_id' }
-      );
+      const policyPayload = { budget_account_id: _s1EditId, vorg_template_id: _baTplId, bankbook_mode: bankbookMode, bankbook_level: 'team', updated_at: new Date().toISOString() };
+      if (bankbookMode === 'individual') {
+        const limitVal = document.getElementById('s1-individual-limit')?.value;
+        policyPayload.individual_limit = limitVal ? Number(limitVal) : null;
+      } else { policyPayload.individual_limit = null; }
+      await sb.from('budget_account_org_policy').upsert(policyPayload, { onConflict: 'budget_account_id,vorg_template_id' });
     } else {
       payload.id = 'BA-' + Date.now();
       const { error } = await sb.from('budget_accounts').insert(payload);
       if (error) throw error;
       // 통장 생성 정책 insert
-      await sb.from('budget_account_org_policy').insert(
-        { budget_account_id: payload.id, vorg_template_id: _baTplId, bankbook_mode: bankbookMode, bankbook_level: 'team' }
-      );
+      const newPolicyPayload = { budget_account_id: payload.id, vorg_template_id: _baTplId, bankbook_mode: bankbookMode, bankbook_level: 'team' };
+      if (bankbookMode === 'individual') {
+        const limitVal = document.getElementById('s1-individual-limit')?.value;
+        newPolicyPayload.individual_limit = limitVal ? Number(limitVal) : null;
+      }
+      await sb.from('budget_account_org_policy').insert(newPolicyPayload);
       // ✅ 신규 계정 생성 시 → 자동 통장 동기화
       try { await _syncBankbooksForTemplate(_baTplId, payload.tenant_id); } catch (e) { console.warn('[통장 동기화]', e.message); }
     }

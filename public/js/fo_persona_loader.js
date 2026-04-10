@@ -173,8 +173,9 @@ async function _resolveCurrentPersona() {
  * _FO_EMPLOYEES 항목 → currentPersona 기본 객체 구성 후 DB로 bankbooks 로드
  */
 async function _buildPersonaFromEmployee(emp) {
-    // 총괄부서 여부 판별 (크로스 테넌트 팀뷰 자동 활성화)
-    const isGeneral = typeof isGeneralOrg === 'function' ? await isGeneralOrg(emp.org_id) : false;
+    // 테넌트 레벨 팀뷰 설정: HMC/KIA는 전원 팀뷰 ON, 다른 회사는 리더만
+    const teamViewTenants = ['HMC', 'KIA'];
+    const isTeamViewTenant = teamViewTenants.includes(emp.tenant_id);
     const base = {
         id: emp.id,
         name: emp.name,
@@ -187,7 +188,7 @@ async function _buildPersonaFromEmployee(emp) {
         jobType: emp.job_type,
         roles: emp.roles || [],
         isLeader: emp.is_leader || false,
-        teamViewEnabled: emp.is_leader || isGeneral,  // 리더 OR 총괄부서 → 팀 뷰 ON
+        teamViewEnabled: emp.is_leader || isTeamViewTenant,  // 리더 OR HMC/KIA → 팀 뷰 ON
         allowedAccounts: [],
         budgets: [],
     };

@@ -232,6 +232,7 @@ const PLATFORM_MENUS = [
   // 통계·기타
   { id: 'reports', icon: '📈', label: '통계 및 리포트', section: null, gnb: GNB_CATE.STATS },
   { id: 'manual', icon: '📖', label: '서비스 매뉴얼', section: null, gnb: GNB_CATE.ETC },
+  { id: 'prd-collection', icon: '📋', label: '요구사항정의서 모음', section: null, gnb: GNB_CATE.ETC },
 ];
 
 // Tenant Admin 메뉴 (테넌트 총괄 전용)
@@ -263,6 +264,7 @@ const TENANT_ADMIN_MENUS = [
   { id: 'enrollment-mgmt', icon: '👥', label: '학습자 관리', section: null, gnb: GNB_CATE.COURSE },
   { id: 'reports', icon: '📈', label: '전사 통계 리포트', section: null, gnb: GNB_CATE.STATS },
   { id: 'manual', icon: '📖', label: '서비스 매뉴얼', section: null, gnb: GNB_CATE.ETC },
+  { id: 'prd-collection', icon: '📋', label: '요구사항정의서 모음', section: null, gnb: GNB_CATE.ETC },
 ];
 
 // 예산 총괄 메뉴 (Budget Global Admin)
@@ -291,6 +293,7 @@ const BUDGET_ADMIN_MENUS = [
   { id: 'enrollment-mgmt', icon: '👥', label: '학습자 관리', section: null, gnb: GNB_CATE.COURSE },
   { id: 'reports', icon: '📈', label: '통계 및 리포트', section: null, gnb: GNB_CATE.STATS },
   { id: 'manual', icon: '📖', label: '서비스 매뉴얼', section: null, gnb: GNB_CATE.ETC },
+  { id: 'prd-collection', icon: '📋', label: '요구사항정의서 모음', section: null, gnb: GNB_CATE.ETC },
 ];
 
 // 예산 운영 메뉴 (Budget Operation Manager)
@@ -335,6 +338,7 @@ const TENANT_DUAL_MENUS = [
   { id: 'enrollment-mgmt', icon: '👥', label: '학습자 관리', section: null, gnb: GNB_CATE.COURSE },
   { id: 'reports', icon: '📈', label: '통계 및 리포트', section: null, gnb: GNB_CATE.STATS },
   { id: 'manual', icon: '📖', label: '서비스 매뉴얼', section: null, gnb: GNB_CATE.ETC },
+  { id: 'prd-collection', icon: '📋', label: '요구사항정의서 모음', section: null, gnb: GNB_CATE.ETC },
 ];
 
 // 레거시 호환용 (platform_admin 이외 기존 flow 지원)
@@ -679,6 +683,7 @@ function boNavigate(menuId) {
   if (menuId === 'edu-type-mgmt') renderEduTypeMgmt();
   if (menuId === 'reports') renderBoReports();
   if (menuId === 'manual') renderBoManual();
+  if (menuId === 'prd-collection') renderPrdCollection();
   // 교육과정 운영
   if (menuId === 'channel-mgmt') renderChannelMgmt();
   if (menuId === 'course-mgmt') renderCourseMgmt();

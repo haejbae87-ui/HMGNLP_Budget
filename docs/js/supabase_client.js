@@ -358,10 +358,10 @@ function _buildBoPersonas(users, allRoles, orgs, igs) {
   };
 
   const ACCESS_BY_ROLE = {
-    platform_admin: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'field-mgmt', 'policy-builder', 'user-mgmt', 'role-mgmt', 'reports', 'manual'],
-    tenant_global_admin: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'policy-builder', 'user-mgmt', 'reports', 'manual'],
-    budget_global_admin: ['dashboard', 'my-isolation-group', 'org-budget', 'vorg-assign', 'reports', 'manual'],
-    budget_op_manager: ['dashboard', 'my-operations', 'org-budget', 'reports', 'manual'],
+    platform_admin: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'field-mgmt', 'policy-builder', 'user-mgmt', 'role-mgmt', 'reports', 'manual', 'prd-collection'],
+    tenant_global_admin: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'policy-builder', 'user-mgmt', 'reports', 'manual', 'prd-collection'],
+    budget_global_admin: ['dashboard', 'my-isolation-group', 'org-budget', 'vorg-assign', 'reports', 'manual', 'prd-collection'],
+    budget_op_manager: ['dashboard', 'my-operations', 'org-budget', 'reports', 'manual', 'prd-collection'],
     learner: ['dashboard'],
   };
 

@@ -112,7 +112,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['*'],       // 전체 계정 소유자(설정 전용)
     allowedAccounts: ['*'],     // 전체 조회
     vorgId: 'SYSTEM',
-    accessMenus: ['dashboard', 'platform-monitor', 'platform-roles', 'tenant-mgmt', 'org-mgmt', 'user-mgmt', 'role-mgmt', 'role-menu-perms', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'field-mgmt', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'platform-monitor', 'platform-roles', 'tenant-mgmt', 'org-mgmt', 'user-mgmt', 'role-mgmt', 'role-menu-perms', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'field-mgmt', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
 
   // ── [현대자동차 HMC] ──────────────────────────────────────────────────────
@@ -128,7 +128,7 @@ const BO_PERSONAS = {
     ownedAccounts: [],
     allowedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC', 'HMC-RND'],
     vorgId: 'HMC-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
   // ── HMC 일반예산 그룹 ────────────────────────────────────────────────────────
   hmc_total_general: {
@@ -141,7 +141,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC'],
     allowedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC'],
     vorgId: 'HMC-GENERAL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
   hmc_hq_general: {
     id: 'P102', name: '이O현', dept: 'HMG경영연구원', pos: '매니저',
@@ -155,7 +155,7 @@ const BO_PERSONAS = {
     ownedAccounts: [],
     allowedAccounts: ['HMC-OPS', 'HMC-PART', 'HMC-ETC'],
     vorgId: 'HMC-GENERAL',
-    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
   // ── HMC R&D예산 그룹 ────────────────────────────────────────────────────────
   hmc_total_rnd: {
@@ -168,7 +168,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HMC-RND'],
     allowedAccounts: ['HMC-RND'],
     vorgId: 'HMC-RND',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
   hmc_center_rnd: {
     id: 'P104', name: '이O하', dept: '모빌리티기술센터', pos: '책임',
@@ -181,7 +181,7 @@ const BO_PERSONAS = {
     ownedAccounts: [],
     allowedAccounts: ['HMC-RND'],
     vorgId: 'HMC-RND',
-    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
 
   // 김O수: HMC 연구개발성장지원팀 (사용자 관리에서 예산운영담당자 역할 추가된 학습자)
@@ -195,7 +195,7 @@ const BO_PERSONAS = {
     ownedAccounts: [],
     allowedAccounts: ['HMC-OPS'],
     vorgId: 'HMC-GEN',
-    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
 
   // ── [기아 KIA] ────────────────────────────────────────────────────────────
@@ -205,7 +205,7 @@ const BO_PERSONAS = {
     role: 'tenant_global_admin', roleLabel: 'KIA 테넌트 총괄',
     roleClass: 'role-tenant', roleTag: '[테넌트]',
     budgetGroup: 'general', tenantId: 'KIA',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
   kia_total_general: {
     id: 'P201', name: '고O현', dept: 'HRD솔루션팀', pos: '매니저',
@@ -217,7 +217,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['KIA-OPS', 'KIA-PART', 'KIA-ETC'],
     allowedAccounts: ['KIA-OPS', 'KIA-PART', 'KIA-ETC'],
     vorgId: 'KIA-GENERAL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
   kia_hq_general: {
     id: 'P202', name: '장O범', dept: 'Autoland교육팀', pos: '책임',
@@ -230,7 +230,7 @@ const BO_PERSONAS = {
     ownedAccounts: [],
     allowedAccounts: ['KIA-OPS', 'KIA-PART', 'KIA-ETC'],
     vorgId: 'KIA-GENERAL',
-    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
 
   // ── [현대오토에버 HAE] ────────────────────────────────────────────────────
@@ -240,7 +240,7 @@ const BO_PERSONAS = {
     role: 'tenant_global_admin', roleLabel: 'HAE 테넌트 총괄',
     roleClass: 'role-tenant', roleTag: '[테넌트]',
     budgetGroup: 'general', tenantId: 'HAE',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
   hae_total: {
     id: 'P301', name: '안O기', dept: '인재성장문화팀', pos: '책임',
@@ -251,7 +251,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HAE-OPS', 'HAE-PART', 'HAE-CERT', 'HAE-EDU', 'HAE-TEAM'],
     allowedAccounts: ['HAE-OPS', 'HAE-PART', 'HAE-CERT', 'HAE-EDU', 'HAE-TEAM'],
     vorgId: 'HAE-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
   hae_dept: {
     id: 'P302', name: '김O늘', dept: 'PM서비스팀', pos: '책임',
@@ -264,7 +264,7 @@ const BO_PERSONAS = {
     ownedAccounts: [],
     allowedAccounts: ['HAE-OPS'],
     vorgId: 'HAE-SOL',
-    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'my-operations', 'org-budget', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
 
 
@@ -274,7 +274,7 @@ const BO_PERSONAS = {
     role: 'tenant_global_admin', roleLabel: 'ROTEM 테넌트 총괄',
     roleClass: 'role-tenant', roleTag: '[테넌트]',
     budgetGroup: 'general', tenantId: 'ROTEM',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
   rotem_total: {
     id: 'P401', name: '담O은', dept: '교육문화팀', pos: '매니저',
@@ -285,7 +285,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['ROTEM-OPS', 'ROTEM-PART'],
     allowedAccounts: ['ROTEM-OPS', 'ROTEM-PART'],
     vorgId: 'ROTEM-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
 
   // ── [현대엔지니어링 HEC] ─────────────────────────────────
@@ -294,7 +294,7 @@ const BO_PERSONAS = {
     role: 'tenant_global_admin', roleLabel: 'HEC 테넌트 총괄',
     roleClass: 'role-tenant', roleTag: '[테넌트]',
     budgetGroup: 'general', tenantId: 'HEC',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
   hec_total: {
     id: 'P501', name: '김O찬', dept: '인사전략팀', pos: '체임매니저',
@@ -305,7 +305,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HEC-OPS', 'HEC-PART'],
     allowedAccounts: ['HEC-OPS', 'HEC-PART'],
     vorgId: 'HEC-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
 
   // ── [현대제슠 HSC] ──────────────────────────────────────
@@ -314,7 +314,7 @@ const BO_PERSONAS = {
     role: 'tenant_global_admin', roleLabel: 'HSC 테넌트 총괄',
     roleClass: 'role-tenant', roleTag: '[테넌트]',
     budgetGroup: 'general', tenantId: 'HSC',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
   hsc_budget_gen: {
     id: 'P607', name: '최O경', dept: '성장디자인팀', pos: '매니저',
@@ -324,7 +324,7 @@ const BO_PERSONAS = {
     domainId: 'IG-HSC-ALL',
     ownedAccounts: ['HSC-OPS', 'HSC-PART'],
     allowedAccounts: ['HSC-OPS', 'HSC-PART'],
-    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
   hsc_total: {
     id: 'P601', name: '정O안', dept: '성장디자인팀', pos: '매니저',
@@ -335,7 +335,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HSC-OPS', 'HSC-PART'],
     allowedAccounts: ['HSC-OPS', 'HSC-PART'],
     vorgId: 'HSC-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
 
   hsc_budget_rnd: {
@@ -346,7 +346,7 @@ const BO_PERSONAS = {
     domainId: 'IG-HSC-ALL',
     ownedAccounts: ['HSC-OPS', 'HSC-PART'],
     allowedAccounts: ['HSC-OPS', 'HSC-PART'],
-    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
   hsc_budget_hr_dang: {
     id: 'P603', name: '박O연', dept: '(당)인사지원팀', pos: '매니저',
@@ -356,7 +356,7 @@ const BO_PERSONAS = {
     domainId: 'IG-HSC-ALL',
     ownedAccounts: ['HSC-OPS', 'HSC-PART'],
     allowedAccounts: ['HSC-OPS', 'HSC-PART'],
-    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
   hsc_budget_hr_in: {
     id: 'P604', name: '박O영', dept: '(인)인사팀', pos: '매니저',
@@ -366,7 +366,7 @@ const BO_PERSONAS = {
     domainId: 'IG-HSC-ALL',
     ownedAccounts: ['HSC-OPS', 'HSC-PART'],
     allowedAccounts: ['HSC-OPS', 'HSC-PART'],
-    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
   hsc_budget_hr_po: {
     id: 'P605', name: '석O영', dept: '(포)인사팀', pos: '매니저',
@@ -376,7 +376,7 @@ const BO_PERSONAS = {
     domainId: 'IG-HSC-ALL',
     ownedAccounts: ['HSC-OPS', 'HSC-PART'],
     allowedAccounts: ['HSC-OPS', 'HSC-PART'],
-    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
   hsc_budget_cold: {
     id: 'P606', name: '김O민', dept: '(순)냉연업무지원팀', pos: '매니저',
@@ -386,7 +386,7 @@ const BO_PERSONAS = {
     domainId: 'IG-HSC-ALL',
     ownedAccounts: ['HSC-OPS', 'HSC-PART'],
     allowedAccounts: ['HSC-OPS', 'HSC-PART'],
-    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'budget-account', 'virtual-org', 'plan-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
 
   // ── [현대트랜시스 HTS] ─────────────────────────────────
@@ -395,7 +395,7 @@ const BO_PERSONAS = {
     role: 'tenant_global_admin', roleLabel: 'HTS 테넌트 총괄',
     roleClass: 'role-tenant', roleTag: '[테넌트]',
     budgetGroup: 'general', tenantId: 'HTS',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
   hts_total: {
     id: 'P701', name: '임O빈', dept: '조직개발팀', pos: '매니저',
@@ -406,7 +406,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HTS-OPS', 'HTS-PART'],
     allowedAccounts: ['HTS-OPS', 'HTS-PART'],
     vorgId: 'HTS-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
 
   // ── [현대글로비스 GLOVIS] ──────────────────────────────
@@ -415,7 +415,7 @@ const BO_PERSONAS = {
     role: 'tenant_global_admin', roleLabel: 'GLOVIS 테넌트 총괄',
     roleClass: 'role-tenant', roleTag: '[테넌트]',
     budgetGroup: 'general', tenantId: 'GLOVIS',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
   glovis_total: {
     id: 'P801', name: '임O래', dept: '교육문화팀', pos: '매니저',
@@ -426,7 +426,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['GLOVIS-OPS', 'GLOVIS-PART'],
     allowedAccounts: ['GLOVIS-OPS', 'GLOVIS-PART'],
     vorgId: 'GLOVIS-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
 
   // ── [현대차증권 HIS] ───────────────────────────────────
@@ -435,7 +435,7 @@ const BO_PERSONAS = {
     role: 'tenant_global_admin', roleLabel: 'HIS 테넌트 총괄',
     roleClass: 'role-tenant', roleTag: '[테넌트]',
     budgetGroup: 'general', tenantId: 'HIS',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
   his_total: {
     id: 'P901', name: '김O형', dept: 'TM팀', pos: '체임매니저',
@@ -446,7 +446,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HIS-OPS', 'HIS-PART'],
     allowedAccounts: ['HIS-OPS', 'HIS-PART'],
     vorgId: 'HIS-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
 
   // ── [현대케피코 KEFICO] ────────────────────────────────
@@ -455,7 +455,7 @@ const BO_PERSONAS = {
     role: 'tenant_global_admin', roleLabel: 'KEFICO 테넌트 총괄',
     roleClass: 'role-tenant', roleTag: '[테넌트]',
     budgetGroup: 'general', tenantId: 'KEFICO',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
   kefico_total: {
     id: 'P1001', name: '이O영', dept: '인사팀', pos: '체임매니저',
@@ -466,7 +466,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['KEFICO-OPS', 'KEFICO-PART'],
     allowedAccounts: ['KEFICO-OPS', 'KEFICO-PART'],
     vorgId: 'KEFICO-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
 
   // ── [현대ISC HISC] ──────────────────────────────────────
@@ -475,7 +475,7 @@ const BO_PERSONAS = {
     role: 'tenant_global_admin', roleLabel: 'HISC 테넌트 총괄',
     roleClass: 'role-tenant', roleTag: '[테넌트]',
     budgetGroup: 'general', tenantId: 'HISC',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
   hisc_total: {
     id: 'P1101', name: '오O성', dept: '인사지원팀', pos: '매니저',
@@ -486,7 +486,7 @@ const BO_PERSONAS = {
     ownedAccounts: ['HISC-OPS', 'HISC-PART'],
     allowedAccounts: ['HISC-OPS', 'HISC-PART'],
     vorgId: 'HISC-ALL',
-    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
+    accessMenus: ['dashboard', 'isolation-groups', 'budget-account', 'virtual-org', 'form-builder', 'calc-grounds', 'service-policy', 'plan-mgmt', 'result-mgmt', 'allocation', 'budget-history', 'budget-demand', 'my-operations', 'channel-mgmt', 'course-mgmt', 'session-mgmt', 'enrollment-mgmt', 'reports', 'manual', 'prd-collection', 'badge-group-mgmt', 'badge-mgmt', 'badge-operation']
   },
 
   // ── [프론트/학습자 — LXP 전용] ───────────────────────────────────────────

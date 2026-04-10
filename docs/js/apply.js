@@ -11,10 +11,19 @@ async function _loadApprovedPlans() {
   const sb = typeof getSB === 'function' ? getSB() : null;
   if (!sb) { _dbApprovedPlans = []; _dbApprovedPlansLoaded = true; return []; }
   try {
-    const { data, error } = await sb.from('plans').select('*')
-      .eq('applicant_id', pid).eq('tenant_id', currentPersona.tenantId)
+    // 크로스 테넌트: 총괄부서면 양쪽 회사 승인 계획 로드
+    const ctInfo = typeof getCrossTenantInfo === 'function' ? await getCrossTenantInfo(currentPersona) : null;
+    const tids = ctInfo?.linkedTids || [currentPersona.tenantId];
+    let query = sb.from('plans').select('*')
       .eq('status', 'approved')
       .order('created_at', { ascending: false });
+    if (tids.length > 1) {
+      // 총괄부서: 양쪽 회사의 승인 계획 (본인 + 상대사 동일 조직)
+      query = query.in('tenant_id', tids);
+    } else {
+      query = query.eq('applicant_id', pid).eq('tenant_id', currentPersona.tenantId);
+    }
+    const { data, error } = await query;
     if (error) throw error;
     _dbApprovedPlans = (data || []).map(p => ({
       id: p.id, title: p.edu_name || '-',
@@ -22,7 +31,9 @@ async function _loadApprovedPlans() {
       amount: Number(p.amount || 0), used: 0,
       edu_type: p.edu_type, purpose: p.detail?.purpose,
       date: (p.created_at || '').slice(0, 10),
-      detail: p.detail || {},  // raw detail 보존 (신청 자동 연동용)
+      detail: p.detail || {},
+      tenantId: p.tenant_id, // 크로스 테넌트 뱃지용
+      applicantName: p.applicant_name || '',
     }));
     _dbApprovedPlansLoaded = true;
     _dbApprPlanPersonaId = pid;
@@ -1383,6 +1394,7 @@ async function confirmApply() {
           account_code: curBudget?.accountCode || '',
           applicant_id: currentPersona.id,
           applicant_name: currentPersona.name,
+          applicant_org_id: currentPersona.orgId || null,
           dept: currentPersona.dept || '',
           edu_name: applyState.eduName || applyState.title || '교육신청',
           edu_type: applyState.eduType || applyState.eduSubType || null,
@@ -1420,6 +1432,7 @@ async function saveApplyDraft() {
       account_code: curBudget?.accountCode || '',
       applicant_id: currentPersona.id,
       applicant_name: currentPersona.name,
+      applicant_org_id: currentPersona.orgId || null,
       dept: currentPersona.dept || '',
       edu_name: applyState.eduName || applyState.title || '교육신청',
       edu_type: applyState.eduType || applyState.eduSubType || null,
@@ -1743,10 +1756,12 @@ function _renderPlanPickerModalDOM() {
         <div style="font-size:13px;font-weight:900;color:${active ? color : '#111827'};margin-bottom:3px;display:flex;align-items:center;gap:6px">
           ${p.title}
           ${pType ? `<span style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;background:#EFF6FF;color:#1D4ED8">${eduTypeLabel(pType)}</span>` : ''}
+          ${typeof getTenantBadgeHtml === 'function' ? getTenantBadgeHtml(p.tenantId, currentPersona.tenantId) : ''}
           ${pExpired ? '<span style="font-size:9px;font-weight:900;padding:1px 6px;border-radius:4px;background:#FEE2E2;color:#DC2626">기간만료</span>' : ''}
           ${isTypeMismatch ? '<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:#F3F4F6;color:#9CA3AF">유형 다름</span>' : ''}
         </div>
         <div style="font-size:11px;color:#6B7280;display:flex;gap:12px;flex-wrap:wrap">
+          ${p.applicantName && p.tenantId !== currentPersona.tenantId ? `<span>👤 ${p.applicantName}</span>` : ''}
           <span>📅 ${p.date || '-'}</span>
           <span>💰 예산 ${(p.amount||0).toLocaleString()}원</span>
           <span style="color:${isLow ? '#DC2626' : '#059669'}">${isLow ? '⚠️ 잔액 부족' : '✅ 잔액 ' + balance.toLocaleString() + '원'}</span>

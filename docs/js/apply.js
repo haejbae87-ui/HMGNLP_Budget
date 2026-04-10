@@ -415,21 +415,30 @@ function _renderApplyList() {
     if (!_teamAppsLoaded) {
       _teamAppsLoaded = true;
       if (sb && currentPersona.tenantId) {
-        sb.from('applications').select('*')
-          .eq('tenant_id', currentPersona.tenantId)
-          .neq('applicant_id', currentPersona.id)
-          .neq('status', 'draft')
-          .order('created_at', { ascending: false })
-          .then(({ data }) => {
-            _dbTeamApps = (data || []).map(d => ({
-              id: d.id, title: d.edu_name, type: d.edu_type || '교육',
-              date: d.created_at?.slice(0, 10) || '', endDate: '',
-              hours: 0, amount: Number(d.amount || 0),
-              budget: d.account_code || '', applyStatus: _mapAppDbStatus(d.status),
-              resultDone: d.status === 'completed', author: d.applicant_name || '-',
-            }));
-            _renderApplyList();
-          });
+        (async () => {
+          const ctInfo = typeof getCrossTenantInfo === 'function' ? await getCrossTenantInfo(currentPersona) : null;
+          const myOrgIds = [currentPersona.orgId];
+          if (ctInfo?.linkedOrgIds) ctInfo.linkedOrgIds.forEach(id => { if (!myOrgIds.includes(id)) myOrgIds.push(id); });
+          let query = sb.from('applications').select('*')
+            .neq('applicant_id', currentPersona.id)
+            .neq('status', 'draft')
+            .order('created_at', { ascending: false });
+          // 조직 필터
+          if (myOrgIds.length > 1) query = query.in('applicant_org_id', myOrgIds);
+          else query = query.eq('applicant_org_id', currentPersona.orgId);
+          const tids = ctInfo?.linkedTids || [currentPersona.tenantId];
+          if (tids.length > 1) query = query.in('tenant_id', tids);
+          else query = query.eq('tenant_id', currentPersona.tenantId);
+          const { data } = await query;
+          _dbTeamApps = (data || []).map(d => ({
+            id: d.id, title: d.edu_name, type: d.edu_type || '교육',
+            date: d.created_at?.slice(0, 10) || '', endDate: '',
+            hours: 0, amount: Number(d.amount || 0),
+            budget: d.account_code || '', applyStatus: _mapAppDbStatus(d.status),
+            resultDone: d.status === 'completed', author: d.applicant_name || '-',
+          }));
+          _renderApplyList();
+        })();
       }
       return;
     }

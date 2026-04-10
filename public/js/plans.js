@@ -245,11 +245,20 @@ function renderPlans() {
         (async () => {
           const ctInfo = typeof getCrossTenantInfo === 'function' ? await getCrossTenantInfo(currentPersona) : null;
           const tids = ctInfo?.linkedTids || [currentPersona.tenantId];
+          // 내 조직 ID + 크로스 테넌트 연결 조직 ID 수집
+          const myOrgIds = [currentPersona.orgId];
+          if (ctInfo?.linkedOrgIds) ctInfo.linkedOrgIds.forEach(id => { if (!myOrgIds.includes(id)) myOrgIds.push(id); });
           let query = sb.from('plans').select('*')
             .neq('applicant_id', currentPersona.id)
             .neq('status', 'draft')
             .is('deleted_at', null)
             .order('created_at', { ascending: false });
+          // 조직 필터: applicant_org_id가 있으면 사용, 없으면 org_id
+          if (myOrgIds.length > 1) {
+            query = query.in('applicant_org_id', myOrgIds);
+          } else {
+            query = query.eq('applicant_org_id', currentPersona.orgId);
+          }
           if (tids.length > 1) query = query.in('tenant_id', tids);
           else query = query.eq('tenant_id', currentPersona.tenantId);
           const { data } = await query;

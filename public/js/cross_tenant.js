@@ -125,4 +125,51 @@ async function getCrossTenantInfo(persona) {
   return { isGeneral: true, linkedTids: tids, linkedOrgIds: orgIds };
 }
 
+/**
+ * 총괄부서 미러링: 한쪽 회사에 등록하면 상대 회사에도 같은 위치에 자동 생성
+ * @param {string} orgName - 조직 이름
+ * @param {string} orgCode - 조직 코드 (양쪽 동일)
+ * @param {string} sourceTenantId - 원본 테넌트 (예: 'HMC')
+ * @param {string} parentId - 원본 상위 조직 ID
+ * @returns {Promise<{sourceOrg, mirrorOrg, error}>}
+ */
+async function mirrorGeneralOrg(orgName, orgCode, sourceTenantId, parentId) {
+  const sb = typeof getSB === 'function' ? getSB() : (typeof _sb === 'function' ? _sb() : null);
+  if (!sb) return { error: 'DB 연결 실패' };
+  const targetTid = sourceTenantId === 'HMC' ? 'KIA' : 'HMC';
+  try {
+    // 1. 원본 상위 조직의 org_code 가져오기
+    const { data: parentOrg } = await sb.from('organizations')
+      .select('org_code, name').eq('id', parentId).single();
+    // 2. 상대 테넌트에서 같은 org_code의 상위 조직 찾기
+    let targetParentId = null;
+    if (parentOrg?.org_code) {
+      const { data: mirrorParent } = await sb.from('organizations')
+        .select('id').eq('tenant_id', targetTid).eq('org_code', parentOrg.org_code).single();
+      targetParentId = mirrorParent?.id || null;
+    }
+    if (!targetParentId) {
+      return { error: `상대 회사(${targetTid})에 매칭하는 상위 조직을 찾을 수 없습니다.\n상위 조직 "${parentOrg?.name || parentId}"의 org_code를 먼저 설정해주세요.` };
+    }
+    // 3. 원본 조직 INSERT
+    const sourceRow = {
+      tenant_id: sourceTenantId, name: orgName, parent_id: parentId,
+      org_code: orgCode, org_type: 'general', type: 'team',
+    };
+    const { data: src, error: srcErr } = await sb.from('organizations').insert(sourceRow).select().single();
+    if (srcErr) throw srcErr;
+    // 4. 미러 조직 INSERT
+    const mirrorRow = {
+      tenant_id: targetTid, name: orgName, parent_id: targetParentId,
+      org_code: orgCode, org_type: 'general', type: 'team',
+    };
+    const { data: mir, error: mirErr } = await sb.from('organizations').insert(mirrorRow).select().single();
+    if (mirErr) throw mirErr;
+    ctResetCache(); // 캐시 리셋
+    return { sourceOrg: src, mirrorOrg: mir, error: null };
+  } catch (err) {
+    return { error: err.message };
+  }
+}
+
 console.log('[cross_tenant] 크로스 테넌트 헬퍼 로드됨');

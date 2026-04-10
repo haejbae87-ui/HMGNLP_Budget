@@ -332,7 +332,7 @@ async function _vuEnsureOrgTree() {
     const sb = typeof _sb === 'function' ? _sb() : null;
     if (!sb) return;
     const { data } = await sb.from('organizations')
-      .select('id,name,parent_id,type,tenant_id')
+      .select('id,name,parent_id,type,tenant_id,org_type,org_code')
       .eq('tenant_id', _vuTenantId).order('name');
     if (!data || !data.length) return;
     _vuOrgFlatCache = {};
@@ -412,7 +412,7 @@ function _vuTabOrg(tpl) {
         <span style="font-size:13px">✅</span>
         <div style="flex:1;min-width:0">
           <div style="font-size:10px;color:#6B7280;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px">${breadcrumb}</div>
-          <div style="font-size:12px;font-weight:700;color:#065F46">${t.name}</div>
+          <div style="font-size:12px;font-weight:700;color:#065F46">${t.name}${orgNode?.org_type === 'general' ? ' <span style="font-size:9px;font-weight:900;padding:1px 6px;border-radius:4px;background:#EDE9FE;color:#7C3AED;border:1px solid #DDD6FE">🔗 총괄</span>' : ''}</div>
         </div>
         <button onclick="_vuRemoveTeamWithCheck('${tpl.id}',${gi},'${t.id}')" style="padding:3px 8px;font-size:10px;border:1px solid #D1D5DB;border-radius:5px;background:#fff;color:#6B7280;cursor:pointer;flex-shrink:0" title="맵핑 해제">✕ 해제</button>
       </div>` };
@@ -1418,7 +1418,7 @@ function _vuBuildOrgTreeHtml(nodes, depth, q) {
           ${isOtherVorg ? `title="⚠️ 선택 시 ${_vuGlobalMappedOrgs[node.id]}에서 이관됩니다"` : ''}>
         <span style="font-size:14px">${isDeprecated ? '😶' : st.icon}</span>
         <span style="font-size:13px;font-weight:${isMapped ? '800' : isOtherVorg ? '600' : '600'};color:${isMapped ? '#059669' : isDeprecated ? '#9CA3AF' : isOtherVorg ? '#92400E' : '#374151'};flex:1">
-          ${node.name}${hasChildren ? ` <span style="font-size:10px;color:#9CA3AF;font-weight:400">(${node.children.length}개 하위)</span>` : ''}
+          ${node.name}${node.org_type === 'general' ? ' <span style="font-size:8px;font-weight:900;padding:1px 5px;border-radius:3px;background:#EDE9FE;color:#7C3AED">🔗총괄</span>' : ''}${hasChildren ? ` <span style="font-size:10px;color:#9CA3AF;font-weight:400">(${node.children.length}개 하위)</span>` : ''}
         </span>
         ${badgeHtml}
         <span style="font-size:10px;color:${st.color};background:${st.bg};border:1px solid ${st.border};

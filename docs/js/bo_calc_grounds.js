@@ -113,7 +113,7 @@ async function renderCalcGrounds() {
   })();
 
   const filterBar = `
-  <div style="background:white;border:1.5px solid #E5E7EB;border-radius:14px;padding:16px 20px;margin-bottom:20px;display:flex;flex-wrap:wrap;align-items:center;gap:12px">
+  <div style="background:white;border:1.5px solid #E5E7EB;border-radius:14px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.05)">
     ${isPlatform ? `
     <div style="display:flex;align-items:center;gap:8px">
       <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">회사</span>
@@ -172,8 +172,8 @@ async function renderCalcGrounds() {
 
   const el = document.getElementById('bo-content');
   el.innerHTML = `
-<div class="bo-fade" style="max-width:1100px;padding:24px">
-  ${typeof boIsolationGroupBanner === 'function' ? boIsolationGroupBanner() : ''}
+<div class="bo-fade" style="padding:24px">
+  ${typeof boVorgBanner === 'function' ? boVorgBanner() : (typeof boIsolationGroupBanner === 'function' ? boIsolationGroupBanner() : '')}
   
   <!-- 헤더 -->
   <div style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between">
@@ -227,11 +227,8 @@ function _renderCgTable(tenantId, groupId, accountCode) {
   };
 
   return `
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-  <div style="font-size:13px;font-weight:900;color:#374151">
-    📋 항목 목록
-    <span style="font-size:12px;color:#6B7280;font-weight:500;margin-left:6px">활성 ${active}개 / 전체 ${items.length}개</span>
-  </div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px">
+  <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.05em">세부 산출 근거 목록 (${active}개 / 전체 ${items.length}개)</div>
   <div style="display:flex;gap:8px;font-size:10px;color:#9CA3AF">
     <span><span style="background:#F3F4F6;padding:1px 5px;border-radius:4px;font-weight:800;color:#6B7280">테넌트공유</span> 이 테넌트 전체</span>
     <span><span style="background:#F5F3FF;padding:1px 5px;border-radius:4px;font-weight:800;color:#7C3AED">조직공유</span> 가상교육조직 내</span>
@@ -239,51 +236,51 @@ function _renderCgTable(tenantId, groupId, accountCode) {
   </div>
 </div>
 
-<div class="bo-card" style="overflow:hidden;padding:0">
-  <table class="bo-table" style="width:100%">
-    <thead><tr>
-      <th style="padding:10px 14px;width:24px">#</th>
-      <th style="padding:10px 14px">항목명</th>
-      <th style="padding:10px 14px">범위</th>
-      <th style="padding:10px 14px">가이드 설명</th>
-      <th style="padding:10px 14px;text-align:right">기준단가</th>
-      <th style="padding:10px 14px;text-align:center">사용 단계</th>
-      <th style="padding:10px 14px;text-align:center">교육 유형</th>
-      <th style="padding:10px 14px;text-align:center">상한액</th>
-      <th style="padding:10px 14px;text-align:center">상태</th>
-      <th style="padding:10px 14px">관리</th>
-    </tr></thead>
+<div style="background:white;border:1.5px solid #E5E7EB;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+  <table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead>
+      <tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB">
+        <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#6B7280;width:40px">NO.</th>
+        <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151">항목명</th>
+        <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151">범위</th>
+        <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151">가이드 설명</th>
+        <th style="padding:10px 14px;text-align:right;font-size:11px;font-weight:800;color:#374151">기준단가</th>
+        <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#374151">사용 단계</th>
+        <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#374151">교육 유형</th>
+        <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#374151">상한액</th>
+        <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#374151">상태</th>
+        <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#374151">관리</th>
+      </tr>
+    </thead>
     <tbody>
       ${items.length === 0 ? `
-      <tr><td colspan="10" style="text-align:center;padding:40px;color:#9CA3AF;font-size:13px">
+      <tr><td colspan="10" style="text-align:center;padding:48px;color:#9CA3AF;font-size:13px">
         이 범위에서 조회된 항목이 없습니다.<br>
-        <button onclick="cgOpenModal(null)" class="bo-btn-primary bo-btn-sm" style="margin-top:10px">+ 첫 항목 추가</button>
+        <button onclick="cgOpenModal(null)" class="bo-btn-primary bo-btn-sm" style="margin-top:10px;display:inline-flex;align-items:center;padding:6px 14px;font-size:12px;border-radius:8px">+ 첫 항목 추가</button>
       </td></tr>` : items.map((g, i) => `
-      <tr style="${g.active === false ? 'opacity:.45;' : ''}">
-        <td style="padding:10px 14px;color:#9CA3AF;font-size:11px">${i + 1}</td>
-        <td style="padding:10px 14px">
-          <div style="font-weight:700;font-size:13px;color:#111827">${g.name}</div>
-          <div style="font-size:10px;color:#9CA3AF;margin-top:1px">${g.id}</div>
+      <tr style="border-bottom:1px solid #F3F4F6;transition:background .12s;${g.active === false ? 'opacity:.5;' : ''}" onmouseover="this.style.background='#F8FAFF'" onmouseout="this.style.background=''">
+        <td style="padding:11px 14px;text-align:center;color:#9CA3AF;font-size:12px">${i + 1}</td>
+        <td style="padding:11px 14px">
+          <div style="font-weight:800;font-size:13px;color:#111827;margin-bottom:3px">${g.name}</div>
+          <div style="font-size:10px;color:#9CA3AF">${g.id}</div>
         </td>
-        <td style="padding:10px 14px">${scopeLabel(g)}</td>
-        <td style="padding:10px 14px;font-size:11px;color:#6B7280;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.desc || ''}</td>
-        <td style="padding:10px 14px;text-align:right;font-weight:700;font-size:12px">${g.unitPrice > 0 ? (typeof boFmt === 'function' ? boFmt(g.unitPrice) : g.unitPrice.toLocaleString()) + '원' : '<span style="color:#9CA3AF">—</span>'}</td>
-        <td style="padding:10px 14px;text-align:center">${_cgScopeBadges(g.usageScope || ['plan', 'apply', 'settle'])}</td>
-        <td style="padding:10px 14px;text-align:center">${_cgVisibleBadge(g.visibleFor || 'both')}</td>
-        <td style="padding:10px 14px;text-align:center;font-size:11px">
+        <td style="padding:11px 14px">${scopeLabel(g)}</td>
+        <td style="padding:11px 14px;font-size:12px;color:#374151;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.desc || '—'}</td>
+        <td style="padding:11px 14px;text-align:right;font-weight:700;font-size:12px;color:#374151">${g.unitPrice > 0 ? (typeof boFmt === 'function' ? boFmt(g.unitPrice) : g.unitPrice.toLocaleString()) + '원' : '<span style="color:#9CA3AF">—</span>'}</td>
+        <td style="padding:11px 14px;text-align:center">${_cgScopeBadges(g.usageScope || ['plan', 'apply', 'settle'])}</td>
+        <td style="padding:11px 14px;text-align:center">${_cgVisibleBadge(g.visibleFor || 'both')}</td>
+        <td style="padding:11px 14px;text-align:center;font-size:11px">
           ${g.limitType === 'none' ? '<span style="color:#9CA3AF">제한없음</span>' :
       g.limitType === 'soft' ? `<span style="background:#FFFBEB;color:#D97706;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:800">⚠ Soft</span>` :
         `<span style="background:#FEF2F2;color:#DC2626;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:800">🚫 Hard</span>`}
         </td>
-        <td style="padding:10px 14px;text-align:center">
-          <span class="bo-badge ${g.active !== false ? 'bo-badge-green' : 'bo-badge-gray'}">${g.active !== false ? '활성' : '비활성'}</span>
+        <td style="padding:11px 14px;text-align:center">
+          <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:5px;background:${g.active !== false ? '#D1FAE5' : '#F3F4F6'};color:${g.active !== false ? '#065F46' : '#9CA3AF'}">${g.active !== false ? '활성' : '비활성'}</span>
         </td>
-        <td style="padding:10px 14px">
-          <div style="display:flex;gap:4px">
-            <button class="bo-btn-secondary bo-btn-sm" onclick="cgOpenModal('${g.id}')">수정</button>
-            <button class="bo-btn-secondary bo-btn-sm"
-              onclick="cgToggleActive('${g.id}')"
-              style="color:${g.active !== false ? '#F59E0B' : '#059669'};border-color:${g.active !== false ? '#F59E0B' : '#059669'}">
+        <td style="padding:11px 14px;text-align:center">
+          <div style="display:flex;gap:5px;justify-content:center">
+            <button onclick="cgOpenModal('${g.id}')" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid #D1D5DB;background:white;cursor:pointer;font-weight:700;color:#374151">✏️ 수정</button>
+            <button onclick="cgToggleActive('${g.id}')" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid ${g.active !== false ? '#FDE68A' : '#A7F3D0'};background:${g.active !== false ? '#FFFBEB' : '#ECFDF5'};color:${g.active !== false ? '#D97706' : '#059669'};cursor:pointer;font-weight:700">
               ${g.active !== false ? '비활성' : '활성화'}
             </button>
           </div>

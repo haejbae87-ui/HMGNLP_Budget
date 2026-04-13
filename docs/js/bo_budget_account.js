@@ -221,14 +221,44 @@ async function _bamLoadBudgetAccountsList(tplId) {
       return;
     }
     
-    // bo_budget_master.js 에 존재하는 _baRenderAccountCard 함수를 활용
-    if (typeof _baRenderAccountCard === 'function') {
-      listEl.innerHTML = '<div style="display:flex;flex-direction:column;gap:12px;margin-top:16px">' + 
-        window._baAccountList.map(a => _baRenderAccountCard(a, true)).join('') + 
-        '</div>';
-    } else {
-      listEl.innerHTML = '<div style="padding:20px;text-align:center;color:#EF4444">카드 렌더링 함수(_baRenderAccountCard)를 찾을 수 없습니다.</div>';
-    }
+    // 자체 테이블 렌더링 (외부함수 의존 제거)
+    const rows = window._baAccountList.map((a, idx) => {
+      const statusBg = a.active !== false ? '#D1FAE5' : '#F3F4F6';
+      const statusColor = a.active !== false ? '#065F46' : '#9CA3AF';
+      const statusLabel = a.active !== false ? '활성' : '비활성';
+      const budgetMode = a.uses_budget === false ? '미사용' : (a.bankbook_mode === 'team' ? '팀별통장' : (a.bankbook_mode === 'personal' ? '개인통장' : '공동'));
+      return `
+      <tr style="border-bottom:1px solid #F1F5F9;cursor:pointer;transition:background .12s"
+          onmouseover="this.style.background='#F8FAFF'" onmouseout="this.style.background=''"
+          onclick="if(typeof openS1Modal==='function') openS1Modal('${a.id}')">
+        <td style="padding:11px 14px;text-align:center;color:#9CA3AF;font-size:12px">${idx + 1}</td>
+        <td style="padding:11px 14px">
+          <code style="font-size:11px;background:#F1F5F9;padding:2px 6px;border-radius:4px;color:#1E40AF;font-weight:700">${a.code || ''}</code>
+        </td>
+        <td style="padding:11px 14px;font-weight:800;font-size:13px;color:#111827">${a.name || ''}</td>
+        <td style="padding:11px 14px;font-size:12px;color:#6B7280">${budgetMode}</td>
+        <td style="padding:11px 14px;text-align:center">
+          <span style="font-size:10px;padding:2px 8px;border-radius:6px;font-weight:700;background:${statusBg};color:${statusColor}">${statusLabel}</span>
+        </td>
+      </tr>`;
+    }).join('');
+
+    listEl.innerHTML = `
+    <div style="overflow-x:auto;border-radius:10px;border:1px solid #E2E8F0;margin-top:12px">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="background:#F8FAFC;border-bottom:2px solid #E2E8F0">
+            <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#64748B;width:50px">NO</th>
+            <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#64748B">계정 코드</th>
+            <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#64748B">계정명</th>
+            <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#64748B">예산 방식</th>
+            <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#64748B;width:80px">상태</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="font-size:11px;color:#9CA3AF;margin-top:8px;text-align:right">총 ${window._baAccountList.length}개 계정</div>`;
   } catch(e) {
     listEl.innerHTML = `<div style="padding:20px;text-align:center;color:#EF4444">로드 실패: ${e.message}</div>`;
   }

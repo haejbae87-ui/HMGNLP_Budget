@@ -1,4 +1,4 @@
-// ─── 교육신청양식마법사 (Form Builder Enhanced) ─────────────────────────────────
+﻿// ─── 교육신청양식마법사 (Form Builder Enhanced) ─────────────────────────────────
 // 3탭 구조: ① 양식 라이브러리 ② 양식 빌더 ③ 서비스 통합 매핑
 // 기획안 기반 고도화: 양식 분류체계, 입력 주체 제어, 조건부 로직, 서비스 매핑
 
@@ -197,26 +197,11 @@ function _fbAllFields() {
   return [...ADVANCED_FIELDS, ..._fbL2Fields];
 }
 
-// 서비스 매핑 데이터 (테넌트별 관리)
-let SERVICE_MAPPINGS = [
-  {
-    id: 'SVC_HMC_01', tenantId: 'HMC',
-    name: '개인직무 사외학습 지원',
-    target: 'learner', serviceType: 'individual', pattern: 'B',
-    formSets: { apply: 'FM001', result: 'FM004' },
-    desc: '일반직군 학습자가 사외교육 신청 후 결과를 보고하는 패턴',
-  },
-  {
-    id: 'SVC_HMC_02', tenantId: 'HMC',
-    name: 'R&D 집합/이러닝 과정 운영',
-    target: 'manager', serviceType: 'group', pattern: 'A',
-    formSets: { plan: 'FM002', apply: 'FM003', result: 'FM005' },
-    desc: 'R&D 교육담당자가 과정 기획부터 결과까지 전체 관리',
-  },
-];
+// 서비스 통합 매핑 탭 제거됨 (2026-04-13) — 서비스 정책관리(bo_policy_builder.js)의
+// stage_form_ids 연결이 완전한 SSOT로 대체함.
 
 // 현재 탭 상태
-let _fbCurrentTab = 'library'; // 'library' | 'mapping' | 'field_catalog'
+let _fbCurrentTab = 'library'; // 'library' | 'field_catalog'
 let _fbEditId = null;
 let _fbTempFields = []; // { key, scope:'front'|'back', required: boolean, order }
 let _fbBuilderMode = 'create'; // 'create' | 'edit'
@@ -393,12 +378,11 @@ function _fbRenderPage() {
   <div style="display:flex;gap:0;border-bottom:2px solid #E5E7EB;margin-bottom:24px">
     ${_fbTabBtn('library', '📚 양식 라이브러리')}
     ${_fbTabBtn('field_catalog', '📌 입력 필드 관리')}
-    ${_fbTabBtn('mapping', '🔗 서비스 통합 매핑')}
   </div>
 
   <!-- 탭 콘텐츠 -->
   <div id="fb-tab-content">
-    ${_fbCurrentTab === 'library' ? _fbRenderLibrary() : _fbCurrentTab === 'field_catalog' ? _fbRenderFieldCatalog() : _fbRenderMapping()}
+    ${_fbCurrentTab === 'field_catalog' ? _fbRenderFieldCatalog() : _fbRenderLibrary()}
   </div>
 </div>`;
 }
@@ -598,10 +582,8 @@ function _fbFormCard(f) {
     const list4 = p.stageFormIds ? Object.values(p.stageFormIds) : [];
     return [...list1, ...list2, ...list3, ...list4].includes(f.id);
   }) : null;
-  const mappedLegacy = (typeof SERVICE_MAPPINGS !== 'undefined') ? SERVICE_MAPPINGS.find(m => Object.values(m.formSets || {}).includes(f.id)) : null;
-
-  const isMapped = mappedPolicy || mappedLegacy;
-  const mapName = mappedPolicy ? mappedPolicy.name : (mappedLegacy ? mappedLegacy.name : '');
+  const isMapped = !!mappedPolicy;
+  const mapName = mappedPolicy ? mappedPolicy.name : '';
 
   return `
 <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;
@@ -669,83 +651,6 @@ async function fbDeleteForm(formId) {
 
   // 3) UI 갱신
   renderFormBuilderMenu();
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ③ 서비스 통합 매핑 탭
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function _fbRenderMapping() {
-  const tenantId = boCurrentPersona.tenantId || 'HMC';
-  const myMaps = SERVICE_MAPPINGS.filter(m => m.tenantId === tenantId);
-  const myForms = FORM_MASTER.filter(f => f.tenantId === tenantId && f.active);
-
-  const mapCard = (m) => {
-    const st = FORM_SERVICE_TYPES[m.serviceType] || {};
-    const pt = PROCESS_PATTERNS[m.pattern] || {};
-    const tg = FORM_TARGET_TYPES[m.target] || {};
-    const formSet = m.formSets || {};
-
-    const stageRow = (stage, fId) => {
-      const s = FORM_STAGE_TYPES[stage];
-      const f = myForms.find(x => x.id === fId);
-      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:${s.bg};border-radius:8px;margin-bottom:4px">
-        <span style="font-size:10px;font-weight:900;color:${s.color};min-width:48px">${s.icon} ${stage.toUpperCase()}</span>
-        <span style="font-size:11px;font-weight:700;color:#111827">${f ? f.name : '<span style="color:#EF4444">미연결</span>'}</span>
-      </div>`;
-    };
-
-    return `<div class="bo-card" style="padding:20px;margin-bottom:12px;border-left:4px solid ${st.color || '#E5E7EB'}">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
-        <div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
-            <span style="font-size:11px;font-weight:900;color:${st.color};background:${st.color}15;padding:2px 8px;border-radius:6px">${st.icon || ''} ${st.label || ''}</span>
-            <span style="font-size:11px;font-weight:900;color:${tg.color};background:${tg.bg};padding:2px 8px;border-radius:6px">${tg.icon || ''} ${tg.label || ''}</span>
-            <span style="font-size:11px;font-weight:900;color:${pt.color};background:${pt.color}15;padding:2px 8px;border-radius:6px">${pt.label || ''}: ${pt.desc || ''}</span>
-          </div>
-          <div style="font-size:15px;font-weight:900;color:#111827">${m.name}</div>
-          <div style="font-size:11px;color:#6B7280;margin-top:2px">${m.desc || ''}</div>
-        </div>
-        <button onclick="_fbEditMapping('${m.id}')" class="bo-btn-secondary bo-btn-sm">✏️ 수정</button>
-      </div>
-      <div style="display:grid;grid-template-columns:${pt.stages.includes('plan') ? '1fr ' : ''} 1fr ${pt.stages.includes('result') ? '1fr' : ''};gap:8px">
-        ${pt.stages.map(stage => stageRow(stage, formSet[stage])).join('')}
-      </div>
-    </div>`;
-  };
-
-  return `
-<div style="display:flex;justify-content:flex-end;margin-bottom:16px">
-  <button onclick="_fbOpenMappingModal()" class="bo-btn-primary" style="display:flex;align-items:center;gap:6px;padding:9px 18px">
-    ＋ 서비스 매핑 추가
-  </button>
-</div>
-
-<!-- 프로세스 패턴 안내 -->
-<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">
-  ${Object.entries(PROCESS_PATTERNS).map(([k, v]) => `
-  <div class="bo-card" style="padding:14px;border-top:3px solid ${v.color}">
-    <div style="font-size:11px;font-weight:900;color:${v.color};margin-bottom:4px">${v.label}</div>
-    <div style="font-size:12px;font-weight:700;color:#111827">${v.desc}</div>
-  </div>`).join('')}
-</div>
-
-<!-- 서비스 매핑 목록 -->
-<div style="font-size:13px;font-weight:900;color:#374151;margin-bottom:12px">📋 등록된 서비스 매핑 (${myMaps.length}개)</div>
-${myMaps.length ? myMaps.map(mapCard).join('') :
-      `<div style="padding:40px;text-align:center;background:#F9FAFB;border-radius:16px;border:1px dashed #D1D5DB">
-    <div style="font-size:32px;margin-bottom:8px">🔗</div>
-    <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:4px">아직 서비스 매핑이 없습니다</div>
-    <div style="font-size:11px;color:#9CA3AF;margin-bottom:12px">양식을 만든 후 서비스 프로세스와 연결하세요</div>
-    <button onclick="_fbOpenMappingModal()" class="bo-btn-primary">매핑 추가하기</button>
-  </div>`}
-
-<!-- 연동 안내 -->
-<div class="bo-card" style="margin-top:20px;padding:14px 18px;background:#F5F3FF;border-color:#DDD6FE">
-  <div style="font-size:12px;font-weight:700;color:#5B21B6">
-    🔗 여기서 설정된 서비스 매핑은 프론트 오피스의 '교육 신청/집행' 메뉴에 자동 반영됩니다.
-    학습자에게는 '개인직무' 유형만, 교육담당자에게는 '운영/세미나' 유형이 노출됩니다.
-  </div>
-</div>`;
 }
 
 // ── 빌더 상세페이지 ──────────────────────────────────────────────────────────
@@ -1257,91 +1162,6 @@ function fbToggleActive(formId) {
   renderFormBuilderMenu();
 }
 
-// ── 서비스 매핑 관련 ──────────────────────────────────────────────────────────
-function _fbOpenMappingModal() {
-  const tenantId = boCurrentPersona.tenantId || 'HMC';
-  const myForms = FORM_MASTER.filter(f => f.tenantId === tenantId && f.active);
-
-  const formOpts = (stage) => {
-    const stageForms = myForms.filter(f => f.type === stage);
-    return `<option value="">— 미연결 —</option>` +
-      stageForms.map(f => `<option value="${f.id}">${f.name}</option>`).join('');
-  };
-
-  const modal = document.createElement('div');
-  modal.id = 'svc-map-modal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9200;display:flex;align-items:flex-start;justify-content:center;padding-top:40px';
-  modal.innerHTML = `
-<div style="background:#fff;border-radius:16px;width:560px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.25)">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-    <h3 style="font-size:15px;font-weight:900;margin:0">🔗 서비스 매핑 추가</h3>
-    <button onclick="document.getElementById('svc-map-modal').remove()" style="border:none;background:none;font-size:22px;cursor:pointer;color:#9CA3AF">✕</button>
-  </div>
-  <div style="display:flex;flex-direction:column;gap:12px">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">서비스 유형 *</label>
-        <select id="svc-type" style="width:100%;padding:8px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-          ${Object.entries(FORM_SERVICE_TYPES).map(([k, v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}
-        </select></div>
-      <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">대상자 *</label>
-        <select id="svc-target" style="width:100%;padding:8px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-          ${Object.entries(FORM_TARGET_TYPES).map(([k, v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}
-        </select></div>
-    </div>
-    <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">서비스명 *</label>
-      <input id="svc-name" type="text" placeholder="예) 개인직무 사외학습 지원" style="width:100%;box-sizing:border-box;padding:8px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px"></div>
-    <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">프로세스 패턴 *</label>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-        ${Object.entries(PROCESS_PATTERNS).map(([k, v]) => `
-        <label style="display:flex;align-items:center;gap:6px;padding:8px;border:1.5px solid #E5E7EB;border-radius:8px;cursor:pointer">
-          <input type="radio" name="svc-pattern" value="${k}"> <div><div style="font-size:11px;font-weight:900;color:${v.color}">${v.label}</div><div style="font-size:10px;color:#9CA3AF">${v.desc}</div></div>
-        </label>`).join('')}
-      </div></div>
-    <div id="svc-form-sets" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-      <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">📋 계획 양식</label>
-        <select id="svc-plan" style="width:100%;padding:8px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:11px">${formOpts('plan')}</select></div>
-      <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">📄 신청 양식 *</label>
-        <select id="svc-apply" style="width:100%;padding:8px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:11px">${formOpts('apply')}</select></div>
-      <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">📝 결과 양식</label>
-        <select id="svc-result" style="width:100%;padding:8px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:11px">${formOpts('result')}</select></div>
-    </div>
-    <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">설명</label>
-      <input id="svc-desc" type="text" placeholder="서비스 설명" style="width:100%;box-sizing:border-box;padding:8px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px"></div>
-  </div>
-  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;padding-top:14px;border-top:1px solid #E5E7EB">
-    <button onclick="document.getElementById('svc-map-modal').remove()" class="bo-btn-secondary bo-btn-sm">취소</button>
-    <button onclick="_fbSaveMappingFromModal()" class="bo-btn-primary bo-btn-sm">💾 저장</button>
-  </div>
-</div>`;
-  document.body.appendChild(modal);
-}
-
-function _fbSaveMappingFromModal() {
-  const tenantId = boCurrentPersona.tenantId || 'HMC';
-  const name = document.getElementById('svc-name').value.trim();
-  const pattern = document.querySelector('input[name="svc-pattern"]:checked')?.value;
-  if (!name) { alert('서비스명을 입력하세요.'); return; }
-  if (!pattern) { alert('프로세스 패턴을 선택하세요.'); return; }
-  SERVICE_MAPPINGS.push({
-    id: 'SVC_' + Date.now(), tenantId,
-    name, pattern,
-    serviceType: document.getElementById('svc-type').value,
-    target: document.getElementById('svc-target').value,
-    desc: document.getElementById('svc-desc').value,
-    formSets: {
-      plan: document.getElementById('svc-plan').value || undefined,
-      apply: document.getElementById('svc-apply').value || undefined,
-      result: document.getElementById('svc-result').value || undefined,
-    }
-  });
-  document.getElementById('svc-map-modal').remove();
-  _fbCurrentTab = 'mapping';
-  renderFormBuilderMenu();
-}
-
-function _fbEditMapping(id) {
-  alert('서비스 매핑 수정 기능은 추후 오픈됩니다.');
-}
 
 // ─── 양식 미리보기 ─────────────────────────────────────────────────────────────
 window._currentPreviewForm = null;

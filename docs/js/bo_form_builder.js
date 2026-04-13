@@ -198,7 +198,7 @@ let SERVICE_MAPPINGS = [
 ];
 
 // 현재 탭 상태
-let _fbCurrentTab = 'library'; // 'library' | 'library' | 'mapping'
+let _fbCurrentTab = 'library'; // 'library' | 'mapping' | 'field_catalog'
 let _fbEditId = null;
 let _fbTempFields = []; // { key, scope:'front'|'back', required: boolean, order }
 let _fbBuilderMode = 'create'; // 'create' | 'edit'
@@ -374,12 +374,13 @@ function _fbRenderPage() {
   <!-- 탭 네비게이션 -->
   <div style="display:flex;gap:0;border-bottom:2px solid #E5E7EB;margin-bottom:24px">
     ${_fbTabBtn('library', '📚 양식 라이브러리')}
+    ${_fbTabBtn('field_catalog', '📌 입력 필드 관리')}
     ${_fbTabBtn('mapping', '🔗 서비스 통합 매핑')}
   </div>
 
   <!-- 탭 콘텐츠 -->
   <div id="fb-tab-content">
-    ${_fbCurrentTab === 'library' ? _fbRenderLibrary() : _fbRenderMapping()}
+    ${_fbCurrentTab === 'library' ? _fbRenderLibrary() : _fbCurrentTab === 'field_catalog' ? _fbRenderFieldCatalog() : _fbRenderMapping()}
   </div>
 </div>`;
 }
@@ -394,7 +395,16 @@ function _fbTabBtn(id, label) {
 
 function _fbSwitchTab(tab) {
   _fbCurrentTab = tab;
-  document.getElementById('bo-content').innerHTML = _fbRenderPage();
+  if (tab === 'field_catalog') {
+    // 필드 카탈로그 탭은 DB 로드 필요
+    _fbLoadFieldCatalog().then(() => {
+      document.getElementById('bo-content').innerHTML = _fbRenderPage();
+    }).catch(() => {
+      document.getElementById('bo-content').innerHTML = _fbRenderPage();
+    });
+  } else {
+    document.getElementById('bo-content').innerHTML = _fbRenderPage();
+  }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1518,3 +1528,434 @@ function fbRenderPreviewBody(viewType) {
 }
 window.fbPreviewForm = fbPreviewForm;
 window.fbRenderPreviewBody = fbRenderPreviewBody;
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ③ 입력 필드 관리 탭 — L1 조회 + L2 CRUD + 옵션 관리 + 의존성 규칙
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let _fcSubTab = 'fields'; // 'fields' | 'options' | 'deps'
+let _fcExpandedField = null; // 옵션 편집 중인 필드 key
+
+function _fbRenderFieldCatalog() {
+  const role = boCurrentPersona?.role || 'viewer';
+  const isPlatform = role === 'platform_admin';
+  const l2Count = _fbL2Fields.length;
+
+  return `
+<div class="bo-fade">
+  <!-- 서브 탭 -->
+  <div style="display:flex;gap:2px;margin-bottom:20px;background:#F3F4F6;border-radius:10px;padding:4px">
+    ${_fcSubTabBtn('fields', '📋 필드 카탈로그')}
+    ${_fcSubTabBtn('options', '🔽 옵션값 관리')}
+    ${_fcSubTabBtn('deps', '⚡ 의존성 규칙')}
+  </div>
+
+  ${_fcSubTab === 'fields' ? _fcRenderFields(isPlatform, l2Count) :
+    _fcSubTab === 'options' ? _fcRenderOptions(isPlatform) :
+    _fcRenderDeps(isPlatform)}
+</div>`;
+}
+
+function _fcSubTabBtn(id, label) {
+  const active = _fcSubTab === id;
+  return `<button onclick="_fcSwitchSub('${id}')" style="
+    flex:1;padding:8px 12px;border:none;background:${active ? '#fff' : 'transparent'};
+    cursor:pointer;font-size:12px;font-weight:${active ? '800' : '600'};
+    color:${active ? '#7C3AED' : '#6B7280'};border-radius:8px;
+    box-shadow:${active ? '0 1px 4px rgba(0,0,0,0.1)' : 'none'};transition:all .15s">${label}</button>`;
+}
+
+function _fcSwitchSub(sub) {
+  _fcSubTab = sub;
+  const el = document.getElementById('fb-tab-content');
+  if (el) el.innerHTML = _fbRenderFieldCatalog();
+}
+
+// ━━━ 필드 카탈로그 서브탭 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function _fcRenderFields(isPlatform, l2Count) {
+  const allFields = _fbAllFields();
+  const categories = [...new Set(allFields.map(f => f.category))];
+
+  // L2 추가 폼
+  const l2AddForm = `
+  <div style="margin-bottom:20px;padding:16px;background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <span style="font-size:13px;font-weight:800;color:#92400E">📝 L2 확장 필드 추가 (${l2Count}/${_FB_L2_MAX}개)</span>
+      ${l2Count >= _FB_L2_MAX ? '<span style="font-size:11px;color:#DC2626;font-weight:700">⚠️ 최대 개수 도달</span>' : ''}
+    </div>
+    ${l2Count < _FB_L2_MAX ? `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end">
+      <div>
+        <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">필드명</label>
+        <input id="fc-new-name" type="text" placeholder="예: 교육 카테고리" style="width:100%;padding:7px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
+      </div>
+      <div>
+        <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">필드 타입</label>
+        <select id="fc-new-type" style="width:100%;padding:7px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
+          <option value="text">텍스트</option>
+          <option value="textarea">여러 줄 텍스트</option>
+          <option value="number">숫자</option>
+          <option value="select">셀렉트(선택)</option>
+          <option value="date">날짜</option>
+          <option value="file">파일첨부</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">카테고리</label>
+        <select id="fc-new-cat" style="width:100%;padding:7px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
+          ${categories.map(c => `<option value="${c}">${c}</option>`).join('')}
+          <option value="커스텀">커스텀</option>
+        </select>
+      </div>
+      <button onclick="_fcAddL2Field()" style="padding:8px 16px;background:#D97706;color:white;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap">+ 추가</button>
+    </div>` : ''}
+  </div>`;
+
+  // 카테고리별 필드 테이블
+  let fieldsHtml = '';
+  categories.forEach(cat => {
+    const catFields = allFields.filter(f => f.category === cat);
+    const catColor = cat.includes('승인') ? '#9D174D' : cat === '시스템' ? '#0369A1' : '#374151';
+
+    fieldsHtml += `
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:900;color:${catColor};text-transform:uppercase;margin-bottom:8px;letter-spacing:.05em;padding-left:4px">${cat}</div>
+      <div style="border:1.5px solid #E5E7EB;border-radius:10px;overflow:hidden">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="background:#F9FAFB;border-bottom:1px solid #E5E7EB">
+              <th style="text-align:left;padding:8px 12px;font-weight:800;color:#6B7280;width:24px">계층</th>
+              <th style="text-align:left;padding:8px 12px;font-weight:800;color:#6B7280">필드명</th>
+              <th style="text-align:left;padding:8px 12px;font-weight:800;color:#6B7280">타입</th>
+              <th style="text-align:left;padding:8px 12px;font-weight:800;color:#6B7280">Scope</th>
+              <th style="text-align:left;padding:8px 12px;font-weight:800;color:#6B7280">canonical_key</th>
+              <th style="text-align:center;padding:8px 12px;font-weight:800;color:#6B7280;width:50px">통계용</th>
+              <th style="text-align:center;padding:8px 12px;font-weight:800;color:#6B7280;width:50px">잠금</th>
+              ${isPlatform ? '<th style="text-align:center;padding:8px 12px;font-weight:800;color:#6B7280;width:50px">관리</th>' : ''}
+            </tr>
+          </thead>
+          <tbody>
+            ${catFields.map(f => {
+              const layerBg = f.layer === 'L1' ? '#EFF6FF' : '#FFFBEB';
+              const layerC = f.layer === 'L1' ? '#1D4ED8' : '#D97706';
+              const isLocked = f.layer === 'L1';
+              const typeLabel = { text:'텍스트', textarea:'여러줄', number:'숫자', select:'셀렉트', multi_select:'멀티셀렉트', date:'날짜', daterange:'기간', file:'파일', 'user-search':'사용자검색', 'user_search':'사용자검색', rating:'평점', system:'시스템', 'budget-linked':'예산연동', 'budget_linked':'예산연동', 'calc-grounds':'산출근거', 'calc_grounds':'산출근거', 'course-session':'과정차수', 'course_session':'과정차수' }[f.fieldType] || f.fieldType;
+              const scopeLabel = f.scope === 'front' ? '🔓프론트' : f.scope === 'back' ? '🔒백오피스' : '⚙️시스템';
+              const optCount = (f.options || []).length;
+              return `<tr style="border-bottom:1px solid #F3F4F6" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='white'">
+                <td style="padding:6px 12px"><span style="font-size:10px;font-weight:900;color:${layerC};background:${layerBg};padding:2px 6px;border-radius:4px">${f.layer}</span></td>
+                <td style="padding:6px 12px;font-weight:700;color:#111827">${f.icon} ${f.key}${optCount ? ` <span style="font-size:9px;color:#7C3AED">(▼${optCount})</span>` : ''}</td>
+                <td style="padding:6px 12px;color:#6B7280">${typeLabel}</td>
+                <td style="padding:6px 12px;font-size:11px">${scopeLabel}</td>
+                <td style="padding:6px 12px;font-family:monospace;font-size:11px;color:#6B7280">${f.canonicalKey || '-'}</td>
+                <td style="padding:6px 12px;text-align:center">${f.layer === 'L1' && ADVANCED_FIELDS.find(a => a.key === f.key)?.required ? '✅' : '—'}</td>
+                <td style="padding:6px 12px;text-align:center">${isLocked ? '🔒' : '—'}</td>
+                ${isPlatform ? `<td style="padding:6px 12px;text-align:center">${f.layer === 'L2' ? '<button onclick="_fcDeleteL2(\\''+f.key+'\\',\\''+f.dbId+'\\' )" style="border:none;background:#FEF2F2;color:#DC2626;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer">비활성화</button>' : '<span style="color:#D1D5DB;font-size:10px">—</span>'}</td>` : ''}
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  });
+
+  return l2AddForm + fieldsHtml;
+}
+
+// ━━━ 옵션값 관리 서브탭 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function _fcRenderOptions(isPlatform) {
+  const allFields = _fbAllFields().filter(f => f.fieldType === 'select' || f.fieldType === 'multi_select');
+
+  if (!allFields.length) {
+    return '<div style="text-align:center;padding:40px;color:#9CA3AF;font-size:13px">셀렉트 타입 필드가 없습니다.</div>';
+  }
+
+  return `
+  <div style="font-size:11px;color:#6B7280;margin-bottom:12px;font-weight:600">셀렉트 타입 필드의 옵션값을 관리합니다. L1 옵션(🔒)은 수정할 수 없습니다.</div>
+  ${allFields.map(f => {
+    const opts = f.options || [];
+    const isExpanded = _fcExpandedField === f.key;
+    const layerC = f.layer === 'L1' ? '#1D4ED8' : '#D97706';
+    const layerBg = f.layer === 'L1' ? '#EFF6FF' : '#FFFBEB';
+
+    return `
+    <div style="border:1.5px solid ${isExpanded ? '#7C3AED' : '#E5E7EB'};border-radius:10px;margin-bottom:10px;overflow:hidden;transition:border-color .2s">
+      <div onclick="_fcToggleExpand('${f.key}')" style="display:flex;align-items:center;gap:8px;padding:12px 16px;cursor:pointer;background:${isExpanded ? '#F5F3FF' : '#FAFAFA'};transition:background .2s"
+        onmouseover="this.style.background='${isExpanded ? '#F5F3FF' : '#F3F4F6'}'" onmouseout="this.style.background='${isExpanded ? '#F5F3FF' : '#FAFAFA'}'">
+        <span style="font-size:13px;font-weight:800;color:#111827;flex:1">${f.icon} ${f.key}</span>
+        <span style="font-size:10px;font-weight:900;color:${layerC};background:${layerBg};padding:2px 6px;border-radius:4px">${f.layer}</span>
+        <span style="font-size:11px;color:#7C3AED;font-weight:700">${opts.length}개 옵션</span>
+        <span style="font-size:14px;color:#9CA3AF;transform:rotate(${isExpanded ? '180' : '0'}deg);transition:transform .2s">▼</span>
+      </div>
+      ${isExpanded ? `
+      <div style="padding:12px 16px;border-top:1px solid #E5E7EB">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px">
+          <thead>
+            <tr style="background:#F9FAFB">
+              <th style="text-align:left;padding:6px 10px;font-weight:800;color:#6B7280;width:24px">계층</th>
+              <th style="text-align:left;padding:6px 10px;font-weight:800;color:#6B7280">표시명(label)</th>
+              <th style="text-align:left;padding:6px 10px;font-weight:800;color:#6B7280">저장값(value)</th>
+              <th style="text-align:center;padding:6px 10px;font-weight:800;color:#6B7280;width:50px">잠금</th>
+              <th style="text-align:center;padding:6px 10px;font-weight:800;color:#6B7280;width:50px">관리</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${opts.map((o, i) => `
+            <tr style="border-bottom:1px solid #F3F4F6">
+              <td style="padding:5px 10px"><span style="font-size:9px;font-weight:800;color:${o.layer === 'L1' || o.locked ? '#1D4ED8' : '#D97706'};background:${o.layer === 'L1' || o.locked ? '#EFF6FF' : '#FFFBEB'};padding:1px 5px;border-radius:3px">${o.layer || 'L1'}</span></td>
+              <td style="padding:5px 10px;font-weight:600">${o.label}</td>
+              <td style="padding:5px 10px;font-family:monospace;color:#6B7280">${o.value}</td>
+              <td style="padding:5px 10px;text-align:center">${o.locked || o.layer === 'L1' ? '🔒' : '—'}</td>
+              <td style="padding:5px 10px;text-align:center">${!(o.locked || o.layer === 'L1') ? `<button onclick="_fcDeleteOption('${f.key}',${i})" style="border:none;background:#FEF2F2;color:#DC2626;padding:2px 6px;border-radius:4px;font-size:10px;cursor:pointer">삭제</button>` : '<span style="color:#D1D5DB;font-size:10px">—</span>'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+        <!-- 옵션 추가 폼 -->
+        <div style="display:flex;gap:6px;align-items:center">
+          <input id="fc-opt-label-${f.key}" type="text" placeholder="표시명" style="flex:1;padding:6px 10px;border:1.5px solid #E5E7EB;border-radius:6px;font-size:11px">
+          <input id="fc-opt-value-${f.key}" type="text" placeholder="저장값(snake_case)" style="flex:1;padding:6px 10px;border:1.5px solid #E5E7EB;border-radius:6px;font-size:11px;font-family:monospace">
+          <button onclick="_fcAddOption('${f.key}')" style="padding:6px 14px;background:#7C3AED;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">+ 추가</button>
+        </div>
+      </div>` : ''}
+    </div>`;
+  }).join('')}`;
+}
+
+// ━━━ 의존성 규칙 서브탭 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function _fcRenderDeps(isPlatform) {
+  const allFields = _fbAllFields();
+  // 코드 기반 의존성 + DB 의존성 통합
+  const codeDeps = [];
+  allFields.forEach(f => {
+    if (f.predecessors?.length) {
+      f.predecessors.forEach(pred => {
+        codeDeps.push({ successor: f.key, predecessor: pred, type: 'auto_add', source: 'code' });
+      });
+    }
+  });
+  const dbDeps = _fbFieldDeps.map(d => {
+    const succ = allFields.find(f => f.canonicalKey && ('FLD_' + f.canonicalKey) === d.successor_field_id);
+    const pred = allFields.find(f => f.canonicalKey && ('FLD_' + f.canonicalKey) === d.predecessor_field_id);
+    return { successor: succ?.key || d.successor_field_id, predecessor: pred?.key || d.predecessor_field_id, type: d.rule_type, source: 'db', id: d.id };
+  });
+  // 중복 제거 (코드 기반 우선)
+  const seen = new Set(codeDeps.map(d => d.successor + '→' + d.predecessor));
+  const mergedDeps = [...codeDeps, ...dbDeps.filter(d => !seen.has(d.successor + '→' + d.predecessor))];
+
+  const ruleLabels = { auto_add: '🔄 자동 추가', warn: '⚠️ 경고', block: '🚫 차단' };
+  const ruleColors = { auto_add: '#059669', warn: '#D97706', block: '#DC2626' };
+
+  return `
+  <div style="font-size:11px;color:#6B7280;margin-bottom:12px;font-weight:600">후행 필드 추가 시 선행 필드를 자동으로 추가하거나 경고합니다. 삭제 시에는 선행 필드 삭제를 차단합니다.</div>
+
+  <!-- 기존 규칙 목록 -->
+  <div style="border:1.5px solid #E5E7EB;border-radius:10px;overflow:hidden;margin-bottom:16px">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead>
+        <tr style="background:#F9FAFB;border-bottom:1px solid #E5E7EB">
+          <th style="text-align:left;padding:8px 12px;font-weight:800;color:#6B7280">후행 필드 (추가 시)</th>
+          <th style="text-align:center;padding:8px 12px;font-weight:800;color:#6B7280;width:30px">→</th>
+          <th style="text-align:left;padding:8px 12px;font-weight:800;color:#6B7280">선행 필드 (자동 추가)</th>
+          <th style="text-align:center;padding:8px 12px;font-weight:800;color:#6B7280">규칙</th>
+          <th style="text-align:center;padding:8px 12px;font-weight:800;color:#6B7280;width:50px">출처</th>
+          ${isPlatform ? '<th style="text-align:center;padding:8px 12px;font-weight:800;color:#6B7280;width:50px">관리</th>' : ''}
+        </tr>
+      </thead>
+      <tbody>
+        ${mergedDeps.length === 0 ? '<tr><td colspan="6" style="padding:20px;text-align:center;color:#D1D5DB">등록된 의존성 규칙이 없습니다.</td></tr>' : ''}
+        ${mergedDeps.map(d => `
+        <tr style="border-bottom:1px solid #F3F4F6" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='white'">
+          <td style="padding:6px 12px;font-weight:700">${d.successor}</td>
+          <td style="padding:6px 12px;text-align:center;color:#9CA3AF">→</td>
+          <td style="padding:6px 12px;font-weight:700">${d.predecessor}</td>
+          <td style="padding:6px 12px;text-align:center"><span style="font-size:10px;font-weight:800;color:${ruleColors[d.type] || '#6B7280'};background:${ruleColors[d.type]}15;padding:2px 8px;border-radius:5px">${ruleLabels[d.type] || d.type}</span></td>
+          <td style="padding:6px 12px;text-align:center"><span style="font-size:9px;color:#9CA3AF;font-weight:600">${d.source === 'code' ? '코드' : 'DB'}</span></td>
+          ${isPlatform ? `<td style="padding:6px 12px;text-align:center">${d.source === 'db' && d.id ? `<button onclick="_fcDeleteDep('${d.id}')" style="border:none;background:#FEF2F2;color:#DC2626;padding:2px 6px;border-radius:4px;font-size:10px;cursor:pointer">삭제</button>` : '<span style="color:#D1D5DB;font-size:10px">—</span>'}</td>` : ''}
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 새 규칙 추가 -->
+  <div style="padding:16px;background:#ECFDF5;border:1.5px solid #A7F3D0;border-radius:12px">
+    <div style="font-size:12px;font-weight:800;color:#065F46;margin-bottom:10px">➕ 새 의존성 규칙 추가</div>
+    <div style="display:grid;grid-template-columns:1fr auto 1fr auto auto;gap:8px;align-items:end">
+      <div>
+        <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">후행 필드</label>
+        <select id="fc-dep-succ" style="width:100%;padding:7px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
+          ${allFields.map(f => `<option value="${f.key}">${f.icon} ${f.key}</option>`).join('')}
+        </select>
+      </div>
+      <span style="color:#9CA3AF;font-weight:700;font-size:16px;padding-bottom:4px">→</span>
+      <div>
+        <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">선행 필드</label>
+        <select id="fc-dep-pred" style="width:100%;padding:7px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
+          ${allFields.map(f => `<option value="${f.key}">${f.icon} ${f.key}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">규칙</label>
+        <select id="fc-dep-type" style="padding:7px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
+          <option value="auto_add">🔄 자동추가</option>
+          <option value="warn">⚠️ 경고</option>
+        </select>
+      </div>
+      <button onclick="_fcAddDep()" style="padding:8px 16px;background:#059669;color:white;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap">추가</button>
+    </div>
+  </div>`;
+}
+
+// ━━━ CRUD 함수들 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// L2 필드 추가
+async function _fcAddL2Field() {
+  const name = document.getElementById('fc-new-name')?.value?.trim();
+  const type = document.getElementById('fc-new-type')?.value || 'text';
+  const cat = document.getElementById('fc-new-cat')?.value || '커스텀';
+  if (!name) { alert('필드명을 입력해주세요.'); return; }
+  if (_fbL2Fields.length >= _FB_L2_MAX) { alert(`L2 필드는 최대 ${_FB_L2_MAX}개까지 생성 가능합니다.`); return; }
+
+  const canonicalKey = name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9가-힣_]/g, '').toLowerCase();
+  const tenantId = boCurrentPersona?.tenantId || 'HMC';
+  const fieldId = 'FLD_L2_' + tenantId + '_' + Date.now();
+
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (sb) {
+      await sb.from('form_field_catalog').insert({
+        id: fieldId, layer: 'L2', tenant_id: tenantId,
+        canonical_key: canonicalKey, display_name: name, icon: '📝',
+        category: cat, field_type: type, scope: 'front',
+        hint: '', is_reportable: false, is_locked: false, default_required: false,
+        sort_order: 100 + _fbL2Fields.length,
+      });
+    }
+    // 로컬 캐시 갱신
+    _fbL2Fields.push({
+      key: name, icon: '📝', required: false, scope: 'front',
+      category: cat, fieldType: type, hint: '', canonicalKey: canonicalKey,
+      layer: 'L2', dbId: fieldId, options: [], predecessors: []
+    });
+    _fbShowToast(`✅ L2 필드 "${name}" 추가 완료`);
+    _fcSwitchSub('fields');
+  } catch (e) { alert('필드 추가 실패: ' + e.message); }
+}
+
+// L2 필드 비활성화
+async function _fcDeleteL2(key, dbId) {
+  if (!confirm(`"${key}" L2 필드를 비활성화할까요?`)) return;
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (sb && dbId) {
+      await sb.from('form_field_catalog').update({ active: false }).eq('id', dbId);
+    }
+    _fbL2Fields = _fbL2Fields.filter(f => f.key !== key);
+    _fbShowToast(`"${key}" 필드 비활성화 완료`);
+    _fcSwitchSub('fields');
+  } catch (e) { alert('비활성화 실패: ' + e.message); }
+}
+
+// 옵션값 토글
+function _fcToggleExpand(key) {
+  _fcExpandedField = _fcExpandedField === key ? null : key;
+  _fcSwitchSub('options');
+}
+
+// 옵션값 추가
+async function _fcAddOption(fieldKey) {
+  const label = document.getElementById(`fc-opt-label-${fieldKey}`)?.value?.trim();
+  const value = document.getElementById(`fc-opt-value-${fieldKey}`)?.value?.trim();
+  if (!label || !value) { alert('표시명과 저장값을 모두 입력해주세요.'); return; }
+
+  const allFields = _fbAllFields();
+  const field = allFields.find(f => f.key === fieldKey);
+  const tenantId = boCurrentPersona?.tenantId || 'HMC';
+  const optId = 'OPT_L2_' + Date.now();
+
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    const fieldDbId = field?.canonicalKey ? ('FLD_' + field.canonicalKey) : (field?.dbId || '');
+    if (sb && fieldDbId) {
+      await sb.from('field_options').insert({
+        id: optId, field_id: fieldDbId, layer: 'L2',
+        tenant_id: tenantId, label, value,
+        sort_order: (field.options || []).length + 1, is_locked: false,
+      });
+    }
+    // 로컬 캐시 갱신
+    if (!field.options) field.options = [];
+    field.options.push({ label, value, layer: 'L2', locked: false });
+    _fbShowToast(`✅ "${fieldKey}"에 옵션 "${label}" 추가 완료`);
+    _fcSwitchSub('options');
+  } catch (e) { alert('옵션 추가 실패: ' + e.message); }
+}
+
+// 옵션값 삭제
+async function _fcDeleteOption(fieldKey, idx) {
+  const allFields = _fbAllFields();
+  const field = allFields.find(f => f.key === fieldKey);
+  if (!field?.options?.[idx]) return;
+  const opt = field.options[idx];
+  if (opt.locked || opt.layer === 'L1') { alert('L1 표준 옵션은 삭제할 수 없습니다.'); return; }
+  if (!confirm(`"${opt.label}" 옵션을 삭제할까요?`)) return;
+
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (sb) {
+      await sb.from('field_options').delete().eq('label', opt.label).eq('value', opt.value);
+    }
+    field.options.splice(idx, 1);
+    _fbShowToast(`옵션 "${opt.label}" 삭제 완료`);
+    _fcSwitchSub('options');
+  } catch (e) { alert('삭제 실패: ' + e.message); }
+}
+
+// 의존성 규칙 추가
+async function _fcAddDep() {
+  const succ = document.getElementById('fc-dep-succ')?.value;
+  const pred = document.getElementById('fc-dep-pred')?.value;
+  const type = document.getElementById('fc-dep-type')?.value || 'auto_add';
+  if (!succ || !pred) return;
+  if (succ === pred) { alert('후행과 선행 필드가 같을 수 없습니다.'); return; }
+
+  const allFields = _fbAllFields();
+  const succField = allFields.find(f => f.key === succ);
+  const predField = allFields.find(f => f.key === pred);
+  const succId = succField?.canonicalKey ? ('FLD_' + succField.canonicalKey) : '';
+  const predId = predField?.canonicalKey ? ('FLD_' + predField.canonicalKey) : '';
+  const tenantId = boCurrentPersona?.tenantId || 'HMC';
+
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (sb && succId && predId) {
+      await sb.from('field_dependencies').insert({
+        id: 'DEP_' + Date.now(),
+        tenant_id: tenantId,
+        successor_field_id: succId,
+        predecessor_field_id: predId,
+        rule_type: type,
+        description: `"${succ}" 추가 시 "${pred}" ${type === 'auto_add' ? '자동 추가' : '경고'}`,
+      });
+    }
+    // 코드 기반 predecessors도 갱신
+    if (succField && !succField.predecessors) succField.predecessors = [];
+    if (!succField.predecessors.includes(pred)) succField.predecessors.push(pred);
+    // DB deps 캐시 갱신
+    _fbFieldDeps.push({ id: 'DEP_' + Date.now(), successor_field_id: succId, predecessor_field_id: predId, rule_type: type });
+    _fbShowToast(`✅ 의존성 규칙 추가: "${succ}" → "${pred}"`);
+    _fcSwitchSub('deps');
+  } catch (e) { alert('규칙 추가 실패: ' + e.message); }
+}
+
+// 의존성 규칙 삭제
+async function _fcDeleteDep(depId) {
+  if (!confirm('이 의존성 규칙을 삭제할까요?')) return;
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (sb) {
+      await sb.from('field_dependencies').delete().eq('id', depId);
+    }
+    _fbFieldDeps = _fbFieldDeps.filter(d => d.id !== depId);
+    _fbShowToast('의존성 규칙 삭제 완료');
+    _fcSwitchSub('deps');
+  } catch (e) { alert('삭제 실패: ' + e.message); }
+}

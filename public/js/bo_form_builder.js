@@ -105,6 +105,35 @@ var ADVANCED_FIELDS = [
   { key: '수료증', icon: '🎓', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '수료증 업로드', canonicalKey: 'certificate', layer: 'L1', predecessors: ['수강인원'] },
   { key: '대관확정서', icon: '📜', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '장소 대관 확정서', canonicalKey: 'venue_confirm', layer: 'L1', predecessors: ['대관비'] },
   { key: '납품확인서', icon: '✅', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '물품 납품 확인서', canonicalKey: 'delivery_confirm', layer: 'L1' },
+  // 교육 운영정보 (신규)
+  { key: '교육장소', icon: '📍', required: false, scope: 'front', category: '교육운영정보', fieldType: 'select', hint: '교육 진행 장소 선택', canonicalKey: 'edu_venue', layer: 'L1',
+    options: [] /* 별도 field_options 테이블에서 관리 */
+  },
+  { key: '총 차수', icon: '🔢', required: false, scope: 'front', category: '교육운영정보', fieldType: 'number', hint: '교육 총 회차 수 (차수)', canonicalKey: 'total_sessions', layer: 'L1' },
+  { key: '예상인원', icon: '👥', required: false, scope: 'front', category: '교육운영정보', fieldType: 'number', hint: '과정 예상 참여 인원 (명)', canonicalKey: 'expected_headcount', layer: 'L1' },
+  { key: '차수별 교육시간', icon: '⏱️', required: false, scope: 'front', category: '교육운영정보', fieldType: 'number', hint: '1차수 기준 교육 진행 시간 (H)', canonicalKey: 'session_hours', layer: 'L1' },
+  { key: '교육내용', icon: '📝', required: false, scope: 'front', category: '교육운영정보', fieldType: 'textarea', hint: '교육 세부 내용 및 커리큘럼 설명', canonicalKey: 'edu_content', layer: 'L1' },
+  { key: '고용보험환급', icon: '🏦', required: false, scope: 'front', category: '교육운영정보', fieldType: 'select', hint: '고용보험 환급 대상 여부', canonicalKey: 'employment_insurance', layer: 'L1',
+    options: [
+      { label: 'Y — 환급 대상', value: 'Y' },
+      { label: 'N — 해당 없음', value: 'N' },
+    ]
+  },
+  { key: '정산방식', icon: '💱', required: false, scope: 'front', category: '교육운영정보', fieldType: 'select', hint: '비용 정산 기준 방식 선택', canonicalKey: 'settlement_type', layer: 'L1',
+    options: [
+      { label: '해당없음', value: 'none' },
+      { label: '인원비율 정산', value: 'headcount_ratio' },
+      { label: '매출액 비율 정산', value: 'revenue_ratio' },
+      { label: 'G코드 정산', value: 'g_code' },
+    ]
+  },
+  // 월별 계획 그리드 (신규) — fieldType: 'monthly-grid'
+  { key: '월별 교육인원', icon: '📊', required: false, scope: 'front', category: '월별계획', fieldType: 'monthly-grid', hint: '연도별 월(1~12월) 교육 인원 입력 (단위: 명)', canonicalKey: 'monthly_headcount', layer: 'L1',
+    gridConfig: { unit: '명', valueType: 'integer' }
+  },
+  { key: '월별 예상 집행금액', icon: '📈', required: false, scope: 'front', category: '월별계획', fieldType: 'monthly-grid', hint: '연도별 월(1~12월) 예상 집행 금액 입력 (단위: 원)', canonicalKey: 'monthly_budget', layer: 'L1',
+    gridConfig: { unit: '원', valueType: 'currency' }
+  },
   // 결과 관련
   { key: '수료생명단', icon: '📝', required: false, scope: 'front', category: '결과정보', fieldType: 'user-search', hint: '최종 수료자 명단', canonicalKey: 'completion_list', layer: 'L1' },
   { key: '학습만족도', icon: '⭐', required: false, scope: 'front', category: '결과정보', fieldType: 'rating', hint: '만족도 조사 (5점 척도)', canonicalKey: 'satisfaction', layer: 'L1' },
@@ -1381,8 +1410,41 @@ function _fbFieldInput(fld, poolField, viewType) {
     </div>`;
   }
   if (ft === 'select') {
-    const opts = (poolField.options || ['선택 1', '선택 2', '선택 3']).map(o => `<option>${o}</option>`).join('');
+    const rawOpts = poolField.options || [];
+    const opts = rawOpts.length
+      ? rawOpts.map(o => `<option>${typeof o === 'object' ? o.label : o}</option>`).join('')
+      : '<option>선택 1</option><option>선택 2</option>';
     return `<select style="${base}" disabled><option>— 선택 —</option>${opts}</select>`;
+  }
+  if (ft === 'monthly-grid') {
+    const cfg = poolField.gridConfig || {};
+    const unit = cfg.unit || '';
+    const isCurrency = cfg.valueType === 'currency';
+    const year = new Date().getFullYear();
+    const months = [1,2,3,4,5,6,7,8,9,10,11,12];
+    const cellSt = 'padding:0;border:1px solid #E5E7EB;text-align:center';
+    const inputSt = 'width:100%;box-sizing:border-box;border:none;padding:4px 2px;font-size:11px;text-align:right;background:transparent;outline:none;color:#374151';
+    const thSt = 'padding:6px 4px;font-size:10px;font-weight:800;color:#6B7280;background:#F9FAFB;text-align:center;border:1px solid #E5E7EB;white-space:nowrap';
+    return `
+<div style="overflow-x:auto">
+  <div style="display:flex;justify-content:flex-end;font-size:10px;color:#9CA3AF;margin-bottom:4px">(단위:${unit})</div>
+  <table style="width:100%;border-collapse:collapse;min-width:720px">
+    <thead>
+      <tr>
+        <th style="${thSt};width:44px">연도</th>
+        ${months.map(m => `<th style="${thSt}">${m}월</th>`).join('')}
+        <th style="${thSt};background:#EFF6FF;color:#1D4ED8">계</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="${cellSt};background:#F9FAFB;font-size:11px;font-weight:800;color:#374151;padding:4px">${year}</td>
+        ${months.map(() => `<td style="${cellSt}"><input type="${isCurrency ? 'text' : 'number'}" placeholder="" style="${inputSt}" disabled></td>`).join('')}
+        <td style="${cellSt};background:#EFF6FF"><input type="text" value="0" style="${inputSt};font-weight:900;color:#1D4ED8" disabled></td>
+      </tr>
+    </tbody>
+  </table>
+</div>`;
   }
   if (ft === 'system') {
     return `<div style="padding:10px 14px;background:#F0F9FF;border:1.5px solid #BAE6FD;border-radius:8px;font-size:12px;color:#0369A1;font-weight:800">🔄 시스템 자동 연결 필드</div>`;
@@ -1421,6 +1483,7 @@ function fbRenderPreviewBody(viewType) {
     select: { label: '선택', color: '#7C3AED', bg: '#F5F3FF' },
     'calc-grounds': { label: '산출근거', color: '#065F46', bg: '#ECFDF5' },
     'budget-linked': { label: '예산연동', color: '#1D4ED8', bg: '#EFF6FF' },
+    'monthly-grid': { label: '월별그리드', color: '#0E7490', bg: '#ECFEFF' },
     system: { label: '시스템', color: '#6B7280', bg: '#F3F4F6' },
   };
 

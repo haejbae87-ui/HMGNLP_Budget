@@ -105,38 +105,128 @@ function _prdLoadDoc(id) {
 
 // ── 간이 마크다운 → HTML 변환 ──────────────────────────────────────────
 function _prdMd2Html(md) {
-  let html = md
-    .replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
-      `<pre style="background:#1E293B;color:#E2E8F0;padding:14px 18px;border-radius:10px;overflow-x:auto;font-size:12px;line-height:1.6;margin:12px 0"><code>${code.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`)
-    .replace(/`([^`]+)`/g, '<code style="background:#F1F5F9;color:#1E40AF;padding:1px 6px;border-radius:4px;font-size:12px;font-weight:600">$1</code>')
-    .replace(/^######\s+(.+)$/gm, '<h6 style="font-size:12px;font-weight:800;color:#6B7280;margin:14px 0 6px">$1</h6>')
-    .replace(/^#####\s+(.+)$/gm, '<h5 style="font-size:13px;font-weight:800;color:#4B5563;margin:14px 0 6px">$1</h5>')
-    .replace(/^####\s+(.+)$/gm, '<h4 style="font-size:14px;font-weight:800;color:#374151;margin:16px 0 8px">$1</h4>')
-    .replace(/^###\s+(.+)$/gm, '<h3 style="font-size:15px;font-weight:900;color:#1E293B;margin:20px 0 10px;padding-bottom:6px;border-bottom:1px solid #E5E7EB">$1</h3>')
-    .replace(/^##\s+(.+)$/gm, '<h2 style="font-size:17px;font-weight:900;color:#0F172A;margin:24px 0 12px;padding-bottom:8px;border-bottom:2px solid #3B82F6">$1</h2>')
-    .replace(/^#\s+(.+)$/gm, '<h1 style="font-size:20px;font-weight:900;color:#0F172A;margin:0 0 16px">$1</h1>')
+  // 1. Protect code blocks by temporarily replacing them
+  const codeBlocks = [];
+  let html = md.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    codeBlocks.push(code.replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+    return `__CODE_BLOCK_${codeBlocks.length - 1}__`;
+  });
+
+  const lines = html.split('\n');
+  const processedLines = [];
+  let tableRows = [];
+  let inBlockquote = false;
+  let bqType = null;
+  const alertColors = { NOTE: '#3B82F6', TIP: '#10B981', IMPORTANT: '#7C3AED', WARNING: '#F59E0B', CAUTION: '#EF4444' };
+  const alertIcons = { NOTE: 'ℹ️', TIP: '💡', IMPORTANT: '🔥', WARNING: '⚠️', CAUTION: '🚨' };
+
+  const processTable = () => {
+    if (tableRows.length === 0) return;
+    let tableHtml = '<div style="overflow-x:auto;margin:20px 0;border-radius:8px;border:1px solid #E2E8F0;box-shadow:0 1px 3px rgba(0,0,0,0.03)"><table class="bo-table" style="margin:0;border:none">';
+    let inTbody = false;
+
+    tableRows.forEach((row, i) => {
+      const parts = row.split('|');
+      const cells = parts.slice(1, parts.length - 1).map(c => c.trim() || '&nbsp;');
+      
+      const isSeparator = cells.every(c => /^[-:\s]+$/.test(c.replace(/&nbsp;/g, '')));
+      
+      if (isSeparator) {
+        if (!inTbody) {
+           inTbody = true;
+           tableHtml += '<tbody>';
+        }
+      } else if (i === 0 && tableRows.length > 1 && tableRows[1].split('|').slice(1, -1).every(c => /^[-:\s]+$/.test(c.trim()))) {
+        tableHtml += '<thead><tr>' + cells.map(c => `<th>${c}</th>`).join('') + '</tr></thead>';
+      } else {
+        if (!inTbody && i === 0) {
+           inTbody = true;
+           tableHtml += '<tbody>';
+        }
+        tableHtml += '<tr>' + cells.map(c => `<td>${c}</td>`).join('') + '</tr>';
+      }
+    });
+    if (inTbody) tableHtml += '</tbody>';
+    tableHtml += '</table></div>';
+    processedLines.push(tableHtml);
+    tableRows = [];
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmedLine = line.trim();
+
+    if (trimmedLine.startsWith('|') && trimmedLine.endsWith('|')) {
+      if (inBlockquote) {
+        inBlockquote = false;
+        processedLines.push(bqType === 'default' ? `</blockquote>` : `</div></div>`);
+        bqType = null;
+      }
+      tableRows.push(trimmedLine);
+    } else {
+      processTable();
+      
+      if (trimmedLine.startsWith('>')) {
+        let content = trimmedLine.substring(1).trim();
+        const alertMatch = content.match(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/);
+        
+        if (!inBlockquote) {
+          inBlockquote = true;
+          if (alertMatch) {
+            bqType = alertMatch[1];
+            content = content.replace(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*/, '');
+            processedLines.push(`<div style="border-left:4px solid ${alertColors[bqType]};background:${alertColors[bqType]}10;padding:14px 18px;border-radius:0 8px 8px 0;margin:16px 0">`);
+            processedLines.push(`<div style="font-weight:800;font-size:13px;color:${alertColors[bqType]};margin-bottom:6px">${alertIcons[bqType]} ${bqType}</div>`);
+            processedLines.push(`<div style="font-size:13px;color:#374151;line-height:1.6">`);
+          } else {
+            bqType = 'default';
+            processedLines.push(`<blockquote style="border-left:4px solid #E5E7EB;color:#6B7280;padding-left:16px;margin:16px 0;font-style:italic">`);
+          }
+        }
+        
+        if (content) {
+          processedLines.push(content + '<br>');
+        }
+      } else {
+        if (inBlockquote) {
+          inBlockquote = false;
+          processedLines.push(bqType === 'default' ? `</blockquote>` : `</div></div>`);
+          bqType = null;
+        }
+        processedLines.push(line);
+      }
+    }
+  }
+  processTable();
+  if (inBlockquote) {
+    processedLines.push(bqType === 'default' ? `</blockquote>` : `</div></div>`);
+  }
+
+  html = processedLines.join('\n');
+
+  // 3. Inline formatting
+  html = html
+    .replace(/`([^`]+)`/g, '<code style="background:#F1F5F9;color:#1E40AF;padding:2px 6px;border-radius:4px;font-size:12.5px;font-weight:600">$1</code>')
+    .replace(/^######\s+(.+)$/gm, '<h6 style="font-size:13px;font-weight:800;color:#6B7280;margin:16px 0 8px">$1</h6>')
+    .replace(/^#####\s+(.+)$/gm, '<h5 style="font-size:14px;font-weight:800;color:#4B5563;margin:16px 0 8px">$1</h5>')
+    .replace(/^####\s+(.+)$/gm, '<h4 style="font-size:15px;font-weight:800;color:#374151;margin:20px 0 10px">$1</h4>')
+    .replace(/^###\s+(.+)$/gm, '<h3 style="font-size:17px;font-weight:900;color:#1E293B;margin:24px 0 12px;padding-bottom:6px;border-bottom:1px solid #E5E7EB">$1</h3>')
+    .replace(/^##\s+(.+)$/gm, '<h2 style="font-size:19px;font-weight:900;color:#0F172A;margin:28px 0 14px;padding-bottom:8px;border-bottom:2px solid #3B82F6">$1</h2>')
+    .replace(/^#\s+(.+)$/gm, '<h1 style="font-size:24px;font-weight:900;color:#0F172A;margin:0 0 20px">$1</h1>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/^\|(.+)\|$/gm, (match) => {
-      const cells = match.split('|').filter(c => c.trim());
-      if (cells.every(c => /^[-:\s]+$/.test(c.trim()))) return '<!--sep-->';
-      return '<tr>' + cells.map(c => `<td style="padding:6px 10px;border:1px solid #E5E7EB;font-size:12px">${c.trim()}</td>`).join('') + '</tr>';
-    })
-    .replace(/^>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*$/gm, (_, type) => {
-      const colors = { NOTE: '#3B82F6', TIP: '#10B981', IMPORTANT: '#7C3AED', WARNING: '#F59E0B', CAUTION: '#EF4444' };
-      return `<div style="border-left:4px solid ${colors[type]};background:${colors[type]}08;padding:10px 14px;border-radius:0 8px 8px 0;margin:10px 0;font-size:12px;color:${colors[type]};font-weight:700">[${type}]`;
-    })
-    .replace(/^>\s+(.+)$/gm, '$1<br>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:#3B82F6;text-decoration:underline">$1</a>')
-    .replace(/^- (.+)$/gm, '<li style="margin:3px 0;font-size:12px">$1</li>')
-    .replace(/^\d+\.\s+(.+)$/gm, '<li style="margin:3px 0;font-size:12px">$1</li>')
-    .replace(/^---$/gm, '<hr style="border:none;border-top:1px solid #E5E7EB;margin:16px 0">')
-    .replace(/\n\n/g, '</p><p style="margin:8px 0">')
-    .replace(/\n/g, '<br>');
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:#3B82F6;text-decoration:underline;font-weight:500">$1</a>')
+    .replace(/^\s*-\s+(.+)$/gm, '<li style="margin:6px 0;font-size:13px;margin-left:20px">$1</li>')
+    .replace(/^\s*\d+\.\s+(.+)$/gm, '<li style="margin:6px 0;font-size:13px;margin-left:20px;list-style-type:decimal">$1</li>')
+    .replace(/^---$/gm, '<hr style="border:none;border-top:1px solid #E5E7EB;margin:30px 0">');
 
-  html = html.replace(/((?:<tr>.*?<\/tr>\s*(?:<!--sep-->)?\s*)+)/g,
-    '<div style="overflow-x:auto;margin:12px 0"><table style="width:100%;border-collapse:collapse;border:1px solid #E5E7EB;border-radius:8px;overflow:hidden">$1</table></div>');
-  html = html.replace(/<!--sep-->/g, '');
+  html = html.replace(/\n\n/g, '<div style="margin-bottom:12px"></div>');
+  html = html.replace(/\n/g, ' ');
+
+  // 4. Restore code blocks
+  html = html.replace(/__CODE_BLOCK_(\d+)__/g, (_, i) => 
+     `<pre style="background:#1E293B;color:#E2E8F0;padding:16px 20px;border-radius:10px;overflow-x:auto;font-size:13px;line-height:1.6;margin:16px 0"><code>${codeBlocks[i]}</code></pre>`
+  );
 
   return `<div>${html}</div>`;
 }

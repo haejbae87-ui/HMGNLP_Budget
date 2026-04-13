@@ -1160,25 +1160,16 @@ function renderPolicyWizard() {
     </div>
   </div>`;
     }).join('')}
-  <!-- 정책 관리자 / 상태 -->
-  <div style="border:1.5px solid #E5E7EB;border-radius:14px;padding:16px;background:white;display:grid;gap:12px">
-    <div>
-      <label class="bo-label">정책 관리자</label>
-      <select id="wiz-manager" style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700">
-        <option value="">— 선택 —</option>
-        ${tenantPersonas.map(({ key, p }) => `<option value="${key}" ${d.managerPersonaKey === key ? 'selected' : ''}>${p.name} (${p.dept} · ${p.roleLabel})</option>`).join('')}
-      </select>
-    </div>
-    <div>
-      <label class="bo-label">정책 운영 상태</label>
-      <div style="display:flex;gap:8px">
-        ${['active', 'paused'].map(s => `
-        <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;border:2px solid ${d.status === s ? '#059669' : '#E5E7EB'};background:${d.status === s ? '#F0FDF4' : 'white'};cursor:pointer"
-               onclick="_policyWizardData.status='${s}';renderPolicyWizard()">
-          <input type="radio" ${d.status === s ? 'checked' : ''} style="margin:0">
-          <span style="font-weight:700;font-size:13px">${s === 'active' ? '✅ 운영 중' : '⏸️ 중지'}</span>
-        </label>`).join('')}
-      </div>
+  <!-- 정책 운영 상태 -->
+  <div style="border:1.5px solid #E5E7EB;border-radius:14px;padding:16px;background:white">
+    <label class="bo-label">정책 운영 상태</label>
+    <div style="display:flex;gap:8px">
+      ${['active', 'paused'].map(s => `
+      <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;border:2px solid ${d.status === s ? '#059669' : '#E5E7EB'};background:${d.status === s ? '#F0FDF4' : 'white'};cursor:pointer"
+             onclick="_policyWizardData.status='${s}';renderPolicyWizard()">
+        <input type="radio" ${d.status === s ? 'checked' : ''} style="margin:0">
+        <span style="font-weight:700;font-size:13px">${s === 'active' ? '✅ 운영 중' : '⏸️ 중지'}</span>
+      </label>`).join('')}
     </div>
   </div>
 </div>`;

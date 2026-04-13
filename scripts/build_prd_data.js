@@ -60,6 +60,14 @@ const PRD_META = {
     tags: ['뱃지', '성장제도', 'BO'],
     summary: '뱃지 그룹 관리, 뱃지 기준 설정, 취득 조건 빌더, 심사/발급 프로세스.',
   },
+  'form_field_governance': {
+    title: '교육양식 필드 거버넌스',
+    version: 'v1.0',
+    status: '완료',
+    date: '2026-04-13',
+    tags: ['BO', '양식', '필드', '거버넌스', 'L1/L2'],
+    summary: '3계층 필드 거버넌스(L1 표준/L2 확장/L3 금지), select 옵션값 관리, 양식별 필수/선택 토글, 선후행 의존성 규칙 엔진.',
+  },
 };
 
 function _extractTitleFromMd(content) {

@@ -137,8 +137,10 @@ let _fbBuilderMode = 'create'; // 'create' | 'edit'
 let _fbTenantId = null;
 let _fbGroupId = null;
 let _fbAccountCode = null;
+let _fbServiceTypeFilter = ''; // '' = 전체
 let _fbPurposeFilter = '';   // '' = 전체
 let _fbEduTypeFilter = '';   // '' = 전체
+let _fbEduSubTypeFilter = ''; // '' = 전체
 
 // ── 메인 진입점 ────────────────────────────────────────────────────────────────
 // ── DB 데이터 로드 (가상조직, 계정) ──
@@ -204,7 +206,7 @@ function _fbRenderPage() {
     ${isPlatform ? `
     <div style="display:flex;align-items:center;gap:6px">
       <label style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap">회사</label>
-      <select onchange="_fbTenantId=this.value;_fbGroupId=null;_fbAccountCode=null;_fbPurposeFilter='';_fbEduTypeFilter='';renderFormBuilderMenu()"
+      <select onchange="_fbTenantId=this.value;_fbGroupId=null;_fbAccountCode=null;_fbServiceTypeFilter='';_fbPurposeFilter='';_fbEduTypeFilter='';_fbEduSubTypeFilter='';renderFormBuilderMenu()"
         style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer">
         ${tenants.map(t => `<option value="${t.id}" ${t.id === _fbTenantId ? 'selected' : ''}>${t.name}</option>`).join('')}
       </select>
@@ -214,8 +216,8 @@ function _fbRenderPage() {
       <span style="font-size:12px;font-weight:800;color:#111827">${tenantName}</span>
     </div>`}
     <div style="display:flex;align-items:center;gap:6px">
-      <label style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap">가상교육조직</label>
-      <select onchange="_fbGroupId=this.value;_fbAccountCode=null;_fbPurposeFilter='';_fbEduTypeFilter='';renderFormBuilderMenu()"
+      <label style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap">가상교육조직 템플릿</label>
+      <select onchange="_fbGroupId=this.value;_fbAccountCode=null;_fbServiceTypeFilter='';_fbPurposeFilter='';_fbEduTypeFilter='';_fbEduSubTypeFilter='';renderFormBuilderMenu()"
         style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:160px">
         <option value="">전체 조직</option>
         ${groups.map(g => `<option value="${g.id}" ${g.id === _fbGroupId ? 'selected' : ''}>${g.name}</option>`).join('')}
@@ -223,7 +225,7 @@ function _fbRenderPage() {
     </div>
     <div style="display:flex;align-items:center;gap:6px">
       <label style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap">예산계정</label>
-      <select onchange="_fbAccountCode=this.value;_fbPurposeFilter='';_fbEduTypeFilter='';renderFormBuilderMenu()"
+      <select onchange="_fbAccountCode=this.value;_fbServiceTypeFilter='';_fbPurposeFilter='';_fbEduTypeFilter='';_fbEduSubTypeFilter='';renderFormBuilderMenu()"
         style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:160px">
         <option value="">전체 계정</option>
         ${accounts.map(a => `<option value="${a.code}" ${a.code === _fbAccountCode ? 'selected' : ''}>${a.name}</option>`).join('')}
@@ -231,36 +233,58 @@ function _fbRenderPage() {
     </div>
   </div>` : '';
 
-  // 행 2: 목적/교육유형/조회/초기화
+  // 행 2: 서비스유형/목적/교육유형/세부유형/조회/초기화
   const eduTypesForPurpose = _fbPurposeFilter ? (FORM_EDU_TYPES[_fbPurposeFilter] || []) : [];
   const filterBar2 = `
   <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:14px 20px;
               background:#F9FAFB;border:1.5px solid #E5E7EB;border-top:${(isPlatform || isTenant) ? '1px dashed #D1D5DB' : 'none'};
               border-radius:${(isPlatform || isTenant) ? '0 0 12px 12px' : '12px'};margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:6px">
+      <label style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap">서비스 유형</label>
+      <select onchange="_fbServiceTypeFilter=this.value;_fbPurposeFilter='';_fbEduTypeFilter='';_fbEduSubTypeFilter='';renderFormBuilderMenu()"
+        style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:120px">
+        <option value="">전체 유형</option>
+        ${Object.entries(FORM_TARGET_TYPES).map(([k, v]) =>
+          `<option value="${k}" ${_fbServiceTypeFilter === k ? 'selected' : ''}>${v.label}</option>`
+        ).join('')}
+      </select>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
       <label style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap">목적</label>
-      <select onchange="_fbPurposeFilter=this.value;_fbEduTypeFilter='';renderFormBuilderMenu()"
-        style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:170px">
+      <select onchange="_fbPurposeFilter=this.value;_fbEduTypeFilter='';_fbEduSubTypeFilter='';renderFormBuilderMenu()"
+        style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:170px"
+        ${!_fbServiceTypeFilter ? '' : ''}>
         <option value="">전체 목적</option>
-        ${Object.entries(FORM_PURPOSE_TYPES).map(([k, v]) =>
-    `<option value="${k}" ${_fbPurposeFilter === k ? 'selected' : ''}>${v.icon} ${v.label}</option>`
-  ).join('')}
+        ${Object.entries(FORM_PURPOSE_TYPES)
+          .filter(([k, v]) => !_fbServiceTypeFilter || v.targetUser === (_fbServiceTypeFilter === 'learner' ? 'learner' : 'admin'))
+          .map(([k, v]) => `<option value="${k}" ${_fbPurposeFilter === k ? 'selected' : ''}>${v.icon} ${v.label}</option>`).join('')}
       </select>
     </div>
     <div style="display:flex;align-items:center;gap:6px">
       <label style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap">교육유형</label>
-      <select onchange="_fbEduTypeFilter=this.value;renderFormBuilderMenu()"
+      <select onchange="_fbEduTypeFilter=this.value;_fbEduSubTypeFilter='';renderFormBuilderMenu()"
         style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:160px"
         ${!_fbPurposeFilter ? 'disabled' : ''}>
         <option value="">전체 교육유형</option>
         ${eduTypesForPurpose.map(t =>
-    `<option value="${t.type}" ${_fbEduTypeFilter === t.type ? 'selected' : ''}>${t.type}</option>`
-  ).join('')}
+          `<option value="${t.type}" ${_fbEduTypeFilter === t.type ? 'selected' : ''}>${t.type}</option>`
+        ).join('')}
+      </select>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <label style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap">세부유형</label>
+      <select onchange="_fbEduSubTypeFilter=this.value;renderFormBuilderMenu()"
+        style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:140px"
+        ${!_fbEduTypeFilter ? 'disabled' : ''}>
+        <option value="">전체 세부유형</option>
+        ${(eduTypesForPurpose.find(t => t.type === _fbEduTypeFilter)?.sub || []).map(s =>
+          `<option value="${s}" ${_fbEduSubTypeFilter === s ? 'selected' : ''}>${s}</option>`
+        ).join('')}
       </select>
     </div>
     <button onclick="renderFormBuilderMenu()"
       style="padding:8px 18px;background:#1D4ED8;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">🔍 조회</button>
-    <button onclick="_fbPurposeFilter='';_fbEduTypeFilter='';renderFormBuilderMenu()"
+    <button onclick="_fbServiceTypeFilter='';_fbPurposeFilter='';_fbEduTypeFilter='';_fbEduSubTypeFilter='';renderFormBuilderMenu()"
       style="padding:8px 14px;background:#fff;color:#6B7280;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">초기화</button>
   </div>`;
 
@@ -324,6 +348,14 @@ function _fbRenderLibrary() {
     allForms = allForms.filter(f => f.accountCode === _fbAccountCode);
   }
 
+  // 서비스 유형 (목적 필드 기반으로 targetUser 매칭)
+  if (_fbServiceTypeFilter) {
+    allForms = allForms.filter(f => {
+      const p = FORM_PURPOSE_TYPES[f.purpose];
+      return p && p.targetUser === (_fbServiceTypeFilter === 'learner' ? 'learner' : 'admin');
+    });
+  }
+
   // 목적 필터 적용
   if (_fbPurposeFilter) {
     allForms = allForms.filter(f => f.purpose === _fbPurposeFilter);
@@ -331,6 +363,11 @@ function _fbRenderLibrary() {
   // 교육유형 필터 적용
   if (_fbEduTypeFilter) {
     allForms = allForms.filter(f => f.eduType === _fbEduTypeFilter);
+  }
+
+  // 교육 세부유형 필터
+  if (_fbEduSubTypeFilter) {
+    allForms = allForms.filter(f => f.eduSubType === _fbEduSubTypeFilter);
   }
 
   // 상단 버튼

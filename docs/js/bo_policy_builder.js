@@ -100,6 +100,8 @@ let _pbPurposeFilter = '';
 let _pbEduTypeFilter = '';
 let _pbSubTypeFilter = '';
 
+let _pbServiceTypeFilter = '';
+
 // ── 정책 목록 메인 화면 ───────────────────────────────────────────────────────
 async function renderServicePolicy() {
   const persona = boCurrentPersona;
@@ -173,6 +175,8 @@ async function renderServicePolicy() {
     if (pbVorgId && p.vorgTemplateId !== pbVorgId) return false;
     // 3. 예산계정 필터
     if (_pbAccountFilter && !(p.accountCodes || []).includes(_pbAccountFilter)) return false;
+    // 3-1. 서비스 유형 필터
+    if (_pbServiceTypeFilter && p.targetType !== _pbServiceTypeFilter) return false;
     // 4. 교육지원 담당자(운영자)는 자신에게 매핑된 예산계정의 정책만 표시할 수 있음
     if ((isBudgetOp || isBudgetAdmin) && !pbVorgId) {
       const myAccts = persona.ownedAccounts || [];
@@ -213,7 +217,7 @@ async function renderServicePolicy() {
   })();
 
   // ── 목적/유형 필터 목록 산출 ─────────────────────────────
-  const availPurposes = [...(_PURPOSE_MAP.learner || []), ...(_PURPOSE_MAP.operator || [])];
+  const availPurposes = _pbServiceTypeFilter ? (_PURPOSE_MAP[_pbServiceTypeFilter] || []) : [...(_PURPOSE_MAP.learner || []), ...(_PURPOSE_MAP.operator || [])];
   const availEduTypes = _pbPurposeFilter ? (_EDU_TYPE_MAP[_pbPurposeFilter] || []) : [];
   const availSubTypes = _pbEduTypeFilter ? (availEduTypes.find(t => t.id === _pbEduTypeFilter)?.subs || []) : [];
 
@@ -222,7 +226,7 @@ async function renderServicePolicy() {
   ${isPlatform ? `
   <div style="display:flex;align-items:center;gap:8px">
     <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">회사</span>
-    <select id="pb-tenant-sel" onchange="_pbTenantFilter=this.value;_pbVorgFilter='';_pbAccountFilter='';renderServicePolicy()"
+    <select id="pb-tenant-sel" onchange="_pbTenantFilter=this.value;_pbVorgFilter='';_pbAccountFilter='';_pbServiceTypeFilter='';_pbPurposeFilter='';_pbEduTypeFilter='';_pbSubTypeFilter='';renderServicePolicy()"
       style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:140px">
       <option value="">전체 회사</option>
       ${TENANTS_LIST.map(t => `<option value="${t.id}" ${activeTenantId === t.id ? 'selected' : ''}>${t.name || t.id}</option>`).join('')}
@@ -241,15 +245,15 @@ async function renderServicePolicy() {
   
   ${(isBudgetOp || isBudgetAdmin) ? `
   <div style="display:flex;align-items:center;gap:8px">
-    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">가상교육조직</span>
+    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">가상교육조직 템플릿</span>
     <div style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid #C4B5FD;border-radius:10px;background:#F5F3FF;min-width:140px">
       <span style="font-size:12px">🔒</span>
       <span style="font-size:13px;font-weight:800;color:#7C3AED">${vorgName}</span>
     </div>
   </div>` : `
   <div style="display:flex;align-items:center;gap:8px">
-    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">가상교육조직</span>
-    <select id="pb-group-sel" onchange="_pbVorgFilter=this.value;_pbAccountFilter='';renderServicePolicy()"
+    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">가상교육조직 템플릿</span>
+    <select id="pb-group-sel" onchange="_pbVorgFilter=this.value;_pbAccountFilter='';_pbServiceTypeFilter='';_pbPurposeFilter='';_pbEduTypeFilter='';_pbSubTypeFilter='';renderServicePolicy()"
       style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:160px">
       <option value="">전체 조직</option>
       ${availVorgs.map(g => `<option value="${g.id}" ${pbVorgId === g.id ? 'selected' : ''}>${g.name}</option>`).join('')}
@@ -267,11 +271,22 @@ async function renderServicePolicy() {
   </div>
   
   <div style="width:100%;height:1px;background:#E5E7EB;margin:6px 0"></div>
+
+  <div style="display:flex;align-items:center;gap:8px">
+    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">서비스 유형</span>
+    <select id="pb-svc-sel" onchange="_pbServiceTypeFilter=this.value;_pbPurposeFilter='';_pbEduTypeFilter='';_pbSubTypeFilter='';renderServicePolicy()"
+      style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:120px">
+      <option value="">전체 유형</option>
+      <option value="learner" ${_pbServiceTypeFilter === 'learner' ? 'selected' : ''}>📚 직접학습</option>
+      <option value="operator" ${_pbServiceTypeFilter === 'operator' ? 'selected' : ''}>🎯 교육운영</option>
+    </select>
+  </div>
+  <div style="width:1px;height:28px;background:#E5E7EB"></div>
   
   <div style="display:flex;align-items:center;gap:8px">
     <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">목적</span>
     <select id="pb-purp-sel" onchange="_pbPurposeFilter=this.value;_pbEduTypeFilter='';_pbSubTypeFilter='';renderServicePolicy()"
-      style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:140px">
+      style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:${_pbServiceTypeFilter ? '#FAFAFA' : '#F9FAFB'};cursor:pointer;appearance:auto;min-width:140px">
       <option value="">전체 목적</option>
       ${availPurposes.map(p => `<option value="${p.id}" ${_pbPurposeFilter === p.id ? 'selected' : ''}>${p.label}</option>`).join('')}
     </select>
@@ -301,6 +316,7 @@ async function renderServicePolicy() {
     _pbTenantFilter=document.getElementById('pb-tenant-sel')?.value||_pbTenantFilter;
     _pbVorgFilter=document.getElementById('pb-group-sel')?.value||_pbVorgFilter;
     _pbAccountFilter=document.getElementById('pb-acct-sel')?.value||_pbAccountFilter;
+    _pbServiceTypeFilter=document.getElementById('pb-svc-sel')?.value||_pbServiceTypeFilter;
     _pbPurposeFilter=document.getElementById('pb-purp-sel')?.value||_pbPurposeFilter;
     _pbEduTypeFilter=document.getElementById('pb-type-sel')?.value||_pbEduTypeFilter;
     _pbSubTypeFilter=document.getElementById('pb-sub-sel')?.value||_pbSubTypeFilter;
@@ -309,7 +325,7 @@ async function renderServicePolicy() {
     ● 조회
   </button>
   ${(!isBudgetOp && !isBudgetAdmin) ? `
-  <button onclick="_pbTenantFilter='';_pbVorgFilter='';_pbAccountFilter='';_pbPurposeFilter='';_pbEduTypeFilter='';_pbSubTypeFilter='';renderServicePolicy()"
+  <button onclick="_pbTenantFilter='';_pbVorgFilter='';_pbAccountFilter='';_pbServiceTypeFilter='';_pbPurposeFilter='';_pbEduTypeFilter='';_pbSubTypeFilter='';renderServicePolicy()"
     style="padding:9px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:12px;font-weight:700;background:white;cursor:pointer;color:#6B7280;white-space:nowrap">초기화</button>` : ''}
 </div>` : '';
 

@@ -112,67 +112,7 @@ async function renderCalcGrounds() {
     );
   })();
 
-  const filterBar = (isPlatform || isTenant || isBudgetOp || isBudgetAdmin) ? `
-<div style="background:white;border:1.5px solid #E5E7EB;border-radius:14px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.05)">
-  ${isPlatform ? `
-  <div style="display:flex;align-items:center;gap:8px">
-    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">회사</span>
-    <select id="cg-tenant-sel" onchange="_cgFilterTenant=this.value;_cgFilterGroup='';_cgFilterAccount='';renderCalcGrounds()"
-      style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:140px">
-      <option value="">전체 회사</option>
-      ${TENANTS_LIST.map(t => `<option value="${t.id}" ${activeTenantId === t.id ? 'selected' : ''}>${t.name || t.id}</option>`).join('')}
-    </select>
-  </div>
-  <div style="width:1px;height:28px;background:#E5E7EB"></div>` : `
-  <div style="display:flex;align-items:center;gap:8px">
-    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">회사</span>
-    <div style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid #E5E7EB;border-radius:10px;background:#F9FAFB;min-width:140px">
-      <span style="font-size:12px">🏢</span>
-      <span style="font-size:13px;font-weight:800;color:#374151">${tenantName}</span>
-    </div>
-  </div>
-  <div style="width:1px;height:28px;background:#E5E7EB"></div>
-  `}
-  
-  ${(isBudgetOp || isBudgetAdmin) ? `
-  <div style="display:flex;align-items:center;gap:8px">
-    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">가상교육조직</span>
-    <div style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid #C4B5FD;border-radius:10px;background:#F5F3FF;min-width:140px">
-      <span style="font-size:12px">🔒</span>
-      <span style="font-size:13px;font-weight:800;color:#7C3AED">${vorgName}</span>
-    </div>
-  </div>` : `
-  <div style="display:flex;align-items:center;gap:8px">
-    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">가상교육조직</span>
-    <select id="cg-group-sel" onchange="_cgFilterGroup=this.value;_cgFilterAccount='';renderCalcGrounds()"
-      style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:160px">
-      <option value="">전체 조직</option>
-      ${availVorgs.map(g => `<option value="${g.id}" ${pbVorgId === g.id ? 'selected' : ''}>${g.name}</option>`).join('')}
-    </select>
-  </div>`}
-  
-  <div style="width:1px;height:28px;background:#E5E7EB"></div>
-  <div style="display:flex;align-items:center;gap:8px">
-    <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">예산계정</span>
-    <select id="cg-acct-sel" onchange="_cgFilterAccount=this.value"
-      style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:160px">
-      <option value="">전체 계정</option>
-      ${availAccounts.map(a => `<option value="${a.code}" ${_cgFilterAccount === a.code ? 'selected' : ''}>${a.name}</option>`).join('')}
-    </select>
-  </div>
-  
-  <button onclick="
-    _cgFilterTenant=document.getElementById('cg-tenant-sel')?.value||'';
-    _cgFilterGroup=document.getElementById('cg-group-sel')?.value||'';
-    _cgFilterAccount=document.getElementById('cg-acct-sel')?.value||'';
-    renderCalcGrounds()"
-    style="padding:9px 20px;background:linear-gradient(135deg,#1D4ED8,#2563EB);color:white;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(37,99,235,.35);white-space:nowrap;margin-left:auto">
-    ● 조회
-  </button>
-  ${(!isBudgetOp && !isBudgetAdmin) ? `
-  <button onclick="_cgFilterTenant='';_cgFilterGroup='';_cgFilterAccount='';renderCalcGrounds()"
-    style="padding:9px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:12px;font-weight:700;background:white;cursor:pointer;color:#6B7280;white-space:nowrap">초기화</button>` : ''}
-</div>` : '';
+  const filterBar = '';
 
   const el = document.getElementById('bo-content');
   el.innerHTML = `
@@ -345,7 +285,7 @@ function _cgModalBody(item, tenantId, myGroups) {
     <div style="font-size:12px;font-weight:800;color:#1D4ED8;margin-bottom:10px">📐 적용 범위 설정</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div>
-        <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px">가상교육조직 (미선택 = 테넌트 전체 공유)</label>
+        <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px">가상교육조직 템플릿 (미선택 = 테넌트 전체 공유)</label>
         <select id="cg-grp" onchange="cgOnModalGroupChange(this.value)"
                 style="width:100%;padding:8px 10px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:12px">
           <option value="">— 테넌트 전체 공유 —</option>

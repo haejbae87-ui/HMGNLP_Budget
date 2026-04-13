@@ -122,8 +122,10 @@ function _prdMd2Html(md) {
 
   const processTable = () => {
     if (tableRows.length === 0) return;
-    let tableHtml = '<div style="overflow-x:auto;margin:20px 0;border-radius:8px;border:1px solid #E2E8F0;box-shadow:0 1px 3px rgba(0,0,0,0.03)"><table class="bo-table" style="margin:0;border:none">';
+    let tableHtml = '<div style="overflow-x:auto;margin:20px 0;border-radius:10px;border:1px solid #E2E8F0;box-shadow:0 1px 4px rgba(0,0,0,0.04)">' +
+      '<table style="width:100%;border-collapse:collapse;margin:0;font-size:12.5px;line-height:1.5">';
     let inTbody = false;
+    let tbodyRowIdx = 0;
 
     tableRows.forEach((row, i) => {
       const parts = row.split('|');
@@ -137,13 +139,18 @@ function _prdMd2Html(md) {
            tableHtml += '<tbody>';
         }
       } else if (i === 0 && tableRows.length > 1 && tableRows[1].split('|').slice(1, -1).every(c => /^[-:\s]+$/.test(c.trim()))) {
-        tableHtml += '<thead><tr>' + cells.map(c => `<th>${c}</th>`).join('') + '</tr></thead>';
+        tableHtml += '<thead><tr>' + cells.map(c =>
+          `<th style="padding:10px 14px;background:#F1F5F9;color:#1E293B;font-weight:800;font-size:12px;text-align:left;border-bottom:2px solid #CBD5E1;white-space:nowrap">${c}</th>`
+        ).join('') + '</tr></thead>';
       } else {
         if (!inTbody && i === 0) {
            inTbody = true;
            tableHtml += '<tbody>';
         }
-        tableHtml += '<tr>' + cells.map(c => `<td>${c}</td>`).join('') + '</tr>';
+        const rowBg = tbodyRowIdx % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
+        tableHtml += `<tr style="background:${rowBg};transition:background .1s" onmouseover="this.style.background='#EFF6FF'" onmouseout="this.style.background='${rowBg}'">` +
+          cells.map(c => `<td style="padding:9px 14px;border-bottom:1px solid #F1F5F9;color:#374151;font-size:12.5px">${c}</td>`).join('') + '</tr>';
+        tbodyRowIdx++;
       }
     });
     if (inTbody) tableHtml += '</tbody>';

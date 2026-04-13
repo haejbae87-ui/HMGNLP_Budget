@@ -1649,7 +1649,7 @@ function _fcRenderFields(isPlatform, l2Count) {
                 <td style="padding:6px 12px;font-family:monospace;font-size:11px;color:#6B7280">${f.canonicalKey || '-'}</td>
                 <td style="padding:6px 12px;text-align:center">${f.layer === 'L1' && ADVANCED_FIELDS.find(a => a.key === f.key)?.required ? '✅' : '—'}</td>
                 <td style="padding:6px 12px;text-align:center">${isLocked ? '🔒' : '—'}</td>
-                ${isPlatform ? `<td style="padding:6px 12px;text-align:center">${f.layer === 'L2' ? '<button onclick="_fcDeleteL2(\\''+f.key+'\\',\\''+f.dbId+'\\' )" style="border:none;background:#FEF2F2;color:#DC2626;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer">비활성화</button>' : '<span style="color:#D1D5DB;font-size:10px">—</span>'}</td>` : ''}
+                ${isPlatform ? `<td style="padding:6px 12px;text-align:center">${f.layer === 'L2' ? `<button onclick="_fcDeleteL2('${f.key}','${f.dbId || ''}')" style="border:none;background:#FEF2F2;color:#DC2626;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer">비활성화</button>` : '<span style="color:#D1D5DB;font-size:10px">—</span>'}</td>` : ''}
               </tr>`;
             }).join('')}
           </tbody>

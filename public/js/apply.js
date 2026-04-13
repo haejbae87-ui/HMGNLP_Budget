@@ -1292,6 +1292,14 @@ function addExpRow() { applyState.expenses.push({ id: Date.now(), type: '교육�
 function removeExpRow(i) { applyState.expenses.splice(i, 1); renderApply(); }
 async function submitApply() {
   if (!applyState.eduName && !applyState.title) { alert('교육명을 입력해주세요.'); return; }
+  // ── 동적 양식 필수 필드 검증 ──
+  if (applyState.formTemplate && typeof validateRequiredFields === 'function') {
+    const result = validateRequiredFields(applyState.formTemplate, applyState);
+    if (!result.valid) {
+      alert('⚠️ 필수 항목을 입력해주세요:\n\n• ' + result.errors.join('\n• '));
+      return;
+    }
+  }
   applyState.confirmMode = true;
   renderApply();
 }

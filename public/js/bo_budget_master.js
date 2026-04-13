@@ -156,66 +156,154 @@ async function renderBudgetAccount() {
     } catch (e) { console.warn('[BudgetAccount] 계정 로드 실패:', e.message); }
   }
 
-  // ── 3. 셀렉트 HTML ──
-  const tenantSelect = isPlatform
-    ? `<select onchange="_baTenantId=this.value;_baTplId=null;renderBudgetAccount()"
-        style="padding:7px 12px;border:1.5px solid #FDE68A;border-radius:8px;font-size:12px;font-weight:700;background:#FFFBEB;color:#92400E;cursor:pointer">
-        ${tenants.map(t => `<option value="${t.id}" ${t.id === _baTenantId ? 'selected' : ''}>${t.name}</option>`).join('')}
-      </select>`
-    : `<span style="font-size:13px;font-weight:800;color:#111827">🏢 ${tenantName}</span>`;
-
-  const tplSelect = _baTplList.length
-    ? `<select onchange="_baTplId=this.value;renderBudgetAccount()"
-        style="padding:7px 12px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:12px;font-weight:700;background:#EFF6FF;color:#1D4ED8;cursor:pointer;min-width:220px">
-        ${_baTplList.map(t => `<option value="${t.id}" ${t.id === _baTplId ? 'selected' : ''}>${t.name}</option>`).join('')}
-      </select>`
-    : `<span style="font-size:12px;color:#9CA3AF">등록된 가상교육조직 템플릿이 없습니다</span>`;
-
-  // ── 4. 계정 카드 HTML ──
+  // ── 3. 필터 바 HTML (이미지3 스타일) ──
   const canEdit = ['platform_admin', 'tenant_global_admin', 'budget_global_admin'].includes(role);
   const curTpl = _baTplList.find(t => t.id === _baTplId);
+  const totalCount = _baAccountList.length;
 
-  const accountsHtml = _baTplId && curTpl ? `
-    <div style="padding:16px 20px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:12px;
-                margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
-      <div>
-        <div style="font-weight:900;font-size:14px;color:#1D4ED8">📋 ${curTpl.name}</div>
-        <div style="font-size:10px;color:#9CA3AF;margin-top:2px">${_baAccountList.length}개 계정</div>
-      </div>
-      ${canEdit ? `<button class="bo-btn-primary bo-btn-sm" onclick="openS1Modal()">+ 계정 신규 등록</button>` : ''}
+  // 선택된 계정 초기값 (첫 번째 행)
+  if (!_baSelectedId && _baAccountList.length > 0) {
+    _baSelectedId = _baAccountList[0].id;
+  }
+  // 선택된 계정 객체
+  const selAcct = _baAccountList.find(a => a.id === _baSelectedId) || null;
+
+  // 페이지네이션 계산
+  const pageSize = _baPageSize;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  if (_baCurrentPage > totalPages) _baCurrentPage = totalPages;
+  const startIdx = (_baCurrentPage - 1) * pageSize;
+  const pageItems = _baAccountList.slice(startIdx, startIdx + pageSize);
+
+  // ── 테이블 행 HTML ──
+  const tableRows = pageItems.length ? pageItems.map((a, i) => {
+    const rowNum = startIdx + i + 1;
+    const isSelected = a.id === _baSelectedId;
+    const intLabel = (!a.account_type || a.account_type === 'sap') ? 'SAP 연동' : '자체관리';
+    const budgetLabel = a.uses_budget === false ? '미사용' : '사용';
+    const statusLabel = a.active ? '활성' : '비활성';
+    return `<tr onclick="_baSelectRow('${a.id}')" style="cursor:pointer;${isSelected ? 'background:#EFF6FF;' : ''}border-bottom:1px solid #F3F4F6"
+      onmouseenter="if(!${isSelected})this.style.background='#F9FAFB'" onmouseleave="if(!${isSelected})this.style.background=''">
+      <td style="padding:10px 14px;font-size:12px;color:#9CA3AF;text-align:center">${rowNum}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#6B7280">${a.tenant_id || _baTenantId}</td>
+      <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#111827">${a.code}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#1D4ED8;font-weight:600;cursor:pointer;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${a.name}">${a.name}</td>
+      <td style="padding:10px 14px;font-size:11px;color:#6B7280">${intLabel}</td>
+      <td style="padding:10px 14px;font-size:11px;color:#6B7280">${budgetLabel}</td>
+      <td style="padding:10px 14px;text-align:center">
+        <span style="font-size:10px;padding:2px 8px;border-radius:5px;font-weight:700;${a.active ? 'background:#D1FAE5;color:#065F46' : 'background:#F3F4F6;color:#9CA3AF'}">${statusLabel}</span>
+      </td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="7" style="padding:40px;text-align:center;font-size:13px;color:#9CA3AF">등록된 계정이 없습니다</td></tr>`;
+
+  // ── 페이지네이션 HTML ──
+  const paginationHtml = totalPages > 1 ? `
+  <div style="display:flex;align-items:center;justify-content:center;gap:4px;padding:12px 0;border-top:1px solid #F3F4F6">
+    <select onchange="_baPageSize=Number(this.value);_baCurrentPage=1;_baRefreshList()" style="padding:4px 8px;border:1px solid #E5E7EB;border-radius:6px;font-size:11px;margin-right:12px">
+      ${[10,20,50].map(n => `<option value="${n}" ${pageSize===n?'selected':''}>${n}</option>`).join('')}
+    </select>
+    <button onclick="_baGoPage(1)" ${_baCurrentPage<=1?'disabled':''} style="padding:4px 8px;border:1px solid #E5E7EB;border-radius:6px;font-size:11px;background:white;cursor:pointer">&laquo;</button>
+    <button onclick="_baGoPage(_baCurrentPage-1)" ${_baCurrentPage<=1?'disabled':''} style="padding:4px 8px;border:1px solid #E5E7EB;border-radius:6px;font-size:11px;background:white;cursor:pointer">&lsaquo;</button>
+    ${(() => {
+      let pages = [];
+      const maxVisible = 10;
+      let startP = Math.max(1, _baCurrentPage - Math.floor(maxVisible/2));
+      let endP = Math.min(totalPages, startP + maxVisible - 1);
+      if (endP - startP < maxVisible - 1) startP = Math.max(1, endP - maxVisible + 1);
+      for (let p = startP; p <= endP; p++) {
+        pages.push(`<button onclick="_baGoPage(${p})" style="padding:4px 10px;border:${p===_baCurrentPage?'1.5px solid #1D4ED8':'1px solid #E5E7EB'};border-radius:6px;font-size:11px;font-weight:${p===_baCurrentPage?'800':'500'};background:${p===_baCurrentPage?'#1D4ED8':'white'};color:${p===_baCurrentPage?'white':'#374151'};cursor:pointer">${p}</button>`);
+      }
+      return pages.join('');
+    })()}
+    <button onclick="_baGoPage(_baCurrentPage+1)" ${_baCurrentPage>=totalPages?'disabled':''} style="padding:4px 8px;border:1px solid #E5E7EB;border-radius:6px;font-size:11px;background:white;cursor:pointer">&rsaquo;</button>
+    <button onclick="_baGoPage(${totalPages})" ${_baCurrentPage>=totalPages?'disabled':''} style="padding:4px 8px;border:1px solid #E5E7EB;border-radius:6px;font-size:11px;background:white;cursor:pointer">&raquo;</button>
+    <span style="font-size:11px;color:#9CA3AF;margin-left:8px">/ ${totalPages}</span>
+  </div>` : '';
+
+  // ── 우측 상세 패널 HTML ──
+  const detailPanel = selAcct ? _baRenderDetailPanel(selAcct, canEdit) : `
+  <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#9CA3AF;font-size:13px;padding:60px 20px;text-align:center">
+    <div>
+      <div style="font-size:40px;margin-bottom:12px">📋</div>
+      좌측 목록에서 계정을 선택하면<br>상세 정보가 표시됩니다.
     </div>
-    ${_baAccountList.length ? _baAccountList.map(a => _baRenderAccountCard(a, canEdit)).join('') : `
-    <div style="padding:48px;text-align:center;background:#F9FAFB;border:2px dashed #E5E7EB;border-radius:14px;color:#9CA3AF">
-      <div style="font-size:36px;margin-bottom:10px">💳</div>
-      <div style="font-size:13px;font-weight:700;color:#64748B">이 템플릿에 등록된 예산 계정이 없습니다</div>
-      ${canEdit ? `<div style="font-size:11px;margin-top:4px">위 '+ 계정 신규 등록' 버튼으로 추가하세요</div>` : ''}
-    </div>`}` : `
-    <div style="padding:48px;text-align:center;background:#F9FAFB;border-radius:14px;color:#9CA3AF">
-      <div style="font-size:36px;margin-bottom:10px">🏗️</div>
-      <div style="font-size:13px;font-weight:700;color:#64748B">
-        ${_baTplList.length ? '가상교육조직 템플릿을 선택하세요' : '가상 교육 조직 관리에서 템플릿을 먼저 만들어주세요'}
-      </div>
-    </div>`;
+  </div>`;
 
   el.innerHTML = `
-<div class="bo-fade" style="padding:24px;max-width:1000px">
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
-    <div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-        <span style="background:#1D4ED8;color:#fff;font-size:9px;font-weight:900;padding:3px 8px;border-radius:6px">교육지원제도 설정</span>
-        <h1 style="font-size:20px;font-weight:900;color:#111827;margin:0">💳 예산 계정 관리</h1>
-      </div>
-      <p style="font-size:12px;color:#64748B;margin:0">가상교육조직 템플릿별로 예산 계정을 등록·관리합니다.</p>
+<div class="bo-fade" style="padding:24px">
+  <!-- 페이지 타이틀 -->
+  <div style="margin-bottom:16px">
+    <h1 style="font-size:18px;font-weight:900;color:#111827;margin:0 0 4px 0">예산계정 관리 ☆</h1>
+  </div>
+
+  <!-- 상단 필터 바 -->
+  <div style="background:white;border:1.5px solid #E5E7EB;border-radius:10px;padding:14px 20px;margin-bottom:20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:6px">
+      <label style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap">회사 *</label>
+      ${isPlatform ? `
+      <select onchange="_baTenantId=this.value;_baTplId=null;_baSelectedId=null;_baCurrentPage=1;renderBudgetAccount()"
+        style="padding:8px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;font-weight:600;color:#111827;background:white;cursor:pointer;min-width:180px">
+        ${tenants.map(t => `<option value="${t.id}" ${t.id === _baTenantId ? 'selected' : ''}>${t.name}</option>`).join('')}
+      </select>` : `
+      <input type="text" value="${tenantName}" readonly style="padding:8px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;font-weight:600;color:#374151;background:#F9FAFB;min-width:180px">`}
     </div>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      ${tenantSelect}
-      ${tplSelect}
+    <div style="display:flex;align-items:center;gap:6px">
+      <label style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap">교육지원 가상조직 *</label>
+      ${_baTplList.length ? `
+      <select onchange="_baTplId=this.value;_baSelectedId=null;_baCurrentPage=1;renderBudgetAccount()"
+        style="padding:8px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;font-weight:600;color:#111827;background:white;cursor:pointer;min-width:240px">
+        ${_baTplList.map(t => `<option value="${t.id}" ${t.id === _baTplId ? 'selected' : ''}>${t.name}</option>`).join('')}
+      </select>` : `<span style="font-size:12px;color:#9CA3AF;padding:8px 0">없음</span>`}
+    </div>
+    <div style="margin-left:auto;display:flex;gap:8px">
+      <button onclick="_baSelectedId=null;_baCurrentPage=1;renderBudgetAccount()" style="padding:8px 16px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:600;background:white;cursor:pointer;color:#6B7280;display:flex;align-items:center;gap:4px">↻</button>
+      <button onclick="_baSelectedId=null;_baCurrentPage=1;renderBudgetAccount()" style="padding:8px 20px;border:1.5px solid #1D4ED8;border-radius:8px;font-size:12px;font-weight:700;background:#1D4ED8;color:white;cursor:pointer">🔍 조회</button>
     </div>
   </div>
-  <div id="ba-content">${accountsHtml}</div>
+
+  <!-- 좌우 분할 레이아웃 -->
+  <div style="display:grid;grid-template-columns:1fr 380px;gap:0;min-height:520px;border:1.5px solid #E5E7EB;border-radius:12px;overflow:hidden;background:white">
+    
+    <!-- 좌측: 테이블 목록 -->
+    <div style="border-right:1.5px solid #E5E7EB;display:flex;flex-direction:column">
+      <div style="padding:14px 20px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;justify-content:space-between;background:#FAFBFC">
+        <div>
+          <span style="font-size:14px;font-weight:800;color:#111827">예산계정 목록</span>
+          <span style="font-size:12px;color:#6B7280;margin-left:6px">전체</span>
+          <span style="font-size:12px;font-weight:800;color:#1D4ED8;margin-left:2px">${totalCount}</span>
+        </div>
+        ${canEdit ? `<button onclick="openS1Modal()" style="padding:6px 16px;border:1.5px solid #1D4ED8;border-radius:8px;font-size:12px;font-weight:700;background:white;color:#1D4ED8;cursor:pointer">+ 추가</button>` : ''}
+      </div>
+      <div style="flex:1;overflow-y:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="background:#F8FAFC;border-bottom:1.5px solid #E5E7EB;position:sticky;top:0;z-index:1">
+              <th style="padding:10px 14px;font-size:11px;color:#64748B;font-weight:700;text-align:center;width:42px">NO.</th>
+              <th style="padding:10px 14px;font-size:11px;color:#64748B;font-weight:700;text-align:left">테넌트 ⇅</th>
+              <th style="padding:10px 14px;font-size:11px;color:#64748B;font-weight:700;text-align:left">계정 코드 ⇅</th>
+              <th style="padding:10px 14px;font-size:11px;color:#64748B;font-weight:700;text-align:left">계정명 ⇅</th>
+              <th style="padding:10px 14px;font-size:11px;color:#64748B;font-weight:700;text-align:left">연동</th>
+              <th style="padding:10px 14px;font-size:11px;color:#64748B;font-weight:700;text-align:left">예산</th>
+              <th style="padding:10px 14px;font-size:11px;color:#64748B;font-weight:700;text-align:center">계정</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+        </table>
+      </div>
+      ${paginationHtml}
+    </div>
+
+    <!-- 우측: 상세 패널 -->
+    <div id="ba-detail-panel" style="display:flex;flex-direction:column;overflow-y:auto;background:#FAFBFC">
+      ${detailPanel}
+    </div>
+
+  </div>
 </div>
 
-<!-- 계정 등록/수정 모달 -->
+<!-- 계정 등록/수정 모달 (신규 등록 전용) -->
 <div id="s1-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:16px;width:500px;max-height:90vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
@@ -231,49 +319,206 @@ async function renderBudgetAccount() {
 </div>`;
 }
 
-// ── 계정 카드 렌더 ──────────────────────────────────────────────────────────
-function _baRenderAccountCard(a, canEdit) {
-  const typeColors = {
-    sap: { bg: '#EFF6FF', border: '#BFDBFE', text: '#1D4ED8', label: '🔗 SAP 연동' },
-    standalone: { bg: '#F0FDF4', border: '#BBF7D0', text: '#059669', label: '📋 자체관리' },
-    training: { bg: '#EFF6FF', border: '#BFDBFE', text: '#1D4ED8', label: '교육훈련' },
-    language: { bg: '#F0FDF4', border: '#BBF7D0', text: '#059669', label: '어학' },
-    cert: { bg: '#FFF7ED', border: '#FED7AA', text: '#C2410C', label: '자격증' },
-    badge: { bg: '#F5F3FF', border: '#DDD6FE', text: '#7C3AED', label: '배지' },
-  };
-  const tc = typeColors[a.account_type] || typeColors.sap;
-  return `
-<div class="bo-card" style="padding:18px 22px;margin-bottom:12px;border-left:4px solid ${tc.border}">
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
-    <div style="flex:1">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
-        <code style="background:#F3F4F6;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:900">${a.code}</code>
-        <span style="font-size:10px;padding:2px 8px;border-radius:6px;font-weight:700;background:${tc.bg};color:${tc.text};border:1px solid ${tc.border}">${tc.label}</span>
-        <span style="font-size:13px;font-weight:800;color:#111827">${a.name}</span>
-        <span style="font-size:10px;padding:2px 7px;border-radius:5px;font-weight:700;background:${a.active ? '#D1FAE5' : '#F3F4F6'};color:${a.active ? '#065F46' : '#9CA3AF'}">${a.active ? '✅ 활성' : '⏸️ 비활성'}</span>
-        ${a.uses_budget === false ? `<span style="font-size:10px;padding:2px 7px;border-radius:5px;font-weight:700;background:#FEF3C7;color:#92400E">📝 예산 미사용</span>` : ''}
-      </div>
-      <div style="font-size:11px;color:#6B7280">${a.description || ''}</div>
-    </div>
-    ${canEdit ? `
-    <div style="display:flex;gap:6px;flex-shrink:0">
-      <button class="bo-btn-secondary bo-btn-sm" onclick="openS1Modal('${a.id}')">수정</button>
-    </div>` : ''}
-  </div>
-</div>`;
+// ── 새 상태 변수 ─────────────────────────────────────────────────────────────
+var _baSelectedId = null;   // 좌측 테이블에서 선택된 계정 id
+var _baCurrentPage = 1;
+var _baPageSize = 10;
+
+// ── 행 선택 ──────────────────────────────────────────────────────────────────
+function _baSelectRow(id) {
+  _baSelectedId = id;
+  const a = _baAccountList.find(x => x.id === id) || null;
+  const canEdit = ['platform_admin', 'tenant_global_admin', 'budget_global_admin'].includes(boCurrentPersona.role);
+  // 우측 패널만 갱신
+  const panel = document.getElementById('ba-detail-panel');
+  if (panel) panel.innerHTML = a ? _baRenderDetailPanel(a, canEdit) : '';
+  // 테이블 행 하이라이트 갱신
+  document.querySelectorAll('#bo-content table tbody tr').forEach(tr => {
+    const onclick = tr.getAttribute('onclick') || '';
+    const isThis = onclick.includes(`'${id}'`);
+    tr.style.background = isThis ? '#EFF6FF' : '';
+  });
 }
 
+// ── 페이지 이동 ──────────────────────────────────────────────────────────────
+function _baGoPage(p) {
+  _baCurrentPage = p;
+  _baRefreshList();
+}
+async function _baRefreshList() {
+  await renderBudgetAccount();
+}
 
+// ── 우측 상세 패널 렌더 ─────────────────────────────────────────────────────
+function _baRenderDetailPanel(a, canEdit) {
+  const nameLen = (a.name || '').length;
+  const descLen = (a.description || '').length;
+  const isSap = (!a.account_type || a.account_type === 'sap');
+  const usesBudget = a.uses_budget !== false;
+  // bankbook_mode는 비동기 로드 필요하므로 기본값
+  const bbMode = a._bankbook_mode || 'isolated';
+
+  return `
+  <div style="padding:20px;display:flex;flex-direction:column;gap:0">
+    <!-- 헤더 -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;border-bottom:1px solid #E5E7EB;margin-bottom:16px">
+      <span style="font-size:15px;font-weight:800;color:#111827">계정 상세</span>
+      <div style="display:flex;gap:6px">
+        ${canEdit ? `<button onclick="_baDeleteAccount('${a.id}')" style="padding:5px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:11px;font-weight:600;background:white;color:#DC2626;cursor:pointer">삭제</button>` : ''}
+        ${canEdit ? `<button onclick="_baInlineSave('${a.id}')" style="padding:5px 14px;border:1.5px solid #1D4ED8;border-radius:8px;font-size:11px;font-weight:700;background:#1D4ED8;color:white;cursor:pointer">저장</button>` : ''}
+      </div>
+    </div>
+
+    <!-- 계정명/코드 -->
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;font-weight:700;color:#374151;display:flex;align-items:center;gap:4px;margin-bottom:5px">
+        계정명/코드 <span style="color:#DC2626">*</span>
+      </label>
+      <input id="ba-d-name" type="text" value="${a.name || ''}" ${canEdit ? '' : 'readonly'}
+        maxlength="10" oninput="document.getElementById('ba-d-name-cnt').textContent=this.value.length+'/10'"
+        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;font-weight:600;${canEdit ? '' : 'background:#F9FAFB;color:#6B7280'}">
+      <div style="display:flex;justify-content:space-between;margin-top:3px">
+        <span style="font-size:10px;color:#9CA3AF">코드: ${a.code}</span>
+        <span id="ba-d-name-cnt" style="font-size:10px;color:#9CA3AF">${nameLen}/10</span>
+      </div>
+    </div>
+
+    <!-- 계정 용도 -->
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:5px">계정 용도</label>
+      <textarea id="ba-d-desc" rows="2" maxlength="50" ${canEdit ? '' : 'readonly'}
+        oninput="document.getElementById('ba-d-desc-cnt').textContent=this.value.length+'/50'"
+        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;resize:none;${canEdit ? '' : 'background:#F9FAFB;color:#6B7280'}">${a.description || ''}</textarea>
+      <div style="text-align:right;margin-top:2px">
+        <span id="ba-d-desc-cnt" style="font-size:10px;color:#9CA3AF">${descLen}/50</span>
+      </div>
+    </div>
+
+    <!-- 예산 사용 여부 -->
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;font-weight:700;color:#374151;display:flex;align-items:center;gap:4px;margin-bottom:6px">
+        예산 사용 여부 <span style="font-size:10px;color:#9CA3AF;cursor:help" title="예산을 사용하는 계정인지 여부">ⓘ</span>
+      </label>
+      <div style="display:flex;gap:8px">
+        <button id="ba-d-budget-yes" onclick="_baDToggle('budget',true)" style="padding:7px 16px;border:1.5px solid ${usesBudget ? '#059669' : '#E5E7EB'};border-radius:8px;font-size:11px;font-weight:700;background:${usesBudget ? '#F0FDF4' : 'white'};color:${usesBudget ? '#059669' : '#9CA3AF'};cursor:pointer">● 사용</button>
+        <button id="ba-d-budget-no" onclick="_baDToggle('budget',false)" style="padding:7px 16px;border:1.5px solid ${!usesBudget ? '#DC2626' : '#E5E7EB'};border-radius:8px;font-size:11px;font-weight:700;background:${!usesBudget ? '#FEF2F2' : 'white'};color:${!usesBudget ? '#DC2626' : '#9CA3AF'};cursor:pointer">● 미사용</button>
+      </div>
+    </div>
+
+    <!-- 연동 방식 -->
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;font-weight:700;color:#374151;display:flex;align-items:center;gap:4px;margin-bottom:6px">
+        연동 방식 <span style="font-size:10px;color:#9CA3AF;cursor:help" title="SAP ERP 연동 또는 자체관리">ⓘ</span>
+      </label>
+      <div style="display:flex;gap:8px">
+        <button id="ba-d-int-sap" onclick="_baDToggle('int','sap')" style="padding:7px 16px;border:1.5px solid ${isSap ? '#1D4ED8' : '#E5E7EB'};border-radius:8px;font-size:11px;font-weight:700;background:${isSap ? '#EFF6FF' : 'white'};color:${isSap ? '#1D4ED8' : '#9CA3AF'};cursor:pointer">● SAP 연동</button>
+        <button id="ba-d-int-sa" onclick="_baDToggle('int','standalone')" style="padding:7px 16px;border:1.5px solid ${!isSap ? '#059669' : '#E5E7EB'};border-radius:8px;font-size:11px;font-weight:700;background:${!isSap ? '#F0FDF4' : 'white'};color:${!isSap ? '#059669' : '#9CA3AF'};cursor:pointer">● 자체관리 (미연동)</button>
+      </div>
+      <div id="ba-d-sap-code-wrap" style="margin-top:8px;${isSap ? '' : 'display:none'}">
+        <label style="font-size:11px;font-weight:600;color:#1D4ED8;display:block;margin-bottom:3px">SAP 연동 코드</label>
+        <input id="ba-d-sap-code" type="text" value="${a.sap_code || ''}" placeholder="예) S12345"
+          style="width:100%;box-sizing:border-box;padding:7px 12px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:12px;font-weight:600">
+      </div>
+    </div>
+
+    <!-- 통장 생성 정책 -->
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;font-weight:700;color:#374151;display:flex;align-items:center;gap:4px;margin-bottom:6px">
+        통장 생성 정책 <span style="font-size:10px;color:#9CA3AF;cursor:help" title="조직 매핑 시 통장 생성 방식">ⓘ</span>
+      </label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button id="ba-d-bb-iso" onclick="_baDToggle('bb','isolated')" style="padding:7px 14px;border:1.5px solid ${bbMode === 'isolated' ? '#7C3AED' : '#E5E7EB'};border-radius:8px;font-size:11px;font-weight:700;background:${bbMode === 'isolated' ? '#F5F3FF' : 'white'};color:${bbMode === 'isolated' ? '#7C3AED' : '#9CA3AF'};cursor:pointer">● 팀 분리 통장</button>
+        <button id="ba-d-bb-sh" onclick="_baDToggle('bb','shared')" style="padding:7px 14px;border:1.5px solid ${bbMode === 'shared' ? '#D97706' : '#E5E7EB'};border-radius:8px;font-size:11px;font-weight:700;background:${bbMode === 'shared' ? '#FFFBEB' : 'white'};color:${bbMode === 'shared' ? '#D97706' : '#9CA3AF'};cursor:pointer">● 상위 조직 공유</button>
+      </div>
+    </div>
+
+    <!-- 통장 생성 정책 안내 -->
+    <div style="background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;padding:12px 14px;margin-top:4px">
+      <div style="font-size:11px;font-weight:700;color:#0369A1;margin-bottom:6px">ⓘ 통장 생성 정책</div>
+      <ul style="font-size:10px;color:#475569;margin:0;padding-left:16px;line-height:1.8">
+        <li><b>팀 분리 통장</b> : 하위 팀마다 개별 통장 (예) 내구기술팀 통장, 전동화설계팀 통장</li>
+        <li><b>상위 조직 공유</b> : 본부단위 통장 1개, 하위 팀이 공유. 소진 시 하위 팀 전체 영향 (예) 연구개발본부 단일 통장</li>
+      </ul>
+    </div>
+  </div>`;
+}
+
+// ── 상세 패널 토글 헬퍼 ─────────────────────────────────────────────────────
+function _baDToggle(type, val) {
+  if (type === 'budget') {
+    const y = document.getElementById('ba-d-budget-yes');
+    const n = document.getElementById('ba-d-budget-no');
+    if (y && n) {
+      y.style.borderColor = val ? '#059669' : '#E5E7EB'; y.style.background = val ? '#F0FDF4' : 'white'; y.style.color = val ? '#059669' : '#9CA3AF';
+      n.style.borderColor = !val ? '#DC2626' : '#E5E7EB'; n.style.background = !val ? '#FEF2F2' : 'white'; n.style.color = !val ? '#DC2626' : '#9CA3AF';
+    }
+    y?.setAttribute('data-val', val ? 'yes' : 'no');
+    n?.setAttribute('data-val', !val ? 'yes' : 'no');
+  }
+  if (type === 'int') {
+    const s = document.getElementById('ba-d-int-sap');
+    const a = document.getElementById('ba-d-int-sa');
+    const isSap = val === 'sap';
+    if (s) { s.style.borderColor = isSap ? '#1D4ED8' : '#E5E7EB'; s.style.background = isSap ? '#EFF6FF' : 'white'; s.style.color = isSap ? '#1D4ED8' : '#9CA3AF'; }
+    if (a) { a.style.borderColor = !isSap ? '#059669' : '#E5E7EB'; a.style.background = !isSap ? '#F0FDF4' : 'white'; a.style.color = !isSap ? '#059669' : '#9CA3AF'; }
+    const w = document.getElementById('ba-d-sap-code-wrap');
+    if (w) w.style.display = isSap ? '' : 'none';
+  }
+  if (type === 'bb') {
+    const iso = document.getElementById('ba-d-bb-iso');
+    const sh = document.getElementById('ba-d-bb-sh');
+    if (iso) { iso.style.borderColor = val === 'isolated' ? '#7C3AED' : '#E5E7EB'; iso.style.background = val === 'isolated' ? '#F5F3FF' : 'white'; iso.style.color = val === 'isolated' ? '#7C3AED' : '#9CA3AF'; }
+    if (sh) { sh.style.borderColor = val === 'shared' ? '#D97706' : '#E5E7EB'; sh.style.background = val === 'shared' ? '#FFFBEB' : 'white'; sh.style.color = val === 'shared' ? '#D97706' : '#9CA3AF'; }
+  }
+}
+
+// ── 인라인 저장 ──────────────────────────────────────────────────────────────
+async function _baInlineSave(id) {
+  const a = _baAccountList.find(x => x.id === id);
+  if (!a) return;
+  const name = document.getElementById('ba-d-name')?.value.trim();
+  if (!name) { alert('계정명은 필수입니다.'); return; }
+  const desc = document.getElementById('ba-d-desc')?.value.trim();
+  const isSap = document.getElementById('ba-d-int-sap')?.style.borderColor?.includes('30') || document.getElementById('ba-d-int-sap')?.style.color?.includes('30');
+  const intType = document.getElementById('ba-d-int-sa')?.style.color?.includes('059669') ? 'standalone' : 'sap';
+  const sapCode = intType === 'sap' ? document.getElementById('ba-d-sap-code')?.value.trim() : null;
+  const usesBudget = document.getElementById('ba-d-budget-yes')?.style.color?.includes('059669');
+  const bbMode = document.getElementById('ba-d-bb-sh')?.style.color?.includes('D97706') ? 'shared' : 'isolated';
+
+  const payload = { name, description: desc, account_type: intType, sap_code: sapCode, uses_budget: usesBudget, updated_at: new Date().toISOString() };
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (!sb) { alert('DB 연결이 없습니다.'); return; }
+    const { error } = await sb.from('budget_accounts').update(payload).eq('id', id);
+    if (error) throw error;
+    // 통장 정책 upsert
+    if (_baTplId) {
+      await sb.from('budget_account_org_policy').upsert({
+        budget_account_id: id, vorg_template_id: _baTplId,
+        bankbook_mode: bbMode, bankbook_level: 'team', updated_at: new Date().toISOString()
+      }, { onConflict: 'budget_account_id,vorg_template_id' });
+    }
+    await renderBudgetAccount();
+  } catch (e) { alert('저장 실패: ' + e.message); }
+}
+
+// ── 삭제 ─────────────────────────────────────────────────────────────────────
+async function _baDeleteAccount(id) {
+  if (!confirm('이 계정을 삭제하시겠습니까?')) return;
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (!sb) return;
+    const { error } = await sb.from('budget_accounts').delete().eq('id', id);
+    if (error) throw error;
+    _baSelectedId = null;
+    await renderBudgetAccount();
+  } catch (e) { alert('삭제 실패: ' + e.message); }
+}
 
 // ── 계정 목록 + 결재라인 통합 렌더 (구버전 - 하위 호환용 stub) ─────────────────
 function _baRenderContent() {
   return document.getElementById('ba-content')?.innerHTML || '';
 }
-
-
-
-
-
 // ─────────────────────────────────────────────────────────────────────────────
 // 예산 계정 CRUD (budget_accounts 테이블 기반)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -361,6 +606,11 @@ async function openS1Modal(id) {
         </div>
       </label>
     </div>
+    <div id="s1-sap-code-section" style="margin-top:10px;${(!a?.integration_type || a?.integration_type === 'sap') ? '' : 'display:none'}">
+      <label style="font-size:11px;font-weight:700;color:#1D4ED8;display:block;margin-bottom:4px">🔗 SAP 연동 코드</label>
+      <input id="s1-sap-code" type="text" placeholder="예) S12345 (SAP 시스템 연동키)" value="${a?.sap_code || ''}"
+        style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:13px;font-weight:700">
+    </div>
   </div>
   <div id="s1-bankbook-mode-section" style="margin-bottom:4px;${(a?.uses_budget === false) ? 'display:none' : ''}">
     <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px">통장 생성 정책</label>
@@ -402,9 +652,11 @@ async function openS1Modal(id) {
 
 function _s1ToggleIntegration() {
   const radios = document.querySelectorAll('input[name="s1-integration"]');
+  let isSap = false;
   radios.forEach(r => {
     const label = r.closest('label');
     if (r.checked) {
+      if (r.value === 'sap') isSap = true;
       label.style.borderColor = r.value === 'sap' ? '#1D4ED8' : '#059669';
       label.style.background = r.value === 'sap' ? '#EFF6FF' : '#F0FDF4';
     } else {
@@ -412,6 +664,8 @@ function _s1ToggleIntegration() {
       label.style.background = '#fff';
     }
   });
+  const sapSection = document.getElementById('s1-sap-code-section');
+  if (sapSection) sapSection.style.display = isSap ? '' : 'none';
 }
 
 function s1CloseModal() {
@@ -467,6 +721,7 @@ async function s1SaveAccount() {
   const role = boCurrentPersona.role;
   const tenantId = role === 'platform_admin' ? (_baTenantId || 'HMC') : (boCurrentPersona.tenantId || 'HMC');
   const integration = document.querySelector('input[name="s1-integration"]:checked')?.value || 'sap';
+  const sapCode = integration === 'sap' ? document.getElementById('s1-sap-code')?.value.trim() : null;
   const usesBudget = document.querySelector('input[name="s1-uses-budget"]:checked')?.value !== 'no';
   const bankbookMode = document.querySelector('input[name="s1-bankbook-mode"]:checked')?.value || 'isolated';
   const payload = {
@@ -474,6 +729,7 @@ async function s1SaveAccount() {
     virtual_org_template_id: _baTplId,
     code, name,
     account_type: integration,
+    sap_code: sapCode,
     description: document.getElementById('s1-desc').value.trim(),
     active: true,  // uses_budget=false여도 active는 true 유지 (비활성≠예산미사용)
     uses_budget: usesBudget,

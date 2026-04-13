@@ -481,14 +481,13 @@ function _fbRenderLibrary() {
   const headerStyle = 'padding:10px 14px;font-size:11px;font-weight:800;color:#6B7280;text-align:left;border-bottom:2px solid #E5E7EB;white-space:nowrap';
   const tableHeader = `
 <tr>
-  <th style="${headerStyle};text-align:center;width:50px">NO.</th>
+  <th style="${headerStyle};text-align:center;width:44px">NO.</th>
   <th style="${headerStyle}">양식명</th>
-  <th style="${headerStyle};width:100px">단계</th>
-  <th style="${headerStyle}">목적</th>
-  <th style="${headerStyle}">교육유형</th>
-  <th style="${headerStyle};width:70px;text-align:center">필드수</th>
-  <th style="${headerStyle};width:70px;text-align:center">상태</th>
-  <th style="${headerStyle};width:200px;text-align:center">관리</th>
+  <th style="${headerStyle};width:80px">단계</th>
+  <th style="${headerStyle}">목적 / 교육유형</th>
+  <th style="${headerStyle};width:60px;text-align:center">필드수</th>
+  <th style="${headerStyle};width:60px;text-align:center">상태</th>
+  <th style="${headerStyle};width:280px;text-align:center">관리</th>
 </tr>`;
 
   const formRows = allForms.map((f, idx) => {
@@ -517,27 +516,34 @@ function _fbRenderLibrary() {
     onmouseover="this.style.background='#F8FAFF'" onmouseout="this.style.background=''"
     onclick="event.stopPropagation();fbOpenBuilderModal('${safeId}')">
   <td style="padding:11px 14px;text-align:center;color:#9CA3AF;font-size:12px">${idx + 1}</td>
-  <td style="padding:11px 14px">
-    <div style="font-weight:800;font-size:13px;color:#111827;margin-bottom:2px">${f.name}</div>
-    ${f.desc ? `<div style="font-size:10px;color:#9CA3AF">${f.desc}</div>` : ''}
+  <td style="padding:11px 14px;max-width:200px">
+    <div style="font-weight:800;font-size:13px;color:#111827;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${f.name}">${f.name}</div>
+    ${f.desc ? `<div style="font-size:10px;color:#9CA3AF;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.desc}</div>` : ''}
     ${isMapped ? `<span style="font-size:9px;color:#059669;background:#ecfdf5;padding:1px 6px;border-radius:4px">🔒 ${mappedPolicy.name}</span>` : ''}
   </td>
   <td style="padding:11px 14px">
     <span style="font-size:10px;font-weight:900;padding:3px 8px;border-radius:6px;background:${s.bg};color:${s.color};white-space:nowrap">${s.icon} ${s.label.split('(')[0].trim()}</span>
   </td>
-  <td style="padding:11px 14px;font-size:12px;color:#374151">${purposeLabel}</td>
-  <td style="padding:11px 14px;font-size:12px;color:#374151">${eduTypeLabel}${f.eduSubType ? ` / ${f.eduSubType}` : ''}</td>
+  <td style="padding:11px 14px;font-size:11px;color:#374151">
+    <div style="font-weight:700">${purposeLabel}</div>
+    ${f.eduType ? `<div style="color:#9CA3AF;font-size:10px;margin-top:2px">${f.eduType}${f.eduSubType ? ' / ' + f.eduSubType : ''}</div>` : ''}
+  </td>
   <td style="padding:11px 14px;text-align:center;font-size:11px;color:#6B7280">📋 ${fields.length}</td>
   <td style="padding:11px 14px;text-align:center">
     <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:5px;background:${statusBg};color:${statusColor}">${statusLabel}</span>
   </td>
-  <td style="padding:11px 14px;text-align:center">
-    <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap">
-      <button onclick="event.stopPropagation();fbPreviewForm('${safeId}')" style="font-size:10px;padding:4px 8px;border-radius:6px;border:1.5px solid #D1D5DB;background:white;cursor:pointer;font-weight:700;color:#374151">🔍 미리보기</button>
-      <button onclick="event.stopPropagation();fbOpenBuilderModal('${safeId}')" style="font-size:10px;padding:4px 8px;border-radius:6px;border:1.5px solid #D1D5DB;background:white;cursor:pointer;font-weight:700;color:#374151">✏️ 수정</button>
-      <button onclick="event.stopPropagation();fbToggleActive('${safeId}')" style="font-size:10px;padding:4px 8px;border-radius:6px;border:1.5px solid ${f.active ? '#F59E0B' : '#059669'};background:white;cursor:pointer;font-weight:700;color:${f.active ? '#F59E0B' : '#059669'}">${f.active ? '비활성화' : '활성화'}</button>
-      <button ${isMapped ? `disabled title="${mappedPolicy.name} 정책 연결"` : `onclick="event.stopPropagation();fbDeleteForm('${safeId}')"`}
-        style="font-size:10px;padding:4px 8px;border-radius:6px;border:1.5px solid ${isMapped ? '#E5E7EB' : '#FECACA'};background:${isMapped ? '#F9FAFB' : '#FEF2F2'};color:${isMapped ? '#9CA3AF' : '#DC2626'};cursor:${isMapped ? 'not-allowed' : 'pointer'};font-weight:700">🗑️</button>
+  <td style="padding:8px 10px;text-align:center">
+    <div style="display:flex;gap:3px;justify-content:center;align-items:center;flex-wrap:nowrap">
+      <button onclick="event.stopPropagation();fbPreviewForm('${safeId}')" title="미리보기"
+        style="font-size:10px;padding:4px 7px;border-radius:6px;border:1.5px solid #D1D5DB;background:white;cursor:pointer;font-weight:700;color:#374151;white-space:nowrap">🔍 미리보기</button>
+      <button onclick="event.stopPropagation();fbOpenBuilderModal('${safeId}')" title="수정"
+        style="font-size:10px;padding:4px 7px;border-radius:6px;border:1.5px solid #D1D5DB;background:white;cursor:pointer;font-weight:700;color:#374151;white-space:nowrap">✏️ 수정</button>
+      <button onclick="event.stopPropagation();fbCopyForm('${safeId}')" title="복사"
+        style="font-size:10px;padding:4px 7px;border-radius:6px;border:1.5px solid #DDD6FE;background:#F5F3FF;cursor:pointer;font-weight:700;color:#7C3AED;white-space:nowrap">📋 복사</button>
+      <button onclick="event.stopPropagation();fbToggleActive('${safeId}')" title="${f.active ? '비활성화' : '활성화'}"
+        style="font-size:10px;padding:4px 7px;border-radius:6px;border:1.5px solid ${f.active ? '#F59E0B' : '#059669'};background:white;cursor:pointer;font-weight:700;color:${f.active ? '#F59E0B' : '#059669'};white-space:nowrap">${f.active ? '⏸️' : '▶️'}</button>
+      <button ${isMapped ? `disabled title="${mappedPolicy.name} 정책 연결 중"` : `onclick="event.stopPropagation();fbDeleteForm('${safeId}')"`}
+        style="font-size:10px;padding:4px 7px;border-radius:6px;border:1.5px solid ${isMapped ? '#E5E7EB' : '#FECACA'};background:${isMapped ? '#F9FAFB' : '#FEF2F2'};color:${isMapped ? '#9CA3AF' : '#DC2626'};cursor:${isMapped ? 'not-allowed' : 'pointer'};font-weight:700">🗑️</button>
     </div>
   </td>
 </tr>`;

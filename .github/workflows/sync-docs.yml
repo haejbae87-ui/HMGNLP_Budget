@@ -17,8 +17,17 @@ jobs:
 
       - name: Sync public/ to docs/
         run: |
+          # PRD 폴더 보존 (public/ 외부 독립 관리)
+          if [ -d docs/PRD ]; then
+            cp -r docs/PRD /tmp/_prd_backup
+          fi
           rm -rf docs
           cp -r public docs
+          # PRD 복원
+          if [ -d /tmp/_prd_backup ]; then
+            cp -r /tmp/_prd_backup docs/PRD
+            rm -rf /tmp/_prd_backup
+          fi
 
       - name: Commit & push docs/
         run: |

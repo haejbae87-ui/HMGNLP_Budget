@@ -1,4 +1,4 @@
-﻿// ─── 교육신청양식마법사 (Form Builder Enhanced) ─────────────────────────────────
+// ─── 교육신청양식마법사 (Form Builder Enhanced) ─────────────────────────────────
 // 3탭 구조: ① 양식 라이브러리 ② 양식 빌더 ③ 서비스 통합 매핑
 // 기획안 기반 고도화: 양식 분류체계, 입력 주체 제어, 조건부 로직, 서비스 매핑
 
@@ -618,6 +618,7 @@ function _fbFormCard(f) {
   <div style="display:flex;gap:4px;flex-shrink:0">
     <button class="bo-btn-secondary bo-btn-sm" onclick="fbPreviewForm('${f.id}')">🔍 미리보기</button>
     <button class="bo-btn-secondary bo-btn-sm" onclick="fbOpenBuilderModal('${f.id}')">✏️ 수정</button>
+    <button class="bo-btn-secondary bo-btn-sm" onclick="fbCopyForm('${f.id}')" style="color:#7C3AED;border-color:#DDD6FE">📋 복사</button>
     <button onclick="fbToggleActive('${f.id}')"
       style="padding:4px 8px;border-radius:6px;border:1.5px solid ${f.active ? '#F59E0B' : '#059669'};
              background:#fff;color:${f.active ? '#F59E0B' : '#059669'};font-size:10px;font-weight:800;cursor:pointer">
@@ -1155,6 +1156,103 @@ async function fbSaveForm() {
   _fbCurrentTab = 'library';
   fbCloseEditor();
 }
+
+// ━━━ 양식 복사 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+window.fbCopyForm = function(formId) {
+  const origin = FORM_MASTER.find(f => f.id === formId);
+  if (!origin) return alert('원본 양식을 찾을 수 없습니다.');
+
+  // 복사 이름 입력 모달
+  const existingModal = document.getElementById('fb-copy-modal');
+  if (existingModal) existingModal.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'fb-copy-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9300;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML = `
+<div style="background:#fff;border-radius:16px;width:480px;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden">
+  <div style="padding:20px 24px;border-bottom:1px solid #E5E7EB;background:#F5F3FF;display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <h3 style="margin:0;font-size:15px;font-weight:900;color:#5B21B6">📋 양식 복사</h3>
+      <p style="margin:4px 0 0;font-size:11px;color:#7C3AED">복사본은 <b>비활성 상태</b>로 생성되며 정책 연결이 없습니다.</p>
+    </div>
+    <button onclick="document.getElementById('fb-copy-modal').remove()" style="border:none;background:none;font-size:20px;cursor:pointer;color:#7C3AED">✕</button>
+  </div>
+  <div style="padding:20px 24px">
+    <div style="background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:11px;color:#92400E;line-height:1.6">
+      <b>⚠️ 복사 규칙</b><br>
+      • 복사본은 항상 <b>비활성(검토 대기)</b> 상태로 시작됩니다<br>
+      • 서비스 정책 연결은 복사되지 않습니다<br>
+      • 동일 테넌트 내부 복사만 허용됩니다<br>
+      • 필드 구성은 복사 시점의 스냅샷으로 저장됩니다
+    </div>
+    <label style="font-size:12px;font-weight:800;color:#374151;display:block;margin-bottom:6px">복사본 이름 <span style="color:#EF4444">*</span></label>
+    <input id="fb-copy-name" type="text" value="[복사] ${origin.name.replace(/'/g, '&#39;')}"
+      style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid #7C3AED;border-radius:8px;font-size:13px;font-weight:700;outline:none">
+    <p style="font-size:11px;color:#9CA3AF;margin:6px 0 0">이름은 저장 후에도 언제든지 수정할 수 있습니다.</p>
+  </div>
+  <div style="padding:14px 24px;border-top:1px solid #F3F4F6;background:#FAFAFA;display:flex;justify-content:flex-end;gap:10px">
+    <button onclick="document.getElementById('fb-copy-modal').remove()" style="padding:9px 16px;background:#F1F5F9;border:none;border-radius:8px;font-size:13px;font-weight:800;color:#64748B;cursor:pointer">취소</button>
+    <button onclick="fbCopyFormConfirm('${formId}')" style="padding:9px 24px;background:#7C3AED;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:900;cursor:pointer">📋 복사 생성</button>
+  </div>
+</div>`;
+  document.body.appendChild(modal);
+  // 이름 필드 포커스 + 전체 선택
+  setTimeout(() => {
+    const inp = document.getElementById('fb-copy-name');
+    if (inp) { inp.focus(); inp.select(); }
+  }, 80);
+};
+
+window.fbCopyFormConfirm = async function(originId) {
+  const origin = FORM_MASTER.find(f => f.id === originId);
+  if (!origin) return alert('원본 양식을 찾을 수 없습니다.');
+
+  const newName = document.getElementById('fb-copy-name')?.value?.trim();
+  if (!newName) { alert('복사본 이름을 입력해주세요.'); return; }
+
+  // 동일 이름 중복 체크
+  const tenantId = boCurrentPersona?.tenantId || origin.tenantId;
+  const isDupName = FORM_MASTER.some(f => f.tenantId === tenantId && f.name === newName);
+  if (isDupName) {
+    if (!confirm(`"${newName}" 이름의 양식이 이미 존재합니다.\n그래도 동일 이름으로 복사하시겠습니까?`)) return;
+  }
+
+  // 충돌 방지 신 ID 생성 (ms + 4자리 랜덤)
+  const newId = 'FM_COPY_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6).toUpperCase();
+
+  const copyData = {
+    ...JSON.parse(JSON.stringify(origin)), // 깊은 복사 (fields[] 배열 포함)
+    id: newId,
+    tenantId,
+    name: newName,
+    active: false,           // ① 항상 비활성으로 시작
+    domainId: _fbGroupId || origin.domainId || null,   // ② 현재 필터 기준
+    accountCode: _fbAccountCode || origin.accountCode || null,
+    _copiedFrom: originId,   // ③ 추적용 메타데이터
+    _copiedAt: new Date().toISOString(),
+  };
+
+  // 메모리 저장
+  FORM_MASTER.push(copyData);
+
+  // DB 저장
+  let dbOk = false;
+  if (typeof sbSaveFormTemplate === 'function') {
+    dbOk = await sbSaveFormTemplate(copyData);
+  }
+
+  document.getElementById('fb-copy-modal')?.remove();
+
+  if (dbOk) {
+    _fbShowToast(`✅ "${newName}" 복사 완료 (비활성 상태로 저장됨)`);
+  } else {
+    _fbShowToast(`⚠️ "${newName}" 복사됨 (DB 저장 실패 — 메모리에만 존재)`);
+  }
+
+  _fbCurrentTab = 'library';
+  renderFormBuilderMenu();
+};
 
 function fbToggleActive(formId) {
   const f = FORM_MASTER.find(x => x.id === formId);

@@ -1760,9 +1760,12 @@ function _fcRenderFields(isPlatform, l2Count) {
               const typeLabel = { text:'텍스트', textarea:'여러줄', number:'숫자', select:'셀렉트', multi_select:'멀티셀렉트', date:'날짜', daterange:'기간', file:'파일', 'user-search':'사용자검색', 'user_search':'사용자검색', rating:'평점', system:'시스템', 'budget-linked':'예산연동', 'budget_linked':'예산연동', 'calc-grounds':'산출근거', 'calc_grounds':'산출근거', 'course-session':'과정차수', 'course_session':'과정차수' }[f.fieldType] || f.fieldType;
               const scopeLabel = f.scope === 'front' ? '🔓프론트' : f.scope === 'back' ? '🔒백오피스' : '⚙️시스템';
               const optCount = (f.options || []).length;
-              return `<tr style="border-bottom:1px solid #F3F4F6" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='white'">
+              const isHidden = f._hidden || false;
+              const hiddenStyle = isHidden ? 'opacity:0.4;' : '';
+              const hiddenBadge = isHidden ? ' <span style="font-size:9px;font-weight:800;color:#DC2626;background:#FEF2F2;padding:1px 5px;border-radius:3px">숨김</span>' : '';
+              return `<tr style="border-bottom:1px solid #F3F4F6;${hiddenStyle}" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='white'">
                 <td style="padding:6px 12px"><span style="font-size:10px;font-weight:900;color:${layerC};background:${layerBg};padding:2px 6px;border-radius:4px">${f.layer}</span></td>
-                <td style="padding:6px 12px;font-weight:700;color:#111827">${f.icon} ${f.key}${optCount ? ` <span style="font-size:9px;color:#7C3AED">(▼${optCount})</span>` : ''}</td>
+                <td style="padding:6px 12px;font-weight:700;color:#111827">${f.icon} ${f.key}${hiddenBadge}${optCount ? ` <span style="font-size:9px;color:#7C3AED">(▼${optCount})</span>` : ''}</td>
                 <td style="padding:6px 12px;color:#6B7280">${typeLabel}</td>
                 <td style="padding:6px 12px;font-size:11px">${scopeLabel}</td>
                 <td style="padding:6px 12px;font-family:monospace;font-size:11px;color:#6B7280">${f.canonicalKey || '-'}</td>
@@ -2214,10 +2217,16 @@ window._fcSaveL1Override = async function() {
     // 로컬 캐시 갱신
     _fbL1Overrides[canonicalKey] = { ...(_fbL1Overrides[canonicalKey] || {}), ...payload };
 
-    // ADVANCED_FIELDS 런타임 반영
+    // ADVANCED_FIELDS 런타임 반영 (저장 즉시 카탈로그에 반영)
     const fld = ADVANCED_FIELDS.find(f => f.canonicalKey === canonicalKey);
     if (fld) {
-      if (displayName) fld._displayNameOverride = displayName;
+      // 표시명: f.key를 즉시 교체 (카탈로그 리렌더링 시 바로 표시됨)
+      if (displayName) {
+        fld._originalKey = fld._originalKey || fld.key; // 원본 키 백업
+        fld.key = displayName;
+      } else if (fld._originalKey) {
+        fld.key = fld._originalKey; // 표시명 비워두면 원본 복원
+      }
       if (hint) fld.hint = hint;
       if (reqVal !== '') fld.required = reqVal === 'true';
       if (scope) fld.scope = scope;

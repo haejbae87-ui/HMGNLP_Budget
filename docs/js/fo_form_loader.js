@@ -343,6 +343,69 @@ function _handleFileAttach(event, stateKey, prefix) {
     if (stateRef) { stateRef[stateKey] = file.name; }
 }
 
+// ─── 7. 필수 필드 검증 (FO 상신 시 호출) ──────────────────────────────────────
+// formTemplate: form_templates 레코드 (fields 배열 포함)
+// state: planState | applyState (현재 입력 상태)
+// 반환: { valid: boolean, errors: string[] }
+function validateRequiredFields(formTemplate, state) {
+    const errors = [];
+    if (!formTemplate || !formTemplate.fields || !formTemplate.fields.length) {
+        return { valid: true, errors }; // 동적 양식 없으면 패스
+    }
+
+    const fieldDefs = _FIELD_DEF_CACHE || [];
+    const foFields = formTemplate.fields.filter(f => !f.scope || f.scope === 'front');
+
+    for (const fieldRef of foFields) {
+        const key = fieldRef.key;
+        const def = fieldDefs.find(d => d.key === key);
+        if (!def) continue;
+
+        // 필수 여부 판단: 양식별 오버라이드(fieldRef.required) > 필드 정의(def.required)
+        const isRequired = fieldRef.required !== undefined ? fieldRef.required : def.required;
+        if (!isRequired) continue;
+
+        const stateKey = _toStateKey(key);
+        const val = state?.[stateKey];
+
+        // 타입별 빈 값 체크
+        let isEmpty = false;
+        switch (def.field_type) {
+            case 'daterange': {
+                const startKey = stateKey + 'Start';
+                const endKey = stateKey + 'End';
+                const sVal = state?.[startKey] ?? state?.startDate ?? '';
+                const eVal = state?.[endKey] ?? state?.endDate ?? '';
+                isEmpty = !sVal || !eVal;
+                break;
+            }
+            case 'number':
+            case 'budget-linked':
+                isEmpty = val === undefined || val === null || val === '' || Number(val) === 0;
+                break;
+            case 'rating':
+                isEmpty = !val || Number(val) === 0;
+                break;
+            case 'course-session':
+                isEmpty = !Array.isArray(val) || val.length === 0;
+                break;
+            case 'file':
+                isEmpty = !val;
+                break;
+            default:
+                isEmpty = !val || String(val).trim() === '';
+        }
+
+        if (isEmpty) {
+            const label = (def.icon || '') + ' ' + key;
+            errors.push(label.trim());
+        }
+    }
+
+    return { valid: errors.length === 0, errors };
+}
+window.validateRequiredFields = validateRequiredFields;
+
 // 별점 재렌더를 위한 글로벌 트리거 (간이 구현)
 function _reRenderForm(prefix) {
     if (prefix === 'planState' && typeof renderPlanWizard === 'function') renderPlanWizard();

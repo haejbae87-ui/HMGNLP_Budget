@@ -1147,6 +1147,14 @@ async function savePlanDraft() {
 // ─── 제출 → 작성확인 화면 ─────────────────────────────────────────────────
 function savePlan() {
   if (!planState.title) { alert('계획명을 입력해주세요.'); return; }
+  // ── 동적 양식 필수 필드 검증 ──
+  if (planState.formTemplate && typeof validateRequiredFields === 'function') {
+    const result = validateRequiredFields(planState.formTemplate, planState);
+    if (!result.valid) {
+      alert('⚠️ 필수 항목을 입력해주세요:\n\n• ' + result.errors.join('\n• '));
+      return;
+    }
+  }
   planState.confirmMode = true;
   renderPlans();
 }

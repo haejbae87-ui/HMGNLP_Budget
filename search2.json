@@ -1,0 +1,277 @@
+[
+  {
+    "file": "public/js/bo_calc_grounds.js",
+    "line": 1,
+    "text": "// ─── 백오피스: 세부 산출 근거 관리 (계층형: 테넌트→가상교육조직→예산계정) ────────"
+  },
+  {
+    "file": "public/js/bo_calc_grounds.js",
+    "line": 7,
+    "text": "let _cgFilterGroup = null;     // 선택된 가상교육조직 ID"
+  },
+  {
+    "file": "public/js/bo_calc_grounds.js",
+    "line": 99,
+    "text": "// 이 테넌트에 속한 가상교육조직 (교육지원 유형만)"
+  },
+  {
+    "file": "public/js/bo_calc_grounds.js",
+    "line": 103,
+    "text": "// 선택된 가상교육조직의 예산 계정 목록"
+  },
+  {
+    "file": "public/js/bo_calc_grounds.js",
+    "line": 139,
+    "text": "<span style=\"font-size:12px;font-weight:800;color:#374151;white-space:nowrap\">가상교육조직</span>"
+  },
+  {
+    "file": "public/js/bo_calc_grounds.js",
+    "line": 146,
+    "text": "<span style=\"font-size:12px;font-weight:800;color:#374151;white-space:nowrap\">가상교육조직</span>"
+  },
+  {
+    "file": "public/js/bo_calc_grounds.js",
+    "line": 190,
+    "text": "<p class=\"bo-page-sub\">테넌트 → 가상교육조직 → 예산계정 단위로 세부 산출근거 항목을 독립적으로 구성합니다.</p>"
+  },
+  {
+    "file": "public/js/bo_calc_grounds.js",
+    "line": 231,
+    "text": "return `<span style=\"font-size:9px;background:#F3F4F6;color:#6B7280;padding:1px 5px;border-radius:4px;font-weight:800\">테넌트공유</span>`;"
+  },
+  {
+    "file": "public/js/bo_calc_grounds.js",
+    "line": 241,
+    "text": "<span><span style=\"background:#F3F4F6;padding:1px 5px;border-radius:4px;font-weight:800;color:#6B7280\">테넌트공유</span> 이 테넌트 전체</span>"
+  },
+  {
+    "file": "public/js/bo_calc_grounds.js",
+    "line": 242,
+    "text": "<span><span style=\"background:#F5F3FF;padding:1px 5px;border-radius:4px;font-weight:800;color:#7C3AED\">조직공유</span> 가상교육조직 내</span>"
+  },
+  {
+    "file": "public/js/bo_calc_grounds.js",
+    "line": 329,
+    "text": "// 가상교육조직+계정 드롭다운"
+  },
+  {
+    "file": "public/js/bo_calc_grounds.js",
+    "line": 348,
+    "text": "<label style=\"font-size:11px;font-weight:800;display:block;margin-bottom:5px\">가상교육조직 (미선택 = 테넌트 전체 공유)</label>"
+  },
+  {
+    "file": "public/js/bo_calc_grounds.js",
+    "line": 351,
+    "text": "<option value=\"\">— 테넌트 전체 공유 —</option>"
+  },
+  {
+    "file": "public/js/bo_calc_grounds.js",
+    "line": 356,
+    "text": "<label style=\"font-size:11px;font-weight:800;display:block;margin-bottom:5px\">예산계정 (미선택 = 그룹/테넌트 공유)</label>"
+  },
+  {
+    "file": "public/js/bo_calc_grounds.js",
+    "line": 365,
+    "text": "💡 계정 지정 시 해당 계정에서만 이 항목이 보입니다. 공유 항목은 해당 범위(그룹/테넌트) 전체에서 보입니다."
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 2,
+    "text": "// 8단계 위저드: 범위설정(회사·그룹·계정) → 정책명+대상자 → 목적 → 교육유형 → 패턴 → 대상조직 → 양식 → 결재라인"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 7,
+    "text": "let _pbTplList = [];       // 가상교육조직 템플릿 목록 (DB 로드)"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 32,
+    "text": "// ── 목적·유형 정의 ────────────────────────────────────────────────────────────"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 129,
+    "text": "// 레거시 ID(IG-*, TPL_GEN_01, TPL_RND_01 등) → 실제 가상교육조직 ID로 보정"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 133,
+    "text": "const tpl = _pbTplList.find(t => t.name.includes('일반교육예산 가상교육조직') || t.name === 'HMC 일반교육예산 가상교육조직');"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 137,
+    "text": "const tpl = _pbTplList.find(t => t.name.includes('R&D교육예산 가상교육조직') || t.name === 'HMC R&D교육예산 가상교육조직');"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 170,
+    "text": "// 1. 테넌트 필터"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 172,
+    "text": "// 2. 가상조직 필터"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 181,
+    "text": "// 5. 목적, 교육유형, 세부유형 필터"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 199,
+    "text": "// 조회 가능한 가상교육조직 템플릿 목록"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 215,
+    "text": "// ── 목적/유형 필터 목록 산출 ─────────────────────────────"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 244,
+    "text": "<span style=\"font-size:12px;font-weight:800;color:#374151;white-space:nowrap\">가상교육조직</span>"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 251,
+    "text": "<span style=\"font-size:12px;font-weight:800;color:#374151;white-space:nowrap\">가상교육조직</span>"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 272,
+    "text": "<span style=\"font-size:12px;font-weight:800;color:#374151;white-space:nowrap\">목적</span>"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 275,
+    "text": "<option value=\"\">전체 목적</option>"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 388,
+    "text": "<th style=\"padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151;min-width:130px\">목적</th>"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 507,
+    "text": "// ── Step 0: 정책 정의 (정책명 + 대상자 + 목적 + 교육유형 통합) ──────────────"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 529,
+    "text": "// ── 서비스 유형 ──"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 532,
+    "text": "<label class=\"bo-label\">서비스 유형 <span style=\"color:#EF4444\">*</span></label>"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 551,
+    "text": "// ── 목적 (대상자 선택 후 표시) ──"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 556,
+    "text": "<label class=\"bo-label\">교육 목적 <span style=\"color:#EF4444\">*</span></label>"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 568,
+    "text": "// ── 교육유형 (목적 선택 후 표시) ──"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 605,
+    "text": "// 기타 목적"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 629,
+    "text": "💡 정책의 <strong>이름, 서비스 유형, 교육 목적, 교육유형</strong>을 정의합니다."
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 637,
+    "text": "// ── Step 1: 정책 범위 (회사 → 가상교육조직 → 예산계정) ────────────────────"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 660,
+    "text": "💡 정책이 적용될 <strong>회사 · 가상교육조직 · 예산계정</strong>을 설정합니다. 이 설정이 정책의 데이터 범위를 결정합니다."
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 679,
+    "text": "<label class=\"bo-label\">${isBudgetOp ? '담당 가상교육조직' : '가상교육조직 선택'} <span style=\"color:#EF4444\">*</span></label>"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 696,
+    "text": "</label>`).join('') : '<div style=\"font-size:12px;padding:10px;color:#9CA3AF\">해당 회사의 가상교육조직이 없습니다. 먼저 조직을 생성하세요.</div>'}"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 725,
+    "text": "선택한 가상교육조직에 연결된 예산 계정이 없습니다."
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 808,
+    "text": "// 기준 양식 풀 (텐넌트+가상교육조직+계정)"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 821,
+    "text": "// 교육유형으로 추가 필터 (목적·유형 정보가 없는 구형 양식은 숨기지 않음)"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 1069,
+    "text": "const sourceLabel = (r) => r.sourceType === 'vorg_manager' ? '가상조직 담당자' : r.sourceType === 'global_admin' ? '총괄담당자' : '수동 지정';"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 1190,
+    "text": "// 자동 매핑: 가상조직 담당자 + 총괄담당자"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 1208,
+    "text": "// 두번째 추가 → 기존 최종을 1차로 변경, 새 최종 = 가상조직 담당자"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 1210,
+    "text": "// 새 1차 = 가상조직 담당자"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 1214,
+    "text": "userId: vorgManager?.id || '', userName: vorgManager?.name || '(가상조직 담당자 미설정)',"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 1261,
+    "text": "// Step 0: 정책 정의 (정책명 + 서비스 유형 + 목적 + 교육유형)"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 1265,
+    "text": "if (!d.targetType) { alert('서비스 유형을 선택하세요.'); return; }"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 1266,
+    "text": "if (!d.purpose) { alert('교육 목적을 선택하세요.'); return; }"
+  },
+  {
+    "file": "public/js/bo_policy_builder.js",
+    "line": 1275,
+    "text": "if (!d.vorgTemplateId) { alert('가상교육조직을 선택하세요.'); return; }"
+  }
+]

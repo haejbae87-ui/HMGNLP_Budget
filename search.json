@@ -1,0 +1,222 @@
+[
+  {
+    "file": "public/js/bo_budget_master.js",
+    "line": 3,
+    "text": "// Step4:양식접근권한    Step5:양식-예산-계획룰  Step6:공지관리  +가상조직+권한"
+  },
+  {
+    "file": "public/js/bo_budget_master.js",
+    "line": 7,
+    "text": "{ label: '[Step2] 가상조직 템플릿 관리' },"
+  },
+  {
+    "file": "public/js/bo_budget_master.js",
+    "line": 62,
+    "text": "let _baTenantId = null; // 플랫폼총괄: 선택된 테넌트"
+  },
+  {
+    "file": "public/js/bo_budget_master.js",
+    "line": 108,
+    "text": "// ─── 진입점: 예산 계정 관리 (가상교육조직 템플릿 종속) ──────────────────────────"
+  },
+  {
+    "file": "public/js/bo_budget_master.js",
+    "line": 172,
+    "text": ": `<span style=\"font-size:12px;color:#9CA3AF\">등록된 가상교육조직 템플릿이 없습니다</span>`;"
+  },
+  {
+    "file": "public/js/bo_budget_master.js",
+    "line": 196,
+    "text": "${_baTplList.length ? '가상교육조직 템플릿을 선택하세요' : '가상 교육 조직 관리에서 템플릿을 먼저 만들어주세요'}"
+  },
+  {
+    "file": "public/js/bo_budget_master.js",
+    "line": 208,
+    "text": "<p style=\"font-size:12px;color:#64748B;margin:0\">가상교육조직 템플릿별로 예산 계정을 등록·관리합니다.</p>"
+  },
+  {
+    "file": "public/js/bo_budget_master.js",
+    "line": 367,
+    "text": "<div style=\"font-size:10px;color:#9CA3AF;margin-bottom:8px\">가상교육조직에 상위 조직(본부)을 맵핑했을 때 통장을 어떻게 만들지 결정합니다.</div>"
+  },
+  {
+    "file": "public/js/bo_budget_master.js",
+    "line": 580,
+    "text": "<p class=\"bo-page-sub\">예산 계정 × 가상조직 × 학습유형별 프로세스 흐름과 양식을 한 화면에서 조립합니다</p>"
+  },
+  {
+    "file": "public/js/bo_budget_master.js",
+    "line": 603,
+    "text": "// [Step1] 예산 계정 마스터 직접 CRUD — 테넌트 담당자가 직접 생성/편집"
+  },
+  {
+    "file": "public/js/bo_budget_master.js",
+    "line": 1104,
+    "text": "<div style=\"font-size:13px;font-weight:800;color:#111827\">${tenantName} — 예산 ↔ 가상조직 템플릿 ↔ 양식/학습유형 통합 매핑 (Top-down)</div>"
+  },
+  {
+    "file": "public/js/bo_budget_master.js",
+    "line": 1180,
+    "text": "<option value=\"\">— 매핑할 가상조직 템플릿 선택 —</option>"
+  },
+  {
+    "file": "public/js/bo_budget_master.js",
+    "line": 1506,
+    "text": "<p style=\"font-size:11px;color:#64748B;margin:0\">가상교육조직별·예산계정별·기간별 예산 배정 현황을 조회하고 관리합니다.</p>"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 30,
+    "text": "// 폼 목적 (purpose) 정의 ────────────────────────────────────────────────────────────"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 70,
+    "text": "{ key: '교육목적', icon: '🎯', required: true, scope: 'front', category: '기본정보', fieldType: 'textarea', hint: '학습 목표 및 기대효과' },"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 84,
+    "text": "{ key: '세부산출근거', icon: '📐', required: false, scope: 'front', category: '비용정보', fieldType: 'calc-grounds', hint: '세부산출근거 항목 선택 (테넌트별 자동 로드)' },"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 112,
+    "text": "// 서비스 매핑 데이터 (테넌트별 관리)"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 144,
+    "text": "// ── DB 데이터 로드 (가상조직, 계정) ──"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 164,
+    "text": "// 테넌트 초기화"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 171,
+    "text": "// 가상교육조직 템플릿 초기화"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 175,
+    "text": "// 계정 초기화 (가상교육조직 하위 예산계정)"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 191,
+    "text": "// 가상교육조직 템플릿 목록"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 193,
+    "text": "// 선택된 가상교육조직의 예산 계정"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 217,
+    "text": "<label style=\"font-size:12px;font-weight:700;color:#374151;white-space:nowrap\">가상교육조직</label>"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 234,
+    "text": "// 행 2: 목적/교육유형/조회/초기화"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 241,
+    "text": "<label style=\"font-size:12px;font-weight:700;color:#374151;white-space:nowrap\">목적</label>"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 244,
+    "text": "<option value=\"\">전체 목적</option>"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 307,
+    "text": "// ① 양식 라이브러리 탭 - 목적→교육유형→세부유형→단계 계층 구조"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 314,
+    "text": "// 필터 기준 테넌트 결정"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 318,
+    "text": "// 가상교육조직 필터 (virtual_org_template_id 없는 양식은 하위호환으로 표시)"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 327,
+    "text": "// 목적 필터 적용"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 368,
+    "text": "<th style=\"${headerStyle}\">목적</th>"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 638,
+    "text": "// 목적 연동 교육유형 목록"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 668,
+    "text": "<!-- 서비스 유형 선택 (직접학습 / 교육운영) -->"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 670,
+    "text": "<label style=\"font-size:11px;font-weight:800;display:block;margin-bottom:6px;color:#374151\">서비스 유형 *</label>"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 692,
+    "text": "<!-- 행 1: 단계 + 목적 -->"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 703,
+    "text": "<label style=\"font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151\">목적</label>"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 715,
+    "text": "<!-- 행 2: 교육유형 + 세부유형 (목적 선택 시 표시) -->"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 925,
+    "text": "// 목적 변경 시 교육유형 행 토글"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 943,
+    "text": "// 사용대상 변경 시 목적 드롭다운 필터링"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 956,
+    "text": "// 목적 드롭다운 필터링"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 969,
+    "text": "// 목적이 바뀌었으면 교육유형 행 숨기기"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 1070,
+    "text": "<div><label style=\"font-size:11px;font-weight:800;display:block;margin-bottom:4px\">서비스 유형 *</label>"
+  },
+  {
+    "file": "public/js/bo_form_builder.js",
+    "line": 1237,
+    "text": "<div style=\"font-size:11px;color:#6B7280;margin-bottom:8px;font-weight:800\">📐 선택 가능한 세부산출근거 항목 (테넌트별 자동 로드)</div>"
+  }
+]

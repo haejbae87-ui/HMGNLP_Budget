@@ -1552,6 +1552,74 @@ function _fbRenderFieldCatalog() {
   ${_fcSubTab === 'fields' ? _fcRenderFields(isPlatform, l2Count) :
     _fcSubTab === 'options' ? _fcRenderOptions(isPlatform) :
     _fcRenderDeps(isPlatform)}
+
+  <!-- 단일 필드 미리보기 팝업 모달 -->
+  <div id="fc-preview-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:16px;width:500px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">
+      <div style="padding:16px 20px;border-bottom:1px solid #F3F4F6;display:flex;justify-content:space-between;align-items:center;background:#FAFAFA">
+        <h3 style="font-size:15px;font-weight:800;margin:0;color:#111827">🔍 필드 미리보기</h3>
+        <button onclick="document.getElementById('fc-preview-modal').style.display='none'" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">✕</button>
+      </div>
+      <div id="fc-preview-body" style="padding:24px;overflow-y:auto;flex:1;background:#fff">
+        <!-- 필드 렌더링 영역 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- L2 필드 추가 팝업 모달 -->
+  <div id="fc-l2-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:16px;width:560px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">
+      <div style="padding:20px 24px;border-bottom:1px solid #F3F4F6;display:flex;justify-content:space-between;align-items:center;background:#FFFBEB">
+        <div>
+          <h3 style="font-size:16px;font-weight:900;margin:0;color:#92400E">📝 L2 확장 필드 생성</h3>
+          <p style="font-size:11px;color:#B45309;margin:4px 0 0">새로운 커스텀 필드(최대 10개)를 생성합니다.</p>
+        </div>
+        <button onclick="document.getElementById('fc-l2-modal').style.display='none'" style="border:none;background:none;font-size:20px;cursor:pointer;color:#D97706">✕</button>
+      </div>
+      <div style="padding:20px 24px;overflow-y:auto;flex:1;background:#fff">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+          <div>
+            <label style="font-size:12px;font-weight:800;color:#374151;display:block;margin-bottom:6px">필드명 *</label>
+            <input id="fc-m-new-name" type="text" placeholder="예: 교육 카테고리" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;background:#F9FAFB">
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:800;color:#374151;display:block;margin-bottom:6px">카테고리</label>
+            <select id="fc-m-new-cat" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;background:#F9FAFB">
+              <!-- 카테고리 옵션들이 스크립트로 주입됨 -->
+            </select>
+          </div>
+        </div>
+        <div style="margin-bottom:16px">
+          <label style="font-size:12px;font-weight:800;color:#374151;display:block;margin-bottom:6px">필드 타입 *</label>
+          <select id="fc-m-new-type" onchange="_fcHandleL2TypeChange()" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;background:#F9FAFB">
+            <option value="text">텍스트 (단답형)</option>
+            <option value="textarea">여러 줄 텍스트 (서술형)</option>
+            <option value="number">숫자</option>
+            <option value="select">셀렉트 (단일 선택)</option>
+            <option value="multi_select">멀티 셀렉트 (다중 선택)</option>
+            <option value="date">날짜 (단일일)</option>
+            <option value="daterange">기간 (시작일~종료일)</option>
+            <option value="file">파일 첨부</option>
+          </select>
+        </div>
+        
+        <!-- 셀렉트/멀티셀렉트 옵션 추가 영역 -->
+        <div id="fc-m-options-area" style="display:none;background:#F4F4F5;padding:16px;border-radius:12px;border:1.5px dashed #D4D4D8">
+          <label style="font-size:12px;font-weight:800;color:#3F3F46;display:block;margin-bottom:8px">선택 옵션 (최소 1개 이상 필수) *</label>
+          <div id="fc-m-options-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
+          <div style="display:flex;gap:8px">
+            <input id="fc-m-opt-label" type="text" placeholder="표시 라벨" style="flex:1;min-width:0;padding:8px 10px;border:1.5px solid #D4D4D8;border-radius:6px;font-size:12px">
+            <input id="fc-m-opt-value" type="text" placeholder="저장값(키)" style="flex:1;min-width:0;padding:8px 10px;border:1.5px solid #D4D4D8;border-radius:6px;font-size:12px;font-family:monospace">
+            <button onclick="_fcAddTempOption()" style="padding:8px 14px;background:#52525B;color:white;border:none;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer">➕ 추가</button>
+          </div>
+        </div>
+      </div>
+      <div style="padding:16px 24px;border-top:1px solid #F3F4F6;background:#FAFAFA;display:flex;justify-content:flex-end;gap:10px">
+        <button onclick="document.getElementById('fc-l2-modal').style.display='none'" style="padding:10px 16px;background:#F1F5F9;border:none;border-radius:8px;font-size:13px;font-weight:800;color:#64748B;cursor:pointer">취소</button>
+        <button onclick="_fcSaveL2Modal()" style="padding:10px 24px;background:#D97706;color:white;border:none;border-radius:8px;font-size:13px;font-weight:900;cursor:pointer">💾 생성하기</button>
+      </div>
+    </div>
+  </div>
 </div>`;
 }
 
@@ -1576,38 +1644,13 @@ function _fcRenderFields(isPlatform, l2Count) {
   const categories = [...new Set(allFields.map(f => f.category))];
 
   // L2 추가 폼
+  // L2 추가 폼 (모달 버튼으로 대체)
   const l2AddForm = `
-  <div style="margin-bottom:20px;padding:16px;background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:12px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <span style="font-size:13px;font-weight:800;color:#92400E">📝 L2 확장 필드 추가 (${l2Count}/${_FB_L2_MAX}개)</span>
-      ${l2Count >= _FB_L2_MAX ? '<span style="font-size:11px;color:#DC2626;font-weight:700">⚠️ 최대 개수 도달</span>' : ''}
-    </div>
-    ${l2Count < _FB_L2_MAX ? `
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end">
-      <div>
-        <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">필드명</label>
-        <input id="fc-new-name" type="text" placeholder="예: 교육 카테고리" style="width:100%;padding:7px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-      </div>
-      <div>
-        <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">필드 타입</label>
-        <select id="fc-new-type" style="width:100%;padding:7px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-          <option value="text">텍스트</option>
-          <option value="textarea">여러 줄 텍스트</option>
-          <option value="number">숫자</option>
-          <option value="select">셀렉트(선택)</option>
-          <option value="date">날짜</option>
-          <option value="file">파일첨부</option>
-        </select>
-      </div>
-      <div>
-        <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">카테고리</label>
-        <select id="fc-new-cat" style="width:100%;padding:7px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-          ${categories.map(c => `<option value="${c}">${c}</option>`).join('')}
-          <option value="커스텀">커스텀</option>
-        </select>
-      </div>
-      <button onclick="_fcAddL2Field()" style="padding:8px 16px;background:#D97706;color:white;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap">+ 추가</button>
-    </div>` : ''}
+  <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+    <button onclick="_fcOpenL2Modal()" ${l2Count >= _FB_L2_MAX ? 'disabled title="최대 필드 수 도달"' : ''}
+        style="display:flex;align-items:center;gap:6px;padding:9px 18px;background:${l2Count >= _FB_L2_MAX ? '#FCD34D' : '#D97706'};color:${l2Count >= _FB_L2_MAX ? '#92400E' : 'white'};border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:${l2Count >= _FB_L2_MAX ? 'not-allowed' : 'pointer'}">
+      + L2 확장 필드 추가 ${l2Count >= _FB_L2_MAX ? '(⚠️ 최대 개수 도달)' : `(${l2Count}/${_FB_L2_MAX})`}
+    </button>
   </div>`;
 
   // 카테고리별 필드 테이블
@@ -1630,6 +1673,7 @@ function _fcRenderFields(isPlatform, l2Count) {
               <th style="text-align:left;padding:8px 12px;font-weight:800;color:#6B7280">canonical_key</th>
               <th style="text-align:center;padding:8px 12px;font-weight:800;color:#6B7280;width:50px">통계용</th>
               <th style="text-align:center;padding:8px 12px;font-weight:800;color:#6B7280;width:50px">잠금</th>
+              <th style="text-align:center;padding:8px 12px;font-weight:800;color:#6B7280;width:50px">미리보기</th>
               ${isPlatform ? '<th style="text-align:center;padding:8px 12px;font-weight:800;color:#6B7280;width:50px">관리</th>' : ''}
             </tr>
           </thead>
@@ -1649,6 +1693,7 @@ function _fcRenderFields(isPlatform, l2Count) {
                 <td style="padding:6px 12px;font-family:monospace;font-size:11px;color:#6B7280">${f.canonicalKey || '-'}</td>
                 <td style="padding:6px 12px;text-align:center">${f.layer === 'L1' && ADVANCED_FIELDS.find(a => a.key === f.key)?.required ? '✅' : '—'}</td>
                 <td style="padding:6px 12px;text-align:center">${isLocked ? '🔒' : '—'}</td>
+                <td style="padding:6px 12px;text-align:center"><button onclick="_fcPreviewField('${f.key}')" style="border:1.5px solid #E5E7EB;background:#fff;color:#374151;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:800;cursor:pointer">🔍 보기</button></td>
                 ${isPlatform ? `<td style="padding:6px 12px;text-align:center">${f.layer === 'L2' ? `<button onclick="_fcDeleteL2('${f.key}','${f.dbId || ''}')" style="border:none;background:#FEF2F2;color:#DC2626;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer">비활성화</button>` : '<span style="color:#D1D5DB;font-size:10px">—</span>'}</td>` : ''}
               </tr>`;
             }).join('')}
@@ -1806,18 +1851,65 @@ function _fcRenderDeps(isPlatform) {
 
 // ━━━ CRUD 함수들 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-// L2 필드 추가
-async function _fcAddL2Field() {
-  const name = document.getElementById('fc-new-name')?.value?.trim();
-  const type = document.getElementById('fc-new-type')?.value || 'text';
-  const cat = document.getElementById('fc-new-cat')?.value || '커스텀';
-  if (!name) { alert('필드명을 입력해주세요.'); return; }
-  if (_fbL2Fields.length >= _FB_L2_MAX) { alert(`L2 필드는 최대 ${_FB_L2_MAX}개까지 생성 가능합니다.`); return; }
+// L2 필드 추가 (모달 오픈)
+window._fcOpenL2Modal = function() {
+  const allFields = _fbAllFields();
+  const categories = [...new Set(allFields.map(f => f.category))];
+  const catHtml = categories.map(c => `<option value="${c}">${c}</option>`).join('') + '<option value="커스텀">커스텀</option>';
+  
+  document.getElementById('fc-m-new-cat').innerHTML = catHtml;
+  document.getElementById('fc-m-new-name').value = '';
+  document.getElementById('fc-m-new-type').value = 'text';
+  window._fcTempOptions = [];
+  _fcRenderTempOptions();
+  _fcHandleL2TypeChange();
+  
+  document.getElementById('fc-l2-modal').style.display = 'flex';
+};
+
+window._fcHandleL2TypeChange = function() {
+  const t = document.getElementById('fc-m-new-type').value;
+  document.getElementById('fc-m-options-area').style.display = (t === 'select' || t === 'multi_select') ? 'block' : 'none';
+};
+
+window._fcTempOptions = [];
+window._fcRenderTempOptions = function() {
+  const el = document.getElementById('fc-m-options-list');
+  if(!el) return;
+  if(!_fcTempOptions.length) {
+    el.innerHTML = '<span style="font-size:11px;color:#A1A1AA">등록된 옵션이 없습니다.</span>';
+    return;
+  }
+  el.innerHTML = _fcTempOptions.map((o,i) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 12px;background:#fff;border:1px solid #D4D4D8;border-radius:6px;font-size:12px">
+      <span><span style="font-weight:800;color:#3F3F46">${o.label}</span> <span style="font-family:monospace;color:#A1A1AA">(${o.value})</span></span>
+      <button onclick="_fcTempOptions.splice(${i},1);_fcRenderTempOptions()" style="background:none;border:none;color:#EF4444;font-size:14px;cursor:pointer">✕</button>
+    </div>
+  `).join('');
+};
+
+window._fcAddTempOption = function() {
+  const l = document.getElementById('fc-m-opt-label').value.trim();
+  const v = document.getElementById('fc-m-opt-value').value.trim() || l.replace(/\s+/g, '_').toLowerCase();
+  if(!l) return alert('라벨을 입력하세요.');
+  _fcTempOptions.push({label:l, value:v});
+  document.getElementById('fc-m-opt-label').value = '';
+  document.getElementById('fc-m-opt-value').value = '';
+  _fcRenderTempOptions();
+};
+
+window._fcSaveL2Modal = async function() {
+  const name = document.getElementById('fc-m-new-name').value.trim();
+  const type = document.getElementById('fc-m-new-type').value;
+  const cat = document.getElementById('fc-m-new-cat').value;
+  if (!name) return alert('필드명을 입력해주세요.');
+  if ((type==='select'||type==='multi_select') && _fcTempOptions.length===0) return alert('셀렉트 타입은 최소 1개 이상의 옵션이 필요합니다.');
+  if (_fbL2Fields.length >= _FB_L2_MAX) return alert(`L2 필드는 최대 ${_FB_L2_MAX}개까지 생성 가능합니다.`);
 
   const canonicalKey = name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9가-힣_]/g, '').toLowerCase();
   const tenantId = boCurrentPersona?.tenantId || 'HMC';
   const fieldId = 'FLD_L2_' + tenantId + '_' + Date.now();
-
+  
   try {
     const sb = typeof _sb === 'function' ? _sb() : null;
     if (sb) {
@@ -1828,17 +1920,47 @@ async function _fcAddL2Field() {
         hint: '', is_reportable: false, is_locked: false, default_required: false,
         sort_order: 100 + _fbL2Fields.length,
       });
+      // 옵션 저장
+      if(type==='select'||type==='multi_select') {
+        const optsToInsert = _fcTempOptions.map((o,i) => ({
+          id: 'OPT_L2_' + Date.now() + '_' + i,
+          field_id: fieldId, layer: 'L2', tenant_id: tenantId,
+          label: o.label, value: o.value, sort_order: i+1, is_locked: false
+        }));
+        await sb.from('field_options').insert(optsToInsert);
+      }
     }
+    
     // 로컬 캐시 갱신
     _fbL2Fields.push({
       key: name, icon: '📝', required: false, scope: 'front',
       category: cat, fieldType: type, hint: '', canonicalKey: canonicalKey,
-      layer: 'L2', dbId: fieldId, options: [], predecessors: []
+      layer: 'L2', dbId: fieldId,
+      options: (type==='select'||type==='multi_select') ? _fcTempOptions.map(o=>({...o, layer:'L2', locked:false})) : [],
+      predecessors: []
     });
-    _fbShowToast(`✅ L2 필드 "${name}" 추가 완료`);
+    
+    _fbShowToast(`✅ L2 필드 "${name}" 생성 완료`);
+    document.getElementById('fc-l2-modal').style.display = 'none';
     _fcSwitchSub('fields');
-  } catch (e) { alert('필드 추가 실패: ' + e.message); }
-}
+  } catch (e) { alert('생성 실패: ' + e.message); }
+};
+
+// 개별 필드 미리보기
+window._fcPreviewField = function(key) {
+  const fld = _fbAllFields().find(f => f.key === key);
+  if(!fld) return;
+  const dummyProp = { key: fld.key, scope: 'front', required: true };
+  const html = `<div style="padding:16px;background:#F9FAFB;border-radius:12px;border:1px solid #E5E7EB">
+      <label style="display:flex;align-items:center;font-size:13px;font-weight:800;color:#374151;margin-bottom:8px">
+        ${fld.icon} ${fld.key} <span style="font-size:11px;color:#EF4444;margin-left:4px">*</span>
+      </label>
+      ${typeof _fbFieldInput === 'function' ? _fbFieldInput(dummyProp, [fld], 'front') : '<span style="color:#d1d5db">렌더링 모듈 없음</span>'}
+      <div style="font-size:10px;color:#9CA3AF;margin-top:8px">${fld.hint || '옵션이 포함된 경우 드롭다운으로 표시됩니다.'}</div>
+    </div>`;
+  document.getElementById('fc-preview-body').innerHTML = html;
+  document.getElementById('fc-preview-modal').style.display = 'flex';
+};
 
 // L2 필드 비활성화
 async function _fcDeleteL2(key, dbId) {

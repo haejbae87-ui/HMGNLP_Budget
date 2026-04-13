@@ -746,16 +746,50 @@ function renderPolicyWizard() {
   } else if (_policyWizardStep === 2) {
     const isNoBudget = !d.budgetLinked;
     const selAcctName = (d.accountCodes || []).map(c => ACCOUNT_MASTER.find(a => a.code === c)?.name || c).join(', ') || '—';
-    const budgetedPatterns = [
-      { v: 'A', icon: '📊', l: '패턴A: 계획→신청→결과', color: '#7C3AED', d: '고통제형. R&D·대규모 집합교육. 사전계획 필수, 예산 가점유 후 실차감.' },
-      { v: 'B', icon: '📝', l: '패턴B: 신청→결과', color: '#1D4ED8', d: '자율신청형. 일반 사외교육 참가. 신청 승인 시 가점유, 결과 후 실차감.' },
-      { v: 'C', icon: '🧾', l: '패턴C: 결과 단독(후정산)', color: '#D97706', d: '선지불 후정산. 개인 카드 결제 후 영수증 첨부. 승인 즉시 예산 차감.' },
+
+    // 전체 5개 패턴 항상 표시 — 예산 여부로 선택 가능 그룹만 분리
+    const allPatterns = [
+      { v: 'A', icon: '📊', l: '패턴A: 계획→신청→결과',   color: '#7C3AED', d: '고통제형. R&D·대규모 집합교육. 사전계획 필수, 예산 가점유 후 실차감.',    budgetOnly: true },
+      { v: 'B', icon: '📝', l: '패턴B: 신청→결과',         color: '#1D4ED8', d: '자율신청형. 일반 사외교육 참가. 신청 승인 시 가점유, 결과 후 실차감.',    budgetOnly: true },
+      { v: 'C', icon: '🧾', l: '패턴C: 결과 단독(후정산)', color: '#D97706', d: '선지불 후정산. 개인 카드 결제 후 영수증 첨부. 승인 즉시 예산 차감.',     budgetOnly: true },
+      { v: 'D', icon: '📋', l: '패턴D: 신청 단독(이력)',   color: '#6B7280', d: '무예산 이력관리. 무료 웨비나·자체세미나. 승인 시 즉시 이력 DB 적재.',   budgetOnly: false },
+      { v: 'E', icon: '✅', l: '패턴E: 신청→결과(이력+결과)', color: '#059669', d: '무예산이지만 결과보고까지 진행. 자비학습 후 결과 제출 필요한 경우.', budgetOnly: false },
     ];
-    const noBudgetPatterns = [
-      { v: 'D', icon: '📋', l: '패턴D: 신청 단독(이력)', color: '#6B7280', d: '무예산 이력관리. 무료 웨비나·자체세미나. 승인 시 즉시 이력 DB 적재.' },
-      { v: 'E', icon: '✅', l: '패턴E: 신청→결과(이력+결과)', color: '#059669', d: '무예산이지만 결과보고까지 진행. 자비학습 후 결과 제출 필요한 경우.' },
-    ];
-    const patterns = isNoBudget ? noBudgetPatterns : budgetedPatterns;
+
+    // 현재 선택값이 허용 범위 밖이면 자동 초기화
+    const allowedSet = isNoBudget ? ['D', 'E'] : ['A', 'B', 'C'];
+    if (d.processPattern && !allowedSet.includes(d.processPattern)) {
+      d.processPattern = '';
+      _policyWizardData.processPattern = '';
+    }
+
+    const renderPatternItem = (o) => {
+      const isAllowed = isNoBudget ? !o.budgetOnly : o.budgetOnly;
+      const isSelected = d.processPattern === o.v;
+      const borderColor = isSelected ? o.color : (isAllowed ? '#E5E7EB' : '#F3F4F6');
+      const bgColor     = isSelected ? o.color + '15' : (isAllowed ? 'white' : '#FAFAFA');
+      const textColor   = isSelected ? o.color : (isAllowed ? '#374151' : '#9CA3AF');
+      const cursor      = isAllowed ? 'pointer' : 'not-allowed';
+      const onclick     = isAllowed ? `onclick="_policyWizardData.processPattern='${o.v}';_setPatternDefaults('${o.v}');renderPolicyWizard()"` : '';
+      const disabledTag = !isAllowed ? `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:${isNoBudget ? '#EFF6FF' : '#F0FDF4'};color:${isNoBudget ? '#1E40AF' : '#065F46'};margin-left:6px">${isNoBudget ? '💳 예산연동 전용' : '📝 무예산 전용'}</span>` : '';
+
+      return `
+      <label style="display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border-radius:10px;
+                    border:2px solid ${borderColor};background:${bgColor};cursor:${cursor};opacity:${isAllowed ? '1' : '0.55'}"
+             ${onclick}>
+        <input type="radio" name="wiz-pattern" value="${o.v}" ${isSelected ? 'checked' : ''} ${!isAllowed ? 'disabled' : ''}
+               style="margin-top:2px;flex-shrink:0">
+        <div>
+          <div style="font-weight:800;font-size:13px;color:${textColor};display:flex;align-items:center;flex-wrap:wrap;gap:4px">
+            ${o.icon} ${o.l}${disabledTag}
+          </div>
+          <div style="font-size:11px;color:${isAllowed ? '#6B7280' : '#B0B8C4'};margin-top:2px">${o.d}</div>
+        </div>
+      </label>`;
+    };
+
+    const budgetGroup   = allPatterns.filter(p =>  p.budgetOnly);
+    const noBudgetGroup = allPatterns.filter(p => !p.budgetOnly);
 
     stepContent = `
 <div style="display:grid;gap:16px">
@@ -767,17 +801,28 @@ function renderPolicyWizard() {
   </div>
   <div>
     <label class="bo-label">프로세스 패턴 <span style="color:#EF4444">*</span></label>
+
+    <!-- 예산 사용 그룹 -->
+    <div style="font-size:11px;font-weight:800;color:${isNoBudget ? '#9CA3AF' : '#1E40AF'};margin-bottom:6px;margin-top:4px;display:flex;align-items:center;gap:6px">
+      💳 예산 사용 계정 전용 ${isNoBudget ? '<span style="font-weight:400">(이 계정에서는 선택 불가)</span>' : ''}
+    </div>
+    <div style="display:grid;gap:8px;margin-bottom:14px">
+      ${budgetGroup.map(renderPatternItem).join('')}
+    </div>
+
+    <!-- 구분선 -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <div style="flex:1;height:1px;background:#E5E7EB"></div>
+      <span style="font-size:10px;color:#9CA3AF;font-weight:700">OR</span>
+      <div style="flex:1;height:1px;background:#E5E7EB"></div>
+    </div>
+
+    <!-- 무예산 그룹 -->
+    <div style="font-size:11px;font-weight:800;color:${!isNoBudget ? '#9CA3AF' : '#065F46'};margin-bottom:6px;display:flex;align-items:center;gap:6px">
+      📝 무예산 계정 전용 ${!isNoBudget ? '<span style="font-weight:400">(이 계정에서는 선택 불가)</span>' : ''}
+    </div>
     <div style="display:grid;gap:8px">
-      ${patterns.map(o => `
-      <label style="display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border-radius:10px;
-                    border:2px solid ${d.processPattern === o.v ? o.color : '#E5E7EB'};background:${d.processPattern === o.v ? o.color + '15' : 'white'};cursor:pointer"
-             onclick="_policyWizardData.processPattern='${o.v}';_setPatternDefaults('${o.v}');renderPolicyWizard()">
-        <input type="radio" name="wiz-pattern" value="${o.v}" ${d.processPattern === o.v ? 'checked' : ''} style="margin-top:2px;flex-shrink:0">
-        <div>
-          <div style="font-weight:800;font-size:13px;color:${d.processPattern === o.v ? o.color : '#374151'}">${o.icon} ${o.l}</div>
-          <div style="font-size:11px;color:#6B7280;margin-top:2px">${o.d}</div>
-        </div>
-      </label>`).join('')}
+      ${noBudgetGroup.map(renderPatternItem).join('')}
     </div>
   </div>
 </div>`;

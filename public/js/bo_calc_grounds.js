@@ -112,7 +112,63 @@ async function renderCalcGrounds() {
     );
   })();
 
-  const filterBar = '';
+  const filterBar = `
+  <div style="background:white;border:1.5px solid #E5E7EB;border-radius:14px;padding:16px 20px;margin-bottom:20px;display:flex;flex-wrap:wrap;align-items:center;gap:12px">
+    ${isPlatform ? `
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">회사</span>
+      <select onchange="_cgFilterTenant=this.value;_cgFilterGroup='';_cgFilterAccount='';renderCalcGrounds()"
+        style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:140px">
+        <option value="">전체 회사</option>
+        ${TENANTS_LIST.map(t => `<option value="${t.id}" ${activeTenantId === t.id ? 'selected' : ''}>${t.name}</option>`).join('')}
+      </select>
+    </div>
+    <div style="width:1px;height:28px;background:#E5E7EB"></div>
+    ` : (isTenant ? `
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">회사</span>
+      <div style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid #BFDBFE;border-radius:10px;background:#EFF6FF;min-width:120px">
+        <span style="font-size:12px">🏢</span>
+        <span style="font-size:13px;font-weight:800;color:#1D4ED8">${tenantName}</span>
+      </div>
+    </div>
+    <div style="width:1px;height:28px;background:#E5E7EB"></div>
+    ` : '')}
+
+    ${(isBudgetOp || isBudgetAdmin) ? `
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">가상교육조직 템플릿</span>
+      <div style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid #C4B5FD;border-radius:10px;background:#F5F3FF;min-width:140px">
+        <span style="font-size:12px">🔒</span>
+        <span style="font-size:13px;font-weight:800;color:#7C3AED">${vorgName}</span>
+      </div>
+    </div>` : `
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">가상교육조직 템플릿</span>
+      <select onchange="_cgFilterGroup=this.value;_cgFilterAccount='';renderCalcGrounds()"
+        style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:160px">
+        <option value="">전체 조직</option>
+        ${availVorgs.map(g => `<option value="${g.id}" ${pbVorgId === g.id ? 'selected' : ''}>${g.name}</option>`).join('')}
+      </select>
+    </div>`}
+    <div style="width:1px;height:28px;background:#E5E7EB"></div>
+
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">예산계정</span>
+      <select onchange="_cgFilterAccount=this.value;renderCalcGrounds()"
+        style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:160px">
+        <option value="">전체 계정</option>
+        ${availAccounts.map(a => `<option value="${a.code}" ${_cgFilterAccount === a.code ? 'selected' : ''}>${a.name}</option>`).join('')}
+      </select>
+    </div>
+
+    <button onclick="renderCalcGrounds()"
+      style="padding:9px 20px;background:linear-gradient(135deg,#1D4ED8,#2563EB);color:white;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(37,99,235,.35);white-space:nowrap;margin-left:auto">
+      ● 조회
+    </button>
+    <button onclick="_cgFilterTenant='';_cgFilterGroup='';_cgFilterAccount='';renderCalcGrounds()"
+      style="padding:9px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:12px;font-weight:700;background:white;cursor:pointer;color:#6B7280;white-space:nowrap">초기화</button>
+  </div>`;
 
   const el = document.getElementById('bo-content');
   el.innerHTML = `
@@ -125,7 +181,6 @@ async function renderCalcGrounds() {
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
         <span style="background:#059669;color:#fff;font-size:9px;font-weight:900;padding:3px 8px;border-radius:6px">세부산출근거</span>
         <h1 class="bo-page-title" style="margin:0">세부 산출 근거 관리</h1>
-        <span style="font-size:13px;color:#6B7280">— ${tenantName}</span>
       </div>
       <p class="bo-page-sub">테넌트 → 가상교육조직 → 예산계정 단위로 세부 산출근거 항목을 독립적으로 구성합니다.</p>
     </div>

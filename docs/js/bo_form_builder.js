@@ -63,51 +63,121 @@ const FORM_EDU_TYPES = {
   ],
 };
 
-// 확장된 필드 라이브러리 - 입력 주체(scope) + 필드 타입(fieldType) 포함
+// 확장된 필드 라이브러리 - 입력 주체(scope) + 필드 타입(fieldType) + 옵션/의존성 포함
 // fieldType: text | textarea | date | daterange | number | user-search | file | rating | select | calc-grounds | budget-linked | system
+// options: select/multi_select 타입일 때 선택값 배열 [{ label, value }]
+// predecessors: 이 필드 추가 시 반드시 선행되어야 하는 필드 key 배열
 var ADVANCED_FIELDS = [
   // 공통 기본 필드
-  { key: '교육목적', icon: '🎯', required: true, scope: 'front', category: '기본정보', fieldType: 'textarea', hint: '학습 목표 및 기대효과' },
-  { key: '교육기간', icon: '📅', required: true, scope: 'front', category: '기본정보', fieldType: 'daterange', hint: '시작일~종료일' },
-  { key: '교육기관', icon: '🏫', required: true, scope: 'front', category: '기본정보', fieldType: 'text', hint: '교육 제공 기관명' },
-  { key: '과정명', icon: '📚', required: true, scope: 'front', category: '기본정보', fieldType: 'text', hint: '교육과정/행사명' },
-  { key: '장소', icon: '📍', required: false, scope: 'front', category: '기본정보', fieldType: 'text', hint: '교육 장소' },
-  { key: '기대효과', icon: '✨', required: false, scope: 'front', category: '기본정보', fieldType: 'textarea', hint: '참가 후 기대되는 효과' },
+  { key: '교육목적', icon: '🎯', required: true, scope: 'front', category: '기본정보', fieldType: 'textarea', hint: '학습 목표 및 기대효과', canonicalKey: 'course_purpose', layer: 'L1' },
+  { key: '교육기간', icon: '📅', required: true, scope: 'front', category: '기본정보', fieldType: 'daterange', hint: '시작일~종료일', canonicalKey: 'edu_period', layer: 'L1' },
+  { key: '교육기관', icon: '🏫', required: true, scope: 'front', category: '기본정보', fieldType: 'text', hint: '교육 제공 기관명', canonicalKey: 'edu_institution', layer: 'L1' },
+  { key: '과정명', icon: '📚', required: true, scope: 'front', category: '기본정보', fieldType: 'text', hint: '교육과정/행사명', canonicalKey: 'course_name', layer: 'L1' },
+  { key: '장소', icon: '📍', required: false, scope: 'front', category: '기본정보', fieldType: 'text', hint: '교육 장소', canonicalKey: 'location', layer: 'L1' },
+  { key: '기대효과', icon: '✨', required: false, scope: 'front', category: '기본정보', fieldType: 'textarea', hint: '참가 후 기대되는 효과', canonicalKey: 'expected_effect', layer: 'L1' },
+  { key: '필수구분', icon: '📋', required: false, scope: 'front', category: '기본정보', fieldType: 'select', hint: '교육 필수 구분 선택', canonicalKey: 'requirement_type', layer: 'L1',
+    options: [
+      { label: '법정 자격유지', value: 'legal_cert' },
+      { label: '법정 필수교육', value: 'legal_must' },
+      { label: '핵심 Capability', value: 'core_capability' },
+      { label: '상생협력', value: 'cooperation' },
+    ]
+  },
   // 비용 관련
-  { key: '예상비용', icon: '💰', required: true, scope: 'front', category: '비용정보', fieldType: 'budget-linked', hint: '예상 총 비용 — 조직 예산 잔액 연동', budget: true },
-  { key: '교육비', icon: '💳', required: true, scope: 'front', category: '비용정보', fieldType: 'number', hint: '수강료/등록비 (원 단위)' },
-  { key: '참가비', icon: '💲', required: false, scope: 'front', category: '비용정보', fieldType: 'number', hint: '행사 참가비 (원 단위)' },
-  { key: '강사료', icon: '👨‍🏫', required: false, scope: 'front', category: '비용정보', fieldType: 'number', hint: '외부 강사 강의료', trigger: '강사이력서' },
-  { key: '대관비', icon: '🏛️', required: false, scope: 'front', category: '비용정보', fieldType: 'number', hint: '장소 대관 비용' },
-  { key: '식대/용차', icon: '🍽️', required: false, scope: 'front', category: '비용정보', fieldType: 'number', hint: '식비 및 운송비' },
-  { key: '실지출액', icon: '🧾', required: false, scope: 'back', category: '비용정보', fieldType: 'number', hint: '승인자 확정 실지출 인정액' },
-  { key: '세부산출근거', icon: '📐', required: false, scope: 'front', category: '비용정보', fieldType: 'calc-grounds', hint: '세부산출근거 항목 선택 (테넌트별 자동 로드)' },
+  { key: '예상비용', icon: '💰', required: true, scope: 'front', category: '비용정보', fieldType: 'budget-linked', hint: '예상 총 비용 — 조직 예산 잔액 연동', budget: true, canonicalKey: 'cost_total', layer: 'L1' },
+  { key: '교육비', icon: '💳', required: true, scope: 'front', category: '비용정보', fieldType: 'number', hint: '수강료/등록비 (원 단위)', canonicalKey: 'tuition', layer: 'L1' },
+  { key: '참가비', icon: '💲', required: false, scope: 'front', category: '비용정보', fieldType: 'number', hint: '행사 참가비 (원 단위)', canonicalKey: 'participation_fee', layer: 'L1' },
+  { key: '강사료', icon: '👨‍🏫', required: false, scope: 'front', category: '비용정보', fieldType: 'number', hint: '외부 강사 강의료', canonicalKey: 'instructor_fee', layer: 'L1' },
+  { key: '대관비', icon: '🏛️', required: false, scope: 'front', category: '비용정보', fieldType: 'number', hint: '장소 대관 비용', canonicalKey: 'venue_fee', layer: 'L1' },
+  { key: '식대/용차', icon: '🍽️', required: false, scope: 'front', category: '비용정보', fieldType: 'number', hint: '식비 및 운송비', canonicalKey: 'meal_transport', layer: 'L1' },
+  { key: '실지출액', icon: '🧾', required: false, scope: 'back', category: '비용정보', fieldType: 'number', hint: '승인자 확정 실지출 인정액', canonicalKey: 'actual_cost', layer: 'L1' },
+  { key: '세부산출근거', icon: '📐', required: false, scope: 'front', category: '비용정보', fieldType: 'calc-grounds', hint: '세부산출근거 항목 선택 (테넌트별 자동 로드)', canonicalKey: 'calc_grounds', layer: 'L1' },
   // 인원 관련
-  { key: '수강인원', icon: '👥', required: false, scope: 'front', category: '인원정보', fieldType: 'number', hint: '예상 수강 인원 (명)' },
-  { key: '정원', icon: '🪑', required: false, scope: 'front', category: '인원정보', fieldType: 'number', hint: '최대 정원 (명)' },
-  { key: '참여자명단', icon: '📋', required: false, scope: 'front', category: '인원정보', fieldType: 'user-search', hint: '참여자 검색 및 명단 구성' },
-  { key: '강사정보', icon: '🎤', required: false, scope: 'front', category: '인원정보', fieldType: 'user-search', hint: '강사 검색 — 내부 사용자 조회' },
+  { key: '수강인원', icon: '👥', required: false, scope: 'front', category: '인원정보', fieldType: 'number', hint: '예상 수강 인원 (명)', canonicalKey: 'attendee_count', layer: 'L1' },
+  { key: '정원', icon: '🪑', required: false, scope: 'front', category: '인원정보', fieldType: 'number', hint: '최대 정원 (명)', canonicalKey: 'capacity', layer: 'L1' },
+  { key: '참여자명단', icon: '📋', required: false, scope: 'front', category: '인원정보', fieldType: 'user-search', hint: '참여자 검색 및 명단 구성', canonicalKey: 'participant_list', layer: 'L1' },
+  { key: '강사정보', icon: '🎤', required: false, scope: 'front', category: '인원정보', fieldType: 'user-search', hint: '강사 검색 — 내부 사용자 조회', canonicalKey: 'instructor_info', layer: 'L1' },
   // 첨부 서류
-  { key: '첨부파일', icon: '📎', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '관련 서류 첨부' },
-  { key: '강사이력서', icon: '📄', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '외부강사 이력서 (강사료 선택 시 자동 활성화)' },
-  { key: '보안서약서', icon: '🔒', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '보안 서약서 서명' },
-  { key: '영수증', icon: '🧾', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '결제 영수증/증빙' },
-  { key: '수료증', icon: '🎓', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '수료증 업로드' },
-  { key: '대관확정서', icon: '📜', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '장소 대관 확정서' },
-  { key: '납품확인서', icon: '✅', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '물품 납품 확인서' },
+  { key: '첨부파일', icon: '📎', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '관련 서류 첨부', canonicalKey: 'attachment', layer: 'L1' },
+  { key: '강사이력서', icon: '📄', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '외부강사 이력서 (강사료 선택 시 자동 활성화)', canonicalKey: 'instructor_resume', layer: 'L1', predecessors: ['강사료'] },
+  { key: '보안서약서', icon: '🔒', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '보안 서약서 서명', canonicalKey: 'security_pledge', layer: 'L1' },
+  { key: '영수증', icon: '🧾', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '결제 영수증/증빙', canonicalKey: 'receipt', layer: 'L1', predecessors: ['예상비용'] },
+  { key: '수료증', icon: '🎓', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '수료증 업로드', canonicalKey: 'certificate', layer: 'L1', predecessors: ['수강인원'] },
+  { key: '대관확정서', icon: '📜', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '장소 대관 확정서', canonicalKey: 'venue_confirm', layer: 'L1', predecessors: ['대관비'] },
+  { key: '납품확인서', icon: '✅', required: false, scope: 'front', category: '첨부서류', fieldType: 'file', hint: '물품 납품 확인서', canonicalKey: 'delivery_confirm', layer: 'L1' },
   // 결과 관련
-  { key: '수료생명단', icon: '📝', required: false, scope: 'front', category: '결과정보', fieldType: 'user-search', hint: '최종 수료자 명단' },
-  { key: '학습만족도', icon: '⭐', required: false, scope: 'front', category: '결과정보', fieldType: 'rating', hint: '만족도 조사 (5점 척도)' },
-  { key: '교육결과요약', icon: '📊', required: false, scope: 'front', category: '결과정보', fieldType: 'textarea', hint: '교육 결과 요약 보고' },
+  { key: '수료생명단', icon: '📝', required: false, scope: 'front', category: '결과정보', fieldType: 'user-search', hint: '최종 수료자 명단', canonicalKey: 'completion_list', layer: 'L1' },
+  { key: '학습만족도', icon: '⭐', required: false, scope: 'front', category: '결과정보', fieldType: 'rating', hint: '만족도 조사 (5점 척도)', canonicalKey: 'satisfaction', layer: 'L1' },
+  { key: '교육결과요약', icon: '📊', required: false, scope: 'front', category: '결과정보', fieldType: 'textarea', hint: '교육 결과 요약 보고', canonicalKey: 'result_summary', layer: 'L1' },
   // 백오피스 전용 (승인자)
-  { key: 'ERP코드', icon: '🔗', required: false, scope: 'back', category: '관리(승인자)', fieldType: 'text', hint: 'ERP 연동 비용 코드' },
-  { key: '검토의견', icon: '💬', required: false, scope: 'back', category: '관리(승인자)', fieldType: 'textarea', hint: '승인자 검토 및 의견' },
-  { key: '관리자비고', icon: '📌', required: false, scope: 'back', category: '관리(승인자)', fieldType: 'textarea', hint: '관리자 내부 메모' },
+  { key: 'ERP코드', icon: '🔗', required: false, scope: 'back', category: '관리(승인자)', fieldType: 'text', hint: 'ERP 연동 비용 코드', canonicalKey: 'erp_code', layer: 'L1' },
+  { key: '검토의견', icon: '💬', required: false, scope: 'back', category: '관리(승인자)', fieldType: 'textarea', hint: '승인자 검토 및 의견', canonicalKey: 'review_comment', layer: 'L1' },
+  { key: '관리자비고', icon: '📌', required: false, scope: 'back', category: '관리(승인자)', fieldType: 'textarea', hint: '관리자 내부 메모', canonicalKey: 'admin_note', layer: 'L1' },
   // 연결/시스템 필드
-  { key: '계획서연결', icon: '🔗', required: false, scope: 'system', category: '시스템', fieldType: 'system', hint: '연결된 교육계획 양식 자동 불러오기' },
-  { key: '예산계정', icon: '💼', required: false, scope: 'system', category: '시스템', fieldType: 'budget-linked', hint: '예산 계정 잔액 실시간 연동', budget: true },
-  { key: '과정-차수연결', icon: '📺', required: false, scope: 'front', category: '시스템', fieldType: 'course-session', hint: '채널→과정→차수 선택 (다과정·다차수 부분선택 가능)' },
+  { key: '계획서연결', icon: '🔗', required: false, scope: 'system', category: '시스템', fieldType: 'system', hint: '연결된 교육계획 양식 자동 불러오기', canonicalKey: 'plan_link', layer: 'L1' },
+  { key: '예산계정', icon: '💼', required: false, scope: 'system', category: '시스템', fieldType: 'budget-linked', hint: '예산 계정 잔액 실시간 연동', budget: true, canonicalKey: 'budget_account', layer: 'L1' },
+  { key: '과정-차수연결', icon: '📺', required: false, scope: 'front', category: '시스템', fieldType: 'course-session', hint: '채널→과정→차수 선택 (다과정·다차수 부분선택 가능)', canonicalKey: 'course_session', layer: 'L1' },
 ];
+
+// ── L2 필드 캐시 (DB에서 로드) ─────────────────────────────────────────────────
+var _fbL2Fields = [];  // DB에서 로드된 L2 확장 필드 캐시
+var _fbFieldOptions = {};  // { fieldKey: [{ label, value }] } DB 옵션 캐시
+var _fbFieldDeps = [];  // DB 의존성 규칙 캐시
+const _FB_L2_MAX = 10;  // L2 필드 최대 개수 제한
+
+// ── DB에서 L2 필드 + 옵션 + 의존성 로드 ──────────────────────────────────────
+async function _fbLoadFieldCatalog() {
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (!sb) return;
+    const tenantId = boCurrentPersona?.tenantId || 'HMC';
+    // L2 필드 로드
+    const { data: l2 } = await sb.from('form_field_catalog').select('*')
+      .eq('layer', 'L2').eq('tenant_id', tenantId).eq('active', true);
+    if (l2) {
+      _fbL2Fields = l2.map(f => ({
+        key: f.display_name, icon: f.icon || '📝', required: f.default_required,
+        scope: f.scope, category: f.category, fieldType: f.field_type,
+        hint: f.hint, canonicalKey: f.canonical_key, layer: 'L2',
+        dbId: f.id, options: [], predecessors: []
+      }));
+    }
+    // 옵션값 로드 (L1 + L2)
+    const { data: opts } = await sb.from('field_options').select('*')
+      .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`).eq('active', true)
+      .order('sort_order');
+    if (opts) {
+      _fbFieldOptions = {};
+      opts.forEach(o => {
+        // field_id → display_name 매핑
+        const catField = [...ADVANCED_FIELDS, ..._fbL2Fields].find(f =>
+          f.canonicalKey && ('FLD_' + f.canonicalKey) === o.field_id);
+        if (catField) {
+          if (!_fbFieldOptions[catField.key]) _fbFieldOptions[catField.key] = [];
+          _fbFieldOptions[catField.key].push({ label: o.label, value: o.value, layer: o.layer, locked: o.is_locked });
+        }
+      });
+      // ADVANCED_FIELDS의 options와 병합
+      ADVANCED_FIELDS.forEach(f => {
+        if (_fbFieldOptions[f.key]) {
+          f.options = _fbFieldOptions[f.key];
+        }
+      });
+      _fbL2Fields.forEach(f => {
+        if (_fbFieldOptions[f.key]) f.options = _fbFieldOptions[f.key];
+      });
+    }
+    // 의존성 규칙 로드
+    const { data: deps } = await sb.from('field_dependencies').select('*')
+      .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`);
+    if (deps) _fbFieldDeps = deps;
+  } catch (e) { console.warn('[FieldCatalog] 로드 실패:', e.message); }
+}
+
+// ── 전체 필드 목록 (L1 + L2) ────────────────────────────────────────────────
+function _fbAllFields() {
+  return [...ADVANCED_FIELDS, ..._fbL2Fields];
+}
 
 // 서비스 매핑 데이터 (테넌트별 관리)
 let SERVICE_MAPPINGS = [
@@ -130,7 +200,7 @@ let SERVICE_MAPPINGS = [
 // 현재 탭 상태
 let _fbCurrentTab = 'library'; // 'library' | 'library' | 'mapping'
 let _fbEditId = null;
-let _fbTempFields = []; // { key, scope:'front'|'back', order }
+let _fbTempFields = []; // { key, scope:'front'|'back', required: boolean, order }
 let _fbBuilderMode = 'create'; // 'create' | 'edit'
 
 // ─── 역할별 필터 상태 ─────────────────────────────────────────────────────────
@@ -656,10 +726,16 @@ let _fbDragIdx = -1; // DnD 상태
 function fbOpenBuilderModal(formId) {
   _fbEditId = formId || null;
   const form = formId ? FORM_MASTER.find(f => f.id === formId) : null;
-  _fbTempFields = form ? (form.fields || []).map(f =>
-    typeof f === 'object' ? { ...f } : { key: f, scope: 'front' }
-  ) : [];
-  document.getElementById('bo-content').innerHTML = _fbEditorPage(form);
+  _fbTempFields = form ? (form.fields || []).map(f => {
+    if (typeof f === 'object') return { key: f.key, scope: f.scope || 'front', required: f.required === true };
+    return { key: f, scope: 'front', required: false };
+  }) : [];
+  // DB에서 필드 카탈로그 로드 (비동기)
+  _fbLoadFieldCatalog().then(() => {
+    document.getElementById('bo-content').innerHTML = _fbEditorPage(form);
+  }).catch(() => {
+    document.getElementById('bo-content').innerHTML = _fbEditorPage(form);
+  });
 }
 
 function fbCloseEditor() { renderFormBuilderMenu(); }
@@ -678,8 +754,9 @@ function _fbEditorPage(form) {
   // 사용대상: 기존 form.purpose에서 유추하거나 form.targetUser에서 읽음
   const targetUser = form?.targetUser || (purposeVal ? (FORM_PURPOSE_TYPES[purposeVal]?.targetUser || '') : '');
 
-  // 카테고리별 필드 그룹
-  const categories = [...new Set(ADVANCED_FIELDS.map(f => f.category))];
+  // 카테고리별 필드 그룹 (L1 + L2 통합)
+  const allFields = _fbAllFields();
+  const categories = [...new Set(allFields.map(f => f.category))];
 
   const titleText = form ? `'${form.name}' 편집` : '새 양식 만들기';
   return `
@@ -802,7 +879,7 @@ ${(_fbGroupId || _fbAccountCode) ? `
     <div style="padding:16px;border-right:1px solid #E5E7EB;overflow-y:auto;max-height:520px">
       <div style="font-size:10px;color:#6B7280;font-weight:800;margin-bottom:8px">사용 가능 필드 (카테고리별)</div>
       ${categories.map(cat => {
-        const catFields = ADVANCED_FIELDS.filter(f => f.category === cat);
+        const catFields = allFields.filter(f => f.category === cat);
         const catColor = cat.includes('승인') ? '#9D174D' : cat === '시스템' ? '#0369A1' : '#374151';
         return `<div style="margin-bottom:12px">
           <div style="font-size:9px;font-weight:900;color:${catColor};text-transform:uppercase;margin-bottom:6px;letter-spacing:.05em">${cat}</div>
@@ -812,11 +889,13 @@ ${(_fbGroupId || _fbAccountCode) ? `
           const scopeStyle = f.scope === 'back' ? 'border:1.5px dashed #FBB6CE;color:#9D174D;background:#FDF2F8' :
             f.scope === 'system' ? 'border:1.5px dashed #BFDBFE;color:#0369A1;background:#EFF6FF' :
               'border:1.5px solid #E5E7EB;color:#374151;background:white';
+          const layerBadge = f.layer === 'L2' ? '<span style="font-size:7px;vertical-align:super;color:#D97706;font-weight:900">L2</span>' : '';
+          const selectBadge = (f.fieldType === 'select' || f.fieldType === 'multi_select') ? '<span style="font-size:7px;vertical-align:super;color:#7C3AED">▼</span>' : '';
           return `<span onclick="fbToggleField('${f.key}')" id="fbf-${f.key}"
-                title="${f.hint || ''} ${f.budget ? '💰예산연동' : ''}"
+                title="${f.hint || ''} ${f.budget ? '💰예산연동' : ''} ${f.fieldType === 'select' ? '(셀렉트)' : ''} ${f.predecessors?.length ? '⚡선행:'+f.predecessors.join(',') : ''}"
                 class="fb-field-chip ${isSelected ? 'selected' : ''}"
                 style="${scopeStyle};${isSelected ? 'opacity:.45;text-decoration:line-through;' : ''}">
-                ${f.icon} ${f.key}${f.required ? '<sup style=color:#EF4444>*</sup>' : ''}
+                ${f.icon} ${f.key}${f.required ? '<sup style=color:#EF4444>*</sup>' : ''}${layerBadge}${selectBadge}
                 ${f.budget ? '<span style="font-size:7px;vertical-align:super;color:#D97706">💰</span>' : ''}
               </span>`;
         }).join('')}
@@ -827,7 +906,7 @@ ${(_fbGroupId || _fbAccountCode) ? `
     <!-- 우: 선택된 필드 목록 -->
     <div style="padding:16px;overflow-y:auto;max-height:520px;background:#FAFAFA">
       <div style="font-size:11px;color:#6B7280;font-weight:800;margin-bottom:10px">
-        선택된 필드 (${_fbTempFields.length}개) <span style="font-size:9px;font-weight:400;color:#9CA3AF">⠿ 드래그하여 순서 변경</span>
+        선택된 필드 (${_fbTempFields.length}개) <span style="font-size:9px;font-weight:400;color:#9CA3AF">⠿ 드래그하여 순서 변경 | 필수/선택 토글</span>
       </div>
       <div id="fb-preview">${_fbPreviewHTML()}</div>
     </div>
@@ -838,19 +917,28 @@ ${(_fbGroupId || _fbAccountCode) ? `
 
 function _fbPreviewHTML() {
   if (!_fbTempFields.length) return '<div style="text-align:center;color:#D1D5DB;padding:40px;font-size:13px">← 왼쪽에서 필드를 클릭하여 추가</div>';
+  const allFields = _fbAllFields();
   return _fbTempFields.map((f, i) => {
     const key = typeof f === 'object' ? f.key : f;
     const scope = typeof f === 'object' ? f.scope : 'front';
-    const meta = ADVANCED_FIELDS.find(a => a.key === key) || { icon: '📝' };
+    const isReq = typeof f === 'object' ? (f.required === true) : false;
+    const meta = allFields.find(a => a.key === key) || { icon: '📝' };
     const scopeLabel = scope === 'back' ? '🔒 백오피스' : scope === 'system' ? '⚙️ 시스템' : '🔓 프론트';
     const scopeColor = scope === 'back' ? '#9D174D' : scope === 'system' ? '#0369A1' : '#374151';
+    const reqColor = isReq ? '#DC2626' : '#9CA3AF';
+    const reqLabel = isReq ? '필수' : '선택';
+    const reqBg = isReq ? '#FEF2F2' : '#F9FAFB';
+    const typeTag = (meta.fieldType === 'select' || meta.fieldType === 'multi_select') ? `<span style="font-size:8px;color:#7C3AED;background:#F5F3FF;padding:1px 5px;border-radius:3px;margin-left:2px">▼${(meta.options||[]).length}개</span>` : '';
+    const layerTag = meta.layer === 'L2' ? '<span style="font-size:8px;color:#D97706;background:#FFFBEB;padding:1px 5px;border-radius:3px;margin-left:2px">L2</span>' : '';
+    const depTag = meta.predecessors?.length ? '<span style="font-size:8px;color:#059669;background:#ECFDF5;padding:1px 5px;border-radius:3px;margin-left:2px">⚡</span>' : '';
     return `<div draggable="true"
       ondragstart="_fbDragStart(${i},event)" ondragover="_fbDragOver(${i},event)" ondrop="_fbDrop(${i},event)" ondragend="_fbDragEnd()"
-      style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fff;border-radius:10px;margin-bottom:6px;border:1.5px solid #E5E7EB;cursor:grab;transition:all .15s;user-select:none"
+      style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:#fff;border-radius:10px;margin-bottom:6px;border:1.5px solid #E5E7EB;cursor:grab;transition:all .15s;user-select:none"
       onmouseover="this.style.borderColor='#93C5FD'" onmouseout="this.style.borderColor='#E5E7EB'">
       <span style="color:#9CA3AF;font-size:14px;cursor:grab;line-height:1" title="드래그하여 순서 변경">⠿</span>
       <span style="color:#9CA3AF;font-weight:700;font-size:11px;min-width:18px">${i + 1}</span>
-      <span style="font-size:13px;font-weight:700;flex:1;color:#111827">${meta.icon} ${key}</span>
+      <span style="font-size:13px;font-weight:700;flex:1;color:#111827">${meta.icon} ${key}${typeTag}${layerTag}${depTag}</span>
+      <span onclick="event.stopPropagation();fbToggleRequired(${i})" style="font-size:9px;font-weight:800;color:${reqColor};background:${reqBg};padding:2px 8px;border-radius:5px;cursor:pointer;white-space:nowrap;border:1px solid ${reqColor}30" title="클릭하여 필수/선택 전환">${reqLabel}</span>
       <span style="font-size:9px;font-weight:700;color:${scopeColor};background:${scopeColor}15;padding:2px 8px;border-radius:5px;cursor:pointer;white-space:nowrap"
         onclick="event.stopPropagation();fbCycleScope(${i})" title="클릭하여 입력 주체 변경">${scopeLabel}</span>
       <span onclick="event.stopPropagation();fbRemoveField('${key}')" style="cursor:pointer;color:#EF4444;font-size:16px;line-height:1;font-weight:700" title="삭제">×</span>
@@ -893,24 +981,83 @@ function _fbDragEnd() {
 
 function fbToggleField(key) {
   const idx = _fbTempFields.findIndex(f => (typeof f === 'object' ? f.key : f) === key);
-  if (idx > -1) { _fbTempFields.splice(idx, 1); }
-  else {
-    const meta = ADVANCED_FIELDS.find(a => a.key === key);
-    _fbTempFields.push({ key, scope: meta?.scope || 'front' });
-    // 조건부 로직: 강사료 추가 시 강사이력서 자동 추가 힌트
-    if (key === '강사료' && !_fbTempFields.find(f => (typeof f === 'object' ? f.key : f) === '강사이력서')) {
-      setTimeout(() => {
-        if (confirm('강사료 필드 추가 시 [강사이력서] 첨부 필드도 자동으로 추가할까요? (조건부 로직)')) {
-          _fbTempFields.push({ key: '강사이력서', scope: 'front' });
-          _fbRefreshPreview();
-        }
-      }, 100);
+  if (idx > -1) {
+    // 삭제 시: 이 필드를 선행 조건으로 가지는 후행 필드가 남아 있으면 차단
+    const blocked = _fbCheckDeleteBlocked(key);
+    if (blocked) {
+      alert(`[의존성 규칙] "${key}" 필드는 삭제할 수 없습니다.\n다음 필드가 선행 조건으로 의존하고 있습니다:\n${blocked.join(', ')}\n\n먼저 해당 필드를 제거해 주세요.`);
+      return;
     }
+    _fbTempFields.splice(idx, 1);
+  } else {
+    const allFields = _fbAllFields();
+    const meta = allFields.find(a => a.key === key);
+    _fbTempFields.push({ key, scope: meta?.scope || 'front', required: meta?.required || false });
+    // 의존성 규칙: 선행 필드 자동 추가
+    _fbAutoAddPredecessors(key);
   }
   _fbRefreshPreview();
 }
 
+// ── 필수/선택 토글 ───────────────────────────────────────────────────────────────
+function fbToggleRequired(idx) {
+  if (typeof _fbTempFields[idx] === 'object') {
+    _fbTempFields[idx].required = !_fbTempFields[idx].required;
+  } else {
+    _fbTempFields[idx] = { key: _fbTempFields[idx], scope: 'front', required: true };
+  }
+  _fbRefreshPreview();
+}
+
+// ── 의존성: 선행 필드 자동 추가 ───────────────────────────────────────────────────
+function _fbAutoAddPredecessors(key) {
+  const allFields = _fbAllFields();
+  const meta = allFields.find(a => a.key === key);
+  const preds = meta?.predecessors || [];
+  const added = [];
+  preds.forEach(predKey => {
+    const already = _fbTempFields.some(tf => (typeof tf === 'object' ? tf.key : tf) === predKey);
+    if (!already) {
+      const predMeta = allFields.find(a => a.key === predKey);
+      _fbTempFields.push({ key: predKey, scope: predMeta?.scope || 'front', required: predMeta?.required || false });
+      added.push(predKey);
+    }
+  });
+  if (added.length > 0) {
+    _fbShowToast(`ⓘ "${key}"의 선행 필드 [${added.join(', ')}]가 자동 추가되었습니다.`);
+  }
+}
+
+// ── 의존성: 삭제 차단 검사 ────────────────────────────────────────────────────────
+function _fbCheckDeleteBlocked(key) {
+  const allFields = _fbAllFields();
+  const dependents = [];
+  _fbTempFields.forEach(tf => {
+    const tfKey = typeof tf === 'object' ? tf.key : tf;
+    const meta = allFields.find(a => a.key === tfKey);
+    if (meta?.predecessors?.includes(key)) {
+      dependents.push(tfKey);
+    }
+  });
+  return dependents.length > 0 ? dependents : null;
+}
+
+// ── 토스트 알림 ──────────────────────────────────────────────────────────────────
+function _fbShowToast(msg) {
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#1F2937;color:white;padding:12px 24px;border-radius:10px;font-size:13px;font-weight:600;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,0.3);animation:fadeInUp .3s ease';
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity .3s'; setTimeout(() => toast.remove(), 300); }, 3000);
+}
+
 function fbRemoveField(key) {
+  // 삭제 차단 검사
+  const blocked = _fbCheckDeleteBlocked(key);
+  if (blocked) {
+    alert(`[의존성 규칙] "${key}" 필드는 삭제할 수 없습니다.\n다음 필드가 선행 조건으로 의존하고 있습니다:\n${blocked.join(', ')}\n\n먼저 해당 필드를 제거해 주세요.`);
+    return;
+  }
   const idx = _fbTempFields.findIndex(f => (typeof f === 'object' ? f.key : f) === key);
   if (idx > -1) _fbTempFields.splice(idx, 1);
   _fbRefreshPreview();
@@ -947,8 +1094,8 @@ function fbCycleScope(idx) {
 function _fbRefreshPreview() {
   const el = document.getElementById('fb-preview');
   if (el) el.innerHTML = _fbPreviewHTML();
-  // 팔레트 selected 상태 갱신
-  ADVANCED_FIELDS.forEach(f => {
+  // 팔레트 selected 상태 갱신 (L1 + L2 통합)
+  _fbAllFields().forEach(f => {
     const chip = document.getElementById(`fbf-${f.key}`);
     if (chip) {
       const isSelected = _fbTempFields.some(tf => (typeof tf === 'object' ? tf.key : tf) === f.key);

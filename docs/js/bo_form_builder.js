@@ -123,6 +123,7 @@ var ADVANCED_FIELDS = [
 var _fbL2Fields = [];  // DB에서 로드된 L2 확장 필드 캐시
 var _fbFieldOptions = {};  // { fieldKey: [{ label, value }] } DB 옵션 캐시
 var _fbFieldDeps = [];  // DB 의존성 규칙 캐시
+var _fbL1Overrides = {};  // { canonicalKey: { display_name, hint, required, scope, is_hidden } } 테넌트 L1 오버라이드 캐시
 const _FB_L2_MAX = 10;  // L2 필드 최대 개수 제한
 
 // ── DB에서 L2 필드 + 옵션 + 의존성 로드 ──────────────────────────────────────
@@ -171,6 +172,23 @@ async function _fbLoadFieldCatalog() {
     const { data: deps } = await sb.from('field_dependencies').select('*')
       .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`);
     if (deps) _fbFieldDeps = deps;
+
+    // L1 오버라이드 로드 및 ADVANCED_FIELDS에 병합
+    const { data: overrides } = await sb.from('tenant_l1_overrides').select('*').eq('tenant_id', tenantId);
+    if (overrides) {
+      _fbL1Overrides = {};
+      overrides.forEach(o => { _fbL1Overrides[o.canonical_key] = o; });
+      // ADVANCED_FIELDS에 오버라이드 실시간 반영
+      ADVANCED_FIELDS.forEach(f => {
+        const ov = _fbL1Overrides[f.canonicalKey];
+        if (!ov) return;
+        if (ov.display_name) f.key = ov.display_name;
+        if (ov.hint != null) f.hint = ov.hint;
+        if (ov.default_required != null) f.required = ov.default_required;
+        if (ov.scope) f.scope = ov.scope;
+        f._hidden = ov.is_hidden || false;
+      });
+    }
   } catch (e) { console.warn('[FieldCatalog] 로드 실패:', e.message); }
 }
 
@@ -1566,6 +1584,63 @@ function _fbRenderFieldCatalog() {
     </div>
   </div>
 
+  <!-- L1 필드 수정 모달 -->
+  <div id="fc-l1-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:16px;width:520px;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">
+      <div style="padding:20px 24px;border-bottom:1px solid #E5E7EB;display:flex;justify-content:space-between;align-items:center;background:#F5F3FF">
+        <div>
+          <h3 style="font-size:16px;font-weight:900;margin:0;color:#5B21B6">✏️ L1 표준 필드 조정</h3>
+          <p style="font-size:11px;color:#7C3AED;margin:4px 0 0">표시명·힌트·필수여부·입력주체만 수정 가능합니다. (필드 타입·키는 보호됨)</p>
+        </div>
+        <button onclick="document.getElementById('fc-l1-edit-modal').style.display='none'" style="border:none;background:none;font-size:20px;cursor:pointer;color:#7C3AED">✕</button>
+      </div>
+      <div style="padding:20px 24px">
+        <input id="fc-l1-canonical-key" type="hidden">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+          <div style="grid-column:1/-1">
+            <label style="font-size:12px;font-weight:800;color:#374151;display:block;margin-bottom:5px">표시명 (빈칸 = 코드 기본값 사용)</label>
+            <input id="fc-l1-display-name" type="text" placeholder="예: 교육 기간" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;background:#FAFAFA">
+          </div>
+          <div style="grid-column:1/-1">
+            <label style="font-size:12px;font-weight:800;color:#374151;display:block;margin-bottom:5px">힌트 메시지</label>
+            <input id="fc-l1-hint" type="text" placeholder="사용자에게 표시될 안내 문구" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;background:#FAFAFA">
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:800;color:#374151;display:block;margin-bottom:5px">필수 여부</label>
+            <select id="fc-l1-required" style="width:100%;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;background:#FAFAFA">
+              <option value="">코드 기본값</option>
+              <option value="true">필수 ✅</option>
+              <option value="false">선택 —</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:800;color:#374151;display:block;margin-bottom:5px">입력 주체 (Scope)</label>
+            <select id="fc-l1-scope" style="width:100%;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;background:#FAFAFA">
+              <option value="">코드 기본값</option>
+              <option value="front">🔓 프론트 (학습자)</option>
+              <option value="back">🔒 백오피스 (승인자)</option>
+              <option value="system">⚙️ 시스템</option>
+            </select>
+          </div>
+          <div style="grid-column:1/-1">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:700;color:#374151">
+              <input id="fc-l1-hidden" type="checkbox" style="width:16px;height:16px;accent-color:#DC2626">
+              이 필드를 카탈로그에서 숨기기 (비활성화)
+            </label>
+            <p style="font-size:11px;color:#9CA3AF;margin:4px 0 0">체크 시 양식 에디터에서 선택 불가 상태가 됩니다.</p>
+          </div>
+        </div>
+      </div>
+      <div style="padding:14px 24px;border-top:1px solid #F3F4F6;background:#FAFAFA;display:flex;justify-content:space-between;align-items:center">
+        <button onclick="_fcResetL1Override()" style="padding:8px 14px;background:#FEF2F2;color:#DC2626;border:1.5px solid #FECACA;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🔄 초기화 (코드 기본값 복원)</button>
+        <div style="display:flex;gap:10px">
+          <button onclick="document.getElementById('fc-l1-edit-modal').style.display='none'" style="padding:10px 16px;background:#F1F5F9;border:none;border-radius:8px;font-size:13px;font-weight:800;color:#64748B;cursor:pointer">취소</button>
+          <button onclick="_fcSaveL1Override()" style="padding:10px 24px;background:#7C3AED;color:white;border:none;border-radius:8px;font-size:13px;font-weight:900;cursor:pointer">💾 저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- L2 필드 추가 팝업 모달 -->
   <div id="fc-l2-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
     <div style="background:#fff;border-radius:16px;width:560px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">
@@ -1674,7 +1749,7 @@ function _fcRenderFields(isPlatform, l2Count) {
               <th style="text-align:center;padding:8px 12px;font-weight:800;color:#6B7280;width:50px">통계용</th>
               <th style="text-align:center;padding:8px 12px;font-weight:800;color:#6B7280;width:50px">잠금</th>
               <th style="text-align:center;padding:8px 12px;font-weight:800;color:#6B7280;width:50px">미리보기</th>
-              ${isPlatform ? '<th style="text-align:center;padding:8px 12px;font-weight:800;color:#6B7280;width:50px">관리</th>' : ''}
+              ${isPlatform ? '<th style="text-align:center;padding:8px 12px;font-weight:800;color:#6B7280;width:80px">관리</th>' : ''}
             </tr>
           </thead>
           <tbody>
@@ -1694,7 +1769,10 @@ function _fcRenderFields(isPlatform, l2Count) {
                 <td style="padding:6px 12px;text-align:center">${f.layer === 'L1' && ADVANCED_FIELDS.find(a => a.key === f.key)?.required ? '✅' : '—'}</td>
                 <td style="padding:6px 12px;text-align:center">${isLocked ? '🔒' : '—'}</td>
                 <td style="padding:6px 12px;text-align:center"><button onclick="_fcPreviewField('${f.key}')" style="border:1.5px solid #E5E7EB;background:#fff;color:#374151;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:800;cursor:pointer">🔍 보기</button></td>
-                ${isPlatform ? `<td style="padding:6px 12px;text-align:center">${f.layer === 'L2' ? `<button onclick="_fcDeleteL2('${f.key}','${f.dbId || ''}')" style="border:none;background:#FEF2F2;color:#DC2626;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer">비활성화</button>` : '<span style="color:#D1D5DB;font-size:10px">—</span>'}</td>` : ''}
+                ${isPlatform ? `<td style="padding:6px 12px;text-align:center">${f.layer === 'L2'
+                  ? `<button onclick="_fcDeleteL2('${f.key}','${f.dbId || ''}')" style="border:none;background:#FEF2F2;color:#DC2626;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer">비활성화</button>`
+                  : `<button onclick="_fcOpenL1EditModal('${f.canonicalKey}')" style="border:1.5px solid #7C3AED;background:#F5F3FF;color:#7C3AED;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer">✏️ 수정</button>`
+                }</td>` : ''}
               </tr>`;
             }).join('')}
           </tbody>
@@ -2081,3 +2159,102 @@ async function _fcDeleteDep(depId) {
     _fcSwitchSub('deps');
   } catch (e) { alert('삭제 실패: ' + e.message); }
 }
+
+// ━━━ L1 표준 필드 오버라이드 관리 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// L1 수정 모달 열기
+window._fcOpenL1EditModal = function(canonicalKey) {
+  const fld = ADVANCED_FIELDS.find(f => f.canonicalKey === canonicalKey);
+  if (!fld) return alert('필드를 찾을 수 없습니다.');
+  const ov = _fbL1Overrides[canonicalKey] || {};
+
+  document.getElementById('fc-l1-canonical-key').value = canonicalKey;
+  document.getElementById('fc-l1-display-name').value = ov.display_name || '';
+  document.getElementById('fc-l1-hint').value = ov.hint || '';
+  document.getElementById('fc-l1-required').value = ov.default_required != null ? String(ov.default_required) : '';
+  document.getElementById('fc-l1-scope').value = ov.scope || '';
+  document.getElementById('fc-l1-hidden').checked = ov.is_hidden || false;
+
+  // 현재 코드 기본값을 플레이스홀더로 표시
+  document.getElementById('fc-l1-display-name').placeholder = `코드 기본값: ${fld.key}`;
+  document.getElementById('fc-l1-hint').placeholder = `코드 기본값: ${fld.hint || '없음'}`;
+
+  document.getElementById('fc-l1-edit-modal').style.display = 'flex';
+};
+
+// L1 오버라이드 저장
+window._fcSaveL1Override = async function() {
+  const canonicalKey = document.getElementById('fc-l1-canonical-key').value;
+  const displayName = document.getElementById('fc-l1-display-name').value.trim();
+  const hint = document.getElementById('fc-l1-hint').value.trim();
+  const reqVal = document.getElementById('fc-l1-required').value;
+  const scope = document.getElementById('fc-l1-scope').value;
+  const isHidden = document.getElementById('fc-l1-hidden').checked;
+
+  const tenantId = boCurrentPersona?.tenantId || 'HMC';
+  const payload = {
+    tenant_id: tenantId,
+    canonical_key: canonicalKey,
+    display_name: displayName || null,
+    hint: hint || null,
+    default_required: reqVal === '' ? null : reqVal === 'true',
+    scope: scope || null,
+    is_hidden: isHidden,
+    updated_at: new Date().toISOString(),
+    updated_by: boCurrentPersona?.userId || 'system',
+  };
+
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (sb) {
+      // UPSERT: (tenant_id, canonical_key) unique constraint 활용
+      await sb.from('tenant_l1_overrides').upsert(payload, { onConflict: 'tenant_id,canonical_key' });
+    }
+
+    // 로컬 캐시 갱신
+    _fbL1Overrides[canonicalKey] = { ...(_fbL1Overrides[canonicalKey] || {}), ...payload };
+
+    // ADVANCED_FIELDS 런타임 반영
+    const fld = ADVANCED_FIELDS.find(f => f.canonicalKey === canonicalKey);
+    if (fld) {
+      if (displayName) fld._displayNameOverride = displayName;
+      if (hint) fld.hint = hint;
+      if (reqVal !== '') fld.required = reqVal === 'true';
+      if (scope) fld.scope = scope;
+      fld._hidden = isHidden;
+    }
+
+    _fbShowToast(`✅ L1 필드 (${canonicalKey}) 조정 저장 완료`);
+    document.getElementById('fc-l1-edit-modal').style.display = 'none';
+    _fcSwitchSub('fields');
+  } catch (e) { alert('저장 실패: ' + e.message); }
+};
+
+// L1 오버라이드 초기화 (코드 기본값 복원)
+window._fcResetL1Override = async function() {
+  const canonicalKey = document.getElementById('fc-l1-canonical-key').value;
+  if (!confirm(`"${canonicalKey}" 필드의 모든 조정을 초기화하고 코드 기본값으로 복원할까요?`)) return;
+
+  const tenantId = boCurrentPersona?.tenantId || 'HMC';
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (sb) {
+      await sb.from('tenant_l1_overrides').delete()
+        .eq('tenant_id', tenantId).eq('canonical_key', canonicalKey);
+    }
+
+    // 캐시 제거
+    delete _fbL1Overrides[canonicalKey];
+
+    // ADVANCED_FIELDS 원복: 초기화 후 페이지 리로드로 코드 기본값 적용
+    const fld = ADVANCED_FIELDS.find(f => f.canonicalKey === canonicalKey);
+    if (fld) {
+      delete fld._displayNameOverride;
+      delete fld._hidden;
+    }
+
+    _fbShowToast(`🔄 "${canonicalKey}" 필드 초기화 완료`);
+    document.getElementById('fc-l1-edit-modal').style.display = 'none';
+    _fcSwitchSub('fields');
+  } catch (e) { alert('초기화 실패: ' + e.message); }
+};

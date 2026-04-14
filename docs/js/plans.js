@@ -1091,7 +1091,11 @@ function planNext() {
       let tpl = null;
       if (matched && typeof getFoFormTemplate === 'function') {
         // eduType 전달하여 교육유형별 양식 정확 매칭
-        tpl = await getFoFormTemplate(matched, 'plan', eduType);
+        // ★ FO eduType 코드(elearning) → DB edu_type 한글(이러닝) 변환
+        const eduTypeLabel = (typeof EDU_TYPE_LABELS !== 'undefined' && eduType)
+          ? (EDU_TYPE_LABELS[eduType] || eduType) : eduType;
+        console.log('[planNext] 매칭정책:', matched?.name, '| eduType:', eduType, '→ label:', eduTypeLabel, '| stage_form_ids:', JSON.stringify(matched?.stage_form_ids?.plan));
+        tpl = await getFoFormTemplate(matched, 'plan', eduTypeLabel);
       }
       planState.formTemplate = tpl || null;
       planState.formTemplateLoading = false;

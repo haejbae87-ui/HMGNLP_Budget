@@ -1981,7 +1981,10 @@ function applyNext() {
     (async () => {
       let tpl = null;
       if (matched && typeof getFoFormTemplate === 'function') {
-        tpl = await getFoFormTemplate(matched, 'apply', eduType); // ★ eduType 전달
+        // ★ FO eduType 코드(elearning) → DB edu_type 한글(이러닝) 변환
+        const eduTypeLabel = (typeof EDU_TYPE_LABELS !== 'undefined' && eduType)
+          ? (EDU_TYPE_LABELS[eduType] || eduType) : eduType;
+        tpl = await getFoFormTemplate(matched, 'apply', eduTypeLabel); // ★ eduType 한글로 전달
       }
       s.formTemplate = tpl || null;
       s.formTemplateLoading = false;

@@ -338,6 +338,7 @@ const _KEY_MAP = {
     '식대/용차': 'mealTransportFee',
     '실지출액': 'actualCost',
     '세부산출근거': 'calcGrounds_render',
+    '교육대상': 'targetAudience',
     '수강인원': 'headcount',
     '정원': 'capacity',
     '참여자명단': 'participantList',

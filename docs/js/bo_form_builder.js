@@ -93,6 +93,18 @@ var ADVANCED_FIELDS = [
   { key: '실지출액', icon: '🧾', required: false, scope: 'back', category: '비용정보', fieldType: 'number', hint: '승인자 확정 실지출 인정액', canonicalKey: 'actual_cost', layer: 'L1' },
   { key: '세부산출근거', icon: '📐', required: false, scope: 'front', category: '비용정보', fieldType: 'calc-grounds', hint: '세부산출근거 항목 선택 (테넌트별 자동 로드)', canonicalKey: 'calc_grounds', layer: 'L1' },
   // 인원 관련
+  { key: '교육대상', icon: '🎯', required: false, scope: 'front', category: '인원정보', fieldType: 'select', hint: '주요 교육 대상 직군 선택', canonicalKey: 'target_audience', layer: 'L1',
+    options: [
+      { label: '해당사항없음', value: '해당사항없음' },
+      { label: '일반/연구/법무직', value: '일반/연구/법무직' },
+      { label: '직군혼합', value: '직군혼합' },
+      { label: '임원', value: '임원' },
+      { label: '기술직', value: '기술직' },
+      { label: '정비직', value: '정비직' },
+      { label: '영업직', value: '영업직' },
+      { label: '직원 외', value: '직원 외' },
+    ]
+  },
   { key: '수강인원', icon: '👥', required: false, scope: 'front', category: '인원정보', fieldType: 'number', hint: '예상 수강 인원 (명)', canonicalKey: 'attendee_count', layer: 'L1' },
   { key: '정원', icon: '🪑', required: false, scope: 'front', category: '인원정보', fieldType: 'number', hint: '최대 정원 (명)', canonicalKey: 'capacity', layer: 'L1' },
   { key: '참여자명단', icon: '📋', required: false, scope: 'front', category: '인원정보', fieldType: 'user-search', hint: '참여자 검색 및 명단 구성', canonicalKey: 'participant_list', layer: 'L1' },

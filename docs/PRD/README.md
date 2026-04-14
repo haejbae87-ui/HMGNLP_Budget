@@ -14,4 +14,5 @@
 | 6 | 크로스 테넌트 총괄부서 | [cross_tenant_linked_teams.md](cross_tenant_linked_teams.md) | ✅ 구현 완료 | v1.0 |
 | 7 | 교육양식 필드 거버넌스 | [form_field_governance.md](form_field_governance.md) | ✅ 완료 | v1.0 |
 | 8 | 양식 배포 분리 및 버전 관리 | [form_deploy_workflow.md](form_deploy_workflow.md) | ✅ 완료 | v1.0 |
+| 9 | 세부산출근거 VOrg 단위 관리 | [PRD_calc_grounds_vorg_management.md](PRD_calc_grounds_vorg_management.md) | 🟡 설계 검토 | v1.0 |
 

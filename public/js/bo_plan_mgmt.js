@@ -371,6 +371,9 @@ function _renderBoPlanDetail(el, plan) {
         </table>
       </div>` : ''}
 
+      <!-- 🔧 관리자 입력 필드 (back + provide) -->
+      <div id="bo-admin-fields-panel" style="padding:0 28px 24px"></div>
+
       <!-- 액션 -->
       <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6;flex-wrap:wrap">
         <button onclick="_boPlanDetailView=null;renderBoPlanMgmt()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">← 목록으로</button>
@@ -389,6 +392,162 @@ function _renderBoPlanDetail(el, plan) {
       </div>
     </div>
   </div>`;
+
+  // 관리자 필드 패널 비동기 렌더링
+  setTimeout(() => _renderBoAdminFieldsPanel(plan, 'plans'), 100);
+}
+
+// ━━━ 관리자 입력 필드 패널 (back + provide) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function _renderBoAdminFieldsPanel(record, tableName) {
+  const panel = document.getElementById('bo-admin-fields-panel');
+  if (!panel) return;
+
+  // 양식 템플릿 로드
+  const formId = record.form_template_id;
+  let formFields = [];
+  if (formId) {
+    const sb = typeof getSB === 'function' ? getSB() : null;
+    if (sb) {
+      const { data } = await sb.from('form_templates').select('fields').eq('id', formId).maybeSingle();
+      if (data?.fields) formFields = data.fields;
+    }
+  }
+
+  // back + provide scope 필드만 추출
+  const adminFields = formFields
+    .map(f => typeof f === 'object' ? f : { key: f, scope: 'front' })
+    .filter(f => f.scope === 'back' || f.scope === 'provide');
+
+  if (adminFields.length === 0) {
+    panel.innerHTML = '';
+    return;
+  }
+
+  // 기존 저장값 로드
+  const detail = record.detail || {};
+  const provideData = detail._provide || {};
+  const backData = detail._back || {};
+
+  // ADVANCED_FIELDS 참조 (bo_form_builder.js에서 정의)
+  const allDefs = typeof ADVANCED_FIELDS !== 'undefined' ? ADVANCED_FIELDS : [];
+
+  const _esc = v => String(v || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  let html = `
+    <div style="border:2px solid #DBEAFE;border-radius:14px;overflow:hidden;margin-top:8px">
+      <div style="padding:14px 20px;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);border-bottom:1.5px solid #DBEAFE;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <h3 style="margin:0;font-size:14px;font-weight:900;color:#1E40AF">🔧 관리자 입력 필드</h3>
+          <p style="margin:2px 0 0;font-size:11px;color:#6B7280">back(BO전용) 및 provide(BO제공→FO읽기전용) 필드를 입력합니다</p>
+        </div>
+        <button onclick="_saveBoAdminFields('${record.id}','${tableName}')"
+          style="padding:8px 20px;border-radius:10px;border:none;background:#1D4ED8;color:white;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(29,78,216,.2)">
+          💾 저장
+        </button>
+      </div>
+      <div style="padding:20px;display:flex;flex-direction:column;gap:16px">`;
+
+  adminFields.forEach(fld => {
+    const def = allDefs.find(d => d.key === fld.key) || {};
+    const scopeNs = fld.scope === 'provide' ? provideData : backData;
+    const stateKey = _toBoAdminKey(fld.key);
+    const val = scopeNs[stateKey] ?? '';
+    const icon = def.icon || '📝';
+    const hint = def.hint || '';
+    const ft = def.fieldType || 'text';
+    const scopeLabel = fld.scope === 'provide'
+      ? '<span style="font-size:9px;font-weight:800;color:#1D4ED8;background:#DBEAFE;padding:2px 8px;border-radius:4px">📢 BO제공→FO</span>'
+      : '<span style="font-size:9px;font-weight:800;color:#7C3AED;background:#F5F3FF;padding:2px 8px;border-radius:4px">🔒 BO전용</span>';
+    const reqMark = def.required ? '<span style="color:#EF4444"> *</span>' : '';
+
+    let inputHtml = '';
+    const inputId = `bo-af-${stateKey}`;
+    const baseStyle = 'width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;background:#FAFAFA;transition:border-color .15s';
+
+    if (ft === 'textarea') {
+      inputHtml = `<textarea id="${inputId}" rows="3" placeholder="${_esc(hint)}" style="${baseStyle};resize:vertical">${_esc(val)}</textarea>`;
+    } else if (ft === 'select' && def.options?.length) {
+      inputHtml = `<select id="${inputId}" style="${baseStyle}">
+        <option value="">선택하세요</option>
+        ${def.options.map(o => `<option value="${_esc(o.value)}" ${val === o.value ? 'selected' : ''}>${_esc(o.label)}</option>`).join('')}
+      </select>`;
+    } else if (ft === 'number') {
+      inputHtml = `<input id="${inputId}" type="number" value="${_esc(val)}" placeholder="0" style="${baseStyle}"/>`;
+    } else {
+      inputHtml = `<input id="${inputId}" type="text" value="${_esc(val)}" placeholder="${_esc(hint || fld.key)}" style="${baseStyle}"/>`;
+    }
+
+    html += `
+      <div data-scope="${fld.scope}" data-key="${stateKey}">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          ${scopeLabel}
+          <label style="font-size:12px;font-weight:800;color:#374151">${icon} ${fld.key}${reqMark}</label>
+        </div>
+        ${inputHtml}
+        ${hint ? `<div style="font-size:11px;color:#9CA3AF;margin-top:4px">${hint}</div>` : ''}
+      </div>`;
+  });
+
+  html += `</div></div>`;
+  panel.innerHTML = html;
+}
+
+// ━━━ 관리자 필드 저장 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function _saveBoAdminFields(recordId, tableName) {
+  const panel = document.getElementById('bo-admin-fields-panel');
+  if (!panel) return;
+
+  const inputs = panel.querySelectorAll('[data-scope]');
+  const provideUpdate = {};
+  const backUpdate = {};
+
+  inputs.forEach(wrapper => {
+    const scope = wrapper.dataset.scope;
+    const key = wrapper.dataset.key;
+    const input = wrapper.querySelector('input, textarea, select');
+    if (!input) return;
+    const val = input.value || '';
+    if (scope === 'provide') provideUpdate[key] = val;
+    else if (scope === 'back') backUpdate[key] = val;
+  });
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 필요'); return; }
+
+  try {
+    // 기존 detail 조회
+    const { data: row } = await sb.from(tableName).select('detail').eq('id', recordId).maybeSingle();
+    const detail = row?.detail || {};
+
+    // _provide, _back 네임스페이스에 병합
+    detail._provide = { ...(detail._provide || {}), ...provideUpdate };
+    detail._back = { ...(detail._back || {}), ...backUpdate };
+
+    // DB 업데이트
+    const { error } = await sb.from(tableName).update({ detail }).eq('id', recordId);
+    if (error) throw error;
+
+    // 메모리 캐시도 갱신
+    const cached = (_boPlanMgmtData || []).find(p => p.id === recordId);
+    if (cached) cached.detail = detail;
+    if (_boPlanDetailView?.id === recordId) _boPlanDetailView.detail = detail;
+
+    alert('✅ 관리자 필드 저장 완료');
+  } catch (err) {
+    alert('❌ 저장 실패: ' + err.message);
+  }
+}
+
+// ━━━ 키 매핑 헬퍼 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function _toBoAdminKey(key) {
+  const map = {
+    '안내사항': 'announcement', '준비물': 'preparation',
+    '확정 교육장소': 'confirmedVenue', '확정 강사': 'confirmedInstructor',
+    '합격/수료 여부': 'passStatus', '관리자 피드백': 'managerFeedback',
+    'ERP코드': 'erpCode', '검토의견': 'reviewComment',
+    '관리자비고': 'adminNote', '실지출액': 'actualCost',
+  };
+  return map[key] || key.replace(/\s+/g, '_');
 }
 
 async function boPlanApprove(id) {

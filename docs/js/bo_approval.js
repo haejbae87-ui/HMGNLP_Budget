@@ -139,6 +139,10 @@ function renderMyOperations() {
         }
       }
 
+      const safeId = String(a.id || '').replace(/'/g, "\\'");
+      const tableName = isPlan ? 'plans' : 'applications';
+      const panelId = `bo-ops-af-${safeId}`;
+
       return `
 <div class="bo-card" style="padding:20px;${!isPending ? 'opacity:0.65' : ''}">
   <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
@@ -162,13 +166,20 @@ function renderMyOperations() {
     </div>
   </div>
   ${isPending ? `
-  <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
-    <button onclick="myOpsApprove('${a.id}')" class="bo-btn-accent">
-      ${isResult ? '✅ 정산 승인 (실차감)' : isPlan ? '✅ 계획 승인' : '✅ 신청 승인'}
+  <div style="display:flex;gap:8px;margin-top:14px;justify-content:space-between;align-items:center">
+    <button onclick="event.stopPropagation();_toggleOpsAdminFields('${safeId}','${tableName}')"
+      style="padding:6px 14px;border-radius:8px;border:1.5px solid #BFDBFE;background:#EFF6FF;font-size:11px;font-weight:800;color:#1D4ED8;cursor:pointer">
+      🔧 관리자 필드
     </button>
-    <button onclick="myOpsReject('${a.id}')" style="border:1.5px solid #EF4444;color:#EF4444;background:#fff;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">반려</button>
-    ${!isResult && !isPlan ? `<button onclick="myOpsCancel('${a.id}')" style="border:1.5px solid #9CA3AF;color:#9CA3AF;background:#fff;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">환원</button>` : ''}
+    <div style="display:flex;gap:8px">
+      <button onclick="myOpsApprove('${a.id}')" class="bo-btn-accent">
+        ${isResult ? '✅ 정산 승인 (실차감)' : isPlan ? '✅ 계획 승인' : '✅ 신청 승인'}
+      </button>
+      <button onclick="myOpsReject('${a.id}')" style="border:1.5px solid #EF4444;color:#EF4444;background:#fff;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">반려</button>
+      ${!isResult && !isPlan ? `<button onclick="myOpsCancel('${a.id}')" style="border:1.5px solid #9CA3AF;color:#9CA3AF;background:#fff;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">환원</button>` : ''}
+    </div>
   </div>` : `<div style="margin-top:10px;font-size:12px;font-weight:700;color:#9CA3AF;text-align:right">처리 완료</div>`}
+  <div id="${panelId}" style="margin-top:12px;display:none"></div>
 </div>`;
     }
 
@@ -284,4 +295,145 @@ async function myOpsCancel(id) {
     }
   }
   renderMyOperations();
+}
+
+// ━━━ 결재카드 관리자 필드 인라인 토글 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function _toggleOpsAdminFields(recordId, tableName) {
+  const panel = document.getElementById(`bo-ops-af-${recordId}`);
+  if (!panel) return;
+  if (panel.style.display !== 'none') {
+    panel.style.display = 'none';
+    panel.innerHTML = '';
+    return;
+  }
+  panel.style.display = 'block';
+  panel.innerHTML = '<div style="text-align:center;padding:16px;font-size:12px;color:#9CA3AF">로딩중...</div>';
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { panel.innerHTML = '<div style="color:#EF4444;font-size:12px;padding:12px">DB 연결 필요</div>'; return; }
+
+  // 1) 레코드 detail + form_template_id 가져오기
+  const { data: rec } = await sb.from(tableName).select('detail, form_template_id').eq('id', recordId).maybeSingle();
+  if (!rec) { panel.innerHTML = '<div style="color:#9CA3AF;font-size:12px;padding:12px">레코드를 찾을 수 없습니다</div>'; return; }
+
+  // 2) 양식 필드 가져오기
+  let formFields = [];
+  if (rec.form_template_id) {
+    const { data: ft } = await sb.from('form_templates').select('fields').eq('id', rec.form_template_id).maybeSingle();
+    if (ft?.fields) formFields = ft.fields;
+  }
+
+  const adminFields = formFields
+    .map(f => typeof f === 'object' ? f : { key: f, scope: 'front' })
+    .filter(f => f.scope === 'back' || f.scope === 'provide');
+
+  if (adminFields.length === 0) {
+    panel.innerHTML = '<div style="padding:12px 16px;background:#F9FAFB;border-radius:8px;font-size:12px;color:#9CA3AF;border:1px dashed #E5E7EB">이 양식에 관리자 입력 필드(back/provide)가 없습니다.</div>';
+    return;
+  }
+
+  _renderOpsAdminPanel(panel, adminFields, rec.detail || {}, recordId, tableName);
+}
+
+function _renderOpsAdminPanel(panel, adminFields, detail, recordId, tableName) {
+  const allDefs = typeof ADVANCED_FIELDS !== 'undefined' ? ADVANCED_FIELDS : [];
+  const provideData = detail._provide || {};
+  const backData = detail._back || {};
+  const _esc = v => String(v || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  let html = `<div style="border:2px solid #DBEAFE;border-radius:12px;overflow:hidden">
+    <div style="padding:12px 16px;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);border-bottom:1.5px solid #DBEAFE;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:12px;font-weight:900;color:#1E40AF">🔧 관리자 입력 필드</span>
+      <button onclick="_saveOpsAdminFields('${recordId}','${tableName}')"
+        style="padding:6px 16px;border-radius:8px;border:none;background:#1D4ED8;color:white;font-size:11px;font-weight:900;cursor:pointer">
+        💾 저장
+      </button>
+    </div>
+    <div id="bo-ops-fields-${recordId}" style="padding:14px 16px;display:flex;flex-direction:column;gap:14px">`;
+
+  adminFields.forEach(fld => {
+    const def = allDefs.find(d => d.key === fld.key) || {};
+    const scopeNs = fld.scope === 'provide' ? provideData : backData;
+    const stateKey = _toOpsAdminKey(fld.key);
+    const val = scopeNs[stateKey] ?? '';
+    const icon = def.icon || '📝';
+    const hint = def.hint || '';
+    const ft = def.fieldType || 'text';
+    const scopeBadge = fld.scope === 'provide'
+      ? '<span style="font-size:8px;font-weight:800;color:#1D4ED8;background:#DBEAFE;padding:1px 6px;border-radius:3px">📢 BO→FO</span>'
+      : '<span style="font-size:8px;font-weight:800;color:#7C3AED;background:#F5F3FF;padding:1px 6px;border-radius:3px">🔒 BO전용</span>';
+    const baseStyle = 'width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;background:#FAFAFA';
+
+    let inputHtml = '';
+    if (ft === 'textarea') {
+      inputHtml = `<textarea data-scope="${fld.scope}" data-key="${stateKey}" rows="2" placeholder="${_esc(hint)}" style="${baseStyle};resize:vertical">${_esc(val)}</textarea>`;
+    } else if (ft === 'select' && def.options?.length) {
+      inputHtml = `<select data-scope="${fld.scope}" data-key="${stateKey}" style="${baseStyle}">
+        <option value="">선택</option>
+        ${def.options.map(o => `<option value="${_esc(o.value)}" ${val === o.value ? 'selected' : ''}>${_esc(o.label)}</option>`).join('')}
+      </select>`;
+    } else if (ft === 'number') {
+      inputHtml = `<input data-scope="${fld.scope}" data-key="${stateKey}" type="number" value="${_esc(val)}" placeholder="0" style="${baseStyle}"/>`;
+    } else {
+      inputHtml = `<input data-scope="${fld.scope}" data-key="${stateKey}" type="text" value="${_esc(val)}" placeholder="${_esc(hint || fld.key)}" style="${baseStyle}"/>`;
+    }
+
+    html += `<div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        ${scopeBadge}
+        <span style="font-size:11px;font-weight:800;color:#374151">${icon} ${fld.key}</span>
+      </div>
+      ${inputHtml}
+    </div>`;
+  });
+
+  html += `</div></div>`;
+  panel.innerHTML = html;
+}
+
+async function _saveOpsAdminFields(recordId, tableName) {
+  const container = document.getElementById(`bo-ops-fields-${recordId}`);
+  if (!container) return;
+
+  const provideUpdate = {};
+  const backUpdate = {};
+  container.querySelectorAll('[data-scope]').forEach(input => {
+    const scope = input.dataset.scope;
+    const key = input.dataset.key;
+    const val = input.value || '';
+    if (scope === 'provide') provideUpdate[key] = val;
+    else if (scope === 'back') backUpdate[key] = val;
+  });
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 필요'); return; }
+
+  try {
+    const { data: row } = await sb.from(tableName).select('detail').eq('id', recordId).maybeSingle();
+    const detail = row?.detail || {};
+    detail._provide = { ...(detail._provide || {}), ...provideUpdate };
+    detail._back = { ...(detail._back || {}), ...backUpdate };
+
+    const { error } = await sb.from(tableName).update({ detail }).eq('id', recordId);
+    if (error) throw error;
+
+    // 메모리 캐시 갱신
+    const cached = (tableName === 'plans' ? _boDbPlans : _boDbApps).find(p => p.id === recordId);
+    if (cached) cached.detail = detail;
+
+    alert('✅ 관리자 필드 저장 완료');
+  } catch (err) {
+    alert('❌ 저장 실패: ' + err.message);
+  }
+}
+
+function _toOpsAdminKey(key) {
+  const map = {
+    '안내사항': 'announcement', '준비물': 'preparation',
+    '확정 교육장소': 'confirmedVenue', '확정 강사': 'confirmedInstructor',
+    '합격/수료 여부': 'passStatus', '관리자 피드백': 'managerFeedback',
+    'ERP코드': 'erpCode', '검토의견': 'reviewComment',
+    '관리자비고': 'adminNote', '실지출액': 'actualCost',
+  };
+  return map[key] || key.replace(/\s+/g, '_');
 }

@@ -1356,68 +1356,33 @@ function getTenantJobTypes(tenantId) {
 }
 
 // ─── 세부 산출 근거 항목 마스터 (Calculation Grounds) ────────────────────────
-// accountTypes: ['ops'(운영), 'etc'(기타)] 중 복수 가능
-// limitType: 'none' | 'soft'(경고 후 진행) | 'hard'(시스템 차단)
-// unitPrice: 기준단가 (원), softLimit/hardLimit: 상한액 (원, 0=미설정)
-
-let CALC_GROUNDS_MASTER = [
-  // ── 운영계정 항목 (21종) ─────────────────────────────────────────────────
-  // usageScope: ['plan','apply','settle'] 중 해당 단계 배열
-  // visibleFor: 'both'(국내/해외), 'domestic'(국내전용), 'overseas'(해외전용)
-  { id: 'CG001', tenantId: 'HMC', accountTypes: ['ops'], name: '식비 (조식)', desc: '교육 당일 조식 제공 비용. 1인 1식 기준.', unitPrice: 8000, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
-  { id: 'CG002', tenantId: 'HMC', accountTypes: ['ops'], name: '식비 (중식)', desc: '교육 당일 중식 제공 비용. 1인 1식 기준.', unitPrice: 12000, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
-  { id: 'CG003', tenantId: 'HMC', accountTypes: ['ops'], name: '식비 (석식)', desc: '교육 당일 석식 제공 비용. 1인 1식 기준.', unitPrice: 15000, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
-  { id: 'CG004', tenantId: 'HMC', accountTypes: ['ops'], name: '숙박비', desc: '외부 교육 숙박비. 1인 1박 기준.', unitPrice: 120000, softLimit: 150000, hardLimit: 200000, limitType: 'soft', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
-  { id: 'CG005', tenantId: 'HMC', accountTypes: ['ops'], name: '다과비', desc: '교육 중 간식/음료 제공 비용. 1인 기준.', unitPrice: 5000, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'domestic' },
-  { id: 'CG006', tenantId: 'HMC', accountTypes: ['ops'], name: '강의장 사용료 (사내)', desc: '사내 강의장 대관료. 하루 기준.', unitPrice: 0, softLimit: 0, hardLimit: 500000, limitType: 'hard', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'domestic' },
-  { id: 'CG007', tenantId: 'HMC', accountTypes: ['ops'], name: '강의장 사용료 (사외)', desc: '사외 강의장 대관료. 하루 기준.', unitPrice: 300000, softLimit: 500000, hardLimit: 1000000, limitType: 'soft', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
-  { id: 'CG008', tenantId: 'HMC', accountTypes: ['ops'], name: '사외강사료', desc: '외부 강사 초청 강의료. 1시간 기준.', unitPrice: 500000, softLimit: 2000000, hardLimit: 5000000, limitType: 'soft', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
-  { id: 'CG009', tenantId: 'HMC', accountTypes: ['ops'], name: '기타 인건비', desc: '퍼실리테이터, 보조강사 등 기타 인건비.', unitPrice: 300000, softLimit: 1000000, hardLimit: 0, limitType: 'soft', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
-  { id: 'CG010', tenantId: 'HMC', accountTypes: ['ops'], name: '사내강사/운영자 교통비', desc: '사내 강사 및 운영자 교통비. 1회 기준.', unitPrice: 20000, softLimit: 50000, hardLimit: 100000, limitType: 'soft', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'domestic' },
-  { id: 'CG011', tenantId: 'HMC', accountTypes: ['ops'], name: '용차료', desc: '교육 운영을 위한 차량 임차료.', unitPrice: 100000, softLimit: 300000, hardLimit: 0, limitType: 'soft', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'domestic' },
-  { id: 'CG012', tenantId: 'HMC', accountTypes: ['ops'], name: '교육당직비', desc: '교육 행사 당직 운영비.', unitPrice: 50000, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
-  { id: 'CG013', tenantId: 'HMC', accountTypes: ['ops'], name: '문구비', desc: '교육 자료 제작을 위한 문구류 구매비.', unitPrice: 10000, softLimit: 0, hardLimit: 200000, limitType: 'hard', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
-  { id: 'CG014', tenantId: 'HMC', accountTypes: ['ops'], name: '교보재비', desc: '교육 교재, 워크북 등 교육보조재 구매비.', unitPrice: 30000, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
-  { id: 'CG015', tenantId: 'HMC', accountTypes: ['ops'], name: '업체 지급비', desc: '교육 운영 위탁 업체 지급 비용.', unitPrice: 0, softLimit: 3000000, hardLimit: 10000000, limitType: 'soft', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
-  { id: 'CG016', tenantId: 'HMC', accountTypes: ['ops'], name: '진단비', desc: '역량 진단, 설문조사 등 진단 도구 비용.', unitPrice: 50000, softLimit: 500000, hardLimit: 0, limitType: 'soft', active: true, usageScope: ['plan', 'apply'], visibleFor: 'both' },
-  { id: 'CG017', tenantId: 'HMC', accountTypes: ['ops'], name: '교육참가비', desc: '외부 교육 프로그램 참가비. 1인 기준.', unitPrice: 200000, softLimit: 1000000, hardLimit: 3000000, limitType: 'soft', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
-  { id: 'CG018', tenantId: 'HMC', accountTypes: ['ops'], name: '과정개발비', desc: '교육과정 기획 및 콘텐츠 개발비.', unitPrice: 0, softLimit: 5000000, hardLimit: 0, limitType: 'soft', active: true, usageScope: ['plan', 'apply'], visibleFor: 'both' },
-  { id: 'CG019', tenantId: 'HMC', accountTypes: ['ops'], name: '그룹사간 정산', desc: '그룹사 간 교육 비용 상호 정산액.', unitPrice: 0, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['settle'], visibleFor: 'both' },
-  { id: 'CG020', tenantId: 'HMC', accountTypes: ['ops'], name: '러닝랩 활동비', desc: '러닝랩/학습동아리 운영 활동비.', unitPrice: 30000, softLimit: 500000, hardLimit: 0, limitType: 'soft', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'domestic' },
-  { id: 'CG021', tenantId: 'HMC', accountTypes: ['ops'], name: '기타 (운영)', desc: '위 항목에 해당하지 않는 기타 운영 비용.', unitPrice: 0, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
-
-  // ── 기타계정 항목 (7종) ─────────────────────────────────────────────────
-  { id: 'CG101', tenantId: 'HMC', accountTypes: ['etc'], name: '교보재비', desc: '교육 교재, 워크북, E-book 구매비.', unitPrice: 30000, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
-  { id: 'CG102', tenantId: 'HMC', accountTypes: ['etc'], name: '과정개발비', desc: '콘텐츠 기획·개발, 영상제작 등 개발 비용.', unitPrice: 0, softLimit: 5000000, hardLimit: 20000000, limitType: 'soft', active: true, usageScope: ['plan', 'apply'], visibleFor: 'both' },
-  { id: 'CG103', tenantId: 'HMC', accountTypes: ['etc'], name: '콘텐츠사용비', desc: '외부 콘텐츠 라이선스 및 플랫폼 구독료.', unitPrice: 0, softLimit: 1000000, hardLimit: 5000000, limitType: 'soft', active: true, usageScope: ['plan', 'apply'], visibleFor: 'both' },
-  { id: 'CG104', tenantId: 'HMC', accountTypes: ['etc'], name: '가입비 (협회/간행물)', desc: '학·협회 가입비, 간행물 구독비.', unitPrice: 0, softLimit: 500000, hardLimit: 2000000, limitType: 'soft', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
-  { id: 'CG105', tenantId: 'HMC', accountTypes: ['etc'], name: '도서구입비', desc: '직무·교양 도서 구매비. 1권 기준.', unitPrice: 20000, softLimit: 0, hardLimit: 500000, limitType: 'hard', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
-  { id: 'CG106', tenantId: 'HMC', accountTypes: ['etc'], name: '그룹사간 정산', desc: '그룹사 간 콘텐츠·개발비 정산액.', unitPrice: 0, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['settle'], visibleFor: 'both' },
-  { id: 'CG107', tenantId: 'HMC', accountTypes: ['etc'], name: '기타 (기타계정)', desc: '위 항목에 해당하지 않는 기타 비용.', unitPrice: 0, softLimit: 0, hardLimit: 0, limitType: 'none', active: true, usageScope: ['plan', 'apply', 'settle'], visibleFor: 'both' },
-];
+// ═══════════════════════════════════════════════════════════
+// ⚠ Mock 데이터 제거됨 (2026-04-14)
+// → DB(calc_grounds 테이블)에서 실시간 로드로 전환 완료
+// → bo_calc_grounds.js > _cgLoadFromDb()에서 자동 채워짐
+// → VOrg 템플릿 + shared_account_codes 기반 관리
+// ═══════════════════════════════════════════════════════════
+let CALC_GROUNDS_MASTER = [];
 
 
-// ─── 계정별 산출근거 항목 연결 설정 ──────────────────────────────────────────
-// key: accountCode, value: { accountType: 'ops'|'etc', enabledItemIds: [] (빈 배열이면 전체 허용) }
-let CALC_ACCOUNT_GROUNDS = {
-  'HMC-OPS': { accountType: 'ops', enabledItemIds: [] },
-  'HMC-ETC': { accountType: 'etc', enabledItemIds: [] },
-  'HMC-PART': { accountType: 'ops', enabledItemIds: ['CG017'] },  // 참가계정: 교육참가비만
-  'HMC-RND': { accountType: 'ops', enabledItemIds: [] },
-  'KIA-OPS': { accountType: 'ops', enabledItemIds: [] },
-  'KIA-PART': { accountType: 'ops', enabledItemIds: ['CG017'] },
-  'HAE-OPS': { accountType: 'ops', enabledItemIds: [] },
-  'HAE-PART': { accountType: 'ops', enabledItemIds: ['CG017'] },
-  'HAE-CERT': { accountType: 'etc', enabledItemIds: ['CG104', 'CG107'] },
-};
-
-// 헬퍼: 특정 계정에 사용 가능한 산출근거 항목 반환
+// ─── 계정별 산출근거 항목 조회 (하위 호환 래퍼) ──────────────────────────────
+// 기존: accountTypes 기반 Mock 필터 → 신규: getCalcGroundsForVorg 기반
+// FO plans.js 등에서 호출하는 기존 함수 시그니처를 유지
 function getCalcGroundsForAccount(accountCode) {
-  const cfg = CALC_ACCOUNT_GROUNDS[accountCode];
-  if (!cfg) return [];
-  const byType = CALC_GROUNDS_MASTER.filter(g => g.accountTypes.includes(cfg.accountType) && g.active);
-  if (!cfg.enabledItemIds || cfg.enabledItemIds.length === 0) return byType;
-  return byType.filter(g => cfg.enabledItemIds.includes(g.id));
+  // VOrg 기반 함수가 있으면 위임 (persona의 VOrg 정보 활용)
+  if (typeof getCalcGroundsForVorg === 'function') {
+    // currentPersona에서 VOrg ID 추출 시도
+    const vorgId = (() => {
+      if (typeof currentPersona !== 'undefined' && currentPersona) {
+        const vorgIds = currentPersona.vorgIds || [];
+        if (vorgIds.length > 0) return vorgIds[0]; // 첫 번째 VOrg 사용
+      }
+      return null;
+    })();
+    return getCalcGroundsForVorg(vorgId, accountCode);
+  }
+  // 폴백: Mock accountTypes 기반 (DB 미연결 시)
+  return CALC_GROUNDS_MASTER.filter(g => g.active !== false);
 }
 
 // ─── 금액별 동적 결재 라인 설정 (Approval Routing) ───────────────────────────

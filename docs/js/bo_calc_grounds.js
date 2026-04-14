@@ -59,8 +59,9 @@ async function _cgLoadFromDb() {
       CALC_GROUNDS_MASTER = res1.data.map(r => ({
         id: r.id,
         tenantId: r.tenant_id,
-        domainId: r.virtual_org_template_id || r.isolation_group_id || null, // vorgId (DB 컬럼은 유지)
+        domainId: r.virtual_org_template_id || r.isolation_group_id || null,
         accountCode: r.account_code || null,
+        sharedAccountCodes: r.shared_account_codes || [],
         name: r.name,
         desc: r.description || '',
         unitPrice: r.unit_price || 0,
@@ -524,14 +525,34 @@ function cgToggleActive(id) {
 }
 
 // ─── 헬퍼: 양식 미리보기 및 FO 신청화면에서 세부산출근거 항목 가져오기 ─────────
-// tenantId, domainId, accountCode 계층 순으로 항목 조합
+// VOrg 템플릿 + shared_account_codes 기반 필터링
 function sbGetCalcGroundsForForm(tenantId, groupId, accountCode) {
   return CALC_GROUNDS_MASTER.filter(g => {
     if (g.active === false) return false;
     if (g.tenantId && g.tenantId !== tenantId) return false;
+    // VOrg 매칭: domainId가 있으면 일치해야 함
     if (g.domainId && g.domainId !== groupId) return false;
-    if (g.accountCode && g.accountCode !== accountCode) return false;
+    // 계정 필터: shared_account_codes 비어있으면 전체 공유, 있으면 매칭
+    if (accountCode && g.sharedAccountCodes && g.sharedAccountCodes.length > 0) {
+      if (!g.sharedAccountCodes.includes(accountCode)) return false;
+    }
     return true;
   });
 }
 window.sbGetCalcGroundsForForm = sbGetCalcGroundsForForm;
+
+// ─── VOrg 기반 글로벌 조회 (FO plans.js / apply.js에서 사용) ────────────────
+// getCalcGroundsForAccount 대체. VOrg+계정 조합 필터
+function getCalcGroundsForVorg(vorgTemplateId, accountCode) {
+  return CALC_GROUNDS_MASTER.filter(g => {
+    if (g.active === false) return false;
+    // VOrg 매칭
+    if (g.domainId && vorgTemplateId && g.domainId !== vorgTemplateId) return false;
+    // 계정 필터: shared_account_codes가 비어있으면 전체 공유
+    if (accountCode && g.sharedAccountCodes && g.sharedAccountCodes.length > 0) {
+      if (!g.sharedAccountCodes.includes(accountCode)) return false;
+    }
+    return true;
+  });
+}
+window.getCalcGroundsForVorg = getCalcGroundsForVorg;

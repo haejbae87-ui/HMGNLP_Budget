@@ -157,9 +157,9 @@ async function renderBoPlanMgmt() {
         </div>
       </div>
 
-      <!-- 수요예측 요약 카드 (항상 표시) -->
-      <div style="margin-bottom:16px;padding:16px 20px;border-radius:14px;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);border:1.5px solid #BFDBFE">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${_boForecastDeadlines.length > 0 || forecastCount > 0 ? '12' : '0'}px">
+      <!-- 수요예측 요약 카드 (단순화) -->
+      <div style="margin-bottom:16px;padding:12px 20px;border-radius:12px;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);border:1.5px solid #BFDBFE">
+        <div style="display:flex;align-items:center;justify-content:space-between">
           <div style="display:flex;align-items:center;gap:10px">
             <div style="font-size:13px;font-weight:900;color:#1D4ED8">📊 ${_boPlanFiscalYear}년도 수요예측</div>
             <span style="font-size:11px;padding:2px 10px;border-radius:20px;font-weight:700;
@@ -173,30 +173,6 @@ async function renderBoPlanMgmt() {
             <span>💰 <strong style="color:#1D4ED8">${forecastTotal.toLocaleString()}원</strong></span>
           </div>
         </div>
-        ${_boForecastDeadlines.length > 0 ? `
-        <table style="width:100%;border-collapse:collapse;font-size:12px">
-          <thead><tr style="border-bottom:2px solid #BFDBFE">
-            <th style="text-align:left;padding:5px 8px;font-weight:800;color:#6B7280">계정</th>
-            <th style="text-align:left;padding:5px 8px;font-weight:800;color:#6B7280">접수 시작</th>
-            <th style="text-align:left;padding:5px 8px;font-weight:800;color:#6B7280">접수 종료</th>
-            <th style="text-align:left;padding:5px 8px;font-weight:800;color:#6B7280">상태</th>
-          </tr></thead>
-          <tbody>
-          ${_boForecastDeadlines.map(dl => {
-      const acctLabel = dl.account_code === '__ALL__' ? '전체 (기본)' : (_boTenantAccounts.find(a => a.id === dl.account_code)?.name || dl.account_code);
-      const st = _getForecastPeriodStatus(dl);
-      return `<tr style="border-bottom:1px solid #EFF6FF">
-              <td style="padding:5px 8px;font-weight:700">${acctLabel}</td>
-              <td style="padding:5px 8px">${dl.recruit_start || '-'}</td>
-              <td style="padding:5px 8px">${dl.recruit_end || '-'}</td>
-              <td style="padding:5px 8px">${st.badge}</td>
-            </tr>`;
-    }).join('')}
-          </tbody>
-        </table>` : `
-        <div style="padding:8px 12px;font-size:12px;color:#92400E;background:#FFFBEB;border-radius:8px;border:1px dashed #FCD34D;margin-top:8px">
-          ⚠ 수요예측 접수기간이 아직 설정되지 않았습니다. 상단의 <strong>📅 수요예측 기간 설정</strong> 버튼을 클릭하여 설정해 주세요.
-        </div>`}
       </div>
 
       <!-- 연도 + 유형 필터 -->

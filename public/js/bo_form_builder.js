@@ -124,6 +124,7 @@ var ADVANCED_FIELDS = [
   { key: '총 차수', icon: '🔢', required: false, scope: 'front', category: '교육운영정보', fieldType: 'number', hint: '교육 총 회차 수 (차수)', canonicalKey: 'total_sessions', layer: 'L1' },
   { key: '예상인원', icon: '👥', required: false, scope: 'front', category: '교육운영정보', fieldType: 'number', hint: '과정 예상 참여 인원 (명)', canonicalKey: 'expected_headcount', layer: 'L1' },
   { key: '차수별 교육시간', icon: '⏱️', required: false, scope: 'front', category: '교육운영정보', fieldType: 'number', hint: '1차수 기준 교육 진행 시간 (H)', canonicalKey: 'session_hours', layer: 'L1' },
+  { key: '과정시간(차수별)', icon: '🕐', required: false, scope: 'front', category: '교육운영정보', fieldType: 'number', hint: '과정 총 시간 (차수별 합산, H)', canonicalKey: 'course_hours_per_session', layer: 'L1' },
   { key: '교육내용', icon: '📝', required: false, scope: 'front', category: '교육운영정보', fieldType: 'textarea', hint: '교육 세부 내용 및 커리큘럼 설명', canonicalKey: 'edu_content', layer: 'L1' },
   { key: '고용보험환급', icon: '🏦', required: false, scope: 'front', category: '교육운영정보', fieldType: 'select', hint: '고용보험 환급 대상 여부', canonicalKey: 'employment_insurance', layer: 'L1',
     options: [

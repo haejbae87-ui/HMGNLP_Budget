@@ -339,6 +339,7 @@ const _KEY_MAP = {
     '실지출액': 'actualCost',
     '세부산출근거': 'calcGrounds_render',
     '교육대상': 'targetAudience',
+    '과정시간(차수별)': 'courseHoursPerSession',
     '수강인원': 'headcount',
     '정원': 'capacity',
     '참여자명단': 'participantList',

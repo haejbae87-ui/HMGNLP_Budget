@@ -1964,16 +1964,19 @@ function applyNext() {
       return b?.accountCode || b?.account_code || null;
     })();
     // ★ purpose + account + eduType 3중 매칭
+    // FO purpose(internal_edu) → BO purpose(elearning_class 등) 역매핑 적용
+    const boPurposeKeys = (typeof _FO_TO_BO_PURPOSE !== 'undefined' && purposeId)
+      ? (_FO_TO_BO_PURPOSE[purposeId] || [purposeId]) : [purposeId];
+    const _purposeMatch = (pPurpose) => !purposeId || boPurposeKeys.includes(pPurpose);
     const matched = policies.find(p => {
       const acc = p.account_codes || p.accountCodes || [];
       const pTypes = p.edu_types || p.eduTypes || [];
-      const purposeOk = !purposeId || p.purpose === purposeId;
       const accountOk = !accCode || acc.includes(accCode);
       const eduTypeOk = !eduType || pTypes.length === 0 || pTypes.includes(eduType);
-      return purposeOk && accountOk && eduTypeOk;
+      return _purposeMatch(p.purpose) && accountOk && eduTypeOk;
     }) || policies.find(p => {
       const acc = p.account_codes || p.accountCodes || [];
-      return (!purposeId || p.purpose === purposeId) && (!accCode || acc.includes(accCode));
+      return _purposeMatch(p.purpose) && (!accCode || acc.includes(accCode));
     }) || policies[0] || null;
     (async () => {
       let tpl = null;

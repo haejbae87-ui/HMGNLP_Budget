@@ -1068,19 +1068,22 @@ function planNext() {
       return b?.accountCode || b?.account_code || null;
     })();
     // ★ purpose + account + eduType 기준 최적 정책 선택
+    // FO purpose(internal_edu) → BO purpose(elearning_class 등) 역매핑 적용
+    const boPurposeKeys = (typeof _FO_TO_BO_PURPOSE !== 'undefined' && purposeId)
+      ? (_FO_TO_BO_PURPOSE[purposeId] || [purposeId]) : [purposeId];
+    const _purposeMatch = (pPurpose) => !purposeId || boPurposeKeys.includes(pPurpose);
     // 1순위: purpose + account + eduType 모두 일치
     const matched = policies.find(p => {
       const acc = p.account_codes || p.accountCodes || [];
       const pTypes = p.edu_types || p.eduTypes || [];
-      const purposeOk = !purposeId || p.purpose === purposeId;
       const accountOk = !accCode || acc.includes(accCode);
       const eduTypeOk = !eduType || pTypes.length === 0 || pTypes.includes(eduType);
-      return purposeOk && accountOk && eduTypeOk;
+      return _purposeMatch(p.purpose) && accountOk && eduTypeOk;
     })
     // 2순위: purpose + account만 일치 (eduType 무시)
     || policies.find(p => {
       const acc = p.account_codes || p.accountCodes || [];
-      return (!purposeId || p.purpose === purposeId) && (!accCode || acc.includes(accCode));
+      return _purposeMatch(p.purpose) && (!accCode || acc.includes(accCode));
     })
     || policies[0] || null;
 

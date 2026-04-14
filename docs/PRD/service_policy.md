@@ -3,8 +3,8 @@
 > **도메인**: 서비스 정책 (Service Policy) → FO 위저드 노출
 > **관련 파일**: `utils.js`, `fo_persona_loader.js`, `fo_form_loader.js`, `plans.js`, `apply.js`
 > **최초 작성**: 2026-04-08
-> **최종 갱신**: 2026-04-14
-> **상태**: 🟡 구현 갭 있음 (양식 매칭 코드 불일치 수정 완료, 구조적 리스크 잔존)
+> **최종 갱신**: 2026-04-14 (2차)
+> **상태**: ✅ 핵심 구현 완료 (edu_type 영문 표준화, 변환 레이어 제거, 폴백 안전장치)
 
 ---
 
@@ -31,7 +31,7 @@
 | **직종 무관** | 일반직/연구직 여부로 교육유형을 제한하지 않는다 | ✅ 제거 완료 |
 | **VOrg 정책 우선** | 사용자 조직→VOrg→서비스 정책이 primary key | ✅ 구현 |
 | **통장 비의존** | 통장이 없는 VOrg도 정책 매칭 가능 | ✅ tree_data 기반 구현 |
-| **코드 일관성** | 동일 데이터는 **단일 코드 체계**로 관리 (영문/한글 혼용 금지) | ❌ **위반 중** |
+| **코드 일관성** | 동일 데이터는 **단일 코드 체계**로 관리 (영문/한글 혼용 금지) | ✅ 2026-04-14 표준화 완료 |
 
 ---
 
@@ -41,7 +41,7 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        BO 설정 (관리자)                              │
 │  service_policies                  form_templates                   │
-│  ├ purpose (영문코드)              ├ edu_type (★ 한글 라벨)          │
+│  ├ purpose (영문코드)              ├ edu_type (영문코드 ✅ 표준화)    │
 │  ├ edu_types[] (영문코드)          ├ type (plan/apply/result)       │
 │  ├ account_codes[]                 ├ virtual_org_template_id        │
 │  ├ vorg_template_id                ├ account_code                   │
@@ -65,8 +65,8 @@
 │    └ EDU_TYPE_SUBTYPES (상위→세부 트리 확장)                        │
 │                                                                     │
 │  Step4: 양식 로드 ← getFoFormTemplate()                             │
-│    └ ★ eduType 변환 필요: 영문코드 → 한글라벨 (EDU_TYPE_LABELS)     │
-│    └ stage_form_ids 1순위 → context 매칭 2순위                      │
+│    └ eduType 영문코드 직접 전달 (변환 불필요 ✅)                     │
+│    └ stage_form_ids 1순위 → context 매칭 2순위 (복수 시 null ✅)     │
 │                                                                     │
 │  제출 후: (향후) 결재라인 자동 구성                                   │
 └─────────────────────────────────────────────────────────────────────┘
@@ -74,28 +74,28 @@
 
 ---
 
-## 4. 코드 불일치 매트릭스 (Critical)
+## 4. 코드 일관성 매트릭스 (✅ 해결 완료)
 
-> 🚨 **현재 가장 큰 구조적 문제**: 동일한 "교육유형" 데이터가 시스템 내에서 **3가지 다른 형태**로 존재.
+> ✅ **2026-04-14 해결**: DB 마이그레이션(`b3af506`)으로 `form_templates.edu_type`을 영문 코드로 표준화. 변환 레이어 완전 제거.
 
-| 위치 | 필드 | 저장 형식 | 예시 |
-|------|------|----------|------|
-| `service_policies.edu_types` | 영문 코드 | `elearning`, `seminar`, `class` |
-| `form_templates.edu_type` | **한글 라벨** | `이러닝`, `세미나`, `집합(비대면)` |
-| `service_policies.selected_edu_item` | 영문 코드 | `{ typeId: "regular", subId: "elearning" }` |
-| FO `planState.eduType` | 영문 코드 | `elearning`, `seminar` |
-| FO `EDU_TYPE_LABELS[key]` | 한글 라벨 | `이러닝`, `세미나` |
+| 위치 | 필드 | 저장 형식 | 예시 | 상태 |
+|------|------|----------|------|------|
+| `service_policies.edu_types` | 영문 코드 | `elearning`, `seminar`, `class` | ✅ |
+| `form_templates.edu_type` | **영문 코드** | `elearning`, `seminar`, `class` | ✅ 표준화 완료 |
+| `service_policies.selected_edu_item` | 영문 코드 | `{ typeId: "regular", subId: "elearning" }` | ✅ |
+| FO `planState.eduType` | 영문 코드 | `elearning`, `seminar` | ✅ |
+| FO `EDU_TYPE_LABELS[key]` | 한글 라벨 | `이러닝`, `세미나` | ✅ UI 표시용 |
 
-### 변환이 필요한 지점
+### 변환 지점 — 불필요 (제거 완료)
 
 | 호출 위치 | 보내는 값 | 받는 쪽 기대값 | 변환 필요 | 상태 |
 |-----------|----------|--------------|----------|------|
-| `plans.js` → `getFoFormTemplate(policy, 'plan', eduType)` | `elearning` (영문) | `이러닝` (한글) | ✅ `EDU_TYPE_LABELS` | ✅ 수정 완료 |
-| `apply.js` → `getFoFormTemplate(policy, 'apply', eduType)` | `elearning` (영문) | `이러닝` (한글) | ✅ `EDU_TYPE_LABELS` | ✅ 수정 완료 |
-| `fo_form_loader.js` L95 `tpl.edu_type === eduType` | 한글 vs 한글 | - | 변환 후 정상 | ✅ |
-| `fo_form_loader.js` L62 `.eq('edu_type', eduType)` | 한글 → DB 쿼리 | 한글 | 변환 후 정상 | ✅ |
+| `plans.js` → `getFoFormTemplate(policy, 'plan', eduType)` | `elearning` (영문) | `elearning` (영문) | ❌ 불필요 | ✅ 직접 전달 |
+| `apply.js` → `getFoFormTemplate(policy, 'apply', eduType)` | `elearning` (영문) | `elearning` (영문) | ❌ 불필요 | ✅ 직접 전달 |
+| `fo_form_loader.js` L95 `tpl.edu_type === eduType` | 영문 vs 영문 | - | ❌ 불필요 | ✅ 정상 |
+| `fo_form_loader.js` L62 `.eq('edu_type', eduType)` | 영문 → DB 쿼리 | 영문 | ❌ 불필요 | ✅ 정상 |
 
-> ⚠️ **근본 해결**: `form_templates.edu_type`을 영문 코드로 표준화하면 변환 레이어 불필요. 단, 역마이그레이션 비용이 크므로 현재는 변환 레이어로 대응.
+> 💡 `EDU_TYPE_LABELS`는 UI 표시 전용으로만 사용. 데이터 매칭에는 관여하지 않음.
 
 ---
 
@@ -146,26 +146,27 @@ _getActivePolicies(persona)
 getFoFormTemplate(policy, stage, eduType)
     │
     ├─ 1순위: stage_form_ids[stage]에서 직접 ID로 로드
-    │  ├─ 복수 양식 → edu_type 매칭 (★ 한글 라벨 비교)
+    │  ├─ 복수 양식 → edu_type 매칭 (영문 코드 비교 ✅)
     │  └─ 단일 양식 또는 매칭 실패 → 첫 번째 양식 사용
     │
     ├─ 2순위: _loadFormTemplateByContext(vorgId, accCode, stage, eduType)
     │  ├─ 2-a: vorg + account + stage + edu_type 정확 매칭 (DB 쿼리)
-    │  └─ 2-b: vorg + account + stage (edu_type 없이) ← ⚠️ 잘못된 양식 위험
+    │  └─ 2-b: vorg + account + stage (edu_type 없이)
+    │       └─ ✅ 복수 양식 존재 시 null 반환 (랜덤 방지, P1-2)
     │
     └─ null: 양식 없음 → Fallback UI 렌더링
 ```
 
 ### 6.2 양식 매칭 엣지 케이스
 
-| # | 시나리오 | 현재 동작 | 위험 | 개선 방안 |
-|---|---------|----------|------|----------|
-| F1 | `stage_form_ids.plan = []` (빈 배열) | 2순위 context 매칭으로 폴백 | ⚠️ edu_type 없으면 잘못된 양식 반환 | 빈 배열이면 null 반환 + "양식 미설정" 안내 |
-| F2 | 정책에 edu_type=`elearning`인데 양식의 edu_type=`이러닝` | 불일치 | ❌ **실제 버그** (수정 완료) | `EDU_TYPE_LABELS` 변환 적용 |
-| F3 | 2순위에서 같은 vorg+account에 양식 2개(세미나/이러닝) | `.limit(1)` → 랜덤 반환 | ❌ 세미나가 먼저 반환될 수 있음 | edu_type null이면 null 반환 |
-| F4 | R&D 양식: edu_type=`정규교육` vs 정책 edu_type=`regular` | `정규교육` → `regular` 변환 필요 | ⚠️ 잠재 불일치 | 양방향 매핑 완전화 |
-| F5 | 양식이 unpublished로 변경 | `_loadFormTemplate` null → 첫 양식 폴백 | ⚠️ | unpublished 시 경고 표시 |
-| F6 | VOrg 없는 양식 (`virtual_org_template_id = null`) | context 매칭 시 VOrg 필터 우회 | ⚠️ 다른 VOrg에 노출 | null VOrg 앵식은 글로벌 양식으로 정의 |
+| # | 시나리오 | 현재 동작 | 위험 | 상태 |
+|---|---------|----------|------|------|
+| F1 | `stage_form_ids.plan = []` (빈 배열) | 2순위 context 매칭으로 폴백 | ⚠️ 복수 양식 시 null 반환 | ✅ P1-2 수정 완료 |
+| F2 | 정책 edu_type과 양식 edu_type 코드 불일치 | 영문 코드 직접 비교 | - | ✅ DB 표준화 완료 |
+| F3 | 2순위에서 같은 vorg+account에 양식 2개 | 복수 양식 존재 시 null 반환 | - | ✅ P1-2 수정 완료 |
+| F4 | R&D 양식: edu_type=`regular` 정확 매칭 | 영문 코드 직접 비교 | - | ✅ DB 표준화 완료 |
+| F5 | 양식이 unpublished로 변경 | `_loadFormTemplate` null → 첫 양식 폴백 | ⚠️ | 미수정 (저위험) |
+| F6 | VOrg 없는 양식 (`virtual_org_template_id = null`) | context 매칭 시 VOrg 필터 우회 | ⚠️ | 미수정 (저위험) |
 
 ### 6.3 현재 양식-정책 연결 현황 (2026-04-14)
 
@@ -449,10 +450,11 @@ _FO_TO_BO_PURPOSE = {
 | 교육계획 Step1 | `renderPlanWizard()` | ✅ purpose 매핑 정상 | |
 | 교육계획 Step2 | `renderPlanWizard()` | ✅ 예산+VOrg 라벨 표시 | |
 | 교육계획 Step3 | `renderPlanWizard()` | ✅ edu_types 기반 트리 | |
-| 교육계획 Step4 | `planNext()` | ✅ eduType 한글 변환 적용 | 2026-04-14 수정 |
+| 교육계획 Step4 | `planNext()` | ✅ eduType 영문 코드 직접 전달 | 변환 레이어 제거 완료 |
+| 교육계획 임시저장 | `resumePlanDraft()` | ✅ eduType 전달 | P1-1 수정 완료 |
 | 교육신청 Step1~3 | `renderApplyWizard()` | ✅ | |
-| 교육신청 Step4 | `applyNext()` | ✅ eduType 한글 변환 적용 | 2026-04-14 수정 |
-| 교육결과 등록 | `renderResultForm()` | 📝 미확인 | eduType 변환 적용 필요 여부 확인 |
+| 교육신청 Step4 | `applyNext()` | ✅ eduType 영문 코드 직접 전달 | 변환 레이어 제거 완료 |
+| 교육결과 등록 | `renderResultForm()` | ✅ 확인 완료 | `getFoFormTemplate` 미호출 (영향 없음) |
 
 ---
 
@@ -496,11 +498,11 @@ _FO_TO_BO_PURPOSE = {
 
 | 우선순위 | 항목 | 현황 | 영향도 |
 |---------|------|------|-------|
-| 🔴 P0 | edu_type 코드 불일치 해소 (영문↔한글) | 변환 레이어로 대응 완료 | 양식 매칭 실패 방지 |
-| 🟠 P1 | `stage_form_ids` 빈 배열 시 null 반환 (폴백 방지) | 미구현 | 잘못된 양식 방지 |
-| 🟠 P1 | `_loadFormTemplateByContext` 2순위에서 edu_type 미지정 시 null 반환 | 미구현 | 랜덤 양식 방지 |
-| 🟡 P2 | `form_templates.edu_type` 영문 코드 표준화 마이그레이션 | 미착수 | 변환 레이어 제거 |
-| 🟡 P2 | 신규 purpose 코드 등록 시 `_BO_TO_FO_PURPOSE` 자동 갱신 | 미착수 | 확장성 |
+| ~~🔴 P0~~ | ~~edu_type 코드 불일치 해소~~ | ✅ **완료** (DB 표준화 `b3af506`) | ~~양식 매칭 실패 방지~~ |
+| ~~🟠 P1-1~~ | ~~임시저장 이어쓰기 eduType 누락~~ | ✅ **완료** (`plans.js` `b3af506`) | ~~이어쓰기 양식 불일치~~ |
+| ~~🟠 P1-2~~ | ~~context 폴백 복수 양식 랜덤 반환~~ | ✅ **완료** (`fo_form_loader.js` `b3af506`) | ~~잘못된 양식 방지~~ |
+| ~~🟡 P2-1~~ | ~~`form_templates.edu_type` 영문 표준화~~ | ✅ **완료** (DB 마이그레이션 `b3af506`) | ~~변환 레이어 제거~~ |
+| 🟡 P2-2 | 신규 purpose 코드 등록 시 `_BO_TO_FO_PURPOSE` 자동 갱신 | 미착수 | 확장성 |
 | 🟢 P3 | 결재라인 자동 구성 | 미착수 | 사용자 경험 |
 | 🟢 P3 | 겸직(복수 org_id) 지원 | 미착수 | 소수 케이스 |
 
@@ -513,3 +515,4 @@ _FO_TO_BO_PURPOSE = {
 | 2026-04-08 | 최초 작성 (VOrg 기반 교육유형 필터링 설계) | AI |
 | 2026-04-14 | 전면 갱신: 양식 매칭 규칙 추가, 코드 불일치 매트릭스, 엣지 케이스 24건, 시나리오 5건, 결재라인 확장 섹션 | AI |
 | 2026-04-14 | eduType 영문→한글 변환 누락 버그 수정 (`plans.js`, `apply.js`) | AI |
+| 2026-04-14 | **edu_type 영문 표준화 완료**: DB 마이그레이션(form_templates), 변환 레이어 제거, P1-1/P1-2 수정, §4·§6·§13·§15 갱신 | AI |

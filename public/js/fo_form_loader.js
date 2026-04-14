@@ -69,14 +69,20 @@ async function _loadFormTemplateByContext(vorgTemplateId, accountCode, stage, ed
     }
 
     // 2순위: vorg + account + stage (eduType 없이)
+    // ★ P1-2: 복수 양식 존재 시 랜덤 반환 방지 → null
     let q2 = sb.from('form_templates').select('*').eq('status', 'published').eq('type', stage);
     if (vorgTemplateId) q2 = q2.eq('virtual_org_template_id', vorgTemplateId);
     if (accountCode) q2 = q2.eq('account_code', accountCode);
-    const { data: d2, error } = await q2.limit(1).maybeSingle();
-    if (error || !d2) return null;
-    _FORM_TPL_CACHE[cacheKey] = { data: d2, loadedAt: Date.now() };
-    console.log(`[fo_form_loader] 양식 폴백 매칭: ${d2.name} (eduType 미지정)`);
-    return d2;
+    const { data: d2arr, error } = await q2.limit(5);
+    if (error || !d2arr || d2arr.length === 0) return null;
+    // edu_type이 다른 양식이 복수이면 불확실 → null 반환
+    if (d2arr.length > 1) {
+        console.warn(`[fo_form_loader] 양식 복수(${d2arr.length}건) 발견, eduType 미지정 → null 반환 (잘못된 양식 방지)`);
+        return null;
+    }
+    _FORM_TPL_CACHE[cacheKey] = { data: d2arr[0], loadedAt: Date.now() };
+    console.log(`[fo_form_loader] 양식 폴백 매칭 (단일): ${d2arr[0].name}`);
+    return d2arr[0];
 }
 
 // ─── 4. 정책에서 해당 단계 양식 해석 ─────────────────────────────────────────

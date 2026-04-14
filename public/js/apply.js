@@ -1981,10 +1981,8 @@ function applyNext() {
     (async () => {
       let tpl = null;
       if (matched && typeof getFoFormTemplate === 'function') {
-        // ★ FO eduType 코드(elearning) → DB edu_type 한글(이러닝) 변환
-        const eduTypeLabel = (typeof EDU_TYPE_LABELS !== 'undefined' && eduType)
-          ? (EDU_TYPE_LABELS[eduType] || eduType) : eduType;
-        tpl = await getFoFormTemplate(matched, 'apply', eduTypeLabel); // ★ eduType 한글로 전달
+        // eduType 영문 코드 직접 전달 (DB form_templates.edu_type 영문 표준화 완료)
+        tpl = await getFoFormTemplate(matched, 'apply', eduType);
       }
       s.formTemplate = tpl || null;
       s.formTemplateLoading = false;

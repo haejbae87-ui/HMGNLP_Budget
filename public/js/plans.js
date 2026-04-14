@@ -1090,12 +1090,8 @@ function planNext() {
     (async () => {
       let tpl = null;
       if (matched && typeof getFoFormTemplate === 'function') {
-        // eduType 전달하여 교육유형별 양식 정확 매칭
-        // ★ FO eduType 코드(elearning) → DB edu_type 한글(이러닝) 변환
-        const eduTypeLabel = (typeof EDU_TYPE_LABELS !== 'undefined' && eduType)
-          ? (EDU_TYPE_LABELS[eduType] || eduType) : eduType;
-        console.log('[planNext] 매칭정책:', matched?.name, '| eduType:', eduType, '→ label:', eduTypeLabel, '| stage_form_ids:', JSON.stringify(matched?.stage_form_ids?.plan));
-        tpl = await getFoFormTemplate(matched, 'plan', eduTypeLabel);
+        // eduType 영문 코드 직접 전달 (DB form_templates.edu_type 영문 표준화 완료)
+        tpl = await getFoFormTemplate(matched, 'plan', eduType);
       }
       planState.formTemplate = tpl || null;
       planState.formTemplateLoading = false;
@@ -1348,7 +1344,9 @@ async function resumePlanDraft(planId) {
 
     let tpl = null;
     if (rMatched && typeof getFoFormTemplate === 'function') {
-      tpl = await getFoFormTemplate(rMatched, 'plan');
+      // ★ P1-1 수정: 이어쓰기 시에도 eduType 전달
+      const rEduType = planState.subType || planState.eduType || data.edu_type || '';
+      tpl = await getFoFormTemplate(rMatched, 'plan', rEduType);
     }
     planState.formTemplate = tpl || null;
     planState.formTemplateLoading = false;

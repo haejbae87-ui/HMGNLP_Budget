@@ -118,20 +118,56 @@ function renderDynamicFormFields(formFields, formState, prefix) {
     if (!formFields || !formFields.length) return '';
     const fieldDefs = _FIELD_DEF_CACHE || [];
 
-    // FO 표시 대상 필드만 필터 (scope='front' 또는 scope 없음)
-    const foFields = formFields.filter(f => !f.scope || f.scope === 'front');
+    // FO 표시 대상 필드: front + provide (미입력 provide는 숨김)
+    const foFields = formFields.filter(f => !f.scope || f.scope === 'front' || f.scope === 'provide');
     if (!foFields.length) return '';
 
     const html = foFields.map(fieldRef => {
         const key = fieldRef.key;
         const def = fieldDefs.find(d => d.key === key);
         if (!def) return '';
+
+        // provide scope: 미입력 시 숨김, 입력되어 있으면 읽기전용 카드
+        if (fieldRef.scope === 'provide') {
+            return _renderProvideField(def, formState, prefix);
+        }
+
         return _renderOneField(def, formState, prefix);
     }).filter(Boolean).join('');
 
     return html;
 }
 window.renderDynamicFormFields = renderDynamicFormFields;
+
+// ─── provide 필드 읽기전용 렌더링 (미입력 시 숨김) ───────────────────────────────
+function _renderProvideField(def, s, prefix) {
+    const { key, field_type, icon, hint } = def;
+    const stateKey = _toStateKey(key);
+    // provide 데이터는 detail._provide 네임스페이스 또는 state 직접 참조
+    const provideData = s?._provide || {};
+    const val = provideData[stateKey] ?? s?.[stateKey] ?? '';
+
+    // 미입력 시 숨김
+    if (!val && val !== 0) return '';
+
+    // select 타입: value → label 변환
+    let displayVal = val;
+    if (field_type === 'select' && def.options) {
+        const opt = def.options.find(o => o.value === val);
+        if (opt) displayVal = opt.label;
+    }
+
+    const label = `${icon || ''} ${key}`;
+    return `<div style="margin-bottom:16px">
+      <div style="padding:14px 18px;background:linear-gradient(135deg,#EFF6FF,#F0F9FF);border:1.5px solid #BFDBFE;border-radius:12px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <span style="font-size:9px;font-weight:800;color:#1D4ED8;background:#DBEAFE;padding:2px 8px;border-radius:4px">📢 관리자 제공</span>
+          <label style="font-size:12px;font-weight:800;color:#1E40AF">${label}</label>
+        </div>
+        <div style="font-size:14px;font-weight:600;color:#111827;white-space:pre-wrap;line-height:1.5">${_esc(String(displayVal))}</div>
+      </div>
+    </div>`;
+}
 
 // ─── 개별 필드 렌더링 ─────────────────────────────────────────────────────────
 function _renderOneField(def, s, prefix) {
@@ -317,6 +353,17 @@ const _KEY_MAP = {
     '대관확정서': 'venueConfirm',
     '납품확인서': 'deliveryConfirm',
     '과정-차수연결': 'courseSessionLinks',
+    // provide 필드
+    '안내사항': 'announcement',
+    '준비물': 'preparation',
+    '확정 교육장소': 'confirmedVenue',
+    '확정 강사': 'confirmedInstructor',
+    '합격/수료 여부': 'passStatus',
+    '관리자 피드백': 'managerFeedback',
+    // back 필드
+    'ERP코드': 'erpCode',
+    '검토의견': 'reviewComment',
+    '관리자비고': 'adminNote',
 };
 
 function _toStateKey(key) {

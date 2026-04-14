@@ -138,6 +138,20 @@ var ADVANCED_FIELDS = [
   { key: '수료생명단', icon: '📝', required: false, scope: 'front', category: '결과정보', fieldType: 'user-search', hint: '최종 수료자 명단', canonicalKey: 'completion_list', layer: 'L1' },
   { key: '학습만족도', icon: '⭐', required: false, scope: 'front', category: '결과정보', fieldType: 'rating', hint: '만족도 조사 (5점 척도)', canonicalKey: 'satisfaction', layer: 'L1' },
   { key: '교육결과요약', icon: '📊', required: false, scope: 'front', category: '결과정보', fieldType: 'textarea', hint: '교육 결과 요약 보고', canonicalKey: 'result_summary', layer: 'L1' },
+  // BO 제공 → FO 구독 (provide) — 관리자가 입력하면 FO에 읽기전용 노출
+  { key: '안내사항', icon: '📢', required: false, scope: 'provide', category: 'BO제공(안내)', fieldType: 'textarea', hint: '교육 참가 전 공지·안내사항 (FO 읽기전용 노출)', canonicalKey: 'announcement', layer: 'L1' },
+  { key: '준비물', icon: '🎒', required: false, scope: 'provide', category: 'BO제공(안내)', fieldType: 'text', hint: '교육 참가 준비물 안내 (FO 읽기전용 노출)', canonicalKey: 'preparation', layer: 'L1' },
+  { key: '확정 교육장소', icon: '📍', required: false, scope: 'provide', category: 'BO제공(확정)', fieldType: 'text', hint: 'BO에서 확정한 교육 장소 (FO 읽기전용 노출)', canonicalKey: 'confirmed_venue', layer: 'L1' },
+  { key: '확정 강사', icon: '👨‍🏫', required: false, scope: 'provide', category: 'BO제공(확정)', fieldType: 'text', hint: 'BO에서 배정한 강사 정보 (FO 읽기전용 노출)', canonicalKey: 'confirmed_instructor', layer: 'L1' },
+  { key: '합격/수료 여부', icon: '🎓', required: false, scope: 'provide', category: 'BO제공(결과)', fieldType: 'select', hint: '학습자에게 결과 통보 (FO 읽기전용 노출)', canonicalKey: 'pass_status', layer: 'L1',
+    options: [
+      { label: '합격', value: 'pass' },
+      { label: '불합격', value: 'fail' },
+      { label: '수료', value: 'completed' },
+      { label: '미수료', value: 'incomplete' },
+    ]
+  },
+  { key: '관리자 피드백', icon: '💬', required: false, scope: 'provide', category: 'BO제공(결과)', fieldType: 'textarea', hint: '관리자가 학습자에게 전달하는 결과 피드백 (FO 읽기전용 노출)', canonicalKey: 'manager_feedback', layer: 'L1' },
   // 백오피스 전용 (승인자)
   { key: 'ERP코드', icon: '🔗', required: false, scope: 'back', category: '관리(승인자)', fieldType: 'text', hint: 'ERP 연동 비용 코드', canonicalKey: 'erp_code', layer: 'L1' },
   { key: '검토의견', icon: '💬', required: false, scope: 'back', category: '관리(승인자)', fieldType: 'textarea', hint: '승인자 검토 및 의견', canonicalKey: 'review_comment', layer: 'L1' },
@@ -865,7 +879,8 @@ ${(_fbGroupId || _fbAccountCode) ? `
           <div style="display:flex;flex-wrap:wrap;gap:5px">
             ${catFields.map(f => {
           const isSelected = _fbTempFields.some(tf => (typeof tf === 'object' ? tf.key : tf) === f.key);
-          const scopeStyle = f.scope === 'back' ? 'border:1.5px dashed #FBB6CE;color:#9D174D;background:#FDF2F8' :
+          const scopeStyle = f.scope === 'provide' ? 'border:1.5px dashed #93C5FD;color:#1D4ED8;background:#EFF6FF' :
+            f.scope === 'back' ? 'border:1.5px dashed #FBB6CE;color:#9D174D;background:#FDF2F8' :
             f.scope === 'system' ? 'border:1.5px dashed #BFDBFE;color:#0369A1;background:#EFF6FF' :
               'border:1.5px solid #E5E7EB;color:#374151;background:white';
           const layerBadge = f.layer === 'L2' ? '<span style="font-size:7px;vertical-align:super;color:#D97706;font-weight:900">L2</span>' : '';
@@ -902,8 +917,8 @@ function _fbPreviewHTML() {
     const scope = typeof f === 'object' ? f.scope : 'front';
     const isReq = typeof f === 'object' ? (f.required === true) : false;
     const meta = allFields.find(a => a.key === key) || { icon: '📝' };
-    const scopeLabel = scope === 'back' ? '🔒 백오피스' : scope === 'system' ? '⚙️ 시스템' : '🔓 프론트';
-    const scopeColor = scope === 'back' ? '#9D174D' : scope === 'system' ? '#0369A1' : '#374151';
+    const scopeLabel = scope === 'provide' ? '📢 BO제공' : scope === 'back' ? '🔒 백오피스' : scope === 'system' ? '⚙️ 시스템' : '🔓 프론트';
+    const scopeColor = scope === 'provide' ? '#1D4ED8' : scope === 'back' ? '#9D174D' : scope === 'system' ? '#0369A1' : '#374151';
     const reqColor = isReq ? '#DC2626' : '#9CA3AF';
     const reqLabel = isReq ? '필수' : '선택';
     const reqBg = isReq ? '#FEF2F2' : '#F9FAFB';
@@ -1063,7 +1078,7 @@ function fbRemoveAttach(idx) {
 
 function fbCycleScope(idx) {
   const current = typeof _fbTempFields[idx] === 'object' ? _fbTempFields[idx].scope : 'front';
-  const order = ['front', 'back', 'system'];
+  const order = ['front', 'provide', 'back', 'system'];
   const next = order[(order.indexOf(current) + 1) % order.length];
   if (typeof _fbTempFields[idx] === 'object') _fbTempFields[idx].scope = next;
   else _fbTempFields[idx] = { key: _fbTempFields[idx], scope: next };
@@ -1598,6 +1613,7 @@ function fbRenderPreviewBody(viewType) {
 
   fields.forEach(fld => {
     if (viewType === 'front' && fld.scope === 'back') return;
+    if (viewType === 'front' && fld.scope === 'system') return;
 
     visibleCount++;
     const poolField = ADVANCED_FIELDS.find(x => x.key === fld.key) || {};
@@ -1610,6 +1626,7 @@ function fbRenderPreviewBody(viewType) {
     let scopeBadge = '';
     if (viewType === 'back') {
       if (fld.scope === 'front') scopeBadge = `<span style="font-size:9px;background:#F0FDF4;color:#059669;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:800">FO입력</span>`;
+      else if (fld.scope === 'provide') scopeBadge = `<span style="font-size:9px;background:#EFF6FF;color:#1D4ED8;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:800">📢 BO제공→FO</span>`;
       else if (fld.scope === 'back') scopeBadge = `<span style="font-size:9px;background:#F5F3FF;color:#7C3AED;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:800">BO전용</span>`;
       else scopeBadge = `<span style="font-size:9px;background:#EFF6FF;color:#3B82F6;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:800">시스템</span>`;
     }
@@ -1708,6 +1725,7 @@ function _fbRenderFieldCatalog() {
             <select id="fc-l1-scope" style="width:100%;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;background:#FAFAFA">
               <option value="">코드 기본값</option>
               <option value="front">🔓 프론트 (학습자)</option>
+              <option value="provide">📢 BO제공 → FO (관리자 입력, 학습자 읽기전용)</option>
               <option value="back">🔒 백오피스 (승인자)</option>
               <option value="system">⚙️ 시스템</option>
             </select>
@@ -1848,7 +1866,7 @@ function _fcRenderFields(isPlatform, l2Count) {
               const layerC = f.layer === 'L1' ? '#1D4ED8' : '#D97706';
               const isLocked = f.layer === 'L1';
               const typeLabel = { text:'텍스트', textarea:'여러줄', number:'숫자', select:'셀렉트', multi_select:'멀티셀렉트', date:'날짜', daterange:'기간', file:'파일', 'user-search':'사용자검색', 'user_search':'사용자검색', rating:'평점', system:'시스템', 'budget-linked':'예산연동', 'budget_linked':'예산연동', 'calc-grounds':'산출근거', 'calc_grounds':'산출근거', 'course-session':'과정차수', 'course_session':'과정차수' }[f.fieldType] || f.fieldType;
-              const scopeLabel = f.scope === 'front' ? '🔓프론트' : f.scope === 'back' ? '🔒백오피스' : '⚙️시스템';
+              const scopeLabel = f.scope === 'front' ? '🔓프론트' : f.scope === 'provide' ? '📢BO제공' : f.scope === 'back' ? '🔒백오피스' : '⚙️시스템';
               const optCount = (f.options || []).length;
               const isHidden = f._hidden || false;
               const hiddenStyle = isHidden ? 'opacity:0.4;' : '';

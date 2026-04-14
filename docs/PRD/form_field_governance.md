@@ -3,7 +3,7 @@
 > **도메인**: 교육양식 마법사 (Form Builder)
 > **관련 파일**: `public/js/bo_form_builder.js`
 > **최초 작성**: 2026-04-13
-> **최종 갱신**: 2026-04-13 (v1.2)
+> **최종 갱신**: 2026-04-14 (v1.3 — provide scope 추가)
 > **상태**: ✅ 완료
 
 ---
@@ -37,6 +37,10 @@
 | F-011 | 프론트오피스 필수 검증 | 필수 필드 미입력 시 임시저장 ✅ / 최종 상신 ❌ | 🔴 HIGH | ✅ |
 | F-012 | select 필드 팔레트 표시 | 팔레트에서 select 타입 필드에 ▼ 배지, L2 필드에 L2 배지 표시 | 🟢 LOW | ✅ |
 | F-013 | canonical_key 매핑 | 모든 필드에 영문 snake_case `canonicalKey` 부여. 그룹사 통계 집계 기준 | 🔴 HIGH | ✅ |
+| F-015 | **provide scope** | BO제공→FO구독 유형 추가. 관리자가 BO에서 입력하면 FO에 읽기전용 노출. 미입력 시 FO 숨김 처리 | 🔴 HIGH | ✅ |
+| F-016 | provide L1 필드 6개 | 안내사항/준비물/확정 교육장소/확정 강사/합격·수료 여부/관리자 피드백 | 🔴 HIGH | ✅ |
+| F-017 | FO 읽기전용 렌더링 | provide 필드를 파란색 카드 UI로 읽기전용 표시. 편집 불가 | 🔴 HIGH | ✅ |
+| F-018 | provide 필수 검증 | provide 필드의 required=true는 **BO 저장 시에만** 검증. FO 제출 시에는 pass | 🔴 HIGH | ✅ |
 
 ## 4. DB/데이터 구조
 
@@ -50,7 +54,7 @@
 | canonical_key | TEXT NOT NULL | 플랫폼 고유 식별자 (snake_case, 변경 불가) |
 | display_name | TEXT NOT NULL | 사용자 표시명 |
 | field_type | TEXT NOT NULL | text, textarea, number, select, multi_select, date, daterange, file, user_search, rating, system, budget_linked, calc_grounds, course_session |
-| scope | TEXT | front, back, system |
+| scope | TEXT | front, provide, back, system |
 | default_required | BOOLEAN | 전역 기본 필수 여부 |
 | is_locked | BOOLEAN | L1: true (테넌트 수정 불가) |
 | is_reportable | BOOLEAN | 통계 리포트 포함 여부 |

@@ -1405,6 +1405,7 @@ async function confirmApply() {
       // Fallback: 직접 DB upsert (Edge Function 미사용)
       const sb = typeof getSB === 'function' ? getSB() : null;
       if (sb) {
+        const _fSnap = applyState.formTemplate ? { id: applyState.formTemplate.id, name: applyState.formTemplate.name, version: applyState.formTemplate.version || 1, fields: (applyState.formTemplate.fields || []).map(f => ({ key: typeof f === 'object' ? f.key : f, scope: f?.scope, required: f?.required })) } : null;
         const row = {
           id: appId, tenant_id: currentPersona.tenantId,
           plan_id: applyState.planId || null,
@@ -1417,7 +1418,9 @@ async function confirmApply() {
           edu_type: applyState.eduType || applyState.eduSubType || null,
           amount: totalExp, status: 'pending',
           policy_id: applyState.policyId || null,
-          detail: { purpose: applyState.purpose?.id || null, expenses: applyState.expenses, courseSessionLinks: applyState.courseSessionLinks || [] },
+          form_template_id: applyState.formTemplate?.id || null,
+          form_version: applyState.formTemplate?.version || null,
+          detail: { purpose: applyState.purpose?.id || null, expenses: applyState.expenses, courseSessionLinks: applyState.courseSessionLinks || [], _form_snapshot: _fSnap },
         };
         const { error } = await sb.from('applications').upsert(row, { onConflict: 'id' });
         if (error) throw error;
@@ -1443,6 +1446,7 @@ async function saveApplyDraft() {
       ? (currentPersona.budgets || []).find(b => b.id === applyState.budgetId) : null;
     const totalExp = applyState.expenses.reduce((sum, e) => sum + Number(e.price) * Number(e.qty), 0);
     const appId = applyState.editId || `DRAFT-APP-${Date.now()}`;
+    const _fSnapDraft = applyState.formTemplate ? { id: applyState.formTemplate.id, name: applyState.formTemplate.name, version: applyState.formTemplate.version || 1, fields: (applyState.formTemplate.fields || []).map(f => ({ key: typeof f === 'object' ? f.key : f, scope: f?.scope, required: f?.required })) } : null;
     const row = {
       id: appId, tenant_id: currentPersona.tenantId,
       plan_id: applyState.planId || null,
@@ -1455,11 +1459,14 @@ async function saveApplyDraft() {
       edu_type: applyState.eduType || applyState.eduSubType || null,
       amount: totalExp, status: 'draft',
       policy_id: applyState.policyId || null,
+      form_template_id: applyState.formTemplate?.id || null,
+      form_version: applyState.formTemplate?.version || null,
       detail: {
         purpose: applyState.purpose?.id || null,
         budgetId: applyState.budgetId || null,
         expenses: applyState.expenses,
         courseSessionLinks: applyState.courseSessionLinks || [],
+        _form_snapshot: _fSnapDraft,
       },
     };
     const { error } = await sb.from('applications').upsert(row, { onConflict: 'id' });

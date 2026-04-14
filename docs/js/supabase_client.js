@@ -568,6 +568,11 @@ async function sbLoadFormTemplates() {
       fields: r.fields || [],
       attachments: r.attachments || [],
       active: r.active,
+      status: r.status || (r.active ? 'published' : 'draft'),
+      version: r.version || 1,
+      publishedAt: r.published_at || null,
+      publishedBy: r.published_by || null,
+      publishedFields: r.published_fields || [],
       accountCode: r.account_code || null,
       domainId: r.virtual_org_template_id || r.domain_id || null,
     }));
@@ -596,7 +601,12 @@ async function sbSaveFormTemplate(formObj) {
       notice_text: formObj.noticeText || null,
       fields: formObj.fields || [],
       attachments: formObj.attachments || [],
-      active: formObj.active !== false,
+      active: formObj.status === 'published',
+      status: formObj.status || 'draft',
+      version: formObj.version || 1,
+      published_at: formObj.publishedAt || null,
+      published_by: formObj.publishedBy || null,
+      published_fields: formObj.publishedFields || null,
       updated_at: new Date().toISOString(),
     };
     const { error } = await getSB()

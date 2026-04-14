@@ -1124,6 +1124,8 @@ async function savePlanDraft() {
       amount: amount, status: 'draft', policy_id: planState.policyId || null,
       plan_type: planState.plan_type || 'ongoing',
       fiscal_year: planState.fiscal_year || new Date().getFullYear(),
+      form_template_id: planState.formTemplate?.id || null,
+      form_version: planState.formTemplate?.version || null,
       detail: {
         purpose: planState.purpose?.id || null, budgetId: planState.budgetId || null,
         eduType: planState.eduType, eduSubType: planState.eduSubType,
@@ -1131,6 +1133,7 @@ async function savePlanDraft() {
         institution: planState.institution || null, notes: planState.notes || null,
         dept: currentPersona.dept, content: planState.content || '',
         startDate: planState.startDate || '', endDate: planState.endDate || '',
+        _form_snapshot: planState.formTemplate ? { id: planState.formTemplate.id, name: planState.formTemplate.name, version: planState.formTemplate.version || 1, fields: (planState.formTemplate.fields || []).map(f => ({ key: typeof f === 'object' ? f.key : f, scope: f?.scope, required: f?.required })) } : null,
       },
     };
     const { error } = await sb.from('plans').upsert(row, { onConflict: 'id' });
@@ -1244,12 +1247,15 @@ async function confirmPlan() {
         amount: amount, status: 'pending', policy_id: planState.policyId || null,
         plan_type: planState.plan_type || 'ongoing',
         fiscal_year: planState.fiscal_year || new Date().getFullYear(),
+        form_template_id: planState.formTemplate?.id || null,
+        form_version: planState.formTemplate?.version || null,
         detail: {
           purpose: planState.purpose?.id || null, budgetId: planState.budgetId || null,
           eduType: planState.eduType, eduSubType: planState.eduSubType,
           calcGrounds: planState.calcGrounds || [], period: planState.period || null,
           institution: planState.institution || null, notes: planState.notes || null,
           dept: currentPersona.dept, content: planState.content || '',
+          _form_snapshot: planState.formTemplate ? { id: planState.formTemplate.id, name: planState.formTemplate.name, version: planState.formTemplate.version || 1, fields: (planState.formTemplate.fields || []).map(f => ({ key: typeof f === 'object' ? f.key : f, scope: f?.scope, required: f?.required })) } : null,
         },
       };
       const { error } = await sb.from('plans').upsert(row, { onConflict: 'id' });

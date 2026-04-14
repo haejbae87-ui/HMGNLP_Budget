@@ -524,9 +524,16 @@ function _fbRenderLibrary() {
     const fields = (f.fields || []);
     const purposeLabel = FORM_PURPOSE_TYPES[f.purpose]?.label || f.purpose || '—';
     const eduTypeLabel = f.eduType || '—';
-    const statusBg = f.active ? '#D1FAE5' : '#F3F4F6';
-    const statusColor = f.active ? '#065F46' : '#9CA3AF';
-    const statusLabel = f.active ? '활성' : '비활성';
+    const _fStatus = f.status || (f.active ? 'published' : 'draft');
+    const _statusMap = {
+      draft:     { bg: '#F3F4F6', color: '#6B7280', label: '📝 초안' },
+      published: { bg: '#D1FAE5', color: '#065F46', label: `✅ 배포중 v${f.version || 1}` },
+      archived:  { bg: '#FEF3C7', color: '#92400E', label: '📦 보관' },
+    };
+    const _sm = _statusMap[_fStatus] || _statusMap.draft;
+    const statusBg = _sm.bg;
+    const statusColor = _sm.color;
+    const statusLabel = _sm.label;
     const safeId = String(f.id || '').replace(/'/g, "\\'");
     const safeName = String(f.name || '').replace(/'/g, "\\'");
 
@@ -569,8 +576,10 @@ function _fbRenderLibrary() {
         style="font-size:10px;padding:4px 7px;border-radius:6px;border:1.5px solid #D1D5DB;background:white;cursor:pointer;font-weight:700;color:#374151;white-space:nowrap">✏️ 수정</button>
       <button onclick="event.stopPropagation();fbCopyForm('${safeId}')" title="복사"
         style="font-size:10px;padding:4px 7px;border-radius:6px;border:1.5px solid #DDD6FE;background:#F5F3FF;cursor:pointer;font-weight:700;color:#7C3AED;white-space:nowrap">📋 복사</button>
-      <button onclick="event.stopPropagation();fbToggleActive('${safeId}')" title="${f.active ? '비활성화' : '활성화'}"
-        style="font-size:10px;padding:4px 7px;border-radius:6px;border:1.5px solid ${f.active ? '#F59E0B' : '#059669'};background:white;cursor:pointer;font-weight:700;color:${f.active ? '#F59E0B' : '#059669'};white-space:nowrap">${f.active ? '⏸️' : '▶️'}</button>
+      ${_fStatus !== 'published' ? `<button onclick="event.stopPropagation();fbDeployForm('${safeId}')" title="배포하기"
+        style="font-size:10px;padding:4px 7px;border-radius:6px;border:1.5px solid #059669;background:#F0FDF4;cursor:pointer;font-weight:700;color:#059669;white-space:nowrap">🚀 배포</button>` : ''}
+      <button onclick="event.stopPropagation();fbToggleActive('${safeId}')" title="${_fStatus === 'published' ? '보관하기' : _fStatus === 'archived' ? '초안으로 복원' : ''}"
+        style="font-size:10px;padding:4px 7px;border-radius:6px;border:1.5px solid ${_fStatus === 'published' ? '#F59E0B' : '#059669'};background:white;cursor:pointer;font-weight:700;color:${_fStatus === 'published' ? '#F59E0B' : '#059669'};white-space:nowrap">${_fStatus === 'published' ? '📦 보관' : _fStatus === 'archived' ? '📝 복원' : ''}</button>
       <button ${isMapped ? `disabled title="${mappedPolicy.name} 정책 연결 중"` : `onclick="event.stopPropagation();fbDeleteForm('${safeId}')"`}
         style="font-size:10px;padding:4px 7px;border-radius:6px;border:1.5px solid ${isMapped ? '#E5E7EB' : '#FECACA'};background:${isMapped ? '#F9FAFB' : '#FEF2F2'};color:${isMapped ? '#9CA3AF' : '#DC2626'};cursor:${isMapped ? 'not-allowed' : 'pointer'};font-weight:700">🗑️</button>
     </div>
@@ -738,7 +747,8 @@ function _fbEditorPage(form) {
   </div>
   <div style="display:flex;gap:8px">
     <button class="bo-btn-secondary" onclick="fbCloseEditor()" style="padding:8px 18px;font-size:13px">취소</button>
-    <button class="bo-btn-primary" onclick="fbSaveForm()" style="padding:8px 22px;font-size:13px">💾 저장</button>
+    <button class="bo-btn-primary" onclick="fbSaveForm()" style="padding:8px 22px;font-size:13px">💾 임시저장</button>
+    <button onclick="fbSaveAndDeploy()" style="padding:8px 22px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#047857);color:white;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">🚀 배포하기</button>
   </div>
 </div>
 <!-- 범위 배지 -->
@@ -1162,11 +1172,20 @@ async function fbSaveForm() {
   if (_fbTempFields.length === 0) { alert('최소 1개 이상의 필드를 추가해주세요.'); return; }
 
   const formId = _fbEditId || ('FM' + Date.now());
+  // 기존 양식의 상태/버전 정보 보존
+  const prevVersion = existingForm?.version || 0;
+  const prevStatus = existingForm?.status || 'draft';
   const formData = {
     id: formId, tenantId,
     domainId: _fbGroupId || null,
     accountCode: _fbAccountCode || null,
-    type, name, desc, active: true,
+    type, name, desc,
+    status: 'draft',
+    active: false,
+    version: prevVersion || 1,
+    publishedFields: existingForm?.publishedFields || [],
+    publishedAt: existingForm?.publishedAt || null,
+    publishedBy: existingForm?.publishedBy || null,
     fields: [..._fbTempFields],
     purpose, eduType, eduSubType, targetUser, noticeText, attachments
   };
@@ -1289,10 +1308,94 @@ window.fbCopyFormConfirm = async function(originId) {
   renderFormBuilderMenu();
 };
 
+// ━━━ 양식 상태 전환 (published→archived, archived→draft, draft→draft) ━━━━━━━━━━━━━
 function fbToggleActive(formId) {
   const f = FORM_MASTER.find(x => x.id === formId);
-  if (f) f.active = !f.active;
+  if (!f) return;
+
+  const curStatus = f.status || (f.active ? 'published' : 'draft');
+
+  // 정책 연결 양식은 published→archived 차단
+  const linkedPolicies = _fbGetLinkedPolicies(formId);
+  if (curStatus === 'published' && linkedPolicies.length > 0) {
+    if (!confirm(`⚠ 이 양식은 ${linkedPolicies.length}개 정책에 연결되어 있습니다.\n보관하면 FO에서 양식을 로드할 수 없게 됩니다.\n\n정말 보관하시겠습니까?`)) return;
+  }
+
+  if (curStatus === 'published') {
+    f.status = 'archived';
+    f.active = false;
+  } else if (curStatus === 'archived') {
+    f.status = 'draft';
+    f.active = false;
+  }
+  // draft → 변경 없음 (배포 버튼 사용)
+
+  // DB 동기화
+  if (typeof sbSaveFormTemplate === 'function') sbSaveFormTemplate(f);
   renderFormBuilderMenu();
+}
+
+// ━━━ 양식 배포 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+window.fbDeployForm = async function(formId) {
+  const f = FORM_MASTER.find(x => x.id === formId);
+  if (!f) return;
+
+  // 1. 정책 연결 확인 + 경고
+  const linkedPolicies = _fbGetLinkedPolicies(formId);
+  if (linkedPolicies.length > 0) {
+    const msg = `이 양식은 ${linkedPolicies.length}개 정책에 연결되어 있습니다.\n`
+      + linkedPolicies.map(p => `  • ${p.name}`).join('\n')
+      + '\n\n배포하면 즉시 FO에 반영됩니다. 계속하시겠습니까?';
+    if (!confirm(msg)) return;
+  }
+
+  // 2. 필드 변경 영향도 분석
+  const prevFields = f.publishedFields || [];
+  const curFields = f.fields || [];
+  if (prevFields.length > 0) {
+    const deletedKeys = prevFields.filter(pf => !curFields.find(cf => (typeof cf === 'object' ? cf.key : cf) === (typeof pf === 'object' ? pf.key : pf)));
+    if (deletedKeys.length > 0) {
+      const warn = `⚠ 이전 배포 대비 삭제된 필드:\n  ${deletedKeys.map(k => typeof k === 'object' ? k.key : k).join(', ')}\n\n기존 제출 데이터에서 해당 필드가 표시되지 않을 수 있습니다.\n계속 배포하시겠습니까?`;
+      if (!confirm(warn)) return;
+    }
+  }
+
+  // 3. 버전 증가 + 배포
+  f.version = (f.version || 0) + 1;
+  f.status = 'published';
+  f.active = true;
+  f.publishedAt = new Date().toISOString();
+  f.publishedBy = boCurrentPersona?.id || 'system';
+  f.publishedFields = [...curFields];
+
+  // 4. DB upsert
+  if (typeof sbSaveFormTemplate === 'function') {
+    const ok = await sbSaveFormTemplate(f);
+    if (!ok) { alert('배포 실패: DB 저장 오류'); return; }
+  }
+  _fbShowToast(`🚀 "${f.name}" v${f.version} 배포 완료`);
+  renderFormBuilderMenu();
+};
+
+// ━━━ 에디터에서 저장 후 바로 배포 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+window.fbSaveAndDeploy = async function() {
+  await fbSaveForm();  // draft로 저장
+  const formId = _fbEditId;
+  if (!formId) return;
+  fbDeployForm(formId);
+};
+
+// ━━━ 정책 연결 조회 헬퍼 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function _fbGetLinkedPolicies(formId) {
+  if (typeof SERVICE_POLICIES === 'undefined') return [];
+  return SERVICE_POLICIES.filter(p => {
+    const ids = [];
+    if (p.formIds) ids.push(...p.formIds);
+    if (p.stage_form_ids) Object.values(p.stage_form_ids).forEach(v => { if (Array.isArray(v)) ids.push(...v); else if (v) ids.push(v); });
+    if (p.formSets) Object.values(p.formSets).forEach(v => { if (Array.isArray(v)) ids.push(...v); else if (v) ids.push(v); });
+    if (p.stageFormIds) Object.values(p.stageFormIds).forEach(v => { if (Array.isArray(v)) ids.push(...v); else if (v) ids.push(v); });
+    return ids.includes(formId);
+  });
 }
 
 

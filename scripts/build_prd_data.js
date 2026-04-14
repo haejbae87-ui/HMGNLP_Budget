@@ -68,6 +68,14 @@ const PRD_META = {
     tags: ['BO', '양식', '필드', '거버넌스', 'L1/L2'],
     summary: '3계층 필드 거버넌스(L1 표준/L2 확장/L3 금지), select 옵션값 관리, 양식별 필수/선택 토글, 선후행 의존성 규칙 엔진.',
   },
+  'form_deploy_workflow': {
+    title: '양식 배포 분리 및 버전 관리',
+    version: 'v1.0',
+    status: '완료',
+    date: '2026-04-14',
+    tags: ['BO', '양식', '배포', '버전', 'Draft', 'Deploy'],
+    summary: '양식 저장=즉시배포 구조를 Draft→Preview→Deploy 3단계로 분리. 양식 상태머신(draft/published/archived), 배포 시 필드 삭제 경고, 제출 데이터에 양식 스냅샷 저장으로 엑셀 추출 대비.',
+  },
 };
 
 function _extractTitleFromMd(content) {

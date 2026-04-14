@@ -40,7 +40,7 @@ async function _loadFormTemplate(formId) {
     const sb = typeof getSB === 'function' ? getSB() : null;
     if (!sb) return null;
     const { data, error } = await sb.from('form_templates')
-        .select('*').eq('id', formId).eq('active', true).maybeSingle();
+        .select('*').eq('id', formId).eq('status', 'published').maybeSingle();
     if (error || !data) { console.warn('[fo_form_loader] template load error:', formId, error?.message); return null; }
     _FORM_TPL_CACHE[formId] = { data, loadedAt: Date.now() };
     return data;
@@ -56,7 +56,7 @@ async function _loadFormTemplateByContext(vorgTemplateId, accountCode, stage, ed
 
     // 1순위: vorg + account + stage + edu_type 정확 매칭
     if (eduType) {
-        let q1 = sb.from('form_templates').select('*').eq('active', true).eq('type', stage);
+        let q1 = sb.from('form_templates').select('*').eq('status', 'published').eq('type', stage);
         if (vorgTemplateId) q1 = q1.eq('virtual_org_template_id', vorgTemplateId);
         if (accountCode) q1 = q1.eq('account_code', accountCode);
         q1 = q1.eq('edu_type', eduType);
@@ -69,7 +69,7 @@ async function _loadFormTemplateByContext(vorgTemplateId, accountCode, stage, ed
     }
 
     // 2순위: vorg + account + stage (eduType 없이)
-    let q2 = sb.from('form_templates').select('*').eq('active', true).eq('type', stage);
+    let q2 = sb.from('form_templates').select('*').eq('status', 'published').eq('type', stage);
     if (vorgTemplateId) q2 = q2.eq('virtual_org_template_id', vorgTemplateId);
     if (accountCode) q2 = q2.eq('account_code', accountCode);
     const { data: d2, error } = await q2.limit(1).maybeSingle();

@@ -1,34 +1,12 @@
-// ─── 백오피스: 세부 산출 근거 관리 (계층형: 테넌트→가상교육조직→예산계정) ────────
+// ─── 백오피스: 세부 산출 근거 관리 (VOrg 템플릿 중심) ────────────────────────
 // 데이터는 Supabase calc_grounds 테이블에서 로드, CALC_GROUNDS_MASTER로 동기화
+// 같은 VOrg 템플릿 하위에서 세부산출근거를 공유
 
-let _cgActiveTab = null;     // 선택된 accountCode
+let _cgActiveTab = null;
 let _cgEditId = null;
 let _cgFilterTenant = null;     // 선택된 회사 ID
 let _cgFilterGroup = null;     // 선택된 가상교육조직 ID
-let _cgFilterAccount = null;     // 선택된 예산계정 코드
-
-// ─── Scope / visible 배지 헬퍼 ───────────────────────────────────────────────
-const CG_SCOPE_META = {
-  plan: { label: '계획', color: '#1D4ED8', bg: '#EFF6FF' },
-  apply: { label: '신청', color: '#059669', bg: '#F0FDF4' },
-  settle: { label: '결과', color: '#7C3AED', bg: '#F5F3FF' },
-};
-const CG_VISIBLE_META = {
-  both: { label: '국내/해외', color: '#374151', bg: '#F9FAFB' },
-  domestic: { label: '국내전용', color: '#2563EB', bg: '#EFF6FF' },
-  overseas: { label: '해외전용', color: '#D97706', bg: '#FFFBEB' },
-};
-
-function _cgScopeBadges(scopes = []) {
-  return (scopes || []).map(s => {
-    const m = CG_SCOPE_META[s] || { label: s, color: '#6B7280', bg: '#F9FAFB' };
-    return `<span style="background:${m.bg};color:${m.color};padding:1px 6px;border-radius:5px;font-size:10px;font-weight:800;border:1px solid ${m.color}20">${m.label}</span>`;
-  }).join(' ');
-}
-function _cgVisibleBadge(val = 'both') {
-  const m = CG_VISIBLE_META[val] || CG_VISIBLE_META.both;
-  return `<span style="background:${m.bg};color:${m.color};padding:1px 6px;border-radius:5px;font-size:10px;font-weight:700;border:1px solid ${m.color}20">${m.label}</span>`;
-}
+let _cgFilterAccount = null;     // 필터바 예산계정 (조회용, 등록 시 불필요)
 
 // ─── 항목 조회 (계층 필터) ───────────────────────────────────────────────────
 // 범위: tenantId 일치 + (groupId 일치 OR null) + (accountCode 일치 OR null)
@@ -101,24 +79,12 @@ async function renderCalcGrounds() {
   const availVorgs = _cgTplList.filter(t => t.service_type === 'edu_support' && (!activeTenantId || t.tenant_id === activeTenantId));
   const vorgName = availVorgs.find(g => g.id === pbVorgId)?.name || pbVorgId || '선택된 조직';
 
-  // 선택된 가상교육조직의 예산 계정 목록
-  const availAccounts = (() => {
-    if (pbVorgId) {
-      return _cgAccountList.filter(a => a.active !== false && a.virtual_org_template_id === pbVorgId);
-    }
-    return _cgAccountList.filter(a =>
-      a.active !== false &&
-      a.code !== 'COMMON-FREE' &&
-      (activeTenantId ? a.tenant_id === activeTenantId : true)
-    );
-  })();
-
   const filterBar = `
   <div style="background:white;border:1.5px solid #E5E7EB;border-radius:14px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.05)">
     ${isPlatform ? `
     <div style="display:flex;align-items:center;gap:8px">
       <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">회사</span>
-      <select onchange="_cgFilterTenant=this.value;_cgFilterGroup='';_cgFilterAccount='';renderCalcGrounds()"
+      <select onchange="_cgFilterTenant=this.value;_cgFilterGroup='';renderCalcGrounds()"
         style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:140px">
         <option value="">전체 회사</option>
         ${TENANTS_LIST.map(t => `<option value="${t.id}" ${activeTenantId === t.id ? 'selected' : ''}>${t.name}</option>`).join('')}
@@ -146,28 +112,18 @@ async function renderCalcGrounds() {
     </div>` : `
     <div style="display:flex;align-items:center;gap:8px">
       <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">가상교육조직 템플릿</span>
-      <select onchange="_cgFilterGroup=this.value;_cgFilterAccount='';renderCalcGrounds()"
+      <select onchange="_cgFilterGroup=this.value;renderCalcGrounds()"
         style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:160px">
         <option value="">전체 조직</option>
         ${availVorgs.map(g => `<option value="${g.id}" ${pbVorgId === g.id ? 'selected' : ''}>${g.name}</option>`).join('')}
       </select>
     </div>`}
-    <div style="width:1px;height:28px;background:#E5E7EB"></div>
-
-    <div style="display:flex;align-items:center;gap:8px">
-      <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">예산계정</span>
-      <select onchange="_cgFilterAccount=this.value;renderCalcGrounds()"
-        style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:160px">
-        <option value="">전체 계정</option>
-        ${availAccounts.map(a => `<option value="${a.code}" ${_cgFilterAccount === a.code ? 'selected' : ''}>${a.name}</option>`).join('')}
-      </select>
-    </div>
 
     <button onclick="renderCalcGrounds()"
       style="padding:9px 20px;background:linear-gradient(135deg,#1D4ED8,#2563EB);color:white;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(37,99,235,.35);white-space:nowrap;margin-left:auto">
       ● 조회
     </button>
-    <button onclick="_cgFilterTenant='';_cgFilterGroup='';_cgFilterAccount='';renderCalcGrounds()"
+    <button onclick="_cgFilterTenant='';_cgFilterGroup='';renderCalcGrounds()"
       style="padding:9px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:12px;font-weight:700;background:white;cursor:pointer;color:#6B7280;white-space:nowrap">초기화</button>
   </div>`;
 
@@ -183,7 +139,7 @@ async function renderCalcGrounds() {
         <span style="background:#059669;color:#fff;font-size:9px;font-weight:900;padding:3px 8px;border-radius:6px">세부산출근거</span>
         <h1 class="bo-page-title" style="margin:0">세부 산출 근거 관리</h1>
       </div>
-      <p class="bo-page-sub">테넌트 → 가상교육조직 → 예산계정 단위로 세부 산출근거 항목을 독립적으로 구성합니다.</p>
+      <p class="bo-page-sub">가상교육조직 템플릿 단위로 세부 산출근거를 관리합니다. 같은 템플릿 하위 계정이 공유합니다.</p>
     </div>
     <button class="bo-btn-primary bo-btn-sm" onclick="cgOpenModal(null)" style="white-space:nowrap">
       + 항목 추가
@@ -195,7 +151,7 @@ async function renderCalcGrounds() {
 
   <!-- 항목 목록 -->
   <div id="cg-content">
-    ${_renderCgTable(activeTenantId, pbVorgId, _cgFilterAccount)}
+    ${_renderCgTable(activeTenantId, pbVorgId, '')}
   </div>
 </div>
 
@@ -220,21 +176,9 @@ function _renderCgTable(tenantId, groupId, accountCode) {
   const items = _cgGetItems(tenantId, groupId, accountCode);
   const active = items.filter(g => g.active !== false).length;
 
-  // 범위 뱃지
-  const scopeLabel = item => {
-    if (item.accountCode) return `<span style="font-size:9px;background:#FDF2F8;color:#9D174D;padding:1px 5px;border-radius:4px;font-weight:800">계정전용</span>`;
-    if (item.domainId) return `<span style="font-size:9px;background:#F5F3FF;color:#7C3AED;padding:1px 5px;border-radius:4px;font-weight:800">조직공유</span>`;
-    return `<span style="font-size:9px;background:#F3F4F6;color:#6B7280;padding:1px 5px;border-radius:4px;font-weight:800">테넌트공유</span>`;
-  };
-
   return `
 <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px">
   <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.05em">세부 산출 근거 목록 (${active}개 / 전체 ${items.length}개)</div>
-  <div style="display:flex;gap:8px;font-size:10px;color:#9CA3AF">
-    <span><span style="background:#F3F4F6;padding:1px 5px;border-radius:4px;font-weight:800;color:#6B7280">테넌트공유</span> 이 테넌트 전체</span>
-    <span><span style="background:#F5F3FF;padding:1px 5px;border-radius:4px;font-weight:800;color:#7C3AED">조직공유</span> 가상교육조직 내</span>
-    <span><span style="background:#FDF2F8;padding:1px 5px;border-radius:4px;font-weight:800;color:#9D174D">계정전용</span> 이 계정 한정</span>
-  </div>
 </div>
 
 <div style="background:white;border:1.5px solid #E5E7EB;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05)">
@@ -243,11 +187,8 @@ function _renderCgTable(tenantId, groupId, accountCode) {
       <tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB">
         <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#6B7280;width:40px">NO.</th>
         <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151">항목명</th>
-        <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151">범위</th>
         <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151">가이드 설명</th>
         <th style="padding:10px 14px;text-align:right;font-size:11px;font-weight:800;color:#374151">기준단가</th>
-        <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#374151">사용 단계</th>
-        <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#374151">교육 유형</th>
         <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#374151">상한액</th>
         <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#374151">상태</th>
         <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#374151">관리</th>
@@ -255,7 +196,7 @@ function _renderCgTable(tenantId, groupId, accountCode) {
     </thead>
     <tbody>
       ${items.length === 0 ? `
-      <tr><td colspan="10" style="text-align:center;padding:48px;color:#9CA3AF;font-size:13px">
+      <tr><td colspan="7" style="text-align:center;padding:48px;color:#9CA3AF;font-size:13px">
         이 범위에서 조회된 항목이 없습니다.<br>
         <button onclick="cgOpenModal(null)" class="bo-btn-primary bo-btn-sm" style="margin-top:10px;display:inline-flex;align-items:center;padding:6px 14px;font-size:12px;border-radius:8px">+ 첫 항목 추가</button>
       </td></tr>` : items.map((g, i) => `
@@ -265,11 +206,8 @@ function _renderCgTable(tenantId, groupId, accountCode) {
           <div style="font-weight:800;font-size:13px;color:#111827;margin-bottom:3px">${g.name}</div>
           <div style="font-size:10px;color:#9CA3AF">${g.id}</div>
         </td>
-        <td style="padding:11px 14px">${scopeLabel(g)}</td>
-        <td style="padding:11px 14px;font-size:12px;color:#374151;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.desc || '—'}</td>
+        <td style="padding:11px 14px;font-size:12px;color:#374151;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.desc || '—'}</td>
         <td style="padding:11px 14px;text-align:right;font-weight:700;font-size:12px;color:#374151">${g.unitPrice > 0 ? (typeof boFmt === 'function' ? boFmt(g.unitPrice) : g.unitPrice.toLocaleString()) + '원' : '<span style="color:#9CA3AF">—</span>'}</td>
-        <td style="padding:11px 14px;text-align:center">${_cgScopeBadges(g.usageScope || ['plan', 'apply', 'settle'])}</td>
-        <td style="padding:11px 14px;text-align:center">${_cgVisibleBadge(g.visibleFor || 'both')}</td>
         <td style="padding:11px 14px;text-align:center;font-size:11px">
           ${g.limitType === 'none' ? '<span style="color:#9CA3AF">제한없음</span>' :
       g.limitType === 'soft' ? `<span style="background:#FFFBEB;color:#D97706;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:800">⚠ Soft</span>` :
@@ -294,9 +232,8 @@ function _renderCgTable(tenantId, groupId, accountCode) {
 <!-- 범례 -->
 <div class="bo-card" style="padding:12px 18px;margin-top:10px;background:#F8FAFC;border-color:#E2E8F0">
   <div style="font-size:11px;color:#374151;font-weight:600;display:flex;flex-wrap:wrap;gap:16px">
-    <span>📋 단계: ${_cgScopeBadges(['plan', 'apply', 'settle'])} — 체크된 단계에서만 입력 가능</span>
-    <span>🌏 유형: ${_cgVisibleBadge('both')} ${_cgVisibleBadge('domestic')} ${_cgVisibleBadge('overseas')} — 국내/해외 구분 표시</span>
-    <span>💡 <b>Soft</b>: 초과 시 사유 입력 후 진행 | <b>Hard</b>: 초과 시 차단</span>
+    <span>⚠️ <b>Soft Limit</b>: 상한액 초과 시 <b>사유 입력</b> 후 진행 가능 (초과 허용, 관리자 리뷰 대상)</span>
+    <span>🚫 <b>Hard Limit</b>: 상한액 초과 시 <b>절대 차단</b> (시스템이 입력을 거부, 초과 불가)</span>
   </div>
 </div>`;
 }
@@ -316,46 +253,26 @@ function cgCloseModal() { document.getElementById('cg-modal').style.display = 'n
 
 function _cgModalBody(item, tenantId, myGroups) {
   const lType = item?.limitType || 'none';
-  const scopes = item?.usageScope || ['plan', 'apply', 'settle'];
-  const visFor = item?.visibleFor || 'both';
 
-  // 가상교육조직+계정 드롭다운
+  // 가상교육조직 드롭다운
   const groupOpts = myGroups.map(g => `<option value="${g.id}" ${item?.domainId === g.id ? 'selected' : ''}>${g.name}</option>`).join('');
-
-  const selectedGrpId = item?.domainId || _cgFilterGroup;
-  const acctList = selectedGrpId
-    ? _cgAccountList.filter(a => a.virtual_org_template_id === selectedGrpId)
-    : [];
-  const acctOpts = acctList.map(a =>
-    `<option value="${a.code}" ${item?.accountCode === a.code ? 'selected' : ''}>${a.code}${a.name ? ` (${a.name})` : ''}</option>`
-  ).join('');
 
   return `
 <div style="display:flex;flex-direction:column;gap:16px">
 
-  <!-- 계층 설정 (범위 지정) -->
+  <!-- 적용 범위: VOrg 템플릿만 -->
   <div style="background:#EFF6FF;border-radius:10px;padding:14px;border:1.5px solid #BFDBFE">
     <div style="font-size:12px;font-weight:800;color:#1D4ED8;margin-bottom:10px">📐 적용 범위 설정</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div>
-        <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px">가상교육조직 템플릿 (미선택 = 테넌트 전체 공유)</label>
-        <select id="cg-grp" onchange="cgOnModalGroupChange(this.value)"
-                style="width:100%;padding:8px 10px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:12px">
-          <option value="">— 테넌트 전체 공유 —</option>
-          ${groupOpts}
-        </select>
-      </div>
-      <div>
-        <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px">예산계정 (미선택 = 그룹/테넌트 공유)</label>
-        <select id="cg-acct"
-                style="width:100%;padding:8px 10px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:12px">
-          <option value="">— 공유 항목 —</option>
-          ${acctOpts}
-        </select>
-      </div>
+    <div>
+      <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px">가상교육조직 템플릿 (미선택 = 테넌트 전체 공유)</label>
+      <select id="cg-grp"
+              style="width:100%;padding:8px 10px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:12px">
+        <option value="">— 테넌트 전체 공유 —</option>
+        ${groupOpts}
+      </select>
     </div>
     <div style="margin-top:8px;font-size:10px;color:#1D4ED8">
-      💡 계정 지정 시 해당 계정에서만 이 항목이 보입니다. 공유 항목은 해당 범위(그룹/테넌트) 전체에서 보입니다.
+      💡 같은 가상교육조직 템플릿 하위의 모든 예산계정에서 이 항목을 공유합니다.
     </div>
   </div>
 
@@ -383,44 +300,6 @@ function _cgModalBody(item, tenantId, myGroups) {
     </div>
   </div>
 
-  <!-- 사용 단계 -->
-  <div style="background:#F0FDF4;border-radius:10px;padding:14px;border:1.5px solid #A7F3D0">
-    <div style="font-size:12px;font-weight:800;color:#065F46;margin-bottom:10px">📋 사용 단계</div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      ${[
-      { val: 'plan', label: '계획 수립', color: '#1D4ED8', bg: '#EFF6FF' },
-      { val: 'apply', label: '교육 신청', color: '#059669', bg: '#F0FDF4' },
-      { val: 'settle', label: '결과 보고', color: '#7C3AED', bg: '#F5F3FF' },
-    ].map(s => `
-      <label style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:10px;cursor:pointer;
-                    border:1.5px solid ${scopes.includes(s.val) ? s.color : '#E5E7EB'};
-                    background:${scopes.includes(s.val) ? s.bg : '#fff'};flex:1">
-        <input type="checkbox" id="cg-scope-${s.val}" value="${s.val}" ${scopes.includes(s.val) ? 'checked' : ''}
-          style="accent-color:${s.color};width:14px;height:14px">
-        <span style="font-size:12px;font-weight:800;color:${s.color}">${s.label}</span>
-      </label>`).join('')}
-    </div>
-  </div>
-
-  <!-- 교육 유형 -->
-  <div style="background:#FFFBEB;border-radius:10px;padding:14px;border:1.5px solid #FDE68A">
-    <div style="font-size:12px;font-weight:800;color:#92400E;margin-bottom:10px">🌏 교육 유형별 노출</div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      ${[
-      { val: 'both', label: '국내/해외 모두', color: '#374151', bg: '#F9FAFB' },
-      { val: 'domestic', label: '국내 전용', color: '#2563EB', bg: '#EFF6FF' },
-      { val: 'overseas', label: '해외 전용', color: '#D97706', bg: '#FFFBEB' },
-    ].map(v => `
-      <label style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:10px;cursor:pointer;
-                    border:1.5px solid ${visFor === v.val ? v.color : '#E5E7EB'};
-                    background:${visFor === v.val ? v.bg : '#fff'};flex:1" onclick="cgSelectVisible('${v.val}')">
-        <input type="radio" name="cg-visible" value="${v.val}" ${visFor === v.val ? 'checked' : ''}
-          style="accent-color:${v.color}">
-        <span style="font-size:12px;font-weight:800;color:${v.color}">${v.label}</span>
-      </label>`).join('')}
-    </div>
-  </div>
-
   <!-- 상한액 -->
   <div style="background:#F9FAFB;border-radius:10px;padding:14px;border:1.5px solid #E5E7EB">
     <div style="font-size:12px;font-weight:800;color:#374151;margin-bottom:10px">🔒 상한액 설정</div>
@@ -433,18 +312,22 @@ function _cgModalBody(item, tenantId, myGroups) {
         <input type="radio" name="cg-limit-type" value="${v}" ${lType === v ? 'checked' : ''}
           style="accent-color:${v === 'none' ? '#10B981' : v === 'soft' ? '#D97706' : '#DC2626'}">
         <span style="font-size:12px;font-weight:700">
-          ${v === 'none' ? '제한없음' : v === 'soft' ? '⚠ Soft' : '🚫 Hard'}
+          ${v === 'none' ? '✅ 제한없음' : v === 'soft' ? '⚠ Soft (초과 가능)' : '🚫 Hard (초과 차단)'}
         </span>
       </label>`).join('')}
     </div>
+    <div style="margin-bottom:12px;font-size:10px;color:#6B7280;background:#F9FAFB;padding:8px 12px;border-radius:8px;line-height:1.6">
+      ⚠ <b>Soft Limit</b>: 이 금액을 초과해도 <b>사유를 입력</b>하면 진행 가능합니다. 관리자가 사후에 리뷰합니다.<br>
+      🚫 <b>Hard Limit</b>: 이 금액을 초과하면 <b>시스템이 절대 차단</b>합니다. 입력 자체가 불가합니다.
+    </div>
     <div id="cg-limit-fields" style="display:${lType === 'none' ? 'none' : 'grid'};grid-template-columns:1fr 1fr;gap:12px">
       <div>
-        <label style="font-size:11px;font-weight:700;color:#D97706;display:block;margin-bottom:4px">⚠ Soft Limit (원)</label>
+        <label style="font-size:11px;font-weight:700;color:#D97706;display:block;margin-bottom:4px">⚠ Soft Limit (원) — 초과 시 사유 입력 후 진행 가능</label>
         <input id="cg-soft-limit" type="number" value="${item?.softLimit || ''}" placeholder="0=미설정"
           style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #FDE68A;border-radius:8px;font-size:13px">
       </div>
       <div>
-        <label style="font-size:11px;font-weight:700;color:#DC2626;display:block;margin-bottom:4px">🚫 Hard Limit (원)</label>
+        <label style="font-size:11px;font-weight:700;color:#DC2626;display:block;margin-bottom:4px">🚫 Hard Limit (원) — 초과 시 절대 차단 (입력 불가)</label>
         <input id="cg-hard-limit" type="number" value="${item?.hardLimit || ''}" placeholder="0=미설정"
           style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #FECACA;border-radius:8px;font-size:13px">
       </div>
@@ -487,9 +370,6 @@ function cgSaveItem() {
   if (!name) { alert('항목명은 필수입니다.'); return; }
   const tenantId = _cgFilterTenant || boCurrentPersona.tenantId || 'HMC';
   const groupId = document.getElementById('cg-grp')?.value || null;
-  const accountCode = document.getElementById('cg-acct')?.value || null;
-  const scopes = ['plan', 'apply', 'settle'].filter(s => document.getElementById(`cg-scope-${s}`)?.checked);
-  if (!scopes.length) { alert('사용 단계를 최소 1개 선택하세요.'); return; }
 
   const obj = {
     name,
@@ -498,12 +378,11 @@ function cgSaveItem() {
     limitType: document.querySelector('input[name="cg-limit-type"]:checked')?.value || 'none',
     softLimit: Number(document.getElementById('cg-soft-limit')?.value) || 0,
     hardLimit: Number(document.getElementById('cg-hard-limit')?.value) || 0,
-    usageScope: scopes,
-    visibleFor: document.querySelector('input[name="cg-visible"]:checked')?.value || 'both',
+    usageScope: ['plan', 'apply', 'settle'],
+    visibleFor: 'both',
     active: true,
     tenantId,
     domainId: groupId || undefined,
-    accountCode: accountCode || undefined,
     sortOrder: Number(document.getElementById('cg-order')?.value) || 99,
   };
 

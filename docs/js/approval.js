@@ -254,20 +254,26 @@ async function renderApprovalLeader() {
         })),
       ];
 
-      // 결재라인 매칭 필터 — APPROVAL_ROUTING 기반
-      if (typeof APPROVAL_ROUTING !== 'undefined' && APPROVAL_ROUTING.length > 0) {
+      // 결재라인 매칭 필터 — 정책(SERVICE_POLICIES) approvalConfig 기반
+      if (typeof SERVICE_POLICIES !== 'undefined' && SERVICE_POLICIES.length > 0) {
         const myPos = currentPersona.pos || '';
+        const posToKey = { '팀장': 'team_leader', '실장': 'director', '사업부장': 'division_head', '센터장': 'center_head', '본부장': 'hq_head' };
+        const myKey = Object.entries(posToKey).find(([k]) => myPos.includes(k))?.[1] || '';
         _aprLeaderData = _aprLeaderData.filter(item => {
-          const routing = APPROVAL_ROUTING.find(r =>
-            r.tenantId === tid && r.accountCodes.some(c => item.account_code.includes(c))
+          // 매칭 정책 찾기
+          const policy = SERVICE_POLICIES.find(p =>
+            p.tenantId === item.tenantId && (p.accountCodes || []).some(c => item.account_code.includes(c))
           );
-          if (!routing) return true; // 라우팅 미설정 → 기본 표시
-          // 금액 구간별 결재자 매칭
-          const range = routing.ranges.find(rng =>
-            rng.max === null || item.amount < rng.max
-          ) || routing.ranges[routing.ranges.length - 1];
-          if (!range) return true;
-          return range.approvers.some(a => a.includes(myPos) || myPos.includes(a.replace(' 전결', '')));
+          if (!policy || !policy.approvalConfig) return true; // 정책 미설정 → 기본 표시
+          // 신청 단계 결재라인 확인 (apply 기본)
+          const stage = item._type === 'plan' ? 'plan' : 'apply';
+          const cfg = policy.approvalConfig[stage];
+          if (!cfg || !cfg.thresholds || cfg.thresholds.length === 0) return true; // 구간 미설정 → 기본 표시
+          // 금액에 맞는 구간 결재자 매칭
+          const sorted = [...cfg.thresholds].sort((a, b) => (a.maxAmt || Infinity) - (b.maxAmt || Infinity));
+          const matched = sorted.find(t => t.maxAmt && item.amount <= t.maxAmt) || sorted[sorted.length - 1];
+          if (!matched || !matched.approverKey) return true;
+          return matched.approverKey === myKey;
         });
       }
     } catch (err) {

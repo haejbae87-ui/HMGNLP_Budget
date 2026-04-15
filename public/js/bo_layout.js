@@ -210,7 +210,7 @@ const PLATFORM_MENUS = [
   { id: 'budget-account', icon: '💳', label: '예산계정 관리', section: '교육지원제도 기준정보', gnb: GNB_CATE.PROGRAM },
   { id: 'form-builder', icon: '📝', label: '교육양식 마법사', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'calc-grounds', icon: '📐', label: '세부산출근거 관리', section: null, gnb: GNB_CATE.PROGRAM },
-  { id: 'approval-routing', icon: '🔀', label: '결재라인 설정', section: null, gnb: GNB_CATE.PROGRAM },
+
   { id: 'service-policy', icon: '🔧', label: '서비스 정책관리', section: null, gnb: GNB_CATE.PROGRAM },
   // 교육지원제도 ─ 운영관리
   { id: 'plan-mgmt', icon: '📋', label: '교육계획 관리', section: '교육지원제도 운영관리', gnb: GNB_CATE.PROGRAM },
@@ -246,7 +246,7 @@ const TENANT_ADMIN_MENUS = [
   { id: 'budget-account', icon: '💳', label: '예산계정 관리', section: '교육지원제도 기준정보', gnb: GNB_CATE.PROGRAM },
   { id: 'form-builder', icon: '📝', label: '교육양식 마법사', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'calc-grounds', icon: '📐', label: '세부산출근거 관리', section: null, gnb: GNB_CATE.PROGRAM },
-  { id: 'approval-routing', icon: '🔀', label: '결재라인 설정', section: null, gnb: GNB_CATE.PROGRAM },
+
   { id: 'service-policy', icon: '🔧', label: '서비스 정책관리', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'plan-mgmt', icon: '📋', label: '교육계획 관리', section: '교육지원제도 운영관리', gnb: GNB_CATE.PROGRAM },
   { id: 'my-operations', icon: '📥', label: '교육신청 관리', section: null, gnb: GNB_CATE.PROGRAM },
@@ -276,7 +276,7 @@ const BUDGET_ADMIN_MENUS = [
   { id: 'budget-account', icon: '💳', label: '예산계정 관리', section: '교육지원제도 기준정보', gnb: GNB_CATE.PROGRAM },
   { id: 'form-builder', icon: '📝', label: '교육양식 마법사', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'calc-grounds', icon: '📐', label: '세부산출근거 관리', section: null, gnb: GNB_CATE.PROGRAM },
-  { id: 'approval-routing', icon: '🔀', label: '결재라인 설정', section: null, gnb: GNB_CATE.PROGRAM },
+
   { id: 'service-policy', icon: '🔧', label: '서비스 정책관리', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'plan-mgmt', icon: '📋', label: '교육계획 관리', section: '교육지원제도 운영관리', gnb: GNB_CATE.PROGRAM },
   { id: 'my-operations', icon: '📥', label: '교육신청 관리', section: null, gnb: GNB_CATE.PROGRAM },
@@ -303,7 +303,7 @@ const BUDGET_ADMIN_MENUS = [
 const BUDGET_OP_MENUS = [
   { id: 'dashboard', icon: '📊', label: '대시보드', section: null, gnb: GNB_CATE.PLATFORM },
   { id: 'service-policy', icon: '🔧', label: '서비스 정책관리', section: '교육지원제도 설정', gnb: GNB_CATE.PROGRAM },
-  { id: 'approval-routing', icon: '🔀', label: '결재라인 설정', section: null, gnb: GNB_CATE.PROGRAM },
+
   { id: 'plan-mgmt', icon: '📋', label: '교육계획 관리', section: '교육지원제도 운영', gnb: GNB_CATE.PROGRAM },
   { id: 'my-operations', icon: '📥', label: '교육신청 관리', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'result-mgmt', icon: '📄', label: '교육결과 관리', section: null, gnb: GNB_CATE.PROGRAM },
@@ -327,7 +327,7 @@ const TENANT_DUAL_MENUS = [
   { id: 'budget-account', icon: '💳', label: '예산계정 관리', section: '교육지원제도 기준정보', gnb: GNB_CATE.PROGRAM },
   { id: 'form-builder', icon: '📝', label: '교육양식 마법사', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'calc-grounds', icon: '📐', label: '세부산출근거 관리', section: null, gnb: GNB_CATE.PROGRAM },
-  { id: 'approval-routing', icon: '🔀', label: '결재라인 설정', section: null, gnb: GNB_CATE.PROGRAM },
+
   { id: 'service-policy', icon: '🔧', label: '서비스 정책관리', section: null, gnb: GNB_CATE.PROGRAM },
   { id: 'plan-mgmt', icon: '📋', label: '교육계획 관리', section: '교육지원제도 운영관리', gnb: GNB_CATE.PROGRAM },
   { id: 'my-operations', icon: '📥', label: '교육신청 관리', section: null, gnb: GNB_CATE.PROGRAM },
@@ -674,7 +674,8 @@ function boNavigate(menuId) {
   if (menuId === 'form-builder') renderFormBuilderMenu();
   if (menuId === 'field-mgmt') renderVirtualOrgUnified(); // 혹시나 남아있을 경우 대비
   if (menuId === 'calc-grounds') renderCalcGrounds();
-  if (menuId === 'approval-routing') renderApprovalRouting();
+
+
   if (menuId === 'service-policy') renderServicePolicy();
   // 운영 메뉴
   if (menuId === 'plan-mgmt') renderBoPlanMgmt();

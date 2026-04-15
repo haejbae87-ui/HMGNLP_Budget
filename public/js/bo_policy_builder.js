@@ -1169,24 +1169,8 @@ function _toggleEduSubType(typeId, subId) {
   if (i >= 0) arr.splice(i, 1); else arr.push(subId);
   renderPolicyWizard();
 }
-// ── 템플릿에서 구간 불러오기 ──────────────────────────────────────────────
-function _importRoutingToStage(stage, routingId) {
-  const routing = (typeof APPROVAL_ROUTING !== 'undefined' ? APPROVAL_ROUTING : []).find(r => r.id === routingId);
-  if (!routing) return;
-  if (!_policyWizardData.approvalConfig) _policyWizardData.approvalConfig = {};
-  if (!_policyWizardData.approvalConfig[stage]) _policyWizardData.approvalConfig[stage] = { thresholds: [], approvalType: 'platform' };
-  // 기존 구간을 덮어쓸지 확인
-  const cfg = _policyWizardData.approvalConfig[stage];
-  if (cfg.thresholds.length > 0 && !confirm(`기존 ${cfg.thresholds.length}개 구간을 "${routing.name}" 템플릿으로 덮어쓰시겠습니까?`)) return;
-  // 매핑: ranges → thresholds (maxAmt + approverKey)
-  const roleToKey = { '팀장': 'team_leader', '실장': 'director', '사업부장': 'division_head', '센터장': 'center_head', '본부장': 'hq_head' };
-  cfg.thresholds = routing.ranges.map(range => {
-    const finalNode = range.nodes.filter(n => n.type === 'approval').pop();
-    return { maxAmt: range.maxAmt || null, approverKey: finalNode ? (roleToKey[finalNode.role] || '') : '' };
-  });
-  _policyWizardData._approvalTab = stage;
-  renderPolicyWizard();
-}
+
+
 function _addStageThreshold(stage) {
   if (!_policyWizardData.approvalConfig) _policyWizardData.approvalConfig = {};
   if (!_policyWizardData.approvalConfig[stage]) _policyWizardData.approvalConfig[stage] = { thresholds: [], finalApproverKey: '' };

@@ -1048,15 +1048,80 @@ function renderPolicyWizard() {
       .filter(([k, p]) => p.tenantId === persona.tenantId)
       .map(([k, p]) => ({ key: k, p }));
 
+    // ★ 계정 approvalSystem 자동 감지
+    const _selAcctCode = (d.accountCodes || [])[0] || '';
+    const _selAcctMaster = typeof ACCOUNT_MASTER !== 'undefined' ? ACCOUNT_MASTER.find(a => a.code === _selAcctCode) : null;
+    const _acctApprovalSys = _selAcctMaster?.approvalSystem || 'platform';
+    const _acctSysLabel = _acctApprovalSys === 'integrated' ? '🔗 통합결재' : _acctApprovalSys === 'platform' ? '⚡ 자체결재' : '🏢 외부결재';
+    const _acctSysBg = _acctApprovalSys === 'integrated' ? '#FEF3C7' : _acctApprovalSys === 'platform' ? '#F0FDF4' : '#EFF6FF';
+    const _acctSysColor = _acctApprovalSys === 'integrated' ? '#92400E' : _acctApprovalSys === 'platform' ? '#059669' : '#1D4ED8';
+
+    // ★ 노드 기반 결재선 미리보기 (APPROVAL_ROUTING에서)
+    const _nodeStyles = typeof NODE_TYPE_STYLES !== 'undefined' ? NODE_TYPE_STYLES : { draft: {bg:'#EFF6FF',color:'#1D4ED8',icon:'📝'}, approval: {bg:'#FEF3C7',color:'#92400E',icon:'✅'}, coop: {bg:'#FDE8E8',color:'#991B1B',icon:'🤝'} };
+    const _routing = typeof APPROVAL_ROUTING !== 'undefined' ? APPROVAL_ROUTING.find(r => r.accountCodes.includes(_selAcctCode)) : null;
+    const _renderNodeFlow = (nodes) => {
+      if (!nodes || !nodes.length) return '<span style="font-size:11px;color:#9CA3AF">노드 없음</span>';
+      return nodes.filter(n => n.type !== 'draft').map((n, j, arr) => {
+        const st = _nodeStyles[n.type] || _nodeStyles.approval;
+        const isCond = n.activation === 'conditional';
+        // 자체결재(platform)일 때 coop 노드 숨김
+        if (n.requiresIntegrated && _acctApprovalSys !== 'integrated') return '';
+        return `<span style="display:inline-flex;align-items:center;gap:2px;background:${st.bg};color:${st.color};padding:3px 8px;border-radius:12px;font-size:10px;font-weight:700;white-space:nowrap;${isCond ? 'border:1px dashed '+st.color : ''}">${st.icon} ${n.label}${isCond ? ' <span style=font-size:8px;color:#DC2626>(조건)</span>' : ''}${n.final ? ' ✓' : ''}</span>${j < arr.length - 1 ? '<span style="color:#D97706;font-size:10px;margin:0 1px">→</span>' : ''}`;
+      }).filter(Boolean).join('');
+    };
+
     stepContent = `
 <div style="display:grid;gap:16px">
   <div style="padding:12px 16px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;font-size:12px;color:#92400E">
     💡 각 단계(계획/신청/결과)별로 결재라인 및 결재 시스템(자체/통합)을 설정하세요. 최종 승인은 관리자 화면에서 진행되므로 지정할 필요가 없습니다.
   </div>
+
+  <!-- ★ 계정 결재 방식 자동 감지 배너 -->
+  <div style="padding:12px 16px;border-radius:10px;border:2px solid ${_acctSysColor}30;background:${_acctSysBg};display:flex;align-items:center;gap:12px">
+    <span style="font-size:24px">${_acctApprovalSys === 'integrated' ? '🔗' : _acctApprovalSys === 'platform' ? '⚡' : '🏢'}</span>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:900;color:${_acctSysColor}">${_acctSysLabel}</div>
+      <div style="font-size:11px;color:#6B7280;margin-top:2px">
+        계정 <strong>${_selAcctCode}</strong>의 결재 방식이 자동 적용됩니다.
+        ${_acctApprovalSys === 'integrated' ? '축1(총액→승인자 상승) + 축2(soft초과→협조처) 모두 활성' : _acctApprovalSys === 'platform' ? '축1(총액→승인자 상승)만 활성. 협조처 비활성.' : '플랫폼 결재선 미생성. 참고 정보만 표시.'}
+      </div>
+    </div>
+    <span style="font-size:10px;padding:3px 10px;border-radius:6px;background:${_acctSysColor};color:white;font-weight:700">자동 감지</span>
+  </div>
+
+  ${_acctApprovalSys === 'external' ? `
+  <!-- 외부결재: 참고 정보만 -->
+  <div style="padding:30px;text-align:center;background:#F9FAFB;border-radius:14px;border:1px dashed #D1D5DB">
+    <div style="font-size:28px;margin-bottom:8px">🏢</div>
+    <div style="font-size:14px;font-weight:900;color:#374151">외부결재 시스템 연동</div>
+    <div style="font-size:12px;color:#6B7280;margin-top:6px">이 계정은 SAP/그룹웨어 등 외부 결재를 사용합니다.<br>플랫폼 내 결재선은 생성되지 않습니다.</div>
+  </div>
+  ` : `
+  <!-- ★ APPROVAL_ROUTING 노드 플로우 미리보기 -->
+  ${_routing ? `
+  <div style="border:1.5px solid #E5E7EB;border-radius:14px;overflow:hidden">
+    <div style="padding:10px 16px;background:#F8FAFC;border-bottom:1px solid #E5E7EB;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:12px;font-weight:800;color:#374151">📋 ${_routing.name} — 금액 구간별 결재 노드</span>
+      <span style="font-size:10px;color:#9CA3AF">${_routing.ranges.length}개 구간</span>
+    </div>
+    <div style="padding:12px;display:grid;gap:6px">
+      ${_routing.ranges.map((range, i) => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:${i % 2 === 0 ? '#FAFAFA' : '#fff'};border-radius:8px;border:1px solid #F3F4F6">
+        <div style="min-width:140px;font-size:11px;font-weight:700;color:#92400E">${range.label}</div>
+        <div style="display:flex;align-items:center;gap:3px;flex:1;flex-wrap:wrap">${_renderNodeFlow(range.nodes)}</div>
+      </div>`).join('')}
+    </div>
+  </div>
+  ` : `
+  <div style="padding:20px;text-align:center;background:#F9FAFB;border-radius:10px;color:#9CA3AF;font-size:12px">
+    이 계정에 설정된 결재라인(APPROVAL_ROUTING)이 없습니다. 결재라인 설정 메뉴에서 먼저 등록하세요.
+  </div>`}
+  `}
+
   <!-- 단계별 결재 카드 (수직 배치) -->
   ${stages.map(s => {
       const c = d.approvalConfig[s] || { thresholds: [], approvalType: 'platform' };
-      if (!c.approvalType) c.approvalType = 'platform';
+      if (!c.approvalType) c.approvalType = _acctApprovalSys === 'integrated' ? 'hmg' : 'platform';
       const isConfigured = !!c.approvalType;
       return `
   <div style="border:2px solid ${isConfigured ? stageColor[s] + '60' : '#FECACA'};border-radius:14px;overflow:hidden">
@@ -1079,11 +1144,14 @@ function renderPolicyWizard() {
           const isSet = c.approvalType === type;
           const label = type === 'platform' ? 'LXP 플랫폼 자체 결재' : 'HMG 통합결재 (AutoWay)';
           const icon = type === 'platform' ? '⚙️' : '🌐';
+          // 통합결재 계정이면 hmg 권장, 자체결재 계정이면 platform 권장
+          const recommended = (_acctApprovalSys === 'integrated' && type === 'hmg') || (_acctApprovalSys === 'platform' && type === 'platform');
           return `
             <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;border:2px solid ${isSet ? stageColor[s] : '#E5E7EB'};background:${isSet ? stageColor[s] + '10' : 'white'};cursor:pointer;transition:all .15s"
                    onclick="_policyWizardData.approvalConfig['${s}'].approvalType='${type}';renderPolicyWizard()">
               <input type="radio" ${isSet ? 'checked' : ''} style="margin:0;accent-color:${stageColor[s]}">
               <span style="font-weight:700;font-size:12px;color:${isSet ? stageColor[s] : '#374151'}">${icon} ${label}</span>
+              ${recommended ? '<span style="font-size:8px;padding:1px 5px;border-radius:3px;background:#D1FAE5;color:#065F46;font-weight:800">권장</span>' : ''}
             </label>`;
         }).join('')}
         </div>

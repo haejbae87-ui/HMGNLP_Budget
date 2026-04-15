@@ -227,6 +227,14 @@ async function _bamLoadBudgetAccountsList(tplId) {
       const statusColor = a.active !== false ? '#065F46' : '#9CA3AF';
       const statusLabel = a.active !== false ? '활성' : '비활성';
       const budgetMode = a.uses_budget === false ? '미사용' : (a.bankbook_mode === 'team' ? '팀별통장' : (a.bankbook_mode === 'personal' ? '개인통장' : '공동'));
+      // 결재 방식 (ACCOUNT_MASTER에서 참조)
+      const masterAcct = typeof ACCOUNT_MASTER !== 'undefined' ? ACCOUNT_MASTER.find(m => m.code === a.code) : null;
+      const appSys = masterAcct?.approvalSystem || 'platform';
+      const appSysBadge = appSys === 'integrated'
+        ? '<span style="font-size:10px;padding:2px 8px;border-radius:6px;font-weight:700;background:#FEF3C7;color:#92400E">🔗 통합결재</span>'
+        : appSys === 'platform'
+        ? '<span style="font-size:10px;padding:2px 8px;border-radius:6px;font-weight:700;background:#F0FDF4;color:#059669">⚡ 자체결재</span>'
+        : '<span style="font-size:10px;padding:2px 8px;border-radius:6px;font-weight:700;background:#EFF6FF;color:#1D4ED8">🏢 외부결재</span>';
       return `
       <tr style="border-bottom:1px solid #F1F5F9;cursor:pointer;transition:background .12s"
           onmouseover="this.style.background='#F8FAFF'" onmouseout="this.style.background=''"
@@ -237,6 +245,7 @@ async function _bamLoadBudgetAccountsList(tplId) {
         </td>
         <td style="padding:11px 14px;font-weight:800;font-size:13px;color:#111827">${a.name || ''}</td>
         <td style="padding:11px 14px;font-size:12px;color:#6B7280">${budgetMode}</td>
+        <td style="padding:11px 14px;text-align:center">${appSysBadge}</td>
         <td style="padding:11px 14px;text-align:center">
           <span style="font-size:10px;padding:2px 8px;border-radius:6px;font-weight:700;background:${statusBg};color:${statusColor}">${statusLabel}</span>
         </td>
@@ -252,6 +261,7 @@ async function _bamLoadBudgetAccountsList(tplId) {
             <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#64748B">계정 코드</th>
             <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#64748B">계정명</th>
             <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#64748B">예산 방식</th>
+            <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#64748B;width:100px">결재 방식</th>
             <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#64748B;width:80px">상태</th>
           </tr>
         </thead>

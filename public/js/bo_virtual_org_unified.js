@@ -623,10 +623,11 @@ function _vuTabCoop(tpl) {
   <h3 style="font-size:14px;font-weight:900;color:#111827;margin:0 0 4px">🤝 협조처 관리</h3>
   <p style="font-size:11px;color:#6B7280;margin:0 0 6px">각 가상조직(본부)별 결재 시 협조가 필요한 팀을 지정합니다.</p>
   <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;padding:3px 10px;border-radius:6px;background:#EFF6FF;color:#1D4ED8;font-weight:700;border:1px solid #BFDBFE">📚 교육협조처</span><span style="font-size:10px;color:#9CA3AF">교육총괄팀 등</span></div>
-    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;padding:3px 10px;border-radius:6px;background:#FFFBEB;color:#92400E;font-weight:700;border:1px solid #FDE68A">💰 재경협조처</span><span style="font-size:10px;color:#9CA3AF">재경팀 등</span></div>
-    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;padding:3px 10px;border-radius:6px;background:#FEF2F2;color:#EF4444;font-weight:700;border:1px solid #FECACA">🔴 필수</span><span style="font-size:10px;color:#9CA3AF">결재선 필수 포함</span></div>
-    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;padding:3px 10px;border-radius:6px;background:#F3F4F6;color:#6B7280;font-weight:700;border:1px solid #E5E7EB">⚪ 선택</span><span style="font-size:10px;color:#9CA3AF">조건부 참조</span></div>
+    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;padding:3px 10px;border-radius:6px;background:#EFF6FF;color:#1D4ED8;font-weight:700;border:1px solid #BFDBFE">\ud83d\udcda \uad50\uc721\ucd1d\uad04\ud300</span></div>
+    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;padding:3px 10px;border-radius:6px;background:#ECFDF5;color:#065F46;font-weight:700;border:1px solid #A7F3D0">\ud83c\udfe2 \ubcf8\ubd80\uc8fc\ubb34\ud300</span><span style="font-size:10px;color:#9CA3AF">\ud56d\uc0c1 \ud544\uc218</span></div>
+    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;padding:3px 10px;border-radius:6px;background:#FFFBEB;color:#92400E;font-weight:700;border:1px solid #FDE68A">\ud83d\udcb0 \uc7ac\uacbd\ud611\uc870\ud300</span></div>
+    <div style="display:flex;align-items:center;gap:3px"><span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#FEF2F2;color:#EF4444;font-weight:700;border:1px solid #FECACA">\ud83d\udd34 \ud544\uc218</span></div>
+    <div style="display:flex;align-items:center;gap:3px"><span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#EFF6FF;color:#3B82F6;font-weight:700;border:1px solid #DBEAFE">\ud83d\udd35 \uc870\uac74\ubd80</span><span style="font-size:10px;color:#9CA3AF">\ud611\uc870/\ucc38\uc870 \uc804\ud658</span></div>
   </div>
   ${groups.length ? groups.map((g, gi) => {
     const coopTeams = g.coopTeams || [];
@@ -641,18 +642,17 @@ function _vuTabCoop(tpl) {
     </div>
     <div style="display:flex;flex-direction:column;gap:6px">
       ${coopTeams.length ? coopTeams.map((ct, ci) => {
-        const isJK = (ct.coopType||'') === '\uc7ac\uacbd\ud611\uc870\ucc98';
-        const tcBg = isJK ? '#FFFBEB' : '#EFF6FF';
-        const tcBdr = isJK ? '#FDE68A' : '#BFDBFE';
-        const tcTxt = isJK ? '#92400E' : '#1D4ED8';
-        const tcIcn = isJK ? '\ud83d\udcb0' : '\ud83d\udcda';
+        const cType = ct.coopType || '\uad50\uc721\ucd1d\uad04\ud300';
+        const tcMap = {'\ubcf8\ubd80\uc8fc\ubb34\ud300':{bg:'#ECFDF5',bdr:'#A7F3D0',txt:'#065F46',icn:'\ud83c\udfe2'},'\uc7ac\uacbd\ud611\uc870\ud300':{bg:'#FFFBEB',bdr:'#FDE68A',txt:'#92400E',icn:'\ud83d\udcb0'},'\uad50\uc721\ud611\uc870\ucc98':{bg:'#EFF6FF',bdr:'#BFDBFE',txt:'#1D4ED8',icn:'\ud83d\udcda'},'\uc7ac\uacbd\ud611\uc870\ucc98':{bg:'#FFFBEB',bdr:'#FDE68A',txt:'#92400E',icn:'\ud83d\udcb0'}};
+        const tc = tcMap[cType] || {bg:'#EFF6FF',bdr:'#BFDBFE',txt:'#1D4ED8',icn:'\ud83d\udcda'};
         const rq = ct.required === '\ud544\uc218';
+        const rqIsConditional = ct.required === '\uc870\uac74\ubd80';
         return `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${tcBg};border:1px solid ${tcBdr};border-radius:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${tc.bg};border:1px solid ${tc.bdr};border-radius:10px">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1">
           <span style="font-weight:800;font-size:13px;color:#111827">${ct.name||ct.teamName||ct}</span>
-          <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${tcBdr};color:${tcTxt};font-weight:700">${tcIcn} ${ct.coopType||'\uad50\uc721\ud611\uc870\ucc98'}</span>
-          <span style="font-size:10px;padding:2px 8px;border-radius:6px;color:${rq?'#EF4444':'#6B7280'};font-weight:700;background:${rq?'#FEF2F2':'#F3F4F6'};border:1px solid ${rq?'#FECACA':'#E5E7EB'}">${rq?'\ud83d\udd34 \ud544\uc218\ud611\uc870\ucc98':'\u26aa \uc120\ud0dd\ud611\uc870\ucc98'}</span>
+          <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${tc.bdr};color:${tc.txt};font-weight:700">${tc.icn} ${cType}</span>
+          <span style="font-size:10px;padding:2px 8px;border-radius:6px;color:${rq?'#EF4444':(rqIsConditional?'#3B82F6':'#6B7280')};font-weight:700;background:${rq?'#FEF2F2':(rqIsConditional?'#EFF6FF':'#F3F4F6')};border:1px solid ${rq?'#FECACA':(rqIsConditional?'#DBEAFE':'#E5E7EB')}">${rq?'\ud83d\udd34 \ud544\uc218\ud611\uc870\ucc98':(rqIsConditional?'\ud83d\udd35 \uc870\uac74\ubd80':'\u26aa \uc120\ud0dd')}</span>
           ${ct.role&&ct.role!=='\ud611\uc870'?'<span style="font-size:10px;color:#6B7280">'+ct.role+'</span>':''}
         </div>
         <button onclick="_vuRemoveCoop('${tpl.id}',${gi},${ci})" style="border:none;background:none;color:#D1D5DB;cursor:pointer;font-size:14px;flex-shrink:0">\u2715</button>
@@ -774,33 +774,38 @@ function _vuOpenCoopAddModal(tplId, gi) {
       <button onclick="document.getElementById('vu-coop-type-modal').innerHTML=''" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">\u2715</button>
     </div>
     <div style="margin-bottom:16px">
-      <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:7px">협조처 유형 <span style="color:#EF4444">*</span></div>
-      <div style="display:flex;gap:10px">
-        <label style="flex:1;display:flex;align-items:center;gap:6px;padding:10px 14px;border-radius:8px;cursor:pointer;border:1.5px solid #BFDBFE;background:#EFF6FF">
-          <input type="radio" name="vu-ct" value="\uad50\uc721\ud611\uc870\ucc98" checked style="accent-color:#1D4ED8;width:14px;height:14px">
-          <span style="font-size:12px;font-weight:700;color:#1D4ED8">\ud83d\udcda \uad50\uc721\ud611\uc870\ucc98</span>
+      <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:7px">\ud611\uc870\ucc98 \uc720\ud615 <span style="color:#EF4444">*</span></div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <label onclick="_vuCoopTypeChanged('\uad50\uc721\ucd1d\uad04\ud300')" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;cursor:pointer;border:1.5px solid #BFDBFE;background:#EFF6FF">
+          <input type="radio" name="vu-ct" value="\uad50\uc721\ucd1d\uad04\ud300" checked style="accent-color:#1D4ED8;width:15px;height:15px">
+          <div><div style="font-size:12px;font-weight:800;color:#1D4ED8">\ud83d\udcda \uad50\uc721\ucd1d\uad04\ud300</div><div style="font-size:10px;color:#6B7280">\uad50\uc721\uc6b4\uc601 \ucd1d\uad04 \uac80\ud1a0 \u2014 \uc870\uac74\ubd80 \ud611\uc870/\ucc38\uc870</div></div>
         </label>
-        <label style="flex:1;display:flex;align-items:center;gap:6px;padding:10px 14px;border-radius:8px;cursor:pointer;border:1.5px solid #FDE68A;background:#FFFBEB">
-          <input type="radio" name="vu-ct" value="\uc7ac\uacbd\ud611\uc870\ucc98" style="accent-color:#D97706;width:14px;height:14px">
-          <span style="font-size:12px;font-weight:700;color:#92400E">\ud83d\udcb0 \uc7ac\uacbd\ud611\uc870\ucc98</span>
+        <label onclick="_vuCoopTypeChanged('\ubcf8\ubd80\uc8fc\ubb34\ud300')" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;cursor:pointer;border:1.5px solid #A7F3D0;background:#ECFDF5">
+          <input type="radio" name="vu-ct" value="\ubcf8\ubd80\uc8fc\ubb34\ud300" style="accent-color:#059669;width:15px;height:15px">
+          <div><div style="font-size:12px;font-weight:800;color:#065F46">\ud83c\udfe2 \ubcf8\ubd80\uc8fc\ubb34\ud300</div><div style="font-size:10px;color:#6B7280">\ubcf8\ubd80 \uc8fc\ubb34 \ub2f4\ub2f9 \u2014 <b>\ud56d\uc0c1 \ud544\uc218</b> \ud611\uc870</div></div>
+        </label>
+        <label onclick="_vuCoopTypeChanged('\uc7ac\uacbd\ud611\uc870\ud300')" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;cursor:pointer;border:1.5px solid #FDE68A;background:#FFFBEB">
+          <input type="radio" name="vu-ct" value="\uc7ac\uacbd\ud611\uc870\ud300" style="accent-color:#D97706;width:15px;height:15px">
+          <div><div style="font-size:12px;font-weight:800;color:#92400E">\ud83d\udcb0 \uc7ac\uacbd\ud611\uc870\ud300</div><div style="font-size:10px;color:#6B7280">\uc608\uc0b0\u00b7\uc7ac\ubb34 \uac80\ud1a0 \u2014 \uc870\uac74\ubd80 \ud611\uc870/\ucc38\uc870</div></div>
         </label>
       </div>
     </div>
-    <div style="margin-bottom:16px">
-      <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:7px">협조 구분 <span style="color:#EF4444">*</span></div>
+    <div id="vu-ct-req-section" style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:7px">\ud611\uc870 \uad6c\ubd84 <span style="color:#EF4444">*</span></div>
       <div style="display:flex;gap:10px">
         <label style="flex:1;display:flex;align-items:center;gap:6px;padding:10px 14px;border-radius:8px;cursor:pointer;border:1.5px solid #FECACA;background:#FEF2F2">
           <input type="radio" name="vu-cr" value="\ud544\uc218" checked style="accent-color:#EF4444;width:14px;height:14px">
           <span style="font-size:12px;font-weight:700;color:#EF4444">\ud83d\udd34 \ud544\uc218 \ud611\uc870\ucc98</span>
         </label>
-        <label style="flex:1;display:flex;align-items:center;gap:6px;padding:10px 14px;border-radius:8px;cursor:pointer;border:1.5px solid #E5E7EB;background:#F9FAFB">
-          <input type="radio" name="vu-cr" value="\uc120\ud0dd" style="accent-color:#6B7280;width:14px;height:14px">
-          <span style="font-size:12px;font-weight:700;color:#6B7280">\u26aa \uc120\ud0dd \ud611\uc870\ucc98</span>
+        <label style="flex:1;display:flex;align-items:center;gap:6px;padding:10px 14px;border-radius:8px;cursor:pointer;border:1.5px solid #DBEAFE;background:#EFF6FF">
+          <input type="radio" name="vu-cr" value="\uc870\uac74\ubd80" style="accent-color:#3B82F6;width:14px;height:14px">
+          <span style="font-size:12px;font-weight:700;color:#3B82F6">\ud83d\udd35 \uc870\uac74\ubd80 (\ud611\uc870/\ucc38\uc870)</span>
         </label>
       </div>
+      <div style="font-size:10px;color:#9CA3AF;margin-top:6px">\ud544\uc218=\ud56d\uc0c1 \ud611\uc870\ucc98 | \uc870\uac74\ubd80=\uae08\uc561 \ub4f1 \uc870\uac74\uc5d0 \ub530\ub77c \ud611\uc870/\ucc38\uc870 \uc804\ud658</div>
     </div>
     <div style="margin-bottom:20px">
-      <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:5px">역할 <span style="font-size:10px;font-weight:400;color:#94A3B8">(\uc120\ud0dd)</span></div>
+      <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:5px">\uc5ed\ud560 <span style="font-size:10px;font-weight:400;color:#94A3B8">(\uc120\ud0dd)</span></div>
       <input id="vu-ct-role" type="text" value="" placeholder="\uc608) \uac80\ud1a0, \ud655\uc778, \uc608\uc0b0\uac80\ud1a0"
         style="width:100%;box-sizing:border-box;padding:8px 11px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;outline:none">
     </div>
@@ -812,8 +817,39 @@ function _vuOpenCoopAddModal(tplId, gi) {
 </div>`;
 }
 
+function _vuCoopTypeChanged(type) {
+  const reqSection = document.getElementById('vu-ct-req-section');
+  if (!reqSection) return;
+  if (type === '\ubcf8\ubd80\uc8fc\ubb34\ud300') {
+    // 본부주무팀: 항상 필수 → 구분 선택 비활성화
+    reqSection.innerHTML = `
+      <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:7px">\ud611\uc870 \uad6c\ubd84</div>
+      <div style="padding:10px 14px;border-radius:8px;background:#F0FDF4;border:1.5px solid #A7F3D0;display:flex;align-items:center;gap:8px">
+        <span style="font-size:14px">\ud83d\udfe2</span>
+        <span style="font-size:12px;font-weight:800;color:#065F46">\ud56d\uc0c1 \ud544\uc218 \ud611\uc870\ucc98</span>
+        <span style="font-size:10px;color:#6B7280;margin-left:8px">\ubcf8\ubd80\uc8fc\ubb34\ud300\uc740 \uc870\uac74\uc5d0 \uad00\uacc4\uc5c6\uc774 \ud56d\uc0c1 \ud611\uc870\ucc98\ub85c \ud3ec\ud568\ub429\ub2c8\ub2e4</span>
+      </div>
+      <input type="hidden" name="vu-cr" value="\ud544\uc218">`;
+  } else {
+    // 교육총괄팀/재경협조팀: 필수/조건부 선택 가능
+    reqSection.innerHTML = `
+      <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:7px">\ud611\uc870 \uad6c\ubd84 <span style="color:#EF4444">*</span></div>
+      <div style="display:flex;gap:10px">
+        <label style="flex:1;display:flex;align-items:center;gap:6px;padding:10px 14px;border-radius:8px;cursor:pointer;border:1.5px solid #FECACA;background:#FEF2F2">
+          <input type="radio" name="vu-cr" value="\ud544\uc218" checked style="accent-color:#EF4444;width:14px;height:14px">
+          <span style="font-size:12px;font-weight:700;color:#EF4444">\ud83d\udd34 \ud544\uc218 \ud611\uc870\ucc98</span>
+        </label>
+        <label style="flex:1;display:flex;align-items:center;gap:6px;padding:10px 14px;border-radius:8px;cursor:pointer;border:1.5px solid #DBEAFE;background:#EFF6FF">
+          <input type="radio" name="vu-cr" value="\uc870\uac74\ubd80" style="accent-color:#3B82F6;width:14px;height:14px">
+          <span style="font-size:12px;font-weight:700;color:#3B82F6">\ud83d\udd35 \uc870\uac74\ubd80 (\ud611\uc870/\ucc38\uc870)</span>
+        </label>
+      </div>
+      <div style="font-size:10px;color:#9CA3AF;margin-top:6px">\ud544\uc218=\ud56d\uc0c1 \ud611\uc870\ucc98 | \uc870\uac74\ubd80=\uae08\uc561 \ub4f1 \uc870\uac74\uc5d0 \ub530\ub77c \ud611\uc870/\ucc38\uc870 \uc804\ud658</div>`;
+  }
+}
+
 function _vuCoopTypeConfirmed() {
-  window._vuCoopType = document.querySelector('input[name="vu-ct"]:checked')?.value || '\uad50\uc721\ud611\uc870\ucc98';
+  window._vuCoopType = document.querySelector('input[name="vu-ct"]:checked')?.value || '\uad50\uc721\ucd1d\uad04\ud300';
   window._vuCoopRequired = document.querySelector('input[name="vu-cr"]:checked')?.value || '\ud544\uc218';
   window._vuCoopRole = document.getElementById('vu-ct-role')?.value.trim() || '\ud611\uc870';
   document.getElementById('vu-coop-type-modal').innerHTML = '';

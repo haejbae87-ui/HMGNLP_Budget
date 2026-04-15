@@ -1041,208 +1041,75 @@ function renderPolicyWizard() {
     const stages = _PATTERN_STAGES[d.processPattern] || ['apply'];
     const stageLabel = { plan: '📊 계획', apply: '📝 신청', result: '📄 결과' };
     const stageColor = { plan: '#7C3AED', apply: '#1D4ED8', result: '#059669' };
-    if (!d.approvalConfig) d.approvalConfig = { plan: { thresholds: [], approvalType: 'platform' }, apply: { thresholds: [], approvalType: 'platform' }, result: { thresholds: [], approvalType: 'platform' } };
-    const activeStage = _policyWizardData._approvalTab || stages[0];
-    const cfg = d.approvalConfig[activeStage] || { thresholds: [], approvalType: 'platform' };
-    // ★ 직책 기반 결재 담당자 목록
-    const _APPROVAL_LEVELS = [
-      { key: 'team_leader', label: '팀장', icon: '👤', order: 1 },
-      { key: 'director', label: '실장', icon: '📋', order: 2 },
-      { key: 'division_head', label: '사업부장', icon: '🏢', order: 3 },
-      { key: 'center_head', label: '센터장', icon: '🎯', order: 4 },
-      { key: 'hq_head', label: '본부장', icon: '🏛️', order: 5 },
+    if (!d.approvalConfig) d.approvalConfig = {};
+    const _LEVELS = [
+      { key: 'team_leader', label: '팀장' },
+      { key: 'director', label: '실장' },
+      { key: 'division_head', label: '사업부장' },
+      { key: 'center_head', label: '센터장' },
+      { key: 'hq_head', label: '본부장' },
     ];
-
-    // ★ 계정 approvalSystem 자동 감지
-    const _selAcctCode = (d.accountCodes || [])[0] || '';
-    const _selAcctMaster = typeof ACCOUNT_MASTER !== 'undefined' ? ACCOUNT_MASTER.find(a => a.code === _selAcctCode) : null;
-    const _acctApprovalSys = _selAcctMaster?.approvalSystem || 'platform';
-    const _acctSysLabel = _acctApprovalSys === 'integrated' ? '🔗 통합결재' : _acctApprovalSys === 'platform' ? '⚡ 자체결재' : '🏢 외부결재';
-    const _acctSysBg = _acctApprovalSys === 'integrated' ? '#FEF3C7' : _acctApprovalSys === 'platform' ? '#F0FDF4' : '#EFF6FF';
-    const _acctSysColor = _acctApprovalSys === 'integrated' ? '#92400E' : _acctApprovalSys === 'platform' ? '#059669' : '#1D4ED8';
-
-    // ★ 노드 기반 결재선 미리보기 (APPROVAL_ROUTING에서)
-    const _nodeStyles = typeof NODE_TYPE_STYLES !== 'undefined' ? NODE_TYPE_STYLES : { draft: {bg:'#EFF6FF',color:'#1D4ED8',icon:'📝'}, approval: {bg:'#FEF3C7',color:'#92400E',icon:'✅'}, coop: {bg:'#FDE8E8',color:'#991B1B',icon:'🤝'} };
-    const _routing = typeof APPROVAL_ROUTING !== 'undefined' ? APPROVAL_ROUTING.find(r => r.accountCodes.includes(_selAcctCode)) : null;
-    const _renderNodeFlow = (nodes) => {
-      if (!nodes || !nodes.length) return '<span style="font-size:11px;color:#9CA3AF">노드 없음</span>';
-      return nodes.filter(n => n.type !== 'draft').map((n, j, arr) => {
-        const st = _nodeStyles[n.type] || _nodeStyles.approval;
-        const isCond = n.activation === 'conditional';
-        // 자체결재(platform)일 때 coop 노드 숨김
-        if (n.requiresIntegrated && _acctApprovalSys !== 'integrated') return '';
-        return `<span style="display:inline-flex;align-items:center;gap:2px;background:${st.bg};color:${st.color};padding:3px 8px;border-radius:12px;font-size:10px;font-weight:700;white-space:nowrap;${isCond ? 'border:1px dashed '+st.color : ''}">${st.icon} ${n.label}${isCond ? ' <span style=font-size:8px;color:#DC2626>(조건)</span>' : ''}${n.final ? ' ✓' : ''}</span>${j < arr.length - 1 ? '<span style="color:#D97706;font-size:10px;margin:0 1px">→</span>' : ''}`;
-      }).filter(Boolean).join('');
-    };
 
     stepContent = `
 <div style="display:grid;gap:16px">
   <div style="padding:12px 16px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;font-size:12px;color:#92400E">
-    💡 각 단계(계획/신청/결과)별로 결재라인 및 결재 시스템(자체/통합)을 설정하세요. 최종 승인은 관리자 화면에서 진행되므로 지정할 필요가 없습니다.
+    💡 각 단계별 결재라인을 설정하세요. 금액 구간별 결재자를 지정하고, 통합결재 시 협조처를 추가할 수 있습니다.
   </div>
 
-  <!-- ★ 계정 결재 방식 자동 감지 배너 -->
-  <div style="padding:12px 16px;border-radius:10px;border:2px solid ${_acctSysColor}30;background:${_acctSysBg};display:flex;align-items:center;gap:12px">
-    <span style="font-size:24px">${_acctApprovalSys === 'integrated' ? '🔗' : _acctApprovalSys === 'platform' ? '⚡' : '🏢'}</span>
-    <div style="flex:1">
-      <div style="font-size:13px;font-weight:900;color:${_acctSysColor}">${_acctSysLabel}</div>
-      <div style="font-size:11px;color:#6B7280;margin-top:2px">
-        계정 <strong>${_selAcctCode}</strong>의 결재 방식이 자동 적용됩니다.
-        ${_acctApprovalSys === 'integrated' ? '축1(총액→승인자 상승) + 축2(soft초과→협조처) 모두 활성' : _acctApprovalSys === 'platform' ? '축1(총액→승인자 상승)만 활성. 협조처 비활성.' : '플랫폼 결재선 미생성. 참고 정보만 표시.'}
-      </div>
-    </div>
-    <span style="font-size:10px;padding:3px 10px;border-radius:6px;background:${_acctSysColor};color:white;font-weight:700">자동 감지</span>
-  </div>
-
-  ${_acctApprovalSys === 'external' ? `
-  <!-- 외부결재: 참고 정보만 -->
-  <div style="padding:30px;text-align:center;background:#F9FAFB;border-radius:14px;border:1px dashed #D1D5DB">
-    <div style="font-size:28px;margin-bottom:8px">🏢</div>
-    <div style="font-size:14px;font-weight:900;color:#374151">외부결재 시스템 연동</div>
-    <div style="font-size:12px;color:#6B7280;margin-top:6px">이 계정은 SAP/그룹웨어 등 외부 결재를 사용합니다.<br>플랫폼 내 결재선은 생성되지 않습니다.</div>
-  </div>
-  ` : `
-  <!-- ★ APPROVAL_ROUTING 노드 플로우 미리보기 -->
-  ${_routing ? `
-  <div style="border:1.5px solid #E5E7EB;border-radius:14px;overflow:hidden">
-    <div style="padding:10px 16px;background:#F8FAFC;border-bottom:1px solid #E5E7EB;display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:12px;font-weight:800;color:#374151">📋 ${_routing.name} — 금액 구간별 결재 노드</span>
-      <span style="font-size:10px;color:#9CA3AF">${_routing.ranges.length}개 구간</span>
-    </div>
-    <div style="padding:12px;display:grid;gap:6px">
-      ${_routing.ranges.map((range, i) => `
-      <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:${i % 2 === 0 ? '#FAFAFA' : '#fff'};border-radius:8px;border:1px solid #F3F4F6">
-        <div style="min-width:140px;font-size:11px;font-weight:700;color:#92400E">${range.label}</div>
-        <div style="display:flex;align-items:center;gap:3px;flex:1;flex-wrap:wrap">${_renderNodeFlow(range.nodes)}</div>
-      </div>`).join('')}
-    </div>
-  </div>
-  ` : `
-  <div style="padding:20px;text-align:center;background:#F9FAFB;border-radius:10px;color:#9CA3AF;font-size:12px">
-    이 계정에 설정된 결재라인(APPROVAL_ROUTING)이 없습니다. 결재라인 설정 메뉴에서 먼저 등록하세요.
-  </div>`}
-  `}
-
-  <!-- 단계별 결재 카드 (수직 배치) -->
   ${stages.map(s => {
-      const c = d.approvalConfig[s] || { thresholds: [], approvalType: 'platform' };
-      if (!c.approvalType) c.approvalType = _acctApprovalSys === 'integrated' ? 'hmg' : 'platform';
+      const c = d.approvalConfig[s] || { thresholds: [], approvalType: 'platform', coopTeams: [] };
+      if (!d.approvalConfig[s]) d.approvalConfig[s] = c;
       if (!c.thresholds) c.thresholds = [];
-      const isConfigured = c.thresholds.length > 0;
-      // 템플릿 불러오기용
-      const _allRoutings = typeof APPROVAL_ROUTING !== 'undefined' ? APPROVAL_ROUTING : [];
+      if (!c.coopTeams) c.coopTeams = [];
+      if (!c.approvalType) c.approvalType = 'platform';
+      const isHmg = c.approvalType === 'hmg';
+      const hasT = c.thresholds.length > 0;
       return `
-  <div style="border:2px solid ${isConfigured ? stageColor[s] + '60' : '#E5E7EB'};border-radius:14px;overflow:hidden">
-    <!-- 단계 헤더 -->
-    <div style="padding:12px 16px;background:${isConfigured ? stageColor[s] + '10' : '#F9FAFB'};
-         display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid ${isConfigured ? stageColor[s] + '30' : '#E5E7EB'}">
+  <div style="border:2px solid ${stageColor[s]}50;border-radius:14px;overflow:hidden">
+    <div style="padding:12px 16px;background:${stageColor[s]}0A;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid ${stageColor[s]}30">
       <span style="font-size:13px;font-weight:900;color:${stageColor[s]}">${stageLabel[s]} 결재라인</span>
-      ${isConfigured
-          ? `<span style="padding:2px 9px;border-radius:20px;background:${stageColor[s]};color:white;font-size:10px;font-weight:900">✓ ${c.thresholds.length}개 구간</span>`
-          : `<span style="padding:2px 9px;border-radius:20px;background:#F3F4F6;color:#9CA3AF;font-size:10px;font-weight:900">미설정</span>`
-        }
+      ${hasT ? '<span style="padding:2px 9px;border-radius:20px;background:'+stageColor[s]+';color:white;font-size:10px;font-weight:900">✓ '+c.thresholds.length+'개 구간</span>' : '<span style="padding:2px 9px;border-radius:20px;background:#F3F4F6;color:#9CA3AF;font-size:10px;font-weight:900">미설정</span>'}
     </div>
-    <!-- 내용 -->
-    <div style="padding:14px 16px;background:white;display:grid;gap:16px">
-      <!-- 결재 시스템 선택 -->
+    <div style="padding:16px;background:white;display:grid;gap:18px">
       <div>
-        <label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:6px">${stageLabel[s]} 결재 시스템</label>
+        <label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:6px">결재 시스템</label>
         <div style="display:flex;gap:8px">
-          ${['platform', 'hmg'].map(type => {
-          const isSet = c.approvalType === type;
-          const label = type === 'platform' ? 'LXP 플랫폼 자체 결재' : 'HMG 통합결재 (AutoWay)';
-          const icon = type === 'platform' ? '⚙️' : '🌐';
-          const recommended = (_acctApprovalSys === 'integrated' && type === 'hmg') || (_acctApprovalSys === 'platform' && type === 'platform');
-          return `
-            <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;border:2px solid ${isSet ? stageColor[s] : '#E5E7EB'};background:${isSet ? stageColor[s] + '10' : 'white'};cursor:pointer;transition:all .15s"
-                   onclick="_policyWizardData.approvalConfig['${s}'].approvalType='${type}';renderPolicyWizard()">
-              <input type="radio" ${isSet ? 'checked' : ''} style="margin:0;accent-color:${stageColor[s]}">
-              <span style="font-weight:700;font-size:12px;color:${isSet ? stageColor[s] : '#374151'}">${icon} ${label}</span>
-              ${recommended ? '<span style="font-size:8px;padding:1px 5px;border-radius:3px;background:#D1FAE5;color:#065F46;font-weight:800">권장</span>' : ''}
-            </label>`;
-        }).join('')}
+          <label style="flex:1;padding:12px 14px;border-radius:10px;border:2px solid ${c.approvalType==='platform'?stageColor[s]:'#E5E7EB'};background:${c.approvalType==='platform'?stageColor[s]+'0A':'white'};cursor:pointer"
+                 onclick="_policyWizardData.approvalConfig['${s}'].approvalType='platform';renderPolicyWizard()">
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="radio" ${c.approvalType==='platform'?'checked':''} style="margin:0;accent-color:${stageColor[s]}">
+              <span style="font-weight:800;font-size:12px;color:${c.approvalType==='platform'?stageColor[s]:'#374151'}">⚙️ 자체결재</span>
+            </div>
+            <div style="font-size:10px;color:#9CA3AF;margin-top:4px;margin-left:24px">협조처 없이 결재자만 설정</div>
+          </label>
+          <label style="flex:1;padding:12px 14px;border-radius:10px;border:2px solid ${c.approvalType==='hmg'?stageColor[s]:'#E5E7EB'};background:${c.approvalType==='hmg'?stageColor[s]+'0A':'white'};cursor:pointer"
+                 onclick="_policyWizardData.approvalConfig['${s}'].approvalType='hmg';renderPolicyWizard()">
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="radio" ${c.approvalType==='hmg'?'checked':''} style="margin:0;accent-color:${stageColor[s]}">
+              <span style="font-weight:800;font-size:12px;color:${c.approvalType==='hmg'?stageColor[s]:'#374151'}">🔗 통합결재</span>
+            </div>
+            <div style="font-size:10px;color:#9CA3AF;margin-top:4px;margin-left:24px">결재자 + 협조처 설정</div>
+          </label>
         </div>
       </div>
-      <!-- ★ 금액 구간별 결재자 (직접 설정) -->
-      <div style="border-top:1px dashed #E5E7EB;padding-top:16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <label style="font-size:11px;font-weight:800;color:#374151">${stageLabel[s]} 금액 구간별 결재자</label>
-          <div style="display:flex;gap:6px">
-            ${_allRoutings.length > 0 ? `<select onchange="if(this.value){_importRoutingToStage('${s}',this.value);this.value='';}" style="font-size:10px;padding:4px 8px;border:1.5px solid #D97706;border-radius:6px;color:#D97706;background:white;cursor:pointer;font-weight:700">
-              <option value="">📥 템플릿 불러오기</option>
-              ${_allRoutings.map(r => `<option value="${r.id}">${r.name} (${r.ranges.length}개)</option>`).join('')}
-            </select>` : ''}
-            <button onclick="_addStageThreshold('${s}')" style="font-size:11px;padding:5px 12px;border-radius:8px;border:1.5px solid ${stageColor[s]};color:${stageColor[s]};background:white;cursor:pointer;font-weight:700">+ 구간 추가</button>
-          </div>
+      <div style="border-top:1px solid #F3F4F6;padding-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <label style="font-size:12px;font-weight:800;color:#374151">💰 금액별 결재자</label>
+          <button onclick="_addStageThreshold('${s}')" style="font-size:11px;padding:5px 14px;border-radius:8px;border:1.5px solid ${stageColor[s]};color:${stageColor[s]};background:white;cursor:pointer;font-weight:700">+ 추가</button>
         </div>
-        <div style="display:grid;gap:8px">
-          ${c.thresholds.length === 0 ? `
-          <div style="padding:14px;text-align:center;background:#F9FAFB;border-radius:8px;color:#9CA3AF;font-size:11px">
-            구간 없음 — 모든 신청 정보가 담당자 관리 화면으로 연동됩니다. (별도 중간결재 없음)<br>
-            <span style="font-size:10px">위의 <strong>+ 구간 추가</strong>로 직접 설정하거나, <strong>📥 템플릿 불러오기</strong>로 기존 설정을 가져올 수 있습니다.</span>
-          </div>` :
-          c.thresholds.map((t, i) => `
-          <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;padding:10px 12px;background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:8px">
-            <div>
-              <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">최대 금액 (원)</label>
-              <input type="number" value="${t.maxAmt || ''}" placeholder="예: 1000000"
-                onchange="_policyWizardData.approvalConfig['${s}'].thresholds[${i}].maxAmt=Number(this.value);renderPolicyWizard()"
-                style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;box-sizing:border-box"/>
-              <div style="font-size:10px;color:#9CA3AF;margin-top:2px">${t.maxAmt ? (t.maxAmt / 10000) + '만원 이하' : '금액 입력'}</div>
-            </div>
-            <div>
-              <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">결재 담당자</label>
-              <select onchange="_policyWizardData.approvalConfig['${s}'].thresholds[${i}].approverKey=this.value;renderPolicyWizard()"
-                style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:7px 8px;font-size:12px;font-weight:700">
-                <option value="">— 선택 —</option>
-                ${_APPROVAL_LEVELS.map(lv => `<option value="${lv.key}" ${t.approverKey === lv.key ? 'selected' : ''}>${lv.icon} ${lv.label}</option>`).join('')}
-              </select>
-            </div>
-            <button onclick="_removeStageThreshold('${s}',${i})" style="padding:7px 10px;border-radius:8px;border:1.5px solid #FCA5A5;color:#DC2626;background:white;cursor:pointer;font-size:11px;font-weight:700;height:34px">삭제</button>
-          </div>`).join('')}
-        </div>
+        ${c.thresholds.length===0 ? '<div style="padding:20px;text-align:center;background:#F9FAFB;border-radius:10px;border:1px dashed #D1D5DB"><div style="font-size:11px;color:#9CA3AF">결재 구간이 없습니다.</div><div style="font-size:10px;color:#D1D5DB;margin-top:4px">+ 추가 버튼으로 금액별 결재자를 설정하세요</div></div>' :
+        '<div style="display:grid;gap:8px">' + c.thresholds.map((t, i) => '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;padding:12px 14px;background:#FAFAFA;border:1.5px solid #E5E7EB;border-radius:10px"><div><label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:4px">금액 (원 이하)</label><input type="number" value="'+(t.maxAmt||'')+'" placeholder="예: 1000000" onchange="_policyWizardData.approvalConfig[\''+s+'\'].thresholds['+i+'].maxAmt=Number(this.value);renderPolicyWizard()" style="width:100%;border:1.5px solid #D1D5DB;border-radius:8px;padding:8px 10px;font-size:13px;font-weight:700;box-sizing:border-box"/>'+(t.maxAmt?'<div style="font-size:9px;color:#9CA3AF;margin-top:3px">'+(t.maxAmt/10000)+'만원 이하</div>':'')+'</div><div><label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:4px">결재자</label><select onchange="_policyWizardData.approvalConfig[\''+s+'\'].thresholds['+i+'].approverKey=this.value;renderPolicyWizard()" style="width:100%;border:1.5px solid #D1D5DB;border-radius:8px;padding:8px;font-size:13px;font-weight:700"><option value="">— 선택 —</option>'+_LEVELS.map(lv => '<option value="'+lv.key+'" '+(t.approverKey===lv.key?'selected':'')+'>'+lv.label+'</option>').join('')+'</select></div><button onclick="_removeStageThreshold(\''+s+'\','+i+')" style="padding:8px 12px;border-radius:8px;border:1.5px solid #FCA5A5;color:#DC2626;background:white;cursor:pointer;font-size:11px;font-weight:700;height:36px">삭제</button></div>').join('') + '</div>'}
       </div>
-      <!-- 🔍 결재 후 검토자 -->
+      ${isHmg ? '<div style="border-top:1px solid #F3F4F6;padding-top:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><label style="font-size:12px;font-weight:800;color:#374151">🤝 협조처</label><button onclick="_addCoopTeam(\''+s+'\')" style="font-size:11px;padding:5px 14px;border-radius:8px;border:1.5px solid #D97706;color:#D97706;background:white;cursor:pointer;font-weight:700">+ 협조처 추가</button></div>'+(c.coopTeams.length===0?'<div style="padding:14px;text-align:center;background:#FFFBEB;border:1px dashed #FDE68A;border-radius:8px;font-size:11px;color:#92400E">협조처 없음 — + 협조처 추가 버튼으로 설정하세요</div>':'<div style="display:flex;flex-wrap:wrap;gap:8px">'+c.coopTeams.map((team,ti) => '<span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#FEF3C7;border:1.5px solid #FDE68A;border-radius:20px;font-size:12px;font-weight:700;color:#92400E">🤝 '+team+'<button onclick="_removeCoopTeam(\''+s+'\','+ti+')" style="background:none;border:none;color:#DC2626;cursor:pointer;font-size:12px;font-weight:900;padding:0 2px">✕</button></span>').join('')+'</div>')+'</div>' : ''}
       ${(() => {
           const rv = c.reviewers || [];
-          const maxReviewers = 2;
-          const canAdd = rv.length < maxReviewers;
-          const roleLabel = (r) => r.role === 'first' ? '1차 검토자' : '최종 검토자';
-          const roleIcon = (r) => r.role === 'first' ? '👤' : '🏛️';
-          const sourceLabel = (r) => r.sourceType === 'vorg_manager' ? '가상조직 담당자' : r.sourceType === 'global_admin' ? '총괄담당자' : '수동 지정';
-          return `
-      <div style="border-top:1px dashed #E5E7EB;padding-top:16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <label style="font-size:11px;font-weight:800;color:#374151;display:flex;align-items:center;gap:6px">
-            🔍 ${stageLabel[s]} 결재 후 검토자
-            <span style="font-size:9px;padding:1px 7px;border-radius:8px;background:#FEF3C7;color:#92400E;font-weight:700">${rv.length}/${maxReviewers}</span>
-          </label>
-          ${canAdd ? `<button onclick="_addStageReviewer('${s}')" style="font-size:11px;padding:5px 12px;border-radius:8px;border:1.5px solid #D97706;color:#D97706;background:white;cursor:pointer;font-weight:700">+ 검토자 추가</button>` : `<span style="font-size:10px;color:#9CA3AF;font-weight:700">최대 ${maxReviewers}명</span>`}
-        </div>
-        <div style="display:grid;gap:8px">
-          ${rv.length === 0 ? `
-          <div style="padding:14px;text-align:center;background:#FFFBEB;border:1px dashed #FDE68A;border-radius:8px;color:#92400E;font-size:11px">
-            검토자 없음 — 결재 승인 후 별도 검토 없이 처리됩니다.
-          </div>` :
-              rv.map((r, ri) => `
-          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${r.role === 'final' ? '#EFF6FF' : '#FEF3C7'};border:1.5px solid ${r.role === 'final' ? '#BFDBFE' : '#FDE68A'};border-radius:10px">
-            <span style="font-size:18px">${roleIcon(r)}</span>
-            <div style="flex:1">
-              <div style="font-size:12px;font-weight:900;color:${r.role === 'final' ? '#1D4ED8' : '#D97706'}">${roleLabel(r)}</div>
-              <div style="font-size:11px;color:#6B7280;margin-top:1px">
-                ${r.userName || '미지정'}
-                <span style="font-size:9px;padding:1px 6px;border-radius:4px;background:${r.role === 'final' ? '#DBEAFE' : '#FEF3C7'};color:${r.role === 'final' ? '#1E40AF' : '#92400E'};font-weight:700;margin-left:4px">${sourceLabel(r)}</span>
-              </div>
-            </div>
-            <button onclick="_removeStageReviewer('${s}',${ri})" style="padding:5px 10px;border-radius:8px;border:1.5px solid #FCA5A5;color:#DC2626;background:white;cursor:pointer;font-size:10px;font-weight:700">삭제</button>
-          </div>`).join('')}
-        </div>
-      </div>`;
+          const canAdd = rv.length < 2;
+          return '<div style="border-top:1px solid #F3F4F6;padding-top:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><label style="font-size:12px;font-weight:800;color:#374151;display:flex;align-items:center;gap:6px">🔍 결재 후 검토자 <span style="font-size:9px;padding:1px 7px;border-radius:8px;background:#F3F4F6;color:#6B7280;font-weight:700">'+rv.length+'/2</span></label>'+(canAdd?'<button onclick="_addStageReviewer(\''+s+'\')" style="font-size:11px;padding:5px 14px;border-radius:8px;border:1.5px solid #6B7280;color:#6B7280;background:white;cursor:pointer;font-weight:700">+ 검토자 추가</button>':'<span style="font-size:10px;color:#9CA3AF;font-weight:700">최대 2명</span>')+'</div>'+(rv.length===0?'<div style="padding:14px;text-align:center;background:#F9FAFB;border:1px dashed #D1D5DB;border-radius:8px;font-size:11px;color:#9CA3AF">검토자 없음 — 결재 승인 후 별도 검토 없이 처리됩니다.</div>':'<div style="display:grid;gap:8px">'+rv.map((r,ri) => '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:'+(r.role==='final'?'#EFF6FF':'#FEF3C7')+';border:1.5px solid '+(r.role==='final'?'#BFDBFE':'#FDE68A')+';border-radius:10px"><span style="font-size:16px">'+(r.role==='first'?'👤':'🏛️')+'</span><div style="flex:1"><div style="font-size:12px;font-weight:900;color:'+(r.role==='final'?'#1D4ED8':'#D97706')+'">'+(r.role==='first'?'1차 검토자':'최종 검토자')+'</div><div style="font-size:11px;color:#6B7280;margin-top:1px">'+(r.userName||'미지정')+' <span style="font-size:9px;padding:1px 6px;border-radius:4px;background:#F3F4F6;color:#6B7280;font-weight:700;margin-left:4px">'+(r.sourceType==='vorg_manager'?'가상조직 담당자':r.sourceType==='global_admin'?'총괄담당자':'수동 지정')+'</span></div></div><button onclick="_removeStageReviewer(\''+s+'\','+ri+')" style="padding:5px 10px;border-radius:8px;border:1.5px solid #FCA5A5;color:#DC2626;background:white;cursor:pointer;font-size:10px;font-weight:700">삭제</button></div>').join('')+'</div>')+'</div>';
         })()}
     </div>
   </div>`;
     }).join('')}
-  <!-- 정책 운영 상태 -->
+
   <div style="border:1.5px solid #E5E7EB;border-radius:14px;padding:16px;background:white">
     <label class="bo-label">정책 운영 상태</label>
     <div style="display:flex;gap:8px">
@@ -1257,6 +1124,7 @@ function renderPolicyWizard() {
 </div>`;
 
   }
+
 
   el.innerHTML = `
 <div class="bo-fade" style="max-width:720px">
@@ -1329,6 +1197,18 @@ function _addStageThreshold(stage) {
 function _removeStageThreshold(stage, i) {
   _policyWizardData.approvalConfig[stage].thresholds.splice(i, 1);
   _policyWizardData._approvalTab = stage;
+  renderPolicyWizard();
+}
+// ── 협조처 추가/삭제 헬퍼 ────────────────────────────────────────────────
+function _addCoopTeam(stage) {
+  const name = prompt('협조처 이름을 입력하세요 (예: 교육협조처, 재경협조팀)');
+  if (!name || !name.trim()) return;
+  if (!_policyWizardData.approvalConfig[stage].coopTeams) _policyWizardData.approvalConfig[stage].coopTeams = [];
+  _policyWizardData.approvalConfig[stage].coopTeams.push(name.trim());
+  renderPolicyWizard();
+}
+function _removeCoopTeam(stage, i) {
+  _policyWizardData.approvalConfig[stage].coopTeams.splice(i, 1);
   renderPolicyWizard();
 }
 // ── 검토자 추가/삭제 헬퍼 ─────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 // ─── 가상교육조직 통합 관리 화면 ──────────────────────────────────────────────
 // 기존 3개 메뉴(가상조직/예산계정/교육지원조직)를 용도별 동적 탭으로 통합
-// 공통 탭: ① 기본정보  ② 가상조직 구성  ③ 협조처  ④ 담당자
-// 용도별:  ④ 예산계정(edu_support) / ④ 자격증 맵핑(cert)
+// 공통 탭: ① 기본정보  ② 가상조직 구성  ③ 담당자  ④ 협조처
+// 용도별:  ⑤ 예산계정(edu_support) / ⑤ 자격증 맵핑(cert)
 
 let _vuActiveTab = 0;
 let _vuTplId = null;   // 선택된 템플릿 ID
@@ -14,8 +14,8 @@ function _vuGetTabs(purpose) {
   const common = [
     { key: 'info', label: '① 기본정보', icon: '📋' },
     { key: 'org', label: '② 가상조직 구성', icon: '🏗️' },
-    { key: 'coop', label: '③ 협조처', icon: '🤝' },
-    { key: 'mgr', label: '④ 담당자', icon: '👤' },
+    { key: 'mgr', label: '③ 담당자', icon: '👤' },
+    { key: 'coop', label: '④ 협조처', icon: '🤝' },
   ];
   return common;
 }
@@ -314,7 +314,7 @@ function _vuTabInfo(tpl) {
         ${u.start_date || u.end_date ? `<span style="font-size:9px;color:#94A3B8;font-weight:400">${u.start_date || ''} ~ ${u.end_date || ''}</span>` : ''}
         <button onclick="_vuRemoveOneHeadManager('${tpl.id}', ${idx})" style="border:none;background:none;color:#C2410C;cursor:pointer;font-size:11px;padding:0 2px" title="이 담당자 해제">✕</button>
       </span>`).join('')}
-    </div>` : '<span style="font-size:12px;color:#9CA3AF">총괄담당자가 설정되지 않았습니다.<br><small>💡 총괄담당자 설정 후 ④ 담당자 탭에서 운영담당자를 추가할 수 있습니다.</small></span>'}
+    </div>` : '<span style="font-size:12px;color:#9CA3AF">총괄담당자가 설정되지 않았습니다.<br><small>💡 총괄담당자 설정 후 ③ 담당자 탭에서 운영담당자를 추가할 수 있습니다.</small></span>'}
   </div>
 
   <div style="margin-top:12px;text-align:right">

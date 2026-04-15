@@ -1125,24 +1125,21 @@ function renderPolicyWizard() {
 
   <!-- 단계별 결재 카드 (수직 배치) -->
   ${stages.map(s => {
-      const c = d.approvalConfig[s] || { thresholds: [], approvalType: 'platform', routingId: '' };
+      const c = d.approvalConfig[s] || { thresholds: [], approvalType: 'platform' };
       if (!c.approvalType) c.approvalType = _acctApprovalSys === 'integrated' ? 'hmg' : 'platform';
-      // ★ 결재라인 템플릿 목록 (전체 APPROVAL_ROUTING에서 필터)
+      if (!c.thresholds) c.thresholds = [];
+      const isConfigured = c.thresholds.length > 0;
+      // 템플릿 불러오기용
       const _allRoutings = typeof APPROVAL_ROUTING !== 'undefined' ? APPROVAL_ROUTING : [];
-      const _matchedRoutings = _allRoutings.filter(r => r.accountCodes.includes(_selAcctCode));
-      const _allAvailRoutings = _allRoutings; // 계정 무관 전체 목록도 제공
-      const _selectedRoutingId = c.routingId || '';
-      const _selectedRouting = _allRoutings.find(r => r.id === _selectedRoutingId) || null;
-      const hasRouting = !!_selectedRouting;
       return `
-  <div style="border:2px solid ${hasRouting ? stageColor[s] + '60' : '#FECACA'};border-radius:14px;overflow:hidden">
+  <div style="border:2px solid ${isConfigured ? stageColor[s] + '60' : '#E5E7EB'};border-radius:14px;overflow:hidden">
     <!-- 단계 헤더 -->
-    <div style="padding:12px 16px;background:${hasRouting ? stageColor[s] + '10' : '#FEF2F2'};
-         display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid ${hasRouting ? stageColor[s] + '30' : '#E5E7EB'}">
+    <div style="padding:12px 16px;background:${isConfigured ? stageColor[s] + '10' : '#F9FAFB'};
+         display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid ${isConfigured ? stageColor[s] + '30' : '#E5E7EB'}">
       <span style="font-size:13px;font-weight:900;color:${stageColor[s]}">${stageLabel[s]} 결재라인</span>
-      ${hasRouting
-          ? `<span style="padding:2px 9px;border-radius:20px;background:${stageColor[s]};color:white;font-size:10px;font-weight:900">✓ 연결됨</span>`
-          : `<span style="padding:2px 9px;border-radius:20px;background:#FEE2E2;color:#B91C1C;font-size:10px;font-weight:900">⚠ 미연결</span>`
+      ${isConfigured
+          ? `<span style="padding:2px 9px;border-radius:20px;background:${stageColor[s]};color:white;font-size:10px;font-weight:900">✓ ${c.thresholds.length}개 구간</span>`
+          : `<span style="padding:2px 9px;border-radius:20px;background:#F3F4F6;color:#9CA3AF;font-size:10px;font-weight:900">미설정</span>`
         }
     </div>
     <!-- 내용 -->
@@ -1166,35 +1163,44 @@ function renderPolicyWizard() {
         }).join('')}
         </div>
       </div>
-      <!-- ★ 결재라인 템플릿 선택 (수동 구간 → 드롭다운) -->
+      <!-- ★ 금액 구간별 결재자 (직접 설정) -->
       <div style="border-top:1px dashed #E5E7EB;padding-top:16px">
-        <label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:8px">🔀 ${stageLabel[s]} 결재라인 선택</label>
-        <select onchange="_policyWizardData.approvalConfig['${s}'].routingId=this.value;renderPolicyWizard()"
-          style="width:100%;padding:10px 14px;border:2px solid ${hasRouting ? stageColor[s] : '#FECACA'};border-radius:10px;font-size:13px;font-weight:700;color:${hasRouting ? stageColor[s] : '#374151'};background:${hasRouting ? stageColor[s]+'08' : '#FEF2F2'};cursor:pointer">
-          <option value="">— 결재라인을 선택하세요 —</option>
-          ${_matchedRoutings.length > 0 ? `<optgroup label="📌 이 계정 전용 (${_selAcctCode})">
-            ${_matchedRoutings.map(r => `<option value="${r.id}" ${_selectedRoutingId === r.id ? 'selected' : ''}>${r.name} (${r.ranges.length}개 구간)</option>`).join('')}
-          </optgroup>` : ''}
-          ${_allAvailRoutings.filter(r => !_matchedRoutings.includes(r)).length > 0 ? `<optgroup label="📋 전체 결재라인">
-            ${_allAvailRoutings.filter(r => !_matchedRoutings.includes(r)).map(r => `<option value="${r.id}" ${_selectedRoutingId === r.id ? 'selected' : ''}>${r.name} (${r.ranges.length}개 구간) — ${r.accountCodes.join(', ')}</option>`).join('')}
-          </optgroup>` : ''}
-        </select>
-        ${!_allRoutings.length ? `<div style="margin-top:8px;padding:10px;text-align:center;background:#FEF2F2;border:1px dashed #FECACA;border-radius:8px;font-size:11px;color:#B91C1C">결재라인이 없습니다. <strong>🔀 결재라인 설정</strong> 메뉴에서 먼저 등록하세요.</div>` : ''}
-        <!-- 선택된 결재라인 노드 플로우 미리보기 -->
-        ${_selectedRouting ? `
-        <div style="margin-top:10px;border:1.5px solid ${stageColor[s]}40;border-radius:10px;overflow:hidden">
-          <div style="padding:8px 12px;background:${stageColor[s]}08;border-bottom:1px solid ${stageColor[s]}20;display:flex;justify-content:space-between;align-items:center">
-            <span style="font-size:11px;font-weight:800;color:${stageColor[s]}">📋 ${_selectedRouting.name}</span>
-            <span style="font-size:9px;color:#9CA3AF">${_selectedRouting.ranges.length}개 구간</span>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <label style="font-size:11px;font-weight:800;color:#374151">${stageLabel[s]} 금액 구간별 결재자</label>
+          <div style="display:flex;gap:6px">
+            ${_allRoutings.length > 0 ? `<select onchange="if(this.value){_importRoutingToStage('${s}',this.value);this.value='';}" style="font-size:10px;padding:4px 8px;border:1.5px solid #D97706;border-radius:6px;color:#D97706;background:white;cursor:pointer;font-weight:700">
+              <option value="">📥 템플릿 불러오기</option>
+              ${_allRoutings.map(r => `<option value="${r.id}">${r.name} (${r.ranges.length}개)</option>`).join('')}
+            </select>` : ''}
+            <button onclick="_addStageThreshold('${s}')" style="font-size:11px;padding:5px 12px;border-radius:8px;border:1.5px solid ${stageColor[s]};color:${stageColor[s]};background:white;cursor:pointer;font-weight:700">+ 구간 추가</button>
           </div>
-          <div style="padding:8px;display:grid;gap:4px">
-            ${_selectedRouting.ranges.map((range, ri) => `
-            <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:${ri % 2 === 0 ? '#FAFAFA' : '#fff'};border-radius:6px;border:1px solid #F3F4F6">
-              <div style="min-width:120px;font-size:10px;font-weight:700;color:#92400E">${range.label}</div>
-              <div style="display:flex;align-items:center;gap:2px;flex:1;flex-wrap:wrap">${_renderNodeFlow(range.nodes)}</div>
-            </div>`).join('')}
-          </div>
-        </div>` : ''}
+        </div>
+        <div style="display:grid;gap:8px">
+          ${c.thresholds.length === 0 ? `
+          <div style="padding:14px;text-align:center;background:#F9FAFB;border-radius:8px;color:#9CA3AF;font-size:11px">
+            구간 없음 — 모든 신청 정보가 담당자 관리 화면으로 연동됩니다. (별도 중간결재 없음)<br>
+            <span style="font-size:10px">위의 <strong>+ 구간 추가</strong>로 직접 설정하거나, <strong>📥 템플릿 불러오기</strong>로 기존 설정을 가져올 수 있습니다.</span>
+          </div>` :
+          c.thresholds.map((t, i) => `
+          <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;padding:10px 12px;background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:8px">
+            <div>
+              <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">최대 금액 (원)</label>
+              <input type="number" value="${t.maxAmt || ''}" placeholder="예: 1000000"
+                onchange="_policyWizardData.approvalConfig['${s}'].thresholds[${i}].maxAmt=Number(this.value);renderPolicyWizard()"
+                style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;box-sizing:border-box"/>
+              <div style="font-size:10px;color:#9CA3AF;margin-top:2px">${t.maxAmt ? (t.maxAmt / 10000) + '만원 이하' : '금액 입력'}</div>
+            </div>
+            <div>
+              <label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:3px">결재 담당자</label>
+              <select onchange="_policyWizardData.approvalConfig['${s}'].thresholds[${i}].approverKey=this.value;renderPolicyWizard()"
+                style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:7px 8px;font-size:12px;font-weight:700">
+                <option value="">— 선택 —</option>
+                ${_APPROVAL_LEVELS.map(lv => `<option value="${lv.key}" ${t.approverKey === lv.key ? 'selected' : ''}>${lv.icon} ${lv.label}</option>`).join('')}
+              </select>
+            </div>
+            <button onclick="_removeStageThreshold('${s}',${i})" style="padding:7px 10px;border-radius:8px;border:1.5px solid #FCA5A5;color:#DC2626;background:white;cursor:pointer;font-size:11px;font-weight:700;height:34px">삭제</button>
+          </div>`).join('')}
+        </div>
       </div>
       <!-- 🔍 결재 후 검토자 -->
       ${(() => {
@@ -1293,6 +1299,24 @@ function _toggleEduSubType(typeId, subId) {
   const arr = _policyWizardData.eduSubTypes[typeId];
   const i = arr.indexOf(subId);
   if (i >= 0) arr.splice(i, 1); else arr.push(subId);
+  renderPolicyWizard();
+}
+// ── 템플릿에서 구간 불러오기 ──────────────────────────────────────────────
+function _importRoutingToStage(stage, routingId) {
+  const routing = (typeof APPROVAL_ROUTING !== 'undefined' ? APPROVAL_ROUTING : []).find(r => r.id === routingId);
+  if (!routing) return;
+  if (!_policyWizardData.approvalConfig) _policyWizardData.approvalConfig = {};
+  if (!_policyWizardData.approvalConfig[stage]) _policyWizardData.approvalConfig[stage] = { thresholds: [], approvalType: 'platform' };
+  // 기존 구간을 덮어쓸지 확인
+  const cfg = _policyWizardData.approvalConfig[stage];
+  if (cfg.thresholds.length > 0 && !confirm(`기존 ${cfg.thresholds.length}개 구간을 "${routing.name}" 템플릿으로 덮어쓰시겠습니까?`)) return;
+  // 매핑: ranges → thresholds (maxAmt + approverKey)
+  const roleToKey = { '팀장': 'team_leader', '실장': 'director', '사업부장': 'division_head', '센터장': 'center_head', '본부장': 'hq_head' };
+  cfg.thresholds = routing.ranges.map(range => {
+    const finalNode = range.nodes.filter(n => n.type === 'approval').pop();
+    return { maxAmt: range.maxAmt || null, approverKey: finalNode ? (roleToKey[finalNode.role] || '') : '' };
+  });
+  _policyWizardData._approvalTab = stage;
   renderPolicyWizard();
 }
 function _addStageThreshold(stage) {

@@ -1329,38 +1329,19 @@ async function _vuShowOrgPicker(title) {
   document.getElementById('vu-org-search').value = '';
   const listEl = document.getElementById('vu-org-list');
   listEl.innerHTML = '<div style="padding:20px;text-align:center;color:#9CA3AF">\ub85c\ub529 \uc911...</div>';
-  // coop 모드일 때 유형·구분 인라인 옵션 표시
+  // coop 모드일 때 안내 표시, 버튼 텍스트 변경
   const coopOptsEl = document.getElementById('vu-coop-inline-opts');
   if (coopOptsEl) {
     if (window._vuPickerMode === 'coop') {
-      coopOptsEl.innerHTML = `
-      <div style="background:#F8FAFF;border:1.5px solid #E0E7FF;border-radius:10px;padding:12px 14px;margin-bottom:12px">
-        <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
-          <span style="font-size:11px;font-weight:800;color:#374151">\ud611\uc870\ucc98 \uc720\ud615</span>
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:4px 10px;border-radius:6px;border:1.5px solid #BFDBFE;background:#EFF6FF">
-            <input type="radio" name="vu-coop-type" value="\uad50\uc721\ud611\uc870\ucc98" checked onchange="window._vuCoopType=this.value" style="accent-color:#1D4ED8;width:13px;height:13px">
-            <span style="font-size:11px;font-weight:700;color:#1D4ED8">\ud83d\udcda \uad50\uc721\ud611\uc870\ucc98</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:4px 10px;border-radius:6px;border:1.5px solid #FDE68A;background:#FFFBEB">
-            <input type="radio" name="vu-coop-type" value="\uc7ac\uacbd\ud611\uc870\ud300" onchange="window._vuCoopType=this.value" style="accent-color:#D97706;width:13px;height:13px">
-            <span style="font-size:11px;font-weight:700;color:#92400E">\ud83d\udcb0 \uc7ac\uacbd\ud611\uc870\ud300</span>
-          </label>
-        </div>
-        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-          <span style="font-size:11px;font-weight:800;color:#374151">\ud611\uc870 \uad6c\ubd84</span>
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:4px 10px;border-radius:6px;border:1.5px solid #FECACA;background:#FEF2F2">
-            <input type="radio" name="vu-coop-req" value="\ud544\uc218" checked onchange="window._vuCoopRequired=this.value" style="accent-color:#EF4444;width:13px;height:13px">
-            <span style="font-size:11px;font-weight:700;color:#EF4444">\ud83d\udd34 \ud544\uc218</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:4px 10px;border-radius:6px;border:1.5px solid #DBEAFE;background:#EFF6FF">
-            <input type="radio" name="vu-coop-req" value="\uc870\uac74\ubd80" onchange="window._vuCoopRequired=this.value" style="accent-color:#3B82F6;width:13px;height:13px">
-            <span style="font-size:11px;font-weight:700;color:#3B82F6">\ud83d\udd35 \uc870\uac74\ubd80</span>
-          </label>
-        </div>
-      </div>`;
+      coopOptsEl.innerHTML = '<div style="font-size:11px;color:#6B7280;background:#F0F9FF;border:1px solid #BFDBFE;border-radius:8px;padding:8px 12px;margin-bottom:10px">\ud83d\udccc \ud611\uc870\ucc98\ub85c \ub4f1\ub85d\ud560 <b>\ud300 1\uac1c</b>\ub97c \uc120\ud0dd\ud558\uc138\uc694. \ub2e4\uc74c \ub2e8\uacc4\uc5d0\uc11c \uc720\ud615\uacfc \uad6c\ubd84\uc744 \uc124\uc815\ud569\ub2c8\ub2e4.</div>';
     } else {
       coopOptsEl.innerHTML = '';
     }
+  }
+  // coop 모드일 때 확인 버튼 텍스트 변경
+  const confirmBtn = document.querySelector('#vu-org-picker .bo-btn-primary');
+  if (confirmBtn) {
+    confirmBtn.textContent = window._vuPickerMode === 'coop' ? '\ub2e4\uc74c \u2192' : '\uc120\ud0dd \uc644\ub8cc';
   }
   document.getElementById('vu-org-picker').style.display = 'flex';
 
@@ -1484,11 +1465,11 @@ function _vuBuildOrgTreeHtml(nodes, depth, q) {
              border-radius:9px;cursor:${checkboxDisabled ? 'default' : 'pointer'};background:${rowBg};border:${rowBdr};
              transition:all 0.15s;user-select:none" 
              ${!checkboxDisabled && !isMapped && !isOtherVorg ? `onmouseover="this.style.background='#F0F9FF'" onmouseout="this.style.background='${rowBg}'"` : ''}>
-        <input type="checkbox" class="vu-org-chk" value="${node.id}" data-name="${node.name}"
+        <input type="${window._vuPickerMode === 'coop' ? 'radio' : 'checkbox'}" ${window._vuPickerMode === 'coop' ? 'name="vu-coop-team"' : ''} class="vu-org-chk" value="${node.id}" data-name="${node.name}"
           ${checkboxChecked ? 'checked' : ''}
           ${checkboxDisabled ? 'disabled' : ''}
           ${childIdsAttr}
-          onchange="if(this.checked)_vuCheckChildren(this)"
+          onchange="${window._vuPickerMode === 'coop' ? '' : 'if(this.checked)_vuCheckChildren(this)'}"
           style="width:15px;height:15px;accent-color:#1D4ED8;margin:0;flex-shrink:0${checkboxDisabled ? ';opacity:0.5' : ''}"
           ${isOtherVorg ? `title="⚠️ 선택 시 ${_vuGlobalMappedOrgs[node.id]}에서 이관됩니다"` : ''}>
         <span style="font-size:14px">${isDeprecated ? '😶' : st.icon}</span>
@@ -1542,61 +1523,115 @@ function _vuRenderOrgList(query) {
 }
 
 function _vuConfirmOrgPick() {
-  const checked = [...document.querySelectorAll('.vu-org-chk:checked:not([disabled])')] // disabled 제외
-    .concat([...document.querySelectorAll('.vu-org-chk[disabled]:checked')]); // 이미맵핑 포함
-  const newlyChecked = [...document.querySelectorAll('.vu-org-chk:checked:not([disabled])')]; // 실제 신규선택
-
-  if (!newlyChecked.length) { alert('조직을 선택하세요.'); return; }
+  const newlyChecked = [...document.querySelectorAll('.vu-org-chk:checked:not([disabled])')];
+  if (!newlyChecked.length) { alert('\uc870\uc9c1\uc744 \uc120\ud0dd\ud558\uc138\uc694.'); return; }
 
   const tpl = _vuTplList.find(t => t.id === window._vuPickerTplId);
   if (!tpl) return;
   const g = (tpl.tree?.hqs || [])[window._vuPickerGi];
   if (!g) return;
 
-  // 충돌 확인: 다른 VOrg에 이미 맵핑된 팀이 없는지 체크
+  // coop 모드: Step 2로 전환
+  if (window._vuPickerMode === 'coop') {
+    const sel = newlyChecked[0];
+    window._vuCoopSelectedTeam = { id: sel.value, name: sel.dataset.name };
+    document.getElementById('vu-org-picker').style.display = 'none';
+    _vuShowCoopStep2();
+    return;
+  }
+
+  // team 모드: 기존 로직
   const conflicts = newlyChecked.filter(chk => _vuGlobalMappedOrgs[chk.value]);
   if (conflicts.length > 0) {
-    const conflictList = conflicts.map(c => `• ${c.dataset.name}: ${_vuGlobalMappedOrgs[c.value]}`).join('\n');
-    const ok = confirm(`⚠️ 다음 팀은 다른 가상조직에 이미 맵핑되어 있습니다:\n${conflictList}\n\n[확인]: 기존 맵핑을 이 가상조직으로 재맵핑 (\uae30존 VOrg에서 자동 제거)\n[취소]: 취소`);
-    if (!ok) return;
-
-    // 충돌 팀 기존 맵핑 제거
+    const conflictList = conflicts.map(c => `\u2022 ${c.dataset.name}: ${_vuGlobalMappedOrgs[c.value]}`).join('\n');
+    if (!confirm(`\u26a0\ufe0f \ub2e4\uc74c \ud300\uc740 \ub2e4\ub978 VOrg\uc5d0 \ub9f5\ud551:\n${conflictList}\n\n\ud655\uc778 \uc2dc \uc7ac\ub9f5\ud551`)) return;
     conflicts.forEach(chk => {
-      const conflictInfo = _vuGlobalMappedOrgs[chk.value]; // "tplName > groupName"
       _vuTplList.forEach(otherTpl => {
         (otherTpl.tree?.hqs || []).forEach(group => {
-          const before = (group.teams || []).length;
           group.teams = (group.teams || []).filter(t => t.id !== chk.value);
-          if ((group.teams || []).length !== before) {
-            console.log(`[재맵핑] ${chk.dataset.name} : ${conflictInfo} 에서 제거`);
-          }
         });
       });
     });
   }
-
-  // 현재 그룹에 팀 추가
   newlyChecked.forEach(chk => {
     const item = { id: chk.value, name: chk.dataset.name };
-    if (window._vuPickerMode === 'team') {
-      if (!g.teams) g.teams = [];
-      if (!g.teams.find(t => t.id === item.id)) g.teams.push(item);
-    } else if (window._vuPickerMode === 'coop') {
-      if (!g.coopTeams) g.coopTeams = [];
-      if (!g.coopTeams.find(t => t.id === item.id)) {
-        g.coopTeams.push({
-          ...item,
-          coopType: window._vuCoopType || '\uad50\uc721\ud611\uc870\ucc98',
-          required: window._vuCoopRequired || '\ud544\uc218',
-          role: window._vuCoopRole || '\ud611\uc870'
-        });
-      }
-    }
+    if (!g.teams) g.teams = [];
+    if (!g.teams.find(t => t.id === item.id)) g.teams.push(item);
   });
-
-  // 변경된 모든 템플릿 저장
   _vuAutoSave(tpl);
   document.getElementById('vu-org-picker').style.display = 'none';
+  _vuSwitchTab(_vuActiveTab);
+}
+
+// ── Step 2: 협조처 유형·구분 선택 ─────────────────────────────────────────
+function _vuShowCoopStep2() {
+  const team = window._vuCoopSelectedTeam;
+  if (!team) return;
+  let modal = document.getElementById('vu-coop-step2');
+  if (!modal) { modal = document.createElement('div'); modal.id = 'vu-coop-step2'; document.body.appendChild(modal); }
+  modal.innerHTML = `
+<div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9100;display:flex;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;width:480px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+    <div style="display:flex;justify-content:space-between;margin-bottom:18px">
+      <h3 style="font-size:15px;font-weight:800;margin:0">\ud83e\udd1d \ud611\uc870\ucc98 \ub4f1\ub85d</h3>
+      <button onclick="document.getElementById('vu-coop-step2').innerHTML=''" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">\u2715</button>
+    </div>
+    <div style="background:#F0F9FF;border:1.5px solid #BFDBFE;border-radius:10px;padding:14px 16px;margin-bottom:18px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:20px">\ud83c\udfe2</span>
+      <div>
+        <div style="font-size:13px;font-weight:800;color:#111827">${team.name}</div>
+        <div style="font-size:10px;color:#6B7280">\uc120\ud0dd\ub41c \ud300</div>
+      </div>
+    </div>
+    <div style="margin-bottom:18px">
+      <div style="font-size:11px;font-weight:800;color:#374151;margin-bottom:8px">\ud611\uc870\ucc98 \uc720\ud615 <span style="color:#EF4444">*</span></div>
+      <div style="display:flex;gap:10px">
+        <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:10px;cursor:pointer;border:1.5px solid #BFDBFE;background:#EFF6FF">
+          <input type="radio" name="vu-s2-type" value="\uad50\uc721\ud611\uc870\ucc98" checked style="accent-color:#1D4ED8;width:15px;height:15px">
+          <div><div style="font-size:12px;font-weight:800;color:#1D4ED8">\ud83d\udcda \uad50\uc721\ud611\uc870\ucc98</div><div style="font-size:10px;color:#6B7280">\uad50\uc721\uc6b4\uc601 \uac80\ud1a0\u00b7\ud611\uc870</div></div>
+        </label>
+        <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:10px;cursor:pointer;border:1.5px solid #FDE68A;background:#FFFBEB">
+          <input type="radio" name="vu-s2-type" value="\uc7ac\uacbd\ud611\uc870\ud300" style="accent-color:#D97706;width:15px;height:15px">
+          <div><div style="font-size:12px;font-weight:800;color:#92400E">\ud83d\udcb0 \uc7ac\uacbd\ud611\uc870\ud300</div><div style="font-size:10px;color:#6B7280">\uc608\uc0b0\u00b7\uc7ac\ubb34 \uac80\ud1a0</div></div>
+        </label>
+      </div>
+    </div>
+    <div style="margin-bottom:20px">
+      <div style="font-size:11px;font-weight:800;color:#374151;margin-bottom:8px">\ud611\uc870 \uad6c\ubd84 <span style="color:#EF4444">*</span></div>
+      <div style="display:flex;gap:10px">
+        <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:10px;cursor:pointer;border:1.5px solid #FECACA;background:#FEF2F2">
+          <input type="radio" name="vu-s2-req" value="\ud544\uc218" checked style="accent-color:#EF4444;width:15px;height:15px">
+          <div><div style="font-size:12px;font-weight:700;color:#EF4444">\ud83d\udd34 \ud544\uc218 \ud611\uc870\ucc98</div><div style="font-size:10px;color:#6B7280">\ud56d\uc0c1 \uacb0\uc7ac\uc120\uc5d0 \ud3ec\ud568</div></div>
+        </label>
+        <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:10px;cursor:pointer;border:1.5px solid #DBEAFE;background:#EFF6FF">
+          <input type="radio" name="vu-s2-req" value="\uc870\uac74\ubd80" style="accent-color:#3B82F6;width:15px;height:15px">
+          <div><div style="font-size:12px;font-weight:700;color:#3B82F6">\ud83d\udd35 \uc870\uac74\ubd80</div><div style="font-size:10px;color:#6B7280">\uc870\uac74\uc5d0 \ub530\ub77c \ud611\uc870/\ucc38\uc870 \uc804\ud658</div></div>
+        </label>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="document.getElementById('vu-coop-step2').innerHTML='';window._vuPickerMode='coop';_vuShowOrgPicker('\ud611\uc870\ucc98 \ucd94\uac00 - \ud300 \uc120\ud0dd')" style="padding:8px 16px;border:1.5px solid #E5E7EB;border-radius:8px;background:white;cursor:pointer;font-size:12px;font-weight:700;color:#6B7280">\u2190 \ub4a4\ub85c</button>
+      <button onclick="_vuCoopStep2Confirm()" style="padding:8px 20px;border:none;border-radius:8px;background:#1D4ED8;color:white;cursor:pointer;font-size:12px;font-weight:800">\ub4f1\ub85d</button>
+    </div>
+  </div>
+</div>`;
+}
+
+function _vuCoopStep2Confirm() {
+  const team = window._vuCoopSelectedTeam;
+  if (!team) return;
+  const coopType = document.querySelector('input[name="vu-s2-type"]:checked')?.value || '\uad50\uc721\ud611\uc870\ucc98';
+  const required = document.querySelector('input[name="vu-s2-req"]:checked')?.value || '\ud544\uc218';
+  const tpl = _vuTplList.find(t => t.id === window._vuPickerTplId);
+  if (!tpl) return;
+  const g = (tpl.tree?.hqs || [])[window._vuPickerGi];
+  if (!g) return;
+  if (!g.coopTeams) g.coopTeams = [];
+  if (!g.coopTeams.find(t => t.id === team.id)) {
+    g.coopTeams.push({ id: team.id, name: team.name, coopType, required, role: '\ud611\uc870' });
+  }
+  _vuAutoSave(tpl);
+  document.getElementById('vu-coop-step2').innerHTML = '';
   _vuSwitchTab(_vuActiveTab);
 }
 

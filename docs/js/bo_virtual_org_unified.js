@@ -615,13 +615,19 @@ function _vuToggleTreeCollapse(id, headerEl) {
   else { el.style.display = 'none'; if (arrow) arrow.style.transform = 'rotate(-90deg)'; }
 }
 
-// ═══ 탭③: 협조처 ════════════════════════════════════════════════════════════
+// ═══ 탭④: 협조처 ════════════════════════════════════════════════════════════
 function _vuTabCoop(tpl) {
   const groups = tpl.tree?.hqs || tpl.tree?.centers || [];
   return `
 <div>
   <h3 style="font-size:14px;font-weight:900;color:#111827;margin:0 0 4px">🤝 협조처 관리</h3>
-  <p style="font-size:11px;color:#6B7280;margin:0 0 16px">각 가상조직(본부)별 결재 시 협조가 필요한 팀을 지정합니다.</p>
+  <p style="font-size:11px;color:#6B7280;margin:0 0 6px">각 가상조직(본부)별 결재 시 협조가 필요한 팀을 지정합니다.</p>
+  <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;padding:3px 10px;border-radius:6px;background:#EFF6FF;color:#1D4ED8;font-weight:700;border:1px solid #BFDBFE">📚 교육협조처</span><span style="font-size:10px;color:#9CA3AF">교육총괄팀 등</span></div>
+    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;padding:3px 10px;border-radius:6px;background:#FFFBEB;color:#92400E;font-weight:700;border:1px solid #FDE68A">💰 재경협조처</span><span style="font-size:10px;color:#9CA3AF">재경팀 등</span></div>
+    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;padding:3px 10px;border-radius:6px;background:#FEF2F2;color:#EF4444;font-weight:700;border:1px solid #FECACA">🔴 필수</span><span style="font-size:10px;color:#9CA3AF">결재선 필수 포함</span></div>
+    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;padding:3px 10px;border-radius:6px;background:#F3F4F6;color:#6B7280;font-weight:700;border:1px solid #E5E7EB">⚪ 선택</span><span style="font-size:10px;color:#9CA3AF">조건부 참조</span></div>
+  </div>
   ${groups.length ? groups.map((g, gi) => {
     const coopTeams = g.coopTeams || [];
     return `
@@ -630,20 +636,28 @@ function _vuTabCoop(tpl) {
       <span style="font-size:16px">🏢</span>
       <span style="font-size:14px;font-weight:800;color:#111827">${g.name}</span>
       <span style="font-size:10px;color:#9CA3AF">${tpl.name}</span>
+      <span style="font-size:10px;padding:2px 7px;border-radius:5px;background:#FEF3C7;color:#92400E;font-weight:700">${coopTeams.length}개</span>
+      <button onclick="_vuOpenCoopAddModal('${tpl.id}',${gi})" style="margin-left:auto;padding:4px 10px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;color:#D97706">+ 협조처 추가</button>
     </div>
-    <div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <span style="font-size:11px;font-weight:800;color:#D97706">🤝 협조처</span>
-        <span style="font-size:10px;padding:2px 7px;border-radius:5px;background:#FEF3C7;color:#92400E;font-weight:700">${coopTeams.length}개</span>
-        <button onclick="_vuAddCoop('${tpl.id}',${gi})" style="margin-left:auto;padding:4px 10px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;color:#D97706">+ 협조처 추가</button>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px">
-        ${coopTeams.map((ct, ci) => `
-        <span style="padding:5px 10px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:7px;font-size:11px;font-weight:600;color:#92400E;display:flex;align-items:center;gap:4px">
-          ${ct.name || ct}
-          <button onclick="_vuRemoveCoop('${tpl.id}',${gi},${ci})" style="border:none;background:none;color:#D97706;cursor:pointer;font-size:10px;padding:0">✕</button>
-        </span>`).join('') || '<span style="font-size:11px;color:#9CA3AF">등록된 협조처가 없습니다</span>'}
-      </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${coopTeams.length ? coopTeams.map((ct, ci) => {
+        const isJK = (ct.coopType||'') === '\uc7ac\uacbd\ud611\uc870\ucc98';
+        const tcBg = isJK ? '#FFFBEB' : '#EFF6FF';
+        const tcBdr = isJK ? '#FDE68A' : '#BFDBFE';
+        const tcTxt = isJK ? '#92400E' : '#1D4ED8';
+        const tcIcn = isJK ? '\ud83d\udcb0' : '\ud83d\udcda';
+        const rq = ct.required === '\ud544\uc218';
+        return `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${tcBg};border:1px solid ${tcBdr};border-radius:10px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1">
+          <span style="font-weight:800;font-size:13px;color:#111827">${ct.name||ct.teamName||ct}</span>
+          <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${tcBdr};color:${tcTxt};font-weight:700">${tcIcn} ${ct.coopType||'\uad50\uc721\ud611\uc870\ucc98'}</span>
+          <span style="font-size:10px;padding:2px 8px;border-radius:6px;color:${rq?'#EF4444':'#6B7280'};font-weight:700;background:${rq?'#FEF2F2':'#F3F4F6'};border:1px solid ${rq?'#FECACA':'#E5E7EB'}">${rq?'\ud83d\udd34 \ud544\uc218\ud611\uc870\ucc98':'\u26aa \uc120\ud0dd\ud611\uc870\ucc98'}</span>
+          ${ct.role&&ct.role!=='\ud611\uc870'?'<span style="font-size:10px;color:#6B7280">'+ct.role+'</span>':''}
+        </div>
+        <button onclick="_vuRemoveCoop('${tpl.id}',${gi},${ci})" style="border:none;background:none;color:#D1D5DB;cursor:pointer;font-size:14px;flex-shrink:0">\u2715</button>
+      </div>`;
+      }).join('') : '<div style="padding:20px;text-align:center;background:#F9FAFB;border:1.5px dashed #E5E7EB;border-radius:10px;color:#9CA3AF;font-size:12px">\ub4f1\ub85d\ub41c \ud611\uc870\ucc98\uac00 \uc5c6\uc2b5\ub2c8\ub2e4</div>'}
     </div>
   </div>`;
   }).join('') : '<div style="padding:40px;text-align:center;color:#9CA3AF;font-size:13px;font-weight:700">② 가상조직 구성 탭에서 조직을 먼저 추가하세요</div>'}
@@ -741,12 +755,74 @@ function _vuRemoveTeam(tplId, gi, teamId) {
 }
 
 // ── 협조처·담당자 액션 ──────────────────────────────────────────────────────
-function _vuAddCoop(tplId, gi) {
+// 협조처 추가: 유형/구분 선택 → 조직 피커
+function _vuOpenCoopAddModal(tplId, gi) {
   window._vuPickerTplId = tplId;
   window._vuPickerGi = gi;
-  window._vuPickerMode = 'coop';
-  _vuShowOrgPicker('협조처 추가 - 팀 선택');
+  // 유형/구분 선택 모달 삽입
+  let modal = document.getElementById('vu-coop-type-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'vu-coop-type-modal';
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `
+<div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9100;display:flex;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;width:460px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+    <div style="display:flex;justify-content:space-between;margin-bottom:16px">
+      <h3 style="font-size:15px;font-weight:800;margin:0">🤝 협조처 추가</h3>
+      <button onclick="document.getElementById('vu-coop-type-modal').innerHTML=''" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">\u2715</button>
+    </div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:7px">협조처 유형 <span style="color:#EF4444">*</span></div>
+      <div style="display:flex;gap:10px">
+        <label style="flex:1;display:flex;align-items:center;gap:6px;padding:10px 14px;border-radius:8px;cursor:pointer;border:1.5px solid #BFDBFE;background:#EFF6FF">
+          <input type="radio" name="vu-ct" value="\uad50\uc721\ud611\uc870\ucc98" checked style="accent-color:#1D4ED8;width:14px;height:14px">
+          <span style="font-size:12px;font-weight:700;color:#1D4ED8">\ud83d\udcda \uad50\uc721\ud611\uc870\ucc98</span>
+        </label>
+        <label style="flex:1;display:flex;align-items:center;gap:6px;padding:10px 14px;border-radius:8px;cursor:pointer;border:1.5px solid #FDE68A;background:#FFFBEB">
+          <input type="radio" name="vu-ct" value="\uc7ac\uacbd\ud611\uc870\ucc98" style="accent-color:#D97706;width:14px;height:14px">
+          <span style="font-size:12px;font-weight:700;color:#92400E">\ud83d\udcb0 \uc7ac\uacbd\ud611\uc870\ucc98</span>
+        </label>
+      </div>
+    </div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:7px">협조 구분 <span style="color:#EF4444">*</span></div>
+      <div style="display:flex;gap:10px">
+        <label style="flex:1;display:flex;align-items:center;gap:6px;padding:10px 14px;border-radius:8px;cursor:pointer;border:1.5px solid #FECACA;background:#FEF2F2">
+          <input type="radio" name="vu-cr" value="\ud544\uc218" checked style="accent-color:#EF4444;width:14px;height:14px">
+          <span style="font-size:12px;font-weight:700;color:#EF4444">\ud83d\udd34 \ud544\uc218 \ud611\uc870\ucc98</span>
+        </label>
+        <label style="flex:1;display:flex;align-items:center;gap:6px;padding:10px 14px;border-radius:8px;cursor:pointer;border:1.5px solid #E5E7EB;background:#F9FAFB">
+          <input type="radio" name="vu-cr" value="\uc120\ud0dd" style="accent-color:#6B7280;width:14px;height:14px">
+          <span style="font-size:12px;font-weight:700;color:#6B7280">\u26aa \uc120\ud0dd \ud611\uc870\ucc98</span>
+        </label>
+      </div>
+    </div>
+    <div style="margin-bottom:20px">
+      <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:5px">역할 <span style="font-size:10px;font-weight:400;color:#94A3B8">(\uc120\ud0dd)</span></div>
+      <input id="vu-ct-role" type="text" value="" placeholder="\uc608) \uac80\ud1a0, \ud655\uc778, \uc608\uc0b0\uac80\ud1a0"
+        style="width:100%;box-sizing:border-box;padding:8px 11px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;outline:none">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="document.getElementById('vu-coop-type-modal').innerHTML=''" style="padding:8px 16px;border:1.5px solid #E5E7EB;border-radius:8px;background:white;cursor:pointer;font-size:12px;font-weight:700;color:#6B7280">\ucde8\uc18c</button>
+      <button onclick="_vuCoopTypeConfirmed()" style="padding:8px 16px;border:none;border-radius:8px;background:#1D4ED8;color:white;cursor:pointer;font-size:12px;font-weight:800">\ud300 \uc120\ud0dd \u2192</button>
+    </div>
+  </div>
+</div>`;
 }
+
+function _vuCoopTypeConfirmed() {
+  window._vuCoopType = document.querySelector('input[name="vu-ct"]:checked')?.value || '\uad50\uc721\ud611\uc870\ucc98';
+  window._vuCoopRequired = document.querySelector('input[name="vu-cr"]:checked')?.value || '\ud544\uc218';
+  window._vuCoopRole = document.getElementById('vu-ct-role')?.value.trim() || '\ud611\uc870';
+  document.getElementById('vu-coop-type-modal').innerHTML = '';
+  window._vuPickerMode = 'coop';
+  _vuShowOrgPicker('\ud611\uc870\ucc98 \ucd94\uac00 - \ud300 \uc120\ud0dd');
+}
+
+// 기존 호환: _vuAddCoop은 _vuOpenCoopAddModal로 포워딩
+function _vuAddCoop(tplId, gi) { _vuOpenCoopAddModal(tplId, gi); }
 
 function _vuRemoveCoop(tplId, gi, ci) {
   const tpl = _vuTplList.find(t => t.id === tplId);
@@ -1528,7 +1604,14 @@ function _vuConfirmOrgPick() {
       if (!g.teams.find(t => t.id === item.id)) g.teams.push(item);
     } else if (window._vuPickerMode === 'coop') {
       if (!g.coopTeams) g.coopTeams = [];
-      if (!g.coopTeams.find(t => t.id === item.id)) g.coopTeams.push(item);
+      if (!g.coopTeams.find(t => t.id === item.id)) {
+        g.coopTeams.push({
+          ...item,
+          coopType: window._vuCoopType || '\uad50\uc721\ud611\uc870\ucc98',
+          required: window._vuCoopRequired || '\ud544\uc218',
+          role: window._vuCoopRole || '\ud611\uc870'
+        });
+      }
     }
   });
 

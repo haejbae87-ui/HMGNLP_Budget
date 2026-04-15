@@ -11,6 +11,43 @@ let _FIELD_DEF_LOADED_AT = 0;  // 타임스탬프
 let _FORM_TPL_CACHE = {};     // { formId: { data, loadedAt } }
 const _CACHE_TTL_MS = 60_000; // 60초 TTL — BO 수정 후 최대 1분 내 반영
 
+// ─── FO 전용: calc_grounds DB 경량 로더 (TTL 캐시) ─────────────────────────
+let _FO_CG_CACHE = null;
+let _FO_CG_LOADED_AT = 0;
+
+async function _foLoadCalcGrounds() {
+    if (_FO_CG_CACHE && (Date.now() - _FO_CG_LOADED_AT < _CACHE_TTL_MS)) return _FO_CG_CACHE;
+    const sb = typeof getSB === 'function' ? getSB() : null;
+    if (!sb) { console.warn('[fo_form_loader] getSB 없음 — calc_grounds 로드 불가'); return []; }
+    try {
+        const { data, error } = await sb.from('calc_grounds')
+            .select('*').eq('active', true).order('sort_order');
+        if (error) throw error;
+        _FO_CG_CACHE = (data || []).map(r => ({
+            id: r.id, name: r.name, desc: r.description || '',
+            tenantId: r.tenant_id, domainId: r.virtual_org_template_id || null,
+            accountCode: r.account_code || null,
+            sharedAccountCodes: r.shared_account_codes || [],
+            unitPrice: r.unit_price || 0,
+            softLimit: r.soft_limit || 0, hardLimit: r.hard_limit || 0,
+            limitType: r.limit_type || 'none', active: true,
+            sortOrder: r.sort_order || 99,
+        }));
+        // CALC_GROUNDS_MASTER 동기화 (plans.js _renderCalcGroundsSection 재사용)
+        if (typeof CALC_GROUNDS_MASTER !== 'undefined') {
+            CALC_GROUNDS_MASTER.length = 0;
+            CALC_GROUNDS_MASTER.push(..._FO_CG_CACHE);
+        }
+        _FO_CG_LOADED_AT = Date.now();
+        console.log(`[fo_form_loader] calc_grounds DB 로드: ${_FO_CG_CACHE.length}건`);
+    } catch (e) {
+        console.warn('[fo_form_loader] calc_grounds 로드 실패:', e.message);
+        _FO_CG_CACHE = [];
+    }
+    return _FO_CG_CACHE;
+}
+window._foLoadCalcGrounds = _foLoadCalcGrounds;
+
 // 캐시 무효화 (Step 이동 시 또는 수동 호출용)
 function invalidateFormCache() {
     _FIELD_DEF_CACHE = null;
@@ -243,18 +280,17 @@ function _renderOneField(def, s, prefix) {
         }
 
         case 'calc-grounds':
-            // 기존 세부산출근거 컴포넌트 재사용
+            // FO: DB에서 calc_grounds 로드 완료 후 기존 컴포넌트 재사용
             if (typeof _renderCalcGroundsSection === 'function') {
                 const curBudget = _resolveCurrentBudget(s, prefix);
                 const result = _renderCalcGroundsSection(s, curBudget);
                 if (result) { inputHtml = result; break; }
             }
-            // 폴백: 항목 데이터가 없어도 기본 + 항목 추가 테이블 표시
+            // 폴백: DB 로드되었으나 해당 계정 항목 없음
             inputHtml = `<div style="background:#F0F9FF;border:2px dashed #93C5FD;border-radius:12px;padding:20px;text-align:center">
               <div style="font-size:24px;margin-bottom:8px">📐</div>
-              <div style="font-size:12px;font-weight:700;color:#1D4ED8;margin-bottom:4px">세부 산출 근거 테이블</div>
-              <div style="font-size:11px;color:#6B7280;margin-bottom:12px">이 예산 계정에 등록된 세부산출근거 항목이 없습니다.<br>BO 관리자가 해당 가상교육조직에 산출근거 항목을 등록하면 여기에 테이블이 표시됩니다.</div>
-              <div style="font-size:10px;color:#9CA3AF">관리 경로: BO → 세부산출근거 관리 → 항목 추가</div>
+              <div style="font-size:12px;font-weight:700;color:#1D4ED8;margin-bottom:4px">세부 산출 근거</div>
+              <div style="font-size:11px;color:#6B7280;margin-bottom:12px">이 예산 계정/가상교육조직에 매핑된 세부산출근거 항목이 없습니다.<br>BO 관리자에게 확인하세요.</div>
             </div>`;
             break;
 

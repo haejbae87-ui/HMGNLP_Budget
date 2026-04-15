@@ -1395,8 +1395,20 @@ function getCalcGroundsForAccount(accountCode) {
     })();
     return getCalcGroundsForVorg(vorgId, accountCode);
   }
-  // 폴백: Mock accountTypes 기반 (DB 미연결 시)
-  return CALC_GROUNDS_MASTER.filter(g => g.active !== false);
+  // 폴백: FO에서 _foLoadCalcGrounds로 채워진 CALC_GROUNDS_MASTER 활용
+  // VOrg + accountCode 기반 필터링 적용
+  const vorgId = (typeof currentPersona !== 'undefined' && currentPersona)
+    ? (currentPersona.vorgIds || [])[0] || null : null;
+  return CALC_GROUNDS_MASTER.filter(g => {
+    if (g.active === false) return false;
+    // VOrg 매칭: domainId가 설정된 항목은 해당 VOrg에만 표시
+    if (g.domainId && vorgId && g.domainId !== vorgId) return false;
+    // 계정 필터: sharedAccountCodes가 비어있으면 전체 공유
+    if (accountCode && g.sharedAccountCodes && g.sharedAccountCodes.length > 0) {
+      if (!g.sharedAccountCodes.includes(accountCode)) return false;
+    }
+    return true;
+  });
 }
 
 // ─── 금액별 동적 결재 라인 설정 (Approval Routing) ───────────────────────────

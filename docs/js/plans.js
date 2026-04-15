@@ -1088,11 +1088,12 @@ function planNext() {
     || policies[0] || null;
 
     (async () => {
-      let tpl = null;
-      if (matched && typeof getFoFormTemplate === 'function') {
-        // eduType 영문 코드 직접 전달 (DB form_templates.edu_type 영문 표준화 완료)
-        tpl = await getFoFormTemplate(matched, 'plan', eduType);
-      }
+      // 양식 로드 + 세부산출근거 DB 로드 병렬 수행
+      const tplPromise = (matched && typeof getFoFormTemplate === 'function')
+        ? getFoFormTemplate(matched, 'plan', eduType) : Promise.resolve(null);
+      const cgPromise = (typeof _foLoadCalcGrounds === 'function')
+        ? _foLoadCalcGrounds() : Promise.resolve([]);
+      const [tpl] = await Promise.all([tplPromise, cgPromise]);
       planState.formTemplate = tpl || null;
       planState.formTemplateLoading = false;
       renderPlanWizard();

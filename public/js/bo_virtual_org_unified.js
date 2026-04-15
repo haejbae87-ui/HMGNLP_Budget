@@ -1,6 +1,6 @@
 // ─── 가상교육조직 통합 관리 화면 ──────────────────────────────────────────────
 // 기존 3개 메뉴(가상조직/예산계정/교육지원조직)를 용도별 동적 탭으로 통합
-// 공통 탭: ① 기본정보  ② 가상조직 구성  ③ 협조처·담당자
+// 공통 탭: ① 기본정보  ② 가상조직 구성  ③ 협조처  ④ 담당자
 // 용도별:  ④ 예산계정(edu_support) / ④ 자격증 맵핑(cert)
 
 let _vuActiveTab = 0;
@@ -14,7 +14,8 @@ function _vuGetTabs(purpose) {
   const common = [
     { key: 'info', label: '① 기본정보', icon: '📋' },
     { key: 'org', label: '② 가상조직 구성', icon: '🏗️' },
-    { key: 'coop', label: '③ 협조처·담당자', icon: '🤝' },
+    { key: 'coop', label: '③ 협조처', icon: '🤝' },
+    { key: 'mgr', label: '④ 담당자', icon: '👤' },
   ];
   return common;
 }
@@ -254,6 +255,7 @@ function _vuRenderTabContent(tabKey, tpl) {
     case 'info': return _vuTabInfo(tpl);
     case 'org': return _vuTabOrg(tpl);
     case 'coop': return _vuTabCoop(tpl);
+    case 'mgr': return _vuTabManager(tpl);
     default: return '<div style="padding:40px;text-align:center;color:#9CA3AF">준비 중입니다</div>';
   }
 }
@@ -312,7 +314,7 @@ function _vuTabInfo(tpl) {
         ${u.start_date || u.end_date ? `<span style="font-size:9px;color:#94A3B8;font-weight:400">${u.start_date || ''} ~ ${u.end_date || ''}</span>` : ''}
         <button onclick="_vuRemoveOneHeadManager('${tpl.id}', ${idx})" style="border:none;background:none;color:#C2410C;cursor:pointer;font-size:11px;padding:0 2px" title="이 담당자 해제">✕</button>
       </span>`).join('')}
-    </div>` : '<span style="font-size:12px;color:#9CA3AF">총괄담당자가 설정되지 않았습니다.<br><small>💡 총괄담당자 설정 후 협조처·담당자 탭에서 운영담당자를 추가할 수 있습니다.</small></span>'}
+    </div>` : '<span style="font-size:12px;color:#9CA3AF">총괄담당자가 설정되지 않았습니다.<br><small>💡 총괄담당자 설정 후 ④ 담당자 탭에서 운영담당자를 추가할 수 있습니다.</small></span>'}
   </div>
 
   <div style="margin-top:12px;text-align:right">
@@ -613,19 +615,15 @@ function _vuToggleTreeCollapse(id, headerEl) {
   else { el.style.display = 'none'; if (arrow) arrow.style.transform = 'rotate(-90deg)'; }
 }
 
-// ═══ 탭③: 협조처·담당자 ═════════════════════════════════════════════════════
+// ═══ 탭③: 협조처 ════════════════════════════════════════════════════════════
 function _vuTabCoop(tpl) {
   const groups = tpl.tree?.hqs || tpl.tree?.centers || [];
-  const headUser = tpl.headManagerUser || null;
-  const headRole = tpl.headManagerRole || null;
   return `
 <div>
-  <h3 style="font-size:14px;font-weight:900;color:#111827;margin:0 0 4px">🤝 협조처·담당자 관리</h3>
-  ${headRole ? `<p style="font-size:11px;color:#6B7280;margin:0 0 16px">총괄담당자 역할: <code style="background:#FFF7ED;color:#C2410C;padding:2px 8px;border-radius:4px;font-size:10px">${headRole.name}</code> ${headUser ? '· 담당자: <b>' + headUser.name + '</b>' : ''}</p>` : '<p style="font-size:11px;color:#EF4444;margin:0 0 16px">⚠ 기본정보 탭에서 총괄담당자를 먼저 설정하세요</p>'}
+  <h3 style="font-size:14px;font-weight:900;color:#111827;margin:0 0 4px">🤝 협조처 관리</h3>
+  <p style="font-size:11px;color:#6B7280;margin:0 0 16px">각 가상조직(본부)별 결재 시 협조가 필요한 팀을 지정합니다.</p>
   ${groups.length ? groups.map((g, gi) => {
     const coopTeams = g.coopTeams || [];
-    const managers = g.managers || [];
-    const hasHeadRole = !!headRole;
     return `
   <div class="bo-card" style="padding:16px 20px;margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
@@ -633,8 +631,7 @@ function _vuTabCoop(tpl) {
       <span style="font-size:14px;font-weight:800;color:#111827">${g.name}</span>
       <span style="font-size:10px;color:#9CA3AF">${tpl.name}</span>
     </div>
-    <!-- 협조처 -->
-    <div style="margin-bottom:14px">
+    <div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <span style="font-size:11px;font-weight:800;color:#D97706">🤝 협조처</span>
         <span style="font-size:10px;padding:2px 7px;border-radius:5px;background:#FEF3C7;color:#92400E;font-weight:700">${coopTeams.length}개</span>
@@ -648,7 +645,30 @@ function _vuTabCoop(tpl) {
         </span>`).join('') || '<span style="font-size:11px;color:#9CA3AF">등록된 협조처가 없습니다</span>'}
       </div>
     </div>
-    <!-- 운영담당자 (총괄 역할 하위 사용자) -->
+  </div>`;
+  }).join('') : '<div style="padding:40px;text-align:center;color:#9CA3AF;font-size:13px;font-weight:700">② 가상조직 구성 탭에서 조직을 먼저 추가하세요</div>'}
+</div>`;
+}
+
+// ═══ 탭④: 담당자 ════════════════════════════════════════════════════════════
+function _vuTabManager(tpl) {
+  const groups = tpl.tree?.hqs || tpl.tree?.centers || [];
+  const headUser = tpl.headManagerUser || null;
+  const headRole = tpl.headManagerRole || null;
+  return `
+<div>
+  <h3 style="font-size:14px;font-weight:900;color:#111827;margin:0 0 4px">👤 담당자 관리</h3>
+  ${headRole ? `<p style="font-size:11px;color:#6B7280;margin:0 0 16px">총괄담당자 역할: <code style="background:#FFF7ED;color:#C2410C;padding:2px 8px;border-radius:4px;font-size:10px">${headRole.name}</code> ${headUser ? '· 담당자: <b>' + headUser.name + '</b>' : ''}</p>` : '<p style="font-size:11px;color:#EF4444;margin:0 0 16px">⚠ 기본정보 탭에서 총괄담당자를 먼저 설정하세요</p>'}
+  ${groups.length ? groups.map((g, gi) => {
+    const managers = g.managers || [];
+    const hasHeadRole = !!headRole;
+    return `
+  <div class="bo-card" style="padding:16px 20px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <span style="font-size:16px">🏢</span>
+      <span style="font-size:14px;font-weight:800;color:#111827">${g.name}</span>
+      <span style="font-size:10px;color:#9CA3AF">${tpl.name}</span>
+    </div>
     <div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <span style="font-size:11px;font-weight:800;color:#059669">👤 운영담당자</span>

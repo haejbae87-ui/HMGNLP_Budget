@@ -929,7 +929,7 @@ ${_processInfo ? `
         <div class="bg-white rounded-xl px-4 py-3 border border-blue-100">
           <div class="text-[10px] text-blue-400 font-black uppercase tracking-wider mb-1">② 예산 계정</div>
           <div class="font-black text-sm ${curBudget?.account === '연구투자' ? 'text-orange-500' : 'text-accent'}">${curBudget?.name || '—'}</div>
-          ${curBudget ? `<div class="text-[11px] text-gray-400 mt-0.5">잔액 ${fmt(curBudget.balance - curBudget.used)}원</div>` : ''}
+
         </div>
         <div class="bg-white rounded-xl px-4 py-3 border border-blue-100">
           <div class="text-[10px] text-blue-400 font-black uppercase tracking-wider mb-1">③ 교육유형</div>
@@ -959,8 +959,7 @@ ${_processInfo ? `
                   style="width:100%;background:#F9FAFB;border:2px solid ${s.hardLimitViolated ? '#EF4444' : '#E5E7EB'};border-radius:12px;padding:12px 48px 12px 16px;font-weight:700;font-size:16px;color:#111827;box-sizing:border-box"/>
                 <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:13px;font-weight:700;color:#9CA3AF">원</span>
               </div>
-              ${curBudget && s.amount && Number(s.amount) > (curBudget.balance - curBudget.used)
-              ? `<div style="margin-top:6px;font-size:11px;font-weight:700;color:#EF4444">⚠️ 예산 잔액(${fmt(curBudget.balance - curBudget.used)}원)을 초과합니다</div>` : ''}
+
               ${s.hardLimitViolated ? `<div style="margin-top:6px;font-size:11px;font-weight:700;color:#DC2626">🚫 Hard Limit 초과 항목이 있어 계획을 저장할 수 없습니다.</div>` : ''}
               ${_renderApprovalRouteInfo(s, curBudget)}
             </div>`;
@@ -1000,8 +999,7 @@ ${_processInfo ? `
               class="w-full bg-gray-50 border-2 ${s.hardLimitViolated ? 'border-red-400 bg-red-50' : 'border-gray-100'} rounded-xl px-5 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition pr-12"/>
             <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-gray-400">원</span>
           </div>
-          ${curBudget && s.amount && Number(s.amount) > (curBudget.balance - curBudget.used)
-          ? `<div class="mt-1.5 text-xs font-black text-red-500">⚠️ 예산 잔액(${fmt(curBudget.balance - curBudget.used)}원)을 초과합니다</div>` : ''}
+
           ${s.hardLimitViolated ? `<div class="mt-1.5 text-xs font-black text-red-600">🚫 Hard Limit 초과 항목이 있어 계획을 저장할 수 없습니다. 항목 금액을 수정해주세요.</div>` : ''}
           ${_renderApprovalRouteInfo(s, curBudget)}
         </div>

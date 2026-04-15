@@ -830,61 +830,75 @@ let ACCOUNT_MASTER = [
   // ※ 시스템 기본 계정 (전사 공통, 삭제 불가)
   {
     code: 'COMMON-FREE', tenantId: null, group: '공통', name: '공통-무예산/자비수강', planRequired: false, carryover: false,
-    desc: '예산 집행 없이 학습 이력만 등록 (개인 자비, 무예산 학습)', active: true, isSystem: true
+    desc: '예산 집행 없이 학습 이력만 등록 (개인 자비, 무예산 학습)', active: true, isSystem: true,
+    approvalSystem: 'external'
   },
   // 현대자동차 (HMC) — 신O남 매니저(일반), 류O령 책임(R&D)이 각각 관리
   {
     code: 'HMC-OPS', tenantId: 'HMC', group: '일반', name: '일반-운영계정', planRequired: true, carryover: false,
-    desc: '사내 집합/이러닝, 세미나/워크숍 운영', active: true
+    desc: '사내 집합/이러닝, 세미나/워크숍 운영', active: true,
+    approvalSystem: 'integrated'  // 통합결재: 축1+축2+협조처
   },
   {
     code: 'HMC-ETC', tenantId: 'HMC', group: '일반', name: '일반-기타계정', planRequired: true, carryover: false,
-    desc: '과정/교안개발, 영상제작, 시설비', active: true
+    desc: '과정/교안개발, 영상제작, 시설비', active: true,
+    approvalSystem: 'integrated'
   },
   {
     code: 'HMC-PART', tenantId: 'HMC', group: '일반', name: '일반-참가계정', planRequired: false, carryover: false,
-    desc: '일반 학습자 사외교육 참가비 (연간 자동 할당)', active: true
+    desc: '일반 학습자 사외교육 참가비 (연간 자동 할당)', active: true,
+    approvalSystem: 'integrated'
   },
   {
     code: 'HMC-RND', tenantId: 'HMC', group: 'R&D', name: 'R&D-통합계정', planRequired: true, carryover: true,
-    desc: 'R&D 운영+기타+참가 모든 목적 통합', active: true
+    desc: 'R&D 운영+기타+참가 모든 목적 통합', active: true,
+    approvalSystem: 'integrated'
   },
   // 기아 (KIA) — KIA HRD팀 관리
   {
     code: 'KIA-OPS', tenantId: 'KIA', group: '일반', name: '일반교육예산-운영', planRequired: true, carryover: false,
-    desc: '기아 사내 집합/이러닝 운영교육 전용', active: true
+    desc: '기아 사내 집합/이러닝 운영교육 전용', active: true,
+    approvalSystem: 'platform'  // 자체결재: 축1만
   },
   {
     code: 'KIA-PART', tenantId: 'KIA', group: '일반', name: '일반교육예산-참가', planRequired: false, carryover: false,
-    desc: '기아 임직원 사외교육 참가비 (연간 자동 할당)', active: true
+    desc: '기아 임직원 사외교육 참가비 (연간 자동 할당)', active: true,
+    approvalSystem: 'platform'
   },
   {
     code: 'KIA-ETC', tenantId: 'KIA', group: '일반', name: '일반교육예산-기타', planRequired: true, carryover: false,
-    desc: '교안/콘텐츠 개발, 영상제작, 학습환경 구성비 등', active: true
+    desc: '교안/콘텐츠 개발, 영상제작, 학습환경 구성비 등', active: true,
+    approvalSystem: 'platform'
   },
   {
     code: 'HAE-OPS', tenantId: 'HAE', group: '일반', name: '오토에버-운영계정', planRequired: true, carryover: false,
-    desc: '오토에버 운영교육 전용 (집합/이러닝)', active: true
+    desc: '오토에버 운영교육 전용 (집합/이러닝)', active: true,
+    approvalSystem: 'platform'
   },
   {
     code: 'HAE-PART', tenantId: 'HAE', group: '일반', name: '오토에버-참가계정', planRequired: false, carryover: false,
-    desc: '임직원 사외교육 참가비', active: true
+    desc: '임직원 사외교육 참가비', active: true,
+    approvalSystem: 'platform'
   },
   {
     code: 'HAE-CERT', tenantId: 'HAE', group: '일반', name: '오토에버-자격증계정', planRequired: false, carryover: false,
-    desc: 'IT인증/자격증 업무지원 전용', active: true
+    desc: 'IT인증/자격증 업무지원 전용', active: true,
+    approvalSystem: 'platform'
   },
   {
     code: 'HAE-EDU', tenantId: 'HAE', group: '일반', name: '오토에버-전사교육예산', planRequired: true, carryover: false,
-    desc: '현대오토에버 전사 공통 교육예산 (기획·운영 전반)', active: true
+    desc: '현대오토에버 전사 공통 교육예산 (기획·운영 전반)', active: true,
+    approvalSystem: 'platform'
   },
   {
     code: 'HAE-TEAM', tenantId: 'HAE', group: '일반', name: '오토에버-팀/프로젝트 할당 예산', planRequired: false, carryover: false,
-    desc: '팀·프로젝트 단위 배정 교육예산 (자율 집행)', active: true
+    desc: '팀·프로젝트 단위 배정 교육예산 (자율 집행)', active: true,
+    approvalSystem: 'platform'
   },
   {
     code: 'HSC-EXT', tenantId: 'HSC', group: '일반', name: '현대제철-사외교육', planRequired: false, carryover: false,
-    desc: '임직원 사외교육(외부 교육과정, 세미나, 컨퍼런스 등) 예산 계정', active: true
+    desc: '임직원 사외교육(외부 교육과정, 세미나, 컨퍼런스 등) 예산 계정', active: true,
+    approvalSystem: 'external'  // 외부결재
   },
 ];
 
@@ -1386,51 +1400,207 @@ function getCalcGroundsForAccount(accountCode) {
 }
 
 // ─── 금액별 동적 결재 라인 설정 (Approval Routing) ───────────────────────────
-// 테넌트 > 계정코드 > 금액 구간별 결재 단계
-// ranges: [{max, approvers}]  max=null → 초과 구간 없음 (상한 없음)
+// 3단계 결재방식(external/platform/integrated) × 2축 에스컬레이션
+// 축1: 총액 기반 승인자 레벨 상승 (자체+통합 공통)
+// 축2: soft_limit 초과 → 조건부 협조처 활성화 (통합결재 전용)
+// nodes: [{type, label, role, activation, conditionRuleId, requiresIntegrated}]
 let APPROVAL_ROUTING = [
   {
     id: 'AR001', tenantId: 'HMC', accountCodes: ['HMC-OPS', 'HMC-ETC', 'HMC-PART'],
     name: '현대차 일반예산 결재라인',
     ranges: [
-      { max: 1000000, label: '100만원 미만', approvers: ['팀장 전결'] },
-      { max: 5000000, label: '100만원 ~ 500만원 미만', approvers: ['팀장', '실장'] },
-      { max: null, label: '500만원 이상', approvers: ['팀장', '실장', '본부장'] },
+      { max: 1000000, label: '100만원 미만', nodes: [
+        { type: 'draft', label: '기안자', order: 1 },
+        { type: 'approval', label: '팀장', role: '팀장', final: true, order: 2 },
+        { type: 'coop', label: '교육협조처', coopType: '교육협조처', activation: 'conditional', conditionRuleId: 'RULE-HMC-EDU', requiresIntegrated: true, order: 3 },
+        { type: 'coop', label: '재경협조팀', coopType: '재경협조팀', activation: 'conditional', conditionRuleId: 'RULE-HMC-FIN', requiresIntegrated: true, order: 4 },
+      ]},
+      { max: 5000000, label: '100만원 ~ 500만원 미만', nodes: [
+        { type: 'draft', label: '기안자', order: 1 },
+        { type: 'approval', label: '팀장', role: '팀장', order: 2 },
+        { type: 'coop', label: '교육협조처', coopType: '교육협조처', activation: 'conditional', conditionRuleId: 'RULE-HMC-EDU', requiresIntegrated: true, order: 3 },
+        { type: 'coop', label: '재경협조팀', coopType: '재경협조팀', activation: 'conditional', conditionRuleId: 'RULE-HMC-FIN', requiresIntegrated: true, order: 4 },
+        { type: 'approval', label: '실장', role: '실장', final: true, order: 5 },
+      ]},
+      { max: null, label: '500만원 이상', nodes: [
+        { type: 'draft', label: '기안자', order: 1 },
+        { type: 'approval', label: '팀장', role: '팀장', order: 2 },
+        { type: 'coop', label: '교육협조처', coopType: '교육협조처', activation: 'conditional', conditionRuleId: 'RULE-HMC-EDU', requiresIntegrated: true, order: 3 },
+        { type: 'coop', label: '재경협조팀', coopType: '재경협조팀', activation: 'conditional', conditionRuleId: 'RULE-HMC-FIN', requiresIntegrated: true, order: 4 },
+        { type: 'approval', label: '실장', role: '실장', order: 5 },
+        { type: 'approval', label: '본부장', role: '본부장', final: true, order: 6 },
+      ]},
     ]
   },
   {
     id: 'AR002', tenantId: 'HMC', accountCodes: ['HMC-RND'],
     name: 'HMC R&D 결재라인',
     ranges: [
-      { max: 3000000, label: '300만원 미만', approvers: ['팀장 전결'] },
-      { max: 10000000, label: '300만원 ~ 1000만원 미만', approvers: ['팀장', '센터장'] },
-      { max: null, label: '1000만원 이상', approvers: ['팀장', '센터장', 'R&D총괄'] },
+      { max: 3000000, label: '300만원 미만', nodes: [
+        { type: 'draft', label: '기안자', order: 1 },
+        { type: 'approval', label: '팀장', role: '팀장', final: true, order: 2 },
+        { type: 'coop', label: '교육협조처', coopType: '교육협조처', activation: 'conditional', conditionRuleId: 'RULE-HMC-EDU', requiresIntegrated: true, order: 3 },
+      ]},
+      { max: 10000000, label: '300만원 ~ 1000만원 미만', nodes: [
+        { type: 'draft', label: '기안자', order: 1 },
+        { type: 'approval', label: '팀장', role: '팀장', order: 2 },
+        { type: 'coop', label: '교육협조처', coopType: '교육협조처', activation: 'conditional', conditionRuleId: 'RULE-HMC-EDU', requiresIntegrated: true, order: 3 },
+        { type: 'approval', label: '센터장', role: '센터장', final: true, order: 4 },
+      ]},
+      { max: null, label: '1000만원 이상', nodes: [
+        { type: 'draft', label: '기안자', order: 1 },
+        { type: 'approval', label: '팀장', role: '팀장', order: 2 },
+        { type: 'coop', label: '교육협조처', coopType: '교육협조처', activation: 'conditional', conditionRuleId: 'RULE-HMC-EDU', requiresIntegrated: true, order: 3 },
+        { type: 'approval', label: '센터장', role: '센터장', order: 4 },
+        { type: 'approval', label: 'R&D총괄', role: 'R&D총괄', final: true, order: 5 },
+      ]},
     ]
   },
   {
     id: 'AR003', tenantId: 'KIA', accountCodes: ['KIA-OPS', 'KIA-PART', 'KIA-ETC'],
     name: '기아 일반예산 결재라인',
     ranges: [
-      { max: 1000000, label: '100만원 미만', approvers: ['팀장 전결'] },
-      { max: 5000000, label: '100만원 ~ 500만원 미만', approvers: ['팀장', '실장'] },
-      { max: null, label: '500만원 이상', approvers: ['팀장', '실장', '본부장'] },
+      { max: 1000000, label: '100만원 미만', nodes: [
+        { type: 'draft', label: '기안자', order: 1 },
+        { type: 'approval', label: '팀장', role: '팀장', final: true, order: 2 },
+      ]},
+      { max: 5000000, label: '100만원 ~ 500만원 미만', nodes: [
+        { type: 'draft', label: '기안자', order: 1 },
+        { type: 'approval', label: '팀장', role: '팀장', order: 2 },
+        { type: 'approval', label: '실장', role: '실장', final: true, order: 3 },
+      ]},
+      { max: null, label: '500만원 이상', nodes: [
+        { type: 'draft', label: '기안자', order: 1 },
+        { type: 'approval', label: '팀장', role: '팀장', order: 2 },
+        { type: 'approval', label: '실장', role: '실장', order: 3 },
+        { type: 'approval', label: '본부장', role: '본부장', final: true, order: 4 },
+      ]},
     ]
   },
   {
     id: 'AR004', tenantId: 'HAE', accountCodes: ['HAE-OPS', 'HAE-PART', 'HAE-CERT'],
     name: '오토에버 결재라인',
     ranges: [
-      { max: 500000, label: '50만원 미만', approvers: ['팀장 전결'] },
-      { max: 2000000, label: '50만원 ~ 200만원 미만', approvers: ['팀장', '임원'] },
-      { max: null, label: '200만원 이상', approvers: ['팀장', '임원', '대표이사'] },
+      { max: 500000, label: '50만원 미만', nodes: [
+        { type: 'draft', label: '기안자', order: 1 },
+        { type: 'approval', label: '팀장', role: '팀장', final: true, order: 2 },
+      ]},
+      { max: 2000000, label: '50만원 ~ 200만원 미만', nodes: [
+        { type: 'draft', label: '기안자', order: 1 },
+        { type: 'approval', label: '팀장', role: '팀장', order: 2 },
+        { type: 'approval', label: '임원', role: '임원', final: true, order: 3 },
+      ]},
+      { max: null, label: '200만원 이상', nodes: [
+        { type: 'draft', label: '기안자', order: 1 },
+        { type: 'approval', label: '팀장', role: '팀장', order: 2 },
+        { type: 'approval', label: '임원', role: '임원', order: 3 },
+        { type: 'approval', label: '대표이사', role: '대표이사', final: true, order: 4 },
+      ]},
     ]
   },
 ];
 
-// 헬퍼: 금액에 따른 결재단계 반환
-function getApprovalRoute(accountCode, amount) {
+// ─── 조건부 협조처 활성화 룰 (D2: UI 룰 빌더 대상) ───────────────────────────
+let APPROVAL_COOP_RULES = [
+  {
+    id: 'RULE-HMC-EDU', name: '교육협조처 활성화 조건', tenantId: 'HMC',
+    operator: 'OR',
+    conditions: [
+      { field: 'soft_limit_exceeded', op: 'eq', value: true },
+      { field: 'edu_type', op: 'in', value: ['해외교육', '학회참석', '학회 직접 발표'] },
+    ]
+  },
+  {
+    id: 'RULE-HMC-FIN', name: '재경협조팀 활성화 조건', tenantId: 'HMC',
+    operator: 'OR',
+    conditions: [
+      { field: 'soft_limit_exceeded', op: 'eq', value: true },
+      { field: 'total_amount', op: 'gte', value: 10000000 },
+    ]
+  },
+];
+
+// ─── 결재선 생성 엔진 (축1+축2 통합) ─────────────────────────────────────────
+
+// 축1: 총액으로 기본 구간 결정
+function getBaseApprovalRange(accountCode, amount) {
   const routing = APPROVAL_ROUTING.find(r => r.accountCodes.includes(accountCode));
   if (!routing) return null;
   const range = routing.ranges.find(r => r.max === null || amount < r.max);
   return range ? { routingName: routing.name, range } : null;
+}
+
+// 축2: soft_limit 초과 여부 판단
+function hasSoftExceeded(calcGroundItems) {
+  if (!calcGroundItems || !calcGroundItems.length) return false;
+  return calcGroundItems.some(item => {
+    const ground = CALC_GROUNDS_MASTER.find(g => g.id === item.groundId || g.name === item.name);
+    if (!ground || ground.limit_type === 'none' || !ground.soft_limit) return false;
+    return item.amount > ground.soft_limit;
+  });
+}
+
+// 룰 평가 엔진 (D2)
+function _evaluateCoopRule(rule, ctx) {
+  if (!rule || !rule.conditions || !rule.conditions.length) return false;
+  const results = rule.conditions.map(c => {
+    switch (c.field) {
+      case 'soft_limit_exceeded': return (c.op === 'eq') ? (hasSoftExceeded(ctx.calcGroundItems) === c.value) : false;
+      case 'edu_type':            return (c.op === 'in') ? c.value.includes(ctx.eduType) : false;
+      case 'total_amount':        return _compareNum(ctx.totalAmount || 0, c.op, c.value);
+      case 'edu_days':            return _compareNum(ctx.eduDays || 0, c.op, c.value);
+      case 'is_overseas':         return (c.op === 'eq') ? (ctx.isOverseas === c.value) : false;
+      default: return false;
+    }
+  });
+  return rule.operator === 'AND' ? results.every(Boolean) : results.some(Boolean);
+}
+function _compareNum(a, op, b) {
+  if (op === 'eq')  return a === b;
+  if (op === 'gte') return a >= b;
+  if (op === 'gt')  return a > b;
+  if (op === 'lte') return a <= b;
+  if (op === 'lt')  return a < b;
+  return false;
+}
+
+// 최종 결재선 생성 (2축 통합)
+function buildApprovalLine(application) {
+  const accountCode = application.accountCode;
+  const totalAmount = application.totalAmount || 0;
+  const account = ACCOUNT_MASTER.find(a => a.code === accountCode);
+  const approvalSystem = account?.approvalSystem || 'platform';
+
+  // 외부결재: 결재선 생성 안 함
+  if (approvalSystem === 'external') {
+    const ref = getBaseApprovalRange(accountCode, totalAmount);
+    return { type: 'external', referenceInfo: ref };
+  }
+
+  // 축1: 총액 구간 결정
+  const result = getBaseApprovalRange(accountCode, totalAmount);
+  if (!result) return { type: approvalSystem, nodes: [] };
+
+  // 노드 필터링
+  const activeNodes = (result.range.nodes || []).filter(node => {
+    // 자체결재 시 통합결재 전용 노드(coop) 숨김 (D3)
+    if (node.requiresIntegrated && approvalSystem !== 'integrated') return false;
+    // 조건부 노드 평가 (D4: 모든 구간 동일)
+    if (node.activation === 'conditional') {
+      const rule = APPROVAL_COOP_RULES.find(r => r.id === node.conditionRuleId);
+      return _evaluateCoopRule(rule, application);
+    }
+    return true; // draft, approval 노드는 항상 포함
+  });
+
+  return { type: approvalSystem, routingName: result.routingName, nodes: activeNodes };
+}
+
+// 하위호환 래퍼 (기존 코드에서 getApprovalRoute 호출하는 곳 지원)
+function getApprovalRoute(accountCode, amount) {
+  const result = getBaseApprovalRange(accountCode, amount);
+  if (!result) return null;
+  // 기존 인터페이스 호환: approvers 텍스트 배열 자동 생성
+  const approvers = (result.range.nodes || []).filter(n => n.type === 'approval').map(n => n.label);
+  return { routingName: result.routingName, range: { ...result.range, approvers } };
 }

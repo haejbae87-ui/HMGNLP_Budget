@@ -76,6 +76,22 @@ const PRD_META = {
     tags: ['BO', '양식', '배포', '버전', 'Draft', 'Deploy'],
     summary: '양식 저장=즉시배포 구조를 Draft→Preview→Deploy 3단계로 분리. 양식 상태머신(draft/published/archived), 배포 시 필드 삭제 경고, 제출 데이터에 양식 스냅샷 저장으로 엑셀 추출 대비.',
   },
+  'approval_line_design': {
+    title: '결재라인 고도화 (3단계×2축)',
+    version: 'v2.0',
+    status: '구현 중',
+    date: '2026-04-15',
+    tags: ['BO', '결재', '협조처', 'VOrg', '에스컬레이션'],
+    summary: '3단계 결재방식(외부/자체/통합) × 2축 에스컬레이션(총액→승인자레벨, soft초과→협조처활성화). 계정별 결재방식 혼용. 노드기반 결재선. 조건 룰빌더 UI.',
+  },
+  'PRD_calc_grounds_vorg_management': {
+    title: '세부산출근거 VOrg 단위 관리',
+    version: 'v1.0',
+    status: '설계 검토',
+    date: '2026-04-14',
+    tags: ['BO', '세부산출근거', 'VOrg', '단가관리'],
+    summary: 'VOrg 템플릿 단위로 세부산출근거 항목을 관리하고, 교육장소별 단가 마스터를 운영하는 체계.',
+  },
 };
 
 function _extractTitleFromMd(content) {

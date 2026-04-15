@@ -75,6 +75,17 @@ function renderGNB() {
         return items;
       })(),
     },
+    // ── 통합 결재 메뉴 (HMC, KIA 전용) ──────────────────────────────────────
+    ...((currentPersona.tenantId === 'HMC' || currentPersona.tenantId === 'KIA') ? [{
+      id: 'integrated-approval',
+      label: '통합 결재',
+      dropdown: [
+        {
+          id: 'approval-dept', label: '부서 결재함', icon: '🏢', navigate: false,
+          desc: '부서의 통합 결재 현황 확인', soon: true
+        }
+      ]
+    }] : []),
     { id: 'fo-manual', label: '📖 매뉴얼', dropdown: null },
   ];
 

@@ -246,8 +246,16 @@ function _renderOneField(def, s, prefix) {
             // 기존 세부산출근거 컴포넌트 재사용
             if (typeof _renderCalcGroundsSection === 'function') {
                 const curBudget = _resolveCurrentBudget(s, prefix);
-                inputHtml = _renderCalcGroundsSection(s, curBudget);
+                const result = _renderCalcGroundsSection(s, curBudget);
+                if (result) { inputHtml = result; break; }
             }
+            // 폴백: 항목 데이터가 없어도 기본 + 항목 추가 테이블 표시
+            inputHtml = `<div style="background:#F0F9FF;border:2px dashed #93C5FD;border-radius:12px;padding:20px;text-align:center">
+              <div style="font-size:24px;margin-bottom:8px">📐</div>
+              <div style="font-size:12px;font-weight:700;color:#1D4ED8;margin-bottom:4px">세부 산출 근거 테이블</div>
+              <div style="font-size:11px;color:#6B7280;margin-bottom:12px">이 예산 계정에 등록된 세부산출근거 항목이 없습니다.<br>BO 관리자가 해당 가상교육조직에 산출근거 항목을 등록하면 여기에 테이블이 표시됩니다.</div>
+              <div style="font-size:10px;color:#9CA3AF">관리 경로: BO → 세부산출근거 관리 → 항목 추가</div>
+            </div>`;
             break;
 
         case 'file':

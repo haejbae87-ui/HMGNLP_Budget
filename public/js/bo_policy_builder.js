@@ -1044,9 +1044,14 @@ function renderPolicyWizard() {
     if (!d.approvalConfig) d.approvalConfig = { plan: { thresholds: [], approvalType: 'platform' }, apply: { thresholds: [], approvalType: 'platform' }, result: { thresholds: [], approvalType: 'platform' } };
     const activeStage = _policyWizardData._approvalTab || stages[0];
     const cfg = d.approvalConfig[activeStage] || { thresholds: [], approvalType: 'platform' };
-    const tenantPersonas = Object.entries(BO_PERSONAS)
-      .filter(([k, p]) => p.tenantId === persona.tenantId)
-      .map(([k, p]) => ({ key: k, p }));
+    // ★ 직책 기반 결재 담당자 목록
+    const _APPROVAL_LEVELS = [
+      { key: 'team_leader', label: '팀장', icon: '👤', order: 1 },
+      { key: 'director', label: '실장', icon: '📋', order: 2 },
+      { key: 'division_head', label: '사업부장', icon: '🏢', order: 3 },
+      { key: 'center_head', label: '센터장', icon: '🎯', order: 4 },
+      { key: 'hq_head', label: '본부장', icon: '🏛️', order: 5 },
+    ];
 
     // ★ 계정 approvalSystem 자동 감지
     const _selAcctCode = (d.accountCodes || [])[0] || '';
@@ -1181,7 +1186,7 @@ function renderPolicyWizard() {
               <select onchange="_policyWizardData.approvalConfig['${s}'].thresholds[${i}].approverKey=this.value"
                 style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:7px 8px;font-size:12px;font-weight:700">
                 <option value="">— 선택 —</option>
-                ${tenantPersonas.map(({ key, p }) => `<option value="${key}" ${t.approverKey === key ? 'selected' : ''}>${p.name} (${p.dept})</option>`).join('')}
+                ${_APPROVAL_LEVELS.map(lv => `<option value="${lv.key}" ${t.approverKey === lv.key ? 'selected' : ''}>${lv.icon} ${lv.label}</option>`).join('')}
               </select>
             </div>
             <button onclick="_removeStageThreshold('${s}',${i})" style="padding:7px 10px;border-radius:8px;border:1.5px solid #FCA5A5;color:#DC2626;background:white;cursor:pointer;font-size:11px;font-weight:700;height:34px">삭제</button>

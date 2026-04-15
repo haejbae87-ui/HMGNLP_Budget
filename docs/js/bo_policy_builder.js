@@ -1100,7 +1100,7 @@ function renderPolicyWizard() {
         ${c.thresholds.length===0 ? '<div style="padding:20px;text-align:center;background:#F9FAFB;border-radius:10px;border:1px dashed #D1D5DB"><div style="font-size:11px;color:#9CA3AF">결재 구간이 없습니다.</div><div style="font-size:10px;color:#D1D5DB;margin-top:4px">+ 추가 버튼으로 금액별 결재자를 설정하세요</div></div>' :
         '<div style="display:grid;gap:8px">' + c.thresholds.map((t, i) => '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;padding:12px 14px;background:#FAFAFA;border:1.5px solid #E5E7EB;border-radius:10px"><div><label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:4px">금액 (원 이하)</label><input type="number" value="'+(t.maxAmt||'')+'" placeholder="예: 1000000" onchange="_policyWizardData.approvalConfig[\''+s+'\'].thresholds['+i+'].maxAmt=Number(this.value);renderPolicyWizard()" style="width:100%;border:1.5px solid #D1D5DB;border-radius:8px;padding:8px 10px;font-size:13px;font-weight:700;box-sizing:border-box"/>'+(t.maxAmt?'<div style="font-size:9px;color:#9CA3AF;margin-top:3px">'+(t.maxAmt/10000)+'만원 이하</div>':'')+'</div><div><label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:4px">결재자</label><select onchange="_policyWizardData.approvalConfig[\''+s+'\'].thresholds['+i+'].approverKey=this.value;renderPolicyWizard()" style="width:100%;border:1.5px solid #D1D5DB;border-radius:8px;padding:8px;font-size:13px;font-weight:700"><option value="">— 선택 —</option>'+_LEVELS.map(lv => '<option value="'+lv.key+'" '+(t.approverKey===lv.key?'selected':'')+'>'+lv.label+'</option>').join('')+'</select></div><button onclick="_removeStageThreshold(\''+s+'\','+i+')" style="padding:8px 12px;border-radius:8px;border:1.5px solid #FCA5A5;color:#DC2626;background:white;cursor:pointer;font-size:11px;font-weight:700;height:36px">삭제</button></div>').join('') + '</div>'}
       </div>
-      ${isHmg ? '<div style="border-top:1px solid #F3F4F6;padding-top:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><label style="font-size:12px;font-weight:800;color:#374151">🤝 협조처</label><button onclick="_addCoopTeam(\''+s+'\')" style="font-size:11px;padding:5px 14px;border-radius:8px;border:1.5px solid #D97706;color:#D97706;background:white;cursor:pointer;font-weight:700">+ 협조처 추가</button></div>'+(c.coopTeams.length===0?'<div style="padding:14px;text-align:center;background:#FFFBEB;border:1px dashed #FDE68A;border-radius:8px;font-size:11px;color:#92400E">협조처 없음 — + 협조처 추가 버튼으로 설정하세요</div>':'<div style="display:flex;flex-wrap:wrap;gap:8px">'+c.coopTeams.map((team,ti) => '<span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#FEF3C7;border:1.5px solid #FDE68A;border-radius:20px;font-size:12px;font-weight:700;color:#92400E">🤝 '+team+'<button onclick="_removeCoopTeam(\''+s+'\','+ti+')" style="background:none;border:none;color:#DC2626;cursor:pointer;font-size:12px;font-weight:900;padding:0 2px">✕</button></span>').join('')+'</div>')+'</div>' : ''}
+      ${isHmg ? '<div style="border-top:1px solid #F3F4F6;padding-top:14px"><div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:10px"><span style="font-size:16px">🤝</span><div><div style="font-size:12px;font-weight:800;color:#1D4ED8">협조처는 가상 교육조직에서 관리됩니다</div><div style="font-size:10px;color:#6B7280;margin-top:2px">결재 시 신청자의 소속 조직에 매핑된 협조처(교육협조처/재경협조처)가 자동으로 적용됩니다.</div></div></div></div>' : ''}
       ${(() => {
           const rv = c.reviewers || [];
           const canAdd = rv.length < 2;
@@ -1197,18 +1197,6 @@ function _addStageThreshold(stage) {
 function _removeStageThreshold(stage, i) {
   _policyWizardData.approvalConfig[stage].thresholds.splice(i, 1);
   _policyWizardData._approvalTab = stage;
-  renderPolicyWizard();
-}
-// ── 협조처 추가/삭제 헬퍼 ────────────────────────────────────────────────
-function _addCoopTeam(stage) {
-  const name = prompt('협조처 이름을 입력하세요 (예: 교육협조처, 재경협조팀)');
-  if (!name || !name.trim()) return;
-  if (!_policyWizardData.approvalConfig[stage].coopTeams) _policyWizardData.approvalConfig[stage].coopTeams = [];
-  _policyWizardData.approvalConfig[stage].coopTeams.push(name.trim());
-  renderPolicyWizard();
-}
-function _removeCoopTeam(stage, i) {
-  _policyWizardData.approvalConfig[stage].coopTeams.splice(i, 1);
   renderPolicyWizard();
 }
 // ── 검토자 추가/삭제 헬퍼 ─────────────────────────────────────────────────

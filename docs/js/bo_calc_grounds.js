@@ -145,11 +145,16 @@ async function renderCalcGrounds() {
     </div>
     ${_cgPageTab === 'grounds' ? `
     <button class="bo-btn-primary bo-btn-sm" onclick="cgOpenModal(null)" style="white-space:nowrap">
-      + 항목 추가
+      + \ud56d\ubaa9 \ucd94\uac00
     </button>` : `
-    <button class="bo-btn-primary bo-btn-sm" onclick="_cgOpenUnitPriceModal(null)" style="white-space:nowrap">
-      + 단가 등록
-    </button>`}
+    <div style="display:flex;gap:8px">
+      <button onclick="_cgOpenVenueManager()" style="padding:7px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:white;cursor:pointer;color:#374151;white-space:nowrap">
+        \ud83c\udfe2 \uad50\uc721\uc7a5\uc18c \uad00\ub9ac
+      </button>
+      <button class="bo-btn-primary bo-btn-sm" onclick="_cgOpenUnitPriceModal(null)" style="white-space:nowrap">
+        + \ub2e8\uac00 \ub4f1\ub85d
+      </button>
+    </div>`}
   </div>
 
   <!-- 탭 버튼 -->
@@ -469,19 +474,147 @@ let _cgUnitPriceFilterGround = '';
 let _cgUnitPricePage = 1;
 const _cgUnitPricePageSize = 25;
 
+// ─── 교육장소 마스터 ───────────────────────────────────────────────────────
+let _cgEduVenues = [];
+let _cgEduVenuesLoaded = false;
+
+async function _cgLoadEduVenues() {
+  if (_cgEduVenuesLoaded) return;
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (sb) {
+      const { data } = await sb.from('edu_venues').select('*').order('sort_order', { ascending: true });
+      if (data) { _cgEduVenues = data; _cgEduVenuesLoaded = true; }
+    }
+  } catch (e) { console.warn('[EduVenues] DB \ub85c\ub4dc \uc2e4\ud328:', e.message); }
+}
+
 async function _cgLoadUnitPrices() {
   if (_cgUnitPriceDbLoaded) return;
+  await _cgLoadEduVenues();
   try {
     const sb = typeof _sb === 'function' ? _sb() : null;
     if (sb) {
       const { data } = await sb.from('calc_ground_unit_prices').select('*').order('id', { ascending: false });
       if (data) { _cgUnitPrices = data; _cgUnitPriceDbLoaded = true; }
     }
-  } catch (e) { console.warn('[UnitPrice] DB 로드 실패:', e.message); }
+  } catch (e) { console.warn('[UnitPrice] DB \ub85c\ub4dc \uc2e4\ud328:', e.message); }
 }
 
 function _cgGetVenues(tenantId) {
-  return [...new Set(_cgUnitPrices.filter(p => !tenantId || p.tenant_id === tenantId).map(p => p.venue_name).filter(Boolean))].sort();
+  // 마스터 교육장소 우선, 단가에만 있는 장소 추가
+  const masterNames = _cgEduVenues.filter(v => v.active !== false && (!tenantId || v.tenant_id === tenantId)).map(v => v.name);
+  const extraNames = [...new Set(_cgUnitPrices.filter(p => !tenantId || p.tenant_id === tenantId).map(p => p.venue_name).filter(Boolean).filter(n => !masterNames.includes(n)))];
+  return [...masterNames, ...extraNames.sort()];
+}
+
+// ─── 교육장소 관리 팝업 ───────────────────────────────────────────────────
+function _cgOpenVenueManager() {
+  let modal = document.getElementById('cg-venue-manager');
+  if (!modal) { modal = document.createElement('div'); modal.id = 'cg-venue-manager'; document.body.appendChild(modal); }
+  _cgRenderVenueManager();
+}
+
+function _cgRenderVenueManager() {
+  const modal = document.getElementById('cg-venue-manager');
+  if (!modal) return;
+  const venues = _cgEduVenues.filter(v => v.active !== false).sort((a,b) => a.sort_order - b.sort_order);
+  const inactiveVenues = _cgEduVenues.filter(v => v.active === false);
+  modal.innerHTML = `
+<div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;display:flex;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;width:520px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+    <div style="padding:20px 24px 14px;border-bottom:1px solid #E5E7EB">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 style="font-size:15px;font-weight:800;margin:0">\ud83c\udfe2 \uad50\uc721\uc7a5\uc18c \uad00\ub9ac</h3>
+        <button onclick="document.getElementById('cg-venue-manager').innerHTML=''" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">\u2715</button>
+      </div>
+      <p style="font-size:11px;color:#6B7280;margin:6px 0 0">\ub2e8\uac00\uad00\ub9ac\uc5d0\uc11c \uc0ac\uc6a9\ud560 \uad50\uc721\uc7a5\uc18c\ub97c \ub4f1\ub85d\u00b7\uad00\ub9ac\ud569\ub2c8\ub2e4.</p>
+    </div>
+    <div style="padding:16px 24px;border-bottom:1px solid #E5E7EB">
+      <div style="display:flex;gap:8px">
+        <input id="cg-venue-new-name" type="text" placeholder="\uc0c8 \uad50\uc721\uc7a5\uc18c\uba85 \uc785\ub825" style="flex:1;padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
+        <button onclick="_cgAddVenue()" style="padding:8px 16px;border:none;border-radius:8px;background:#1D4ED8;color:white;cursor:pointer;font-size:12px;font-weight:800">+ \ub4f1\ub85d</button>
+      </div>
+    </div>
+    <div style="padding:12px 24px;overflow-y:auto;max-height:50vh;min-height:100px">
+      ${venues.length === 0 ? '<div style="text-align:center;padding:24px;color:#9CA3AF;font-size:12px">\ub4f1\ub85d\ub41c \uad50\uc721\uc7a5\uc18c\uac00 \uc5c6\uc2b5\ub2c8\ub2e4.</div>' :
+        venues.map((v, i) => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;border:1px solid #E5E7EB;margin-bottom:6px;background:#FAFAFA">
+        <span style="font-size:11px;font-weight:900;color:#9CA3AF;width:24px;text-align:center">${i+1}</span>
+        <span style="font-size:13px;font-weight:700;color:#111827;flex:1">${v.name}</span>
+        <button onclick="_cgMoveVenue(${v.id},-1)" title="\uc704\ub85c" style="border:1px solid #E5E7EB;border-radius:6px;background:white;cursor:pointer;padding:3px 7px;font-size:11px" ${i===0?'disabled style="opacity:.3;cursor:default"':''}>\u25b2</button>
+        <button onclick="_cgMoveVenue(${v.id},1)" title="\uc544\ub798\ub85c" style="border:1px solid #E5E7EB;border-radius:6px;background:white;cursor:pointer;padding:3px 7px;font-size:11px" ${i===venues.length-1?'disabled style="opacity:.3;cursor:default"':''}>\u25bc</button>
+        <button onclick="_cgDeleteVenue(${v.id},'${v.name.replace(/'/g,"\\'")}')" title="\uc0ad\uc81c" style="border:1px solid #FECACA;border-radius:6px;background:#FEF2F2;cursor:pointer;padding:3px 7px;font-size:11px;color:#EF4444">\u2715</button>
+      </div>`).join('')}
+      ${inactiveVenues.length ? `<div style="margin-top:12px;padding-top:12px;border-top:1px dashed #E5E7EB">
+        <div style="font-size:10px;font-weight:700;color:#9CA3AF;margin-bottom:6px">\ube44\ud65c\uc131\ud654\ub41c \uc7a5\uc18c (${inactiveVenues.length}\uac1c)</div>
+        ${inactiveVenues.map(v => `
+        <div style="display:flex;align-items:center;gap:10px;padding:6px 12px;border-radius:6px;background:#F9FAFB;margin-bottom:4px;opacity:.6">
+          <span style="font-size:12px;color:#9CA3AF;flex:1">${v.name}</span>
+          <button onclick="_cgRestoreVenue(${v.id})" style="border:1px solid #A7F3D0;border-radius:6px;background:#F0FDF4;cursor:pointer;padding:3px 8px;font-size:10px;color:#059669;font-weight:700">\ubcf5\uc6d0</button>
+        </div>`).join('')}
+      </div>` : ''}
+    </div>
+    <div style="padding:14px 24px;border-top:1px solid #E5E7EB;display:flex;justify-content:flex-end">
+      <button onclick="document.getElementById('cg-venue-manager').innerHTML=''" class="bo-btn-primary bo-btn-sm">\ub2eb\uae30</button>
+    </div>
+  </div>
+</div>`;
+}
+
+async function _cgAddVenue() {
+  const input = document.getElementById('cg-venue-new-name');
+  const name = input?.value.trim();
+  if (!name) { alert('\uad50\uc721\uc7a5\uc18c\uba85\uc744 \uc785\ub825\ud558\uc138\uc694.'); return; }
+  if (_cgEduVenues.find(v => v.name === name && v.active !== false)) { alert('\uc774\ubbf8 \ub4f1\ub85d\ub41c \uad50\uc721\uc7a5\uc18c\uc785\ub2c8\ub2e4.'); return; }
+  // 비활성화된 동일 이름 복원
+  const inactive = _cgEduVenues.find(v => v.name === name && v.active === false);
+  if (inactive) { inactive.active = true; _cgSyncVenueDb(inactive.id, { active: true }); _cgRenderVenueManager(); return; }
+  const maxOrder = _cgEduVenues.reduce((m, v) => Math.max(m, v.sort_order || 0), 0);
+  const tenantId = _cgFilterTenant || 'HMC';
+  const newV = { id: Date.now(), tenant_id: tenantId, name, sort_order: maxOrder + 1, active: true };
+  _cgEduVenues.push(newV);
+  _cgInsertVenueDb(newV);
+  _cgRenderVenueManager();
+}
+
+async function _cgDeleteVenue(id, name) {
+  if (!confirm(`"${name}" \uad50\uc721\uc7a5\uc18c\ub97c \ube44\ud65c\uc131\ud654\ud560\uae4c\uc694?`)) return;
+  const v = _cgEduVenues.find(x => x.id === id);
+  if (v) { v.active = false; _cgSyncVenueDb(id, { active: false }); }
+  _cgRenderVenueManager();
+}
+
+async function _cgRestoreVenue(id) {
+  const v = _cgEduVenues.find(x => x.id === id);
+  if (v) { v.active = true; _cgSyncVenueDb(id, { active: true }); }
+  _cgRenderVenueManager();
+}
+
+function _cgMoveVenue(id, dir) {
+  const active = _cgEduVenues.filter(v => v.active !== false).sort((a,b) => a.sort_order - b.sort_order);
+  const idx = active.findIndex(v => v.id === id);
+  if (idx < 0) return;
+  const swapIdx = idx + dir;
+  if (swapIdx < 0 || swapIdx >= active.length) return;
+  const tmpOrder = active[idx].sort_order;
+  active[idx].sort_order = active[swapIdx].sort_order;
+  active[swapIdx].sort_order = tmpOrder;
+  _cgSyncVenueDb(active[idx].id, { sort_order: active[idx].sort_order });
+  _cgSyncVenueDb(active[swapIdx].id, { sort_order: active[swapIdx].sort_order });
+  _cgRenderVenueManager();
+}
+
+async function _cgSyncVenueDb(id, updates) {
+  try { const sb = typeof _sb === 'function' ? _sb() : null; if (sb) await sb.from('edu_venues').update(updates).eq('id', id); } catch (e) { console.warn('[EduVenues] DB:', e.message); }
+}
+async function _cgInsertVenueDb(obj) {
+  try {
+    const sb = typeof _sb === 'function' ? _sb() : null;
+    if (sb) { const { data } = await sb.from('edu_venues').insert({ tenant_id: obj.tenant_id, name: obj.name, sort_order: obj.sort_order, active: obj.active }).select('id').single();
+      if (data?.id) { const local = _cgEduVenues.find(v => v.id === obj.id); if (local) local.id = data.id; }
+    }
+  } catch (e) { console.warn('[EduVenues] DB:', e.message); }
 }
 
 function _renderUnitPriceTab(tenantId, vorgId) {
@@ -587,15 +720,15 @@ function _cgOpenUnitPriceModal(id) {
   document.getElementById('cg-modal-body').innerHTML = `
 <div style="display:flex;flex-direction:column;gap:14px">
   <div>
-    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">교육장소 *</label>
+    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">\uad50\uc721\uc7a5\uc18c *</label>
     <div style="display:flex;gap:8px">
       <select id="up-venue" onchange="document.getElementById('up-venue-new').style.display=this.value==='__new__'?'block':'none'"
         style="flex:1;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-        <option value="">\u2014 선택 \u2014</option>
+        <option value="">\u2014 \uc120\ud0dd \u2014</option>
         ${venues.map(v => `<option value="${v}" ${item?.venue_name === v ? 'selected' : ''}>${v}</option>`).join('')}
-        <option value="__new__" ${isNewVenue ? 'selected' : ''}>+ 새 교육장소 입력</option>
+        <option value="__new__" ${isNewVenue ? 'selected' : ''}>+ \uc0c8 \uad50\uc721\uc7a5\uc18c \uc785\ub825</option>
       </select>
-      <input id="up-venue-new" type="text" placeholder="새 교육장소명" value="${isNewVenue ? item.venue_name : ''}"
+      <input id="up-venue-new" type="text" placeholder="\uc0c8 \uad50\uc721\uc7a5\uc18c\uba85" value="${isNewVenue ? item.venue_name : ''}"
         style="flex:1;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;display:${isNewVenue ? 'block' : 'none'}">
     </div>
   </div>

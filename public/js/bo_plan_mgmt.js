@@ -1,10 +1,23 @@
-// ─── 3 Depth: 교육계획 관리 (DB 연동) ──────────────────────────────────────
+// ─── 3 Depth: 교육계획 관리 (DB 연동 + 인라인 편집) ──────────────────────────
 let _boPlanMgmtData = null;
 let _boPlanDetailView = null; // 상세 보기 대상 계획
 let _boPlanFiscalYear = new Date().getFullYear(); // 연도 필터
 let _boPlanTypeFilter = "all"; // 'all' | 'forecast' | 'ongoing'
 let _boForecastDeadlines = []; // 수요예측 마감 상태 (다건, 계정별)
 let _boTenantAccounts = []; // 테넌트 예산계정 목록
+
+// ★ 인라인 편집 상태
+let _boPlanEditMode = false;
+let _boPlanOriginals = {}; // { planId: originalAllocatedAmount }
+let _boPlanEdits = {};     // { planId: newAllocatedAmount }
+
+// 인라인 편집 미저장 경고
+window.addEventListener('beforeunload', function(e) {
+  if (_boPlanEditMode && Object.keys(_boPlanEdits).length > 0) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
 
 // ── 영문 KEY → 한글 변환 룩업 ──
 const _PLAN_PURPOSE_KR = {
@@ -41,14 +54,14 @@ async function renderBoPlanMgmt() {
   const sb = typeof getSB === "function" ? getSB() : null;
   const tenantId = boCurrentPersona?.tenantId || "HMC";
 
-  // DB에서 계획 조회 (plans 테이블)
+  // DB에서 계획 조회 (plans 테이블 — 신규 컬럼 포함)
   if (!_boPlanMgmtData && sb) {
     try {
       const { data, error } = await sb
         .from("plans")
         .select("*")
         .eq("tenant_id", tenantId)
-        .is("deleted_at", null) // 소프트 삭제된 계획 제외
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       _boPlanMgmtData = data || [];
@@ -141,38 +154,81 @@ async function renderBoPlanMgmt() {
       _approveRoles.includes(boCurrentPersona.role) ||
       /admin|budget|total|ops/i.test(boCurrentPersona.role || "");
 
+    // ★ 편집 모드가 아닐 때 originals 초기화
+    if (!_boPlanEditMode) {
+      _boPlanOriginals = {};
+      _boPlanEdits = {};
+      plans.forEach(pl => {
+        _boPlanOriginals[pl.id] = Number(pl.allocated_amount || 0);
+      });
+    }
+
+    const editCount = Object.keys(_boPlanEdits).length;
+    // 합계 계산
+    const sumPlan = plans.reduce((s,p) => s + Number(p.amount || 0), 0);
+    const sumAlloc = plans.reduce((s,p) => {
+      const edited = _boPlanEdits[p.id];
+      return s + (edited !== undefined ? edited : Number(p.allocated_amount || 0));
+    }, 0);
+    const sumActual = plans.reduce((s,p) => s + Number(p.actual_amount || 0), 0);
+
     const rows = plans
       .map((pl, idx) => {
         const amt = Number(pl.amount || pl.planAmount || 0);
+        const allocAmt = Number(pl.allocated_amount || 0);
+        const actualAmt = Number(pl.actual_amount || 0);
         const status = pl.status || "pending";
         const statusBadge =
           typeof boPlanStatusBadge === "function"
             ? boPlanStatusBadge(status)
             : `<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${status === "approved" ? "#D1FAE5" : status === "rejected" ? "#FEE2E2" : "#FEF3C7"};color:${status === "approved" ? "#059669" : status === "rejected" ? "#DC2626" : "#B45309"};font-weight:800">${status === "approved" ? "승인" : status === "rejected" ? "반려" : status === "draft" ? "임시저장" : "대기"}</span>`;
+        // ★ 계획/수시 뱃지
         const typeBadge =
           pl.plan_type === "forecast"
-            ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:4px;background:#DBEAFE;color:#1D4ED8">📅 수요예측</span>'
-            : '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:4px;background:#F3F4F6;color:#6B7280">📝 상시</span>';
+            ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:4px;background:#DBEAFE;color:#1D4ED8">📅 계획</span>'
+            : '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:4px;background:#F3F4F6;color:#6B7280">📝 수시</span>';
+        // ★ 계속/신규 뱃지
+        const recurBadge = pl.is_recurring
+          ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:4px;background:#FEF3C7;color:#92400E;margin-left:4px">🔄 계속</span>'
+          : '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:4px;background:#ECFDF5;color:#065F46;margin-left:4px">🆕 신규</span>';
         const safeId = String(pl.id || "").replace(/'/g, "\\'");
+
+        // ★ 배정액 셀 — 편집모드 vs 일반모드
+        const isEdited = _boPlanEdits.hasOwnProperty(pl.id);
+        const editVal = isEdited ? _boPlanEdits[pl.id] : allocAmt;
+        const cellBg = isEdited ? 'background:#FFFBEB;' : '';
+        const allocCell = _boPlanEditMode
+          ? `<td style="text-align:right;${cellBg}padding:4px 6px" onclick="event.stopPropagation()">
+              <input type="number" min="0" value="${editVal}"
+                onchange="_boPlanInlineChange('${safeId}',this.value)"
+                onkeydown="_boPlanInlineKeyNav(event,${idx})"
+                id="bo-alloc-input-${idx}"
+                style="width:110px;text-align:right;padding:6px 8px;border:1.5px solid ${isEdited ? '#F59E0B' : '#E5E7EB'};border-radius:6px;font-size:12px;font-weight:800;background:${isEdited ? '#FFFBEB' : '#fff'};outline:none;transition:border-color .15s"
+                onfocus="this.style.borderColor='#1D4ED8';this.select()" onblur="this.style.borderColor='${isEdited ? '#F59E0B' : '#E5E7EB'}'"
+              />
+             </td>`
+          : `<td style="text-align:right;font-weight:800;color:#059669">${allocAmt > 0 ? allocAmt.toLocaleString() + '원' : '<span style="color:#D1D5DB">-</span>'}</td>`;
+
         return `
-      <tr onclick="_openBoPlanDetail('${safeId}')" style="cursor:pointer;transition:background .12s"
-          onmouseover="this.style.background='#F0F9FF'" onmouseout="this.style.background=''">
-        <td><code style="font-size:11px;background:#F3F4F6;padding:2px 6px;border-radius:4px">${pl.id}</code></td>
+      <tr onclick="${_boPlanEditMode ? '' : "_openBoPlanDetail('" + safeId + "')"}" style="cursor:${_boPlanEditMode ? 'default' : 'pointer'};transition:background .12s"
+          onmouseover="this.style.background='#F0F9FF'" onmouseout="this.style.background='${isEdited ? '#FFFBEB' : ''}'" ${isEdited ? 'style="background:#FFFBEB"' : ''}>
         <td>
-          <div style="font-weight:700;font-size:13px">${pl.team || pl.dept || pl.applicant_name || ""}</div>
-          <div style="font-size:11px;color:#9CA3AF">${pl.hq || pl.center || ""}</div>
+          <div style="font-weight:700;font-size:12px">${pl.team || pl.dept || pl.applicant_name || ""}</div>
+          <div style="font-size:10px;color:#9CA3AF">${pl.hq || pl.center || ""}</div>
         </td>
         <td>
-          <div style="font-weight:700">${pl.title || pl.edu_name || pl.name || ""}</div>
-          <div style="font-size:11px;color:#9CA3AF">상신자: ${pl.submitter || pl.applicant_name || ""}</div>
+          <div style="font-weight:700;font-size:12px">${pl.title || pl.edu_name || pl.name || ""}</div>
+          <div style="font-size:10px;color:#9CA3AF">상신자: ${pl.submitter || pl.applicant_name || ""}</div>
         </td>
-        <td>${typeBadge}</td>
+        <td>${typeBadge}${recurBadge}</td>
         <td>${typeof boAccountBadge === "function" ? boAccountBadge(pl.account || pl.account_code || "") : pl.account_code || ""}</td>
         <td style="text-align:right;font-weight:900">${amt.toLocaleString()}원</td>
+        ${allocCell}
+        <td style="text-align:right;color:#6B7280;font-size:12px">${actualAmt > 0 ? actualAmt.toLocaleString() + '원' : '<span style="color:#D1D5DB">-</span>'}</td>
         <td style="font-size:12px;color:#6B7280">${(pl.submittedAt || pl.created_at || "").slice(0, 10)}</td>
         <td>${statusBadge}</td>
         ${
-          canApprove
+          canApprove && !_boPlanEditMode
             ? `
         <td style="text-align:center" onclick="event.stopPropagation()">
           ${
@@ -194,22 +250,51 @@ async function renderBoPlanMgmt() {
                   : '<span style="font-size:12px;color:#9CA3AF">처리완료</span>'
           }
         </td>`
-            : ""
+            : canApprove && _boPlanEditMode ? '<td></td>' : ""
         }
       </tr>`;
       })
       .join("");
+
+    // ★ 합계 행
+    const totalRow = plans.length > 0 ? `
+      <tr style="background:#F9FAFB;font-weight:900;border-top:2.5px solid #E5E7EB">
+        <td colspan="4" style="font-size:13px;color:#374151">합계 (${plans.length}건)</td>
+        <td style="text-align:right;font-size:13px;color:#002C5F">${sumPlan.toLocaleString()}원</td>
+        <td style="text-align:right;font-size:13px;color:#059669" id="bo-alloc-total">${sumAlloc.toLocaleString()}원</td>
+        <td style="text-align:right;font-size:13px;color:#6B7280">${sumActual.toLocaleString()}원</td>
+        <td colspan="${canApprove ? 3 : 2}"></td>
+      </tr>` : '';
+
+    // ★ 편집 모드 바
+    const editBar = canApprove ? `
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        ${_boPlanEditMode ? `
+          <button onclick="_boPlanBatchSave()" style="padding:8px 20px;border-radius:10px;border:none;background:${editCount > 0 ? '#1D4ED8' : '#9CA3AF'};color:white;font-size:12px;font-weight:900;cursor:${editCount > 0 ? 'pointer' : 'default'};box-shadow:${editCount > 0 ? '0 4px 12px rgba(29,78,216,.3)' : 'none'};transition:all .15s" ${editCount === 0 ? 'disabled' : ''}>
+            💾 일괄 저장 (${editCount}건 변경)
+          </button>
+          <button onclick="_boPlanCancelEdit()" style="padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">
+            ↩ 취소
+          </button>
+          <span style="font-size:11px;color:#D97706;font-weight:700">⚡ 배정액 셀을 클릭하여 수정 · Tab으로 이동</span>
+        ` : `
+          <button onclick="_boPlanToggleEdit()" style="padding:8px 16px;border-radius:10px;border:1.5px solid #1D4ED8;background:#EFF6FF;font-size:12px;font-weight:800;color:#1D4ED8;cursor:pointer;transition:all .15s"
+            onmouseover="this.style.background='#1D4ED8';this.style.color='white'" onmouseout="this.style.background='#EFF6FF';this.style.color='#1D4ED8'">
+            ✏️ 배정액 편집 모드
+          </button>
+        `}
+        <button onclick="_boPlanMgmtData=null;_boPlanEditMode=false;_boPlanEdits={};renderBoPlanMgmt()" class="bo-btn-primary" style="margin-left:auto">🔄 새로고침</button>
+      </div>
+    ` : `<div style="display:flex;gap:8px;align-items:center"><button onclick="_boPlanMgmtData=null;renderBoPlanMgmt()" class="bo-btn-primary">🔄 새로고침</button></div>`;
 
     el.innerHTML = `
     <div class="bo-fade">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
         <div>
           <h1 class="bo-page-title">📋 교육계획 관리</h1>
-          <p class="bo-page-sub">${canApprove ? "교육계획 검토 및 승인" : "교육계획 수립 및 상신"}</p>
+          <p class="bo-page-sub">${canApprove ? "교육계획 검토·승인 및 배정액 관리" : "교육계획 수립 및 상신"}</p>
         </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <button onclick="_boPlanMgmtData=null;renderBoPlanMgmt()" class="bo-btn-primary">🔄 새로고침</button>
-        </div>
+        ${editBar}
       </div>
 
       <!-- 수요예측 요약 카드 -->
@@ -233,7 +318,7 @@ async function renderBoPlanMgmt() {
 
       <!-- 연도 + 유형 필터 -->
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
-        <select onchange="_boPlanFiscalYear=Number(this.value);_boPlanMgmtData=null;_boForecastDeadline=null;renderBoPlanMgmt()"
+        <select onchange="_boPlanFiscalYear=Number(this.value);_boPlanMgmtData=null;_boForecastDeadline=null;_boPlanEditMode=false;_boPlanEdits={};renderBoPlanMgmt()"
           style="padding:6px 12px;border-radius:8px;border:1.5px solid #E5E7EB;font-size:12px;font-weight:700">
           ${[
             new Date().getFullYear() + 1,
@@ -249,29 +334,45 @@ async function renderBoPlanMgmt() {
         <select onchange="_boPlanTypeFilter=this.value;renderBoPlanMgmt()"
           style="padding:6px 12px;border-radius:8px;border:1.5px solid #E5E7EB;font-size:12px;font-weight:700">
           <option value="all" ${_boPlanTypeFilter === "all" ? "selected" : ""}>전체</option>
-          <option value="forecast" ${_boPlanTypeFilter === "forecast" ? "selected" : ""}>📅 수요예측</option>
-          <option value="ongoing" ${_boPlanTypeFilter === "ongoing" ? "selected" : ""}>📝 상시</option>
+          <option value="forecast" ${_boPlanTypeFilter === "forecast" ? "selected" : ""}>📅 계획(수요예측)</option>
+          <option value="ongoing" ${_boPlanTypeFilter === "ongoing" ? "selected" : ""}>📝 수시</option>
         </select>
       </div>
 
       ${typeof _boEduFilterBar === "function" ? _boEduFilterBar("renderBoPlanMgmt") : ""}
 
+      ${_boPlanEditMode ? `
+      <div style="margin-bottom:12px;padding:10px 16px;border-radius:10px;background:#FFFBEB;border:1.5px solid #FCD34D;display:flex;align-items:center;gap:8px;font-size:12px;color:#92400E;font-weight:700">
+        <span style="font-size:16px">✏️</span>
+        편집 모드 — 배정액 셀을 직접 수정하고 <strong>💾 일괄 저장</strong>을 클릭하세요. 수정된 셀은 <span style="background:#FFFBEB;border:1px solid #FCD34D;padding:1px 6px;border-radius:4px">노란색</span>으로 표시됩니다.
+      </div>` : ''}
+
       <div class="bo-card" style="overflow:hidden">
-        <div style="padding:14px 20px;border-bottom:1px solid #F3F4F6;display:flex;justify-content:space-between">
+        <div style="padding:14px 20px;border-bottom:1px solid #F3F4F6;display:flex;justify-content:space-between;align-items:center">
           <span class="bo-section-title">교육계획 목록 (${plans.length}건)</span>
-          <span style="font-size:12px;color:#9CA3AF">승인 대기: <strong style="color:#1D4ED8">${plans.filter((p) => p.status === "pending" || p.status === "pending_approval").length}건</strong></span>
+          <div style="display:flex;gap:12px;align-items:center">
+            ${_boPlanEditMode ? `<span style="font-size:11px;font-weight:800;color:#D97706">⚡ ${editCount}건 수정됨</span>` : ''}
+            <span style="font-size:12px;color:#9CA3AF">승인 대기: <strong style="color:#1D4ED8">${plans.filter((p) => p.status === "pending" || p.status === "pending_approval").length}건</strong></span>
+          </div>
         </div>
         ${
           plans.length > 0
             ? `
-        <table class="bo-table">
+        <div style="overflow-x:auto">
+        <table class="bo-table" style="min-width:900px">
           <thead><tr>
-            <th>ID</th><th>제출팀</th><th>계획명</th><th>유형</th><th>계정</th>
-            <th style="text-align:right">계획액</th><th>제출일</th><th>상태</th>
+            <th>제출팀</th><th>계획명</th><th>유형</th><th>계정</th>
+            <th style="text-align:right">계획액</th>
+            <th style="text-align:right;${_boPlanEditMode ? 'background:#EFF6FF;color:#1D4ED8' : 'color:#059669'}">배정액 ${_boPlanEditMode ? '✏️' : ''}</th>
+            <th style="text-align:right">실사용액</th>
+            <th>제출일</th><th>상태</th>
             ${canApprove ? '<th style="text-align:center">처리</th>' : ""}
           </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>`
+          <tbody>${rows}
+            ${totalRow}
+          </tbody>
+        </table>
+        </div>`
             : `
         <div style="padding:60px;text-align:center;color:#9CA3AF">
           <div style="font-size:48px;margin-bottom:10px">📭</div>
@@ -381,8 +482,24 @@ function _renderBoPlanDetail(el, plan) {
             <td style="padding:12px 0;color:#374151">${plan.account_code || plan.account || "-"}</td>
           </tr>
           <tr style="border-bottom:1px solid #F3F4F6">
+            <td style="padding:12px 0;font-weight:800;color:#6B7280">과정명</td>
+            <td style="padding:12px 0;color:#374151">${plan.course_name || d.courseName || "-"}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #F3F4F6">
+            <td style="padding:12px 0;font-weight:800;color:#6B7280">참석인원</td>
+            <td style="padding:12px 0;color:#374151">${plan.participant_count || d.participantCount || "-"}명</td>
+          </tr>
+          <tr style="border-bottom:1px solid #F3F4F6">
             <td style="padding:12px 0;font-weight:800;color:#6B7280">계획액</td>
             <td style="padding:12px 0;font-weight:900;color:#002C5F;font-size:16px">${amt.toLocaleString()}원</td>
+          </tr>
+          <tr style="border-bottom:1px solid #F3F4F6">
+            <td style="padding:12px 0;font-weight:800;color:#059669">배정액</td>
+            <td style="padding:12px 0;font-weight:900;color:#059669;font-size:16px">${Number(plan.allocated_amount || 0).toLocaleString()}원</td>
+          </tr>
+          <tr style="border-bottom:1px solid #F3F4F6">
+            <td style="padding:12px 0;font-weight:800;color:#6B7280">실사용액</td>
+            <td style="padding:12px 0;font-weight:900;color:#6B7280;font-size:16px">${Number(plan.actual_amount || 0).toLocaleString()}원</td>
           </tr>
           <tr style="border-bottom:1px solid #F3F4F6">
             <td style="padding:12px 0;font-weight:800;color:#6B7280">기간</td>
@@ -977,5 +1094,153 @@ async function _bulkCloseForecast() {
   }
   _boPlanMgmtData = null;
   _boForecastDeadlines = [];
+  renderBoPlanMgmt();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ★ 인라인 편집 함수 (엑셀형 UX)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// ── 편집 모드 토글 ──
+function _boPlanToggleEdit() {
+  _boPlanEditMode = true;
+  _boPlanEdits = {};
+  renderBoPlanMgmt();
+  // 첫 번째 입력에 포커스
+  setTimeout(() => {
+    const first = document.getElementById('bo-alloc-input-0');
+    if (first) first.focus();
+  }, 150);
+}
+
+// ── 인라인 값 변경 감지 ──
+function _boPlanInlineChange(planId, rawValue) {
+  const val = Math.max(0, parseInt(rawValue) || 0);
+  const orig = _boPlanOriginals[planId] || 0;
+  if (val === orig) {
+    delete _boPlanEdits[planId];
+  } else {
+    _boPlanEdits[planId] = val;
+  }
+  // 합계 실시간 갱신
+  _boPlanUpdateTotal();
+  // 저장 버튼 카운트 갱신
+  _boPlanUpdateEditCount();
+}
+
+// ── 합계 실시간 갱신 ──
+function _boPlanUpdateTotal() {
+  const plans = _boPlanMgmtData || [];
+  let sum = 0;
+  plans.forEach(p => {
+    const edited = _boPlanEdits[p.id];
+    sum += (edited !== undefined ? edited : Number(p.allocated_amount || 0));
+  });
+  const el = document.getElementById('bo-alloc-total');
+  if (el) el.textContent = sum.toLocaleString() + '원';
+}
+
+// ── 편집 카운트 갱신 ──
+function _boPlanUpdateEditCount() {
+  const cnt = Object.keys(_boPlanEdits).length;
+  // 저장 버튼 텍스트 갱신 (DOM 직접)
+  const btns = document.querySelectorAll('button');
+  btns.forEach(btn => {
+    if (btn.textContent.includes('일괄 저장')) {
+      btn.textContent = `💾 일괄 저장 (${cnt}건 변경)`;
+      btn.style.background = cnt > 0 ? '#1D4ED8' : '#9CA3AF';
+      btn.style.cursor = cnt > 0 ? 'pointer' : 'default';
+      btn.disabled = cnt === 0;
+    }
+  });
+  // 수정됨 카운트
+  const badge = document.querySelector('[style*="수정됨"]') ||
+    Array.from(document.querySelectorAll('span')).find(s => s.textContent.includes('수정됨'));
+  if (badge) badge.textContent = `⚡ ${cnt}건 수정됨`;
+}
+
+// ── 키보드 네비게이션 (Tab/Enter/Escape) ──
+function _boPlanInlineKeyNav(e, idx) {
+  if (e.key === 'Tab' || e.key === 'Enter') {
+    e.preventDefault();
+    const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
+    const next = document.getElementById(`bo-alloc-input-${nextIdx}`);
+    if (next) {
+      next.focus();
+      next.select();
+    }
+  } else if (e.key === 'Escape') {
+    _boPlanCancelEdit();
+  }
+}
+
+// ── 일괄 저장 (batch update) ──
+async function _boPlanBatchSave() {
+  const edits = _boPlanEdits;
+  const ids = Object.keys(edits);
+  if (ids.length === 0) { alert('변경된 항목이 없습니다.'); return; }
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 필요'); return; }
+
+  // 배정액 > 계획액 경고 체크
+  const plans = _boPlanMgmtData || [];
+  const overBudget = ids.filter(id => {
+    const plan = plans.find(p => p.id === id);
+    return plan && edits[id] > Number(plan.amount || 0);
+  });
+  if (overBudget.length > 0) {
+    const names = overBudget.map(id => {
+      const p = plans.find(pp => pp.id === id);
+      return `• ${p?.edu_name || p?.title || id}: 배정 ${edits[id].toLocaleString()}원 > 계획 ${Number(p?.amount||0).toLocaleString()}원`;
+    }).join('\n');
+    if (!confirm(`⚠️ 계획액을 초과하여 배정하는 항목이 있습니다:\n\n${names}\n\n계속 저장하시겠습니까?`)) return;
+  }
+
+  if (!confirm(`${ids.length}건의 배정액을 일괄 저장하시겠습니까?`)) return;
+
+  try {
+    let saved = 0;
+    const chunk = 50;
+    for (let i = 0; i < ids.length; i += chunk) {
+      const batch = ids.slice(i, i + chunk);
+      const promises = batch.map(id =>
+        sb.from('plans')
+          .update({
+            allocated_amount: edits[id],
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', id)
+      );
+      const results = await Promise.all(promises);
+      results.forEach((r, j) => {
+        if (r.error) throw new Error(`${batch[j]}: ${r.error.message}`);
+      });
+      saved += batch.length;
+    }
+
+    // 메모리 캐시 갱신
+    ids.forEach(id => {
+      const cached = plans.find(p => p.id === id);
+      if (cached) cached.allocated_amount = edits[id];
+    });
+
+    alert(`✅ ${saved}건 배정액 일괄 저장 완료`);
+    _boPlanEditMode = false;
+    _boPlanEdits = {};
+    _boPlanMgmtData = null;
+    renderBoPlanMgmt();
+  } catch (err) {
+    alert('❌ 저장 실패: ' + err.message);
+  }
+}
+
+// ── 편집 취소 ──
+function _boPlanCancelEdit() {
+  if (Object.keys(_boPlanEdits).length > 0) {
+    if (!confirm('수정사항을 모두 취소하시겠습니까?')) return;
+  }
+  _boPlanEditMode = false;
+  _boPlanEdits = {};
   renderBoPlanMgmt();
 }

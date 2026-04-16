@@ -353,16 +353,17 @@ async function _initCurrentPersona(persona) {
       });
     }
 
-    // 3. 예산 배정 조회
+    // 3. 예산 배정 조회 (updated_at 기준 최신 우선)
     const bbIds = (directBbs || []).map((bb) => bb.id);
     let allocMap = {};
     if (bbIds.length > 0) {
       const { data: allocs } = await sb
         .from("budget_allocations")
-        .select("bankbook_id, allocated_amount, used_amount, frozen_amount")
+        .select("bankbook_id, allocated_amount, used_amount, frozen_amount, updated_at")
         .in("bankbook_id", bbIds)
-        .order("created_at", { ascending: false });
+        .order("updated_at", { ascending: false });
       (allocs || []).forEach((a) => {
+        // 같은 bankbook_id로 여러 행이 있을 수 있음 — 최신 행(updated_at 가장 큼) 사용
         if (!allocMap[a.bankbook_id]) allocMap[a.bankbook_id] = a;
       });
     }
@@ -398,12 +399,33 @@ async function _initCurrentPersona(persona) {
     for (const bb of directBbs || []) {
       const acct = accountMap[bb.account_id];
       if (!acct) continue;
-      if (allowedAccounts.includes(acct.code)) continue;
-      allowedAccounts.push(acct.code);
+
+      // allowedAccounts: 중복 code 스킵
+      if (!allowedAccounts.includes(acct.code)) {
+        allowedAccounts.push(acct.code);
+      }
       if (!acct.uses_budget) continue; // 예산 미사용: 코드만 등록, budgets 스킵
+
       const policy = policyMap[bb.account_id];
       const alloc = allocMap[bb.id];
       const mode = policy?.bankbook_mode || "isolated";
+      const newBalance = Number(alloc?.allocated_amount || 0);
+
+      // 동일 accountCode 중복 통장: 기존 budgets 항목의 balance보다 크면 업데이트
+      const existingBudgetIdx = budgets.findIndex(
+        (b) => b.accountCode === acct.code && b.isPersonal === !!bb.user_id
+      );
+      if (existingBudgetIdx >= 0) {
+        // 중복 통장 — allocated_amount가 더 크면 해당 통장 정보로 업데이트
+        if (newBalance > budgets[existingBudgetIdx].balance) {
+          budgets[existingBudgetIdx].id = bb.id;
+          budgets[existingBudgetIdx].balance = newBalance;
+          budgets[existingBudgetIdx].used = Number(alloc?.used_amount || 0);
+          budgets[existingBudgetIdx].frozen = Number(alloc?.frozen_amount || 0);
+        }
+        continue;
+      }
+
       budgets.push({
         id: bb.id,
         name: bb.user_id
@@ -411,7 +433,7 @@ async function _initCurrentPersona(persona) {
           : `${bb.org_name} ${acct.name}`,
         account: acct.name.replace("일반-", "").replace("계정", "").trim(),
         accountCode: acct.code,
-        balance: Number(alloc?.allocated_amount || 0),
+        balance: newBalance,
         used: Number(alloc?.used_amount || 0),
         frozen: Number(alloc?.frozen_amount || 0),
         bankbookMode: mode,

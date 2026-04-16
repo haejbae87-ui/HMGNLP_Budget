@@ -1922,6 +1922,25 @@ async function confirmApply() {
   );
   const appId = applyState.editId || `APP-${Date.now()}`;
 
+
+  // ★ Phase D: 교육신청 시 통장 잔액 검증
+  const sb = typeof getSB === "function" ? getSB() : null;
+  if (sb && currentPersona?.orgId) {
+    try {
+      const { data: bks } = await sb.from("bankbooks")
+        .select("id,current_balance,account_code")
+        .eq("tenant_id", currentPersona.tenantId)
+        .eq("org_id", currentPersona.orgId)
+        .eq("status", "active");
+      if (bks && bks.length > 0) {
+        const totalBal = bks.reduce((s,b) => s + Number(b.current_balance || 0), 0);
+        if (totalExp > totalBal) {
+          const ok = confirm(`⚠️ 팀 통장 잔액이 부족합니다.\n\n신청 금액: ${totalExp.toLocaleString()}원\n통장 잔액: ${totalBal.toLocaleString()}원\n부족액: ${(totalExp - totalBal).toLocaleString()}원\n\n그래도 신청하시겠습니까?`);
+          if (!ok) return;
+        }
+      }
+    } catch(bkErr) { console.warn("[Apply] Bankbook check skip:", bkErr.message); }
+  }
   try {
     const edgeUrl =
       typeof EDGE_FUNCTION_URL !== "undefined"

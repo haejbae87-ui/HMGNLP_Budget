@@ -347,6 +347,47 @@ async function myOpsApprove(id) {
           console.warn("[BO Approve] Auto-allocation skip:", autoErr.message);
         }
       }
+
+      // ★ Phase D: 교육신청 승인 시 통장 차감
+      if (!isPlan && newStatus === "approved") {
+        try {
+          const { data: app } = await sb.from("applications")
+            .select("amount,account_code,applicant_org_id,tenant_id")
+            .eq("id", id).single();
+          if (app) {
+            const { data: bk } = await sb.from("bankbooks")
+              .select("id,current_balance")
+              .eq("tenant_id", app.tenant_id)
+              .eq("org_id", app.applicant_org_id)
+              .eq("account_code", app.account_code)
+              .eq("status", "active")
+              .order("current_balance", { ascending: false })
+              .limit(1).single();
+            if (bk && Number(bk.current_balance) >= Number(app.amount)) {
+              const newBal = Number(bk.current_balance) - Number(app.amount);
+              await sb.from("bankbooks").update({
+                current_balance: newBal,
+                updated_at: new Date().toISOString()
+              }).eq("id", bk.id);
+              await sb.from("budget_usage_log").insert({
+                tenant_id: app.tenant_id,
+                bankbook_id: bk.id,
+                action: "use",
+                amount: Number(app.amount),
+                balance_before: Number(bk.current_balance),
+                balance_after: newBal,
+                reference_type: "application",
+                reference_id: id,
+                memo: "교육신청 승인 차감",
+                performed_by: boCurrentPersona?.name || "system"
+              });
+              console.log(`[BO Approve] Bankbook deducted: ${app.amount} from ${bk.id}`);
+            }
+          }
+        } catch (bkErr) {
+          console.warn("[BO Approve] Bankbook deduction skip:", bkErr.message);
+        }
+      }
     } catch (err) {
       console.error("[BO Approve] DB update err:", err.message);
     }
@@ -373,6 +414,46 @@ async function myOpsReject(id) {
       if (error) throw error;
       console.log(`[BO Reject] ${id} → rejected: ${r}`);
     } catch (err) {
+
+      // ★ Phase D: 교육신청 반려 시 통장 환불
+      if (!isPlan) {
+        try {
+          const { data: app } = await sb.from("applications")
+            .select("amount,account_code,applicant_org_id,tenant_id")
+            .eq("id", id).single();
+          if (app) {
+            const { data: bk } = await sb.from("bankbooks")
+              .select("id,current_balance")
+              .eq("tenant_id", app.tenant_id)
+              .eq("org_id", app.applicant_org_id)
+              .eq("account_code", app.account_code)
+              .eq("status", "active")
+              .limit(1).single();
+            if (bk) {
+              const newBal = Number(bk.current_balance) + Number(app.amount);
+              await sb.from("bankbooks").update({
+                current_balance: newBal,
+                updated_at: new Date().toISOString()
+              }).eq("id", bk.id);
+              await sb.from("budget_usage_log").insert({
+                tenant_id: app.tenant_id,
+                bankbook_id: bk.id,
+                action: "refund",
+                amount: Number(app.amount),
+                balance_before: Number(bk.current_balance),
+                balance_after: newBal,
+                reference_type: "application",
+                reference_id: id,
+                memo: "교육신청 반려 환불: " + r,
+                performed_by: boCurrentPersona?.name || "system"
+              });
+              console.log(`[BO Reject] Bankbook refunded: ${app.amount} to ${bk.id}`);
+            }
+          }
+        } catch (bkErr) {
+          console.warn("[BO Reject] Bankbook refund skip:", bkErr.message);
+        }
+      }
       console.error("[BO Reject] DB 업데이트 실패:", err.message);
     }
   }

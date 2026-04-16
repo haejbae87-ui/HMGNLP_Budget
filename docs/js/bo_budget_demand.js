@@ -18,6 +18,13 @@ let _bdAcctList = []; // budget_accounts
 let _bdGroups = []; // tree_data.hqs (선택된 제도그룹)
 let _bdPlans = null; // plans 캐시
 
+// ★ 시뮬레이션 상태
+let _bdSimMode = false;
+let _bdSimData = null;        // budget_simulation 레코드
+let _bdSimEdits = {};         // { planId: allocatedAmount }
+let _bdSimEnvelope = 0;       // 예상 예산안 총액
+let _bdSimVersions = [];      // 저장된 시뮬레이션 버전 목록
+
 // ── 진입점 ──────────────────────────────────────────────────────────────────
 async function renderBudgetDemand() {
   const el = document.getElementById("bo-content");
@@ -109,6 +116,10 @@ async function renderBudgetDemand() {
   }
 
   // 드릴다운 라우팅
+  if (_bdSimMode) {
+    _renderBdSimulation(el, isPlatform, tenants);
+    return;
+  }
   if (_bdDrillOrg) {
     _renderBdLevel3(el);
     return;
@@ -243,6 +254,10 @@ function _renderBdLevel1(el, isPlatform, tenants) {
         <h1 class="bo-page-title">📊 교육예산 수요분석</h1>
         <p class="bo-page-sub">가상조직 기반 예산 수요·확정 현황</p>
       </div>
+      <button onclick="_bdStartSimulation()" style="padding:10px 20px;border-radius:12px;border:none;background:linear-gradient(135deg,#7C3AED,#4F46E5);color:white;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 4px 16px rgba(124,58,237,.3);transition:transform .15s"
+        onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
+        🧮 예산배분 시뮬레이션
+      </button>
     </div>
 
     ${_bdFilterBar(isPlatform, tenants)}
@@ -690,4 +705,430 @@ function _bdFmt(n) {
   if (n >= 100000000) return (n / 100000000).toFixed(1) + "억";
   if (n >= 10000) return (n / 10000).toFixed(0) + "만원";
   return n.toLocaleString() + "원";
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ★ 수요예측 시뮬레이션 (Phase 4)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// ── 시뮬레이션 시작 ──
+async function _bdStartSimulation() {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) return;
+
+  // 기존 시뮬레이션 버전 로드
+  try {
+    const { data } = await sb
+      .from('budget_simulation')
+      .select('*')
+      .eq('tenant_id', _bdTenant)
+      .eq('fiscal_year', _bdYear)
+      .order('version', { ascending: false });
+    _bdSimVersions = data || [];
+  } catch { _bdSimVersions = []; }
+
+  // 최신 draft 또는 새로 생성
+  const latestDraft = _bdSimVersions.find(v => v.status === 'draft');
+  if (latestDraft) {
+    _bdSimData = latestDraft;
+    _bdSimEnvelope = Number(latestDraft.envelope_amount || 0);
+    // allocations JSON → edits 복원
+    _bdSimEdits = {};
+    (latestDraft.allocations || []).forEach(a => {
+      _bdSimEdits[a.plan_id] = Number(a.allocated || 0);
+    });
+  } else {
+    _bdSimData = null;
+    _bdSimEnvelope = 0;
+    _bdSimEdits = {};
+  }
+
+  _bdSimMode = true;
+  renderBudgetDemand();
+}
+
+// ── 시뮬레이션 화면 렌더링 ──
+function _renderBdSimulation(el, isPlatform, tenants) {
+  const plans = (_bdPlans || []).filter(p => p.status !== 'draft');
+  const demandTotal = plans.reduce((s, p) => s + Number(p.amount || 0), 0);
+  const allocTotal = plans.reduce((s, p) => {
+    const ed = _bdSimEdits[p.id];
+    return s + (ed !== undefined ? ed : Number(p.allocated_amount || 0));
+  }, 0);
+  const remaining = _bdSimEnvelope - allocTotal;
+  const editCount = Object.keys(_bdSimEdits).length;
+  const isConfirmed = _bdSimData?.status === 'confirmed';
+  const acctName = _bdAcctList.find(a => a.id === _bdAccountId)?.name || '전체 계정';
+
+  const rows = plans.map((p, idx) => {
+    const amt = Number(p.amount || 0);
+    const origAlloc = Number(p.allocated_amount || 0);
+    const editVal = _bdSimEdits.hasOwnProperty(p.id) ? _bdSimEdits[p.id] : origAlloc;
+    const isEdited = _bdSimEdits.hasOwnProperty(p.id);
+    const diff = editVal - amt;
+    const diffColor = diff > 0 ? '#DC2626' : diff < 0 ? '#059669' : '#9CA3AF';
+    const diffLabel = diff > 0 ? `+${_bdFmt(diff)}` : diff < 0 ? `-${_bdFmt(Math.abs(diff))}` : '-';
+    const safeId = String(p.id || '').replace(/'/g, "\\'");
+
+    return `
+    <tr style="background:${isEdited ? '#FFFBEB' : ''}">
+      <td>
+        <div style="font-weight:700;font-size:12px">${p.team || p.dept || p.applicant_name || ''}</div>
+        <div style="font-size:10px;color:#9CA3AF">${p.hq || p.center || ''}</div>
+      </td>
+      <td>
+        <div style="font-weight:700;font-size:12px">${p.edu_name || p.title || ''}</div>
+      </td>
+      <td style="font-size:11px">${p.account_code || ''}</td>
+      <td style="text-align:right;font-weight:800">${amt.toLocaleString()}원</td>
+      <td style="text-align:right;padding:4px 6px" onclick="event.stopPropagation()">
+        ${isConfirmed
+          ? `<span style="font-weight:900;color:#059669">${editVal.toLocaleString()}원</span>`
+          : `<input type="number" min="0" value="${editVal}"
+              onchange="_bdSimInlineChange('${safeId}',this.value)"
+              onkeydown="_bdSimKeyNav(event,${idx})"
+              id="bd-sim-input-${idx}"
+              style="width:110px;text-align:right;padding:6px 8px;border:1.5px solid ${isEdited ? '#F59E0B' : '#E5E7EB'};border-radius:6px;font-size:12px;font-weight:800;background:${isEdited ? '#FFFBEB' : '#fff'};outline:none"
+              onfocus="this.style.borderColor='#7C3AED';this.select()" onblur="this.style.borderColor='${isEdited ? '#F59E0B' : '#E5E7EB'}'"
+            />`
+        }
+      </td>
+      <td style="text-align:right;font-size:11px;color:${diffColor};font-weight:700">${diffLabel}</td>
+    </tr>`;
+  }).join('');
+
+  // 합계 행
+  const totalRow = `
+    <tr style="background:#F9FAFB;font-weight:900;border-top:2.5px solid #E5E7EB">
+      <td colspan="3">합계 (${plans.length}건)</td>
+      <td style="text-align:right">${demandTotal.toLocaleString()}원</td>
+      <td style="text-align:right;color:#7C3AED" id="bd-sim-alloc-total">${allocTotal.toLocaleString()}원</td>
+      <td></td>
+    </tr>`;
+
+  // 버전 목록
+  const versionBadges = _bdSimVersions.map(v => {
+    const isCurrent = _bdSimData?.id === v.id;
+    const st = v.status === 'confirmed' ? '✅확정' : '📝초안';
+    return `<button onclick="_bdLoadSimVersion('${v.id}')" style="padding:4px 12px;border-radius:8px;border:1.5px solid ${isCurrent ? '#7C3AED' : '#E5E7EB'};background:${isCurrent ? '#F5F3FF' : 'white'};font-size:11px;font-weight:${isCurrent ? 900 : 600};color:${isCurrent ? '#7C3AED' : '#6B7280'};cursor:pointer">
+      v${v.version} ${v.version_label || ''} ${st}
+    </button>`;
+  }).join('');
+
+  el.innerHTML = `
+  <div class="bo-fade">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <h1 class="bo-page-title">🧮 예산배분 시뮬레이션</h1>
+        <p class="bo-page-sub">${_bdYear}년 · ${acctName} · 교육계획별 배분액 편집</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        ${!isConfirmed ? `
+          <button onclick="_bdSimSave()" style="padding:8px 18px;border-radius:10px;border:none;background:#7C3AED;color:white;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(124,58,237,.2)">
+            💾 저장 (${editCount}건)
+          </button>
+          <button onclick="_bdSimConfirm()" style="padding:8px 18px;border-radius:10px;border:1.5px solid #059669;background:#F0FDF4;font-size:12px;font-weight:900;color:#059669;cursor:pointer">
+            ✅ 확정 (plans 반영)
+          </button>
+        ` : `
+          <span style="font-size:12px;font-weight:900;color:#059669;padding:8px 16px;background:#D1FAE5;border-radius:10px">✅ 확정 완료</span>
+        `}
+        <button onclick="_bdSimMode=false;_bdSimEdits={};renderBudgetDemand()" style="padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">
+          ← 수요분석으로
+        </button>
+      </div>
+    </div>
+
+    ${_bdFilterBar(isPlatform, tenants)}
+
+    <!-- Envelope 설정 -->
+    <div class="bo-card" style="padding:18px 22px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px;font-weight:900;color:#7C3AED">💰 예상 예산안 (Envelope)</span>
+          ${isConfirmed
+            ? `<span style="font-size:16px;font-weight:900;color:#7C3AED">${_bdSimEnvelope.toLocaleString()}원</span>`
+            : `<input type="number" min="0" value="${_bdSimEnvelope}" id="bd-sim-envelope"
+                onchange="_bdSimEnvelope=Math.max(0,parseInt(this.value)||0);_bdSimUpdateRemaining()"
+                style="width:180px;padding:8px 12px;border:2px solid #7C3AED;border-radius:10px;font-size:14px;font-weight:900;color:#7C3AED;text-align:right;outline:none;background:#F5F3FF"
+              />`
+          }
+        </div>
+        <div style="height:30px;width:1px;background:#E5E7EB"></div>
+        <div style="display:flex;gap:16px;align-items:center;font-size:12px">
+          <span>📊 수요합계 <strong style="color:#002C5F">${demandTotal.toLocaleString()}원</strong></span>
+          <span>✏️ 배분합계 <strong style="color:#7C3AED" id="bd-sim-alloc-sum">${allocTotal.toLocaleString()}원</strong></span>
+          <span style="padding:4px 12px;border-radius:8px;font-weight:900;font-size:13px;
+            background:${remaining >= 0 ? '#D1FAE5' : '#FEE2E2'};color:${remaining >= 0 ? '#059669' : '#DC2626'}"
+            id="bd-sim-remaining">
+            ${remaining >= 0 ? '잔여' : '⚠️ 초과'} ${Math.abs(remaining).toLocaleString()}원
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 버전 관리 -->
+    ${_bdSimVersions.length > 0 ? `
+    <div style="margin-bottom:12px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:11px;font-weight:800;color:#6B7280">📋 버전:</span>
+      ${versionBadges}
+      ${!isConfirmed && _bdSimVersions.length < 10 ? `
+        <button onclick="_bdSimNewVersion()" style="padding:4px 12px;border-radius:8px;border:1.5px dashed #D1D5DB;background:white;font-size:11px;font-weight:700;color:#9CA3AF;cursor:pointer">+ 새 버전</button>
+      ` : ''}
+    </div>` : ''}
+
+    ${!isConfirmed ? `
+    <div style="margin-bottom:12px;padding:10px 16px;border-radius:10px;background:#F5F3FF;border:1.5px solid #C4B5FD;display:flex;align-items:center;gap:8px;font-size:12px;color:#5B21B6;font-weight:700">
+      <span style="font-size:16px">🧮</span>
+      배분액 셀을 직접 수정하세요. Tab으로 다음 행 이동. <strong>💾 저장</strong>으로 시뮬레이션 저장, <strong>✅ 확정</strong>으로 plans에 반영합니다.
+    </div>` : ''}
+
+    <!-- 배분 그리드 -->
+    <div class="bo-card" style="overflow:hidden">
+      <div style="padding:14px 20px;background:linear-gradient(135deg,#7C3AED08,#4F46E508);border-bottom:1px solid #F3F4F6;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:14px;font-weight:900;color:#5B21B6">🧮 교육계획별 배분 시뮬레이션</span>
+        <span style="font-size:11px;color:#6B7280">${acctName} · ${plans.length}건</span>
+      </div>
+      ${plans.length > 0 ? `
+      <div style="overflow-x:auto">
+      <table class="bo-table" style="font-size:12px;min-width:800px">
+        <thead><tr>
+          <th>제출팀</th><th>계획명</th><th>계정</th>
+          <th style="text-align:right">신청액(계획)</th>
+          <th style="text-align:right;background:#F5F3FF;color:#7C3AED">배분액 ${isConfirmed ? '' : '✏️'}</th>
+          <th style="text-align:right">차이</th>
+        </tr></thead>
+        <tbody>
+          ${rows}
+          ${totalRow}
+        </tbody>
+      </table>
+      </div>` : `
+      <div style="padding:60px;text-align:center;color:#9CA3AF">
+        <div style="font-size:48px;margin-bottom:10px">📭</div>
+        <div style="font-weight:700">시뮬레이션 대상 교육계획이 없습니다</div>
+      </div>`}
+    </div>
+  </div>`;
+
+  // 첫 입력 포커스
+  if (!isConfirmed) {
+    setTimeout(() => {
+      const first = document.getElementById('bd-sim-input-0');
+      if (first) first.focus();
+    }, 150);
+  }
+}
+
+// ── 인라인 값 변경 ──
+function _bdSimInlineChange(planId, rawValue) {
+  const val = Math.max(0, parseInt(rawValue) || 0);
+  _bdSimEdits[planId] = val;
+  _bdSimUpdateRemaining();
+}
+
+// ── 잔여 실시간 갱신 ──
+function _bdSimUpdateRemaining() {
+  const plans = _bdPlans || [];
+  let allocSum = 0;
+  plans.forEach(p => {
+    const ed = _bdSimEdits[p.id];
+    allocSum += (ed !== undefined ? ed : Number(p.allocated_amount || 0));
+  });
+  const remaining = _bdSimEnvelope - allocSum;
+
+  const el1 = document.getElementById('bd-sim-alloc-sum');
+  if (el1) el1.textContent = allocSum.toLocaleString() + '원';
+  const el2 = document.getElementById('bd-sim-alloc-total');
+  if (el2) el2.textContent = allocSum.toLocaleString() + '원';
+  const el3 = document.getElementById('bd-sim-remaining');
+  if (el3) {
+    el3.textContent = (remaining >= 0 ? '잔여 ' : '⚠️ 초과 ') + Math.abs(remaining).toLocaleString() + '원';
+    el3.style.background = remaining >= 0 ? '#D1FAE5' : '#FEE2E2';
+    el3.style.color = remaining >= 0 ? '#059669' : '#DC2626';
+  }
+}
+
+// ── 키보드 네비게이션 ──
+function _bdSimKeyNav(e, idx) {
+  if (e.key === 'Tab' || e.key === 'Enter') {
+    e.preventDefault();
+    const next = document.getElementById(`bd-sim-input-${e.shiftKey ? idx - 1 : idx + 1}`);
+    if (next) { next.focus(); next.select(); }
+  } else if (e.key === 'Escape') {
+    _bdSimMode = false; _bdSimEdits = {}; renderBudgetDemand();
+  }
+}
+
+// ── 시뮬레이션 저장 ──
+async function _bdSimSave() {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 필요'); return; }
+
+  const plans = _bdPlans || [];
+  const allocations = plans.map(p => ({
+    plan_id: p.id,
+    plan_name: p.edu_name || p.title || '',
+    requested: Number(p.amount || 0),
+    allocated: _bdSimEdits.hasOwnProperty(p.id) ? _bdSimEdits[p.id] : Number(p.allocated_amount || 0),
+  }));
+
+  try {
+    if (_bdSimData?.id) {
+      // 기존 업데이트
+      const { error } = await sb.from('budget_simulation').update({
+        envelope_amount: _bdSimEnvelope,
+        allocations: allocations,
+        account_code: _bdAccountId || null,
+        template_id: _bdTplId || null,
+        updated_at: new Date().toISOString(),
+      }).eq('id', _bdSimData.id);
+      if (error) throw error;
+    } else {
+      // 신규 생성
+      const newVersion = (_bdSimVersions.length > 0 ? Math.max(..._bdSimVersions.map(v => v.version)) : 0) + 1;
+      const { data, error } = await sb.from('budget_simulation').insert({
+        tenant_id: _bdTenant,
+        fiscal_year: _bdYear,
+        template_id: _bdTplId || null,
+        account_code: _bdAccountId || null,
+        envelope_amount: _bdSimEnvelope,
+        version: newVersion,
+        version_label: `v${newVersion}`,
+        allocations: allocations,
+        status: 'draft',
+      }).select().single();
+      if (error) throw error;
+      _bdSimData = data;
+    }
+    alert('✅ 시뮬레이션 저장 완료');
+    // 버전 목록 리프레시
+    const { data: vs } = await sb.from('budget_simulation').select('*')
+      .eq('tenant_id', _bdTenant).eq('fiscal_year', _bdYear)
+      .order('version', { ascending: false });
+    _bdSimVersions = vs || [];
+    renderBudgetDemand();
+  } catch (err) {
+    alert('❌ 저장 실패: ' + err.message);
+  }
+}
+
+// ── 시뮬레이션 확정 (plans.allocated_amount 반영) ──
+async function _bdSimConfirm() {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 필요'); return; }
+
+  if (_bdSimEnvelope <= 0) {
+    alert('⚠️ 예상 예산안(Envelope)을 먼저 설정해 주세요.');
+    return;
+  }
+
+  const plans = _bdPlans || [];
+  const allocCount = Object.keys(_bdSimEdits).length;
+  const totalAlloc = plans.reduce((s, p) => {
+    const ed = _bdSimEdits[p.id];
+    return s + (ed !== undefined ? ed : Number(p.allocated_amount || 0));
+  }, 0);
+  const remaining = _bdSimEnvelope - totalAlloc;
+
+  let msg = `✅ 시뮬레이션 확정\n\n`;
+  msg += `예상 예산안: ${_bdSimEnvelope.toLocaleString()}원\n`;
+  msg += `배분 합계:   ${totalAlloc.toLocaleString()}원\n`;
+  msg += `잔여:        ${remaining.toLocaleString()}원\n`;
+  msg += `대상:        ${plans.length}건\n\n`;
+  msg += `확정하면 각 교육계획의 배정액(allocated_amount)이 일괄 업데이트됩니다.\n계속하시겠습니까?`;
+
+  if (!confirm(msg)) return;
+
+  try {
+    // 1. 시뮬레이션 먼저 저장
+    await _bdSimSaveInternal(sb, plans);
+
+    // 2. plans.allocated_amount 일괄 업데이트
+    let updated = 0;
+    for (const p of plans) {
+      const newAlloc = _bdSimEdits.hasOwnProperty(p.id)
+        ? _bdSimEdits[p.id]
+        : Number(p.allocated_amount || 0);
+      const { error } = await sb.from('plans').update({
+        allocated_amount: newAlloc,
+        updated_at: new Date().toISOString(),
+      }).eq('id', p.id);
+      if (error) throw error;
+      updated++;
+    }
+
+    // 3. 시뮬레이션 상태 confirmed
+    if (_bdSimData?.id) {
+      await sb.from('budget_simulation').update({
+        status: 'confirmed',
+        confirmed_at: new Date().toISOString(),
+        confirmed_by: boCurrentPersona?.name || 'admin',
+      }).eq('id', _bdSimData.id);
+    }
+
+    alert(`✅ ${updated}건 배정액 확정 완료!`);
+    _bdSimMode = false;
+    _bdSimEdits = {};
+    _bdPlans = null;
+    renderBudgetDemand();
+  } catch (err) {
+    alert('❌ 확정 실패: ' + err.message);
+  }
+}
+
+// ── 내부 저장 (확정 전 자동 호출) ──
+async function _bdSimSaveInternal(sb, plans) {
+  const allocations = plans.map(p => ({
+    plan_id: p.id,
+    plan_name: p.edu_name || p.title || '',
+    requested: Number(p.amount || 0),
+    allocated: _bdSimEdits.hasOwnProperty(p.id) ? _bdSimEdits[p.id] : Number(p.allocated_amount || 0),
+  }));
+
+  if (_bdSimData?.id) {
+    await sb.from('budget_simulation').update({
+      envelope_amount: _bdSimEnvelope,
+      allocations: allocations,
+      updated_at: new Date().toISOString(),
+    }).eq('id', _bdSimData.id);
+  } else {
+    const newVersion = (_bdSimVersions.length > 0 ? Math.max(..._bdSimVersions.map(v => v.version)) : 0) + 1;
+    const { data } = await sb.from('budget_simulation').insert({
+      tenant_id: _bdTenant,
+      fiscal_year: _bdYear,
+      template_id: _bdTplId || null,
+      account_code: _bdAccountId || null,
+      envelope_amount: _bdSimEnvelope,
+      version: newVersion,
+      version_label: `v${newVersion}`,
+      allocations: allocations,
+      status: 'draft',
+    }).select().single();
+    _bdSimData = data;
+  }
+}
+
+// ── 버전 로드 ──
+async function _bdLoadSimVersion(versionId) {
+  const v = _bdSimVersions.find(x => x.id === versionId);
+  if (!v) return;
+  _bdSimData = v;
+  _bdSimEnvelope = Number(v.envelope_amount || 0);
+  _bdSimEdits = {};
+  (v.allocations || []).forEach(a => {
+    _bdSimEdits[a.plan_id] = Number(a.allocated || 0);
+  });
+  renderBudgetDemand();
+}
+
+// ── 새 버전 생성 ──
+function _bdSimNewVersion() {
+  if (_bdSimVersions.length >= 10) {
+    alert('⚠️ 시뮬레이션은 최대 10개까지 생성 가능합니다.');
+    return;
+  }
+  _bdSimData = null; // 새 레코드
+  _bdSimEdits = {};
+  renderBudgetDemand();
 }

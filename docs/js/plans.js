@@ -561,7 +561,11 @@ function _renderPlanCard(p) {
       ? `<div style="margin-top:8px">
         <button onclick="cancelPlan('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#DC2626;border:1.5px solid #FECACA;cursor:pointer">취소 요청</button>
        </div>`
-      : "";
+      : ((status === "승인" || status === "approved") && Number(p.allocated_amount||0) > 0)
+        ? `<div style="display:flex;gap:6px;margin-top:8px">
+            <button onclick="event.stopPropagation();_startApplyFromPlan('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.2)">📝 교육 신청</button>
+           </div>`
+        : "";
 
   return `
     <div onclick="viewPlanDetail('${safeId}')" style="display:flex;align-items:flex-start;gap:16px;padding:18px 20px;border-radius:14px;
@@ -578,6 +582,7 @@ function _renderPlanCard(p) {
         <div style="font-size:11px;color:#6B7280;display:flex;gap:12px;flex-wrap:wrap">
           <span>💳 ${p.account || "-"} 예산</span>
           <span>💰 ${(p.amount || 0).toLocaleString()}원</span>
+          ${Number(p.allocated_amount||0)>0?`<span style="font-weight:800;color:#059669">✅ 배정 ${Number(p.allocated_amount).toLocaleString()}원</span>`:`<span style="color:#D1D5DB">⏳ 미배정</span>`}
         </div>
         ${actionBtns}
       </div>
@@ -2343,4 +2348,33 @@ function _cgUpdateReason(idx, val) {
 function _cgRefreshTotals() {
   // Step 4에 있을 때만 재렌더
   if (planState.step === 4) renderPlanWizard();
+}
+
+// ★ Phase C: 교육계획 → 교육신청 연동
+// plan_id를 sessionStorage에 저장하고 교육신청 화면으로 이동
+function _startApplyFromPlan(planId) {
+  const plan = _foDbPlans.find(p => String(p.id) === String(planId));
+  if (!plan) { alert('교육계획을 찾을 수 없습니다.'); return; }
+  if (Number(plan.allocated_amount || 0) <= 0) {
+    alert('배정이 완료된 교육계획만 교육 신청이 가능합니다.');
+    return;
+  }
+  // plan 정보를 sessionStorage에 저장 → apply.js에서 읽음
+  sessionStorage.setItem('_applyFromPlan', JSON.stringify({
+    plan_id: plan.id,
+    title: plan.title,
+    amount: plan.amount,
+    allocated_amount: plan.allocated_amount,
+    account: plan.account,
+    edu_purpose: plan.edu_purpose,
+    edu_type: plan.edu_type,
+    edu_subtype: plan.edu_subtype,
+  }));
+  // 교육신청 메뉴로 이동
+  if (typeof renderApply === 'function') {
+    _mainView = 'apply';
+    renderApply();
+  } else {
+    alert('교육신청 화면으로 이동합니다. (메뉴에서 교육신청을 선택)');
+  }
 }

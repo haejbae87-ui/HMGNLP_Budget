@@ -1,4 +1,4 @@
-// ─── APPLY (교육신청) — 목록 ↔ 신청폼 ↔ 결과폼 전환 허브 ────────────────────
+﻿// ─── APPLY (교육신청) — 목록 ↔ 신청폼 ↔ 결과폼 전환 허브 ────────────────────
 
 // ─── DB 승인된 교육계획 캐시 (MOCK_PLANS 대체) ──────────────────────────────
 let _dbApprovedPlans = [];
@@ -80,6 +80,20 @@ function _resetResultState() {
 }
 
 function renderApply() {
+  // ★ Phase C: 교육계획에서 넘어온 경우 plan_id 자동 세팅
+  const _planLink = sessionStorage.getItem("_applyFromPlan");
+  if (_planLink) {
+    try {
+      const pl = JSON.parse(_planLink);
+      sessionStorage.removeItem("_applyFromPlan");
+      applyState = resetApplyState();
+      applyState.planId = pl.plan_id;
+      applyState.title = pl.title;
+      applyState.eduName = pl.title;
+      applyViewMode = "form";
+      console.log("[Apply] Linked from plan:", pl.plan_id, pl.title);
+    } catch(e) { sessionStorage.removeItem("_applyFromPlan"); }
+  }
   if (typeof applyViewMode === "undefined") applyViewMode = "list";
   if (applyState && applyState.confirmMode) {
     _renderApplyConfirm();

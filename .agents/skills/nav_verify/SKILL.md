@@ -19,15 +19,27 @@ description: 화면 개발 완료 후 내비게이션 무결성 전수 검증을
 
 ### 실행 방법
 ```powershell
-# 1. 새 메뉴 ID가 라우팅에 등록되었는지 확인
-# grep으로 메뉴 ID가 boNavigate에 존재하는지 체크
+# 1. 신규 메뉴 ID가 라우팅에 등록되었는지 확인
+Select-String -Path "public\js\bo_layout.js" -Pattern "menuId" | Select-Object LineNumber, Line
+
+# 2. ⚠️ [필수] 메뉴 ID가 Supabase DB에 모두 등록됐는지 자동 비교 (dry-run)
+node ".agents\skills\auto_deploy\check_menu_db_sync.js"
+
+# 누락 항목이 있으면 자동 INSERT
+node ".agents\skills\auto_deploy\check_menu_db_sync.js" --fix
 ```
+
+> **⚠️ 핵심 주의사항**: `checkMenuAccess()` 함수는 Supabase `role_menu_permissions` 테이블을 **1순위**로 참조합니다.
+> `bo_data.js` `accessMenus`는 DB 로드 실패 시만 사용되는 **폴백**입니다.
+> 따라서 메뉴를 코드에 추가하면 **반드시 DB에도 INSERT** 해야 합니다.
 
 ### 체크리스트
 - [ ] 메뉴 배열에 추가한 ID가 `boNavigate()` 함수에 라우팅 분기 존재
 - [ ] 해당 렌더 함수가 실제로 정의되어 있고, `backoffice.html` (또는 `frontoffice.html`)에 script 태그 포함
 - [ ] 페르소나 `accessMenus` 배열에 새 메뉴 ID 추가 완료
+- [ ] **`role_menu_permissions` DB 테이블에 신규 메뉴 ID 등록** (`check_menu_db_sync.ps1` 실행으로 검증) ← **★ 최다 누락 항목**
 - [ ] 동적 데이터 의존 시 null/undefined 방어 코드 존재
+
 
 ---
 

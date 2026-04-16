@@ -29,6 +29,27 @@ node --check "c:\Users\jbae\OneDrive\바탕 화면\HMGNLP_Budget\public\js\bo_po
 - 여기서 `SyntaxError` 등 오류가 발견되면 스킬 진행을 중단하지 않습니다.
 - 오류 로그를 읽어 스스로 스크립트를 열어(ex: `multi_replace_file_content` 도구 활용) 오타나 괄호 매칭 에러 등을 수정한 후, **2단계를 재실행**하여 검증을 통과해야 3단계로 넘어갑니다.
 
+### 2.5. 메뉴 DB 동기화 검증 (Menu-DB Sync Check) ⚠️ 필수
+> **신규 메뉴 추가 작업이 포함된 경우 반드시 실행합니다.**
+> `bo_layout.js`의 모든 메뉴 ID가 Supabase `role_menu_permissions` 테이블에 등록되어 있는지 자동 비교합니다.
+> 누락 항목이 있으면 `-AutoFix` 플래그로 자동 INSERT합니다.
+
+```powershell
+# [Dry-run] 누락 항목 감지만 (INSERT 없음)
+node ".agents\skills\auto_deploy\check_menu_db_sync.js"
+
+# [AutoFix] 누락 항목 자동 INSERT 포함
+node ".agents\skills\auto_deploy\check_menu_db_sync.js" --fix
+```
+
+**[⚠️ 예외 처리]**
+- 스크립트가 `❌ 검증 실패`를 출력하면 `-AutoFix`로 재실행하거나, Supabase MCP 도구로 직접 INSERT합니다.
+- INSERT 대상 기본 역할: `platform_admin`, `tenant_admin`, `budget_admin`
+- 특정 역할만 접근해야 하는 메뉴는 수동으로 추가 검토합니다.
+- `bo_layout.js` 수정 없이 코드만 변경된 경우(렌더 함수 수정 등)엔 이 단계를 건너뜁니다.
+
+
+
 ### 3. 전체 스테이징 (Add)
 ```powershell
 & "C:\Program Files\Git\cmd\git.exe" -C "c:\Users\jbae\OneDrive\바탕 화면\HMGNLP_Budget" add -A

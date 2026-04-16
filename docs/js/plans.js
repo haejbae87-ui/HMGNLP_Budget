@@ -509,8 +509,10 @@ function renderPlans() {
   </div>
   ${tabBar}
   ${statsBar}
+  <div id="fo-realloc-area"></div>
   <div id="plan-list">${listHtml}</div>
 </div>`;
+  _foRenderReallocUI();
 }
 
 // 팀 계획 DB 캐시
@@ -1657,6 +1659,12 @@ async function confirmPlan() {
       ? _getPlanAccountCode(curBudget)
       : "") ||
     "";
+  // ★ Phase F: 수시 교육계획 통장 잔액 경고
+  if (planState.plan_type === "ongoing" && amount > 0) {
+    const ok = await _foCheckBankBalanceWarning(amount);
+    if (!ok) return;
+  }
+
   const sb = typeof getSB === "function" ? getSB() : null;
   if (sb) {
     try {
@@ -2377,4 +2385,165 @@ function _startApplyFromPlan(planId) {
   } else {
     alert('교육신청 화면으로 이동합니다. (메뉴에서 교육신청을 선택)');
   }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ★ Phase B: FO 배정 재배분
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let _foReallocMode = false;
+
+function _foToggleRealloc() {
+  _foReallocMode = !_foReallocMode;
+  _foRenderReallocUI();
+}
+
+async function _foRenderReallocUI() {
+  const area = document.getElementById('fo-realloc-area');
+  if (!area) return;
+  
+  const approvedPlans = (_foDbPlans || []).filter(p =>
+    (p.status === '승인' || p.status === 'approved') && Number(p.allocated_amount || 0) >= 0
+  );
+  
+  if (!_foReallocMode || approvedPlans.length === 0) {
+    // 버튼만 표시
+    area.innerHTML = approvedPlans.length > 0 ? `
+      <div style="margin-bottom:16px;display:flex;gap:8px;align-items:center">
+        <button onclick="_foToggleRealloc()" style="padding:8px 18px;border-radius:10px;border:1.5px solid #7C3AED;background:#F5F3FF;color:#7C3AED;font-size:12px;font-weight:900;cursor:pointer">
+          🔄 배정 재배분
+        </button>
+        <span style="font-size:11px;color:#9CA3AF">승인된 교육계획의 배정액을 재조정합니다</span>
+      </div>` : '';
+    return;
+  }
+
+  // 통장 잔액 조회
+  let bankBalance = 0;
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (sb && currentPersona?.orgId) {
+    try {
+      const { data: bks } = await sb.from('bankbooks')
+        .select('current_balance')
+        .eq('tenant_id', currentPersona.tenantId)
+        .eq('org_id', currentPersona.orgId)
+        .eq('status', 'active');
+      bankBalance = (bks || []).reduce((s,b) => s + Number(b.current_balance || 0), 0);
+    } catch(e) {}
+  }
+
+  const totalAlloc = approvedPlans.reduce((s,p) => s + Number(p.allocated_amount || 0), 0);
+
+  area.innerHTML = `
+    <div style="margin-bottom:16px;padding:16px 20px;border-radius:14px;border:1.5px solid #7C3AED;background:#F5F3FF">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div>
+          <span style="font-size:13px;font-weight:900;color:#7C3AED">🔄 배정 재배분 모드</span>
+          <span style="font-size:11px;color:#6B7280;margin-left:8px">통장 잔액: <b style="color:#059669">${bankBalance.toLocaleString()}원</b></span>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="_foSaveRealloc()" style="padding:6px 16px;border-radius:8px;border:none;background:#7C3AED;color:white;font-size:11px;font-weight:900;cursor:pointer">💾 저장</button>
+          <button onclick="_foToggleRealloc()" style="padding:6px 16px;border-radius:8px;border:1.5px solid #E5E7EB;background:white;color:#6B7280;font-size:11px;font-weight:900;cursor:pointer">✕ 닫기</button>
+        </div>
+      </div>
+      <div style="font-size:11px;color:#6B7280;margin-bottom:8px">배정 합계: <b id="fo-realloc-sum">${totalAlloc.toLocaleString()}</b>원</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <tr style="background:#EDE9FE">
+          <th style="padding:8px;text-align:left;font-weight:900">교육계획</th>
+          <th style="padding:8px;text-align:right;font-weight:900;width:120px">계획액</th>
+          <th style="padding:8px;text-align:right;font-weight:900;width:140px">배정액 (수정)</th>
+        </tr>
+        ${approvedPlans.map((p,i) => `
+        <tr style="border-bottom:1px solid #E5E7EB">
+          <td style="padding:8px;font-weight:700;color:#111827">${p.title}</td>
+          <td style="padding:8px;text-align:right;color:#6B7280">${Number(p.amount||0).toLocaleString()}원</td>
+          <td style="padding:8px;text-align:right">
+            <input type="number" data-plan-id="${p.id}" data-orig="${p.allocated_amount||0}"
+              value="${p.allocated_amount||0}" min="0"
+              onchange="_foRecalcSum()"
+              style="width:120px;padding:6px 10px;border:1.5px solid #D1D5DB;border-radius:8px;font-size:12px;font-weight:800;text-align:right">
+          </td>
+        </tr>`).join('')}
+      </table>
+    </div>`;
+}
+
+function _foRecalcSum() {
+  const inputs = document.querySelectorAll('#fo-realloc-area input[data-plan-id]');
+  let sum = 0;
+  inputs.forEach(inp => { sum += Number(inp.value || 0); });
+  const el = document.getElementById('fo-realloc-sum');
+  if (el) el.textContent = sum.toLocaleString();
+}
+
+async function _foSaveRealloc() {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 실패'); return; }
+
+  const inputs = document.querySelectorAll('#fo-realloc-area input[data-plan-id]');
+  const changes = [];
+  inputs.forEach(inp => {
+    const newVal = Number(inp.value || 0);
+    const origVal = Number(inp.dataset.orig || 0);
+    if (newVal !== origVal) {
+      changes.push({ id: inp.dataset.planId, allocated_amount: newVal });
+    }
+  });
+
+  if (changes.length === 0) { alert('변경된 항목이 없습니다.'); return; }
+
+  // 통장 잔액 검증
+  let bankBalance = 0;
+  if (currentPersona?.orgId) {
+    try {
+      const { data: bks } = await sb.from('bankbooks')
+        .select('current_balance')
+        .eq('tenant_id', currentPersona.tenantId)
+        .eq('org_id', currentPersona.orgId)
+        .eq('status', 'active');
+      bankBalance = (bks || []).reduce((s,b) => s + Number(b.current_balance || 0), 0);
+    } catch(e) {}
+  }
+
+  let totalNew = 0;
+  inputs.forEach(inp => { totalNew += Number(inp.value || 0); });
+
+  if (totalNew > bankBalance && bankBalance > 0) {
+    alert(`⚠️ 재배분 합계(${totalNew.toLocaleString()}원)가 통장 잔액(${bankBalance.toLocaleString()}원)을 초과합니다.`);
+    return;
+  }
+
+  try {
+    for (const c of changes) {
+      await sb.from('plans').update({
+        allocated_amount: c.allocated_amount,
+        updated_at: new Date().toISOString()
+      }).eq('id', c.id);
+    }
+    alert(`✅ ${changes.length}건의 배정이 재배분되었습니다.`);
+    _foReallocMode = false;
+    _plansDbLoaded = false;
+    renderPlans();
+  } catch(err) {
+    alert('저장 실패: ' + err.message);
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ★ Phase F: 수시 교육계획 제출 시 통장 잔액 경고
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function _foCheckBankBalanceWarning(amount) {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb || !currentPersona?.orgId) return true;
+  try {
+    const { data: bks } = await sb.from('bankbooks')
+      .select('current_balance')
+      .eq('tenant_id', currentPersona.tenantId)
+      .eq('org_id', currentPersona.orgId)
+      .eq('status', 'active');
+    const bal = (bks || []).reduce((s,b) => s + Number(b.current_balance || 0), 0);
+    if (bal > 0 && Number(amount) > bal) {
+      return confirm(`⚠️ 팀 통장 잔액 경고\n\n계획 금액: ${Number(amount).toLocaleString()}원\n통장 잔액: ${bal.toLocaleString()}원\n\n통장 잔액을 초과하는 교육계획입니다.\n그래도 제출하시겠습니까?`);
+    }
+  } catch(e) {}
+  return true;
 }

@@ -1,4 +1,4 @@
-// ─── 3 Depth: 교육계획 관리 (DB 연동 + 인라인 편집) ──────────────────────────
+﻿// ─── 3 Depth: 교육계획 관리 (DB 연동 + 인라인 편집) ──────────────────────────
 let _boPlanMgmtData = null;
 let _boPlanDetailView = null; // 상세 보기 대상 계획
 let _boPlanFiscalYear = new Date().getFullYear(); // 연도 필터
@@ -1226,6 +1226,52 @@ async function _boPlanBatchSave() {
     });
 
     alert(`✅ ${saved}건 배정액 일괄 저장 완료`);
+
+    // ★ Phase E: 배정 합계 기준 통장 일괄 입금 제안
+    const totalAllocated = ids.reduce((s,id) => s + Number(edits[id] || 0), 0);
+    if (totalAllocated > 0) {
+      // 해당 팀의 orgId 추출
+      const samplePlan = plans.find(p => ids.includes(p.id));
+      const orgId = samplePlan?.applicant_org_id || samplePlan?.org_id;
+      if (orgId && confirm(`💰 배정 합계 ${totalAllocated.toLocaleString()}원을 팀 통장에 입금하시겠습니까?\n\n배정은 가이드라인이며, 실제 예산 집행을 위해서는\n팀 통장에 입금이 필요합니다.`)) {
+        try {
+          // 해당 팀+계정 통장 조회
+          const acctCode = samplePlan?.account_code || "";
+          const tenantId = samplePlan?.tenant_id || "HMC";
+          const { data: bk } = await sb.from("bankbooks")
+            .select("id,current_balance")
+            .eq("tenant_id", tenantId)
+            .eq("org_id", orgId)
+            .eq("account_code", acctCode)
+            .eq("status", "active")
+            .limit(1).single();
+          if (bk) {
+            const newBal = Number(bk.current_balance) + totalAllocated;
+            await sb.from("bankbooks").update({
+              current_balance: newBal,
+              updated_at: new Date().toISOString()
+            }).eq("id", bk.id);
+            await sb.from("budget_usage_log").insert({
+              tenant_id: tenantId,
+              bankbook_id: bk.id,
+              action: "deposit",
+              amount: totalAllocated,
+              balance_before: Number(bk.current_balance),
+              balance_after: newBal,
+              reference_type: "allocation_batch",
+              memo: `배정 기반 일괄 입금 (${ids.length}건, ${totalAllocated.toLocaleString()}원)`,
+              performed_by: boCurrentPersona?.name || "system"
+            });
+            alert(`✅ ${totalAllocated.toLocaleString()}원이 팀 통장에 입금되었습니다.\n잔액: ${newBal.toLocaleString()}원`);
+          } else {
+            alert("⚠️ 해당 팀의 통장이 없습니다. 예산관리 > 통장에서 먼저 생성하세요.");
+          }
+        } catch(bkErr) {
+          console.warn("[Phase E] Bankbook deposit error:", bkErr.message);
+          alert("통장 입금 중 오류: " + bkErr.message);
+        }
+      }
+    }
     _boPlanEditMode = false;
     _boPlanEdits = {};
     _boPlanMgmtData = null;

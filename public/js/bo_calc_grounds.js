@@ -1,4 +1,4 @@
-// ─── 백오피스: 세부 산출 근거 관리 (VOrg 제도그룹 중심) ────────────────────────
+﻿// ─── 백오피스: 세부 산출 근거 관리 (VOrg 제도그룹 중심) ────────────────────────
 // 데이터는 Supabase calc_grounds 테이블에서 로드, CALC_GROUNDS_MASTER로 동기화
 // 같은 VOrg 제도그룹 하위에서 세부산출근거를 공유
 
@@ -8,6 +8,7 @@ let _cgFilterTenant = null; // 선택된 회사 ID
 let _cgFilterGroup = null; // 선택된 가상교육조직 ID
 let _cgFilterAccount = null; // 필터바 예산계정 (조회용, 등록 시 불필요)
 let _cgPageTab = "grounds"; // 'grounds' | 'unitprice'
+let _cgUsageTypeFilter = "all"; // 'all' | 'self_learning' | 'edu_operation'
 
 // ─── 항목 조회 (계층 필터) ───────────────────────────────────────────────────
 // 범위: tenantId 일치 + (groupId 일치 OR null) + (accountCode 일치 OR null)
@@ -56,6 +57,12 @@ async function _cgLoadFromDb() {
         usageScope: r.usage_scope || ["plan", "apply", "settle"],
         visibleFor: r.visible_for || "both",
         sortOrder: r.sort_order || 99,
+        // v3 신규 필드
+        usageType: r.usage_type || "edu_operation",
+        hasRounds: r.has_rounds === true,
+        hasQty2: r.has_qty2 === true,
+        qty2Type: r.qty2_type || "박",
+        isOverseas: r.is_overseas === true,
       }));
       _cgDbLoaded = true;
       console.log("[CalcGrounds] DB에서", res1.data.length, "건 로드 완료");
@@ -241,11 +248,31 @@ async function renderCalcGrounds() {
 }
 
 // ─── 항목 테이블 ─────────────────────────────────────────────────────────────
+const _CG_USAGE_TYPE_META = {
+  self_learning: { label: "📚 직접학습용", color: "#059669", bg: "#D1FAE5", borderColor: "#6EE7B7" },
+  edu_operation: { label: "🎯 교육운영용", color: "#1D4ED8", bg: "#DBEAFE", borderColor: "#93C5FD" },
+};
+
 function _renderCgTable(tenantId, groupId, accountCode) {
-  const items = _cgGetItems(tenantId, groupId, accountCode);
+  let items = _cgGetItems(tenantId, groupId, accountCode);
+  // 유형 필터 적용
+  if (_cgUsageTypeFilter !== "all") {
+    items = items.filter((g) => (g.usageType || "edu_operation") === _cgUsageTypeFilter);
+  }
   const active = items.filter((g) => g.active !== false).length;
+  const allItems = _cgGetItems(tenantId, groupId, accountCode);
+  const slCount = allItems.filter((g) => (g.usageType || "edu_operation") === "self_learning").length;
+  const opCount = allItems.filter((g) => (g.usageType || "edu_operation") === "edu_operation").length;
 
   return `
+<!-- 유형 탭 필터 -->
+<div style="display:flex;gap:6px;margin-bottom:12px;align-items:center">
+  ${[{k:"all",l:`전체 (${allItems.length})`},{k:"self_learning",l:`📚 직접학습용 (${slCount})`},{k:"edu_operation",l:`🎯 교육운영용 (${opCount})`}]
+    .map(t => `<button onclick="_cgUsageTypeFilter='${t.k}';document.getElementById('cg-content').innerHTML=_renderCgTable('${tenantId}','${groupId||''}','${accountCode||''}');"
+      style="padding:7px 14px;border-radius:8px;border:1.5px solid ${_cgUsageTypeFilter===t.k?'#1D4ED8':'#E5E7EB'};background:${_cgUsageTypeFilter===t.k?'#1D4ED8':'white'};color:${_cgUsageTypeFilter===t.k?'white':'#374151'};font-size:12px;font-weight:700;cursor:pointer">${t.l}</button>`)
+    .join('')
+  }
+</div>
 <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px">
   <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.05em">세부 산출 근거 목록 (${active}개 / 전체 ${items.length}개)</div>
 </div>
@@ -273,12 +300,25 @@ function _renderCgTable(tenantId, groupId, accountCode) {
       </td></tr>`
           : items
               .map(
-                (g, i) => `
+                (g, i) => {
+                  const ut = g.usageType || "edu_operation";
+                  const utMeta = _CG_USAGE_TYPE_META[ut] || _CG_USAGE_TYPE_META.edu_operation;
+                  const badges = [];
+                  if (g.hasRounds) badges.push('<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#EDE9FE;color:#7C3AED;font-weight:800">차수</span>');
+                  if (g.hasQty2) badges.push('<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#FEF3C7;color:#D97706;font-weight:800">' + (g.qty2Type||'박') + '</span>');
+                  if (g.isOverseas) badges.push('<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#FEE2E2;color:#DC2626;font-weight:800">해외</span>');
+                  return `
       <tr style="border-bottom:1px solid #F3F4F6;transition:background .12s;${g.active === false ? "opacity:.5;" : ""}" onmouseover="this.style.background='#F8FAFF'" onmouseout="this.style.background=''">
         <td style="padding:11px 14px;text-align:center;color:#9CA3AF;font-size:12px">${i + 1}</td>
         <td style="padding:11px 14px">
-          <div style="font-weight:800;font-size:13px;color:#111827;margin-bottom:3px">${g.name}</div>
-          <div style="font-size:10px;color:#9CA3AF">${g.id}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+            <span style="font-size:10px;font-weight:800;padding:2px 7px;border-radius:5px;background:${utMeta.bg};color:${utMeta.color}">${utMeta.label}</span>
+          </div>
+          <div style="font-weight:800;font-size:13px;color:#111827;margin-bottom:2px">${g.name}</div>
+          <div style="display:flex;gap:3px;align-items:center">
+            <span style="font-size:10px;color:#9CA3AF">${g.id}</span>
+            ${badges.join('')}
+          </div>
         </td>
         <td style="padding:11px 14px;font-size:12px;color:#374151;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.desc || "—"}</td>
         <td style="padding:11px 14px;text-align:right;font-weight:700;font-size:12px;color:#374151">${g.unitPrice > 0 ? (typeof boFmt === "function" ? boFmt(g.unitPrice) : g.unitPrice.toLocaleString()) + "원" : '<span style="color:#9CA3AF">—</span>'}</td>
@@ -287,22 +327,23 @@ function _renderCgTable(tenantId, groupId, accountCode) {
             g.limitType === "none"
               ? '<span style="color:#9CA3AF">제한없음</span>'
               : g.limitType === "soft"
-                ? `<span style="background:#FFFBEB;color:#D97706;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:800">⚠ Soft</span>`
-                : `<span style="background:#FEF2F2;color:#DC2626;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:800">🚫 Hard</span>`
+                ? '<span style="background:#FFFBEB;color:#D97706;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:800">⚠ Soft</span>'
+                : '<span style="background:#FEF2F2;color:#DC2626;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:800">🚫 Hard</span>'
           }
         </td>
         <td style="padding:11px 14px;text-align:center">
-          <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:5px;background:${g.active !== false ? "#D1FAE5" : "#F3F4F6"};color:${g.active !== false ? "#065F46" : "#9CA3AF"}">${g.active !== false ? "활성" : "비활성"}</span>
+          <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:5px;background:${g.active !== false ? '#D1FAE5' : '#F3F4F6'};color:${g.active !== false ? '#065F46' : '#9CA3AF'}">${g.active !== false ? "활성" : "비활성"}</span>
         </td>
         <td style="padding:11px 14px;text-align:center">
           <div style="display:flex;gap:5px;justify-content:center">
             <button onclick="cgOpenModal('${g.id}')" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid #D1D5DB;background:white;cursor:pointer;font-weight:700;color:#374151">✏️ 수정</button>
-            <button onclick="cgToggleActive('${g.id}')" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid ${g.active !== false ? "#FDE68A" : "#A7F3D0"};background:${g.active !== false ? "#FFFBEB" : "#ECFDF5"};color:${g.active !== false ? "#D97706" : "#059669"};cursor:pointer;font-weight:700">
+            <button onclick="cgToggleActive('${g.id}')" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid ${g.active !== false ? '#FDE68A' : '#A7F3D0'};background:${g.active !== false ? '#FFFBEB' : '#ECFDF5'};color:${g.active !== false ? '#D97706' : '#059669'};cursor:pointer;font-weight:700">
               ${g.active !== false ? "비활성" : "활성화"}
             </button>
           </div>
         </td>
-      </tr>`,
+      </tr>`;
+                }
               )
               .join("")
       }
@@ -344,6 +385,7 @@ function cgCloseModal() {
 
 function _cgModalBody(item, tenantId, myGroups) {
   const lType = item?.limitType || "none";
+  const usageType = item?.usageType || "edu_operation";
 
   // 가상교육조직 드롭다운
   const groupOpts = myGroups
@@ -355,6 +397,42 @@ function _cgModalBody(item, tenantId, myGroups) {
 
   return `
 <div style="display:flex;flex-direction:column;gap:16px">
+
+  <!-- v3: 세부산출근거 유형 (필수 선택) -->
+  <div style="background:#F0FFF4;border-radius:10px;padding:14px;border:1.5px solid #6EE7B7">
+    <div style="font-size:12px;font-weight:800;color:#065F46;margin-bottom:10px">🏷️ 세부산출근거 유형 <span style="color:#EF4444">*</span></div>
+    <div style="display:flex;gap:10px">
+      ${["self_learning", "edu_operation"].map(v => {
+        const m = _CG_USAGE_TYPE_META[v];
+        const isSel = usageType === v;
+        return `<label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:8px;cursor:pointer;border:2px solid ${isSel ? m.borderColor : '#E5E7EB'};background:${isSel ? m.bg : '#fff'}" onclick="_cgSelectUsageType('${v}')">
+          <input type="radio" name="cg-usage-type" value="${v}" ${isSel ? 'checked' : ''} style="accent-color:${m.color}">
+          <div><div style="font-size:12px;font-weight:800;color:${m.color}">${m.label}</div>
+          <div style="font-size:10px;color:#6B7280">${v === 'self_learning' ? '단가 × 인원 (2중 승산)' : '단가 × 인원 × qty2 × 차수 (3중 승산)'}</div></div>
+        </label>`;
+      }).join('')}
+    </div>
+    <!-- 교육운영형 고급 옵션 -->
+    <div id="cg-op-options" style="margin-top:12px;display:${usageType === 'edu_operation' ? 'flex' : 'none'};gap:12px;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;cursor:pointer">
+        <input type="checkbox" id="cg-has-rounds" ${item?.hasRounds ? 'checked' : ''} style="accent-color:#7C3AED"> 차수(qty3) 컬럼 활성화
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;cursor:pointer">
+        <input type="checkbox" id="cg-has-qty2" ${item?.hasQty2 ? 'checked' : ''} onchange="document.getElementById('cg-qty2-type-wrap').style.display=this.checked?'flex':'none'" style="accent-color:#D97706"> 박/일/회(qty2) 컬럼 활성화
+      </label>
+      <div id="cg-qty2-type-wrap" style="display:${item?.hasQty2 ? 'flex' : 'none'};align-items:center;gap:6px">
+        <span style="font-size:11px;color:#6B7280">단위:</span>
+        <select id="cg-qty2-type" style="padding:4px 8px;border:1px solid #E5E7EB;border-radius:6px;font-size:11px">
+          ${['박','일','회'].map(u => `<option value="${u}" ${(item?.qty2Type||'박')===u?'selected':''}>${u}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:8px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;cursor:pointer">
+        <input type="checkbox" id="cg-is-overseas" ${item?.isOverseas ? 'checked' : ''} style="accent-color:#DC2626"> ✈️ 해외 전용 항목 (직접학습형에서 해외 선택 시만 표시)
+      </label>
+    </div>
+  </div>
 
   <!-- 적용 범위: VOrg 제도그룹만 -->
   <div style="background:#EFF6FF;border-radius:10px;padding:14px;border:1.5px solid #BFDBFE">
@@ -376,7 +454,7 @@ function _cgModalBody(item, tenantId, myGroups) {
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
     <div style="grid-column:1/-1">
       <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">항목명 <span style="color:#EF4444">*</span></label>
-      <input id="cg-name" type="text" value="${item?.name || ""}" placeholder="예) 사외강사료"
+      <input id="cg-name" type="text" value="${item?.name || ""}" placeholder="예) 숙박비"
         style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
     </div>
     <div style="grid-column:1/-1">
@@ -473,16 +551,38 @@ function cgSelectLimitType(val) {
   const f = document.getElementById("cg-limit-fields");
   if (f) f.style.display = val === "none" ? "none" : "grid";
 }
+function _cgSelectUsageType(val) {
+  document.querySelectorAll('input[name="cg-usage-type"]').forEach((r) => {
+    r.checked = r.value === val;
+    const lbl = r.closest("label");
+    if (!lbl) return;
+    const m = _CG_USAGE_TYPE_META[r.value] || _CG_USAGE_TYPE_META.edu_operation;
+    lbl.style.borderColor = r.checked ? m.borderColor : "#E5E7EB";
+    lbl.style.background = r.checked ? m.bg : "#fff";
+  });
+  const opOpts = document.getElementById("cg-op-options");
+  if (opOpts) opOpts.style.display = val === "edu_operation" ? "flex" : "none";
+}
 
 // ─── 저장 ─────────────────────────────────────────────────────────────────────
-function cgSaveItem() {
+async function cgSaveItem() {
   const name = document.getElementById("cg-name")?.value.trim();
   if (!name) {
     alert("항목명은 필수입니다.");
     return;
   }
+  const usageType = document.querySelector('input[name="cg-usage-type"]:checked')?.value;
+  if (!usageType) {
+    alert("세부산출근거 유형을 선택하세요 (직접학습용 / 교육운영용).");
+    return;
+  }
   const tenantId = _cgFilterTenant || boCurrentPersona.tenantId || "HMC";
   const groupId = document.getElementById("cg-grp")?.value || null;
+
+  const hasRounds = usageType === "edu_operation" && document.getElementById("cg-has-rounds")?.checked === true;
+  const hasQty2 = usageType === "edu_operation" && document.getElementById("cg-has-qty2")?.checked === true;
+  const qty2Type = hasQty2 ? (document.getElementById("cg-qty2-type")?.value || "박") : "박";
+  const isOverseas = document.getElementById("cg-is-overseas")?.checked === true;
 
   const obj = {
     name,
@@ -499,14 +599,52 @@ function cgSaveItem() {
     tenantId,
     domainId: groupId || undefined,
     sortOrder: Number(document.getElementById("cg-order")?.value) || 99,
+    usageType,
+    hasRounds,
+    hasQty2,
+    qty2Type,
+    isOverseas,
   };
+
+  const dbPayload = {
+    name: obj.name,
+    description: obj.desc,
+    unit_price: obj.unitPrice,
+    limit_type: obj.limitType,
+    soft_limit: obj.softLimit,
+    hard_limit: obj.hardLimit,
+    active: obj.active,
+    tenant_id: obj.tenantId,
+    virtual_org_template_id: obj.domainId || null,
+    sort_order: obj.sortOrder,
+    usage_type: obj.usageType,
+    has_rounds: obj.hasRounds,
+    has_qty2: obj.hasQty2,
+    qty2_type: obj.qty2Type,
+    is_overseas: obj.isOverseas,
+  };
+
+  try {
+    const sb = typeof _sb === "function" ? _sb() : null;
+    if (sb) {
+      if (_cgEditId) {
+        await sb.from("calc_grounds").update(dbPayload).eq("id", _cgEditId);
+      } else {
+        const newId = "CG-" + Date.now();
+        await sb.from("calc_grounds").insert({ id: newId, ...dbPayload });
+        obj.id = newId;
+      }
+    }
+  } catch (e) {
+    console.warn("[CalcGrounds] DB 저장 실패:", e);
+  }
 
   if (_cgEditId) {
     const idx = CALC_GROUNDS_MASTER.findIndex((g) => g.id === _cgEditId);
     if (idx > -1)
       CALC_GROUNDS_MASTER[idx] = { ...CALC_GROUNDS_MASTER[idx], ...obj };
   } else {
-    CALC_GROUNDS_MASTER.push({ id: "CG" + Date.now(), ...obj });
+    CALC_GROUNDS_MASTER.push({ id: obj.id || "CG" + Date.now(), ...obj });
   }
   cgCloseModal();
   document.getElementById("cg-content").innerHTML = _renderCgTable(
@@ -897,9 +1035,10 @@ function _renderUnitPriceTab(tenantId, vorgId) {
         <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#6B7280;width:50px">NO.</th>
         <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151">교육장소</th>
         <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151">세부산출근거</th>
-        <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151">세부 항목</th>
+        <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151">프리셋 (세부항목)</th>
         <th style="padding:10px 14px;text-align:right;font-size:11px;font-weight:800;color:#374151">단가</th>
-        <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#374151">활성화 여부</th>
+        <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#374151">qty2 기본값</th>
+        <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#374151">활성화</th>
         <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#374151">관리</th>
       </tr>
     </thead>
@@ -918,8 +1057,9 @@ function _renderUnitPriceTab(tenantId, vorgId) {
         <td style="padding:10px 14px;text-align:center;font-size:11px;color:#9CA3AF;font-weight:700">${p.id || startIdx + i + 1}</td>
         <td style="padding:10px 14px"><span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#EFF6FF;color:#1D4ED8;font-weight:700">${p.venue_name || "\u2014"}</span></td>
         <td style="padding:10px 14px;font-weight:700;font-size:12px;color:#374151">${p.calc_ground_name || "\u2014"}</td>
-        <td style="padding:10px 14px;font-size:12px;color:#374151">${p.detail_name || "\u2014"}</td>
-        <td style="padding:10px 14px;text-align:right;font-weight:700;font-size:12px;color:#111827">${p.unit_price ? Number(p.unit_price).toLocaleString() : "\u2014"}</td>
+        <td style="padding:10px 14px;font-size:12px;color:#374151">${p.preset_name || p.detail_name || "\u2014"}</td>
+        <td style="padding:10px 14px;text-align:right;font-weight:700;font-size:12px;color:#111827">${p.unit_price ? Number(p.unit_price).toLocaleString() + "원" : "\u2014"}</td>
+        <td style="padding:10px 14px;text-align:center;font-size:11px;color:#6B7280;font-weight:700">${p.qty2_value || 1}</td>
         <td style="padding:10px 14px;text-align:center">${
           p.active !== false
             ? '<span style="background:#D1FAE5;color:#065F46;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:800">활성화</span>'
@@ -1030,21 +1170,25 @@ function _cgSaveUnitPrice() {
   const venueSelect = document.getElementById("up-venue")?.value;
   const venueNew = document.getElementById("up-venue-new")?.value.trim();
   const venue = venueSelect === "__new__" ? venueNew : venueSelect;
-  const ground = document.getElementById("up-ground")?.value;
-  const detail = document.getElementById("up-detail")?.value.trim();
+  const groundSel = document.getElementById("up-ground-id");
+  const groundId = groundSel?.value || "";
+  const groundName = groundSel?.selectedOptions[0]?.dataset?.name || groundSel?.selectedOptions[0]?.text?.split(" (")[0] || groundId;
+  const preset = document.getElementById("up-preset")?.value.trim();
   const price = Number(document.getElementById("up-price")?.value) || 0;
+  const qty2Value = Number(document.getElementById("up-qty2-value")?.value) || 1;
+  const sortOrder = Number(document.getElementById("up-sort-order")?.value) || 99;
   const active =
     document.querySelector('input[name="up-active"]:checked')?.value === "true";
   if (!venue) {
     alert("교육장소를 선택하세요.");
     return;
   }
-  if (!ground) {
-    alert("세부산출근거를 선택하세요.");
+  if (!groundId) {
+    alert("세부산출근거 항목을 선택하세요.");
     return;
   }
-  if (!detail) {
-    alert("세부 항목을 입력하세요.");
+  if (!preset) {
+    alert("프리셋명(세부항목)을 입력하세요.");
     return;
   }
   const tenantId = _cgFilterTenant || boCurrentPersona.tenantId || "HMC";
@@ -1052,9 +1196,13 @@ function _cgSaveUnitPrice() {
     tenant_id: tenantId,
     virtual_org_template_id: _cgFilterGroup || null,
     venue_name: venue,
-    calc_ground_name: ground,
-    detail_name: detail,
+    calc_ground_id: groundId,
+    calc_ground_name: groundName,
+    preset_name: preset,
+    detail_name: preset, // 레거시 호환
     unit_price: price,
+    qty2_value: qty2Value,
+    sort_order: sortOrder,
     active,
   };
   if (_cgUnitPriceEditId) {
@@ -1108,9 +1256,13 @@ async function _cgInsertUnitPriceToDb(obj) {
           tenant_id: obj.tenant_id,
           virtual_org_template_id: obj.virtual_org_template_id,
           venue_name: obj.venue_name,
+          calc_ground_id: obj.calc_ground_id || null,
           calc_ground_name: obj.calc_ground_name,
+          preset_name: obj.preset_name,
           detail_name: obj.detail_name,
           unit_price: obj.unit_price,
+          qty2_value: obj.qty2_value || 1,
+          sort_order: obj.sort_order || 99,
           active: obj.active,
         })
         .select("id")
@@ -1124,3 +1276,76 @@ async function _cgInsertUnitPriceToDb(obj) {
     console.warn("[UnitPrice] DB:", e.message);
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ─── Phase 3: FO 공통 유틸 함수 (plans.js / apply.js에서 사용) ──────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * 목적(purpose.id) 기반으로 세부산출근거 유형 판별
+ * @param {string} purposeId - FO purpose ID
+ * @param {string} [formTargetType] - form_template.target_type (폴백용)
+ * @returns {'self_learning'|'edu_operation'}
+ */
+window._getCalcGroundsType = function(purposeId, formTargetType) {
+  if (purposeId === "external_personal") return "self_learning";
+  if (["internal_edu","conf_seminar","misc_ops","elearning_class"].includes(purposeId)) return "edu_operation";
+  // 폴백: form_template.target_type
+  if (formTargetType === "learner") return "self_learning";
+  return "edu_operation";
+};
+
+/**
+ * usage_type 기반으로 항목 필터링 (엄격한 매칭 — 'both' 없음)
+ * @param {'self_learning'|'edu_operation'} type
+ * @param {string} [vorgId] - VOrg ID (null이면 전체 공유 항목 포함)
+ * @param {boolean} [isOverseas] - 해외 여부
+ * @returns {Array}
+ */
+window._getCalcGroundsForType = function(type, vorgId, isOverseas) {
+  return (CALC_GROUNDS_MASTER || []).filter((g) => {
+    if (g.active === false) return false;
+    if ((g.usageType || "edu_operation") !== type) return false;
+    if (g.domainId && vorgId && g.domainId !== vorgId) return false;
+    if (g.isOverseas && !isOverseas) return false; // 해외 전용 항목: 해외 선택 시만
+    return true;
+  }).sort((a, b) => (a.sortOrder || 99) - (b.sortOrder || 99));
+};
+
+/**
+ * 교육운영형: 특정 항목의 장소별 단가(프리셋) 목록 로드 (비동기)
+ * @param {string} itemId - calc_grounds.id
+ * @param {string} [tenantId]
+ * @returns {Promise<Array>} - [{venue_name, preset_name, unit_price, qty2_value, sort_order}]
+ */
+window._loadUnitPricesForItem = async function(itemId, tenantId) {
+  if (!itemId) return [];
+  try {
+    const sb = typeof _sb === "function" ? _sb() : null;
+    if (!sb) {
+      // 캐시 폴백
+      return (typeof _cgUnitPrices !== "undefined" ? _cgUnitPrices : [])
+        .filter((p) => p.active !== false && (p.calc_ground_id === itemId || p.calc_ground_name === CALC_GROUNDS_MASTER.find(g=>g.id===itemId)?.name))
+        .sort((a, b) => (a.sort_order||99) - (b.sort_order||99));
+    }
+    const { data } = await sb
+      .from("calc_ground_unit_prices")
+      .select("venue_name,preset_name,detail_name,unit_price,qty2_value,sort_order")
+      .or(`calc_ground_id.eq.${itemId},calc_ground_name.eq.${(CALC_GROUNDS_MASTER||[]).find(g=>g.id===itemId)?.name||'__none__'}`)
+      .eq("active", true)
+      .order("sort_order", { ascending: true });
+    return data || [];
+  } catch (e) {
+    console.warn("[UnitPrices] 로드 실패:", e);
+    return [];
+  }
+};
+
+/**
+ * 소계 계산 (2중/3중 통합)
+ * @param {{unitPrice:number, qty1:number, qty2?:number, qty3?:number}} row
+ * @returns {number}
+ */
+window._calcGroundTotal = function(row) {
+  return (row.unitPrice || 0) * (row.qty1 || 1) * (row.qty2 || 1) * (row.qty3 || 1);
+};

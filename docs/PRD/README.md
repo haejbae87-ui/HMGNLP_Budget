@@ -19,4 +19,5 @@
 | 11 | 양식 마법사 및 동적 필드 (Form Builder) | [form_builder.md](form_builder.md) | ✅ 완료 | v1.0 |
 | 12 | 수요예측기간 관리 (독립 메뉴 분리) | [forecast_period_mgmt.md](forecast_period_mgmt.md) | 🟡 구현 중 | v1.0 |
 | 13 | 예산 배정 BO→FO 실시간 연동 | [budget_allocation_sync.md](budget_allocation_sync.md) | 🔴 미구현 (핵심 연동 누락) | v1.0 |
+| 14 | 세부산출근거 입력 UX 개선 + 장소별 단가 연동 | [calc_grounds_ux_redesign.md](calc_grounds_ux_redesign.md) | 🔴 미구현 (설계 확정) | v1.0 |
 

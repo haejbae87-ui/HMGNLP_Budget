@@ -927,6 +927,20 @@ function _renderApplyForm() {
     (sum, e) => sum + Number(e.price) * Number(e.qty),
     0,
   );
+  // v3: 직접학습형 항목 DB 동적 로드 (CALC_GROUNDS_MASTER 활용)
+  const _slItems = (typeof _getCalcGroundsForType === "function") 
+    ? _getCalcGroundsForType("self_learning", currentPersona?.vorgTemplateId || null, s.region === "overseas")
+    : [];
+  // 직접학습형: type 필드 없는 항목은 placeholder로
+  if (s.expenses.length === 0 || (s.expenses.length === 1 && !s.expenses[0].type && !s.expenses[0].itemId)) {
+    // 초기 변환: 기준 type 문자열을 itemId로 매핑
+    s.expenses.forEach((e) => {
+      if (e.type && !e.itemId) {
+        const matched = _slItems.find(g => g.name === e.type || g.name.includes(e.type.split('/')[0]));
+        if (matched) e.itemId = matched.id;
+      }
+    });
+  }
   const totalAmt = isRndBudget ? Number(s.rndTotal) : totalExp;
   const over = curBudget && totalAmt > curBudget.balance - curBudget.used;
 
@@ -1614,26 +1628,38 @@ ${(() => {
         </div>`
             : `
         <div class="flex items-center justify-between mb-3">
-          <h4 class="text-sm font-black text-gray-700 uppercase tracking-wide">📋 세부산출근거</h4>
+          <h4 class="text-sm font-black text-gray-700 uppercase tracking-wide">📋 세부산출근거 <span style="font-size:10px;background:#D1FAE5;color:#065F46;padding:2px 8px;border-radius:5px;font-weight:800">📚 직접학습용 (단가 × 수량)</span></h4>
           <button onclick="addExpRow()" class="text-xs font-black text-accent border-2 border-accent px-4 py-2 rounded-xl hover:bg-blue-50 transition">+ 항목 추가</button>
         </div>
         <div class="rounded-2xl border border-gray-200 overflow-hidden">
           <table class="w-full text-sm">
             <thead class="bg-gray-50"><tr class="text-xs font-black text-gray-500 uppercase">
-              <th class="px-4 py-3 text-left">항목</th><th class="px-4 py-3 text-right">단가</th><th class="px-4 py-3 text-center w-20">수량</th><th class="px-4 py-3 text-right">소계</th><th class="px-4 py-3 text-left">비고</th><th class="px-4 py-3 w-10"></th>
+              <th class="px-4 py-3 text-left">항목</th><th class="px-4 py-3 text-right">단가</th><th class="px-4 py-3 text-center w-20">수량(명)</th><th class="px-4 py-3 text-right">소계</th><th class="px-4 py-3 text-left">비고</th><th class="px-4 py-3 w-10"></th>
             </tr></thead>
             <tbody class="divide-y divide-gray-100">
               ${s.expenses
                 .map(
-                  (e, i) => `
+                  (e, i) => {
+                    const slItems = (typeof _getCalcGroundsForType === "function")
+                      ? _getCalcGroundsForType("self_learning", currentPersona?.vorgTemplateId || null, s.region === "overseas")
+                      : [];
+                    const itemOpts = slItems.length > 0
+                      ? slItems.map(g => `<option value="${g.id}" data-price="${g.unitPrice}" ${(e.itemId||e.type)===g.id||(e.type===g.name)?'selected':''}>${g.name}</option>`).join('')
+                      : ['교육비/등록비','교보재비','시험응시료','항공료','숙박비'].map(n=>`<option ${e.type===n?'selected':''}>${n}</option>`).join('');
+                    return `
               <tr>
-                <td class="px-4 py-3"><select onchange="s.expenses[${i}].type=this.value" class="bg-transparent text-sm font-bold text-gray-700 outline-none"><option ${e.type === "교육비/등록비" ? "selected" : ""}>교육비/등록비</option><option ${e.type === "교보재비" ? "selected" : ""}>교보재비</option><option ${e.type === "시험응시료" ? "selected" : ""}>시험응시료</option>${s.region === "overseas" ? "<option>항공료</option><option>숙박비</option>" : ""}</select></td>
+                <td class="px-4 py-3">
+                  <select onchange="_applyExpTypeChange(this,${i})" class="bg-transparent text-sm font-bold text-gray-700 outline-none w-full">
+                    ${itemOpts}
+                  </select>
+                </td>
                 <td class="px-4 py-3"><input type="number" value="${e.price}" oninput="applyState.expenses[${i}].price=this.value;renderApply()" class="w-full text-right bg-transparent font-black text-gray-900 outline-none text-base"/></td>
                 <td class="px-4 py-3"><input type="number" value="${e.qty}" oninput="applyState.expenses[${i}].qty=this.value;renderApply()" class="w-16 text-center bg-gray-50 border border-gray-200 rounded-lg py-1 font-black text-accent outline-none"/></td>
                 <td class="px-4 py-3 text-right font-black text-gray-900">${fmt(Number(e.price) * Number(e.qty))}</td>
                 <td class="px-4 py-3"><input type="text" value="${e.note || ""}" oninput="applyState.expenses[${i}].note=this.value" placeholder="비고" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-700 outline-none focus:border-accent transition min-w-[120px]"/></td>
                 <td class="px-4 py-3 text-center"><button onclick="removeExpRow(${i})" class="text-gray-300 hover:text-red-500 transition text-lg">✕</button></td>
-              </tr>`,
+              </tr>`;
+                  }
                 )
                 .join("")}
             </tbody>
@@ -1772,16 +1798,31 @@ function applyPrev() {
   renderApply();
 }
 function addExpRow() {
-  applyState.expenses.push({
+  const s = applyState;
+  const slItems = (typeof _getCalcGroundsForType === "function")
+    ? _getCalcGroundsForType("self_learning", currentPersona?.vorgTemplateId || null, s.region === "overseas")
+    : [];
+  const firstItem = slItems[0];
+  s.expenses.push({
     id: Date.now(),
-    type: "교육비/등록비",
-    price: 0,
+    itemId: firstItem?.id || "",
+    type: firstItem?.name || "직접학습용",
+    price: firstItem?.unitPrice || 0,
     qty: 1,
   });
   renderApply();
 }
-function removeExpRow(i) {
-  applyState.expenses.splice(i, 1);
+function _applyExpTypeChange(selectEl, i) {
+  const opt = selectEl.selectedOptions[0];
+  const itemId = opt?.value || "";
+  const price = Number(opt?.dataset?.price || 0);
+  const name = opt?.text || selectEl.value;
+  applyState.expenses[i].itemId = itemId;
+  applyState.expenses[i].type = name;
+  // 단가이 설정되어 있으면 자동 입력 (기존 항목에 이미 단가가 있으면 무시 → 단가 소급 적용 안함)
+  if (price > 0 && !applyState.expenses[i].price) {
+    applyState.expenses[i].price = price;
+  }
   renderApply();
 }
 async function submitApply() {

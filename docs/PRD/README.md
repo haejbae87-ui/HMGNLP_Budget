@@ -16,4 +16,6 @@
 | 8 | 양식 배포 분리 및 버전 관리 | [form_deploy_workflow.md](form_deploy_workflow.md) | ✅ 완료 | v1.0 |
 | 9 | 세부산출근거 VOrg 단위 관리 | [PRD_calc_grounds_vorg_management.md](PRD_calc_grounds_vorg_management.md) | 🟡 설계 검토 | v1.0 |
 | 10 | 결재라인 고도화 (3단계×2축) | [approval_line_design.md](approval_line_design.md) | 🟡 구현 중 | v2.0 |
+| 11 | 양식 마법사 및 동적 필드 (Form Builder) | [form_builder.md](form_builder.md) | ✅ 완료 | v1.0 |
+| 12 | 수요예측기간 관리 (독립 메뉴 분리) | [forecast_period_mgmt.md](forecast_period_mgmt.md) | 🟡 구현 중 | v1.0 |
 

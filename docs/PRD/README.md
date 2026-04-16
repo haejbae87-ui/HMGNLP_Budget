@@ -1,6 +1,6 @@
 # 📋 요구사항 정의서 모음 (PRD Index)
 
-> 최종 갱신: 2026-04-15
+> 최종 갱신: 2026-04-16
 
 ---
 
@@ -18,4 +18,5 @@
 | 10 | 결재라인 고도화 (3단계×2축) | [approval_line_design.md](approval_line_design.md) | 🟡 구현 중 | v2.0 |
 | 11 | 양식 마법사 및 동적 필드 (Form Builder) | [form_builder.md](form_builder.md) | ✅ 완료 | v1.0 |
 | 12 | 수요예측기간 관리 (독립 메뉴 분리) | [forecast_period_mgmt.md](forecast_period_mgmt.md) | 🟡 구현 중 | v1.0 |
+| 13 | 예산 배정 BO→FO 실시간 연동 | [budget_allocation_sync.md](budget_allocation_sync.md) | 🔴 미구현 (핵심 연동 누락) | v1.0 |
 

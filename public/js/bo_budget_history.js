@@ -46,6 +46,7 @@ const BH_ACTION_LABELS = {
   transfer_in: "이관(입)",
   deactivate: "비활성화",
   topup: "추가배정",
+  refund: "환불",
 };
 
 // ── 진입점 ──────────────────────────────────────────────────────────────────
@@ -306,6 +307,7 @@ function _bhRender(el, isPlatform, tenants) {
       <p style="font-size:12px;color:#6B7280;margin:4px 0 0">조직별 통장 입출금 트랜잭션을 추적합니다.</p>
     </div>
     <button onclick="_bhExportCSV()" style="padding:8px 16px;background:#059669;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">📥 CSV 내보내기</button>
+    <button onclick="_bhShowLifecycle()" style="padding:8px 16px;background:linear-gradient(135deg,#7C3AED,#4F46E5);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(124,58,237,.2)">📊 6단계 추적</button>
   </div>
 
   <!-- 필터 바 -->
@@ -455,4 +457,168 @@ function _bhExportCSV() {
   a.download = `예산사용이력_${_bhTenant}_${_bhDateFrom}_${_bhDateTo}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ★ P9: 6단계 예산추적 워터폴 대시보드
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async function _bhShowLifecycle() {
+  const sb = typeof _sb === 'function' ? _sb() : (typeof getSB === 'function' ? getSB() : null);
+  if (!sb) { alert('DB 연결 필요'); return; }
+
+  const tenantId = _bhTenant || boCurrentPersona?.tenantId || 'HMC';
+  const year = new Date().getFullYear();
+
+  // 1. plans에서 계획/배정/실사용 집계
+  let plans = [];
+  try {
+    const { data } = await sb.from('plans').select('amount,allocated_amount,actual_amount,status,account_code')
+      .eq('tenant_id', tenantId).eq('fiscal_year', year).is('deleted_at', null);
+    plans = data || [];
+  } catch { plans = []; }
+
+  // 2. applications에서 신청/승인 집계
+  let apps = [];
+  try {
+    const { data } = await sb.from('applications').select('amount,status')
+      .eq('tenant_id', tenantId).eq('fiscal_year', year);
+    apps = data || [];
+  } catch { apps = []; }
+
+  const planTotal = plans.reduce((s, p) => s + Number(p.amount || 0), 0);
+  const allocTotal = plans.reduce((s, p) => s + Number(p.allocated_amount || 0), 0);
+  const appTotal = apps.reduce((s, a) => s + Number(a.amount || 0), 0);
+  const approvedTotal = apps.filter(a => a.status === 'approved' || a.status === 'completed')
+    .reduce((s, a) => s + Number(a.amount || 0), 0);
+  const actualTotal = plans.reduce((s, p) => s + Number(p.actual_amount || 0), 0);
+  const remaining = allocTotal - actualTotal;
+
+  const stages = [
+    { label: '계획액', val: planTotal, color: '#1D4ED8', icon: '📝' },
+    { label: '배정액', val: allocTotal, color: '#7C3AED', icon: '💰' },
+    { label: '신청액', val: appTotal, color: '#0891B2', icon: '📋' },
+    { label: '승인액', val: approvedTotal, color: '#059669', icon: '✅' },
+    { label: '실사용액', val: actualTotal, color: '#D97706', icon: '💳' },
+    { label: '잔액', val: remaining, color: remaining >= 0 ? '#059669' : '#DC2626', icon: remaining >= 0 ? '📦' : '⚠️' },
+  ];
+
+  const maxVal = Math.max(...stages.map(s => Math.abs(s.val)), 1);
+  const fmt = n => {
+    if (Math.abs(n) >= 100000000) return (n / 100000000).toFixed(1) + '억';
+    if (Math.abs(n) >= 10000) return (n / 10000).toFixed(0) + '만';
+    return n.toLocaleString();
+  };
+
+  // 집행률/배정률 계산
+  const allocRate = planTotal > 0 ? ((allocTotal / planTotal) * 100).toFixed(1) : '-';
+  const execRate = allocTotal > 0 ? ((actualTotal / allocTotal) * 100).toFixed(1) : '-';
+
+  const barsHtml = stages.map(s => {
+    const pct = maxVal > 0 ? Math.max(2, (Math.abs(s.val) / maxVal) * 100) : 2;
+    return `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <div style="width:80px;text-align:right;font-size:12px;font-weight:800;color:#374151">${s.icon} ${s.label}</div>
+      <div style="flex:1;height:32px;background:#F3F4F6;border-radius:8px;overflow:hidden;position:relative">
+        <div style="height:100%;width:${pct}%;background:${s.color};border-radius:8px;transition:width .5s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:8px">
+          <span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,.3)">${fmt(s.val)}원</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // 모달 생성
+  const existing = document.getElementById('bh-lifecycle-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'bh-lifecycle-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999';
+  modal.innerHTML = `
+  <div style="background:white;border-radius:20px;width:650px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.2)">
+    <div style="padding:24px 28px;border-bottom:1px solid #F3F4F6;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <h2 style="margin:0;font-size:18px;font-weight:900;color:#111827">📊 ${year}년 예산 6단계 추적</h2>
+        <p style="margin:4px 0 0;font-size:12px;color:#6B7280">계획 → 배정 → 신청 → 승인 → 실사용 → 잔액</p>
+      </div>
+      <button onclick="document.getElementById('bh-lifecycle-modal').remove()" style="width:32px;height:32px;border-radius:8px;border:1px solid #E5E7EB;background:white;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+    </div>
+
+    <div style="padding:24px 28px">
+      <!-- 워터폴 바 차트 -->
+      ${barsHtml}
+
+      <!-- 비율 카드 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px">
+        <div style="padding:16px;border-radius:12px;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);text-align:center">
+          <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px">계획 대비 배정률</div>
+          <div style="font-size:28px;font-weight:900;color:#7C3AED">${allocRate}%</div>
+        </div>
+        <div style="padding:16px;border-radius:12px;background:linear-gradient(135deg,#ECFDF5,#FEF3C7);text-align:center">
+          <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px">배정 대비 집행률</div>
+          <div style="font-size:28px;font-weight:900;color:${Number(execRate) > 100 ? '#DC2626' : '#059669'}">${execRate}%</div>
+        </div>
+      </div>
+
+      <!-- 실사용액 동기화 버튼 -->
+      <div style="margin-top:20px;padding:14px 18px;border-radius:12px;background:#FFFBEB;border:1.5px solid #FCD34D;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:12px;font-weight:800;color:#92400E">💳 실사용액 동기화</div>
+          <div style="font-size:11px;color:#B45309;margin-top:2px">교육결과 등록 데이터를 기준으로 plans.actual_amount를 갱신합니다</div>
+        </div>
+        <button onclick="_bhSyncActualAmounts()" style="padding:8px 16px;border-radius:10px;border:none;background:#D97706;color:white;font-size:12px;font-weight:900;cursor:pointer">🔄 동기화</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ★ P10: 실사용액 자동 집계 (applications → plans.actual_amount)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async function _bhSyncActualAmounts() {
+  const sb = typeof _sb === 'function' ? _sb() : (typeof getSB === 'function' ? getSB() : null);
+  if (!sb) { alert('DB 연결 필요'); return; }
+
+  const tenantId = _bhTenant || boCurrentPersona?.tenantId || 'HMC';
+
+  if (!confirm('교육결과 등록 데이터를 기반으로 실사용액을 동기화하시겠습니까?')) return;
+
+  try {
+    // 1. 승인/완료 상태의 applications를 plan_id별 집계
+    const { data: apps, error: appErr } = await sb
+      .from('applications')
+      .select('plan_id,amount,status')
+      .eq('tenant_id', tenantId)
+      .in('status', ['approved', 'completed']);
+    if (appErr) throw appErr;
+
+    // plan_id별 합산
+    const planActuals = {};
+    (apps || []).forEach(a => {
+      if (!a.plan_id) return;
+      planActuals[a.plan_id] = (planActuals[a.plan_id] || 0) + Number(a.amount || 0);
+    });
+
+    // 2. plans.actual_amount 일괄 업데이트
+    const planIds = Object.keys(planActuals);
+    let updated = 0;
+    for (const pid of planIds) {
+      const { error } = await sb.from('plans').update({
+        actual_amount: planActuals[pid],
+        updated_at: new Date().toISOString(),
+      }).eq('id', pid);
+      if (!error) updated++;
+    }
+
+    alert(`✅ ${updated}건 실사용액 동기화 완료\n(${planIds.length}개 교육계획 업데이트)`);
+
+    // 모달 닫고 새로고침
+    document.getElementById('bh-lifecycle-modal')?.remove();
+    renderBudgetHistory();
+  } catch (err) {
+    alert('❌ 동기화 실패: ' + err.message);
+  }
 }

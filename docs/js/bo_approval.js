@@ -1,4 +1,4 @@
-// ─── 📥 나의 운영 업무 (My Operations) ──────────────────────────────────────
+﻿// ─── 📥 나의 운영 업무 (My Operations) ──────────────────────────────────────
 // 정책 기반 결재 자동 라우팅 — 단계별 승인함: 계획승인대기 / 신청승인대기 / 결과정산대기
 
 let _myOpsTab = "plan";
@@ -331,9 +331,24 @@ async function myOpsApprove(id) {
         .update({ status: newStatus })
         .eq("id", id);
       if (error) throw error;
-      console.log(`[BO Approve] ${id} → ${newStatus}`);
+
+      // ★ Phase G: 교육계획 승인 시 자동 배정 (allocated_amount 미설정 시)
+      if (isPlan && newStatus === "approved") {
+        try {
+          const { data: plan } = await sb.from("plans").select("amount,allocated_amount").eq("id", id).single();
+          if (plan && (!plan.allocated_amount || Number(plan.allocated_amount) === 0)) {
+            await sb.from("plans").update({
+              allocated_amount: plan.amount,
+              updated_at: new Date().toISOString(),
+            }).eq("id", id);
+            console.log(`[BO Approve] Auto-allocation: ${id} allocated_amount = ${plan.amount}`);
+          }
+        } catch (autoErr) {
+          console.warn("[BO Approve] Auto-allocation skip:", autoErr.message);
+        }
+      }
     } catch (err) {
-      console.error("[BO Approve] DB 업데이트 실패:", err.message);
+      console.error("[BO Approve] DB update err:", err.message);
     }
   }
   renderMyOperations();

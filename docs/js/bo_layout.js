@@ -299,6 +299,20 @@ const PLATFORM_MENUS = [
     section: "교육제도 기준설정",
     gnb: GNB_CATE.PROGRAM,
   },
+  {
+    id: "vorg-manager-mgmt",
+    icon: "👤",
+    label: "교육조직 담당자 관리",
+    section: null,
+    gnb: GNB_CATE.PROGRAM,
+  },
+  {
+    id: "vorg-coop-mgmt",
+    icon: "🤝",
+    label: "교육조직 협조처 관리",
+    section: null,
+    gnb: GNB_CATE.PROGRAM,
+  },
   // 교육지원제도 ─ 기준정보
   {
     id: "budget-account",
@@ -500,12 +514,27 @@ const TENANT_ADMIN_MENUS = [
     gnb: GNB_CATE.PROGRAM,
   },
   {
+    id: "vorg-manager-mgmt",
+    icon: "👤",
+    label: "교육조직 담당자 관리",
+    section: null,
+    gnb: GNB_CATE.PROGRAM,
+  },
+  {
+    id: "vorg-coop-mgmt",
+    icon: "🤝",
+    label: "교육조직 협조처 관리",
+    section: null,
+    gnb: GNB_CATE.PROGRAM,
+  },
+  {
     id: "budget-account",
     icon: "💳",
     label: "예산계정 관리",
     section: "교육지원제도 기준정보",
     gnb: GNB_CATE.PROGRAM,
   },
+
   {
     id: "form-builder",
     icon: "📝",
@@ -665,6 +694,20 @@ const BUDGET_ADMIN_MENUS = [
     icon: "🏗️",
     label: "제도그룹 관리",
     section: "교육제도 기준설정",
+    gnb: GNB_CATE.PROGRAM,
+  },
+  {
+    id: "vorg-manager-mgmt",
+    icon: "👤",
+    label: "교육조직 담당자 관리",
+    section: null,
+    gnb: GNB_CATE.PROGRAM,
+  },
+  {
+    id: "vorg-coop-mgmt",
+    icon: "🤝",
+    label: "교육조직 협조처 관리",
+    section: null,
     gnb: GNB_CATE.PROGRAM,
   },
   {
@@ -954,6 +997,20 @@ const TENANT_DUAL_MENUS = [
     gnb: GNB_CATE.PROGRAM,
   },
   {
+    id: "vorg-manager-mgmt",
+    icon: "👤",
+    label: "교육조직 담당자 관리",
+    section: null,
+    gnb: GNB_CATE.PROGRAM,
+  },
+  {
+    id: "vorg-coop-mgmt",
+    icon: "🤝",
+    label: "교육조직 협조처 관리",
+    section: null,
+    gnb: GNB_CATE.PROGRAM,
+  },
+  {
     id: "budget-account",
     icon: "💳",
     label: "예산계정 관리",
@@ -967,6 +1024,7 @@ const TENANT_DUAL_MENUS = [
     section: null,
     gnb: GNB_CATE.PROGRAM,
   },
+
   {
     id: "calc-grounds",
     icon: "📐",
@@ -1521,6 +1579,8 @@ function boNavigate(menuId) {
   if (menuId === "role-menu-perms") renderRoleMenuPerms();
   // 예산·자격증 및 양식 설정
   if (menuId === "virtual-org") renderVirtualOrgUnified();
+  if (menuId === "vorg-manager-mgmt") renderVorgManagerMgmt();
+  if (menuId === "vorg-coop-mgmt") renderVorgCoopMgmt();
   if (menuId === "budget-account") renderBudgetAccountMenu(); // 신규 추가
   if (menuId === "cert-mapping") renderCertMappingMenu(); // 신규 추가
   if (menuId === "badge-group-mgmt") renderBadgeGroupMgmt();

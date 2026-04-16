@@ -2465,3 +2465,314 @@ function _vuRenderTplListOnly() {
     })
     .join("");
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── 독립 메뉴①: 교육조직 담당자 관리 (renderVorgManagerMgmt) ────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+let _vmgrFilterTenant = null;
+let _vmgrFilterTplId = "";
+let _vmgrFilterPurpose = "all";
+
+async function renderVorgManagerMgmt() {
+  const el = document.getElementById("bo-content");
+  if (!el) return;
+
+  const role = boCurrentPersona?.role;
+  const isPlatform = role === "platform_admin";
+  const tenants = typeof TENANTS !== "undefined" ? TENANTS.filter(t => t.id !== "SYSTEM") : [];
+
+  if (!_vmgrFilterTenant) {
+    _vmgrFilterTenant = isPlatform
+      ? (tenants[0]?.id || "HMC")
+      : (boCurrentPersona?.tenantId || "HMC");
+  }
+
+  let tplList = [];
+  try {
+    const sb = typeof _sb === "function" ? _sb() : null;
+    if (sb) {
+      const { data } = await sb
+        .from("virtual_org_templates")
+        .select("id,name,purpose,service_type,tree_data,tenant_id")
+        .eq("tenant_id", _vmgrFilterTenant);
+      if (data && data.length) {
+        tplList = data.map(row => ({
+          id: row.id, name: row.name,
+          purpose: row.service_type || row.purpose || "edu_support",
+          tree: row.tree_data || { hqs: [] },
+        }));
+      }
+    }
+  } catch(e) { console.warn("[VorgMgr] DB 로드 실패:", e.message); }
+
+  const filteredTpls = _vmgrFilterPurpose === "all"
+    ? tplList
+    : tplList.filter(t => t.purpose === _vmgrFilterPurpose);
+
+  const selTpl = _vmgrFilterTplId ? filteredTpls.find(t => t.id === _vmgrFilterTplId) : null;
+
+  const _purposeLabel = (p) => ({ edu_support:"교육지원", cert:"자격증", badge:"뱃지", language:"어학" }[p] || p);
+
+  const _renderMgrRows = (tpl) => {
+    const groups = tpl.tree?.hqs || tpl.tree?.centers || [];
+    if (!groups.length) return `<div style="padding:30px;text-align:center;color:#9CA3AF;font-size:13px">가상조직이 없습니다. 제도그룹 관리 메뉴에서 먼저 구성하세요.</div>`;
+    return groups.map((g, gi) => {
+      const managers = g.managers || [];
+      return `<div class="bo-card" style="padding:16px 20px;margin-bottom:12px;border-left:4px solid #059669">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span>🏢</span>
+      <span style="font-size:14px;font-weight:800;color:#111827">${g.name}</span>
+      <span style="font-size:10px;padding:2px 7px;border-radius:5px;background:#D1FAE5;color:#065F46;font-weight:700">${managers.length}명</span>
+    </div>
+    <button onclick="_vmgrAddManager('${tpl.id}',${gi})"
+      style="padding:5px 12px;background:#F0FDF4;border:1px solid #A7F3D0;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;color:#059669">+ 운영담당자 추가</button>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px">
+    ${managers.length
+      ? managers.map((m,mi) => `<span style="padding:6px 12px;background:#F0FDF4;border:1.5px solid #A7F3D0;border-radius:8px;font-size:12px;font-weight:600;color:#065F46;display:inline-flex;align-items:center;gap:6px">
+        👤 ${m.name||m} ${m.dept?`<span style="font-size:10px;color:#9CA3AF">${m.dept}</span>`:""}
+        ${m.start_date||m.end_date?`<span style="font-size:9px;color:#94A3B8">${m.start_date||""} ~ ${m.end_date||""}</span>`:""}
+        <button onclick="_vmgrRemoveManager('${tpl.id}',${gi},${mi})" style="border:none;background:none;color:#9CA3AF;cursor:pointer;font-size:11px;padding:0">✕</button>
+      </span>`).join("")
+      : `<span style="font-size:12px;color:#9CA3AF">등록된 운영담당자가 없습니다</span>`}
+  </div>
+</div>`;
+    }).join("");
+  };
+
+  const tenantsHtml = isPlatform
+    ? `<div><label style="display:block;font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px">테넌트(회사)</label>
+      <select onchange="_vmgrFilterTenant=this.value;_vmgrFilterTplId='';renderVorgManagerMgmt()" style="padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:160px">
+        ${tenants.map(t=>`<option value="${t.id}" ${t.id===_vmgrFilterTenant?"selected":""}>${t.name} (${t.id})</option>`).join("")}
+      </select></div>` : "";
+
+  el.innerHTML = `<div class="bo-fade">
+  <div style="margin-bottom:20px">
+    <h2 style="font-size:18px;font-weight:900;color:#111827;margin:0 0 4px">👤 교육조직 담당자 관리</h2>
+    <p style="font-size:12px;color:#6B7280;margin:0">제도그룹별 가상조직(본부)의 운영담당자를 일괄 조회·관리합니다. 탭 내 관리와 동일한 데이터를 공유합니다.</p>
+  </div>
+  <div style="background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:14px;padding:16px 20px;margin-bottom:22px">
+    <div style="font-size:11px;font-weight:800;color:#374151;margin-bottom:12px">🔍 조회 조건</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      ${tenantsHtml}
+      <div><label style="display:block;font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px">용도(제도유형)</label>
+        <select onchange="_vmgrFilterPurpose=this.value;_vmgrFilterTplId='';renderVorgManagerMgmt()" style="padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:130px">
+          <option value="all" ${_vmgrFilterPurpose==="all"?"selected":""}>전체</option>
+          <option value="edu_support" ${_vmgrFilterPurpose==="edu_support"?"selected":""}>📘 교육지원</option>
+          <option value="cert" ${_vmgrFilterPurpose==="cert"?"selected":""}>📜 자격증</option>
+          <option value="badge" ${_vmgrFilterPurpose==="badge"?"selected":""}>🎖️ 뱃지</option>
+          <option value="language" ${_vmgrFilterPurpose==="language"?"selected":""}>🌐 어학</option>
+        </select></div>
+      <div style="flex:1;min-width:200px"><label style="display:block;font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px">제도그룹</label>
+        <select onchange="_vmgrFilterTplId=this.value;renderVorgManagerMgmt()" style="padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;width:100%">
+          <option value="">-- 전체 제도그룹 --</option>
+          ${filteredTpls.map(t=>`<option value="${t.id}" ${t.id===_vmgrFilterTplId?"selected":""}>${t.name}</option>`).join("")}
+        </select></div>
+      <div><button onclick="renderVorgManagerMgmt()" style="padding:8px 20px;background:#1D4ED8;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">🔍 조회</button></div>
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:#9CA3AF">
+      조회 결과: <b style="color:#374151">${filteredTpls.length}개</b> 제도그룹
+      ${selTpl?` → <b style="color:#1D4ED8">${selTpl.name}</b> 상세 조회 중`:" (전체 표시)"}
+    </div>
+  </div>
+  ${selTpl
+    ? `<div><div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #E5E7EB">📋 ${selTpl.name} — 담당자 현황</div>${_renderMgrRows(selTpl)}</div>`
+    : filteredTpls.length
+      ? filteredTpls.map(tpl=>`<div style="margin-bottom:24px">
+          <div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:10px;padding:8px 14px;background:#F3F4F6;border-radius:8px;display:flex;align-items:center;gap:8px">
+            📋 ${tpl.name} <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#EFF6FF;color:#1D4ED8;font-weight:700">${_purposeLabel(tpl.purpose)}</span>
+          </div>${_renderMgrRows(tpl)}</div>`).join("")
+      : `<div style="padding:60px;text-align:center;color:#9CA3AF;background:#F9FAFB;border-radius:14px"><div style="font-size:32px;margin-bottom:12px">👤</div><div style="font-size:13px;font-weight:700">조회 결과가 없습니다</div></div>`
+  }
+</div>`;
+}
+
+async function _vmgrAddManager(tplId, gi) {
+  if (typeof _vuAddManager === "function") {
+    _vuTplId = tplId;
+    _vuAddManager(tplId, gi);
+    setTimeout(() => renderVorgManagerMgmt(), 800);
+  } else { alert("제도그룹 관리 메뉴에서 담당자를 추가해 주세요."); }
+}
+
+async function _vmgrRemoveManager(tplId, gi, mi) {
+  if (!confirm("이 담당자를 해제하시겠습니까?")) return;
+  try {
+    const sb = typeof _sb === "function" ? _sb() : null;
+    if (!sb) { alert("DB 연결 실패"); return; }
+    const { data: row } = await sb.from("virtual_org_templates").select("tree_data").eq("id", tplId).single();
+    if (!row) return;
+    const tree = row.tree_data || { hqs: [] };
+    const g = (tree.hqs || [])[gi];
+    if (!g) return;
+    g.managers = (g.managers || []).filter((_, i) => i !== mi);
+    await sb.from("virtual_org_templates").update({ tree_data: tree }).eq("id", tplId);
+    renderVorgManagerMgmt();
+  } catch(e) { alert("삭제 실패: " + e.message); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── 독립 메뉴②: 교육조직 협조처 관리 (renderVorgCoopMgmt) ──────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+let _vcoopFilterTenant = null;
+let _vcoopFilterTplId = "";
+let _vcoopFilterPurpose = "all";
+
+async function renderVorgCoopMgmt() {
+  const el = document.getElementById("bo-content");
+  if (!el) return;
+
+  const role = boCurrentPersona?.role;
+  const isPlatform = role === "platform_admin";
+  const tenants = typeof TENANTS !== "undefined" ? TENANTS.filter(t => t.id !== "SYSTEM") : [];
+
+  if (!_vcoopFilterTenant) {
+    _vcoopFilterTenant = isPlatform
+      ? (tenants[0]?.id || "HMC")
+      : (boCurrentPersona?.tenantId || "HMC");
+  }
+
+  let tplList = [];
+  try {
+    const sb = typeof _sb === "function" ? _sb() : null;
+    if (sb) {
+      const { data } = await sb
+        .from("virtual_org_templates")
+        .select("id,name,purpose,service_type,tree_data,tenant_id")
+        .eq("tenant_id", _vcoopFilterTenant);
+      if (data && data.length) {
+        tplList = data.map(row => ({
+          id: row.id, name: row.name,
+          purpose: row.service_type || row.purpose || "edu_support",
+          tree: row.tree_data || { hqs: [] },
+        }));
+      }
+    }
+  } catch(e) { console.warn("[VorgCoop] DB 로드 실패:", e.message); }
+
+  const filteredTpls = _vcoopFilterPurpose === "all"
+    ? tplList
+    : tplList.filter(t => t.purpose === _vcoopFilterPurpose);
+
+  const selTpl = _vcoopFilterTplId ? filteredTpls.find(t => t.id === _vcoopFilterTplId) : null;
+  const _purposeLabel = (p) => ({ edu_support:"교육지원", cert:"자격증", badge:"뱃지", language:"어학" }[p] || p);
+
+  const _renderCoopRows = (tpl) => {
+    const groups = tpl.tree?.hqs || tpl.tree?.centers || [];
+    if (!groups.length) return `<div style="padding:30px;text-align:center;color:#9CA3AF;font-size:13px">가상조직이 없습니다.</div>`;
+    return groups.map((g, gi) => {
+      const coopTeams = g.coopTeams || [];
+      return `<div class="bo-card" style="padding:16px 20px;margin-bottom:12px;border-left:4px solid #D97706">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span>🏢</span>
+      <span style="font-size:14px;font-weight:800;color:#111827">${g.name}</span>
+      <span style="font-size:10px;padding:2px 7px;border-radius:5px;background:#FEF3C7;color:#92400E;font-weight:700">${coopTeams.length}개</span>
+    </div>
+    <button onclick="_vcoopOpenAddModal('${tpl.id}',${gi})"
+      style="padding:5px 12px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;color:#D97706">+ 협조처 추가</button>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:6px">
+    ${coopTeams.length
+      ? coopTeams.map((ct,ci) => {
+          const cType = ct.coopType || "교육협조처";
+          const isJK = cType === "재경협조팀" || cType === "재경협조처";
+          const tc = isJK ? {bg:"#FFFBEB",bdr:"#FDE68A",txt:"#92400E",icn:"💰"} : {bg:"#EFF6FF",bdr:"#BFDBFE",txt:"#1D4ED8",icn:"📚"};
+          const rq = ct.required === "필수";
+          const rqCond = ct.required === "조건부";
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${tc.bg};border:1px solid ${tc.bdr};border-radius:10px">
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1">
+    <span style="font-weight:800;font-size:13px;color:#111827">${ct.name||ct.teamName||ct}</span>
+    <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${tc.bdr};color:${tc.txt};font-weight:700">${tc.icn} ${cType}</span>
+    <span style="font-size:10px;padding:2px 8px;border-radius:6px;color:${rq?"#EF4444":rqCond?"#3B82F6":"#6B7280"};font-weight:700;background:${rq?"#FEF2F2":rqCond?"#EFF6FF":"#F3F4F6"};border:1px solid ${rq?"#FECACA":rqCond?"#DBEAFE":"#E5E7EB"}">
+      ${rq?"🔴 필수협조처":rqCond?"🔵 조건부":"⚪ 선택"}
+    </span>
+    ${ct.role && ct.role!=="협조"?`<span style="font-size:10px;color:#6B7280">${ct.role}</span>`:""}
+  </div>
+  <button onclick="_vcoopRemove('${tpl.id}',${gi},${ci})" style="border:none;background:none;color:#D1D5DB;cursor:pointer;font-size:14px;flex-shrink:0">✕</button>
+</div>`;
+        }).join("")
+      : `<div style="padding:16px;text-align:center;background:#F9FAFB;border:1.5px dashed #E5E7EB;border-radius:10px;color:#9CA3AF;font-size:12px">등록된 협조처가 없습니다</div>`
+    }
+  </div>
+</div>`;
+    }).join("");
+  };
+
+  const tenantsHtml = isPlatform
+    ? `<div><label style="display:block;font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px">테넌트(회사)</label>
+      <select onchange="_vcoopFilterTenant=this.value;_vcoopFilterTplId='';renderVorgCoopMgmt()" style="padding:8px 12px;border:1.5px solid #FDE68A;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:160px;color:#92400E">
+        ${tenants.map(t=>`<option value="${t.id}" ${t.id===_vcoopFilterTenant?"selected":""}>${t.name} (${t.id})</option>`).join("")}
+      </select></div>` : "";
+
+  el.innerHTML = `<div class="bo-fade">
+  <div style="margin-bottom:20px">
+    <h2 style="font-size:18px;font-weight:900;color:#111827;margin:0 0 4px">🤝 교육조직 협조처 관리</h2>
+    <p style="font-size:12px;color:#6B7280;margin:0">제도그룹별 가상조직(본부)의 협조처를 일괄 조회·관리합니다. 탭 내 관리와 동일한 데이터를 공유합니다.</p>
+  </div>
+  <div style="background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:14px;padding:16px 20px;margin-bottom:22px">
+    <div style="font-size:11px;font-weight:800;color:#92400E;margin-bottom:12px">🔍 조회 조건</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      ${tenantsHtml}
+      <div><label style="display:block;font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px">용도(제도유형)</label>
+        <select onchange="_vcoopFilterPurpose=this.value;_vcoopFilterTplId='';renderVorgCoopMgmt()" style="padding:8px 12px;border:1.5px solid #FDE68A;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:130px">
+          <option value="all" ${_vcoopFilterPurpose==="all"?"selected":""}>전체</option>
+          <option value="edu_support" ${_vcoopFilterPurpose==="edu_support"?"selected":""}>📘 교육지원</option>
+          <option value="cert" ${_vcoopFilterPurpose==="cert"?"selected":""}>📜 자격증</option>
+          <option value="badge" ${_vcoopFilterPurpose==="badge"?"selected":""}>🎖️ 뱃지</option>
+          <option value="language" ${_vcoopFilterPurpose==="language"?"selected":""}>🌐 어학</option>
+        </select></div>
+      <div style="flex:1;min-width:200px"><label style="display:block;font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px">제도그룹</label>
+        <select onchange="_vcoopFilterTplId=this.value;renderVorgCoopMgmt()" style="padding:8px 12px;border:1.5px solid #FDE68A;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;width:100%">
+          <option value="">-- 전체 제도그룹 --</option>
+          ${filteredTpls.map(t=>`<option value="${t.id}" ${t.id===_vcoopFilterTplId?"selected":""}>${t.name}</option>`).join("")}
+        </select></div>
+      <div><button onclick="renderVorgCoopMgmt()" style="padding:8px 20px;background:#D97706;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">🔍 조회</button></div>
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:#92400E">
+      조회 결과: <b>${filteredTpls.length}개</b> 제도그룹
+      ${selTpl?` → <b style="color:#D97706">${selTpl.name}</b> 상세 조회 중`:" (전체 표시)"}
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+    <span style="font-size:10px;padding:3px 10px;border-radius:6px;background:#EFF6FF;color:#1D4ED8;font-weight:700;border:1px solid #BFDBFE">📚 교육협조처</span>
+    <span style="font-size:10px;padding:3px 10px;border-radius:6px;background:#FFFBEB;color:#92400E;font-weight:700;border:1px solid #FDE68A">💰 재경협조팀</span>
+    <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#FEF2F2;color:#EF4444;font-weight:700;border:1px solid #FECACA">🔴 필수</span>
+    <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#EFF6FF;color:#3B82F6;font-weight:700;border:1px solid #DBEAFE">🔵 조건부</span>
+  </div>
+  ${selTpl
+    ? `<div><div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #E5E7EB">📋 ${selTpl.name} — 협조처 현황</div>${_renderCoopRows(selTpl)}</div>`
+    : filteredTpls.length
+      ? filteredTpls.map(tpl=>`<div style="margin-bottom:24px">
+          <div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:10px;padding:8px 14px;background:#FEF3C7;border-radius:8px;display:flex;align-items:center;gap:8px">📋 ${tpl.name}
+            <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#FFFBEB;color:#D97706;font-weight:700;border:1px solid #FDE68A">${_purposeLabel(tpl.purpose)}</span>
+          </div>${_renderCoopRows(tpl)}</div>`).join("")
+      : `<div style="padding:60px;text-align:center;color:#9CA3AF;background:#F9FAFB;border-radius:14px"><div style="font-size:32px;margin-bottom:12px">🤝</div><div style="font-size:13px;font-weight:700">조회 결과가 없습니다</div></div>`
+  }
+</div>`;
+}
+
+function _vcoopOpenAddModal(tplId, gi) {
+  if (typeof _vuOpenCoopAddModal === "function") {
+    _vuTplId = tplId;
+    _vuOpenCoopAddModal(tplId, gi);
+    setTimeout(() => renderVorgCoopMgmt(), 800);
+  } else { alert("제도그룹 관리 메뉴에서 협조처를 추가해 주세요."); }
+}
+
+async function _vcoopRemove(tplId, gi, ci) {
+  if (!confirm("이 협조처를 삭제하시겠습니까?")) return;
+  try {
+    const sb = typeof _sb === "function" ? _sb() : null;
+    if (!sb) { alert("DB 연결 실패"); return; }
+    const { data: row } = await sb.from("virtual_org_templates").select("tree_data").eq("id", tplId).single();
+    if (!row) return;
+    const tree = row.tree_data || { hqs: [] };
+    const g = (tree.hqs || [])[gi];
+    if (!g) return;
+    g.coopTeams = (g.coopTeams || []).filter((_, i) => i !== ci);
+    await sb.from("virtual_org_templates").update({ tree_data: tree }).eq("id", tplId);
+    renderVorgCoopMgmt();
+  } catch(e) { alert("삭제 실패: " + e.message); }
+}

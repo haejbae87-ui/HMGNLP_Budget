@@ -3,22 +3,71 @@
 
 // 제도유형 뱃지 렌더링 (역할 목록에서 사용)
 function _rmServiceBadge(st) {
-  if (!st || st === 'all' || st === '') return '';
+  if (!st || st === "all" || st === "") return "";
   const map = {
-    edu_support: { label: '교육지원', bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE', icon: '📘' },
-    language: { label: '어학', bg: '#F0FDF4', color: '#059669', border: '#BBF7D0', icon: '🌐' },
-    cert: { label: '자격증', bg: '#FFF7ED', color: '#C2410C', border: '#FED7AA', icon: '📜' },
-    badge: { label: '뱃지', bg: '#F5F3FF', color: '#7C3AED', border: '#DDD6FE', icon: '🏅' },
-    channel: { label: '채널담당', bg: '#FEF3C7', color: '#92400E', border: '#FDE68A', icon: '📺' },
+    edu_support: {
+      label: "교육지원",
+      bg: "#EFF6FF",
+      color: "#1D4ED8",
+      border: "#BFDBFE",
+      icon: "📘",
+    },
+    language: {
+      label: "어학",
+      bg: "#F0FDF4",
+      color: "#059669",
+      border: "#BBF7D0",
+      icon: "🌐",
+    },
+    cert: {
+      label: "자격증",
+      bg: "#FFF7ED",
+      color: "#C2410C",
+      border: "#FED7AA",
+      icon: "📜",
+    },
+    badge: {
+      label: "뱃지",
+      bg: "#F5F3FF",
+      color: "#7C3AED",
+      border: "#DDD6FE",
+      icon: "🏅",
+    },
+    channel: {
+      label: "채널담당",
+      bg: "#FEF3C7",
+      color: "#92400E",
+      border: "#FDE68A",
+      icon: "📺",
+    },
   };
-  const types = st.split(',').map(s => s.trim()).filter(s => map[s]);
-  if (!types.length) return '';
-  return '<div style="display:flex;gap:3px;margin-top:4px;justify-content:center;flex-wrap:wrap">' +
-    types.map(t => {
-      const m = map[t];
-      return '<span style="font-size:8px;font-weight:800;padding:1px 6px;border-radius:4px;background:' + m.bg + ';color:' + m.color + ';border:1px solid ' + m.border + '">' + m.icon + ' ' + m.label + '</span>';
-    }).join('') +
-    '</div>';
+  const types = st
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => map[s]);
+  if (!types.length) return "";
+  return (
+    '<div style="display:flex;gap:3px;margin-top:4px;justify-content:center;flex-wrap:wrap">' +
+    types
+      .map((t) => {
+        const m = map[t];
+        return (
+          '<span style="font-size:8px;font-weight:800;padding:1px 6px;border-radius:4px;background:' +
+          m.bg +
+          ";color:" +
+          m.color +
+          ";border:1px solid " +
+          m.border +
+          '">' +
+          m.icon +
+          " " +
+          m.label +
+          "</span>"
+        );
+      })
+      .join("") +
+    "</div>"
+  );
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -26,109 +75,385 @@ function _rmServiceBadge(st) {
 // ──────────────────────────────────────────────────────────────────────────────
 const TENANT_ROLES_MOCK = [
   // ── HMC (현대자동차) ──────────────────────────────────────────────────────
-  { id: 'HMC_tenant_admin', code: 'HMC_tenant_admin', name: 'HMC 테넌트 총괄관리자', description: '현대자동차 BO 전체 관리', parent_role_id: null, tenant_id: 'HMC' },
-  { id: 'HMC_budget_gen', code: 'HMC_budget_gen', name: 'HMC 일반예산 총괄관리자', description: 'HMC 일반교육예산 총괄 관리', parent_role_id: 'HMC_tenant_admin', tenant_id: 'HMC' },
-  { id: 'HMC_budget_rnd', code: 'HMC_budget_rnd', name: 'HMC R&D예산 총괄관리자', description: 'HMC R&D교육예산 총괄 관리', parent_role_id: 'HMC_tenant_admin', tenant_id: 'HMC' },
-  { id: 'HMC_ops_gen_1', code: 'HMC_ops_gen_1', name: 'HMC 일반예산 운영담당자①', description: 'HMC GPS 가상조직 예산 운영', parent_role_id: 'HMC_budget_gen', tenant_id: 'HMC' },
-  { id: 'HMC_ops_gen_2', code: 'HMC_ops_gen_2', name: 'HMC 일반예산 운영담당자②', description: 'HMC ETC 가상조직 예산 운영', parent_role_id: 'HMC_budget_gen', tenant_id: 'HMC' },
-  { id: 'HMC_ops_rnd_1', code: 'HMC_ops_rnd_1', name: 'HMC R&D예산 운영담당자①', description: 'HMC R&D 가상조직 예산 운영', parent_role_id: 'HMC_budget_rnd', tenant_id: 'HMC' },
+  {
+    id: "HMC_tenant_admin",
+    code: "HMC_tenant_admin",
+    name: "HMC 테넌트 총괄관리자",
+    description: "현대자동차 BO 전체 관리",
+    parent_role_id: null,
+    tenant_id: "HMC",
+  },
+  {
+    id: "HMC_budget_gen",
+    code: "HMC_budget_gen",
+    name: "HMC 일반예산 총괄관리자",
+    description: "HMC 일반교육예산 총괄 관리",
+    parent_role_id: "HMC_tenant_admin",
+    tenant_id: "HMC",
+  },
+  {
+    id: "HMC_budget_rnd",
+    code: "HMC_budget_rnd",
+    name: "HMC R&D예산 총괄관리자",
+    description: "HMC R&D교육예산 총괄 관리",
+    parent_role_id: "HMC_tenant_admin",
+    tenant_id: "HMC",
+  },
+  {
+    id: "HMC_ops_gen_1",
+    code: "HMC_ops_gen_1",
+    name: "HMC 일반예산 운영담당자①",
+    description: "HMC GPS 가상조직 예산 운영",
+    parent_role_id: "HMC_budget_gen",
+    tenant_id: "HMC",
+  },
+  {
+    id: "HMC_ops_gen_2",
+    code: "HMC_ops_gen_2",
+    name: "HMC 일반예산 운영담당자②",
+    description: "HMC ETC 가상조직 예산 운영",
+    parent_role_id: "HMC_budget_gen",
+    tenant_id: "HMC",
+  },
+  {
+    id: "HMC_ops_rnd_1",
+    code: "HMC_ops_rnd_1",
+    name: "HMC R&D예산 운영담당자①",
+    description: "HMC R&D 가상조직 예산 운영",
+    parent_role_id: "HMC_budget_rnd",
+    tenant_id: "HMC",
+  },
   // ── KIA (기아자동차) ──────────────────────────────────────────────────────
-  { id: 'KIA_tenant_admin', code: 'KIA_tenant_admin', name: 'KIA 테넌트 총괄관리자', description: '기아자동차 BO 전체 관리', parent_role_id: null, tenant_id: 'KIA' },
-  { id: 'KIA_budget_admin', code: 'KIA_budget_admin', name: 'KIA 예산 총괄관리자', description: 'KIA 교육예산 총괄 관리', parent_role_id: 'KIA_tenant_admin', tenant_id: 'KIA' },
-  { id: 'KIA_ops_1', code: 'KIA_ops_1', name: 'KIA 예산 운영담당자①', description: 'KIA 본사 가상조직 예산 운영', parent_role_id: 'KIA_budget_admin', tenant_id: 'KIA' },
-  { id: 'KIA_ops_2', code: 'KIA_ops_2', name: 'KIA 예산 운영담당자②', description: 'KIA 생산 가상조직 예산 운영', parent_role_id: 'KIA_budget_admin', tenant_id: 'KIA' },
+  {
+    id: "KIA_tenant_admin",
+    code: "KIA_tenant_admin",
+    name: "KIA 테넌트 총괄관리자",
+    description: "기아자동차 BO 전체 관리",
+    parent_role_id: null,
+    tenant_id: "KIA",
+  },
+  {
+    id: "KIA_budget_admin",
+    code: "KIA_budget_admin",
+    name: "KIA 예산 총괄관리자",
+    description: "KIA 교육예산 총괄 관리",
+    parent_role_id: "KIA_tenant_admin",
+    tenant_id: "KIA",
+  },
+  {
+    id: "KIA_ops_1",
+    code: "KIA_ops_1",
+    name: "KIA 예산 운영담당자①",
+    description: "KIA 본사 가상조직 예산 운영",
+    parent_role_id: "KIA_budget_admin",
+    tenant_id: "KIA",
+  },
+  {
+    id: "KIA_ops_2",
+    code: "KIA_ops_2",
+    name: "KIA 예산 운영담당자②",
+    description: "KIA 생산 가상조직 예산 운영",
+    parent_role_id: "KIA_budget_admin",
+    tenant_id: "KIA",
+  },
   // ── HAE (현대오토에버) ────────────────────────────────────────────────────
-  { id: 'HAE_tenant_admin', code: 'HAE_tenant_admin', name: 'HAE 테넌트 총괄관리자', description: '현대오토에버 BO 전체 관리', parent_role_id: null, tenant_id: 'HAE' },
-  { id: 'HAE_budget_admin', code: 'HAE_budget_admin', name: 'HAE 예산 총괄관리자', description: 'HAE 교육예산 총괄 관리', parent_role_id: 'HAE_tenant_admin', tenant_id: 'HAE' },
-  { id: 'HAE_ops_1', code: 'HAE_ops_1', name: 'HAE 예산 운영담당자', description: 'HAE 가상조직 예산 운영', parent_role_id: 'HAE_budget_admin', tenant_id: 'HAE' },
+  {
+    id: "HAE_tenant_admin",
+    code: "HAE_tenant_admin",
+    name: "HAE 테넌트 총괄관리자",
+    description: "현대오토에버 BO 전체 관리",
+    parent_role_id: null,
+    tenant_id: "HAE",
+  },
+  {
+    id: "HAE_budget_admin",
+    code: "HAE_budget_admin",
+    name: "HAE 예산 총괄관리자",
+    description: "HAE 교육예산 총괄 관리",
+    parent_role_id: "HAE_tenant_admin",
+    tenant_id: "HAE",
+  },
+  {
+    id: "HAE_ops_1",
+    code: "HAE_ops_1",
+    name: "HAE 예산 운영담당자",
+    description: "HAE 가상조직 예산 운영",
+    parent_role_id: "HAE_budget_admin",
+    tenant_id: "HAE",
+  },
   // ── ROTEM (현대로템) ──────────────────────────────────────────────────────
-  { id: 'ROTEM_tenant_admin', code: 'ROTEM_tenant_admin', name: '로템 테넌트 총괄관리자', description: '현대로템 BO 전체 관리', parent_role_id: null, tenant_id: 'ROTEM' },
-  { id: 'ROTEM_budget_admin', code: 'ROTEM_budget_admin', name: '로템 예산 총괄관리자', description: '로템 교육예산 총괄 관리', parent_role_id: 'ROTEM_tenant_admin', tenant_id: 'ROTEM' },
-  { id: 'ROTEM_ops_1', code: 'ROTEM_ops_1', name: '로템 예산 운영담당자', description: '로템 가상조직 예산 운영', parent_role_id: 'ROTEM_budget_admin', tenant_id: 'ROTEM' },
+  {
+    id: "ROTEM_tenant_admin",
+    code: "ROTEM_tenant_admin",
+    name: "로템 테넌트 총괄관리자",
+    description: "현대로템 BO 전체 관리",
+    parent_role_id: null,
+    tenant_id: "ROTEM",
+  },
+  {
+    id: "ROTEM_budget_admin",
+    code: "ROTEM_budget_admin",
+    name: "로템 예산 총괄관리자",
+    description: "로템 교육예산 총괄 관리",
+    parent_role_id: "ROTEM_tenant_admin",
+    tenant_id: "ROTEM",
+  },
+  {
+    id: "ROTEM_ops_1",
+    code: "ROTEM_ops_1",
+    name: "로템 예산 운영담당자",
+    description: "로템 가상조직 예산 운영",
+    parent_role_id: "ROTEM_budget_admin",
+    tenant_id: "ROTEM",
+  },
   // ── HEC (현대엔지니어링) ──────────────────────────────────────────────────
-  { id: 'HEC_tenant_admin', code: 'HEC_tenant_admin', name: '엔지 테넌트 총괄관리자', description: '현대엔지니어링 BO 전체 관리', parent_role_id: null, tenant_id: 'HEC' },
-  { id: 'HEC_budget_admin', code: 'HEC_budget_admin', name: '엔지 예산 총괄관리자', description: '엔지 교육예산 총괄 관리', parent_role_id: 'HEC_tenant_admin', tenant_id: 'HEC' },
-  { id: 'HEC_ops_1', code: 'HEC_ops_1', name: '엔지 예산 운영담당자', description: '엔지 가상조직 예산 운영', parent_role_id: 'HEC_budget_admin', tenant_id: 'HEC' },
+  {
+    id: "HEC_tenant_admin",
+    code: "HEC_tenant_admin",
+    name: "엔지 테넌트 총괄관리자",
+    description: "현대엔지니어링 BO 전체 관리",
+    parent_role_id: null,
+    tenant_id: "HEC",
+  },
+  {
+    id: "HEC_budget_admin",
+    code: "HEC_budget_admin",
+    name: "엔지 예산 총괄관리자",
+    description: "엔지 교육예산 총괄 관리",
+    parent_role_id: "HEC_tenant_admin",
+    tenant_id: "HEC",
+  },
+  {
+    id: "HEC_ops_1",
+    code: "HEC_ops_1",
+    name: "엔지 예산 운영담당자",
+    description: "엔지 가상조직 예산 운영",
+    parent_role_id: "HEC_budget_admin",
+    tenant_id: "HEC",
+  },
   // ── HSC (현대제철) ────────────────────────────────────────────────────────
-  { id: 'HSC_tenant_admin', code: 'HSC_tenant_admin', name: '제철 테넌트 총괄관리자', description: '현대제철 BO 전체 관리', parent_role_id: null, tenant_id: 'HSC' },
-  { id: 'HSC_budget_admin', code: 'HSC_budget_admin', name: '제철 예산 총괄관리자', description: '제철 교육예산 총괄 관리', parent_role_id: 'HSC_tenant_admin', tenant_id: 'HSC' },
-  { id: 'HSC_ops_1', code: 'HSC_ops_1', name: '제철 예산 운영담당자', description: '제철 가상조직 예산 운영', parent_role_id: 'HSC_budget_admin', tenant_id: 'HSC' },
+  {
+    id: "HSC_tenant_admin",
+    code: "HSC_tenant_admin",
+    name: "제철 테넌트 총괄관리자",
+    description: "현대제철 BO 전체 관리",
+    parent_role_id: null,
+    tenant_id: "HSC",
+  },
+  {
+    id: "HSC_budget_admin",
+    code: "HSC_budget_admin",
+    name: "제철 예산 총괄관리자",
+    description: "제철 교육예산 총괄 관리",
+    parent_role_id: "HSC_tenant_admin",
+    tenant_id: "HSC",
+  },
+  {
+    id: "HSC_ops_1",
+    code: "HSC_ops_1",
+    name: "제철 예산 운영담당자",
+    description: "제철 가상조직 예산 운영",
+    parent_role_id: "HSC_budget_admin",
+    tenant_id: "HSC",
+  },
   // ── HTS (현대트랜시스) ────────────────────────────────────────────────────
-  { id: 'HTS_tenant_admin', code: 'HTS_tenant_admin', name: '트랜시 테넌트 총괄관리자', description: '현대트랜시스 BO 전체 관리', parent_role_id: null, tenant_id: 'HTS' },
-  { id: 'HTS_budget_admin', code: 'HTS_budget_admin', name: '트랜시 예산 총괄관리자', description: '트랜시 교육예산 총괄 관리', parent_role_id: 'HTS_tenant_admin', tenant_id: 'HTS' },
-  { id: 'HTS_ops_1', code: 'HTS_ops_1', name: '트랜시 예산 운영담당자', description: '트랜시 가상조직 예산 운영', parent_role_id: 'HTS_budget_admin', tenant_id: 'HTS' },
+  {
+    id: "HTS_tenant_admin",
+    code: "HTS_tenant_admin",
+    name: "트랜시 테넌트 총괄관리자",
+    description: "현대트랜시스 BO 전체 관리",
+    parent_role_id: null,
+    tenant_id: "HTS",
+  },
+  {
+    id: "HTS_budget_admin",
+    code: "HTS_budget_admin",
+    name: "트랜시 예산 총괄관리자",
+    description: "트랜시 교육예산 총괄 관리",
+    parent_role_id: "HTS_tenant_admin",
+    tenant_id: "HTS",
+  },
+  {
+    id: "HTS_ops_1",
+    code: "HTS_ops_1",
+    name: "트랜시 예산 운영담당자",
+    description: "트랜시 가상조직 예산 운영",
+    parent_role_id: "HTS_budget_admin",
+    tenant_id: "HTS",
+  },
   // ── GLOVIS (현대글로비스) ─────────────────────────────────────────────────
-  { id: 'GLOVIS_tenant_admin', code: 'GLOVIS_tenant_admin', name: '글로비스 테넌트 총괄관리자', description: '현대글로비스 BO 전체 관리', parent_role_id: null, tenant_id: 'GLOVIS' },
-  { id: 'GLOVIS_budget_admin', code: 'GLOVIS_budget_admin', name: '글로비스 예산 총괄관리자', description: '글로비스 교육예산 총괄 관리', parent_role_id: 'GLOVIS_tenant_admin', tenant_id: 'GLOVIS' },
-  { id: 'GLOVIS_ops_1', code: 'GLOVIS_ops_1', name: '글로비스 예산 운영담당자', description: '글로비스 가상조직 예산 운영', parent_role_id: 'GLOVIS_budget_admin', tenant_id: 'GLOVIS' },
+  {
+    id: "GLOVIS_tenant_admin",
+    code: "GLOVIS_tenant_admin",
+    name: "글로비스 테넌트 총괄관리자",
+    description: "현대글로비스 BO 전체 관리",
+    parent_role_id: null,
+    tenant_id: "GLOVIS",
+  },
+  {
+    id: "GLOVIS_budget_admin",
+    code: "GLOVIS_budget_admin",
+    name: "글로비스 예산 총괄관리자",
+    description: "글로비스 교육예산 총괄 관리",
+    parent_role_id: "GLOVIS_tenant_admin",
+    tenant_id: "GLOVIS",
+  },
+  {
+    id: "GLOVIS_ops_1",
+    code: "GLOVIS_ops_1",
+    name: "글로비스 예산 운영담당자",
+    description: "글로비스 가상조직 예산 운영",
+    parent_role_id: "GLOVIS_budget_admin",
+    tenant_id: "GLOVIS",
+  },
   // ── HIS (현대차증권) ──────────────────────────────────────────────────────
-  { id: 'HIS_tenant_admin', code: 'HIS_tenant_admin', name: '차증권 테넌트 총괄관리자', description: '현대차증권 BO 전체 관리', parent_role_id: null, tenant_id: 'HIS' },
-  { id: 'HIS_budget_admin', code: 'HIS_budget_admin', name: '차증권 예산 총괄관리자', description: '차증권 교육예산 총괄 관리', parent_role_id: 'HIS_tenant_admin', tenant_id: 'HIS' },
-  { id: 'HIS_ops_1', code: 'HIS_ops_1', name: '차증권 예산 운영담당자', description: '차증권 가상조직 예산 운영', parent_role_id: 'HIS_budget_admin', tenant_id: 'HIS' },
+  {
+    id: "HIS_tenant_admin",
+    code: "HIS_tenant_admin",
+    name: "차증권 테넌트 총괄관리자",
+    description: "현대차증권 BO 전체 관리",
+    parent_role_id: null,
+    tenant_id: "HIS",
+  },
+  {
+    id: "HIS_budget_admin",
+    code: "HIS_budget_admin",
+    name: "차증권 예산 총괄관리자",
+    description: "차증권 교육예산 총괄 관리",
+    parent_role_id: "HIS_tenant_admin",
+    tenant_id: "HIS",
+  },
+  {
+    id: "HIS_ops_1",
+    code: "HIS_ops_1",
+    name: "차증권 예산 운영담당자",
+    description: "차증권 가상조직 예산 운영",
+    parent_role_id: "HIS_budget_admin",
+    tenant_id: "HIS",
+  },
   // ── KEFICO ────────────────────────────────────────────────────────────────
-  { id: 'KEFICO_tenant_admin', code: 'KEFICO_tenant_admin', name: '케피코 테넌트 총괄관리자', description: 'KEFICO BO 전체 관리', parent_role_id: null, tenant_id: 'KEFICO' },
-  { id: 'KEFICO_budget_admin', code: 'KEFICO_budget_admin', name: '케피코 예산 총괄관리자', description: '케피코 교육예산 총괄 관리', parent_role_id: 'KEFICO_tenant_admin', tenant_id: 'KEFICO' },
-  { id: 'KEFICO_ops_1', code: 'KEFICO_ops_1', name: '케피코 예산 운영담당자', description: '케피코 가상조직 예산 운영', parent_role_id: 'KEFICO_budget_admin', tenant_id: 'KEFICO' },
+  {
+    id: "KEFICO_tenant_admin",
+    code: "KEFICO_tenant_admin",
+    name: "케피코 테넌트 총괄관리자",
+    description: "KEFICO BO 전체 관리",
+    parent_role_id: null,
+    tenant_id: "KEFICO",
+  },
+  {
+    id: "KEFICO_budget_admin",
+    code: "KEFICO_budget_admin",
+    name: "케피코 예산 총괄관리자",
+    description: "케피코 교육예산 총괄 관리",
+    parent_role_id: "KEFICO_tenant_admin",
+    tenant_id: "KEFICO",
+  },
+  {
+    id: "KEFICO_ops_1",
+    code: "KEFICO_ops_1",
+    name: "케피코 예산 운영담당자",
+    description: "케피코 가상조직 예산 운영",
+    parent_role_id: "KEFICO_budget_admin",
+    tenant_id: "KEFICO",
+  },
   // ── HISC (ISC) ────────────────────────────────────────────────────────────
-  { id: 'HISC_tenant_admin', code: 'HISC_tenant_admin', name: 'ISC 테넌트 총괄관리자', description: 'ISC BO 전체 관리', parent_role_id: null, tenant_id: 'HISC' },
-  { id: 'HISC_budget_admin', code: 'HISC_budget_admin', name: 'ISC 예산 총괄관리자', description: 'ISC 교육예산 총괄 관리', parent_role_id: 'HISC_tenant_admin', tenant_id: 'HISC' },
-  { id: 'HISC_ops_1', code: 'HISC_ops_1', name: 'ISC 예산 운영담당자', description: 'ISC 가상조직 예산 운영', parent_role_id: 'HISC_budget_admin', tenant_id: 'HISC' },
+  {
+    id: "HISC_tenant_admin",
+    code: "HISC_tenant_admin",
+    name: "ISC 테넌트 총괄관리자",
+    description: "ISC BO 전체 관리",
+    parent_role_id: null,
+    tenant_id: "HISC",
+  },
+  {
+    id: "HISC_budget_admin",
+    code: "HISC_budget_admin",
+    name: "ISC 예산 총괄관리자",
+    description: "ISC 교육예산 총괄 관리",
+    parent_role_id: "HISC_tenant_admin",
+    tenant_id: "HISC",
+  },
+  {
+    id: "HISC_ops_1",
+    code: "HISC_ops_1",
+    name: "ISC 예산 운영담당자",
+    description: "ISC 가상조직 예산 운영",
+    parent_role_id: "HISC_budget_admin",
+    tenant_id: "HISC",
+  },
 ];
 
 // ──────────────────────────────────────────────────────────────────────────────
 // 역할관리 메인 렌더링 (테넌트 선택 → 계층 트리 표시)
 // ──────────────────────────────────────────────────────────────────────────────
 async function renderRoleMgmt() {
-  const el = document.getElementById('bo-content');
-  el.innerHTML = '<div class="bo-fade" style="padding:20px"><p style="color:#9CA3AF">로딩 중...</p></div>';
+  const el = document.getElementById("bo-content");
+  el.innerHTML =
+    '<div class="bo-fade" style="padding:20px"><p style="color:#9CA3AF">로딩 중...</p></div>';
 
   const persona = boCurrentPersona;
-  const isPlatform = persona.role === 'platform_admin';
-  const tenants = typeof TENANTS !== 'undefined' ? TENANTS.filter(t => t.id !== 'SYSTEM') : [];
+  const isPlatform = persona.role === "platform_admin";
+  const tenants =
+    typeof TENANTS !== "undefined"
+      ? TENANTS.filter((t) => t.id !== "SYSTEM")
+      : [];
 
   // 테넌트 필터 초기화 (탭 전환 등으로 리셋 방지)
   if (!window._rmFilterTenant) {
-    window._rmFilterTenant = isPlatform ? (tenants[0]?.id || 'HMC') : (persona.tenantId || 'HMC');
+    window._rmFilterTenant = isPlatform
+      ? tenants[0]?.id || "HMC"
+      : persona.tenantId || "HMC";
   }
   const selTenantId = window._rmFilterTenant;
-  const selTenant = tenants.find(t => t.id === selTenantId);
+  const selTenant = tenants.find((t) => t.id === selTenantId);
 
   // DB 조회 (tenant_id 필터로 서버사이드에서 걸러서 받기)
   let tenantRoles;
   try {
-    tenantRoles = await _sbGet('roles', { tenant_id: selTenantId }) || [];
-  } catch (e) { tenantRoles = []; }
+    tenantRoles = (await _sbGet("roles", { tenant_id: selTenantId })) || [];
+  } catch (e) {
+    tenantRoles = [];
+  }
   // DB에 데이터 없으면 목업 fallback
   if (!tenantRoles.length) {
-    tenantRoles = TENANT_ROLES_MOCK.filter(r => r.tenant_id === selTenantId);
+    tenantRoles = TENANT_ROLES_MOCK.filter((r) => r.tenant_id === selTenantId);
   }
 
   // ── Bug Fix: role_code 기준으로 배정인원 카운트 ──────────────────────────
   let allUserRoles = [];
   try {
     if (_sb()) {
-      const { data } = await _sb().from('user_roles').select('role_code,user_id').eq('tenant_id', selTenantId);
+      const { data } = await _sb()
+        .from("user_roles")
+        .select("role_code,user_id")
+        .eq("tenant_id", selTenantId);
       allUserRoles = data || [];
     }
-  } catch (e) { }
+  } catch (e) {}
   function countByRole(roleCode) {
-    return new Set(allUserRoles.filter(r => r.role_code === roleCode).map(r => r.user_id)).size;
+    return new Set(
+      allUserRoles
+        .filter((r) => r.role_code === roleCode)
+        .map((r) => r.user_id),
+    ).size;
   }
 
   // ── 역할 계층 트리 재귀 렌더링 ─────────────────────────────────────────
-  const levelColors = ['#4F46E5', '#0369A1', '#059669', '#D97706', '#7C3AED'];
+  const levelColors = ["#4F46E5", "#0369A1", "#059669", "#D97706", "#7C3AED"];
   const renderedIds = new Set();
 
   function buildTree(parentId, depth) {
-    const children = tenantRoles.filter(r => (r.parent_role_id || null) === parentId);
-    if (!children.length) return '';
-    let html = '';
-    children.forEach(r => {
+    const children = tenantRoles.filter(
+      (r) => (r.parent_role_id || null) === parentId,
+    );
+    if (!children.length) return "";
+    let html = "";
+    children.forEach((r) => {
       renderedIds.add(r.code);
       const color = levelColors[Math.min(depth, levelColors.length - 1)];
       const cnt = countByRole(r.code);
       // cntId: 배정/해제 시 즉시 숫자 업데이트용
-      const cntId = 'rm-cnt-' + r.code.replace(/[^a-z0-9]/gi, '_');
+      const cntId = "rm-cnt-" + r.code.replace(/[^a-z0-9]/gi, "_");
       const safeName = r.name.replace(/'/g, "&#39;");
       const indent = depth * 32;
       html += `
@@ -138,11 +463,15 @@ async function renderRoleMgmt() {
            ondragover="event.preventDefault(); this.style.backgroundColor='#F1F5F9';"
            ondragleave="this.style.backgroundColor='';"
            ondrop="event.preventDefault(); this.style.backgroundColor=''; _rmDropRole(event, '${r.code}')">
-        ${indent > 0 ? `
+        ${
+          indent > 0
+            ? `
         <div style="width:${indent}px;flex-shrink:0;display:flex;align-items:center;justify-content:flex-end;padding-right:4px">
           <div style="width:20px;height:1px;background:#D1D5DB"></div>
-        </div>` : ''}
-        <div style="flex:1;display:flex;align-items:center;gap:16px;padding:12px 18px;background:${depth === 0 ? '#F8FAFC' : '#fff'}">
+        </div>`
+            : ""
+        }
+        <div style="flex:1;display:flex;align-items:center;gap:16px;padding:12px 18px;background:${depth === 0 ? "#F8FAFC" : "#fff"}">
           <!-- 역할 뱃지 -->
           <div style="padding:7px 12px;border-radius:8px;background:${color}15;border:1.5px solid ${color}30;min-width:140px;text-align:center;flex-shrink:0">
             <div style="font-size:12px;font-weight:800;color:${color};line-height:1.3">
@@ -156,7 +485,7 @@ async function renderRoleMgmt() {
             ${_rmServiceBadge(r.service_type)}
           </div>
           <!-- 설명 -->
-          <div style="flex:1;font-size:12px;color:#64748B">${r.description || '-'}</div>
+          <div style="flex:1;font-size:12px;color:#64748B">${r.description || "-"}</div>
           <!-- 배정 인원 (id 속성으로 즉시 업데이트 가능) -->
           <div style="text-align:center;min-width:52px;flex-shrink:0">
             <div id="${cntId}" style="font-size:18px;font-weight:900;color:#0F172A">${cnt}</div>
@@ -177,7 +506,11 @@ async function renderRoleMgmt() {
 
   let treeHtml = buildTree(null, 0);
   // 부모가 목록 밖에 있는 고아 노드 처리
-  tenantRoles.filter(r => !renderedIds.has(r.code)).forEach(r => { treeHtml += buildTree(r.parent_role_id, 0); });
+  tenantRoles
+    .filter((r) => !renderedIds.has(r.code))
+    .forEach((r) => {
+      treeHtml += buildTree(r.parent_role_id, 0);
+    });
   if (!treeHtml) {
     treeHtml = `<div style="padding:48px;text-align:center;color:#94A3B8">
       <div style="font-size:32px;margin-bottom:12px">🔐</div>
@@ -187,14 +520,16 @@ async function renderRoleMgmt() {
   }
 
   // ── 테넌트 선택 드롭다운 (플랫폼 총괄만 보임) ──────────────────────────
-  const tenantCtrl = isPlatform ? `
+  const tenantCtrl = isPlatform
+    ? `
     <div style="display:flex;align-items:center;gap:8px">
       <span style="font-size:11px;font-weight:700;color:#64748B">테넌트 선택</span>
       <select onchange="window._rmFilterTenant=this.value;renderRoleMgmt()"
         style="padding:6px 12px;border:1.5px solid #CBD5E1;border-radius:6px;font-size:12px;font-weight:700;color:#1E293B;cursor:pointer;background:#fff">
-        ${tenants.map(t => `<option value="${t.id}" ${t.id === selTenantId ? 'selected' : ''}>${t.name || t.id}</option>`).join('')}
+        ${tenants.map((t) => `<option value="${t.id}" ${t.id === selTenantId ? "selected" : ""}>${t.name || t.id}</option>`).join("")}
       </select>
-    </div>` : `
+    </div>`
+    : `
     <div style="padding:4px 12px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px">
       <span style="font-size:12px;font-weight:700;color:#1D4ED8">🏢 ${selTenant?.name || selTenantId}</span>
     </div>`;
@@ -258,15 +593,15 @@ async function renderRoleMgmt() {
 // 역할별 담당자 인라인 관리 패널
 // ──────────────────────────────────────────────────────────────────────────────
 window._rmViewUsers = async function (roleCode, roleName) {
-  const panel = document.getElementById('rm-users-panel');
+  const panel = document.getElementById("rm-users-panel");
   if (!panel) return;
   // 같은 역할 재클릭 시 토글 닫기
-  if (panel.dataset.role === roleCode && panel.style.display !== 'none') {
-    panel.style.display = 'none';
+  if (panel.dataset.role === roleCode && panel.style.display !== "none") {
+    panel.style.display = "none";
     return;
   }
   panel.dataset.role = roleCode;
-  panel.style.display = 'block';
+  panel.style.display = "block";
   panel.innerHTML = '<p style="color:#9CA3AF;font-size:12px">조회 중...</p>';
   await _rmRefreshPanel(roleCode, roleName, panel);
 };
@@ -280,34 +615,44 @@ async function _rmRefreshPanel(roleCode, roleName, panel) {
   let urList = [];
   try {
     if (_sb()) {
-      const { data } = await _sb().from('user_roles').select('*').eq('role_code', roleCode);
+      const { data } = await _sb()
+        .from("user_roles")
+        .select("*")
+        .eq("role_code", roleCode);
       urList = data || [];
     }
-  } catch (e) { }
-  const assignedIds = new Set(urList.map(r => r.user_id));
+  } catch (e) {}
+  const assignedIds = new Set(urList.map((r) => r.user_id));
 
   // ② 배정된 사용자 상세
   let assignedUsers = [];
   if (assignedIds.size) {
     try {
       if (_sb()) {
-        const { data } = await _sb().from('users').select('id,name,emp_no,email,job_type').in('id', [...assignedIds]);
+        const { data } = await _sb()
+          .from("users")
+          .select("id,name,emp_no,email,job_type")
+          .in("id", [...assignedIds]);
         assignedUsers = data || [];
       }
-    } catch (e) { }
-    if (!assignedUsers.length) assignedUsers = [...assignedIds].map(id => ({ id, name: id }));
+    } catch (e) {}
+    if (!assignedUsers.length)
+      assignedUsers = [...assignedIds].map((id) => ({ id, name: id }));
   }
 
   // ③ 테넌트 전체 사용자 로드 (클라이언트 필터용)
   let tenantUsers = [];
   try {
     if (_sb()) {
-      const { data } = await _sb().from('users').select('id,name,emp_no,email,job_type').eq('tenant_id', tenantId);
+      const { data } = await _sb()
+        .from("users")
+        .select("id,name,emp_no,email,job_type")
+        .eq("tenant_id", tenantId);
       tenantUsers = data || [];
     }
-  } catch (e) { }
-  if (!tenantUsers.length && typeof MOCK_BO_USERS !== 'undefined') {
-    tenantUsers = (MOCK_BO_USERS || []).filter(u => u.tenant_id === tenantId);
+  } catch (e) {}
+  if (!tenantUsers.length && typeof MOCK_BO_USERS !== "undefined") {
+    tenantUsers = (MOCK_BO_USERS || []).filter((u) => u.tenant_id === tenantId);
   }
 
   // 전역 캐시 (검색 시 재사용)
@@ -317,30 +662,43 @@ async function _rmRefreshPanel(roleCode, roleName, panel) {
   window._rmCurrentRoleName = roleName;
 
   const assignedIdsMap = {};
-  urList.forEach(r => { assignedIdsMap[r.user_id] = r; });
-  const assignedHtml = assignedUsers.length ? assignedUsers.map(u => {
-    const rData = assignedIdsMap[u.id] || {};
-    const sd = rData.start_date ? rData.start_date.substring(0, 10) : '';
-    const ed = rData.end_date ? rData.end_date.substring(0, 10) : '영구권한';
-    return `
+  urList.forEach((r) => {
+    assignedIdsMap[r.user_id] = r;
+  });
+  const assignedHtml = assignedUsers.length
+    ? assignedUsers
+        .map((u) => {
+          const rData = assignedIdsMap[u.id] || {};
+          const sd = rData.start_date ? rData.start_date.substring(0, 10) : "";
+          const ed = rData.end_date
+            ? rData.end_date.substring(0, 10)
+            : "영구권한";
+          return `
     <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:white;
          border:1.5px solid #E2E8F0;border-radius:8px;font-size:12px;font-weight:700;color:#374151">
       <span style="font-size:15px">👤</span>
       <div>
-        <div>${u.name || '(이름없음)'}</div>
-        <div style="font-size:10px;color:#94A3B8;font-weight:400">${u.emp_no || u.id || ''} · ${u.job_type || 'general'}</div>
+        <div>${u.name || "(이름없음)"}</div>
+        <div style="font-size:10px;color:#94A3B8;font-weight:400">${u.emp_no || u.id || ""} · ${u.job_type || "general"}</div>
       </div>
       <div style="margin-left:auto;margin-right:8px;text-align:right">
-        <div style="font-size:10px;color:#64748B">기간: ${sd || '-'} ~ ${ed}</div>
+        <div style="font-size:10px;color:#64748B">기간: ${sd || "-"} ~ ${ed}</div>
       </div>
       <button onclick="_rmRemoveUser('${roleCode}','${u.id}','${roleName}')"
         style="padding:2px 8px;background:#FEF2F2;border:1px solid #FECACA;border-radius:5px;
                color:#DC2626;font-size:10px;font-weight:700;cursor:pointer">✕ 해제</button>
     </div>`;
-  }).join('') : `<p style="color:#94A3B8;font-size:12px;margin:0">아직 배정된 담당자가 없습니다.</p>`;
+        })
+        .join("")
+    : `<p style="color:#94A3B8;font-size:12px;margin:0">아직 배정된 담당자가 없습니다.</p>`;
 
   // ④ 미배정 사용자 목록
-  const availableHtml = _rmBuildAvailableHtml(tenantUsers, assignedIds, roleCode, roleName);
+  const availableHtml = _rmBuildAvailableHtml(
+    tenantUsers,
+    assignedIds,
+    roleCode,
+    roleName,
+  );
 
   panel.innerHTML = `
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
@@ -381,16 +739,18 @@ async function _rmRefreshPanel(roleCode, roleName, panel) {
 
 /** 배정 가능한 사용자 목록 HTML 생성 (클라이언트 필터 공용) */
 function _rmBuildAvailableHtml(users, assignedIds, roleCode, roleName) {
-  const safeName = (roleName || '').replace(/'/g, "&#39;");
-  const candidates = users.filter(u => !assignedIds.has(u.id));
-  if (!candidates.length) return '';
-  return candidates.map(u => `
+  const safeName = (roleName || "").replace(/'/g, "&#39;");
+  const candidates = users.filter((u) => !assignedIds.has(u.id));
+  if (!candidates.length) return "";
+  return candidates
+    .map(
+      (u) => `
     <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid #F1F5F9;
-         border-radius:7px;background:#FAFAFA" data-name="${(u.name || '').toLowerCase()}" data-empno="${(u.emp_no || '').toLowerCase()}">
+         border-radius:7px;background:#FAFAFA" data-name="${(u.name || "").toLowerCase()}" data-empno="${(u.emp_no || "").toLowerCase()}">
       <span style="font-size:14px">👤</span>
       <div style="flex:1">
-        <div style="font-size:12px;font-weight:700;color:#1E293B">${u.name || '(이름없음)'}</div>
-        <div style="font-size:10px;color:#94A3B8">${u.emp_no || u.id || ''} · ${u.job_type || 'general'}</div>
+        <div style="font-size:12px;font-weight:700;color:#1E293B">${u.name || "(이름없음)"}</div>
+        <div style="font-size:10px;color:#94A3B8">${u.emp_no || u.id || ""} · ${u.job_type || "general"}</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:4px">
         <div style="display:flex;align-items:center;gap:4px">
@@ -405,24 +765,28 @@ function _rmBuildAvailableHtml(users, assignedIds, roleCode, roleName) {
       <button onclick="_rmAssignUser('${roleCode}','${u.id}','${safeName}')"
         style="padding:8px 12px;height:100%;background:#0B132B;color:#fff;border:none;border-radius:5px;
                font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0">+ 배정</button>
-    </div>`).join('');
+    </div>`,
+    )
+    .join("");
 }
 
 /** 실시간 클라이언트 필터 */
 window._rmFilterUsers = function (q) {
-  const list = document.getElementById('rm-user-list');
+  const list = document.getElementById("rm-user-list");
   if (!list) return;
-  const kw = (q || '').toLowerCase().trim();
+  const kw = (q || "").toLowerCase().trim();
   const users = window._rmTenantUsers || [];
   const assignedIds = window._rmAssignedIds || new Set();
   const roleCode = window._rmCurrentRole;
   const roleName = window._rmCurrentRoleName;
   const filtered = kw
-    ? users.filter(u => !assignedIds.has(u.id) && (
-      (u.name || '').toLowerCase().includes(kw) ||
-      (u.emp_no || '').toLowerCase().includes(kw)
-    ))
-    : users.filter(u => !assignedIds.has(u.id));
+    ? users.filter(
+        (u) =>
+          !assignedIds.has(u.id) &&
+          ((u.name || "").toLowerCase().includes(kw) ||
+            (u.emp_no || "").toLowerCase().includes(kw)),
+      )
+    : users.filter((u) => !assignedIds.has(u.id));
   list.innerHTML = filtered.length
     ? _rmBuildAvailableHtml(filtered, assignedIds, roleCode, roleName)
     : '<p style="font-size:11px;color:#94A3B8;text-align:center;padding:12px">검색 결과가 없습니다</p>';
@@ -430,59 +794,77 @@ window._rmFilterUsers = function (q) {
 
 // ── 배정 (Bug Fix: tenant_id 포함, 카운트 즉시 업데이트) ─────────────────
 window._rmAssignUser = async function (roleCode, userId, roleName) {
-  const sdInput = document.getElementById('rm-sd-' + userId);
-  const edInput = document.getElementById('rm-ed-' + userId);
+  const sdInput = document.getElementById("rm-sd-" + userId);
+  const edInput = document.getElementById("rm-ed-" + userId);
   const startDate = sdInput ? sdInput.value : null;
   const endDate = edInput ? edInput.value : null;
 
   if (!endDate) {
-    alert('역할 사용 종료일을 필수로 지정해야 합니다.');
+    alert("역할 사용 종료일을 필수로 지정해야 합니다.");
     if (edInput) edInput.focus();
     return;
   }
   if (startDate && endDate && startDate > endDate) {
-    alert('종료일이 시작일보다 빠를 수 없습니다.');
+    alert("종료일이 시작일보다 빠를 수 없습니다.");
     return;
   }
 
   try {
     if (_sb()) {
       const tenantId = window._rmFilterTenant;
-      const { error } = await _sb().from('user_roles').upsert(
-        { role_code: roleCode, user_id: userId, scope_id: 'role_assignment', tenant_id: tenantId, start_date: startDate || null, end_date: endDate },
-        { onConflict: 'user_id,role_code,scope_id' }
-      );
+      const { error } = await _sb()
+        .from("user_roles")
+        .upsert(
+          {
+            role_code: roleCode,
+            user_id: userId,
+            scope_id: "role_assignment",
+            tenant_id: tenantId,
+            start_date: startDate || null,
+            end_date: endDate,
+          },
+          { onConflict: "user_id,role_code,scope_id" },
+        );
       if (error) throw error;
     }
     // 즉시 카운트 업데이트 (전체 재렌더 없이)
-    const cntId = 'rm-cnt-' + roleCode.replace(/[^a-z0-9]/gi, '_');
+    const cntId = "rm-cnt-" + roleCode.replace(/[^a-z0-9]/gi, "_");
     const cntEl = document.getElementById(cntId);
-    if (cntEl) cntEl.textContent = String(parseInt(cntEl.textContent || '0') + 1);
+    if (cntEl)
+      cntEl.textContent = String(parseInt(cntEl.textContent || "0") + 1);
     // 패널 새로고침
-    const panel = document.getElementById('rm-users-panel');
+    const panel = document.getElementById("rm-users-panel");
     await _rmRefreshPanel(roleCode, roleName, panel);
-  } catch (e) { alert('배정 실패: ' + e.message); }
+  } catch (e) {
+    alert("배정 실패: " + e.message);
+  }
 };
 
 // ── 해제 (카운트 즉시 업데이트) ─────────────────────────────────────────
 window._rmRemoveUser = async function (roleCode, userId, roleName) {
-  if (!confirm('이 담당자의 역할 배정을 해제하시겠습니까?')) return;
+  if (!confirm("이 담당자의 역할 배정을 해제하시겠습니까?")) return;
   try {
     if (_sb()) {
-      const { error } = await _sb().from('user_roles')
-        .delete().eq('role_code', roleCode).eq('user_id', userId);
+      const { error } = await _sb()
+        .from("user_roles")
+        .delete()
+        .eq("role_code", roleCode)
+        .eq("user_id", userId);
       if (error) throw error;
     }
     // 즉시 카운트 업데이트
-    const cntId = 'rm-cnt-' + roleCode.replace(/[^a-z0-9]/gi, '_');
+    const cntId = "rm-cnt-" + roleCode.replace(/[^a-z0-9]/gi, "_");
     const cntEl = document.getElementById(cntId);
-    if (cntEl) cntEl.textContent = String(Math.max(0, parseInt(cntEl.textContent || '0') - 1));
-    const panel = document.getElementById('rm-users-panel');
+    if (cntEl)
+      cntEl.textContent = String(
+        Math.max(0, parseInt(cntEl.textContent || "0") - 1),
+      );
+    const panel = document.getElementById("rm-users-panel");
     await _rmRefreshPanel(roleCode, roleName, panel);
-  } catch (e) { alert('해제 실패: ' + e.message); }
+  } catch (e) {
+    alert("해제 실패: " + e.message);
+  }
 };
-
-
 
 // ──────────────────────────────────────────────────────────────────────────────
 // 역할 추가/수정 모달
@@ -490,50 +872,61 @@ window._rmRemoveUser = async function (roleCode, userId, roleName) {
 window._openRoleModal = async function (parentCode, editRoleCode = null) {
   // 현재 테넌트 역할 목록 로드 (부모 선택 드롭다운용)
   let roles = [];
-  try { roles = await _sbGet('roles', { tenant_id: window._rmFilterTenant }) || []; } catch (e) { }
-  if (!roles.length && typeof TENANT_ROLES_MOCK !== 'undefined') {
-    roles = TENANT_ROLES_MOCK.filter(r => r.tenant_id === window._rmFilterTenant);
+  try {
+    roles =
+      (await _sbGet("roles", { tenant_id: window._rmFilterTenant })) || [];
+  } catch (e) {}
+  if (!roles.length && typeof TENANT_ROLES_MOCK !== "undefined") {
+    roles = TENANT_ROLES_MOCK.filter(
+      (r) => r.tenant_id === window._rmFilterTenant,
+    );
   }
 
-  let mode = '추가';
-  let suggCode = window._rmFilterTenant + '_';
-  let initName = '';
-  let initDesc = '';
-  let initParent = parentCode || '';
-  let initService = ['all']; // 기본값: 전체
-  let initLevelType = 'head'; // 기본값: 총괄
-  let isReadOnlyCode = '';
+  let mode = "추가";
+  let suggCode = window._rmFilterTenant + "_";
+  let initName = "";
+  let initDesc = "";
+  let initParent = parentCode || "";
+  let initService = ["all"]; // 기본값: 전체
+  let initLevelType = "head"; // 기본값: 총괄
+  let isReadOnlyCode = "";
 
   if (editRoleCode) {
-    mode = '수정';
-    const target = roles.find(r => r.code === editRoleCode);
+    mode = "수정";
+    const target = roles.find((r) => r.code === editRoleCode);
     if (target) {
       suggCode = target.code;
-      initName = target.name || '';
-      initDesc = target.description || '';
-      initParent = target.parent_role_id || '';
+      initName = target.name || "";
+      initDesc = target.description || "";
+      initParent = target.parent_role_id || "";
       // service_type: 'all', 단일값, 또는 콤마구분 복수값 처리
-      const st = target.service_type || 'all';
-      initService = st.split(',').map(s => s.trim());
-      initLevelType = target.role_level_type || 'head';
-      isReadOnlyCode = 'readonly style="background:#F3F4F6;color:#9CA3AF" title="코드 수정 불가"';
+      const st = target.service_type || "all";
+      initService = st.split(",").map((s) => s.trim());
+      initLevelType = target.role_level_type || "head";
+      isReadOnlyCode =
+        'readonly style="background:#F3F4F6;color:#9CA3AF" title="코드 수정 불가"';
     }
   }
 
-
   const parentOptions = [
     `<option value="">── 없음 (최상위 역할)</option>`,
-    ...roles.filter(r => r.code !== editRoleCode).map(r => `<option value="${r.code}" ${r.code === initParent ? 'selected' : ''}>${r.name} (${r.code})</option>`)
-  ].join('');
+    ...roles
+      .filter((r) => r.code !== editRoleCode)
+      .map(
+        (r) =>
+          `<option value="${r.code}" ${r.code === initParent ? "selected" : ""}>${r.name} (${r.code})</option>`,
+      ),
+  ].join("");
 
-  const tenantId = window._rmFilterTenant || '';
+  const tenantId = window._rmFilterTenant || "";
 
   // 기존 모달 제거
-  document.getElementById('_roleModal')?.remove();
+  document.getElementById("_roleModal")?.remove();
 
-  const modal = document.createElement('div');
-  modal.id = '_roleModal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center';
+  const modal = document.createElement("div");
+  modal.id = "_roleModal";
+  modal.style.cssText =
+    "position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center";
   modal.innerHTML = `
   <div style="background:#fff;border-radius:14px;padding:28px 32px;width:480px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.25)">
     <h3 style="font-size:16px;font-weight:800;margin:0 0 20px;color:#0F172A">🔐 역할 ${mode}</h3>
@@ -557,11 +950,11 @@ window._openRoleModal = async function (parentCode, editRoleCode = null) {
         <select id="_rm_service_type"
           style="display:block;width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid #CBD5E1;
                  border-radius:6px;font-size:12px;background:#fff;cursor:pointer">
-          <option value="" ${!initService[0] || initService[0] === 'all' || initService[0] === '' ? 'selected' : ''}>── 선택 안함 (제도 무관)</option>
-          <option value="edu_support" ${initService.includes('edu_support') ? 'selected' : ''}>교육지원</option>
-          <option value="language" ${initService.includes('language') ? 'selected' : ''}>어학</option>
-          <option value="cert" ${initService.includes('cert') ? 'selected' : ''}>자격증</option>
-          <option value="badge" ${initService.includes('badge') ? 'selected' : ''}>뱃지</option>
+          <option value="" ${!initService[0] || initService[0] === "all" || initService[0] === "" ? "selected" : ""}>── 선택 안함 (제도 무관)</option>
+          <option value="edu_support" ${initService.includes("edu_support") ? "selected" : ""}>교육지원</option>
+          <option value="language" ${initService.includes("language") ? "selected" : ""}>어학</option>
+          <option value="cert" ${initService.includes("cert") ? "selected" : ""}>자격증</option>
+          <option value="badge" ${initService.includes("badge") ? "selected" : ""}>뱃지</option>
         </select>
       </label>
       <div style="font-size:11px;font-weight:700;color:#64748B;margin-top:2px">
@@ -571,7 +964,7 @@ window._openRoleModal = async function (parentCode, editRoleCode = null) {
                  id="_rm_lv_head_lbl"
                  onmouseover="this.style.borderColor='#0369A1'" onmouseout="this.style.borderColor=document.getElementById('_rm_lv_head').checked?'#0369A1':'#CBD5E1'">
             <input type="radio" name="_rm_lv" id="_rm_lv_head" value="head"
-              ${initLevelType === 'head' ? 'checked' : ''}
+              ${initLevelType === "head" ? "checked" : ""}
               onchange="document.getElementById('_rm_lv_head_lbl').style.background=this.checked?'#EFF6FF':'#fff';document.getElementById('_rm_lv_ops_lbl').style.background='#fff';document.getElementById('_rm_lv_head_lbl').style.borderColor=this.checked?'#0369A1':'#CBD5E1';document.getElementById('_rm_lv_ops_lbl').style.borderColor='#CBD5E1'"
               style="accent-color:#0369A1"> 👑 총괄
           </label>
@@ -579,7 +972,7 @@ window._openRoleModal = async function (parentCode, editRoleCode = null) {
                  id="_rm_lv_ops_lbl"
                  onmouseover="this.style.borderColor='#059669'" onmouseout="this.style.borderColor=document.getElementById('_rm_lv_ops').checked?'#059669':'#CBD5E1'">
             <input type="radio" name="_rm_lv" id="_rm_lv_ops" value="ops"
-              ${initLevelType === 'ops' ? 'checked' : ''}
+              ${initLevelType === "ops" ? "checked" : ""}
               onchange="document.getElementById('_rm_lv_ops_lbl').style.background=this.checked?'#ECFDF5':'#fff';document.getElementById('_rm_lv_head_lbl').style.background='#fff';document.getElementById('_rm_lv_ops_lbl').style.borderColor=this.checked?'#059669':'#CBD5E1';document.getElementById('_rm_lv_head_lbl').style.borderColor='#CBD5E1'"
               style="accent-color:#059669"> 🔧 운영
           </label>
@@ -605,50 +998,71 @@ window._openRoleModal = async function (parentCode, editRoleCode = null) {
   document.body.appendChild(modal);
 
   // 배경 클릭 시 닫기
-  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) modal.remove();
+  });
 };
 
 window._saveNewRole = async function () {
-  const code = document.getElementById('_rm_code')?.value.trim();
-  const name = document.getElementById('_rm_name')?.value.trim();
-  const desc = document.getElementById('_rm_desc')?.value.trim();
-  const parent = document.getElementById('_rm_parent')?.value || null;
+  const code = document.getElementById("_rm_code")?.value.trim();
+  const name = document.getElementById("_rm_name")?.value.trim();
+  const desc = document.getElementById("_rm_desc")?.value.trim();
+  const parent = document.getElementById("_rm_parent")?.value || null;
   // 제도유형 (select 방식)
-  const sType = document.getElementById('_rm_service_type')?.value || '';
-  const roleLevelType = document.querySelector('input[name="_rm_lv"]:checked')?.value || 'head';
-  if (!code || !name) { alert('역할 코드와 이름은 필수입니다.'); return; }
+  const sType = document.getElementById("_rm_service_type")?.value || "";
+  const roleLevelType =
+    document.querySelector('input[name="_rm_lv"]:checked')?.value || "head";
+  if (!code || !name) {
+    alert("역할 코드와 이름은 필수입니다.");
+    return;
+  }
 
   const payload = {
-    code, name, description: desc,
+    code,
+    name,
+    description: desc,
     parent_role_id: parent || null,
     tenant_id: window._rmFilterTenant || null,
     service_type: sType,
     role_level_type: roleLevelType,
-    is_system: false, level: 10
+    is_system: false,
+    level: 10,
   };
   try {
     if (_sb()) {
-      const { error } = await _sb().from('roles').upsert(payload, { onConflict: 'code' });
+      const { error } = await _sb()
+        .from("roles")
+        .upsert(payload, { onConflict: "code" });
       if (error) throw error;
     }
-    document.getElementById('_roleModal')?.remove();
+    document.getElementById("_roleModal")?.remove();
     renderRoleMgmt();
-  } catch (e) { alert('저장 실패: ' + e.message); }
+  } catch (e) {
+    alert("저장 실패: " + e.message);
+  }
 };
 
 // ── 역할 부모(상위) Drag & Drop ──────────────────────────────────────────────────────────
 window._rmDropRole = async function (event, targetParentCode) {
-  const sourceCode = event.dataTransfer.getData('text/plain');
+  const sourceCode = event.dataTransfer.getData("text/plain");
   if (!sourceCode || sourceCode === targetParentCode) return;
 
-  if (!confirm(`'${sourceCode}' 역할의 그룹(상위)을 '${targetParentCode}'(으)로 변경하시겠습니까?\\n(저장 버튼 누를 필요 없이 즉시 DB에 적용됩니다)`)) return;
+  if (
+    !confirm(
+      `'${sourceCode}' 역할의 그룹(상위)을 '${targetParentCode}'(으)로 변경하시겠습니까?\\n(저장 버튼 누를 필요 없이 즉시 DB에 적용됩니다)`,
+    )
+  )
+    return;
 
   try {
-    if (typeof _sb === 'function' && _sb()) {
-      const { error } = await _sb().from('roles').update({ parent_role_id: targetParentCode }).eq('code', sourceCode);
+    if (typeof _sb === "function" && _sb()) {
+      const { error } = await _sb()
+        .from("roles")
+        .update({ parent_role_id: targetParentCode })
+        .eq("code", sourceCode);
       if (error) throw error;
     } else {
-      const role = TENANT_ROLES_MOCK.find(r => r.code === sourceCode);
+      const role = TENANT_ROLES_MOCK.find((r) => r.code === sourceCode);
       if (role) role.parent_role_id = targetParentCode;
     }
     renderRoleMgmt(); // 성공 시 리렌더링
@@ -660,33 +1074,43 @@ window._rmDropRole = async function (event, targetParentCode) {
 // ── 역할 삭제 기능 ────────────────────────────────────────────────────────────
 window._deleteRole = async function (roleCode, cnt) {
   // 채널 담당자 역할은 채널 관리에서만 삭제 가능
-  if (roleCode.includes('_ch_mgr_')) {
-    alert('채널 담당자 역할은 채널 관리 화면에서 채널 삭제 시 자동 제거됩니다.\n직접 삭제할 수 없습니다.');
+  if (roleCode.includes("_ch_mgr_")) {
+    alert(
+      "채널 담당자 역할은 채널 관리 화면에서 채널 삭제 시 자동 제거됩니다.\n직접 삭제할 수 없습니다.",
+    );
     return;
   }
   if (cnt > 0) {
-    alert('삭제할 수 없습니다. 배정인원 (' + cnt + '명)을 먼저 제거해주세요.');
+    alert("삭제할 수 없습니다. 배정인원 (" + cnt + "명)을 먼저 제거해주세요.");
     return;
   }
-  if (!confirm('정말 [' + roleCode + '] 역할을 삭제하시겠습니까?\\n(하위 역할이 있다면 삭제되지 않을 수 있습니다)')) {
+  if (
+    !confirm(
+      "정말 [" +
+        roleCode +
+        "] 역할을 삭제하시겠습니까?\\n(하위 역할이 있다면 삭제되지 않을 수 있습니다)",
+    )
+  ) {
     return;
   }
 
   try {
-    if (typeof _sb === 'function' && _sb()) {
-      const { error } = await _sb().from('roles').delete().eq('code', roleCode);
+    if (typeof _sb === "function" && _sb()) {
+      const { error } = await _sb().from("roles").delete().eq("code", roleCode);
       if (error) {
-        if (error.code === '23503') throw new Error('하위 역할 또는 연관된 데이터가 있어 삭제할 수 없습니다.');
+        if (error.code === "23503")
+          throw new Error(
+            "하위 역할 또는 연관된 데이터가 있어 삭제할 수 없습니다.",
+          );
         throw error;
       }
     } else {
       // Mock data handling (not complete, but for UI feedback)
-      console.log('Mock deleted role:', roleCode);
+      console.log("Mock deleted role:", roleCode);
     }
-    alert('역할이 삭제되었습니다.');
+    alert("역할이 삭제되었습니다.");
     renderRoleMgmt(); // 성공 시 리렌더링
   } catch (e) {
     alert("역할 삭제 실패: " + e.message);
   }
 };
-

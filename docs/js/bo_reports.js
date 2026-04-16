@@ -1,7 +1,7 @@
 // ─── 6 Depth: 통계 및 리포트 ─────────────────────────────────────────────────
 
 function renderBoReports() {
-  const el = document.getElementById('bo-content');
+  const el = document.getElementById("bo-content");
   el.innerHTML = `
 <div class="bo-fade">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">
@@ -28,28 +28,33 @@ function renderBoReports() {
         <th style="min-width:120px">소진률</th>
       </tr></thead>
       <tbody>
-        ${VIRTUAL_ORG.general.hqs.flatMap(h=>h.teams.map(t=>{
-          const spent = t.budget.deducted + t.budget.holding;
-          const pct = (spent/t.budget.allocated*100).toFixed(1);
-          const avail = t.budget.allocated - spent;
-          const barColor = pct>80?'#EF4444':pct>50?'#F59E0B':'#007AFF';
-          return `<tr>
+        ${VIRTUAL_ORG.general.hqs
+          .flatMap((h) =>
+            h.teams.map((t) => {
+              const spent = t.budget.deducted + t.budget.holding;
+              const pct = ((spent / t.budget.allocated) * 100).toFixed(1);
+              const avail = t.budget.allocated - spent;
+              const barColor =
+                pct > 80 ? "#EF4444" : pct > 50 ? "#F59E0B" : "#007AFF";
+              return `<tr>
             <td style="color:#9CA3AF;font-size:12px">${h.name}</td>
             <td style="font-weight:700">${t.name}</td>
             <td style="text-align:right;font-weight:900">${boFmt(t.budget.allocated)}원</td>
             <td style="text-align:right;color:#002C5F;font-weight:700">${boFmt(t.budget.deducted)}원</td>
             <td style="text-align:right;color:#B45309;font-weight:700">${boFmt(t.budget.holding)}원</td>
-            <td style="text-align:right;font-weight:900;color:${avail<5000000?'#EF4444':'#059669'}">${boFmt(avail)}원</td>
+            <td style="text-align:right;font-weight:900;color:${avail < 5000000 ? "#EF4444" : "#059669"}">${boFmt(avail)}원</td>
             <td>
               <div style="display:flex;align-items:center;gap:8px">
                 <div style="flex:1;height:8px;background:#E5E7EB;border-radius:9999px;overflow:hidden">
                   <div style="width:${pct}%;height:100%;background:${barColor};border-radius:9999px;transition:width .4s"></div>
                 </div>
-                <span style="font-size:11px;font-weight:900;color:${pct>80?'#EF4444':'#374151'};width:36px">${pct}%</span>
+                <span style="font-size:11px;font-weight:900;color:${pct > 80 ? "#EF4444" : "#374151"};width:36px">${pct}%</span>
               </div>
             </td>
           </tr>`;
-        })).join('')}
+            }),
+          )
+          .join("")}
       </tbody>
     </table>
   </div>
@@ -60,13 +65,34 @@ function renderBoReports() {
       <div class="bo-section-title" style="margin-bottom:16px">계정별 예산 소진 비율</div>
       <div style="display:flex;flex-direction:column;gap:14px">
         ${[
-          { label:'운영계정', deducted:62000000, total:140000000, color:'#002C5F' },
-          { label:'기타계정', deducted:18000000, total:50000000,  color:'#7C3AED' },
-          { label:'참가계정', deducted:28000000, total:90000000,  color:'#059669' },
-          { label:'R&D 통합계정', deducted:85000000, total:350000000, color:'#D97706' },
-        ].map(a=>{
-          const pct = (a.deducted/a.total*100).toFixed(1);
-          return `
+          {
+            label: "운영계정",
+            deducted: 62000000,
+            total: 140000000,
+            color: "#002C5F",
+          },
+          {
+            label: "기타계정",
+            deducted: 18000000,
+            total: 50000000,
+            color: "#7C3AED",
+          },
+          {
+            label: "참가계정",
+            deducted: 28000000,
+            total: 90000000,
+            color: "#059669",
+          },
+          {
+            label: "R&D 통합계정",
+            deducted: 85000000,
+            total: 350000000,
+            color: "#D97706",
+          },
+        ]
+          .map((a) => {
+            const pct = ((a.deducted / a.total) * 100).toFixed(1);
+            return `
           <div>
             <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px;font-weight:700">
               <span style="color:#374151">${a.label}</span>
@@ -80,7 +106,8 @@ function renderBoReports() {
               <span>총 ${boFmt(a.total)}원</span>
             </div>
           </div>`;
-        }).join('')}
+          })
+          .join("")}
       </div>
     </div>
 

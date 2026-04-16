@@ -3,47 +3,65 @@
 
 // 리더 역할 판별 (pos 기반)
 function _isLeaderPersona() {
-  const leaderTitles = ['팀장', '실장', '센터장', '본부장', '사업부장'];
-  return leaderTitles.some(t => (currentPersona.pos || '').includes(t));
+  const leaderTitles = ["팀장", "실장", "센터장", "본부장", "사업부장"];
+  return leaderTitles.some((t) => (currentPersona.pos || "").includes(t));
 }
 
 // ─── 한글 라벨 변환 ──────────────────────────────────────────────────────────
 const _APR_PURPOSE_KR = {
-  external_personal: '개인직무 사외학습',
-  elearning_class: '이러닝/집합(비대면) 운영',
-  conf_seminar: '워크샵/세미나/콘퍼런스 등 운영',
-  misc_ops: '기타 운영',
+  external_personal: "개인직무 사외학습",
+  elearning_class: "이러닝/집합(비대면) 운영",
+  conf_seminar: "워크샵/세미나/콘퍼런스 등 운영",
+  misc_ops: "기타 운영",
 };
 const _APR_EDU_TYPE_KR = {
-  regular: '정규교육', elearning: '이러닝', class: '집합', live: '라이브',
-  academic: '학술 및 연구활동', conf: '학회/컨퍼런스', seminar: '세미나',
-  knowledge: '지식자원 학습', book: '도서구입', online: '온라인콘텐츠',
-  competency: '역량개발지원', lang: '어학학습비 지원', cert: '자격증 취득지원',
+  regular: "정규교육",
+  elearning: "이러닝",
+  class: "집합",
+  live: "라이브",
+  academic: "학술 및 연구활동",
+  conf: "학회/컨퍼런스",
+  seminar: "세미나",
+  knowledge: "지식자원 학습",
+  book: "도서구입",
+  online: "온라인콘텐츠",
+  competency: "역량개발지원",
+  lang: "어학학습비 지원",
+  cert: "자격증 취득지원",
 };
-function _aprPurpose(k) { return _APR_PURPOSE_KR[k] || k || '-'; }
-function _aprEduType(k) { return _APR_EDU_TYPE_KR[k] || k || '-'; }
+function _aprPurpose(k) {
+  return _APR_PURPOSE_KR[k] || k || "-";
+}
+function _aprEduType(k) {
+  return _APR_EDU_TYPE_KR[k] || k || "-";
+}
 
 // ─── 상태 매핑 ───────────────────────────────────────────────────────────────
 function _aprStatusLabel(s) {
   const m = {
-    draft: '작성중', pending: '결재대기', pending_approval: '결재대기',
-    approved: '승인완료', rejected: '반려', cancelled: '취소', completed: '완료',
+    draft: "작성중",
+    pending: "결재대기",
+    pending_approval: "결재대기",
+    approved: "승인완료",
+    rejected: "반려",
+    cancelled: "취소",
+    completed: "완료",
   };
-  return m[s] || s || '결재대기';
+  return m[s] || s || "결재대기";
 }
 
 // ─── DB 캐시 ─────────────────────────────────────────────────────────────────
 let _aprMemberLoaded = false;
-let _aprMemberData = [];   // plans + applications (내가 신청한 것)
+let _aprMemberData = []; // plans + applications (내가 신청한 것)
 let _aprLeaderLoaded = false;
-let _aprLeaderData = [];   // plans + applications (결재대기, 남이 신청한 것)
+let _aprLeaderData = []; // plans + applications (결재대기, 남이 신청한 것)
 
 // ─── 팀원용 결재함 ────────────────────────────────────────────────────────────
 // 내가 신청한 교육의 결재 상태 확인 (DB 실시간)
 
 async function renderApprovalMember() {
-  const el = document.getElementById('page-approval-member');
-  const sb = typeof getSB === 'function' ? getSB() : null;
+  const el = document.getElementById("page-approval-member");
+  const sb = typeof getSB === "function" ? getSB() : null;
 
   // DB 조회 (최초 1회)
   if (sb && !_aprMemberLoaded) {
@@ -53,38 +71,52 @@ async function renderApprovalMember() {
       const tid = currentPersona.tenantId;
 
       // plans 조회 (draft 제외 — 결재함에는 상신된 것만)
-      const { data: plans, error: pe } = await sb.from('plans').select('*')
-        .eq('applicant_id', pid).eq('tenant_id', tid)
-        .neq('status', 'draft')
-        .order('created_at', { ascending: false });
+      const { data: plans, error: pe } = await sb
+        .from("plans")
+        .select("*")
+        .eq("applicant_id", pid)
+        .eq("tenant_id", tid)
+        .neq("status", "draft")
+        .order("created_at", { ascending: false });
       if (pe) throw pe;
 
       // applications 조회
-      const { data: apps, error: ae } = await sb.from('applications').select('*')
-        .eq('applicant_id', pid).eq('tenant_id', tid)
-        .neq('status', 'draft')
-        .order('created_at', { ascending: false });
+      const { data: apps, error: ae } = await sb
+        .from("applications")
+        .select("*")
+        .eq("applicant_id", pid)
+        .eq("tenant_id", tid)
+        .neq("status", "draft")
+        .order("created_at", { ascending: false });
       if (ae) throw ae;
 
       // 통합
       _aprMemberData = [
-        ...(plans || []).map(p => ({
-          _type: 'plan', id: p.id, title: p.edu_name || p.title || '-',
-          type: _aprEduType(p.edu_type), purpose: _aprPurpose(p.detail?.purpose),
-          amount: Number(p.amount || 0), status: p.status,
-          date: (p.created_at || '').slice(0, 10),
+        ...(plans || []).map((p) => ({
+          _type: "plan",
+          id: p.id,
+          title: p.edu_name || p.title || "-",
+          type: _aprEduType(p.edu_type),
+          purpose: _aprPurpose(p.detail?.purpose),
+          amount: Number(p.amount || 0),
+          status: p.status,
+          date: (p.created_at || "").slice(0, 10),
           rejectReason: p.reject_reason || null,
         })),
-        ...(apps || []).map(a => ({
-          _type: 'app', id: a.id, title: a.edu_name || '-',
-          type: _aprEduType(a.edu_type), purpose: _aprPurpose(a.detail?.purpose),
-          amount: Number(a.amount || 0), status: a.status,
-          date: (a.created_at || '').slice(0, 10),
+        ...(apps || []).map((a) => ({
+          _type: "app",
+          id: a.id,
+          title: a.edu_name || "-",
+          type: _aprEduType(a.edu_type),
+          purpose: _aprPurpose(a.detail?.purpose),
+          amount: Number(a.amount || 0),
+          status: a.status,
+          date: (a.created_at || "").slice(0, 10),
           rejectReason: a.reject_reason || null,
         })),
       ];
     } catch (err) {
-      console.error('[renderApprovalMember] DB 조회 실패:', err.message);
+      console.error("[renderApprovalMember] DB 조회 실패:", err.message);
       _aprMemberData = [];
     }
   }
@@ -94,27 +126,46 @@ async function renderApprovalMember() {
   // 상태별 통계
   const stats = {
     total: data.length,
-    approved: data.filter(d => d.status === 'approved').length,
-    inProgress: data.filter(d => d.status === 'pending' || d.status === 'pending_approval').length,
-    rejected: data.filter(d => d.status === 'rejected').length,
+    approved: data.filter((d) => d.status === "approved").length,
+    inProgress: data.filter(
+      (d) => d.status === "pending" || d.status === "pending_approval",
+    ).length,
+    rejected: data.filter((d) => d.status === "rejected").length,
   };
 
   const STATUS_FINAL = {
-    approved: { label: '승인완료', color: '#059669', bg: '#F0FDF4', icon: '✅' },
-    pending: { label: '결재대기', color: '#D97706', bg: '#FFFBEB', icon: '⏳' },
-    pending_approval: { label: '결재대기', color: '#D97706', bg: '#FFFBEB', icon: '⏳' },
-    rejected: { label: '반려', color: '#DC2626', bg: '#FEF2F2', icon: '❌' },
-    cancelled: { label: '취소', color: '#9CA3AF', bg: '#F9FAFB', icon: '🚫' },
-    completed: { label: '완료', color: '#059669', bg: '#F0FDF4', icon: '✅' },
+    approved: {
+      label: "승인완료",
+      color: "#059669",
+      bg: "#F0FDF4",
+      icon: "✅",
+    },
+    pending: { label: "결재대기", color: "#D97706", bg: "#FFFBEB", icon: "⏳" },
+    pending_approval: {
+      label: "결재대기",
+      color: "#D97706",
+      bg: "#FFFBEB",
+      icon: "⏳",
+    },
+    rejected: { label: "반려", color: "#DC2626", bg: "#FEF2F2", icon: "❌" },
+    cancelled: { label: "취소", color: "#9CA3AF", bg: "#F9FAFB", icon: "🚫" },
+    completed: { label: "완료", color: "#059669", bg: "#F0FDF4", icon: "✅" },
   };
 
-  const cards = data.map(item => {
-    const fc = STATUS_FINAL[item.status] || { label: _aprStatusLabel(item.status), color: '#6B7280', bg: '#F9FAFB', icon: '🕐' };
-    const typeBadge = item._type === 'plan'
-      ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#DBEAFE;color:#1D4ED8;margin-left:4px">📋 교육계획</span>'
-      : '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#FEF3C7;color:#B45309;margin-left:4px">📝 교육신청</span>';
+  const cards = data
+    .map((item) => {
+      const fc = STATUS_FINAL[item.status] || {
+        label: _aprStatusLabel(item.status),
+        color: "#6B7280",
+        bg: "#F9FAFB",
+        icon: "🕐",
+      };
+      const typeBadge =
+        item._type === "plan"
+          ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#DBEAFE;color:#1D4ED8;margin-left:4px">📋 교육계획</span>'
+          : '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#FEF3C7;color:#B45309;margin-left:4px">📝 교육신청</span>';
 
-    return `
+      return `
     <div style="border-radius:14px;border:1.5px solid ${fc.color}30;background:white;padding:18px 20px;margin-bottom:12px">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
         <div style="flex:1">
@@ -126,18 +177,23 @@ async function renderApprovalMember() {
             <span>📅 신청 ${item.date}</span>
             <span>📚 ${item.type}</span>
             <span>💰 ${item.amount.toLocaleString()}원</span>
-            ${item.purpose !== '-' ? `<span>🎯 ${item.purpose}</span>` : ''}
+            ${item.purpose !== "-" ? `<span>🎯 ${item.purpose}</span>` : ""}
           </div>
         </div>
         <span style="flex-shrink:0;font-size:11px;font-weight:900;padding:4px 12px;border-radius:10px;
                      background:${fc.bg};color:${fc.color}">${fc.icon} ${fc.label}</span>
       </div>
-      ${item.rejectReason ? `
+      ${
+        item.rejectReason
+          ? `
       <div style="margin-top:8px;padding:10px 14px;border-radius:8px;background:#FEE2E2;border:1px solid #FECACA;font-size:11px;color:#DC2626;font-weight:700">
         ⚠️ 반려 사유: ${item.rejectReason}
-      </div>` : ''}
+      </div>`
+          : ""
+      }
     </div>`;
-  }).join('');
+    })
+    .join("");
 
   const emptyMsg = `<div style="padding:60px 20px;text-align:center;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB">
     <div style="font-size:48px;margin-bottom:16px">📭</div>
@@ -160,15 +216,43 @@ async function renderApprovalMember() {
   <!-- 통계 카드 -->
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
     ${[
-      { label: '전체', val: stats.total, color: '#002C5F', bg: '#EFF6FF', icon: '📋' },
-      { label: '승인완료', val: stats.approved, color: '#059669', bg: '#F0FDF4', icon: '✅' },
-      { label: '결재대기', val: stats.inProgress, color: '#D97706', bg: '#FFFBEB', icon: '⏳' },
-      { label: '반려', val: stats.rejected, color: '#DC2626', bg: '#FEF2F2', icon: '❌' },
-    ].map(s => `
+      {
+        label: "전체",
+        val: stats.total,
+        color: "#002C5F",
+        bg: "#EFF6FF",
+        icon: "📋",
+      },
+      {
+        label: "승인완료",
+        val: stats.approved,
+        color: "#059669",
+        bg: "#F0FDF4",
+        icon: "✅",
+      },
+      {
+        label: "결재대기",
+        val: stats.inProgress,
+        color: "#D97706",
+        bg: "#FFFBEB",
+        icon: "⏳",
+      },
+      {
+        label: "반려",
+        val: stats.rejected,
+        color: "#DC2626",
+        bg: "#FEF2F2",
+        icon: "❌",
+      },
+    ]
+      .map(
+        (s) => `
     <div style="background:${s.bg};border-radius:14px;padding:14px 16px;border:1.5px solid ${s.color}20">
       <div style="font-size:11px;font-weight:700;color:${s.color};margin-bottom:6px">${s.icon} ${s.label}</div>
       <div style="font-size:24px;font-weight:900;color:${s.color}">${s.val}<span style="font-size:13px;margin-left:2px">건</span></div>
-    </div>`).join('')}
+    </div>`,
+      )
+      .join("")}
   </div>
 
   <!-- 결재 목록 -->
@@ -180,7 +264,7 @@ async function renderApprovalMember() {
 // 같은 테넌트 내 결재대기 문서 (본인 제외) 조회 + 승인/반려 처리
 
 async function renderApprovalLeader() {
-  const el = document.getElementById('page-approval-leader');
+  const el = document.getElementById("page-approval-leader");
 
   // 권한 체크
   if (!_isLeaderPersona()) {
@@ -195,7 +279,7 @@ async function renderApprovalLeader() {
     return;
   }
 
-  const sb = typeof getSB === 'function' ? getSB() : null;
+  const sb = typeof getSB === "function" ? getSB() : null;
 
   // DB 조회 (최초 1회)
   if (sb && !_aprLeaderLoaded) {
@@ -204,95 +288,128 @@ async function renderApprovalLeader() {
       const pid = currentPersona.id;
       const tid = currentPersona.tenantId;
       // 크로스 테넌트: 총괄부서 팀장이면 양쪽 회사 pending 문서 조회
-      const ctInfo = typeof getCrossTenantInfo === 'function' ? await getCrossTenantInfo(currentPersona) : null;
+      const ctInfo =
+        typeof getCrossTenantInfo === "function"
+          ? await getCrossTenantInfo(currentPersona)
+          : null;
       const filterTids = ctInfo?.linkedTids || [tid];
 
       // plans: pending 상태 + 본인이 아닌 문서
-      let plansQ = sb.from('plans').select('*')
-        .eq('status', 'pending')
-        .neq('applicant_id', pid)
-        .order('created_at', { ascending: false });
-      if (filterTids.length > 1) plansQ = plansQ.in('tenant_id', filterTids);
-      else plansQ = plansQ.eq('tenant_id', tid);
+      let plansQ = sb
+        .from("plans")
+        .select("*")
+        .eq("status", "pending")
+        .neq("applicant_id", pid)
+        .order("created_at", { ascending: false });
+      if (filterTids.length > 1) plansQ = plansQ.in("tenant_id", filterTids);
+      else plansQ = plansQ.eq("tenant_id", tid);
       const { data: plans, error: pe } = await plansQ;
       if (pe) throw pe;
 
       // applications: pending 상태 + 본인이 아닌 문서
-      let appsQ = sb.from('applications').select('*')
-        .eq('status', 'pending')
-        .neq('applicant_id', pid)
-        .order('created_at', { ascending: false });
-      if (filterTids.length > 1) appsQ = appsQ.in('tenant_id', filterTids);
-      else appsQ = appsQ.eq('tenant_id', tid);
+      let appsQ = sb
+        .from("applications")
+        .select("*")
+        .eq("status", "pending")
+        .neq("applicant_id", pid)
+        .order("created_at", { ascending: false });
+      if (filterTids.length > 1) appsQ = appsQ.in("tenant_id", filterTids);
+      else appsQ = appsQ.eq("tenant_id", tid);
       const { data: apps, error: ae } = await appsQ;
       if (ae) throw ae;
 
       _aprLeaderData = [
-        ...(plans || []).map(p => ({
-          _type: 'plan', _table: 'plans', id: p.id,
-          applicant: p.applicant_name || '-',
-          dept: p.detail?.dept || p.dept || '-',
-          title: p.edu_name || p.title || '-',
+        ...(plans || []).map((p) => ({
+          _type: "plan",
+          _table: "plans",
+          id: p.id,
+          applicant: p.applicant_name || "-",
+          dept: p.detail?.dept || p.dept || "-",
+          title: p.edu_name || p.title || "-",
           type: _aprEduType(p.edu_type),
           purpose: _aprPurpose(p.detail?.purpose),
           amount: Number(p.amount || 0),
-          date: (p.created_at || '').slice(0, 10),
-          account_code: p.account_code || '',
-          tenantId: p.tenant_id || '',
+          date: (p.created_at || "").slice(0, 10),
+          account_code: p.account_code || "",
+          tenantId: p.tenant_id || "",
         })),
-        ...(apps || []).map(a => ({
-          _type: 'app', _table: 'applications', id: a.id,
-          applicant: a.applicant_name || '-',
-          dept: a.dept || a.detail?.dept || '-',
-          title: a.edu_name || '-',
+        ...(apps || []).map((a) => ({
+          _type: "app",
+          _table: "applications",
+          id: a.id,
+          applicant: a.applicant_name || "-",
+          dept: a.dept || a.detail?.dept || "-",
+          title: a.edu_name || "-",
           type: _aprEduType(a.edu_type),
           purpose: _aprPurpose(a.detail?.purpose),
           amount: Number(a.amount || 0),
-          date: (a.created_at || '').slice(0, 10),
-          account_code: a.account_code || a.detail?.account_code || '',
-          tenantId: a.tenant_id || '',
+          date: (a.created_at || "").slice(0, 10),
+          account_code: a.account_code || a.detail?.account_code || "",
+          tenantId: a.tenant_id || "",
         })),
       ];
 
       // 결재라인 매칭 필터 — 정책(SERVICE_POLICIES) approvalConfig 기반
-      if (typeof SERVICE_POLICIES !== 'undefined' && SERVICE_POLICIES.length > 0) {
-        const myPos = currentPersona.pos || '';
-        const posToKey = { '팀장': 'team_leader', '실장': 'director', '사업부장': 'division_head', '센터장': 'center_head', '본부장': 'hq_head' };
-        const myKey = Object.entries(posToKey).find(([k]) => myPos.includes(k))?.[1] || '';
-        _aprLeaderData = _aprLeaderData.filter(item => {
+      if (
+        typeof SERVICE_POLICIES !== "undefined" &&
+        SERVICE_POLICIES.length > 0
+      ) {
+        const myPos = currentPersona.pos || "";
+        const posToKey = {
+          팀장: "team_leader",
+          실장: "director",
+          사업부장: "division_head",
+          센터장: "center_head",
+          본부장: "hq_head",
+        };
+        const myKey =
+          Object.entries(posToKey).find(([k]) => myPos.includes(k))?.[1] || "";
+        _aprLeaderData = _aprLeaderData.filter((item) => {
           // 매칭 정책 찾기
-          const policy = SERVICE_POLICIES.find(p =>
-            p.tenantId === item.tenantId && (p.accountCodes || []).some(c => item.account_code.includes(c))
+          const policy = SERVICE_POLICIES.find(
+            (p) =>
+              p.tenantId === item.tenantId &&
+              (p.accountCodes || []).some((c) => item.account_code.includes(c)),
           );
           if (!policy || !policy.approvalConfig) return true; // 정책 미설정 → 기본 표시
           // 신청 단계 결재라인 확인 (apply 기본)
-          const stage = item._type === 'plan' ? 'plan' : 'apply';
+          const stage = item._type === "plan" ? "plan" : "apply";
           const cfg = policy.approvalConfig[stage];
-          if (!cfg || !cfg.thresholds || cfg.thresholds.length === 0) return true; // 구간 미설정 → 기본 표시
+          if (!cfg || !cfg.thresholds || cfg.thresholds.length === 0)
+            return true; // 구간 미설정 → 기본 표시
           // 금액에 맞는 구간 결재자 매칭
-          const sorted = [...cfg.thresholds].sort((a, b) => (a.maxAmt || Infinity) - (b.maxAmt || Infinity));
-          const matched = sorted.find(t => t.maxAmt && item.amount <= t.maxAmt) || sorted[sorted.length - 1];
+          const sorted = [...cfg.thresholds].sort(
+            (a, b) => (a.maxAmt || Infinity) - (b.maxAmt || Infinity),
+          );
+          const matched =
+            sorted.find((t) => t.maxAmt && item.amount <= t.maxAmt) ||
+            sorted[sorted.length - 1];
           if (!matched || !matched.approverKey) return true;
           return matched.approverKey === myKey;
         });
       }
     } catch (err) {
-      console.error('[renderApprovalLeader] DB 조회 실패:', err.message);
+      console.error("[renderApprovalLeader] DB 조회 실패:", err.message);
       _aprLeaderData = [];
     }
   }
 
   const pending = _aprLeaderData;
 
-  const cards = pending.map(item => {
-    const typeBadge = item._type === 'plan'
-      ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#DBEAFE;color:#1D4ED8">📋 교육계획</span>'
-      : '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#FEF3C7;color:#B45309">📝 교육신청</span>';
-    const tenantBadge = typeof getTenantBadgeHtml === 'function' ? getTenantBadgeHtml(item.tenantId, currentPersona.tenantId) : '';
-    const safeId = String(item.id).replace(/'/g, "\\'");
-    const safeTable = item._table;
+  const cards = pending
+    .map((item) => {
+      const typeBadge =
+        item._type === "plan"
+          ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#DBEAFE;color:#1D4ED8">📋 교육계획</span>'
+          : '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#FEF3C7;color:#B45309">📝 교육신청</span>';
+      const tenantBadge =
+        typeof getTenantBadgeHtml === "function"
+          ? getTenantBadgeHtml(item.tenantId, currentPersona.tenantId)
+          : "";
+      const safeId = String(item.id).replace(/'/g, "\\'");
+      const safeTable = item._table;
 
-    return `
+      return `
     <div style="border-radius:14px;border:1.5px solid #E5E7EB;background:white;padding:18px 20px;margin-bottom:12px">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px">
         <div style="flex:1">
@@ -313,7 +430,7 @@ async function renderApprovalLeader() {
             <span>📅 신청 ${item.date}</span>
             <span>📚 ${item.type}</span>
             <span>💰 ${item.amount.toLocaleString()}원</span>
-            ${item.purpose !== '-' ? `<span>🎯 ${item.purpose}</span>` : ''}
+            ${item.purpose !== "-" ? `<span>🎯 ${item.purpose}</span>` : ""}
           </div>
         </div>
         <div style="flex-shrink:0;font-size:11px;font-weight:800;padding:4px 12px;border-radius:10px;background:#FFF7ED;color:#C2410C">
@@ -340,7 +457,8 @@ async function renderApprovalLeader() {
         </div>
       </div>
     </div>`;
-  }).join('');
+    })
+    .join("");
 
   const emptyMsg = `<div class="card p-16 text-center">
     <div style="font-size:48px;margin-bottom:16px">📭</div>
@@ -372,18 +490,21 @@ async function renderApprovalLeader() {
 
 // ─── 결재 액션 (승인/반려) — DB 실반영 ───────────────────────────────────────
 async function _approvalAction(id, table, action) {
-  const comment = document.getElementById('comment-' + id)?.value || '';
-  const actionLabel = action === 'approve' ? '승인' : '반려';
+  const comment = document.getElementById("comment-" + id)?.value || "";
+  const actionLabel = action === "approve" ? "승인" : "반려";
 
-  if (action === 'reject' && !comment.trim()) {
-    alert('반려 시 의견을 입력해주세요.');
+  if (action === "reject" && !comment.trim()) {
+    alert("반려 시 의견을 입력해주세요.");
     return;
   }
 
   if (!confirm(`이 문서를 ${actionLabel} 처리하시겠습니까?`)) return;
 
-  const sb = typeof getSB === 'function' ? getSB() : null;
-  if (!sb) { alert('DB 연결 실패'); return; }
+  const sb = typeof getSB === "function" ? getSB() : null;
+  if (!sb) {
+    alert("DB 연결 실패");
+    return;
+  }
 
   try {
     // 결재 이력 기록 (detail.approval_logs)
@@ -395,43 +516,69 @@ async function _approvalAction(id, table, action) {
       timestamp: new Date().toISOString(),
     };
     // 기존 detail 조회 후 approval_logs 배열에 추가
-    const { data: existing } = await sb.from(table).select('detail').eq('id', id).single();
+    const { data: existing } = await sb
+      .from(table)
+      .select("detail")
+      .eq("id", id)
+      .single();
     const prevDetail = existing?.detail || {};
     const prevLogs = prevDetail.approval_logs || [];
     prevLogs.push(logEntry);
 
     const updateData = {
-      status: action === 'approve' ? 'approved' : 'rejected',
+      status: action === "approve" ? "approved" : "rejected",
       detail: { ...prevDetail, approval_logs: prevLogs },
     };
-    if (action === 'reject') {
+    if (action === "reject") {
       updateData.reject_reason = comment;
     }
 
-    const { error } = await sb.from(table).update(updateData).eq('id', id);
+    const { error } = await sb.from(table).update(updateData).eq("id", id);
     if (error) throw error;
 
     // 항목 7: 승인 시 예산 차감
-    if (action === 'approve') {
+    if (action === "approve") {
       try {
-        const { data: doc } = await sb.from(table).select('amount, account_code, tenant_id, applicant_id').eq('id', id).single();
+        const { data: doc } = await sb
+          .from(table)
+          .select("amount, account_code, tenant_id, applicant_id")
+          .eq("id", id)
+          .single();
         if (doc && doc.amount && doc.account_code) {
           // 신청자의 org_id 조회
-          const { data: user } = await sb.from('users').select('org_id').eq('id', doc.applicant_id).single();
+          const { data: user } = await sb
+            .from("users")
+            .select("org_id")
+            .eq("id", doc.applicant_id)
+            .single();
           if (user?.org_id) {
             // bankbook 조회
-            const { data: bbs } = await sb.from('org_budget_bankbooks')
-              .select('id').eq('org_id', user.org_id).eq('tenant_id', doc.tenant_id);
+            const { data: bbs } = await sb
+              .from("org_budget_bankbooks")
+              .select("id")
+              .eq("org_id", user.org_id)
+              .eq("tenant_id", doc.tenant_id);
             // account_id 매칭
             if (bbs && bbs.length > 0) {
               for (const bb of bbs) {
-                const { data: alloc } = await sb.from('budget_allocations')
-                  .select('id, used_amount').eq('bankbook_id', bb.id).order('created_at', { ascending: false }).limit(1).single();
+                const { data: alloc } = await sb
+                  .from("budget_allocations")
+                  .select("id, used_amount")
+                  .eq("bankbook_id", bb.id)
+                  .order("created_at", { ascending: false })
+                  .limit(1)
+                  .single();
                 if (alloc) {
-                  await sb.from('budget_allocations').update({
-                    used_amount: Number(alloc.used_amount || 0) + Number(doc.amount),
-                  }).eq('id', alloc.id);
-                  console.log(`[예산차감] ${doc.amount}원 차감 완료 (alloc ${alloc.id})`);
+                  await sb
+                    .from("budget_allocations")
+                    .update({
+                      used_amount:
+                        Number(alloc.used_amount || 0) + Number(doc.amount),
+                    })
+                    .eq("id", alloc.id);
+                  console.log(
+                    `[예산차감] ${doc.amount}원 차감 완료 (alloc ${alloc.id})`,
+                  );
                   break; // 첫 매칭 bankbook만 차감
                 }
               }
@@ -439,11 +586,16 @@ async function _approvalAction(id, table, action) {
           }
         }
       } catch (budgetErr) {
-        console.warn('[예산차감] 예산 자동 차감 실패 (비치명적):', budgetErr.message);
+        console.warn(
+          "[예산차감] 예산 자동 차감 실패 (비치명적):",
+          budgetErr.message,
+        );
       }
     }
 
-    alert(`✅ ${actionLabel} 처리가 완료되었습니다.${comment ? '\n의견: ' + comment : ''}`);
+    alert(
+      `✅ ${actionLabel} 처리가 완료되었습니다.${comment ? "\n의견: " + comment : ""}`,
+    );
 
     // 목록 갱신
     _aprLeaderLoaded = false;
@@ -453,9 +605,8 @@ async function _approvalAction(id, table, action) {
     // 팀원 목록도 갱신 (다른 탭에서 볼 때 반영)
     _aprMemberLoaded = false;
     _aprMemberData = [];
-
   } catch (err) {
-    alert('처리 실패: ' + err.message);
-    console.error('[_approvalAction]', err.message);
+    alert("처리 실패: " + err.message);
+    console.error("[_approvalAction]", err.message);
   }
 }

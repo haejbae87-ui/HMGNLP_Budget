@@ -1,5 +1,5 @@
 // ─── 🗓️ 차수 관리 ───────────────────────────────────────────────────────
-let _seTenant = '';
+let _seTenant = "";
 let _seChannelId = null;
 let _seCourseId = null;
 let _seList = [];
@@ -7,73 +7,125 @@ let _seChannels = [];
 let _seCourses = [];
 
 async function renderSessionMgmt() {
-  const el = document.getElementById('bo-content');
-  const sb = typeof getSB === 'function' ? getSB() : null;
-  if (!sb) { el.innerHTML = '<p style="padding:20px;color:#EF4444">DB 연결 없음</p>'; return; }
+  const el = document.getElementById("bo-content");
+  const sb = typeof getSB === "function" ? getSB() : null;
+  if (!sb) {
+    el.innerHTML = '<p style="padding:20px;color:#EF4444">DB 연결 없음</p>';
+    return;
+  }
 
   const role = boCurrentPersona.role;
-  const isPlatform = role === 'platform_admin' || role === 'tenant_global_admin';
-  if (!_seTenant) _seTenant = isPlatform ? 'HMC' : (boCurrentPersona.tenantId || 'HMC');
+  const isPlatform =
+    role === "platform_admin" || role === "tenant_global_admin";
+  if (!_seTenant)
+    _seTenant = isPlatform ? "HMC" : boCurrentPersona.tenantId || "HMC";
 
-  el.innerHTML = '<div class="bo-fade" style="padding:40px;text-align:center;color:#9CA3AF"><div style="font-size:32px;margin-bottom:8px">⏳</div>로딩 중...</div>';
+  el.innerHTML =
+    '<div class="bo-fade" style="padding:40px;text-align:center;color:#9CA3AF"><div style="font-size:32px;margin-bottom:8px">⏳</div>로딩 중...</div>';
 
   // 채널 로드
   try {
-    const { data } = await sb.from('edu_channels').select('id,name').eq('tenant_id', _seTenant).eq('active', true).order('name');
+    const { data } = await sb
+      .from("edu_channels")
+      .select("id,name")
+      .eq("tenant_id", _seTenant)
+      .eq("active", true)
+      .order("name");
     _seChannels = data || [];
-  } catch (e) { _seChannels = []; }
+  } catch (e) {
+    _seChannels = [];
+  }
 
   // 과정 목록 로드
   try {
-    let q = sb.from('edu_courses').select('id,title,channel_id,status').eq('tenant_id', _seTenant).order('title');
-    if (_seChannelId) q = q.eq('channel_id', _seChannelId);
+    let q = sb
+      .from("edu_courses")
+      .select("id,title,channel_id,status")
+      .eq("tenant_id", _seTenant)
+      .order("title");
+    if (_seChannelId) q = q.eq("channel_id", _seChannelId);
     const { data } = await q;
     _seCourses = data || [];
-  } catch (e) { _seCourses = []; }
-  if (_seCourseId && !_seCourses.find(c => c.id === _seCourseId)) _seCourseId = null;
+  } catch (e) {
+    _seCourses = [];
+  }
+  if (_seCourseId && !_seCourses.find((c) => c.id === _seCourseId))
+    _seCourseId = null;
   if (!_seCourseId && _seCourses.length > 0) _seCourseId = _seCourses[0].id;
 
   // 차수 로드
   try {
-    let q = sb.from('edu_sessions').select('*').eq('tenant_id', _seTenant).order('session_no', { ascending: true });
-    if (_seCourseId) q = q.eq('course_id', _seCourseId);
+    let q = sb
+      .from("edu_sessions")
+      .select("*")
+      .eq("tenant_id", _seTenant)
+      .order("session_no", { ascending: true });
+    if (_seCourseId) q = q.eq("course_id", _seCourseId);
     const { data } = await q;
     _seList = data || [];
-  } catch (e) { _seList = []; }
+  } catch (e) {
+    _seList = [];
+  }
 
   // 수강생 카운트
   let enrollCounts = {};
   try {
-    const sids = _seList.map(s => s.id);
+    const sids = _seList.map((s) => s.id);
     if (sids.length > 0) {
-      const { data } = await sb.from('edu_enrollments').select('session_id').in('session_id', sids).eq('status', 'enrolled');
-      (data || []).forEach(e => { enrollCounts[e.session_id] = (enrollCounts[e.session_id] || 0) + 1; });
+      const { data } = await sb
+        .from("edu_enrollments")
+        .select("session_id")
+        .in("session_id", sids)
+        .eq("status", "enrolled");
+      (data || []).forEach((e) => {
+        enrollCounts[e.session_id] = (enrollCounts[e.session_id] || 0) + 1;
+      });
     }
-  } catch (e) { }
+  } catch (e) {}
 
-  const selStyle = 'border:1.5px solid #E5E7EB;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;min-width:200px;cursor:pointer';
-  const statusLabel = { planned: '📋 계획', open: '🟢 모집중', in_progress: '🔵 진행중', completed: '✅ 완료', cancelled: '🔴 취소' };
-  const statusColor = { planned: '#6B7280', open: '#059669', in_progress: '#1D4ED8', completed: '#059669', cancelled: '#DC2626' };
+  const selStyle =
+    "border:1.5px solid #E5E7EB;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;min-width:200px;cursor:pointer";
+  const statusLabel = {
+    planned: "📋 계획",
+    open: "🟢 모집중",
+    in_progress: "🔵 진행중",
+    completed: "✅ 완료",
+    cancelled: "🔴 취소",
+  };
+  const statusColor = {
+    planned: "#6B7280",
+    open: "#059669",
+    in_progress: "#1D4ED8",
+    completed: "#059669",
+    cancelled: "#DC2626",
+  };
 
-  const selCourse = _seCourses.find(c => c.id === _seCourseId);
-  const canAdd = selCourse && selCourse.status !== 'closed';
+  const selCourse = _seCourses.find((c) => c.id === _seCourseId);
+  const canAdd = selCourse && selCourse.status !== "closed";
 
-  const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
+  const tenants = typeof TENANTS !== "undefined" ? TENANTS : [];
   const tenantSel = isPlatform
     ? `<label style="font-size:10px;font-weight:700;color:#6B7280">테넌트</label>
         <select onchange="_seTenant=this.value;_seChannelId=null;_seCourseId=null;renderSessionMgmt()" style="${selStyle}">
-        ${tenants.filter(t => t.id !== 'SYSTEM').map(t => `<option value="${t.id}" ${t.id === _seTenant ? 'selected' : ''}>${t.name}</option>`).join('')}
-      </select>` : `<span style="font-size:12px;font-weight:800;color:#374151;padding:6px 10px;background:#F3F4F6;border-radius:8px">${tenants.find(t => t.id === _seTenant)?.name || _seTenant}</span>`;
+        ${tenants
+          .filter((t) => t.id !== "SYSTEM")
+          .map(
+            (t) =>
+              `<option value="${t.id}" ${t.id === _seTenant ? "selected" : ""}>${t.name}</option>`,
+          )
+          .join("")}
+      </select>`
+    : `<span style="font-size:12px;font-weight:800;color:#374151;padding:6px 10px;background:#F3F4F6;border-radius:8px">${tenants.find((t) => t.id === _seTenant)?.name || _seTenant}</span>`;
 
   const channelSel = `<label style="font-size:10px;font-weight:700;color:#6B7280">채널</label>
         <select onchange="_seChannelId=this.value||null;_seCourseId=null;renderSessionMgmt()" style="${selStyle}">
           <option value="">전체 채널</option>
-          ${_seChannels.map(c => `<option value="${c.id}" ${c.id === _seChannelId ? 'selected' : ''}>${c.name}</option>`).join('')}
+          ${_seChannels.map((c) => `<option value="${c.id}" ${c.id === _seChannelId ? "selected" : ""}>${c.name}</option>`).join("")}
         </select>`;
 
   const courseSel = `<label style="font-size:10px;font-weight:700;color:#6B7280">교육과정</label>
         <select onchange="_seCourseId=this.value||null;renderSessionMgmt()" style="${selStyle}">
-          ${_seCourses.map(c => `<option value="${c.id}" ${c.id === _seCourseId ? 'selected' : ''}>${c.title} ${c.status === 'closed' ? '(종료)' : ''}</option>`).join('')}
+          ${_seCourses.map((c) => `<option value="${c.id}" ${c.id === _seCourseId ? "selected" : ""}>${c.title} ${c.status === "closed" ? "(종료)" : ""}</option>`).join("")}
         </select>`;
 
   el.innerHTML = `
@@ -83,7 +135,7 @@ async function renderSessionMgmt() {
         <h1 class="bo-page-title">🗓️ 차수 관리</h1>
         <p class="bo-page-sub">교육과정 하위에 실제 교육 운영 차수를 관리합니다</p>
       </div>
-      ${canAdd ? '<button class="bo-btn-primary" onclick="_seOpenCreate()">+ 차수 생성</button>' : ''}
+      ${canAdd ? '<button class="bo-btn-primary" onclick="_seOpenCreate()">+ 차수 생성</button>' : ""}
     </div>
 
     <div class="bo-card" style="padding:14px 18px;margin-bottom:16px">
@@ -96,7 +148,9 @@ async function renderSessionMgmt() {
       </div>
     </div>
 
-    ${_seList.length > 0 ? `
+    ${
+      _seList.length > 0
+        ? `
     <div class="bo-card" style="overflow:hidden">
       <table class="bo-table" style="font-size:12px">
         <thead><tr>
@@ -105,29 +159,33 @@ async function renderSessionMgmt() {
           <th style="text-align:center">상태</th><th style="text-align:center">관리</th>
         </tr></thead>
         <tbody>
-        ${_seList.map((s, i) => {
-    const ec = enrollCounts[s.id] || 0;
-    const full = s.capacity > 0 && ec >= s.capacity;
-    return `<tr>
+        ${_seList
+          .map((s, i) => {
+            const ec = enrollCounts[s.id] || 0;
+            const full = s.capacity > 0 && ec >= s.capacity;
+            return `<tr>
             <td style="font-weight:800;text-align:center">${s.session_no}차</td>
             <td style="font-weight:700">${s.name}</td>
-            <td style="text-align:center;font-size:11px;color:#6B7280">${s.start_date || '-'} ~ ${s.end_date || '-'}</td>
-            <td style="text-align:center">${s.capacity || '-'}</td>
-            <td style="text-align:center;font-weight:800;color:${full ? '#DC2626' : '#059669'}">${ec}${full ? ' (정원초과)' : ''}</td>
-            <td style="text-align:center"><span style="font-size:10px;font-weight:800;color:${statusColor[s.status] || '#6B7280'}">${statusLabel[s.status] || s.status}</span></td>
+            <td style="text-align:center;font-size:11px;color:#6B7280">${s.start_date || "-"} ~ ${s.end_date || "-"}</td>
+            <td style="text-align:center">${s.capacity || "-"}</td>
+            <td style="text-align:center;font-weight:800;color:${full ? "#DC2626" : "#059669"}">${ec}${full ? " (정원초과)" : ""}</td>
+            <td style="text-align:center"><span style="font-size:10px;font-weight:800;color:${statusColor[s.status] || "#6B7280"}">${statusLabel[s.status] || s.status}</span></td>
             <td style="text-align:center">
               <button onclick="_seOpenEdit(${i})" style="border:none;background:none;cursor:pointer;font-size:14px">✏️</button>
               <button onclick="_seDelete(${i})" style="border:none;background:none;cursor:pointer;font-size:14px;color:#DC2626">🗑️</button>
             </td>
           </tr>`;
-  }).join('')}
+          })
+          .join("")}
         </tbody>
       </table>
-    </div>` : `
+    </div>`
+        : `
     <div class="bo-card" style="padding:60px;text-align:center">
       <div style="font-size:48px;margin-bottom:10px">🗓️</div>
-      <div style="font-weight:700;color:#6B7280">${_seCourses.length === 0 ? '교육과정을 먼저 등록해주세요' : '등록된 차수가 없습니다'}</div>
-    </div>`}
+      <div style="font-weight:700;color:#6B7280">${_seCourses.length === 0 ? "교육과정을 먼저 등록해주세요" : "등록된 차수가 없습니다"}</div>
+    </div>`
+    }
   </div>
 
   <!-- 차수 생성/수정 모달 -->
@@ -174,54 +232,70 @@ async function renderSessionMgmt() {
 }
 
 async function _seOpenCreate() {
-  document.getElementById('se-modal-title').textContent = '차수 생성';
-  document.getElementById('se-edit-idx').value = '';
-  document.getElementById('se-name').value = '';
-  document.getElementById('se-start').value = '';
-  document.getElementById('se-end').value = '';
-  document.getElementById('se-cap').value = '30';
-  document.getElementById('se-status').value = 'planned';
-  document.getElementById('se-modal').style.display = 'flex';
+  document.getElementById("se-modal-title").textContent = "차수 생성";
+  document.getElementById("se-edit-idx").value = "";
+  document.getElementById("se-name").value = "";
+  document.getElementById("se-start").value = "";
+  document.getElementById("se-end").value = "";
+  document.getElementById("se-cap").value = "30";
+  document.getElementById("se-status").value = "planned";
+  document.getElementById("se-modal").style.display = "flex";
 }
 
 function _seOpenEdit(idx) {
   const s = _seList[idx];
   if (!s) return;
-  document.getElementById('se-modal-title').textContent = '차수 수정';
-  document.getElementById('se-edit-idx').value = String(idx);
-  document.getElementById('se-name').value = s.name;
-  document.getElementById('se-start').value = s.start_date || '';
-  document.getElementById('se-end').value = s.end_date || '';
-  document.getElementById('se-cap').value = String(s.capacity || 30);
-  document.getElementById('se-status').value = s.status || 'planned';
-  document.getElementById('se-modal').style.display = 'flex';
+  document.getElementById("se-modal-title").textContent = "차수 수정";
+  document.getElementById("se-edit-idx").value = String(idx);
+  document.getElementById("se-name").value = s.name;
+  document.getElementById("se-start").value = s.start_date || "";
+  document.getElementById("se-end").value = s.end_date || "";
+  document.getElementById("se-cap").value = String(s.capacity || 30);
+  document.getElementById("se-status").value = s.status || "planned";
+  document.getElementById("se-modal").style.display = "flex";
 }
 
 async function _seSave() {
-  const name = document.getElementById('se-name')?.value?.trim();
-  if (!name) { alert('차수명을 입력해주세요.'); return; }
-  const start_date = document.getElementById('se-start')?.value || null;
-  const end_date = document.getElementById('se-end')?.value || null;
-  if (start_date && end_date && start_date > end_date) { alert('시작일이 종료일보다 이후입니다.'); return; }
-  const capacity = parseInt(document.getElementById('se-cap')?.value) || 30;
-  const status = document.getElementById('se-status')?.value || 'planned';
-  const editIdx = document.getElementById('se-edit-idx')?.value;
+  const name = document.getElementById("se-name")?.value?.trim();
+  if (!name) {
+    alert("차수명을 입력해주세요.");
+    return;
+  }
+  const start_date = document.getElementById("se-start")?.value || null;
+  const end_date = document.getElementById("se-end")?.value || null;
+  if (start_date && end_date && start_date > end_date) {
+    alert("시작일이 종료일보다 이후입니다.");
+    return;
+  }
+  const capacity = parseInt(document.getElementById("se-cap")?.value) || 30;
+  const status = document.getElementById("se-status")?.value || "planned";
+  const editIdx = document.getElementById("se-edit-idx")?.value;
   const sb = getSB();
   if (!sb) return;
 
-  if (editIdx !== '' && editIdx !== undefined) {
+  if (editIdx !== "" && editIdx !== undefined) {
     const s = _seList[Number(editIdx)];
     if (!s) return;
-    await sb.from('edu_sessions').update({ name, start_date, end_date, capacity, status }).eq('id', s.id);
+    await sb
+      .from("edu_sessions")
+      .update({ name, start_date, end_date, capacity, status })
+      .eq("id", s.id);
   } else {
     const maxNo = _seList.reduce((mx, s) => Math.max(mx, s.session_no || 0), 0);
-    const id = 'SES-' + Date.now();
-    await sb.from('edu_sessions').insert({
-      id, tenant_id: _seTenant, course_id: _seCourseId,
-      session_no: maxNo + 1, name, start_date, end_date, capacity, status
+    const id = "SES-" + Date.now();
+    await sb.from("edu_sessions").insert({
+      id,
+      tenant_id: _seTenant,
+      course_id: _seCourseId,
+      session_no: maxNo + 1,
+      name,
+      start_date,
+      end_date,
+      capacity,
+      status,
     });
   }
-  document.getElementById('se-modal').style.display = 'none';
+  document.getElementById("se-modal").style.display = "none";
   renderSessionMgmt();
 }
 
@@ -229,12 +303,17 @@ async function _seDelete(idx) {
   const s = _seList[idx];
   if (!s) return;
   const sb = getSB();
-  const { data: enrollments } = await sb.from('edu_enrollments').select('id').eq('session_id', s.id);
+  const { data: enrollments } = await sb
+    .from("edu_enrollments")
+    .select("id")
+    .eq("session_id", s.id);
   if (enrollments && enrollments.length > 0) {
-    alert(`수강생 ${enrollments.length}명이 입과되어 있습니다. 수강생을 먼저 제거해주세요.`);
+    alert(
+      `수강생 ${enrollments.length}명이 입과되어 있습니다. 수강생을 먼저 제거해주세요.`,
+    );
     return;
   }
   if (!confirm(`"${s.name}" 차수를 삭제하시겠습니까?`)) return;
-  await sb.from('edu_sessions').delete().eq('id', s.id);
+  await sb.from("edu_sessions").delete().eq("id", s.id);
   renderSessionMgmt();
 }

@@ -1,4 +1,4 @@
-// ─── 가상조직 템플릿 관리 ──────────────────────────────────────────────────────
+﻿// ─── 교육조직 템플릿 관리 ──────────────────────────────────────────────────────
 // 버그수정: myTemplates를 전역 _voMyTemplates로 이동 (로컬 변수 참조 오류 수정)
 // 기능추가: 플랫폼총괄·테넌트총괄 역할별 필터바 (테넌트/격리그룹 선택)
 
@@ -486,7 +486,7 @@ function _renderVirtualOrgFull(filterBar) {
     rightHtml = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <div>
-          <h2 style="font-size:16px;font-weight:800;margin:0 0 4px;color:#111827">${activeTpl.name} 가상 조직도</h2>
+          <h2 style="font-size:16px;font-weight:800;margin:0 0 4px;color:#111827">${activeTpl.name} 교육 조직도</h2>
           <p style="font-size:12px;color:#6B7280;margin:0">실제 HR팀을 맵핑하여 통합 매핑에 사용할 제도그룹을 만듭니다.</p>
         </div>
         <button class="bo-btn-primary bo-btn-sm" onclick="voOpenCreateGroup('${isRnd ? "rnd" : "general"}')">+ 가상 ${groupName} 추가</button>
@@ -607,10 +607,10 @@ function _renderVirtualOrgFull(filterBar) {
 <div class="bo-fade">
   <div style="margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
-      <span style="background:#1D4ED8;color:#fff;font-size:9px;font-weight:900;padding:3px 8px;border-radius:6px">가상조직 관리</span>
+      <span style="background:#1D4ED8;color:#fff;font-size:9px;font-weight:900;padding:3px 8px;border-radius:6px">교육조직 관리</span>
       <h1 class="bo-page-title" style="margin:0">제도그룹 관리</h1>
     </div>
-    <p class="bo-page-sub">권한 설정에 사용할 수 있는 가상 조직 제도그룹을 구성합니다.</p>
+    <p class="bo-page-sub">권한 설정에 사용할 수 있는 교육 조직 제도그룹을 구성합니다.</p>
   </div>
 
   ${_voCachedFilterBar}
@@ -670,8 +670,8 @@ function _renderVirtualOrgFull(filterBar) {
       </div>
     </div>
     <div style="margin-bottom:24px">
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">가상조직명 *</label>
-      <input id="vo-tpl-name" type="text" placeholder="예) HMC 일반교육예산 가상조직"
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">교육조직명 *</label>
+      <input id="vo-tpl-name" type="text" placeholder="예) HMC 일반교육예산 교육조직"
         style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;outline:none">
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -681,11 +681,11 @@ function _renderVirtualOrgFull(filterBar) {
   </div>
 </div>
 
-<!-- 가상조직 설정 수정 모달 -->
+<!-- 교육조직 설정 수정 모달 -->
 <div id="vo-tpl-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:16px;width:480px;max-height:90vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
     <div style="display:flex;justify-content:space-between;margin-bottom:18px">
-      <h3 style="font-size:15px;font-weight:800;margin:0">✏️ 가상조직 설정 수정</h3>
+      <h3 style="font-size:15px;font-weight:800;margin:0">✏️ 교육조직 설정 수정</h3>
       <button onclick="voCloseModal('vo-tpl-edit-modal')" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">✕</button>
     </div>
     <input type="hidden" id="vo-tpl-edit-id">
@@ -718,9 +718,9 @@ function _renderVirtualOrgFull(filterBar) {
         제도유형을 먼저 선택하세요
       </div>
     </div>
-    <!-- 가상조직명 -->
+    <!-- 교육조직명 -->
     <div style="margin-bottom:24px">
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">가상조직명 *</label>
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">교육조직명 *</label>
       <input id="vo-tpl-edit-name" type="text" placeholder="새 이름 입력"
         style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;outline:none">
     </div>
@@ -903,7 +903,7 @@ async function voOpenCreateTemplate() {
 function voConfirmCreateTemplate() {
   const name = document.getElementById("vo-tpl-name").value.trim();
   if (!name) {
-    alert("가상조직명을 입력해주세요.");
+    alert("교육조직명을 입력해주세요.");
     return;
   }
   const selectedTypes = [..._voSelectedPurposes];
@@ -935,7 +935,7 @@ function voConfirmCreateTemplate() {
   _voAutoSave(newTpl); // DB 저장
 }
 
-// ── 가상조직 이름 수정 ──────────────────────────────────────────────────
+// ── 교육조직 이름 수정 ──────────────────────────────────────────────────
 async function voOpenEditTemplate(tplId) {
   const tpl = _voMyTemplates.find((t) => t.id === tplId);
   if (!tpl) return;

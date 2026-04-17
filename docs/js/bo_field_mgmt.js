@@ -1,4 +1,4 @@
-// ─── 교육지원 조직 관리 ───────────────────────────────────────────────────────
+﻿// ─── 교육지원 조직 관리 ───────────────────────────────────────────────────────
 // 가상교육조직 중 service_type='edu_support'인 템플릿의 조직 리스트를 표시하고,
 // 각 조직별로 협조처와 담당자를 설정하는 화면
 
@@ -179,7 +179,7 @@ async function renderFieldMgmt() {
     : `
     <div style="text-align:center;padding:60px;background:#F9FAFB;border:2px dashed #E5E7EB;border-radius:14px;color:#94A3B8">
       <div style="font-size:40px;margin-bottom:10px">📚</div>
-      <div style="font-size:13px;font-weight:700;color:#64748B">${_fmLoadedTpls.length ? "이 템플릿에 가상조직이 없습니다" : "교육지원 용도의 가상조직이 없습니다"}</div>
+      <div style="font-size:13px;font-weight:700;color:#64748B">${_fmLoadedTpls.length ? "이 템플릿에 교육조직이 없습니다" : "교육지원 용도의 교육조직이 없습니다"}</div>
       <div style="font-size:11px;margin-top:4px">제도그룹 관리에서 용도를 '교육지원'으로 설정한 제도그룹을 먼저 만들어주세요.</div>
     </div>`;
 
@@ -191,7 +191,7 @@ async function renderFieldMgmt() {
         <span style="background:#059669;color:#fff;font-size:9px;font-weight:900;padding:3px 8px;border-radius:6px">교육지원제도 설정</span>
         <h1 style="font-size:20px;font-weight:900;color:#111827;margin:0">🏢 교육지원 조직 관리</h1>
       </div>
-      <p style="font-size:12px;color:#64748B;margin:0">교육지원 용도의 가상조직별 협조처와 담당자를 설정합니다.</p>
+      <p style="font-size:12px;color:#64748B;margin:0">교육지원 용도의 교육조직별 협조처와 담당자를 설정합니다.</p>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       ${tenantSelectHtml}

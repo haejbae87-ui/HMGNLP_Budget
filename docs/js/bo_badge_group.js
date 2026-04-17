@@ -1,4 +1,4 @@
-// bo_badge_group.js v2 — 드릴다운 통합 관리 (그룹 → 뱃지 목록 + 순서)
+﻿// bo_badge_group.js v2 — 드릴다운 통합 관리 (그룹 → 뱃지 목록 + 순서)
 
 let currentBadgeGroups = [];
 let vorgBadgeTemplates = [];
@@ -43,7 +43,7 @@ async function renderBadgeGroupMgmt() {
       }
       <select id="bg-filter-vorg" onchange="onBgVorgChange()"
         style="padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;min-width:180px">
-        <option value="">전체 가상조직</option>
+        <option value="">전체 교육조직</option>
       </select>
       <button onclick="loadBadgeGroupData()"
         style="padding:9px 20px;background:linear-gradient(135deg,#1D4ED8,#2563EB);color:white;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer">
@@ -66,7 +66,7 @@ async function renderBadgeGroupMgmt() {
             style="width:100%;padding:10px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:14px;box-sizing:border-box">
         </div>
         <div style="margin-bottom:14px">
-          <label style="display:block;font-size:11px;font-weight:800;color:#374151;margin-bottom:6px">연결 가상조직 (badge 용도만)</label>
+          <label style="display:block;font-size:11px;font-weight:800;color:#374151;margin-bottom:6px">연결 교육조직 (badge 용도만)</label>
           <select id="bg-vorg" style="width:100%;padding:10px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px"></select>
           <div id="bg-vorg-warn" style="font-size:11px;color:#EF4444;margin-top:4px"></div>
         </div>
@@ -130,7 +130,7 @@ async function _bgLoadVorgs(tenantId) {
     const sel = document.getElementById("bg-filter-vorg");
     if (!sel) return;
     sel.innerHTML =
-      `<option value="">전체 가상조직</option>` +
+      `<option value="">전체 교육조직</option>` +
       vorgBadgeTemplates
         .map((v) => `<option value="${v.id}">${v.name}</option>`)
         .join("");
@@ -184,14 +184,14 @@ function _bgRenderGroupCards() {
     container.innerHTML = `<div style="text-align:center;padding:60px;color:#9CA3AF;grid-column:1/-1">
       <div style="font-size:40px;margin-bottom:12px">📭</div>
       <div style="font-size:14px;font-weight:700">뱃지 그룹이 없습니다</div>
-      <div style="font-size:12px;margin-top:4px">가상조직(badge 용도)을 먼저 생성 후 그룹을 추가하세요</div>
+      <div style="font-size:12px;margin-top:4px">교육조직(badge 용도)을 먼저 생성 후 그룹을 추가하세요</div>
     </div>`;
     return;
   }
   container.innerHTML = currentBadgeGroups
     .map((bg) => {
       const vOrg = vorgBadgeTemplates.find((v) => v.id === bg.vorg_template_id);
-      const vOrgName = vOrg ? vOrg.name : "⚠️ 가상조직 미연결";
+      const vOrgName = vOrg ? vOrg.name : "⚠️ 교육조직 미연결";
       return `
       <div onclick="_bgOpenGroupDetail('${bg.id}')"
         style="background:#fff;border:1.5px solid #E5E7EB;border-radius:14px;padding:22px;cursor:pointer;transition:all .18s"
@@ -384,14 +384,14 @@ function openBadgeGroupModal() {
     warn = document.getElementById("bg-vorg-warn");
   if (!vorgBadgeTemplates.length) {
     if (sel)
-      sel.innerHTML = `<option value="">뱃지 용도 가상조직 없음</option>`;
+      sel.innerHTML = `<option value="">뱃지 용도 교육조직 없음</option>`;
     if (warn)
       warn.textContent =
-        "먼저 가상조직 관리에서 service_type=badge 제도그룹을 생성하세요.";
+        "먼저 교육조직 관리에서 service_type=badge 제도그룹을 생성하세요.";
   } else {
     if (sel)
       sel.innerHTML =
-        `<option value="">가상조직 선택...</option>` +
+        `<option value="">교육조직 선택...</option>` +
         vorgBadgeTemplates
           .map((v) => `<option value="${v.id}">${v.name}</option>`)
           .join("");
@@ -406,7 +406,7 @@ async function saveBadgeGroup() {
   const vorgId = document.getElementById("bg-vorg")?.value || "";
   const tenantId = _bgFilterTenantId || boCurrentPersona?.tenantId || "HMC";
   if (!name) return alert("그룹명을 입력해주세요.");
-  if (!vorgId) return alert("가상조직을 선택해주세요.");
+  if (!vorgId) return alert("교육조직을 선택해주세요.");
   const { error } = await _sb()
     .from("badge_groups")
     .insert([

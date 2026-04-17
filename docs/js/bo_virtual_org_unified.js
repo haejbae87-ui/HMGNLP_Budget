@@ -1,6 +1,6 @@
-// ─── 가상교육조직 통합 관리 화면 ──────────────────────────────────────────────
-// 기존 3개 메뉴(가상조직/예산계정/교육지원조직)를 용도별 동적 탭으로 통합
-// 공통 탭: ① 기본정보  ② 가상조직 구성  ③ 담당자  ④ 협조처
+﻿// ─── 가상교육조직 통합 관리 화면 ──────────────────────────────────────────────
+// 기존 3개 메뉴(교육조직/예산계정/교육지원조직)를 용도별 동적 탭으로 통합
+// 공통 탭: ① 기본정보  ② 교육조직 구성  ③ 담당자  ④ 협조처
 // 용도별:  ⑤ 예산계정(edu_support) / ⑤ 자격증 맵핑(cert)
 
 let _vuActiveTab = 0;
@@ -13,7 +13,7 @@ let _vuPurposeFilter = "all"; // 용도 필터: 'all'|'edu_support'|'cert'|'badg
 function _vuGetTabs(purpose) {
   const common = [
     { key: "info", label: "① 기본정보", icon: "📋" },
-    { key: "org", label: "② 가상조직 구성", icon: "🏗️" },
+    { key: "org", label: "② 교육조직 구성", icon: "🏗️" },
     { key: "mgr", label: "③ 담당자", icon: "👤" },
     { key: "coop", label: "④ 협조처", icon: "🤝" },
   ];
@@ -399,7 +399,7 @@ function _vuTabInfo(tpl) {
 </div>`;
 }
 
-// ═══ 탭②: 가상조직 구성 (트리 체크박스 뷰) ═══════════════════════════════════
+// ═══ 탭②: 교육조직 구성 (트리 체크박스 뷰) ═══════════════════════════════════
 // 전역 캐시: 조직도 트리 (탭 진입 시 한 번 로드)
 let _vuOrgTreeCache = null;
 let _vuOrgFlatCache = {};
@@ -460,9 +460,9 @@ function _vuTabOrg(tpl) {
   return `
 <div>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-    <h3 style="font-size:14px;font-weight:900;color:#111827;margin:0">🏗️ 가상조직 구성</h3>
+    <h3 style="font-size:14px;font-weight:900;color:#111827;margin:0">🏗️ 교육조직 구성</h3>
     <div style="display:flex;gap:8px">
-      <button onclick="_vuCleanupDuplicateMappings('${tpl.id}')" class="bo-btn-secondary bo-btn-sm" style="color:#D97706;border-color:#FDE68A;font-size:10px" title="여러 가상조직에 중복 맵핑된 팀을 자동 정리합니다">🔧 중복 정리</button>
+      <button onclick="_vuCleanupDuplicateMappings('${tpl.id}')" class="bo-btn-secondary bo-btn-sm" style="color:#D97706;border-color:#FDE68A;font-size:10px" title="여러 교육조직에 중복 맵핑된 팀을 자동 정리합니다">🔧 중복 정리</button>
       <button onclick="_vuAddGroup('${tpl.id}')" class="bo-btn-primary bo-btn-sm">+ 가상 본부 추가</button>
     </div>
   </div>
@@ -540,15 +540,7 @@ function _vuTabOrg(tpl) {
         <button onclick="_vuDeleteGroup('${tpl.id}',${gi})" class="bo-btn-secondary bo-btn-sm" style="color:#EF4444;border-color:#FCA5A5">삭제</button>
       </div>
     </div>
-    <div style="margin:8px 0 12px;padding:0 4px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <span style="font-size:10px;font-weight:700;color:#6B7280">📊 매핑 커버리지</span>
-        <span style="font-size:11px;font-weight:800;color:${pct >= 80 ? "#059669" : pct >= 40 ? "#D97706" : "#DC2626"}">${mappedCount} / ${totalLeafCount}팀 (${pct}%)</span>
-      </div>
-      <div style="width:100%;height:6px;background:#F3F4F6;border-radius:4px;overflow:hidden">
-        <div style="height:100%;width:${pct}%;background:${pct >= 80 ? "#059669" : pct >= 40 ? "#D97706" : "#DC2626"};border-radius:4px;transition:width .3s"></div>
-      </div>
-    </div>
+
     <!-- 맵핑된 팀 목록 -->
     <div style="padding:4px 0">
       ${
@@ -572,7 +564,7 @@ function _vuTabOrg(tpl) {
       : `
   <div style="padding:40px;text-align:center;background:#F9FAFB;border-radius:14px;border:1px dashed #D1D5DB">
     <div style="font-size:32px;margin-bottom:8px">🏗️</div>
-    <div style="font-size:13px;font-weight:700;color:#6B7280">가상조직이 없습니다</div>
+    <div style="font-size:13px;font-weight:700;color:#6B7280">교육조직이 없습니다</div>
     <div style="font-size:11px;color:#9CA3AF;margin-top:4px">+ 가상 본부 추가 버튼으로 조직을 구성하세요</div>
   </div>`
   }
@@ -719,7 +711,7 @@ async function _vuRemoveTeamWithCheck(tplId, gi, teamId) {
                 amount: -allocated,
                 prev_balance: allocated,
                 new_balance: 0,
-                reason: "가상조직 팀 해제 - 잔액 회수",
+                reason: "교육조직 팀 해제 - 잔액 회수",
                 performed_by: boCurrentPersona?.name || "",
               });
             }
@@ -768,7 +760,7 @@ function _vuTabCoop(tpl) {
   return `
 <div>
   <h3 style="font-size:14px;font-weight:900;color:#111827;margin:0 0 4px">🤝 협조처 관리</h3>
-  <p style="font-size:11px;color:#6B7280;margin:0 0 6px">각 가상조직(본부)별 결재 시 협조가 필요한 팀을 지정합니다.</p>
+  <p style="font-size:11px;color:#6B7280;margin:0 0 6px">각 교육조직(본부)별 결재 시 협조가 필요한 팀을 지정합니다.</p>
   <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
     <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;padding:3px 10px;border-radius:6px;background:#EFF6FF;color:#1D4ED8;font-weight:700;border:1px solid #BFDBFE">\ud83d\udcda \uad50\uc721\ud611\uc870\ucc98</span></div>
     <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;padding:3px 10px;border-radius:6px;background:#FFFBEB;color:#92400E;font-weight:700;border:1px solid #FDE68A">\ud83d\udcb0 \uc7ac\uacbd\ud611\uc870\ud300</span></div>
@@ -831,7 +823,7 @@ function _vuTabCoop(tpl) {
   </div>`;
           })
           .join("")
-      : '<div style="padding:40px;text-align:center;color:#9CA3AF;font-size:13px;font-weight:700">② 가상조직 구성 탭에서 조직을 먼저 추가하세요</div>'
+      : '<div style="padding:40px;text-align:center;color:#9CA3AF;font-size:13px;font-weight:700">② 교육조직 구성 탭에서 조직을 먼저 추가하세요</div>'
   }
 </div>`;
 }
@@ -883,7 +875,7 @@ function _vuTabManager(tpl) {
   </div>`;
           })
           .join("")
-      : '<div style="padding:40px;text-align:center;color:#9CA3AF;font-size:13px;font-weight:700">② 가상조직 구성 탭에서 조직을 먼저 추가하세요</div>'
+      : '<div style="padding:40px;text-align:center;color:#9CA3AF;font-size:13px;font-weight:700">② 교육조직 구성 탭에서 조직을 먼저 추가하세요</div>'
   }
 </div>`;
 }
@@ -919,7 +911,7 @@ function _vuEditGroup(tplId, gi) {
 }
 
 function _vuDeleteGroup(tplId, gi) {
-  if (!confirm("이 가상조직을 삭제하시겠습니까?")) return;
+  if (!confirm("이 교육조직을 삭제하시겠습니까?")) return;
   const tpl = _vuTplList.find((t) => t.id === tplId);
   if (!tpl || !tpl.tree?.hqs) return;
   tpl.tree.hqs.splice(gi, 1);
@@ -1838,7 +1830,7 @@ function _vuBuildOrgTreeHtml(nodes, depth, q) {
       rowBdr = "1.5px solid #FDE68A";
       checkboxDisabled = false;
       checkboxChecked = false; // 선택 가능 (conflicts 경고 후 재맵핑)
-      badgeHtml = `<span style="font-size:9px;padding:2px 7px;border-radius:10px;background:#FEF3C7;color:#92400E;white-space:nowrap" title="다른 가상조직: ${_vuGlobalMappedOrgs[node.id]}">⚠️ ${_vuGlobalMappedOrgs[node.id].split(" > ")[1]}에서 맵핑 중</span>`;
+      badgeHtml = `<span style="font-size:9px;padding:2px 7px;border-radius:10px;background:#FEF3C7;color:#92400E;white-space:nowrap" title="다른 교육조직: ${_vuGlobalMappedOrgs[node.id]}">⚠️ ${_vuGlobalMappedOrgs[node.id].split(" > ")[1]}에서 맵핑 중</span>`;
     } else if (isMapped) {
       // 이미 현재 VOrg에 맵핑된: 녹색에 체크되어 있음
       rowBg = "#F0FDF4";
@@ -2178,7 +2170,7 @@ function _vuRenderUserList(query) {
     return;
   }
 
-  // 현재 제도그룹 내 모든 가상조직에서 각 사용자의 기존 맵핑 조회
+  // 현재 제도그룹 내 모든 교육조직에서 각 사용자의 기존 맵핑 조회
   const curTpl = _vuTplList.find((t) => t.id === _vuTplId);
   const hqs = curTpl?.tree?.hqs || curTpl?.tree?.centers || [];
   const currentGi = window._vuPickerGi;
@@ -2522,7 +2514,7 @@ async function renderVorgManagerMgmt() {
 
   const _renderMgrRows = (tpl) => {
     const groups = tpl.tree?.hqs || tpl.tree?.centers || [];
-    if (!groups.length) return `<div style="padding:30px;text-align:center;color:#9CA3AF;font-size:13px">가상조직이 없습니다. 제도그룹 관리 메뉴에서 먼저 구성하세요.</div>`;
+    if (!groups.length) return `<div style="padding:30px;text-align:center;color:#9CA3AF;font-size:13px">교육조직이 없습니다. 제도그룹 관리 메뉴에서 먼저 구성하세요.</div>`;
     return groups.map((g, gi) => {
       const managers = g.managers || [];
       return `<div class="bo-card" style="padding:16px 20px;margin-bottom:12px;border-left:4px solid #059669">
@@ -2557,7 +2549,7 @@ async function renderVorgManagerMgmt() {
   el.innerHTML = `<div class="bo-fade">
   <div style="margin-bottom:20px">
     <h2 style="font-size:18px;font-weight:900;color:#111827;margin:0 0 4px">👤 교육조직 담당자 관리</h2>
-    <p style="font-size:12px;color:#6B7280;margin:0">제도그룹별 가상조직(본부)의 운영담당자를 일괄 조회·관리합니다. 탭 내 관리와 동일한 데이터를 공유합니다.</p>
+    <p style="font-size:12px;color:#6B7280;margin:0">제도그룹별 교육조직(본부)의 운영담당자를 일괄 조회·관리합니다. 탭 내 관리와 동일한 데이터를 공유합니다.</p>
   </div>
   <div style="background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:14px;padding:16px 20px;margin-bottom:22px">
     <div style="font-size:11px;font-weight:800;color:#374151;margin-bottom:12px">🔍 조회 조건</div>
@@ -2667,7 +2659,7 @@ async function renderVorgCoopMgmt() {
 
   const _renderCoopRows = (tpl) => {
     const groups = tpl.tree?.hqs || tpl.tree?.centers || [];
-    if (!groups.length) return `<div style="padding:30px;text-align:center;color:#9CA3AF;font-size:13px">가상조직이 없습니다.</div>`;
+    if (!groups.length) return `<div style="padding:30px;text-align:center;color:#9CA3AF;font-size:13px">교육조직이 없습니다.</div>`;
     return groups.map((g, gi) => {
       const coopTeams = g.coopTeams || [];
       return `<div class="bo-card" style="padding:16px 20px;margin-bottom:12px;border-left:4px solid #D97706">
@@ -2716,7 +2708,7 @@ async function renderVorgCoopMgmt() {
   el.innerHTML = `<div class="bo-fade">
   <div style="margin-bottom:20px">
     <h2 style="font-size:18px;font-weight:900;color:#111827;margin:0 0 4px">🤝 교육조직 협조처 관리</h2>
-    <p style="font-size:12px;color:#6B7280;margin:0">제도그룹별 가상조직(본부)의 협조처를 일괄 조회·관리합니다. 탭 내 관리와 동일한 데이터를 공유합니다.</p>
+    <p style="font-size:12px;color:#6B7280;margin:0">제도그룹별 교육조직(본부)의 협조처를 일괄 조회·관리합니다. 탭 내 관리와 동일한 데이터를 공유합니다.</p>
   </div>
   <div style="background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:14px;padding:16px 20px;margin-bottom:22px">
     <div style="font-size:11px;font-weight:800;color:#92400E;margin-bottom:12px">🔍 조회 조건</div>

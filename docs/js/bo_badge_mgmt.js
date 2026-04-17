@@ -1,4 +1,4 @@
-// bo_badge_mgmt.js — 뱃지 교육지원 운영 규칙 (Step 위저드: 선행조건→취득조건→갱신조건)
+﻿// bo_badge_mgmt.js — 뱃지 교육지원 운영 규칙 (Step 위저드: 선행조건→취득조건→갱신조건)
 
 let mgmtBadgeGroups = [],
   allBadges = [],
@@ -42,7 +42,7 @@ async function renderBadgeMgmt() {
         <div style="display:flex;align-items:center;gap:8px">
           <span class="bo-filter-label">제도그룹</span>
           <select id="bm-filter-vorg" class="bo-filter-select" onchange="onBmVorgChange()">
-            <option value="">전체 가상조직</option>
+            <option value="">전체 교육조직</option>
           </select>
         </div>
 
@@ -117,7 +117,7 @@ async function _bmLoadVorgs(tenantId) {
   const s = document.getElementById("bm-filter-vorg");
   if (!s) return;
   s.innerHTML =
-    `<option value="">전체 가상조직</option>` +
+    `<option value="">전체 교육조직</option>` +
     _bmVorgTemplates
       .map((v) => `<option value="${v.id}">${v.name}</option>`)
       .join("");

@@ -65,7 +65,7 @@ function _boEduFilterBar(onChangeCallback) {
     
     <div style="display:flex;align-items:center;gap:8px">
       <span class="bo-filter-label">회사</span>
-      <select id="bf-tenant" class="bo-filter-select" onchange="_boFilterChange('tenantId',this.value,'${cb}')">
+      <select id="bf-tenant" class="bo-filter-select" onchange="_boFilterChange('tenantId',this.value,'${onChangeCallback}')">
         <option value="">전체 회사</option>
         ${tenants.map((t) => '<option value="' + t.id + '"' + (_boEduFilter.tenantId === t.id ? " selected" : "") + ">" + (t.name || t.id) + "</option>").join("")}
       </select>
@@ -75,7 +75,7 @@ function _boEduFilterBar(onChangeCallback) {
 
     <div style="display:flex;align-items:center;gap:8px">
       <span class="bo-filter-label">가상조직</span>
-      <select id="bf-vorg" class="bo-filter-select" onchange="_boFilterChange('vorgId',this.value,'${cb}')">
+      <select id="bf-vorg" class="bo-filter-select" onchange="_boFilterChange('vorgId',this.value,'${onChangeCallback}')">
         <option value="">전체 가상조직</option>
         ${filteredVorgs.map((v) => '<option value="' + v.id + '"' + (_boEduFilter.vorgId === v.id ? " selected" : "") + ">" + v.name + "</option>").join("")}
       </select>
@@ -85,7 +85,7 @@ function _boEduFilterBar(onChangeCallback) {
 
     <div style="display:flex;align-items:center;gap:8px">
       <span class="bo-filter-label">계정</span>
-      <select id="bf-account" class="bo-filter-select" onchange="_boFilterChange('accountCode',this.value,'${cb}')">
+      <select id="bf-account" class="bo-filter-select" onchange="_boFilterChange('accountCode',this.value,'${onChangeCallback}')">
         <option value="">전체 계정</option>
         ${filteredAccounts.map((a) => '<option value="' + (a.code || a.id) + '"' + (_boEduFilter.accountCode === (a.code || a.id) ? " selected" : "") + ">" + a.name + "</option>").join("")}
       </select>
@@ -95,7 +95,7 @@ function _boEduFilterBar(onChangeCallback) {
 
     <div style="display:flex;align-items:center;gap:8px">
       <span class="bo-filter-label">목적</span>
-      <select id="bf-purpose" class="bo-filter-select" onchange="_boFilterChange('purpose',this.value,'${cb}')">
+      <select id="bf-purpose" class="bo-filter-select" onchange="_boFilterChange('purpose',this.value,'${onChangeCallback}')">
         <option value="">전체 목적</option>
         ${filteredPurposes.map((p) => '<option value="' + p.id + '"' + (_boEduFilter.purpose === p.id ? " selected" : "") + ">" + p.label + "</option>").join("")}
       </select>
@@ -105,20 +105,20 @@ function _boEduFilterBar(onChangeCallback) {
 
     <div style="display:flex;align-items:center;gap:8px">
       <span class="bo-filter-label">교육유형</span>
-      <select id="bf-edutype" class="bo-filter-select" onchange="_boFilterChange('eduType',this.value,'${cb}')">
+      <select id="bf-edutype" class="bo-filter-select" onchange="_boFilterChange('eduType',this.value,'${onChangeCallback}')">
         <option value="">전체</option>
         ${filteredTypes.map((g) => '<option value="' + g.id + '"' + (_boEduFilter.eduType === g.id ? " selected" : "") + ">" + g.label + "</option>").join("")}
       </select>
-      <select id="bf-subtype" class="bo-filter-select" onchange="_boFilterChange('eduSubType',this.value,'${cb}')">
+      <select id="bf-subtype" class="bo-filter-select" onchange="_boFilterChange('eduSubType',this.value,'${onChangeCallback}')">
         <option value="">전체 세부유형</option>
         ${filteredSubTypes.map((i) => '<option value="' + i.id + '"' + (_boEduFilter.eduSubType === i.id ? " selected" : "") + ">" + i.label + "</option>").join("")}
       </select>
     </div>
 
-    <button onclick="window['${cb}']()" class="bo-filter-btn-search">
+    <button onclick="window['${onChangeCallback}']()" class="bo-filter-btn-search">
       ● 조회
     </button>
-    <button onclick="_boFilterReset('${cb}')" class="bo-filter-btn-reset">
+    <button onclick="_boFilterReset('${onChangeCallback}')" class="bo-filter-btn-reset">
       초기화
     </button>
   </div>`;

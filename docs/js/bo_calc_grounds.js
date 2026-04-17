@@ -1,4 +1,4 @@
-// ─── 백오피스: 세부 산출 근거 관리 (리팩토링 v4) ────────────────────────────
+﻿// ─── 백오피스: 세부 산출 근거 관리 (리팩토링 v4) ────────────────────────────
 // 단가관리 탭 제거 → 단일 뷰 + 상세 페이지 전환
 // pricing_type: simple(단순형) / composite(복합형)
 // SAP 코드 관리 추가
@@ -274,7 +274,7 @@ function _renderCgListPage() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ─── 상세 페이지 (v2) ───────────────────────────────────────────────────────
+// ─── 상세 페이지 (v3) ───────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 function _cgOpenDetail(id) {
   _cgDetailView = { id: id || null };
@@ -285,8 +285,9 @@ function _cgBackToList() {
   renderCalcGrounds();
 }
 
-let _cgDetailUnitPrices = []; // 복합형 세부항목 로컬 상태
-let _cgDetailDimValues = []; // 차원값 목록 로컬
+let _cgDetailUnitPrices = [];
+let _cgDetailDimValues = [];
+let _cgDimMgmtOpen = false; // 차원값 관리 패널 열림 상태
 
 async function _renderCgDetailPage() {
   const id = _cgDetailView?.id;
@@ -295,22 +296,19 @@ async function _renderCgDetailPage() {
   const tenantId = _cgFilterTenant || boCurrentPersona.tenantId || "HMC";
   const myGroups = _cgTplList.filter((t) => t.service_type === "edu_support" && t.tenant_id === tenantId);
 
-  // 복합형 세부항목 로드
   _cgDetailUnitPrices = [];
   if (!isNew && item.pricingType === "composite") {
     await _cgLoadDetailUnitPrices(item.id, item.name);
   }
-  // 차원값 로드
   await _cgLoadDimValues(tenantId);
 
   const usageType = item?.usageType || "edu_operation";
   const pricingType = item?.pricingType || "simple";
   const lType = item?.limitType || "none";
   const dimCat = item?.dimensionCategory || "venue";
+  const isActive = item ? item.active !== false : true;
 
   const groupOpts = myGroups.map((g) => `<option value="${g.id}" ${item?.domainId === g.id ? "selected" : ""}>${g.name}</option>`).join("");
-
-  // 차원 카테고리 목록 (DB에서 동적 로드)
   const dimCategories = {};
   _cgDetailDimValues.forEach(d => { dimCategories[d.category] = d.category_label; });
   const dimCatOpts = Object.entries(dimCategories).map(([k, v]) => `<option value="${k}" ${dimCat === k ? 'selected' : ''}>${v}</option>`).join('');
@@ -321,16 +319,15 @@ async function _renderCgDetailPage() {
 
   <!-- 상단 네비 -->
   <div style="margin-bottom:20px;display:flex;align-items:center;gap:12px">
-    <button onclick="_cgBackToList()" style="padding:8px 14px;border:1.5px solid #E5E7EB;border-radius:10px;background:white;cursor:pointer;font-size:13px;font-weight:700;color:#374151;display:flex;align-items:center;gap:6px">
-      ◀ 목록으로
-    </button>
-    <div>
+    <button onclick="_cgBackToList()" style="padding:8px 14px;border:1.5px solid #E5E7EB;border-radius:10px;background:white;cursor:pointer;font-size:13px;font-weight:700;color:#374151;display:flex;align-items:center;gap:6px">◀ 목록으로</button>
+    <div style="flex:1">
       <h1 class="bo-page-title" style="margin:0">${isNew ? "세부산출근거 추가" : `세부산출근거 수정 — ${item.name}`}</h1>
       <p class="bo-page-sub" style="margin:4px 0 0">${isNew ? "새로운 세부산출근거 항목을 등록합니다." : "항목의 기본정보와 단가를 관리합니다."}</p>
     </div>
+    ${!isNew ? `<span style="font-size:12px;font-weight:800;padding:5px 14px;border-radius:8px;background:${isActive ? '#D1FAE5' : '#F3F4F6'};color:${isActive ? '#065F46' : '#9CA3AF'}">${isActive ? '✅ 활성' : '⏸ 비활성'}</span>` : ''}
   </div>
 
-  <!-- ① 소속 설정 (제도그룹 최상단 + 유형) -->
+  <!-- ① 소속 설정 -->
   <div class="bo-card" style="padding:18px;margin-bottom:16px">
     <div style="font-size:13px;font-weight:800;color:#1D4ED8;margin-bottom:14px">🏢 소속 설정</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
@@ -370,18 +367,15 @@ async function _renderCgDetailPage() {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <div style="grid-column:1/-1">
         <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">항목명 <span style="color:#EF4444">*</span></label>
-        <input id="cg-dt-name" type="text" value="${item?.name || ''}" placeholder="예) 숙박비"
-          style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+        <input id="cg-dt-name" type="text" value="${item?.name || ''}" placeholder="예) 숙박비" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
       </div>
       <div>
         <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">SAP 코드 <span style="font-size:10px;color:#6B7280">(선택)</span></label>
-        <input id="cg-dt-sap-code" type="text" value="${item?.sapCode || ''}" placeholder="예) SAP-ACC-001"
-          style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+        <input id="cg-dt-sap-code" type="text" value="${item?.sapCode || ''}" placeholder="예) SAP-ACC-001" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
       </div>
       <div>
         <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">표시 순서 <span style="font-size:10px;color:#6B7280">(숫자 작을수록 위에 표시)</span></label>
-        <input id="cg-dt-order" type="number" value="${item?.sortOrder ?? 99}" placeholder="99"
-          style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+        <input id="cg-dt-order" type="number" value="${item?.sortOrder ?? 99}" placeholder="99" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
       </div>
       <div style="grid-column:1/-1">
         <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">가이드 설명 <span style="font-size:10px;color:#6B7280">(학습자 화면 노출)</span></label>
@@ -390,84 +384,111 @@ async function _renderCgDetailPage() {
     </div>
   </div>
 
-  <!-- ③ 가격 설정 (유형별 자동 분기) -->
+  <!-- ③ 가격 설정 -->
   <div class="bo-card" style="padding:18px;margin-bottom:16px">
     <div style="font-size:13px;font-weight:800;color:#374151;margin-bottom:14px">💰 가격 설정</div>
 
-    <!-- 직접학습용: 항상 단순형 -->
+    <!-- 직접학습용 -->
     <div id="cg-dt-self-learning-section" style="display:${usageType === 'self_learning' ? 'block' : 'none'}">
-      <div style="padding:10px 14px;background:#F0FDF4;border:1.5px solid #BBF7D0;border-radius:10px;margin-bottom:16px;font-size:12px;color:#065F46;font-weight:600">
-        📚 직접학습용 — 기준단가 하나로 설정 (단가 × 인원)
-      </div>
+      <div style="padding:10px 14px;background:#F0FDF4;border:1.5px solid #BBF7D0;border-radius:10px;margin-bottom:16px;font-size:12px;color:#065F46;font-weight:600">📚 직접학습용 — 기준단가 하나로 설정 (단가 × 인원)</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
         <div>
           <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">기준단가 (원)</label>
-          <input id="cg-dt-unit-price" type="number" value="${item?.unitPrice ?? ''}" placeholder="0 = 직접 입력"
-            style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+          <input id="cg-dt-unit-price" type="number" value="${item?.unitPrice ?? ''}" placeholder="0 = 직접 입력" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
         </div>
       </div>
       ${_cgRenderLimitSection(lType, item, 'sl')}
     </div>
 
-    <!-- 교육운영용: 단순형/복합형 선택 -->
+    <!-- 교육운영용 -->
     <div id="cg-dt-edu-op-section" style="display:${usageType === 'edu_operation' ? 'block' : 'none'}">
-      <div style="padding:10px 14px;background:#DBEAFE;border:1.5px solid #93C5FD;border-radius:10px;margin-bottom:16px;font-size:12px;color:#1E40AF;font-weight:600">
-        🎯 교육운영용 — 단가 × 인원 × qty2 × 차수 (3중 승산 고정)
-      </div>
+      <div style="padding:10px 14px;background:#DBEAFE;border:1.5px solid #93C5FD;border-radius:10px;margin-bottom:16px;font-size:12px;color:#1E40AF;font-weight:600">🎯 교육운영용 — 단가 × 인원 × qty2 × 차수 (3중 승산 고정)</div>
       <div style="display:flex;gap:10px;margin-bottom:16px">
         <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:10px;cursor:pointer;border:2px solid ${pricingType === 'simple' ? '#059669' : '#E5E7EB'};background:${pricingType === 'simple' ? '#F0FDF4' : '#fff'}" onclick="_cgDtSelectPricingType('simple')">
           <input type="radio" name="cg-pricing-type" value="simple" ${pricingType === 'simple' ? 'checked' : ''} style="accent-color:#059669">
-          <div>
-            <div style="font-size:13px;font-weight:800;color:#065F46">단순형</div>
-            <div style="font-size:10px;color:#6B7280">기준단가 하나로 설정 (예: 문구비 5,000원)</div>
-          </div>
+          <div><div style="font-size:13px;font-weight:800;color:#065F46">단순형</div><div style="font-size:10px;color:#6B7280">기준단가 하나로 설정</div></div>
         </label>
         <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:10px;cursor:pointer;border:2px solid ${pricingType === 'composite' ? '#D97706' : '#E5E7EB'};background:${pricingType === 'composite' ? '#FFFBEB' : '#fff'}" onclick="_cgDtSelectPricingType('composite')">
           <input type="radio" name="cg-pricing-type" value="composite" ${pricingType === 'composite' ? 'checked' : ''} style="accent-color:#D97706">
-          <div>
-            <div style="font-size:13px;font-weight:800;color:#92400E">복합형</div>
-            <div style="font-size:10px;color:#6B7280">차원(교육장소/강사등급) × 세부항목별 단가</div>
-          </div>
+          <div><div style="font-size:13px;font-weight:800;color:#92400E">복합형</div><div style="font-size:10px;color:#6B7280">차원(교육장소/강사등급) × 세부항목별 단가</div></div>
         </label>
       </div>
 
-      <!-- 교육운영용 단순형 -->
+      <!-- 단순형 -->
       <div id="cg-dt-eo-simple-section" style="display:${pricingType === 'simple' ? 'block' : 'none'}">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
           <div>
             <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">기준단가 (원)</label>
-            <input id="cg-dt-eo-unit-price" type="number" value="${item?.unitPrice ?? ''}" placeholder="0 = 직접 입력"
-              style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+            <input id="cg-dt-eo-unit-price" type="number" value="${item?.unitPrice ?? ''}" placeholder="0 = 직접 입력" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
           </div>
         </div>
         ${_cgRenderLimitSection(lType, item, 'eo')}
       </div>
 
-      <!-- 교육운영용 복합형 -->
+      <!-- 복합형 -->
       <div id="cg-dt-composite-section" style="display:${pricingType === 'composite' ? 'block' : 'none'}">
-        <div style="margin-bottom:14px">
-          <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">차원 카테고리</label>
-          <select id="cg-dt-dim-cat" onchange="_cgDtOnDimCatChange()" style="padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;min-width:200px">
-            ${dimCatOpts || '<option value="venue">교육장소</option>'}
-          </select>
-          <div style="margin-top:4px;font-size:10px;color:#6B7280">💡 선택한 차원의 값별로 세부항목과 단가를 설정합니다.</div>
+        <div style="margin-bottom:14px;display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap">
+          <div>
+            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">차원 카테고리</label>
+            <select id="cg-dt-dim-cat" onchange="_cgDtOnDimCatChange()" style="padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;min-width:180px">
+              ${dimCatOpts || '<option value="venue">교육장소</option>'}
+            </select>
+          </div>
+          <button onclick="_cgDtToggleDimMgmt()" style="padding:8px 14px;border:1.5px solid #C4B5FD;border-radius:8px;background:#F5F3FF;color:#7C3AED;font-size:12px;font-weight:700;cursor:pointer">🔧 차원값 관리</button>
         </div>
+
+        <!-- 차원값 관리 인라인 패널 -->
+        <div id="cg-dt-dim-mgmt-panel" style="display:none;margin-bottom:16px">
+          ${_cgRenderDimMgmtPanel()}
+        </div>
+
+        <!-- 세부항목 추가 (드롭다운 방식) -->
+        <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          <select id="cg-dt-add-dim-select" style="flex:1;padding:8px 12px;border:1.5px solid #FDE68A;border-radius:8px;font-size:12px;background:#FFFBEB">
+            <option value="">— 추가할 차원값 선택 —</option>
+            ${_cgGetAvailableDimOptions()}
+          </select>
+          <button onclick="_cgDtAddDimValueFromSelect()" style="padding:8px 14px;border:1.5px solid #D97706;border-radius:8px;background:#FFFBEB;color:#92400E;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">+ 추가</button>
+        </div>
+
+        <!-- 매트릭스 -->
         <div id="cg-dt-matrix">${_cgRenderMatrix()}</div>
-        <button onclick="_cgDtAddDimValue()" style="margin-top:12px;padding:8px 16px;border:1.5px dashed #D97706;border-radius:8px;background:#FFFBEB;color:#92400E;font-size:12px;font-weight:700;cursor:pointer;width:100%">+ 차원값 추가</button>
       </div>
     </div>
   </div>
 
   <!-- ④ 하단 액션 바 -->
   <div style="display:flex;gap:10px;justify-content:flex-end;padding:16px 0;border-top:2px solid #E5E7EB">
-    ${!isNew ? `<button onclick="_cgDeleteItem('${item.id}')" style="padding:10px 20px;border:1.5px solid #FECACA;border-radius:10px;background:#FEF2F2;color:#DC2626;font-size:13px;font-weight:700;cursor:pointer;margin-right:auto">🗑️ 삭제</button>` : ''}
+    ${!isNew ? `
+      <button onclick="_cgDeleteItem('${item.id}')" style="padding:10px 20px;border:1.5px solid #FECACA;border-radius:10px;background:#FEF2F2;color:#DC2626;font-size:13px;font-weight:700;cursor:pointer;margin-right:auto">🗑️ 삭제</button>
+      <button onclick="_cgDtToggleActiveFromDetail('${item.id}',${isActive})" style="padding:10px 20px;border:1.5px solid ${isActive ? '#FDE68A' : '#A7F3D0'};border-radius:10px;background:${isActive ? '#FFFBEB' : '#ECFDF5'};color:${isActive ? '#D97706' : '#059669'};font-size:13px;font-weight:700;cursor:pointer">
+        ${isActive ? '⏸ 비활성화' : '▶ 활성화'}
+      </button>
+    ` : ''}
     <button onclick="_cgBackToList()" style="padding:10px 24px;border:1.5px solid #E5E7EB;border-radius:10px;background:white;font-size:13px;font-weight:700;cursor:pointer;color:#6B7280">취소</button>
     <button onclick="_cgSaveDetail()" style="padding:10px 28px;border:none;border-radius:10px;background:linear-gradient(135deg,#1D4ED8,#2563EB);color:white;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,.35)">💾 저장</button>
   </div>
 </div>`;
+  _cgDimMgmtOpen = false;
 }
 
-// ─── 상한액 섹션 렌더 ─────────────────────────────────────────────────────
+// ─── 상세 페이지 활성/비활성 토글 ─────────────────────────────────────────
+async function _cgDtToggleActiveFromDetail(id, currentActive) {
+  const newActive = !currentActive;
+  const msg = newActive ? "이 세부산출근거를 활성화할까요?\nFO에서 선택 가능해집니다." : "이 세부산출근거를 비활성화할까요?\nFO에서 선택할 수 없게 됩니다.";
+  if (!confirm(msg)) return;
+  try {
+    const sb = typeof _sb === "function" ? _sb() : null;
+    if (sb) await sb.from("calc_grounds").update({ active: newActive }).eq("id", id);
+    const item = CALC_GROUNDS_MASTER.find(g => g.id === id);
+    if (item) item.active = newActive;
+    _cgDetailView = { id };
+    _cgDbLoaded = false;
+    renderCalcGrounds();
+  } catch (e) { alert("변경 실패: " + e.message); }
+}
+
+// ─── 상한액 섹션 ─────────────────────────────────────────────────────────
 function _cgRenderLimitSection(lType, item, prefix) {
   const pfx = prefix || 'sl';
   return `
@@ -493,7 +514,134 @@ function _cgRenderLimitSection(lType, item, prefix) {
   </div>`;
 }
 
-// ─── 복합형 매트릭스 렌더 (v2) ────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════
+// ─── 차원값 관리 인라인 패널 ──────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════
+function _cgDtToggleDimMgmt() {
+  _cgDimMgmtOpen = !_cgDimMgmtOpen;
+  const panel = document.getElementById("cg-dt-dim-mgmt-panel");
+  if (panel) {
+    panel.style.display = _cgDimMgmtOpen ? "block" : "none";
+    if (_cgDimMgmtOpen) panel.innerHTML = _cgRenderDimMgmtPanel();
+  }
+}
+
+function _cgRenderDimMgmtPanel() {
+  const selectedCat = document.getElementById("cg-dt-dim-cat")?.value || "venue";
+  const catLabel = _cgDetailDimValues.find(d => d.category === selectedCat)?.category_label || selectedCat;
+  const catItems = _cgDetailDimValues.filter(d => d.category === selectedCat);
+  const activeItems = catItems.filter(d => d.active !== false);
+  const inactiveItems = catItems.filter(d => d.active === false);
+
+  return `
+  <div style="background:#F5F3FF;border:1.5px solid #C4B5FD;border-radius:10px;padding:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:800;color:#7C3AED">📍 ${catLabel} 차원값 관리</div>
+      <button onclick="_cgDtToggleDimMgmt()" style="border:none;background:none;color:#9CA3AF;cursor:pointer;font-size:16px">✕</button>
+    </div>
+
+    <!-- 새 차원값 추가 -->
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <input id="cg-dt-new-dim-name" type="text" placeholder="새 차원값 이름 (예: 마북캠퍼스)" style="flex:1;padding:8px 12px;border:1.5px solid #DDD6FE;border-radius:8px;font-size:12px">
+      <button onclick="_cgDtAddNewDimValue()" style="padding:8px 16px;border:none;border-radius:8px;background:#7C3AED;color:white;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">+ 추가</button>
+    </div>
+
+    <!-- 기존 차원값 목록 -->
+    <div style="max-height:240px;overflow-y:auto">
+      ${activeItems.length === 0 && inactiveItems.length === 0 ? '<div style="text-align:center;padding:16px;color:#9CA3AF;font-size:12px">등록된 차원값이 없습니다.</div>' : ''}
+      ${activeItems.map(d => `
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid #EDE9FE">
+        <span style="flex:1;font-size:12px;font-weight:700;color:#374151">${d.name}</span>
+        <span style="font-size:10px;color:#6B7280">순서: ${d.sort_order}</span>
+        <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:#D1FAE5;color:#065F46;font-weight:700">활성</span>
+        <button onclick="_cgDtEditDimValue(${d.id})" style="font-size:10px;padding:3px 8px;border:1px solid #D1D5DB;border-radius:5px;background:white;cursor:pointer;font-weight:700;color:#374151">수정</button>
+        <button onclick="_cgDtToggleDimActive(${d.id},false)" style="font-size:10px;padding:3px 8px;border:1px solid #FDE68A;border-radius:5px;background:#FFFBEB;color:#D97706;cursor:pointer;font-weight:700">비활성</button>
+      </div>`).join('')}
+      ${inactiveItems.map(d => `
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid #EDE9FE;opacity:.6">
+        <span style="flex:1;font-size:12px;font-weight:700;color:#9CA3AF">${d.name}</span>
+        <span style="font-size:10px;color:#9CA3AF">순서: ${d.sort_order}</span>
+        <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:#F3F4F6;color:#9CA3AF;font-weight:700">비활성</span>
+        <button onclick="_cgDtToggleDimActive(${d.id},true)" style="font-size:10px;padding:3px 8px;border:1px solid #A7F3D0;border-radius:5px;background:#ECFDF5;color:#059669;cursor:pointer;font-weight:700">활성화</button>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+async function _cgDtAddNewDimValue() {
+  const nameInput = document.getElementById("cg-dt-new-dim-name");
+  const name = nameInput?.value.trim();
+  if (!name) { alert("차원값 이름을 입력하세요."); return; }
+  const selectedCat = document.getElementById("cg-dt-dim-cat")?.value || "venue";
+  const catLabel = _cgDetailDimValues.find(d => d.category === selectedCat)?.category_label || selectedCat;
+  const tenantId = _cgFilterTenant || boCurrentPersona.tenantId || "HMC";
+  const maxOrder = _cgDetailDimValues.filter(d => d.category === selectedCat).reduce((m, d) => Math.max(m, d.sort_order || 0), 0);
+  try {
+    const sb = typeof _sb === "function" ? _sb() : null;
+    if (sb) {
+      await sb.from("pricing_dimensions").insert({ category: selectedCat, category_label: catLabel, name, tenant_id: tenantId, sort_order: maxOrder + 1 });
+    }
+    await _cgLoadDimValues(tenantId);
+    document.getElementById("cg-dt-dim-mgmt-panel").innerHTML = _cgRenderDimMgmtPanel();
+    _cgRefreshDimDropdown();
+    nameInput.value = "";
+  } catch (e) { alert("추가 실패: " + e.message); }
+}
+
+async function _cgDtEditDimValue(id) {
+  const item = _cgDetailDimValues.find(d => d.id === id);
+  if (!item) return;
+  const newName = prompt("차원값 이름:", item.name);
+  if (!newName || !newName.trim()) return;
+  const newOrder = prompt("정렬 순서:", item.sort_order);
+  try {
+    const sb = typeof _sb === "function" ? _sb() : null;
+    if (sb) await sb.from("pricing_dimensions").update({ name: newName.trim(), sort_order: Number(newOrder) || item.sort_order }).eq("id", id);
+    const tenantId = _cgFilterTenant || boCurrentPersona.tenantId || "HMC";
+    await _cgLoadDimValues(tenantId);
+    document.getElementById("cg-dt-dim-mgmt-panel").innerHTML = _cgRenderDimMgmtPanel();
+    _cgRefreshDimDropdown();
+  } catch (e) { alert("수정 실패: " + e.message); }
+}
+
+async function _cgDtToggleDimActive(id, active) {
+  try {
+    const sb = typeof _sb === "function" ? _sb() : null;
+    if (sb) await sb.from("pricing_dimensions").update({ active }).eq("id", id);
+    const tenantId = _cgFilterTenant || boCurrentPersona.tenantId || "HMC";
+    await _cgLoadDimValues(tenantId);
+    document.getElementById("cg-dt-dim-mgmt-panel").innerHTML = _cgRenderDimMgmtPanel();
+    _cgRefreshDimDropdown();
+  } catch (e) { alert("변경 실패: " + e.message); }
+}
+
+function _cgRefreshDimDropdown() {
+  const sel = document.getElementById("cg-dt-add-dim-select");
+  if (sel) {
+    sel.innerHTML = '<option value="">— 추가할 차원값 선택 —</option>' + _cgGetAvailableDimOptions();
+  }
+}
+
+function _cgGetAvailableDimOptions() {
+  const selectedCat = document.getElementById("cg-dt-dim-cat")?.value || "venue";
+  const dimValues = _cgDetailDimValues.filter(d => d.category === selectedCat && d.active !== false);
+  const existing = [...new Set(_cgDetailUnitPrices.map(p => p.venue_name))];
+  return dimValues.filter(d => !existing.includes(d.name)).map(d => `<option value="${d.name}">${d.name}</option>`).join('');
+}
+
+// ─── 드롭다운에서 차원값 추가 ─────────────────────────────────────────────
+function _cgDtAddDimValueFromSelect() {
+  const sel = document.getElementById("cg-dt-add-dim-select");
+  const val = sel?.value;
+  if (!val) { alert("추가할 차원값을 선택하세요."); return; }
+  _cgDetailUnitPrices.push({ venue_name: val, preset_name: "", detail_name: "", unit_price: 0, qty2_value: 1, limit_type: "none", limit_value: 0, qty2_label: "박", active: true });
+  document.getElementById("cg-dt-matrix").innerHTML = _cgRenderMatrix();
+  _cgRefreshDimDropdown();
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// ─── 복합형 매트릭스 (v3: 활성/비활성 토글 추가) ────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════
 function _cgRenderMatrix() {
   const byDim = {};
   _cgDetailUnitPrices.forEach((p) => {
@@ -503,42 +651,49 @@ function _cgRenderMatrix() {
   });
   const dimKeys = Object.keys(byDim);
   if (dimKeys.length === 0) {
-    return `<div style="text-align:center;padding:24px;background:#FFFBEB;border:1.5px dashed #FDE68A;border-radius:10px;color:#92400E;font-size:12px">아직 등록된 차원값이 없습니다. 아래 버튼으로 추가하세요.</div>`;
+    return `<div style="text-align:center;padding:24px;background:#F9FAFB;border:1.5px dashed #E5E7EB;border-radius:10px;color:#9CA3AF;font-size:12px">위에서 차원값을 선택하여 세부항목을 추가하세요.</div>`;
   }
   const QTY2_LABELS = ['박','일','회','차수','건','매','식','시간'];
   return dimKeys.map((dimVal, di) => {
     const items = byDim[dimVal];
+    const activeCount = items.filter(p => p.active !== false).length;
     return `
     <div style="background:#FAFAFA;border:1.5px solid #E5E7EB;border-radius:10px;padding:14px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-size:12px;padding:3px 10px;border-radius:6px;background:#EFF6FF;color:#1D4ED8;font-weight:800">📍 ${dimVal}</span>
-          <span style="font-size:10px;color:#6B7280">${items.length}개 세부항목</span>
+          <span style="font-size:10px;color:#6B7280">${activeCount}/${items.length}개 활성</span>
         </div>
-        <button onclick="_cgDtRemoveDimValue('${dimVal.replace(/'/g,"\\\\'")}')" style="font-size:11px;padding:4px 10px;border:1px solid #FECACA;border-radius:6px;background:#FEF2F2;color:#DC2626;cursor:pointer;font-weight:700">✕ 제거</button>
+        <button onclick="_cgDtRemoveDimValue('${dimVal.replace(/'/g,"\\\\'")}')" style="font-size:11px;padding:4px 10px;border:1px solid #FECACA;border-radius:6px;background:#FEF2F2;color:#DC2626;cursor:pointer;font-weight:700">✕ 전체제거</button>
       </div>
       <div style="overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:750px">
         <thead><tr style="background:#F3F4F6">
-          <th style="padding:6px 8px;text-align:left;font-weight:800;color:#374151;min-width:110px">세부항목명</th>
-          <th style="padding:6px 8px;text-align:right;font-weight:800;color:#374151;width:95px">단가(원)</th>
-          <th style="padding:6px 8px;text-align:center;font-weight:800;color:#374151;width:75px">상한유형</th>
-          <th style="padding:6px 8px;text-align:right;font-weight:800;color:#374151;width:95px">상한가(원)</th>
-          <th style="padding:6px 8px;text-align:center;font-weight:800;color:#374151;width:65px">단위</th>
-          <th style="padding:6px 8px;text-align:center;font-weight:800;color:#374151;width:50px">qty2</th>
+          <th style="padding:6px 8px;text-align:left;font-weight:800;color:#374151;min-width:100px">세부항목명</th>
+          <th style="padding:6px 8px;text-align:right;font-weight:800;color:#374151;width:90px">단가(원)</th>
+          <th style="padding:6px 8px;text-align:center;font-weight:800;color:#374151;width:70px">상한유형</th>
+          <th style="padding:6px 8px;text-align:right;font-weight:800;color:#374151;width:90px">상한가(원)</th>
+          <th style="padding:6px 8px;text-align:center;font-weight:800;color:#374151;width:60px">단위</th>
+          <th style="padding:6px 8px;text-align:center;font-weight:800;color:#374151;width:45px">qty2</th>
+          <th style="padding:6px 8px;text-align:center;font-weight:800;color:#374151;width:55px">상태</th>
           <th style="padding:6px 8px;text-align:center;width:35px"></th>
         </tr></thead>
         <tbody>
-          ${items.map((p, pi) => `
-          <tr style="border-bottom:1px solid #E5E7EB">
+          ${items.map((p, pi) => {
+            const isItemActive = p.active !== false;
+            return `
+          <tr style="border-bottom:1px solid #E5E7EB;${!isItemActive ? 'opacity:.5;' : ''}">
             <td style="padding:4px 6px"><input type="text" value="${p.preset_name||p.detail_name||''}" onchange="_cgDtUpdateSubItem(${di},${pi},'name',this.value)" style="width:100%;box-sizing:border-box;padding:5px 6px;border:1px solid #E5E7EB;border-radius:5px;font-size:11px"></td>
             <td style="padding:4px 6px"><input type="number" value="${p.unit_price||0}" onchange="_cgDtUpdateSubItem(${di},${pi},'price',this.value)" style="width:100%;box-sizing:border-box;padding:5px 6px;border:1px solid #E5E7EB;border-radius:5px;font-size:11px;text-align:right"></td>
             <td style="padding:4px 6px"><select onchange="_cgDtUpdateSubItem(${di},${pi},'limit_type',this.value)" style="width:100%;padding:5px 3px;border:1px solid #E5E7EB;border-radius:5px;font-size:10px">${['none','soft','hard'].map(lt=>`<option value="${lt}" ${(p.limit_type||'none')===lt?'selected':''}>${lt==='none'?'없음':lt==='soft'?'⚠Soft':'🚫Hard'}</option>`).join('')}</select></td>
             <td style="padding:4px 6px"><input type="number" value="${p.limit_value||0}" onchange="_cgDtUpdateSubItem(${di},${pi},'limit_value',this.value)" style="width:100%;box-sizing:border-box;padding:5px 6px;border:1px solid #E5E7EB;border-radius:5px;font-size:11px;text-align:right" ${(p.limit_type||'none')==='none'?'disabled':''}></td>
             <td style="padding:4px 6px"><select onchange="_cgDtUpdateSubItem(${di},${pi},'qty2_label',this.value)" style="width:100%;padding:5px 3px;border:1px solid #E5E7EB;border-radius:5px;font-size:10px">${QTY2_LABELS.map(u=>`<option value="${u}" ${(p.qty2_label||'박')===u?'selected':''}>${u}</option>`).join('')}</select></td>
             <td style="padding:4px 6px"><input type="number" value="${p.qty2_value||1}" onchange="_cgDtUpdateSubItem(${di},${pi},'qty2',this.value)" style="width:45px;padding:5px 3px;border:1px solid #E5E7EB;border-radius:5px;font-size:11px;text-align:center"></td>
+            <td style="padding:4px 6px;text-align:center">
+              <button onclick="_cgDtToggleSubItemActive(${di},${pi})" style="font-size:9px;padding:3px 7px;border-radius:5px;border:1px solid ${isItemActive ? '#A7F3D0' : '#FDE68A'};background:${isItemActive ? '#D1FAE5' : '#FEF3C7'};color:${isItemActive ? '#065F46' : '#92400E'};cursor:pointer;font-weight:800">${isItemActive ? '활성' : '비활성'}</button>
+            </td>
             <td style="padding:4px 6px;text-align:center"><button onclick="_cgDtRemoveSubItem(${di},${pi})" style="border:none;background:none;color:#EF4444;cursor:pointer;font-size:13px">✕</button></td>
-          </tr>`).join('')}
+          </tr>`;}).join('')}
         </tbody>
       </table>
       </div>
@@ -549,34 +704,18 @@ function _cgRenderMatrix() {
 
 // ─── 매트릭스 조작 ─────────────────────────────────────────────────────────
 function _cgDtAddDimValue() {
-  const selectedCat = document.getElementById("cg-dt-dim-cat")?.value || "venue";
-  const catLabel = _cgDetailDimValues.find(d => d.category === selectedCat)?.category_label || selectedCat;
-  const dimValues = _cgDetailDimValues.filter(d => d.category === selectedCat && d.active !== false).map(d => d.name);
-  const existing = [...new Set(_cgDetailUnitPrices.map(p => p.venue_name))];
-  const available = dimValues.filter(v => !existing.includes(v));
-  if (available.length === 0) {
-    const custom = prompt(`추가할 ${catLabel} 값을 입력하세요:`);
-    if (!custom || !custom.trim()) return;
-    _cgDetailUnitPrices.push({ venue_name: custom.trim(), preset_name: "", detail_name: "", unit_price: 0, qty2_value: 1, limit_type: "none", limit_value: 0, qty2_label: "박" });
-  } else {
-    const list = available.map((v,i) => `${i+1}. ${v}`).join('\n');
-    const choice = prompt(`추가할 ${catLabel}을 선택하세요 (번호):\n${list}\n\n직접 입력도 가능:`);
-    if (!choice || !choice.trim()) return;
-    const num = parseInt(choice);
-    const name = (num > 0 && num <= available.length) ? available[num-1] : choice.trim();
-    _cgDetailUnitPrices.push({ venue_name: name, preset_name: "", detail_name: "", unit_price: 0, qty2_value: 1, limit_type: "none", limit_value: 0, qty2_label: "박" });
-  }
-  document.getElementById("cg-dt-matrix").innerHTML = _cgRenderMatrix();
+  _cgDtAddDimValueFromSelect();
 }
 
 function _cgDtRemoveDimValue(dimVal) {
   if (!confirm(`"${dimVal}" 차원값의 모든 세부항목을 제거할까요?`)) return;
   _cgDetailUnitPrices = _cgDetailUnitPrices.filter(p => (p.venue_name || p.dimension_value) !== dimVal);
   document.getElementById("cg-dt-matrix").innerHTML = _cgRenderMatrix();
+  _cgRefreshDimDropdown();
 }
 
 function _cgDtAddSubItem(dimVal) {
-  _cgDetailUnitPrices.push({ venue_name: dimVal, preset_name: "", detail_name: "", unit_price: 0, qty2_value: 1, limit_type: "none", limit_value: 0, qty2_label: "박" });
+  _cgDetailUnitPrices.push({ venue_name: dimVal, preset_name: "", detail_name: "", unit_price: 0, qty2_value: 1, limit_type: "none", limit_value: 0, qty2_label: "박", active: true });
   document.getElementById("cg-dt-matrix").innerHTML = _cgRenderMatrix();
 }
 
@@ -586,6 +725,17 @@ function _cgDtRemoveSubItem(dimIdx, itemIdx) {
   const dimKeys = Object.keys(byDim);
   const target = byDim[dimKeys[dimIdx]][itemIdx];
   _cgDetailUnitPrices = _cgDetailUnitPrices.filter(p => p !== target);
+  document.getElementById("cg-dt-matrix").innerHTML = _cgRenderMatrix();
+  _cgRefreshDimDropdown();
+}
+
+function _cgDtToggleSubItemActive(dimIdx, itemIdx) {
+  const byDim = {};
+  _cgDetailUnitPrices.forEach((p) => { const key = p.venue_name || "—"; if (!byDim[key]) byDim[key] = []; byDim[key].push(p); });
+  const dimKeys = Object.keys(byDim);
+  const items = byDim[dimKeys[dimIdx]];
+  if (!items || !items[itemIdx]) return;
+  items[itemIdx].active = items[itemIdx].active === false ? true : false;
   document.getElementById("cg-dt-matrix").innerHTML = _cgRenderMatrix();
 }
 
@@ -606,6 +756,10 @@ function _cgDtUpdateSubItem(dimIdx, itemIdx, field, value) {
 function _cgDtOnDimCatChange() {
   if (_cgDetailUnitPrices.length > 0) {
     if (!confirm("차원 카테고리를 변경하면 현재 세부항목이 카테고리와 맞지 않을 수 있습니다.\n계속하시겠습니까?")) return;
+  }
+  _cgRefreshDimDropdown();
+  if (_cgDimMgmtOpen) {
+    document.getElementById("cg-dt-dim-mgmt-panel").innerHTML = _cgRenderDimMgmtPanel();
   }
 }
 
@@ -697,15 +851,13 @@ async function _cgSaveDetail() {
   }
 
   const dbPayload = {
-    name,
-    description: document.getElementById("cg-dt-desc")?.value.trim() || null,
+    name, description: document.getElementById("cg-dt-desc")?.value.trim() || null,
     sap_code: document.getElementById("cg-dt-sap-code")?.value.trim() || null,
     unit_price: unitPrice, limit_type: limitType, soft_limit: softLimit, hard_limit: hardLimit,
     active: true, tenant_id: tenantId, virtual_org_template_id: groupId || null,
     sort_order: Number(document.getElementById("cg-dt-order")?.value) || 99,
     usage_type: usageType,
-    has_rounds: usageType === "edu_operation",
-    has_qty2: usageType === "edu_operation",
+    has_rounds: usageType === "edu_operation", has_qty2: usageType === "edu_operation",
     qty2_type: "박", is_overseas: isOverseas,
     pricing_type: pricingType,
     dimension_category: pricingType === 'composite' ? (document.getElementById("cg-dt-dim-cat")?.value || 'venue') : null,
@@ -733,7 +885,7 @@ async function _cgSaveDetail() {
           unit_price: p.unit_price || 0, qty2_value: p.qty2_value || 1,
           qty2_label: p.qty2_label || "박",
           limit_type: p.limit_type || "none", limit_value: p.limit_value || 0,
-          sort_order: i + 1, active: true,
+          sort_order: i + 1, active: p.active !== false,
         }));
       if (rows.length > 0) await sb.from("calc_ground_unit_prices").insert(rows);
     }

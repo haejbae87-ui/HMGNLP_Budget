@@ -1,4 +1,4 @@
-﻿// ─── Supabase 클라이언트 초기화 ──────────────────────────────────────────────
+// ─── Supabase 클라이언트 초기화 ──────────────────────────────────────────────
 // CDN에서 로드된 @supabase/supabase-js 를 사용 (backoffice.html, index.html에 추가)
 
 const SUPABASE_URL = "https://wihsojhucgmcdfpufonf.supabase.co";
@@ -433,6 +433,8 @@ function _buildBoPersonas(users, allRoles, orgs, igs) {
       "vorg-coop-mgmt",
       "form-builder",
       "field-mgmt",
+      "calc-grounds",
+      "pricing-dimensions",
       "policy-builder",
       "forecast-period",
       "user-mgmt",
@@ -449,6 +451,8 @@ function _buildBoPersonas(users, allRoles, orgs, igs) {
       "vorg-manager-mgmt",
       "vorg-coop-mgmt",
       "form-builder",
+      "calc-grounds",
+      "pricing-dimensions",
       "policy-builder",
       "forecast-period",
       "user-mgmt",
@@ -464,6 +468,8 @@ function _buildBoPersonas(users, allRoles, orgs, igs) {
       "virtual-org",
       "vorg-manager-mgmt",
       "vorg-coop-mgmt",
+      "calc-grounds",
+      "pricing-dimensions",
       "forecast-period",
       "reports",
       "manual",

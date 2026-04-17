@@ -106,53 +106,63 @@ async function renderEnrollmentMgmt() {
 
   const tenants = typeof TENANTS !== "undefined" ? TENANTS : [];
   const tenantSel = isPlatform
-    ? `<label style="font-size:10px;font-weight:700;color:#6B7280">테넌트</label>
-      <select onchange="_enTenant=this.value;_enChannelId=null;_enCourseId=null;_enSessionId=null;renderEnrollmentMgmt()" style="${selStyle}">
-      ${tenants
-        .filter((t) => t.id !== "SYSTEM")
-        .map(
-          (t) =>
-            `<option value="${t.id}" ${t.id === _enTenant ? "selected" : ""}>${t.name}</option>`,
-        )
-        .join("")}
-    </select>`
-    : `<span style="font-size:12px;font-weight:800;color:#374151;padding:6px 10px;background:#F3F4F6;border-radius:8px">${tenants.find((t) => t.id === _enTenant)?.name || _enTenant}</span>`;
+    ? `<div style="display:flex;align-items:center;gap:8px">
+        <span class="bo-filter-label">테넌트</span>
+        <select onchange="_enTenant=this.value;_enChannelId=null;_enCourseId=null;_enSessionId=null;renderEnrollmentMgmt()" class="bo-filter-select">
+          ${tenants.filter((t) => t.id !== "SYSTEM").map((t) => `<option value="${t.id}" ${t.id === _enTenant ? "selected" : ""}>${t.name}</option>`).join("")}
+        </select>
+       </div>`
+    : `<div style="display:flex;align-items:center;gap:8px">
+        <span class="bo-filter-label">테넌트</span>
+        <span style="font-size:13px;font-weight:700;color:#374151;padding:8px 12px;background:#F1F5F9;border-radius:10px">${tenants.find((t) => t.id === _enTenant)?.name || _enTenant}</span>
+       </div>`;
 
-  const channelSel = `<label style="font-size:10px;font-weight:700;color:#6B7280">채널</label>
-      <select onchange="_enChannelId=this.value||null;_enCourseId=null;_enSessionId=null;renderEnrollmentMgmt()" style="${selStyle}">
-        <option value="">전체 채널</option>
-        ${_enChannels.map((c) => `<option value="${c.id}" ${c.id === _enChannelId ? "selected" : ""}>${c.name}</option>`).join("")}
-      </select>`;
+  const channelSel = `<div class="bo-filter-divider"></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="bo-filter-label">채널</span>
+        <select onchange="_enChannelId=this.value||null;_enCourseId=null;_enSessionId=null;renderEnrollmentMgmt()" class="bo-filter-select">
+          <option value="">전체 채널</option>
+          ${_enChannels.map((c) => `<option value="${c.id}" ${c.id === _enChannelId ? "selected" : ""}>${c.name}</option>`).join("")}
+        </select>
+      </div>`;
 
-  const courseSel = `<label style="font-size:10px;font-weight:700;color:#6B7280">과정</label>
-      <select onchange="_enCourseId=this.value;_enSessionId=null;renderEnrollmentMgmt()" style="${selStyle}">
-        ${_enCourses.map((c) => `<option value="${c.id}" ${c.id === _enCourseId ? "selected" : ""}>${c.title}</option>`).join("")}
-      </select>`;
+  const courseSel = `<div class="bo-filter-divider"></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="bo-filter-label">과정</span>
+        <select onchange="_enCourseId=this.value;_enSessionId=null;renderEnrollmentMgmt()" class="bo-filter-select">
+          ${_enCourses.map((c) => `<option value="${c.id}" ${c.id === _enCourseId ? "selected" : ""}>${c.title}</option>`).join("")}
+        </select>
+      </div>`;
 
-  const sessionSel = `<label style="font-size:10px;font-weight:700;color:#6B7280">차수</label>
-      <select onchange="_enSessionId=this.value;renderEnrollmentMgmt()" style="${selStyle}">
-        ${_enSessions.map((s) => `<option value="${s.id}" ${s.id === _enSessionId ? "selected" : ""}>${s.session_no}차 - ${s.name}</option>`).join("")}
-      </select>`;
+  const sessionSel = `<div class="bo-filter-divider"></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="bo-filter-label">차수</span>
+        <select onchange="_enSessionId=this.value;renderEnrollmentMgmt()" class="bo-filter-select">
+          ${_enSessions.map((s) => `<option value="${s.id}" ${s.id === _enSessionId ? "selected" : ""}>${s.session_no}차 - ${s.name}</option>`).join("")}
+        </select>
+      </div>`;
 
   el.innerHTML = `
   <div class="bo-fade">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
       <div>
         <h1 class="bo-page-title">👥 학습자 관리</h1>
         <p class="bo-page-sub">교육 차수에 학습자를 배정하고 관리합니다</p>
       </div>
-      ${canAdd ? '<button class="bo-btn-primary" onclick="_enOpenAdd()">+ 학습자 추가</button>' : ""}
+      <div style="display:flex;gap:8px;align-items:center">
+        ${canAdd ? '<button class="bo-btn-primary" onclick="_enOpenAdd()" style="display:flex;align-items:center;gap:6px;padding:10px 18px"><span style="font-size:16px">+</span> 학습자 추가</button>' : ""}
+      </div>
     </div>
 
-    <div class="bo-card" style="padding:14px 18px;margin-bottom:16px">
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <span style="font-size:11px;font-weight:900;color:#374151">🔍 조회</span>
-        ${tenantSel}
-        ${channelSel}
-        ${courseSel}
-        ${sessionSel}
-        <button onclick="renderEnrollmentMgmt()" class="bo-btn-primary" style="margin-left:auto">🔄 새로고침</button>
-      </div>
+    <div class="bo-filter-bar">
+      <span style="font-size:12px;font-weight:800;color:#6B7280;margin-right:8px">🔍 조회</span>
+      ${tenantSel}
+      ${channelSel}
+      ${courseSel}
+      ${sessionSel}
+      <button onclick="renderEnrollmentMgmt()" class="bo-filter-btn-search">
+        ● 조회
+      </button>
     </div>
 
     ${
@@ -183,42 +193,49 @@ async function renderEnrollmentMgmt() {
     ${
       _enList.length > 0
         ? `
-    <div class="bo-card" style="overflow:hidden">
-      <table class="bo-table" style="font-size:12px">
-        <thead><tr>
-          <th style="width:30px;text-align:center"><input type="checkbox" id="en-chk-all" onchange="_enToggleAllRows(this.checked)" style="accent-color:#1D4ED8"></th>
-          <th>이름</th><th>부서</th><th style="text-align:center">입과유형</th>
-          <th style="text-align:center">상태</th><th style="text-align:center">입과일</th><th style="text-align:center">관리</th>
-        </tr></thead>
-        <tbody>
-        ${_enList
-          .map(
-            (e, i) => `<tr>
-          <td style="text-align:center"><input type="checkbox" class="en-chk-row" value="${e.id}" onchange="_enToggleRow('${e.id}', this.checked)" style="accent-color:#1D4ED8"></td>
-          <td style="font-weight:800">${e.user_name || "-"}</td>
-          <td style="color:#6B7280">${e.dept_name || "-"}</td>
-          <td style="text-align:center"><span style="font-size:10px;background:${e.enroll_type === "self" ? "#D1FAE5" : "#EFF6FF"};color:${e.enroll_type === "self" ? "#065F46" : "#1D4ED8"};padding:2px 8px;border-radius:6px;font-weight:700">${e.enroll_type === "self" ? "자가신청" : "관리자"}</span></td>
-          <td style="text-align:center"><span style="font-size:10px;font-weight:800;color:${statusColor[e.status] || "#6B7280"}">${statusLabel[e.status] || e.status}</span></td>
-          <td style="text-align:center;font-size:11px;color:#6B7280">${(e.enrolled_at || "").slice(0, 10)}</td>
-          <td style="text-align:center">
-            <select onchange="_enChangeStatus(${i},this.value)" style="font-size:10px;padding:2px 6px;border:1px solid #E5E7EB;border-radius:4px">
-              ${Object.entries(statusLabel)
-                .map(
-                  ([k, v]) =>
-                    `<option value="${k}" ${k === e.status ? "selected" : ""}>${v}</option>`,
-                )
-                .join("")}
-            </select>
-            <button onclick="_enRemove(${i})" style="border:none;background:none;cursor:pointer;font-size:12px;color:#DC2626" title="삭제">✕</button>
-          </td>
-        </tr>`,
-          )
-          .join("")}
-        </tbody>
-      </table>
+    <div>
+      <div class="bo-list-count">등록된 수강자 목록 (${_enList.length}건)</div>
+      <div class="bo-table-container">
+        <table class="bo-table" style="width:100%">
+          <thead><tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB">
+            <th style="width:30px;text-align:center;padding:10px 14px"><input type="checkbox" id="en-chk-all" onchange="_enToggleAllRows(this.checked)" style="accent-color:#1D4ED8"></th>
+            <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">이름</th>
+            <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">부서</th>
+            <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#6B7280">입과유형</th>
+            <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#6B7280">상태</th>
+            <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#6B7280">입과일</th>
+            <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#6B7280">관리</th>
+          </tr></thead>
+          <tbody>
+          ${_enList
+            .map(
+              (e, i) => `<tr>
+            <td style="text-align:center;padding:12px 14px"><input type="checkbox" class="en-chk-row" value="${e.id}" onchange="_enToggleRow('${e.id}', this.checked)" style="accent-color:#1D4ED8"></td>
+            <td style="padding:12px 14px;font-weight:800">${e.user_name || "-"}</td>
+            <td style="padding:12px 14px;color:#6B7280">${e.dept_name || "-"}</td>
+            <td style="text-align:center;padding:12px 14px"><span style="font-size:10px;background:${e.enroll_type === "self" ? "#D1FAE5" : "#EFF6FF"};color:${e.enroll_type === "self" ? "#065F46" : "#1D4ED8"};padding:2px 8px;border-radius:6px;font-weight:700">${e.enroll_type === "self" ? "자가신청" : "관리자"}</span></td>
+            <td style="text-align:center;padding:12px 14px"><span style="font-size:10px;font-weight:800;color:${statusColor[e.status] || "#6B7280"}">${statusLabel[e.status] || e.status}</span></td>
+            <td style="text-align:center;font-size:11px;color:#6B7280;padding:12px 14px">${(e.enrolled_at || "").slice(0, 10)}</td>
+            <td style="text-align:center;padding:12px 14px">
+              <select onchange="_enChangeStatus(${i},this.value)" style="font-size:10px;padding:2px 6px;border:1px solid #E5E7EB;border-radius:4px">
+                ${Object.entries(statusLabel)
+                  .map(
+                    ([k, v]) =>
+                      `<option value="${k}" ${k === e.status ? "selected" : ""}>${v}</option>`,
+                  )
+                  .join("")}
+              </select>
+              <button onclick="_enRemove(${i})" style="border:none;background:none;cursor:pointer;font-size:12px;color:#DC2626" title="삭제">✕</button>
+            </td>
+          </tr>`,
+            )
+            .join("")}
+          </tbody>
+        </table>
+      </div>
     </div>`
         : `
-    <div class="bo-card" style="padding:60px;text-align:center">
+    <div class="bo-table-container" style="padding:60px;text-align:center">
       <div style="font-size:48px;margin-bottom:10px">👥</div>
       <div style="font-weight:700;color:#6B7280">${_enSessions.length === 0 ? "차수를 먼저 생성해주세요" : "등록된 학습자가 없습니다"}</div>
     </div>`

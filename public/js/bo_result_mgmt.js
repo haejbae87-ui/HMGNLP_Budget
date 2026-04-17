@@ -59,42 +59,68 @@ function _boEduFilterBar(onChangeCallback) {
     ? typeItems.filter((i) => i.group_id === _boEduFilter.eduType)
     : typeItems;
 
-  const selStyle = `border:1.5px solid #E5E7EB;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;color:#374151;background:#fff;cursor:pointer;min-width:100px`;
-  const cb = onChangeCallback || "console.log";
-
   return `
-  <div class="bo-card" style="padding:14px 18px;margin-bottom:16px">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
-      <span style="font-size:12px;font-weight:900;color:#002C5F">🔍 조회 필터</span>
-      <span style="font-size:10px;color:#9CA3AF">회사 → 가상조직 → 계정 → 목적 → 교육유형 → 세부유형</span>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <select id="bf-tenant" style="${selStyle}" onchange="_boFilterChange('tenantId',this.value,'${cb}')">
+  <div class="bo-filter-bar">
+    <span style="font-size:12px;font-weight:800;color:#6B7280;margin-right:8px">🔍 조회 필터</span>
+    
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="bo-filter-label">회사</span>
+      <select id="bf-tenant" class="bo-filter-select" onchange="_boFilterChange('tenantId',this.value,'${cb}')">
         <option value="">전체 회사</option>
         ${tenants.map((t) => '<option value="' + t.id + '"' + (_boEduFilter.tenantId === t.id ? " selected" : "") + ">" + (t.name || t.id) + "</option>").join("")}
       </select>
-      <select id="bf-vorg" style="${selStyle}" onchange="_boFilterChange('vorgId',this.value,'${cb}')">
+    </div>
+
+    <div class="bo-filter-divider"></div>
+
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="bo-filter-label">가상조직</span>
+      <select id="bf-vorg" class="bo-filter-select" onchange="_boFilterChange('vorgId',this.value,'${cb}')">
         <option value="">전체 가상조직</option>
         ${filteredVorgs.map((v) => '<option value="' + v.id + '"' + (_boEduFilter.vorgId === v.id ? " selected" : "") + ">" + v.name + "</option>").join("")}
       </select>
-      <select id="bf-account" style="${selStyle}" onchange="_boFilterChange('accountCode',this.value,'${cb}')">
+    </div>
+
+    <div class="bo-filter-divider"></div>
+
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="bo-filter-label">계정</span>
+      <select id="bf-account" class="bo-filter-select" onchange="_boFilterChange('accountCode',this.value,'${cb}')">
         <option value="">전체 계정</option>
         ${filteredAccounts.map((a) => '<option value="' + (a.code || a.id) + '"' + (_boEduFilter.accountCode === (a.code || a.id) ? " selected" : "") + ">" + a.name + "</option>").join("")}
       </select>
-      <select id="bf-purpose" style="${selStyle}" onchange="_boFilterChange('purpose',this.value,'${cb}')">
+    </div>
+
+    <div class="bo-filter-divider"></div>
+
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="bo-filter-label">목적</span>
+      <select id="bf-purpose" class="bo-filter-select" onchange="_boFilterChange('purpose',this.value,'${cb}')">
         <option value="">전체 목적</option>
         ${filteredPurposes.map((p) => '<option value="' + p.id + '"' + (_boEduFilter.purpose === p.id ? " selected" : "") + ">" + p.label + "</option>").join("")}
       </select>
-      <select id="bf-edutype" style="${selStyle}" onchange="_boFilterChange('eduType',this.value,'${cb}')">
-        <option value="">전체 교육유형</option>
+    </div>
+
+    <div class="bo-filter-divider"></div>
+
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="bo-filter-label">교육유형</span>
+      <select id="bf-edutype" class="bo-filter-select" onchange="_boFilterChange('eduType',this.value,'${cb}')">
+        <option value="">전체</option>
         ${filteredTypes.map((g) => '<option value="' + g.id + '"' + (_boEduFilter.eduType === g.id ? " selected" : "") + ">" + g.label + "</option>").join("")}
       </select>
-      <select id="bf-subtype" style="${selStyle}" onchange="_boFilterChange('eduSubType',this.value,'${cb}')">
+      <select id="bf-subtype" class="bo-filter-select" onchange="_boFilterChange('eduSubType',this.value,'${cb}')">
         <option value="">전체 세부유형</option>
         ${filteredSubTypes.map((i) => '<option value="' + i.id + '"' + (_boEduFilter.eduSubType === i.id ? " selected" : "") + ">" + i.label + "</option>").join("")}
       </select>
-      <button onclick="_boFilterReset('${cb}')" style="padding:7px 14px;border:1.5px solid #DC2626;border-radius:8px;background:#fff;color:#DC2626;font-size:12px;font-weight:800;cursor:pointer">초기화</button>
     </div>
+
+    <button onclick="window['${cb}']()" class="bo-filter-btn-search">
+      ● 조회
+    </button>
+    <button onclick="_boFilterReset('${cb}')" class="bo-filter-btn-reset">
+      초기화
+    </button>
   </div>`;
 }
 
@@ -208,22 +234,29 @@ async function renderResultMgmt() {
 
   ${_boEduFilterBar("renderResultMgmt")}
 
-  <div class="bo-card" style="overflow:hidden">
-    <div style="padding:14px 20px;border-bottom:1px solid #F3F4F6;display:flex;justify-content:space-between">
-      <span class="bo-section-title">교육결과 목록 (${results.length}건)</span>
-    </div>
+  <div>
+    <div class="bo-list-count">교육결과 목록 (${results.length}건)</div>
     ${
       results.length > 0
         ? `
-    <table class="bo-table">
-      <thead><tr>
-        <th>ID</th><th>신청자</th><th>부서</th><th>교육명</th><th>유형</th><th>계정</th>
-        <th style="text-align:right">금액</th><th>등록일</th><th>상태</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`
+    <div class="bo-table-container">
+      <table class="bo-table" style="width:100%">
+        <thead><tr>
+          <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">ID</th>
+          <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">신청자</th>
+          <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">부서</th>
+          <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">교육명</th>
+          <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">유형</th>
+          <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">계정</th>
+          <th style="padding:10px 14px;text-align:right;font-size:11px;font-weight:800;color:#6B7280">금액</th>
+          <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">등록일</th>
+          <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">상태</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`
         : `
-    <div style="padding:60px;text-align:center;color:#9CA3AF">
+    <div class="bo-table-container" style="padding:60px;text-align:center;color:#9CA3AF">
       <div style="font-size:48px;margin-bottom:10px">📭</div>
       <div style="font-weight:700">교육결과 데이터가 없습니다</div>
       <div style="font-size:12px;margin-top:6px">프론트 오피스에서 교육결과를 등록하면 이 화면에서 조회할 수 있습니다.</div>

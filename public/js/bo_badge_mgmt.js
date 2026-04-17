@@ -22,31 +22,66 @@ async function renderBadgeMgmt() {
   _bmFilterTenantId = myT;
   document.getElementById("bo-content").innerHTML = `
     <div class="bo-fade">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-      <div><h1 class="bo-page-title">🏷️ 뱃지 교육지원 운영 규칙</h1>
-      <p class="bo-page-sub">뱃지별 선행조건·취득조건·갱신조건을 Step으로 설정합니다</p></div>
-    </div>
-    <div style="background:#fff;border:1.5px solid #E5E7EB;border-radius:12px;padding:14px 20px;margin-bottom:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-      <span style="font-size:12px;font-weight:800;color:#6B7280">🔍 조회</span>
-      ${isSA ? `<select id="bm-filter-tenant" onchange="onBmTenantChange()" style="padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;min-width:130px"><option value="">전체 회사</option></select>` : `<span style="font-size:13px;font-weight:700;padding:8px 12px;background:#F1F5F9;border-radius:8px">${myT}</span>`}
-      <select id="bm-filter-vorg" onchange="onBmVorgChange()" style="padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;min-width:160px"><option value="">전체 가상조직</option></select>
-      <select id="bm-filter-group" onchange="_bmFilterGroupId=this.value;loadBadgeMgmtData()" style="padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;min-width:150px"><option value="">전체 그룹</option></select>
-      <button onclick="loadBadgeMgmtData()" style="padding:9px 20px;background:linear-gradient(135deg,#1D4ED8,#2563EB);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer">● 조회</button>
-    </div>
-    <div style="background:#fff;border:1.5px solid #E5E7EB;border-radius:12px;overflow:hidden">
-      <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <thead><tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB">
-          <th style="padding:11px 16px;font-size:11px;font-weight:800;color:#6B7280;text-align:left">뱃지명</th>
-          <th style="padding:11px 16px;font-size:11px;font-weight:800;color:#6B7280">그룹</th>
-          <th style="padding:11px 16px;font-size:11px;font-weight:800;color:#6B7280">레벨</th>
-          <th style="padding:11px 16px;font-size:11px;font-weight:800;color:#6B7280">선행조건</th>
-          <th style="padding:11px 16px;font-size:11px;font-weight:800;color:#6B7280">취득조건</th>
-          <th style="padding:11px 16px;font-size:11px;font-weight:800;color:#6B7280">갱신조건</th>
-          <th style="padding:11px 16px;text-align:right;font-size:11px;font-weight:800;color:#6B7280">정책 설정</th>
-        </tr></thead>
-        <tbody id="badges-body"><tr><td colspan="7" style="text-align:center;padding:24px;color:#9CA3AF">조회 조건을 선택해주세요.</td></tr></tbody>
-      </table>
-    </div></div>`;
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+        <div>
+          <h1 class="bo-page-title">🏷️ 뱃지 교육지원 운영 규칙</h1>
+          <p class="bo-page-sub">뱃지별 선행조건·취득조건·갱신조건을 Step으로 설정합니다</p>
+        </div>
+      </div>
+      
+      <div class="bo-filter-bar">
+        <span style="font-size:12px;font-weight:800;color:#6B7280;margin-right:8px">🔍 조회</span>
+        
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="bo-filter-label">회사</span>
+          ${isSA ? `<select id="bm-filter-tenant" class="bo-filter-select" onchange="onBmTenantChange()"><option value="">전체 회사</option></select>` : `<span style="font-size:13px;font-weight:700;padding:8px 12px;background:#F1F5F9;border-radius:10px;color:#374151">${myT}</span>`}
+        </div>
+
+        <div class="bo-filter-divider"></div>
+
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="bo-filter-label">제도그룹</span>
+          <select id="bm-filter-vorg" class="bo-filter-select" onchange="onBmVorgChange()">
+            <option value="">전체 가상조직</option>
+          </select>
+        </div>
+
+        <div class="bo-filter-divider"></div>
+
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="bo-filter-label">뱃지그룹</span>
+          <select id="bm-filter-group" class="bo-filter-select" onchange="_bmFilterGroupId=this.value;loadBadgeMgmtData()">
+            <option value="">전체 그룹</option>
+          </select>
+        </div>
+
+        <button onclick="loadBadgeMgmtData()" class="bo-filter-btn-search">
+          ● 조회
+        </button>
+      </div>
+
+      <div>
+        <div class="bo-list-count">등록된 뱃지 목록</div>
+        <div class="bo-table-container">
+          <table class="bo-table" style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead>
+              <tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB">
+                <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">뱃지명</th>
+                <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">그룹</th>
+                <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">레벨</th>
+                <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">선행조건</th>
+                <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">취득조건</th>
+                <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">갱신조건</th>
+                <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#6B7280">정책 설정</th>
+              </tr>
+            </thead>
+            <tbody id="badges-body">
+              <tr><td colspan="7" style="text-align:center;padding:24px;color:#9CA3AF">조회 조건을 선택해주세요.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
   await _bmLoadTenants(isSA, myT);
   await _bmLoadVorgs(_bmFilterTenantId);
   await loadBadgeMgmtData();
@@ -183,15 +218,17 @@ function renderBadgesList() {
         v
           ? `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:#ECFDF5;color:#059669;font-weight:700">✅ ${label}</span>`
           : `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:#FEF2F2;color:#DC2626;font-weight:700">미설정</span>`;
-      return `<tr style="border-bottom:1px solid #F3F4F6" onmouseover="this.style.background='#F8FAFF'" onmouseout="this.style.background=''">
-      <td style="padding:12px 16px;font-weight:700;color:#1D4ED8">${b.name}</td>
-      <td style="padding:12px 16px;color:#6B7280;font-size:12px">${gName}</td>
-      <td style="padding:12px 16px;font-weight:800;color:#374151">${b.level || "-"}</td>
-      <td style="padding:12px 16px">${badge(hasPrereq, "설정됨")}</td>
-      <td style="padding:12px 16px">${badge(hasCond, (b.condition_rules?.nodes || []).length + "개")}</td>
-      <td style="padding:12px 16px">${badge(hasRenew, "설정됨")}</td>
-      <td style="padding:12px 16px;text-align:right">
-        <button onclick="openBadgePolicy('${b.id}')" style="padding:6px 14px;background:linear-gradient(135deg,#1D4ED8,#2563EB);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">⚙️ 정책 설정</button>
+      return `<tr style="border-bottom:1px solid #F3F4F6;cursor:pointer;transition:background .12s" onmouseover="this.style.background='#F8FAFF'" onmouseout="this.style.background=''" onclick="openBadgePolicy('${b.id}')">
+      <td style="padding:12px 14px;font-weight:700;color:#1D4ED8">${b.name}</td>
+      <td style="padding:12px 14px;color:#6B7280;font-size:12px">${gName}</td>
+      <td style="padding:12px 14px;font-weight:800;color:#374151">${b.level || "-"}</td>
+      <td style="padding:12px 14px">${badge(hasPrereq, "설정됨")}</td>
+      <td style="padding:12px 14px">${badge(hasCond, (b.condition_rules?.nodes || []).length + "개")}</td>
+      <td style="padding:12px 14px">${badge(hasRenew, "설정됨")}</td>
+      <td style="padding:12px 14px;text-align:center">
+        <button onclick="event.stopPropagation();openBadgePolicy('${b.id}')" class="bo-btn-accent bo-btn-sm" style="display:inline-flex;align-items:center;gap:4px">
+          ⚙️ 정책 설정
+        </button>
       </td></tr>`;
     })
     .join("");

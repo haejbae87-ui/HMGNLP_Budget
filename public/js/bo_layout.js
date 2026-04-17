@@ -335,6 +335,13 @@ const PLATFORM_MENUS = [
     section: null,
     gnb: GNB_CATE.PROGRAM,
   },
+  {
+    id: "pricing-dimensions",
+    icon: "🏷️",
+    label: "단가차원 관리",
+    section: null,
+    gnb: GNB_CATE.PROGRAM,
+  },
 
   {
     id: "forecast-period",
@@ -549,6 +556,13 @@ const TENANT_ADMIN_MENUS = [
     section: null,
     gnb: GNB_CATE.PROGRAM,
   },
+  {
+    id: "pricing-dimensions",
+    icon: "🏷️",
+    label: "단가차원 관리",
+    section: null,
+    gnb: GNB_CATE.PROGRAM,
+  },
 
   {
     id: "service-policy",
@@ -728,6 +742,13 @@ const BUDGET_ADMIN_MENUS = [
     id: "calc-grounds",
     icon: "📐",
     label: "세부산출근거 관리",
+    section: null,
+    gnb: GNB_CATE.PROGRAM,
+  },
+  {
+    id: "pricing-dimensions",
+    icon: "🏷️",
+    label: "단가차원 관리",
     section: null,
     gnb: GNB_CATE.PROGRAM,
   },
@@ -1029,6 +1050,13 @@ const TENANT_DUAL_MENUS = [
     id: "calc-grounds",
     icon: "📐",
     label: "세부산출근거 관리",
+    section: null,
+    gnb: GNB_CATE.PROGRAM,
+  },
+  {
+    id: "pricing-dimensions",
+    icon: "🏷️",
+    label: "단가차원 관리",
     section: null,
     gnb: GNB_CATE.PROGRAM,
   },
@@ -1589,6 +1617,7 @@ function boNavigate(menuId) {
   if (menuId === "form-builder") renderFormBuilderMenu();
   if (menuId === "field-mgmt") renderVirtualOrgUnified(); // 혹시나 남아있을 경우 대비
   if (menuId === "calc-grounds") renderCalcGrounds();
+  if (menuId === "pricing-dimensions") renderPricingDimensions();
 
   if (menuId === "forecast-period") renderForecastPeriodMgmt();
   if (menuId === "service-policy") renderServicePolicy();

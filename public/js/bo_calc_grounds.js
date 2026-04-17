@@ -1,30 +1,21 @@
-﻿// ─── 백오피스: 세부 산출 근거 관리 (VOrg 제도그룹 중심) ────────────────────────
-// 데이터는 Supabase calc_grounds 테이블에서 로드, CALC_GROUNDS_MASTER로 동기화
-// 같은 VOrg 제도그룹 하위에서 세부산출근거를 공유
+// ─── 백오피스: 세부 산출 근거 관리 (리팩토링 v4) ────────────────────────────
+// 단가관리 탭 제거 → 단일 뷰 + 상세 페이지 전환
+// pricing_type: simple(단순형) / composite(복합형)
+// SAP 코드 관리 추가
+// ─────────────────────────────────────────────────────────────────────────────
 
 let _cgActiveTab = null;
 let _cgEditId = null;
-let _cgFilterTenant = null; // 선택된 회사 ID
-let _cgFilterGroup = null; // 선택된 가상교육조직 ID
-let _cgFilterAccount = null; // 필터바 예산계정 (조회용, 등록 시 불필요)
-let _cgPageTab = "grounds"; // 'grounds' | 'unitprice'
-let _cgUsageTypeFilter = "all"; // 'all' | 'self_learning' | 'edu_operation'
+let _cgFilterTenant = null;
+let _cgFilterGroup = null;
+let _cgUsageTypeFilter = "all";
+let _cgDetailView = null; // null=리스트, {id:'xxx'}=수정, {id:null}=신규
 
-// ─── 항목 조회 (계층 필터) ───────────────────────────────────────────────────
-// 범위: tenantId 일치 + (groupId 일치 OR null) + (accountCode 일치 OR null)
-function _cgGetItems(tenantId, groupId, accountCode) {
-  return CALC_GROUNDS_MASTER.filter((g) => {
-    if (g.tenantId && g.tenantId !== tenantId) return false;
-    if (g.domainId && g.domainId !== groupId) return false;
-    if (g.accountCode && g.accountCode !== accountCode) return false;
-    return true;
-  });
-}
-
-// ─── DB 로드 ───────────────────────────────────────────────────────────────────────
+// ─── DB 로드 ───────────────────────────────────────────────────────────────
 let _cgDbLoaded = false;
 let _cgTplList = [];
 let _cgAccountList = [];
+
 async function _cgLoadFromDb() {
   if (typeof _sb !== "function" || !_sb()) return;
   try {
@@ -40,7 +31,6 @@ async function _cgLoadFromDb() {
     const [res1, res2, res3] = await Promise.all([p1, p2, p3]);
 
     if (!res1.error && res1.data && res1.data.length > 0) {
-      // DB 데이터를 CALC_GROUNDS_MASTER 형식으로 변환
       CALC_GROUNDS_MASTER = res1.data.map((r) => ({
         id: r.id,
         tenantId: r.tenant_id,
@@ -57,12 +47,15 @@ async function _cgLoadFromDb() {
         usageScope: r.usage_scope || ["plan", "apply", "settle"],
         visibleFor: r.visible_for || "both",
         sortOrder: r.sort_order || 99,
-        // v3 신규 필드
         usageType: r.usage_type || "edu_operation",
         hasRounds: r.has_rounds === true,
         hasQty2: r.has_qty2 === true,
         qty2Type: r.qty2_type || "박",
         isOverseas: r.is_overseas === true,
+        // v4 신규
+        sapCode: r.sap_code || "",
+        pricingType: r.pricing_type || "simple",
+        dimensionCategory: r.dimension_category || null,
       }));
       _cgDbLoaded = true;
       console.log("[CalcGrounds] DB에서", res1.data.length, "건 로드 완료");
@@ -74,10 +67,38 @@ async function _cgLoadFromDb() {
   }
 }
 
-// ─── 메인 렌더 ───────────────────────────────────────────────────────────────
+// ─── 항목 조회 ─────────────────────────────────────────────────────────────
+function _cgGetItems(tenantId, groupId) {
+  return CALC_GROUNDS_MASTER.filter((g) => {
+    if (g.tenantId && g.tenantId !== tenantId) return false;
+    if (g.domainId && g.domainId !== groupId) return false;
+    return true;
+  });
+}
+
+// ─── 유형 메타 ─────────────────────────────────────────────────────────────
+const _CG_USAGE_TYPE_META = {
+  self_learning: { label: "📚 직접학습용", color: "#059669", bg: "#D1FAE5", borderColor: "#6EE7B7" },
+  edu_operation: { label: "🎯 교육운영용", color: "#1D4ED8", bg: "#DBEAFE", borderColor: "#93C5FD" },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ─── 메인 렌더 ─────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
 async function renderCalcGrounds() {
   await _cgLoadFromDb();
-  if (_cgPageTab === "unitprice") await _cgLoadUnitPrices();
+  // 상세 페이지 모드
+  if (_cgDetailView !== null) {
+    _renderCgDetailPage();
+    return;
+  }
+  _renderCgListPage();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ─── 리스트 페이지 ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+function _renderCgListPage() {
   const persona = boCurrentPersona;
   const role = persona.role;
   const isPlatform = role === "platform_admin";
@@ -85,54 +106,29 @@ async function renderCalcGrounds() {
   const isBudgetOp = role === "budget_op_manager" || role === "budget_hq";
   const isBudgetAdmin = role === "budget_global_admin";
 
-  const activeTenantId = isPlatform
-    ? _cgFilterTenant || ""
-    : persona.tenantId || "";
-  const pbVorgId =
-    isBudgetOp || isBudgetAdmin
-      ? persona.domainId || _cgFilterGroup || ""
-      : _cgFilterGroup || "";
+  const activeTenantId = isPlatform ? _cgFilterTenant || "" : persona.tenantId || "";
+  const pbVorgId = isBudgetOp || isBudgetAdmin ? persona.domainId || _cgFilterGroup || "" : _cgFilterGroup || "";
 
-  const TENANTS_LIST =
-    typeof TENANTS !== "undefined"
-      ? TENANTS
-      : [...new Set(_cgTplList.map((t) => t.tenant_id))].map((id) => ({
-          id,
-          name: id,
-        }));
-  const tenantName =
-    TENANTS_LIST.find((t) => t.id === activeTenantId)?.name ||
-    activeTenantId ||
-    "소속 회사";
+  const TENANTS_LIST = typeof TENANTS !== "undefined"
+    ? TENANTS
+    : [...new Set(_cgTplList.map((t) => t.tenant_id))].map((id) => ({ id, name: id }));
+  const tenantName = TENANTS_LIST.find((t) => t.id === activeTenantId)?.name || activeTenantId || "소속 회사";
 
-  // 이 테넌트에 속한 가상교육조직 (교육지원 유형만)
-  const availVorgs = _cgTplList.filter(
-    (t) =>
-      t.service_type === "edu_support" &&
-      (!activeTenantId || t.tenant_id === activeTenantId),
-  );
-  const vorgName =
-    availVorgs.find((g) => g.id === pbVorgId)?.name ||
-    pbVorgId ||
-    "선택된 조직";
+  const availVorgs = _cgTplList.filter((t) => t.service_type === "edu_support" && (!activeTenantId || t.tenant_id === activeTenantId));
+  const vorgName = availVorgs.find((g) => g.id === pbVorgId)?.name || pbVorgId || "선택된 조직";
 
+  // 필터바
   const filterBar = `
-  <div style="background:white;border:1.5px solid #E5E7EB;border-radius:14px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.05)">
-    ${
-      isPlatform
-        ? `
+  <div class="bo-filter-bar">
+    ${isPlatform ? `
     <div style="display:flex;align-items:center;gap:8px">
       <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">회사</span>
-      <select onchange="_cgFilterTenant=this.value;_cgFilterGroup='';renderCalcGrounds()"
-        style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:140px">
+      <select onchange="_cgFilterTenant=this.value;_cgFilterGroup='';renderCalcGrounds()" class="bo-filter-select" style="min-width:140px">
         <option value="">전체 회사</option>
         ${TENANTS_LIST.map((t) => `<option value="${t.id}" ${activeTenantId === t.id ? "selected" : ""}>${t.name}</option>`).join("")}
       </select>
     </div>
-    <div style="width:1px;height:28px;background:#E5E7EB"></div>
-    `
-        : isTenant
-          ? `
+    <div style="width:1px;height:28px;background:#E5E7EB"></div>` : isTenant ? `
     <div style="display:flex;align-items:center;gap:8px">
       <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">회사</span>
       <div style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid #BFDBFE;border-radius:10px;background:#EFF6FF;min-width:120px">
@@ -140,46 +136,40 @@ async function renderCalcGrounds() {
         <span style="font-size:13px;font-weight:800;color:#1D4ED8">${tenantName}</span>
       </div>
     </div>
-    <div style="width:1px;height:28px;background:#E5E7EB"></div>
-    `
-          : ""
-    }
+    <div style="width:1px;height:28px;background:#E5E7EB"></div>` : ""}
 
-    ${
-      isBudgetOp || isBudgetAdmin
-        ? `
+    ${isBudgetOp || isBudgetAdmin ? `
     <div style="display:flex;align-items:center;gap:8px">
       <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">제도그룹</span>
       <div style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid #C4B5FD;border-radius:10px;background:#F5F3FF;min-width:140px">
         <span style="font-size:12px">🔒</span>
         <span style="font-size:13px;font-weight:800;color:#7C3AED">${vorgName}</span>
       </div>
-    </div>`
-        : `
+    </div>` : `
     <div style="display:flex;align-items:center;gap:8px">
       <span style="font-size:12px;font-weight:800;color:#374151;white-space:nowrap">제도그룹</span>
-      <select onchange="_cgFilterGroup=this.value;renderCalcGrounds()"
-        style="padding:8px 32px 8px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700;color:#111827;background:#FAFAFA;cursor:pointer;appearance:auto;min-width:160px">
+      <select onchange="_cgFilterGroup=this.value;renderCalcGrounds()" class="bo-filter-select" style="min-width:160px">
         <option value="">전체 조직</option>
         ${availVorgs.map((g) => `<option value="${g.id}" ${pbVorgId === g.id ? "selected" : ""}>${g.name}</option>`).join("")}
       </select>
-    </div>`
-    }
+    </div>`}
 
-    <button onclick="renderCalcGrounds()"
-      style="padding:9px 20px;background:linear-gradient(135deg,#1D4ED8,#2563EB);color:white;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(37,99,235,.35);white-space:nowrap;margin-left:auto">
-      ● 조회
-    </button>
-    <button onclick="_cgFilterTenant='';_cgFilterGroup='';renderCalcGrounds()"
-      style="padding:9px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:12px;font-weight:700;background:white;cursor:pointer;color:#6B7280;white-space:nowrap">초기화</button>
+    <button onclick="renderCalcGrounds()" class="bo-filter-btn-search" style="margin-left:auto">● 조회</button>
+    <button onclick="_cgFilterTenant='';_cgFilterGroup='';renderCalcGrounds()" class="bo-filter-btn-reset">초기화</button>
   </div>`;
+
+  // 항목 목록
+  let items = _cgGetItems(activeTenantId, pbVorgId);
+  if (_cgUsageTypeFilter !== "all") items = items.filter((g) => (g.usageType || "edu_operation") === _cgUsageTypeFilter);
+  const allItems = _cgGetItems(activeTenantId, pbVorgId);
+  const slCount = allItems.filter((g) => (g.usageType || "edu_operation") === "self_learning").length;
+  const opCount = allItems.filter((g) => (g.usageType || "edu_operation") === "edu_operation").length;
 
   const el = document.getElementById("bo-content");
   el.innerHTML = `
 <div class="bo-fade" style="padding:24px">
   ${typeof boVorgBanner === "function" ? boVorgBanner() : typeof boIsolationGroupBanner === "function" ? boIsolationGroupBanner() : ""}
-  
-  <!-- 탭 데이터 -->
+
   <div style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between">
     <div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
@@ -188,370 +178,456 @@ async function renderCalcGrounds() {
       </div>
       <p class="bo-page-sub">제도그룹 단위로 세부 산출근거를 관리합니다. 같은 제도그룹 하위 계정이 공유합니다.</p>
     </div>
-    ${
-      _cgPageTab === "grounds"
-        ? `
-    <button class="bo-btn-primary bo-btn-sm" onclick="cgOpenModal(null)" style="white-space:nowrap">
-      + \ud56d\ubaa9 \ucd94\uac00
-    </button>`
-        : `
-    <div style="display:flex;gap:8px">
-      <button onclick="_cgOpenVenueManager()" style="padding:7px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:white;cursor:pointer;color:#374151;white-space:nowrap">
-        \ud83c\udfe2 \uad50\uc721\uc7a5\uc18c \uad00\ub9ac
-      </button>
-      <button class="bo-btn-primary bo-btn-sm" onclick="_cgOpenUnitPriceModal(null)" style="white-space:nowrap">
-        + \ub2e8\uac00 \ub4f1\ub85d
-      </button>
-    </div>`
-    }
+    <button class="bo-btn-primary bo-btn-sm" onclick="_cgOpenDetail(null)" style="white-space:nowrap">+ 항목 추가</button>
   </div>
 
-  <!-- 탭 버튼 -->
-  <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid #E5E7EB">
-    <button onclick="_cgPageTab='grounds';renderCalcGrounds()"
-      style="padding:12px 24px;font-size:13px;font-weight:${_cgPageTab === "grounds" ? "900" : "600"};
-             color:${_cgPageTab === "grounds" ? "#059669" : "#6B7280"};
-             border:none;background:none;cursor:pointer;position:relative;
-             border-bottom:${_cgPageTab === "grounds" ? "3px solid #059669" : "3px solid transparent"};
-             transition:all .15s">📋 세부산출근거</button>
-    <button onclick="_cgPageTab='unitprice';renderCalcGrounds()"
-      style="padding:12px 24px;font-size:13px;font-weight:${_cgPageTab === "unitprice" ? "900" : "600"};
-             color:${_cgPageTab === "unitprice" ? "#1D4ED8" : "#6B7280"};
-             border:none;background:none;cursor:pointer;position:relative;
-             border-bottom:${_cgPageTab === "unitprice" ? "3px solid #1D4ED8" : "3px solid transparent"};
-             transition:all .15s">💰 단가관리</button>
-  </div>
-
-  <!-- 계층형 필터 바 -->
+  <!-- 필터바 -->
   ${filterBar}
 
-  <!-- 탭 콘텐츠 -->
-  <div id="cg-content">
-    ${_cgPageTab === "grounds" ? _renderCgTable(activeTenantId, pbVorgId, "") : _renderUnitPriceTab(activeTenantId, pbVorgId)}
+  <!-- 유형 필터 -->
+  <div style="display:flex;gap:6px;margin-bottom:12px;align-items:center">
+    ${[{k:"all",l:`전체 (${allItems.length})`},{k:"self_learning",l:`📚 직접학습용 (${slCount})`},{k:"edu_operation",l:`🎯 교육운영용 (${opCount})`}]
+      .map(t => `<button onclick="_cgUsageTypeFilter='${t.k}';renderCalcGrounds()"
+        style="padding:7px 14px;border-radius:8px;border:1.5px solid ${_cgUsageTypeFilter===t.k?'#1D4ED8':'#E5E7EB'};background:${_cgUsageTypeFilter===t.k?'#1D4ED8':'white'};color:${_cgUsageTypeFilter===t.k?'white':'#374151'};font-size:12px;font-weight:700;cursor:pointer">${t.l}</button>`).join('')}
   </div>
-</div>
 
-<!-- 항목 편집 모달 -->
-<div id="cg-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:16px;width:580px;max-height:90vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-      <h3 id="cg-modal-title" style="font-size:15px;font-weight:800;color:#111827;margin:0">산출 근거 항목 추가</h3>
-      <button onclick="cgCloseModal()" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">✕</button>
-    </div>
-    <div id="cg-modal-body"></div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
-      <button class="bo-btn-secondary bo-btn-sm" onclick="cgCloseModal()">취소</button>
-      <button class="bo-btn-primary bo-btn-sm" onclick="cgSaveItem()">저장</button>
+  <!-- 테이블 -->
+  <div class="bo-list-count">세부 산출 근거 목록 (${items.filter(g=>g.active!==false).length}개 / 전체 ${items.length}개)</div>
+  <div class="bo-table-container">
+    <table class="bo-table">
+      <thead>
+        <tr>
+          <th style="width:40px;text-align:center">NO.</th>
+          <th>유형</th>
+          <th>항목명</th>
+          <th>SAP코드</th>
+          <th>가이드 설명</th>
+          <th style="text-align:right">기준단가</th>
+          <th style="text-align:center">상한액</th>
+          <th style="text-align:center">상태</th>
+          <th style="text-align:center">관리</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.length === 0 ? `
+        <tr><td colspan="9" style="text-align:center;padding:48px;color:#9CA3AF;font-size:13px">
+          이 범위에서 조회된 항목이 없습니다.<br>
+          <button onclick="_cgOpenDetail(null)" class="bo-btn-primary bo-btn-sm" style="margin-top:10px;display:inline-flex;padding:6px 14px;font-size:12px;border-radius:8px">+ 첫 항목 추가</button>
+        </td></tr>` : items.map((g,i) => {
+          const ut = g.usageType || "edu_operation";
+          const utMeta = _CG_USAGE_TYPE_META[ut] || _CG_USAGE_TYPE_META.edu_operation;
+          const ptLabel = g.pricingType === "composite"
+            ? '<span style="font-size:10px;padding:2px 7px;border-radius:5px;background:#FEF3C7;color:#92400E;font-weight:800">복합형</span>'
+            : '<span style="font-size:10px;padding:2px 7px;border-radius:5px;background:#F3F4F6;color:#6B7280;font-weight:800">단순형</span>';
+          const badges = [];
+          if (g.hasRounds) badges.push('<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#EDE9FE;color:#7C3AED;font-weight:800">차수</span>');
+          if (g.hasQty2) badges.push('<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#FEF3C7;color:#D97706;font-weight:800">' + (g.qty2Type||'박') + '</span>');
+          if (g.isOverseas) badges.push('<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#FEE2E2;color:#DC2626;font-weight:800">해외</span>');
+          return `
+        <tr style="${g.active === false ? 'opacity:.5;' : ''}">
+          <td style="text-align:center;color:#9CA3AF;font-size:12px">${i+1}</td>
+          <td>
+            <div style="display:flex;flex-direction:column;gap:3px">
+              <span style="font-size:10px;font-weight:800;padding:2px 7px;border-radius:5px;background:${utMeta.bg};color:${utMeta.color};display:inline-block;width:fit-content">${utMeta.label}</span>
+              ${ptLabel}
+            </div>
+          </td>
+          <td>
+            <div style="font-weight:800;font-size:13px;color:#111827;margin-bottom:2px">${g.name}</div>
+            <div style="display:flex;gap:3px;align-items:center">
+              <span style="font-size:10px;color:#9CA3AF">${g.id}</span>
+              ${badges.join('')}
+            </div>
+          </td>
+          <td style="font-size:12px;color:#6B7280;font-weight:600">${g.sapCode || '<span style="color:#D1D5DB">—</span>'}</td>
+          <td style="font-size:12px;color:#374151;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.desc || "—"}</td>
+          <td style="text-align:right;font-weight:700;font-size:12px;color:#374151">${g.pricingType === 'composite' ? '<span style="color:#9CA3AF;font-size:11px">차원별 단가</span>' : g.unitPrice > 0 ? (typeof boFmt === "function" ? boFmt(g.unitPrice) : g.unitPrice.toLocaleString()) + "원" : '<span style="color:#9CA3AF">—</span>'}</td>
+          <td style="text-align:center;font-size:11px">
+            ${g.limitType === "none" ? '<span style="color:#9CA3AF">제한없음</span>'
+              : g.limitType === "soft" ? '<span style="background:#FFFBEB;color:#D97706;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:800">⚠ Soft</span>'
+              : '<span style="background:#FEF2F2;color:#DC2626;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:800">🚫 Hard</span>'}
+          </td>
+          <td style="text-align:center">
+            <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:5px;background:${g.active !== false ? '#D1FAE5' : '#F3F4F6'};color:${g.active !== false ? '#065F46' : '#9CA3AF'}">${g.active !== false ? "활성" : "비활성"}</span>
+          </td>
+          <td style="text-align:center">
+            <div style="display:flex;gap:5px;justify-content:center">
+              <button onclick="_cgOpenDetail('${g.id}')" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid #D1D5DB;background:white;cursor:pointer;font-weight:700;color:#374151">✏️ ${g.pricingType === 'composite' ? '상세' : '수정'}</button>
+              <button onclick="_cgToggleActive('${g.id}')" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid ${g.active !== false ? '#FDE68A' : '#A7F3D0'};background:${g.active !== false ? '#FFFBEB' : '#ECFDF5'};color:${g.active !== false ? '#D97706' : '#059669'};cursor:pointer;font-weight:700">
+                ${g.active !== false ? "비활성" : "활성화"}
+              </button>
+            </div>
+          </td>
+        </tr>`;}).join("")}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 범례 -->
+  <div class="bo-card" style="padding:12px 18px;margin-top:10px;background:#F8FAFC;border-color:#E2E8F0">
+    <div style="font-size:11px;color:#374151;font-weight:600;display:flex;flex-wrap:wrap;gap:16px">
+      <span>⚠️ <b>Soft Limit</b>: 상한액 초과 시 <b>사유 입력</b> 후 진행 가능</span>
+      <span>🚫 <b>Hard Limit</b>: 상한액 초과 시 <b>절대 차단</b></span>
     </div>
   </div>
 </div>`;
 }
 
-// ─── 항목 테이블 ─────────────────────────────────────────────────────────────
-const _CG_USAGE_TYPE_META = {
-  self_learning: { label: "📚 직접학습용", color: "#059669", bg: "#D1FAE5", borderColor: "#6EE7B7" },
-  edu_operation: { label: "🎯 교육운영용", color: "#1D4ED8", bg: "#DBEAFE", borderColor: "#93C5FD" },
-};
-
-function _renderCgTable(tenantId, groupId, accountCode) {
-  let items = _cgGetItems(tenantId, groupId, accountCode);
-  // 유형 필터 적용
-  if (_cgUsageTypeFilter !== "all") {
-    items = items.filter((g) => (g.usageType || "edu_operation") === _cgUsageTypeFilter);
-  }
-  const active = items.filter((g) => g.active !== false).length;
-  const allItems = _cgGetItems(tenantId, groupId, accountCode);
-  const slCount = allItems.filter((g) => (g.usageType || "edu_operation") === "self_learning").length;
-  const opCount = allItems.filter((g) => (g.usageType || "edu_operation") === "edu_operation").length;
-
-  return `
-<!-- 유형 탭 필터 -->
-<div style="display:flex;gap:6px;margin-bottom:12px;align-items:center">
-  ${[{k:"all",l:`전체 (${allItems.length})`},{k:"self_learning",l:`📚 직접학습용 (${slCount})`},{k:"edu_operation",l:`🎯 교육운영용 (${opCount})`}]
-    .map(t => `<button onclick="_cgUsageTypeFilter='${t.k}';document.getElementById('cg-content').innerHTML=_renderCgTable('${tenantId}','${groupId||''}','${accountCode||''}');"
-      style="padding:7px 14px;border-radius:8px;border:1.5px solid ${_cgUsageTypeFilter===t.k?'#1D4ED8':'#E5E7EB'};background:${_cgUsageTypeFilter===t.k?'#1D4ED8':'white'};color:${_cgUsageTypeFilter===t.k?'white':'#374151'};font-size:12px;font-weight:700;cursor:pointer">${t.l}</button>`)
-    .join('')
-  }
-</div>
-<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px">
-  <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.05em">세부 산출 근거 목록 (${active}개 / 전체 ${items.length}개)</div>
-</div>
-
-<div style="background:white;border:1.5px solid #E5E7EB;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05)">
-  <table style="width:100%;border-collapse:collapse;font-size:13px">
-    <thead>
-      <tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB">
-        <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#6B7280;width:40px">NO.</th>
-        <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151">항목명</th>
-        <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151">가이드 설명</th>
-        <th style="padding:10px 14px;text-align:right;font-size:11px;font-weight:800;color:#374151">기준단가</th>
-        <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#374151">상한액</th>
-        <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#374151">상태</th>
-        <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#374151">관리</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${
-        items.length === 0
-          ? `
-      <tr><td colspan="7" style="text-align:center;padding:48px;color:#9CA3AF;font-size:13px">
-        이 범위에서 조회된 항목이 없습니다.<br>
-        <button onclick="cgOpenModal(null)" class="bo-btn-primary bo-btn-sm" style="margin-top:10px;display:inline-flex;align-items:center;padding:6px 14px;font-size:12px;border-radius:8px">+ 첫 항목 추가</button>
-      </td></tr>`
-          : items
-              .map(
-                (g, i) => {
-                  const ut = g.usageType || "edu_operation";
-                  const utMeta = _CG_USAGE_TYPE_META[ut] || _CG_USAGE_TYPE_META.edu_operation;
-                  const badges = [];
-                  if (g.hasRounds) badges.push('<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#EDE9FE;color:#7C3AED;font-weight:800">차수</span>');
-                  if (g.hasQty2) badges.push('<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#FEF3C7;color:#D97706;font-weight:800">' + (g.qty2Type||'박') + '</span>');
-                  if (g.isOverseas) badges.push('<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#FEE2E2;color:#DC2626;font-weight:800">해외</span>');
-                  return `
-      <tr style="border-bottom:1px solid #F3F4F6;transition:background .12s;${g.active === false ? "opacity:.5;" : ""}" onmouseover="this.style.background='#F8FAFF'" onmouseout="this.style.background=''">
-        <td style="padding:11px 14px;text-align:center;color:#9CA3AF;font-size:12px">${i + 1}</td>
-        <td style="padding:11px 14px">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-            <span style="font-size:10px;font-weight:800;padding:2px 7px;border-radius:5px;background:${utMeta.bg};color:${utMeta.color}">${utMeta.label}</span>
-          </div>
-          <div style="font-weight:800;font-size:13px;color:#111827;margin-bottom:2px">${g.name}</div>
-          <div style="display:flex;gap:3px;align-items:center">
-            <span style="font-size:10px;color:#9CA3AF">${g.id}</span>
-            ${badges.join('')}
-          </div>
-        </td>
-        <td style="padding:11px 14px;font-size:12px;color:#374151;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.desc || "—"}</td>
-        <td style="padding:11px 14px;text-align:right;font-weight:700;font-size:12px;color:#374151">${g.unitPrice > 0 ? (typeof boFmt === "function" ? boFmt(g.unitPrice) : g.unitPrice.toLocaleString()) + "원" : '<span style="color:#9CA3AF">—</span>'}</td>
-        <td style="padding:11px 14px;text-align:center;font-size:11px">
-          ${
-            g.limitType === "none"
-              ? '<span style="color:#9CA3AF">제한없음</span>'
-              : g.limitType === "soft"
-                ? '<span style="background:#FFFBEB;color:#D97706;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:800">⚠ Soft</span>'
-                : '<span style="background:#FEF2F2;color:#DC2626;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:800">🚫 Hard</span>'
-          }
-        </td>
-        <td style="padding:11px 14px;text-align:center">
-          <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:5px;background:${g.active !== false ? '#D1FAE5' : '#F3F4F6'};color:${g.active !== false ? '#065F46' : '#9CA3AF'}">${g.active !== false ? "활성" : "비활성"}</span>
-        </td>
-        <td style="padding:11px 14px;text-align:center">
-          <div style="display:flex;gap:5px;justify-content:center">
-            <button onclick="cgOpenModal('${g.id}')" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid #D1D5DB;background:white;cursor:pointer;font-weight:700;color:#374151">✏️ 수정</button>
-            <button onclick="cgToggleActive('${g.id}')" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid ${g.active !== false ? '#FDE68A' : '#A7F3D0'};background:${g.active !== false ? '#FFFBEB' : '#ECFDF5'};color:${g.active !== false ? '#D97706' : '#059669'};cursor:pointer;font-weight:700">
-              ${g.active !== false ? "비활성" : "활성화"}
-            </button>
-          </div>
-        </td>
-      </tr>`;
-                }
-              )
-              .join("")
-      }
-    </tbody>
-  </table>
-</div>
-
-<!-- 범례 -->
-<div class="bo-card" style="padding:12px 18px;margin-top:10px;background:#F8FAFC;border-color:#E2E8F0">
-  <div style="font-size:11px;color:#374151;font-weight:600;display:flex;flex-wrap:wrap;gap:16px">
-    <span>⚠️ <b>Soft Limit</b>: 상한액 초과 시 <b>사유 입력</b> 후 진행 가능 (초과 허용, 관리자 리뷰 대상)</span>
-    <span>🚫 <b>Hard Limit</b>: 상한액 초과 시 <b>절대 차단</b> (시스템이 입력을 거부, 초과 불가)</span>
-  </div>
-</div>`;
+// ═══════════════════════════════════════════════════════════════════════════
+// ─── 상세 페이지 ────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+function _cgOpenDetail(id) {
+  _cgDetailView = { id: id || null };
+  renderCalcGrounds();
+}
+function _cgBackToList() {
+  _cgDetailView = null;
+  renderCalcGrounds();
 }
 
-// ─── 모달 ─────────────────────────────────────────────────────────────────────
-function cgOpenModal(id) {
-  _cgEditId = id || null;
+let _cgDetailUnitPrices = []; // 복합형 세부항목 로컬 상태
+let _cgDetailDimValues = []; // 차원값 목록 로컬
+
+async function _renderCgDetailPage() {
+  const id = _cgDetailView?.id;
   const item = id ? CALC_GROUNDS_MASTER.find((g) => g.id === id) : null;
+  const isNew = !item;
   const tenantId = _cgFilterTenant || boCurrentPersona.tenantId || "HMC";
-  const myGroups = _cgTplList.filter(
-    (t) => t.service_type === "edu_support" && t.tenant_id === tenantId,
-  );
+  const myGroups = _cgTplList.filter((t) => t.service_type === "edu_support" && t.tenant_id === tenantId);
 
-  document.getElementById("cg-modal-title").textContent = id
-    ? "산출 근거 항목 수정"
-    : "산출 근거 항목 추가";
-  document.getElementById("cg-modal-body").innerHTML = _cgModalBody(
-    item,
-    tenantId,
-    myGroups,
-  );
-  document.getElementById("cg-modal").style.display = "flex";
-}
-function cgCloseModal() {
-  document.getElementById("cg-modal").style.display = "none";
-}
+  // 복합형 세부항목 로드
+  _cgDetailUnitPrices = [];
+  if (!isNew && item.pricingType === "composite") {
+    await _cgLoadDetailUnitPrices(item.id, item.name);
+  }
 
-function _cgModalBody(item, tenantId, myGroups) {
-  const lType = item?.limitType || "none";
+  // 차원값 로드
+  await _cgLoadDimValues(tenantId);
+
   const usageType = item?.usageType || "edu_operation";
+  const pricingType = item?.pricingType || "simple";
+  const lType = item?.limitType || "none";
+  const dimCat = item?.dimensionCategory || "venue";
 
-  // 가상교육조직 드롭다운
-  const groupOpts = myGroups
-    .map(
-      (g) =>
-        `<option value="${g.id}" ${item?.domainId === g.id ? "selected" : ""}>${g.name}</option>`,
-    )
-    .join("");
+  const groupOpts = myGroups.map((g) => `<option value="${g.id}" ${item?.domainId === g.id ? "selected" : ""}>${g.name}</option>`).join("");
 
-  return `
-<div style="display:flex;flex-direction:column;gap:16px">
+  const el = document.getElementById("bo-content");
+  el.innerHTML = `
+<div class="bo-fade" style="padding:24px;max-width:900px;margin:0 auto">
 
-  <!-- v3: 세부산출근거 유형 (필수 선택) -->
-  <div style="background:#F0FFF4;border-radius:10px;padding:14px;border:1.5px solid #6EE7B7">
-    <div style="font-size:12px;font-weight:800;color:#065F46;margin-bottom:10px">🏷️ 세부산출근거 유형 <span style="color:#EF4444">*</span></div>
+  <!-- 상단 네비 -->
+  <div style="margin-bottom:20px;display:flex;align-items:center;gap:12px">
+    <button onclick="_cgBackToList()" style="padding:8px 14px;border:1.5px solid #E5E7EB;border-radius:10px;background:white;cursor:pointer;font-size:13px;font-weight:700;color:#374151;display:flex;align-items:center;gap:6px">
+      ◀ 목록으로
+    </button>
+    <div>
+      <h1 class="bo-page-title" style="margin:0">${isNew ? "세부산출근거 추가" : `세부산출근거 수정 — ${item.name}`}</h1>
+      <p class="bo-page-sub" style="margin:4px 0 0">${isNew ? "새로운 세부산출근거 항목을 등록합니다." : "항목의 기본정보와 단가를 관리합니다."}</p>
+    </div>
+  </div>
+
+  <!-- ① 세부산출근거 유형 -->
+  <div class="bo-card" style="padding:18px;margin-bottom:16px">
+    <div style="font-size:13px;font-weight:800;color:#065F46;margin-bottom:12px">🏷️ 세부산출근거 유형 <span style="color:#EF4444">*</span></div>
     <div style="display:flex;gap:10px">
       ${["self_learning", "edu_operation"].map(v => {
         const m = _CG_USAGE_TYPE_META[v];
         const isSel = usageType === v;
-        return `<label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:8px;cursor:pointer;border:2px solid ${isSel ? m.borderColor : '#E5E7EB'};background:${isSel ? m.bg : '#fff'}" onclick="_cgSelectUsageType('${v}')">
+        return `<label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:8px;cursor:pointer;border:2px solid ${isSel ? m.borderColor : '#E5E7EB'};background:${isSel ? m.bg : '#fff'}" onclick="_cgDtSelectUsageType('${v}')">
           <input type="radio" name="cg-usage-type" value="${v}" ${isSel ? 'checked' : ''} style="accent-color:${m.color}">
           <div><div style="font-size:12px;font-weight:800;color:${m.color}">${m.label}</div>
           <div style="font-size:10px;color:#6B7280">${v === 'self_learning' ? '단가 × 인원 (2중 승산)' : '단가 × 인원 × qty2 × 차수 (3중 승산)'}</div></div>
         </label>`;
       }).join('')}
     </div>
-    <!-- 교육운영형 고급 옵션 -->
-    <div id="cg-op-options" style="margin-top:12px;display:${usageType === 'edu_operation' ? 'flex' : 'none'};gap:12px;flex-wrap:wrap">
+    <div id="cg-dt-op-options" style="margin-top:12px;display:${usageType === 'edu_operation' ? 'flex' : 'none'};gap:12px;flex-wrap:wrap">
       <label style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;cursor:pointer">
-        <input type="checkbox" id="cg-has-rounds" ${item?.hasRounds ? 'checked' : ''} style="accent-color:#7C3AED"> 차수(qty3) 컬럼 활성화
+        <input type="checkbox" id="cg-dt-has-rounds" ${item?.hasRounds ? 'checked' : ''} style="accent-color:#7C3AED"> 차수(qty3) 컬럼 활성화
       </label>
       <label style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;cursor:pointer">
-        <input type="checkbox" id="cg-has-qty2" ${item?.hasQty2 ? 'checked' : ''} onchange="document.getElementById('cg-qty2-type-wrap').style.display=this.checked?'flex':'none'" style="accent-color:#D97706"> 박/일/회(qty2) 컬럼 활성화
+        <input type="checkbox" id="cg-dt-has-qty2" ${item?.hasQty2 ? 'checked' : ''} onchange="document.getElementById('cg-dt-qty2-type-wrap').style.display=this.checked?'flex':'none'" style="accent-color:#D97706"> 박/일/회(qty2) 컬럼 활성화
       </label>
-      <div id="cg-qty2-type-wrap" style="display:${item?.hasQty2 ? 'flex' : 'none'};align-items:center;gap:6px">
+      <div id="cg-dt-qty2-type-wrap" style="display:${item?.hasQty2 ? 'flex' : 'none'};align-items:center;gap:6px">
         <span style="font-size:11px;color:#6B7280">단위:</span>
-        <select id="cg-qty2-type" style="padding:4px 8px;border:1px solid #E5E7EB;border-radius:6px;font-size:11px">
+        <select id="cg-dt-qty2-type" style="padding:4px 8px;border:1px solid #E5E7EB;border-radius:6px;font-size:11px">
           ${['박','일','회'].map(u => `<option value="${u}" ${(item?.qty2Type||'박')===u?'selected':''}>${u}</option>`).join('')}
         </select>
       </div>
     </div>
     <div style="margin-top:8px">
       <label style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;cursor:pointer">
-        <input type="checkbox" id="cg-is-overseas" ${item?.isOverseas ? 'checked' : ''} style="accent-color:#DC2626"> ✈️ 해외 전용 항목 (직접학습형에서 해외 선택 시만 표시)
+        <input type="checkbox" id="cg-dt-is-overseas" ${item?.isOverseas ? 'checked' : ''} style="accent-color:#DC2626"> ✈️ 해외 전용 항목
       </label>
     </div>
   </div>
 
-  <!-- 적용 범위: VOrg 제도그룹만 -->
-  <div style="background:#EFF6FF;border-radius:10px;padding:14px;border:1.5px solid #BFDBFE">
-    <div style="font-size:12px;font-weight:800;color:#1D4ED8;margin-bottom:10px">📐 적용 범위 설정</div>
-    <div>
-      <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px">제도그룹 (미선택 = 테넌트 전체 공유)</label>
-      <select id="cg-grp"
-              style="width:100%;padding:8px 10px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:12px">
-        <option value="">— 테넌트 전체 공유 —</option>
-        ${groupOpts}
-      </select>
-    </div>
-    <div style="margin-top:8px;font-size:10px;color:#1D4ED8">
-      💡 같은 제도그룹 하위의 모든 예산계정에서 이 항목을 공유합니다.
-    </div>
-  </div>
-
-  <!-- 기본 정보 -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-    <div style="grid-column:1/-1">
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">항목명 <span style="color:#EF4444">*</span></label>
-      <input id="cg-name" type="text" value="${item?.name || ""}" placeholder="예) 숙박비"
-        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
-    </div>
-    <div style="grid-column:1/-1">
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">가이드 설명 <span style="font-size:10px;color:#6B7280">(학습자 화면 노출)</span></label>
-      <textarea id="cg-desc" rows="2"
-        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;resize:none">${item?.desc || ""}</textarea>
-    </div>
-    <div>
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">기준단가 (원)</label>
-      <input id="cg-unit-price" type="number" value="${item?.unitPrice ?? ""}" placeholder="0 = 직접 입력"
-        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
-    </div>
-    <div>
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">정렬 순서</label>
-      <input id="cg-order" type="number" value="${item?.sortOrder ?? 99}" placeholder="99"
-        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+  <!-- ② 기본정보 -->
+  <div class="bo-card" style="padding:18px;margin-bottom:16px">
+    <div style="font-size:13px;font-weight:800;color:#1D4ED8;margin-bottom:14px">📋 기본정보</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div style="grid-column:1/-1">
+        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">항목명 <span style="color:#EF4444">*</span></label>
+        <input id="cg-dt-name" type="text" value="${item?.name || ''}" placeholder="예) 숙박비"
+          style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">SAP 코드 <span style="font-size:10px;color:#6B7280">(선택)</span></label>
+        <input id="cg-dt-sap-code" type="text" value="${item?.sapCode || ''}" placeholder="예) SAP-ACC-001"
+          style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">정렬 순서</label>
+        <input id="cg-dt-order" type="number" value="${item?.sortOrder ?? 99}" placeholder="99"
+          style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+      </div>
+      <div style="grid-column:1/-1">
+        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">가이드 설명 <span style="font-size:10px;color:#6B7280">(학습자 화면 노출)</span></label>
+        <textarea id="cg-dt-desc" rows="2" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;resize:none">${item?.desc || ''}</textarea>
+      </div>
+      <div style="grid-column:1/-1">
+        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">제도그룹 <span style="font-size:10px;color:#6B7280">(미선택 = 테넌트 전체 공유)</span></label>
+        <select id="cg-dt-grp" style="width:100%;padding:8px 10px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:12px">
+          <option value="">— 테넌트 전체 공유 —</option>
+          ${groupOpts}
+        </select>
+        <div style="margin-top:4px;font-size:10px;color:#1D4ED8">💡 같은 제도그룹 하위의 모든 예산계정에서 이 항목을 공유합니다.</div>
+      </div>
     </div>
   </div>
 
-  <!-- 상한액 -->
+  <!-- ③ 가격 유형 선택 -->
+  <div class="bo-card" style="padding:18px;margin-bottom:16px">
+    <div style="font-size:13px;font-weight:800;color:#374151;margin-bottom:14px">💰 가격 유형</div>
+    <div style="display:flex;gap:10px;margin-bottom:16px">
+      <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:10px;cursor:pointer;border:2px solid ${pricingType === 'simple' ? '#059669' : '#E5E7EB'};background:${pricingType === 'simple' ? '#F0FDF4' : '#fff'}" onclick="_cgDtSelectPricingType('simple')">
+        <input type="radio" name="cg-pricing-type" value="simple" ${pricingType === 'simple' ? 'checked' : ''} style="accent-color:#059669">
+        <div>
+          <div style="font-size:13px;font-weight:800;color:#065F46">단순형</div>
+          <div style="font-size:10px;color:#6B7280">기준단가 하나로 설정 (예: 문구비 5,000원)</div>
+        </div>
+      </label>
+      <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:10px;cursor:pointer;border:2px solid ${pricingType === 'composite' ? '#D97706' : '#E5E7EB'};background:${pricingType === 'composite' ? '#FFFBEB' : '#fff'}" onclick="_cgDtSelectPricingType('composite')">
+        <input type="radio" name="cg-pricing-type" value="composite" ${pricingType === 'composite' ? 'checked' : ''} style="accent-color:#D97706">
+        <div>
+          <div style="font-size:13px;font-weight:800;color:#92400E">복합형</div>
+          <div style="font-size:10px;color:#6B7280">차원(교육장소 등) × 세부항목별 단가 매트릭스</div>
+        </div>
+      </label>
+    </div>
+
+    <!-- 단순형: 기준단가 + 상한액 -->
+    <div id="cg-dt-simple-section" style="display:${pricingType === 'simple' ? 'block' : 'none'}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+        <div>
+          <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">기준단가 (원)</label>
+          <input id="cg-dt-unit-price" type="number" value="${item?.unitPrice ?? ''}" placeholder="0 = 직접 입력"
+            style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+        </div>
+      </div>
+      ${_cgRenderLimitSection(lType, item)}
+    </div>
+
+    <!-- 복합형: 차원 카테고리 + 매트릭스 -->
+    <div id="cg-dt-composite-section" style="display:${pricingType === 'composite' ? 'block' : 'none'}">
+      <div style="margin-bottom:14px">
+        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">차원 카테고리</label>
+        <select id="cg-dt-dim-cat" style="padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;min-width:200px">
+          <option value="venue" ${dimCat === 'venue' ? 'selected' : ''}>🏢 교육장소</option>
+        </select>
+        <div style="margin-top:4px;font-size:10px;color:#6B7280">💡 선택한 차원 카테고리의 값별로 세부항목과 단가를 설정합니다.</div>
+      </div>
+
+      <!-- 차원값별 매트릭스 -->
+      <div id="cg-dt-matrix">
+        ${_cgRenderMatrix()}
+      </div>
+
+      <button onclick="_cgDtAddDimValue()" style="margin-top:12px;padding:8px 16px;border:1.5px dashed #D97706;border-radius:8px;background:#FFFBEB;color:#92400E;font-size:12px;font-weight:700;cursor:pointer;width:100%">
+        + 차원값(교육장소) 추가
+      </button>
+    </div>
+  </div>
+
+  <!-- ④ 하단 액션 바 -->
+  <div style="display:flex;gap:10px;justify-content:flex-end;padding:16px 0;border-top:2px solid #E5E7EB">
+    ${!isNew ? `<button onclick="_cgDeleteItem('${item.id}')" style="padding:10px 20px;border:1.5px solid #FECACA;border-radius:10px;background:#FEF2F2;color:#DC2626;font-size:13px;font-weight:700;cursor:pointer;margin-right:auto">🗑️ 삭제</button>` : ''}
+    <button onclick="_cgBackToList()" style="padding:10px 24px;border:1.5px solid #E5E7EB;border-radius:10px;background:white;font-size:13px;font-weight:700;cursor:pointer;color:#6B7280">취소</button>
+    <button onclick="_cgSaveDetail()" style="padding:10px 28px;border:none;border-radius:10px;background:linear-gradient(135deg,#1D4ED8,#2563EB);color:white;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,.35)">💾 저장</button>
+  </div>
+</div>`;
+}
+
+// ─── 상한액 섹션 렌더 ─────────────────────────────────────────────────────
+function _cgRenderLimitSection(lType, item) {
+  return `
   <div style="background:#F9FAFB;border-radius:10px;padding:14px;border:1.5px solid #E5E7EB">
     <div style="font-size:12px;font-weight:800;color:#374151;margin-bottom:10px">🔒 상한액 설정</div>
     <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-      ${["none", "soft", "hard"]
-        .map(
-          (v) => `
+      ${["none", "soft", "hard"].map((v) => `
       <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;cursor:pointer;
                     border:1.5px solid ${lType === v ? (v === "none" ? "#10B981" : v === "soft" ? "#D97706" : "#DC2626") : "#E5E7EB"};
                     background:${lType === v ? (v === "none" ? "#F0FDF4" : v === "soft" ? "#FFFBEB" : "#FEF2F2") : "#fff"}"
-             onclick="cgSelectLimitType('${v}')">
+             onclick="_cgDtSelectLimitType('${v}')">
         <input type="radio" name="cg-limit-type" value="${v}" ${lType === v ? "checked" : ""}
           style="accent-color:${v === "none" ? "#10B981" : v === "soft" ? "#D97706" : "#DC2626"}">
         <span style="font-size:12px;font-weight:700">
           ${v === "none" ? "✅ 제한없음" : v === "soft" ? "⚠ Soft (초과 가능)" : "🚫 Hard (초과 차단)"}
         </span>
-      </label>`,
-        )
-        .join("")}
+      </label>`).join("")}
     </div>
-    <div style="margin-bottom:12px;font-size:10px;color:#6B7280;background:#F9FAFB;padding:8px 12px;border-radius:8px;line-height:1.6">
-      ⚠ <b>Soft Limit</b>: 이 금액을 초과해도 <b>사유를 입력</b>하면 진행 가능합니다. 관리자가 사후에 리뷰합니다.<br>
-      🚫 <b>Hard Limit</b>: 이 금액을 초과하면 <b>시스템이 절대 차단</b>합니다. 입력 자체가 불가합니다.
-    </div>
-    <div id="cg-limit-fields" style="display:${lType === "none" ? "none" : "grid"};grid-template-columns:1fr 1fr;gap:12px">
+    <div id="cg-dt-limit-fields" style="display:${lType === "none" ? "none" : "grid"};grid-template-columns:1fr 1fr;gap:12px">
       <div>
-        <label style="font-size:11px;font-weight:700;color:#D97706;display:block;margin-bottom:4px">⚠ Soft Limit (원) — 초과 시 사유 입력 후 진행 가능</label>
-        <input id="cg-soft-limit" type="number" value="${item?.softLimit || ""}" placeholder="0=미설정"
+        <label style="font-size:11px;font-weight:700;color:#D97706;display:block;margin-bottom:4px">⚠ Soft Limit (원)</label>
+        <input id="cg-dt-soft-limit" type="number" value="${item?.softLimit || ''}" placeholder="0=미설정"
           style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #FDE68A;border-radius:8px;font-size:13px">
       </div>
       <div>
-        <label style="font-size:11px;font-weight:700;color:#DC2626;display:block;margin-bottom:4px">🚫 Hard Limit (원) — 초과 시 절대 차단 (입력 불가)</label>
-        <input id="cg-hard-limit" type="number" value="${item?.hardLimit || ""}" placeholder="0=미설정"
+        <label style="font-size:11px;font-weight:700;color:#DC2626;display:block;margin-bottom:4px">🚫 Hard Limit (원)</label>
+        <input id="cg-dt-hard-limit" type="number" value="${item?.hardLimit || ''}" placeholder="0=미설정"
           style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #FECACA;border-radius:8px;font-size:13px">
       </div>
     </div>
-  </div>
-</div>`;
+  </div>`;
 }
 
-function cgOnModalGroupChange(groupId) {
-  const acctSel = document.getElementById("cg-acct");
-  if (acctSel) {
-    const accts = groupId
-      ? _cgAccountList.filter((a) => a.virtual_org_template_id === groupId)
-      : [];
-    acctSel.innerHTML =
-      `<option value="">— 공유 항목 —</option>` +
-      accts
-        .map(
-          (a) =>
-            `<option value="${a.code}">${a.code}${a.name ? ` (${a.name})` : ""}</option>`,
-        )
-        .join("");
+// ─── 복합형 매트릭스 렌더 ─────────────────────────────────────────────────
+function _cgRenderMatrix() {
+  // 차원값별 그룹핑
+  const byDim = {};
+  _cgDetailUnitPrices.forEach((p) => {
+    const key = p.venue_name || p.dimension_value || "—";
+    if (!byDim[key]) byDim[key] = [];
+    byDim[key].push(p);
+  });
+  const dimKeys = Object.keys(byDim);
+  if (dimKeys.length === 0) {
+    return `<div style="text-align:center;padding:24px;background:#FFFBEB;border:1.5px dashed #FDE68A;border-radius:10px;color:#92400E;font-size:12px">
+      아직 등록된 차원값이 없습니다. 아래 버튼으로 교육장소를 추가하세요.
+    </div>`;
+  }
+  return dimKeys.map((dimVal, di) => {
+    const items = byDim[dimVal];
+    return `
+    <div style="background:#FAFAFA;border:1.5px solid #E5E7EB;border-radius:10px;padding:14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px;padding:3px 10px;border-radius:6px;background:#EFF6FF;color:#1D4ED8;font-weight:800">🏢 ${dimVal}</span>
+          <span style="font-size:10px;color:#6B7280">${items.length}개 세부항목</span>
+        </div>
+        <button onclick="_cgDtRemoveDimValue('${dimVal.replace(/'/g,"\\'")}')" style="font-size:11px;padding:4px 10px;border:1px solid #FECACA;border-radius:6px;background:#FEF2F2;color:#DC2626;cursor:pointer;font-weight:700">✕ 제거</button>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:#F3F4F6">
+          <th style="padding:6px 10px;text-align:left;font-weight:800;color:#374151">세부항목명</th>
+          <th style="padding:6px 10px;text-align:right;font-weight:800;color:#374151;width:120px">단가 (원)</th>
+          <th style="padding:6px 10px;text-align:center;font-weight:800;color:#374151;width:80px">qty2 기본값</th>
+          <th style="padding:6px 10px;text-align:center;width:50px"></th>
+        </tr></thead>
+        <tbody>
+          ${items.map((p, pi) => `
+          <tr style="border-bottom:1px solid #E5E7EB">
+            <td style="padding:6px 10px"><input type="text" value="${p.preset_name || p.detail_name || ''}" onchange="_cgDtUpdateSubItem(${di},${pi},'name',this.value)" style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid #E5E7EB;border-radius:6px;font-size:12px"></td>
+            <td style="padding:6px 10px"><input type="number" value="${p.unit_price || 0}" onchange="_cgDtUpdateSubItem(${di},${pi},'price',this.value)" style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid #E5E7EB;border-radius:6px;font-size:12px;text-align:right"></td>
+            <td style="padding:6px 10px"><input type="number" value="${p.qty2_value || 1}" onchange="_cgDtUpdateSubItem(${di},${pi},'qty2',this.value)" style="width:60px;padding:5px 8px;border:1px solid #E5E7EB;border-radius:6px;font-size:12px;text-align:center"></td>
+            <td style="padding:6px 10px;text-align:center"><button onclick="_cgDtRemoveSubItem(${di},${pi})" style="border:none;background:none;color:#EF4444;cursor:pointer;font-size:14px">✕</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      <button onclick="_cgDtAddSubItem('${dimVal.replace(/'/g,"\\'")}')" style="margin-top:8px;padding:5px 12px;border:1px dashed #93C5FD;border-radius:6px;background:#EFF6FF;color:#1D4ED8;font-size:11px;font-weight:700;cursor:pointer">+ 세부항목 추가</button>
+    </div>`;
+  }).join('');
+}
+
+// ─── 매트릭스 조작 ─────────────────────────────────────────────────────────
+function _cgDtAddDimValue() {
+  const dimValues = _cgDetailDimValues.filter(d => d.active !== false).map(d => d.name);
+  const existing = [...new Set(_cgDetailUnitPrices.map(p => p.venue_name))];
+  const available = dimValues.filter(v => !existing.includes(v));
+
+  if (available.length === 0) {
+    const custom = prompt("추가할 교육장소명을 입력하세요:");
+    if (!custom || !custom.trim()) return;
+    _cgDetailUnitPrices.push({ venue_name: custom.trim(), preset_name: "", detail_name: "", unit_price: 0, qty2_value: 1 });
+  } else {
+    const list = available.map((v,i) => `${i+1}. ${v}`).join('\n');
+    const choice = prompt(`추가할 교육장소를 선택하세요 (번호 입력):\n${list}\n\n직접 입력하려면 이름을 입력하세요:`);
+    if (!choice || !choice.trim()) return;
+    const num = parseInt(choice);
+    const name = (num > 0 && num <= available.length) ? available[num-1] : choice.trim();
+    _cgDetailUnitPrices.push({ venue_name: name, preset_name: "", detail_name: "", unit_price: 0, qty2_value: 1 });
+  }
+  document.getElementById("cg-dt-matrix").innerHTML = _cgRenderMatrix();
+}
+
+function _cgDtRemoveDimValue(dimVal) {
+  if (!confirm(`"${dimVal}" 교육장소의 모든 세부항목을 제거할까요?`)) return;
+  _cgDetailUnitPrices = _cgDetailUnitPrices.filter(p => (p.venue_name || p.dimension_value) !== dimVal);
+  document.getElementById("cg-dt-matrix").innerHTML = _cgRenderMatrix();
+}
+
+function _cgDtAddSubItem(dimVal) {
+  _cgDetailUnitPrices.push({ venue_name: dimVal, preset_name: "", detail_name: "", unit_price: 0, qty2_value: 1 });
+  document.getElementById("cg-dt-matrix").innerHTML = _cgRenderMatrix();
+}
+
+function _cgDtRemoveSubItem(dimIdx, itemIdx) {
+  const byDim = {};
+  _cgDetailUnitPrices.forEach((p) => {
+    const key = p.venue_name || "—";
+    if (!byDim[key]) byDim[key] = [];
+    byDim[key].push(p);
+  });
+  const dimKeys = Object.keys(byDim);
+  const dimVal = dimKeys[dimIdx];
+  const items = byDim[dimVal];
+  const target = items[itemIdx];
+  _cgDetailUnitPrices = _cgDetailUnitPrices.filter(p => p !== target);
+  document.getElementById("cg-dt-matrix").innerHTML = _cgRenderMatrix();
+}
+
+function _cgDtUpdateSubItem(dimIdx, itemIdx, field, value) {
+  const byDim = {};
+  _cgDetailUnitPrices.forEach((p) => {
+    const key = p.venue_name || "—";
+    if (!byDim[key]) byDim[key] = [];
+    byDim[key].push(p);
+  });
+  const dimKeys = Object.keys(byDim);
+  const items = byDim[dimKeys[dimIdx]];
+  if (!items || !items[itemIdx]) return;
+  if (field === 'name') { items[itemIdx].preset_name = value; items[itemIdx].detail_name = value; }
+  else if (field === 'price') items[itemIdx].unit_price = Number(value) || 0;
+  else if (field === 'qty2') items[itemIdx].qty2_value = Number(value) || 1;
+}
+
+// ─── 차원값 로드 ─────────────────────────────────────────────────────────
+async function _cgLoadDimValues(tenantId) {
+  try {
+    const sb = typeof _sb === "function" ? _sb() : null;
+    if (!sb) return;
+    const { data } = await sb.from("pricing_dimensions").select("*").eq("tenant_id", tenantId).order("sort_order");
+    if (data) _cgDetailDimValues = data;
+  } catch (e) {
+    console.warn("[PricingDim] 로드 실패:", e);
   }
 }
 
-// ─── 인터랙션 핸들러 ─────────────────────────────────────────────────────────
-function cgSelectVisible(val) {
-  document
-    .querySelectorAll('input[name="cg-visible"]')
-    .forEach((r) => (r.checked = r.value === val));
-  document.querySelectorAll('input[name="cg-visible"]').forEach((r) => {
-    const lbl = r.closest("label");
-    if (!lbl) return;
-    const m = CG_VISIBLE_META[r.value] || CG_VISIBLE_META.both;
-    lbl.style.borderColor = r.checked ? m.color : "#E5E7EB";
-    lbl.style.background = r.checked ? m.bg : "#fff";
-  });
+async function _cgLoadDetailUnitPrices(itemId, itemName) {
+  try {
+    const sb = typeof _sb === "function" ? _sb() : null;
+    if (!sb) return;
+    const { data } = await sb.from("calc_ground_unit_prices").select("*")
+      .or(`calc_ground_id.eq.${itemId},calc_ground_name.eq.${itemName}`)
+      .order("sort_order");
+    if (data) _cgDetailUnitPrices = data;
+  } catch (e) {
+    console.warn("[UnitPrices] 로드 실패:", e);
+    _cgDetailUnitPrices = [];
+  }
 }
-function cgSelectLimitType(val) {
-  document
-    .querySelectorAll('input[name="cg-limit-type"]')
-    .forEach((r) => (r.checked = r.value === val));
-  const f = document.getElementById("cg-limit-fields");
-  if (f) f.style.display = val === "none" ? "none" : "grid";
-}
-function _cgSelectUsageType(val) {
+
+// ─── UI 인터랙션 핸들러 ───────────────────────────────────────────────────
+function _cgDtSelectUsageType(val) {
   document.querySelectorAll('input[name="cg-usage-type"]').forEach((r) => {
     r.checked = r.value === val;
     const lbl = r.closest("label");
@@ -560,125 +636,335 @@ function _cgSelectUsageType(val) {
     lbl.style.borderColor = r.checked ? m.borderColor : "#E5E7EB";
     lbl.style.background = r.checked ? m.bg : "#fff";
   });
-  const opOpts = document.getElementById("cg-op-options");
+  const opOpts = document.getElementById("cg-dt-op-options");
   if (opOpts) opOpts.style.display = val === "edu_operation" ? "flex" : "none";
 }
 
-// ─── 저장 ─────────────────────────────────────────────────────────────────────
-async function cgSaveItem() {
-  const name = document.getElementById("cg-name")?.value.trim();
-  if (!name) {
-    alert("항목명은 필수입니다.");
-    return;
-  }
+function _cgDtSelectPricingType(val) {
+  document.querySelectorAll('input[name="cg-pricing-type"]').forEach((r) => {
+    r.checked = r.value === val;
+    const lbl = r.closest("label");
+    if (!lbl) return;
+    if (r.value === 'simple') {
+      lbl.style.borderColor = r.checked ? '#059669' : '#E5E7EB';
+      lbl.style.background = r.checked ? '#F0FDF4' : '#fff';
+    } else {
+      lbl.style.borderColor = r.checked ? '#D97706' : '#E5E7EB';
+      lbl.style.background = r.checked ? '#FFFBEB' : '#fff';
+    }
+  });
+  const simple = document.getElementById("cg-dt-simple-section");
+  const composite = document.getElementById("cg-dt-composite-section");
+  if (simple) simple.style.display = val === 'simple' ? 'block' : 'none';
+  if (composite) composite.style.display = val === 'composite' ? 'block' : 'none';
+}
+
+function _cgDtSelectLimitType(val) {
+  document.querySelectorAll('input[name="cg-limit-type"]').forEach((r) => (r.checked = r.value === val));
+  const f = document.getElementById("cg-dt-limit-fields");
+  if (f) f.style.display = val === "none" ? "none" : "grid";
+}
+
+// ─── 저장 ─────────────────────────────────────────────────────────────────
+async function _cgSaveDetail() {
+  const name = document.getElementById("cg-dt-name")?.value.trim();
+  if (!name) { alert("항목명은 필수입니다."); return; }
   const usageType = document.querySelector('input[name="cg-usage-type"]:checked')?.value;
-  if (!usageType) {
-    alert("세부산출근거 유형을 선택하세요 (직접학습용 / 교육운영용).");
-    return;
-  }
+  if (!usageType) { alert("세부산출근거 유형을 선택하세요."); return; }
+
+  const pricingType = document.querySelector('input[name="cg-pricing-type"]:checked')?.value || "simple";
   const tenantId = _cgFilterTenant || boCurrentPersona.tenantId || "HMC";
-  const groupId = document.getElementById("cg-grp")?.value || null;
-
-  const hasRounds = usageType === "edu_operation" && document.getElementById("cg-has-rounds")?.checked === true;
-  const hasQty2 = usageType === "edu_operation" && document.getElementById("cg-has-qty2")?.checked === true;
-  const qty2Type = hasQty2 ? (document.getElementById("cg-qty2-type")?.value || "박") : "박";
-  const isOverseas = document.getElementById("cg-is-overseas")?.checked === true;
-
-  const obj = {
-    name,
-    desc: document.getElementById("cg-desc")?.value.trim(),
-    unitPrice: Number(document.getElementById("cg-unit-price")?.value) || 0,
-    limitType:
-      document.querySelector('input[name="cg-limit-type"]:checked')?.value ||
-      "none",
-    softLimit: Number(document.getElementById("cg-soft-limit")?.value) || 0,
-    hardLimit: Number(document.getElementById("cg-hard-limit")?.value) || 0,
-    usageScope: ["plan", "apply", "settle"],
-    visibleFor: "both",
-    active: true,
-    tenantId,
-    domainId: groupId || undefined,
-    sortOrder: Number(document.getElementById("cg-order")?.value) || 99,
-    usageType,
-    hasRounds,
-    hasQty2,
-    qty2Type,
-    isOverseas,
-  };
+  const groupId = document.getElementById("cg-dt-grp")?.value || null;
+  const hasRounds = usageType === "edu_operation" && document.getElementById("cg-dt-has-rounds")?.checked === true;
+  const hasQty2 = usageType === "edu_operation" && document.getElementById("cg-dt-has-qty2")?.checked === true;
+  const qty2Type = hasQty2 ? (document.getElementById("cg-dt-qty2-type")?.value || "박") : "박";
+  const isOverseas = document.getElementById("cg-dt-is-overseas")?.checked === true;
 
   const dbPayload = {
-    name: obj.name,
-    description: obj.desc,
-    unit_price: obj.unitPrice,
-    limit_type: obj.limitType,
-    soft_limit: obj.softLimit,
-    hard_limit: obj.hardLimit,
-    active: obj.active,
-    tenant_id: obj.tenantId,
-    virtual_org_template_id: obj.domainId || null,
-    sort_order: obj.sortOrder,
-    usage_type: obj.usageType,
-    has_rounds: obj.hasRounds,
-    has_qty2: obj.hasQty2,
-    qty2_type: obj.qty2Type,
-    is_overseas: obj.isOverseas,
+    name,
+    description: document.getElementById("cg-dt-desc")?.value.trim() || null,
+    sap_code: document.getElementById("cg-dt-sap-code")?.value.trim() || null,
+    unit_price: pricingType === 'simple' ? (Number(document.getElementById("cg-dt-unit-price")?.value) || 0) : 0,
+    limit_type: pricingType === 'simple' ? (document.querySelector('input[name="cg-limit-type"]:checked')?.value || "none") : "none",
+    soft_limit: pricingType === 'simple' ? (Number(document.getElementById("cg-dt-soft-limit")?.value) || 0) : 0,
+    hard_limit: pricingType === 'simple' ? (Number(document.getElementById("cg-dt-hard-limit")?.value) || 0) : 0,
+    active: true,
+    tenant_id: tenantId,
+    virtual_org_template_id: groupId || null,
+    sort_order: Number(document.getElementById("cg-dt-order")?.value) || 99,
+    usage_type: usageType,
+    has_rounds: hasRounds,
+    has_qty2: hasQty2,
+    qty2_type: qty2Type,
+    is_overseas: isOverseas,
+    pricing_type: pricingType,
+    dimension_category: pricingType === 'composite' ? (document.getElementById("cg-dt-dim-cat")?.value || 'venue') : null,
   };
 
   try {
     const sb = typeof _sb === "function" ? _sb() : null;
-    if (sb) {
-      if (_cgEditId) {
-        await sb.from("calc_grounds").update(dbPayload).eq("id", _cgEditId);
-      } else {
-        const newId = "CG-" + Date.now();
-        await sb.from("calc_grounds").insert({ id: newId, ...dbPayload });
-        obj.id = newId;
-      }
+    if (!sb) throw new Error("Supabase 미연결");
+    let itemId = _cgDetailView?.id;
+
+    if (itemId) {
+      await sb.from("calc_grounds").update(dbPayload).eq("id", itemId);
+    } else {
+      itemId = "CG-" + Date.now();
+      await sb.from("calc_grounds").insert({ id: itemId, ...dbPayload });
     }
+
+    // 복합형: 세부항목 저장 (기존 삭제 후 재삽입)
+    if (pricingType === 'composite' && _cgDetailUnitPrices.length > 0) {
+      await sb.from("calc_ground_unit_prices").delete().or(`calc_ground_id.eq.${itemId},calc_ground_name.eq.${name}`);
+      const rows = _cgDetailUnitPrices
+        .filter(p => p.preset_name || p.detail_name)
+        .map((p, i) => ({
+          tenant_id: tenantId,
+          virtual_org_template_id: groupId || null,
+          venue_name: p.venue_name,
+          calc_ground_id: itemId,
+          calc_ground_name: name,
+          preset_name: p.preset_name || p.detail_name,
+          detail_name: p.detail_name || p.preset_name,
+          unit_price: p.unit_price || 0,
+          qty2_value: p.qty2_value || 1,
+          sort_order: i + 1,
+          active: true,
+        }));
+      if (rows.length > 0) await sb.from("calc_ground_unit_prices").insert(rows);
+    }
+
+    alert("✅ 저장되었습니다.");
+    _cgDbLoaded = false; // 리로드
+    _cgBackToList();
   } catch (e) {
-    console.warn("[CalcGrounds] DB 저장 실패:", e);
+    console.error("[CalcGrounds] 저장 실패:", e);
+    alert("저장 실패: " + e.message);
   }
-
-  if (_cgEditId) {
-    const idx = CALC_GROUNDS_MASTER.findIndex((g) => g.id === _cgEditId);
-    if (idx > -1)
-      CALC_GROUNDS_MASTER[idx] = { ...CALC_GROUNDS_MASTER[idx], ...obj };
-  } else {
-    CALC_GROUNDS_MASTER.push({ id: obj.id || "CG" + Date.now(), ...obj });
-  }
-  cgCloseModal();
-  document.getElementById("cg-content").innerHTML = _renderCgTable(
-    tenantId,
-    _cgFilterGroup,
-    _cgFilterAccount,
-  );
 }
 
-function cgToggleActive(id) {
+// ─── 삭제 ─────────────────────────────────────────────────────────────────
+async function _cgDeleteItem(id) {
+  if (!confirm("이 세부산출근거 항목을 삭제할까요?\n하위 단가 데이터도 함께 비활성화됩니다.")) return;
+  try {
+    const sb = typeof _sb === "function" ? _sb() : null;
+    if (sb) {
+      await sb.from("calc_grounds").update({ active: false }).eq("id", id);
+      await sb.from("calc_ground_unit_prices").update({ active: false }).eq("calc_ground_id", id);
+    }
+    const item = CALC_GROUNDS_MASTER.find((g) => g.id === id);
+    if (item) item.active = false;
+    _cgBackToList();
+  } catch (e) {
+    alert("삭제 실패: " + e.message);
+  }
+}
+
+// ─── 활성/비활성 토글 ─────────────────────────────────────────────────────
+async function _cgToggleActive(id) {
   const item = CALC_GROUNDS_MASTER.find((g) => g.id === id);
-  if (item) item.active = item.active === false ? true : false;
-  const tenantId = _cgFilterTenant || boCurrentPersona.tenantId || "HMC";
-  document.getElementById("cg-content").innerHTML = _renderCgTable(
-    tenantId,
-    _cgFilterGroup,
-    _cgFilterAccount,
-  );
+  if (!item) return;
+  const newActive = item.active === false;
+  item.active = newActive;
+  try {
+    const sb = typeof _sb === "function" ? _sb() : null;
+    if (sb) await sb.from("calc_grounds").update({ active: newActive }).eq("id", id);
+  } catch (e) {
+    console.warn("[CalcGrounds] 토글 실패:", e);
+  }
+  renderCalcGrounds();
 }
 
-// ─── 헬퍼: 양식 미리보기 및 FO 신청화면에서 세부산출근거 항목 가져오기 ─────────
-// VOrg 제도그룹 + shared_account_codes 기반 필터링
+// ═══════════════════════════════════════════════════════════════════════════
+// ─── 단가차원 관리 페이지 ─────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+let _pdList = [];
+let _pdLoaded = false;
+let _pdFilterCategory = "";
+
+async function renderPricingDimensions() {
+  const tenantId = boCurrentPersona.tenantId || "HMC";
+  if (!_pdLoaded) {
+    try {
+      const sb = typeof _sb === "function" ? _sb() : null;
+      if (sb) {
+        const { data } = await sb.from("pricing_dimensions").select("*").order("sort_order");
+        if (data) { _pdList = data; _pdLoaded = true; }
+      }
+    } catch (e) { console.warn("[PricingDim]", e); }
+  }
+
+  // 카테고리 목록 추출
+  const categories = [...new Set(_pdList.map(d => d.category))];
+  const catLabels = {};
+  _pdList.forEach(d => { catLabels[d.category] = d.category_label; });
+
+  const filtered = _pdFilterCategory
+    ? _pdList.filter(d => d.category === _pdFilterCategory)
+    : _pdList;
+  const activeItems = filtered.filter(d => d.active !== false);
+  const inactiveItems = filtered.filter(d => d.active === false);
+
+  const el = document.getElementById("bo-content");
+  el.innerHTML = `
+<div class="bo-fade" style="padding:24px">
+  <div style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between">
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        <span style="background:#7C3AED;color:#fff;font-size:9px;font-weight:900;padding:3px 8px;border-radius:6px">차원관리</span>
+        <h1 class="bo-page-title" style="margin:0">단가 차원 관리</h1>
+      </div>
+      <p class="bo-page-sub">세부산출근거 복합형에서 사용하는 차원 카테고리와 값을 관리합니다. (예: 교육장소 → 마북캠퍼스, 경주캠퍼스 등)</p>
+    </div>
+    <button class="bo-btn-primary bo-btn-sm" onclick="_pdAddValue()" style="white-space:nowrap">+ 값 추가</button>
+  </div>
+
+  <!-- 카테고리 필터 -->
+  <div class="bo-filter-bar">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:12px;font-weight:800;color:#374151">카테고리</span>
+      <select onchange="_pdFilterCategory=this.value;renderPricingDimensions()" class="bo-filter-select" style="min-width:160px">
+        <option value="">전체</option>
+        ${categories.map(c => `<option value="${c}" ${_pdFilterCategory === c ? 'selected' : ''}>${catLabels[c] || c}</option>`).join('')}
+      </select>
+    </div>
+    <button onclick="_pdAddCategory()" style="margin-left:auto;padding:7px 14px;border:1.5px solid #C4B5FD;border-radius:8px;background:#F5F3FF;color:#7C3AED;font-size:12px;font-weight:700;cursor:pointer">+ 카테고리 추가</button>
+  </div>
+
+  <!-- 목록 -->
+  <div class="bo-list-count" style="margin-top:12px">차원값 목록 (${activeItems.length}개 활성 / 전체 ${filtered.length}개)</div>
+  <div class="bo-table-container">
+    <table class="bo-table">
+      <thead>
+        <tr>
+          <th style="width:40px;text-align:center">NO.</th>
+          <th>카테고리</th>
+          <th>차원값</th>
+          <th style="text-align:center">정렬</th>
+          <th style="text-align:center">상태</th>
+          <th style="text-align:center">관리</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${activeItems.length === 0 ? `
+        <tr><td colspan="6" style="text-align:center;padding:48px;color:#9CA3AF;font-size:13px">등록된 차원값이 없습니다.</td></tr>
+        ` : activeItems.map((d,i) => `
+        <tr>
+          <td style="text-align:center;font-size:12px;color:#9CA3AF">${i+1}</td>
+          <td><span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#F5F3FF;color:#7C3AED;font-weight:800">${d.category_label || d.category}</span></td>
+          <td style="font-weight:700;font-size:13px;color:#111827">${d.name}</td>
+          <td style="text-align:center;font-size:12px;color:#6B7280">${d.sort_order}</td>
+          <td style="text-align:center"><span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:5px;background:#D1FAE5;color:#065F46">활성</span></td>
+          <td style="text-align:center">
+            <div style="display:flex;gap:5px;justify-content:center">
+              <button onclick="_pdEditValue(${d.id})" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid #D1D5DB;background:white;cursor:pointer;font-weight:700;color:#374151">수정</button>
+              <button onclick="_pdToggleActive(${d.id},false)" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid #FDE68A;background:#FFFBEB;color:#D97706;cursor:pointer;font-weight:700">비활성</button>
+            </div>
+          </td>
+        </tr>`).join('')}
+        ${inactiveItems.length > 0 ? inactiveItems.map(d => `
+        <tr style="opacity:.5">
+          <td style="text-align:center;font-size:12px;color:#9CA3AF">—</td>
+          <td><span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#F3F4F6;color:#9CA3AF;font-weight:800">${d.category_label || d.category}</span></td>
+          <td style="font-weight:700;font-size:13px;color:#9CA3AF">${d.name}</td>
+          <td style="text-align:center;font-size:12px;color:#9CA3AF">${d.sort_order}</td>
+          <td style="text-align:center"><span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:5px;background:#F3F4F6;color:#9CA3AF">비활성</span></td>
+          <td style="text-align:center">
+            <button onclick="_pdToggleActive(${d.id},true)" style="font-size:11px;padding:5px 11px;border-radius:7px;border:1.5px solid #A7F3D0;background:#ECFDF5;color:#059669;cursor:pointer;font-weight:700">활성화</button>
+          </td>
+        </tr>`).join('') : ''}
+      </tbody>
+    </table>
+  </div>
+</div>`;
+}
+
+async function _pdAddCategory() {
+  const code = prompt("새 카테고리 코드를 입력하세요 (영문, 예: course_type):");
+  if (!code || !code.trim()) return;
+  const label = prompt("카테고리 표시명을 입력하세요 (예: 과정유형):");
+  if (!label || !label.trim()) return;
+  const name = prompt("첫 번째 차원값을 입력하세요 (예: 리더십):");
+  if (!name || !name.trim()) return;
+  const tenantId = boCurrentPersona.tenantId || "HMC";
+  try {
+    const sb = typeof _sb === "function" ? _sb() : null;
+    if (sb) {
+      await sb.from("pricing_dimensions").insert({ category: code.trim(), category_label: label.trim(), name: name.trim(), tenant_id: tenantId, sort_order: 1 });
+    }
+    _pdLoaded = false;
+    renderPricingDimensions();
+  } catch (e) { alert("등록 실패: " + e.message); }
+}
+
+async function _pdAddValue() {
+  const categories = [...new Set(_pdList.map(d => d.category))];
+  const catLabels = {};
+  _pdList.forEach(d => { catLabels[d.category] = d.category_label; });
+
+  let category = _pdFilterCategory;
+  if (!category) {
+    if (categories.length === 0) { alert("먼저 카테고리를 추가하세요."); return; }
+    const catList = categories.map((c,i) => `${i+1}. ${catLabels[c] || c}`).join('\n');
+    const choice = prompt(`카테고리를 선택하세요:\n${catList}`);
+    if (!choice) return;
+    const num = parseInt(choice);
+    category = (num > 0 && num <= categories.length) ? categories[num-1] : null;
+    if (!category) return;
+  }
+
+  const name = prompt(`"${catLabels[category] || category}" 카테고리에 추가할 값을 입력하세요:`);
+  if (!name || !name.trim()) return;
+  const tenantId = boCurrentPersona.tenantId || "HMC";
+  const maxOrder = _pdList.filter(d => d.category === category).reduce((m, d) => Math.max(m, d.sort_order || 0), 0);
+  try {
+    const sb = typeof _sb === "function" ? _sb() : null;
+    if (sb) {
+      await sb.from("pricing_dimensions").insert({
+        category,
+        category_label: catLabels[category] || category,
+        name: name.trim(),
+        tenant_id: tenantId,
+        sort_order: maxOrder + 1,
+      });
+    }
+    _pdLoaded = false;
+    renderPricingDimensions();
+  } catch (e) { alert("등록 실패: " + e.message); }
+}
+
+async function _pdEditValue(id) {
+  const item = _pdList.find(d => d.id === id);
+  if (!item) return;
+  const newName = prompt("차원값 이름:", item.name);
+  if (!newName || !newName.trim()) return;
+  const newOrder = prompt("정렬 순서:", item.sort_order);
+  try {
+    const sb = typeof _sb === "function" ? _sb() : null;
+    if (sb) await sb.from("pricing_dimensions").update({ name: newName.trim(), sort_order: Number(newOrder) || item.sort_order }).eq("id", id);
+    _pdLoaded = false;
+    renderPricingDimensions();
+  } catch (e) { alert("수정 실패: " + e.message); }
+}
+
+async function _pdToggleActive(id, active) {
+  try {
+    const sb = typeof _sb === "function" ? _sb() : null;
+    if (sb) await sb.from("pricing_dimensions").update({ active }).eq("id", id);
+    _pdLoaded = false;
+    renderPricingDimensions();
+  } catch (e) { alert("변경 실패: " + e.message); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ─── FO 공통 유틸 함수 (plans.js / apply.js에서 사용) ──────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
 function sbGetCalcGroundsForForm(tenantId, groupId, accountCode) {
   return CALC_GROUNDS_MASTER.filter((g) => {
     if (g.active === false) return false;
     if (g.tenantId && g.tenantId !== tenantId) return false;
-    // VOrg 매칭: domainId가 있으면 일치해야 함
     if (g.domainId && g.domainId !== groupId) return false;
-    // 계정 필터: shared_account_codes 비어있으면 전체 공유, 있으면 매칭
-    if (
-      accountCode &&
-      g.sharedAccountCodes &&
-      g.sharedAccountCodes.length > 0
-    ) {
+    if (accountCode && g.sharedAccountCodes && g.sharedAccountCodes.length > 0) {
       if (!g.sharedAccountCodes.includes(accountCode)) return false;
     }
     return true;
@@ -686,20 +972,11 @@ function sbGetCalcGroundsForForm(tenantId, groupId, accountCode) {
 }
 window.sbGetCalcGroundsForForm = sbGetCalcGroundsForForm;
 
-// ─── VOrg 기반 글로벌 조회 (FO plans.js / apply.js에서 사용) ────────────────
-// getCalcGroundsForAccount 대체. VOrg+계정 조합 필터
 function getCalcGroundsForVorg(vorgTemplateId, accountCode) {
   return CALC_GROUNDS_MASTER.filter((g) => {
     if (g.active === false) return false;
-    // VOrg 매칭
-    if (g.domainId && vorgTemplateId && g.domainId !== vorgTemplateId)
-      return false;
-    // 계정 필터: shared_account_codes가 비어있으면 전체 공유
-    if (
-      accountCode &&
-      g.sharedAccountCodes &&
-      g.sharedAccountCodes.length > 0
-    ) {
+    if (g.domainId && vorgTemplateId && g.domainId !== vorgTemplateId) return false;
+    if (accountCode && g.sharedAccountCodes && g.sharedAccountCodes.length > 0) {
       if (!g.sharedAccountCodes.includes(accountCode)) return false;
     }
     return true;
@@ -707,624 +984,29 @@ function getCalcGroundsForVorg(vorgTemplateId, accountCode) {
 }
 window.getCalcGroundsForVorg = getCalcGroundsForVorg;
 
-// ═══════════════════════════════════════════════════════════════════════════
-// ─── 단가관리 탭 ──────────────────────────────────────────────────────────
-// ═══════════════════════════════════════════════════════════════════════════
-let _cgUnitPrices = [];
-let _cgUnitPriceDbLoaded = false;
-let _cgUnitPriceEditId = null;
-let _cgUnitPriceFilterVenue = "";
-let _cgUnitPriceFilterGround = "";
-let _cgUnitPricePage = 1;
-const _cgUnitPricePageSize = 25;
-
-// ─── 교육장소 마스터 ───────────────────────────────────────────────────────
-let _cgEduVenues = [];
-let _cgEduVenuesLoaded = false;
-
-async function _cgLoadEduVenues() {
-  if (_cgEduVenuesLoaded) return;
-  try {
-    const sb = typeof _sb === "function" ? _sb() : null;
-    if (sb) {
-      const { data } = await sb
-        .from("edu_venues")
-        .select("*")
-        .order("sort_order", { ascending: true });
-      if (data) {
-        _cgEduVenues = data;
-        _cgEduVenuesLoaded = true;
-      }
-    }
-  } catch (e) {
-    console.warn("[EduVenues] DB \ub85c\ub4dc \uc2e4\ud328:", e.message);
-  }
-}
-
-async function _cgLoadUnitPrices() {
-  if (_cgUnitPriceDbLoaded) return;
-  await _cgLoadEduVenues();
-  try {
-    const sb = typeof _sb === "function" ? _sb() : null;
-    if (sb) {
-      const { data } = await sb
-        .from("calc_ground_unit_prices")
-        .select("*")
-        .order("id", { ascending: false });
-      if (data) {
-        _cgUnitPrices = data;
-        _cgUnitPriceDbLoaded = true;
-      }
-    }
-  } catch (e) {
-    console.warn("[UnitPrice] DB \ub85c\ub4dc \uc2e4\ud328:", e.message);
-  }
-}
-
-function _cgGetVenues(tenantId) {
-  // 마스터 교육장소 우선, 단가에만 있는 장소 추가
-  const masterNames = _cgEduVenues
-    .filter(
-      (v) => v.active !== false && (!tenantId || v.tenant_id === tenantId),
-    )
-    .map((v) => v.name);
-  const extraNames = [
-    ...new Set(
-      _cgUnitPrices
-        .filter((p) => !tenantId || p.tenant_id === tenantId)
-        .map((p) => p.venue_name)
-        .filter(Boolean)
-        .filter((n) => !masterNames.includes(n)),
-    ),
-  ];
-  return [...masterNames, ...extraNames.sort()];
-}
-
-// ─── 교육장소 관리 팝업 ───────────────────────────────────────────────────
-function _cgOpenVenueManager() {
-  let modal = document.getElementById("cg-venue-manager");
-  if (!modal) {
-    modal = document.createElement("div");
-    modal.id = "cg-venue-manager";
-    document.body.appendChild(modal);
-  }
-  _cgRenderVenueManager();
-}
-
-function _cgRenderVenueManager() {
-  const modal = document.getElementById("cg-venue-manager");
-  if (!modal) return;
-  const venues = _cgEduVenues
-    .filter((v) => v.active !== false)
-    .sort((a, b) => a.sort_order - b.sort_order);
-  const inactiveVenues = _cgEduVenues.filter((v) => v.active === false);
-  modal.innerHTML = `
-<div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;display:flex;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:16px;width:520px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.2)">
-    <div style="padding:20px 24px 14px;border-bottom:1px solid #E5E7EB">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <h3 style="font-size:15px;font-weight:800;margin:0">\ud83c\udfe2 \uad50\uc721\uc7a5\uc18c \uad00\ub9ac</h3>
-        <button onclick="document.getElementById('cg-venue-manager').innerHTML=''" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">\u2715</button>
-      </div>
-      <p style="font-size:11px;color:#6B7280;margin:6px 0 0">\ub2e8\uac00\uad00\ub9ac\uc5d0\uc11c \uc0ac\uc6a9\ud560 \uad50\uc721\uc7a5\uc18c\ub97c \ub4f1\ub85d\u00b7\uad00\ub9ac\ud569\ub2c8\ub2e4.</p>
-    </div>
-    <div style="padding:16px 24px;border-bottom:1px solid #E5E7EB">
-      <div style="display:flex;gap:8px">
-        <input id="cg-venue-new-name" type="text" placeholder="\uc0c8 \uad50\uc721\uc7a5\uc18c\uba85 \uc785\ub825" style="flex:1;padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-        <button onclick="_cgAddVenue()" style="padding:8px 16px;border:none;border-radius:8px;background:#1D4ED8;color:white;cursor:pointer;font-size:12px;font-weight:800">+ \ub4f1\ub85d</button>
-      </div>
-    </div>
-    <div style="padding:12px 24px;overflow-y:auto;max-height:50vh;min-height:100px">
-      ${
-        venues.length === 0
-          ? '<div style="text-align:center;padding:24px;color:#9CA3AF;font-size:12px">\ub4f1\ub85d\ub41c \uad50\uc721\uc7a5\uc18c\uac00 \uc5c6\uc2b5\ub2c8\ub2e4.</div>'
-          : venues
-              .map(
-                (v, i) => `
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;border:1px solid #E5E7EB;margin-bottom:6px;background:#FAFAFA">
-        <span style="font-size:11px;font-weight:900;color:#9CA3AF;width:24px;text-align:center">${i + 1}</span>
-        <span style="font-size:13px;font-weight:700;color:#111827;flex:1">${v.name}</span>
-        <button onclick="_cgMoveVenue(${v.id},-1)" title="\uc704\ub85c" style="border:1px solid #E5E7EB;border-radius:6px;background:white;cursor:pointer;padding:3px 7px;font-size:11px" ${i === 0 ? 'disabled style="opacity:.3;cursor:default"' : ""}>\u25b2</button>
-        <button onclick="_cgMoveVenue(${v.id},1)" title="\uc544\ub798\ub85c" style="border:1px solid #E5E7EB;border-radius:6px;background:white;cursor:pointer;padding:3px 7px;font-size:11px" ${i === venues.length - 1 ? 'disabled style="opacity:.3;cursor:default"' : ""}>\u25bc</button>
-        <button onclick="_cgDeleteVenue(${v.id},'${v.name.replace(/'/g, "\\'")}')" title="\uc0ad\uc81c" style="border:1px solid #FECACA;border-radius:6px;background:#FEF2F2;cursor:pointer;padding:3px 7px;font-size:11px;color:#EF4444">\u2715</button>
-      </div>`,
-              )
-              .join("")
-      }
-      ${
-        inactiveVenues.length
-          ? `<div style="margin-top:12px;padding-top:12px;border-top:1px dashed #E5E7EB">
-        <div style="font-size:10px;font-weight:700;color:#9CA3AF;margin-bottom:6px">\ube44\ud65c\uc131\ud654\ub41c \uc7a5\uc18c (${inactiveVenues.length}\uac1c)</div>
-        ${inactiveVenues
-          .map(
-            (v) => `
-        <div style="display:flex;align-items:center;gap:10px;padding:6px 12px;border-radius:6px;background:#F9FAFB;margin-bottom:4px;opacity:.6">
-          <span style="font-size:12px;color:#9CA3AF;flex:1">${v.name}</span>
-          <button onclick="_cgRestoreVenue(${v.id})" style="border:1px solid #A7F3D0;border-radius:6px;background:#F0FDF4;cursor:pointer;padding:3px 8px;font-size:10px;color:#059669;font-weight:700">\ubcf5\uc6d0</button>
-        </div>`,
-          )
-          .join("")}
-      </div>`
-          : ""
-      }
-    </div>
-    <div style="padding:14px 24px;border-top:1px solid #E5E7EB;display:flex;justify-content:flex-end">
-      <button onclick="document.getElementById('cg-venue-manager').innerHTML=''" class="bo-btn-primary bo-btn-sm">\ub2eb\uae30</button>
-    </div>
-  </div>
-</div>`;
-}
-
-async function _cgAddVenue() {
-  const input = document.getElementById("cg-venue-new-name");
-  const name = input?.value.trim();
-  if (!name) {
-    alert(
-      "\uad50\uc721\uc7a5\uc18c\uba85\uc744 \uc785\ub825\ud558\uc138\uc694.",
-    );
-    return;
-  }
-  if (_cgEduVenues.find((v) => v.name === name && v.active !== false)) {
-    alert(
-      "\uc774\ubbf8 \ub4f1\ub85d\ub41c \uad50\uc721\uc7a5\uc18c\uc785\ub2c8\ub2e4.",
-    );
-    return;
-  }
-  // 비활성화된 동일 이름 복원
-  const inactive = _cgEduVenues.find(
-    (v) => v.name === name && v.active === false,
-  );
-  if (inactive) {
-    inactive.active = true;
-    _cgSyncVenueDb(inactive.id, { active: true });
-    _cgRenderVenueManager();
-    return;
-  }
-  const maxOrder = _cgEduVenues.reduce(
-    (m, v) => Math.max(m, v.sort_order || 0),
-    0,
-  );
-  const tenantId = _cgFilterTenant || "HMC";
-  const newV = {
-    id: Date.now(),
-    tenant_id: tenantId,
-    name,
-    sort_order: maxOrder + 1,
-    active: true,
-  };
-  _cgEduVenues.push(newV);
-  _cgInsertVenueDb(newV);
-  _cgRenderVenueManager();
-}
-
-async function _cgDeleteVenue(id, name) {
-  if (
-    !confirm(
-      `"${name}" \uad50\uc721\uc7a5\uc18c\ub97c \ube44\ud65c\uc131\ud654\ud560\uae4c\uc694?`,
-    )
-  )
-    return;
-  const v = _cgEduVenues.find((x) => x.id === id);
-  if (v) {
-    v.active = false;
-    _cgSyncVenueDb(id, { active: false });
-  }
-  _cgRenderVenueManager();
-}
-
-async function _cgRestoreVenue(id) {
-  const v = _cgEduVenues.find((x) => x.id === id);
-  if (v) {
-    v.active = true;
-    _cgSyncVenueDb(id, { active: true });
-  }
-  _cgRenderVenueManager();
-}
-
-function _cgMoveVenue(id, dir) {
-  const active = _cgEduVenues
-    .filter((v) => v.active !== false)
-    .sort((a, b) => a.sort_order - b.sort_order);
-  const idx = active.findIndex((v) => v.id === id);
-  if (idx < 0) return;
-  const swapIdx = idx + dir;
-  if (swapIdx < 0 || swapIdx >= active.length) return;
-  const tmpOrder = active[idx].sort_order;
-  active[idx].sort_order = active[swapIdx].sort_order;
-  active[swapIdx].sort_order = tmpOrder;
-  _cgSyncVenueDb(active[idx].id, { sort_order: active[idx].sort_order });
-  _cgSyncVenueDb(active[swapIdx].id, {
-    sort_order: active[swapIdx].sort_order,
-  });
-  _cgRenderVenueManager();
-}
-
-async function _cgSyncVenueDb(id, updates) {
-  try {
-    const sb = typeof _sb === "function" ? _sb() : null;
-    if (sb) await sb.from("edu_venues").update(updates).eq("id", id);
-  } catch (e) {
-    console.warn("[EduVenues] DB:", e.message);
-  }
-}
-async function _cgInsertVenueDb(obj) {
-  try {
-    const sb = typeof _sb === "function" ? _sb() : null;
-    if (sb) {
-      const { data } = await sb
-        .from("edu_venues")
-        .insert({
-          tenant_id: obj.tenant_id,
-          name: obj.name,
-          sort_order: obj.sort_order,
-          active: obj.active,
-        })
-        .select("id")
-        .single();
-      if (data?.id) {
-        const local = _cgEduVenues.find((v) => v.id === obj.id);
-        if (local) local.id = data.id;
-      }
-    }
-  } catch (e) {
-    console.warn("[EduVenues] DB:", e.message);
-  }
-}
-
-function _renderUnitPriceTab(tenantId, vorgId) {
-  const allItems = _cgUnitPrices.filter((p) => {
-    if (tenantId && p.tenant_id && p.tenant_id !== tenantId) return false;
-    if (
-      vorgId &&
-      p.virtual_org_template_id &&
-      p.virtual_org_template_id !== vorgId
-    )
-      return false;
-    if (_cgUnitPriceFilterVenue && p.venue_name !== _cgUnitPriceFilterVenue)
-      return false;
-    if (
-      _cgUnitPriceFilterGround &&
-      p.calc_ground_name !== _cgUnitPriceFilterGround
-    )
-      return false;
-    return true;
-  });
-  const totalCount = allItems.length;
-  const totalPages = Math.max(1, Math.ceil(totalCount / _cgUnitPricePageSize));
-  if (_cgUnitPricePage > totalPages) _cgUnitPricePage = totalPages;
-  const startIdx = (_cgUnitPricePage - 1) * _cgUnitPricePageSize;
-  const pageItems = allItems.slice(startIdx, startIdx + _cgUnitPricePageSize);
-  const venues = _cgGetVenues(tenantId);
-  const groundNames = [
-    ...new Set(
-      _cgUnitPrices
-        .filter((p) => !tenantId || p.tenant_id === tenantId)
-        .map((p) => p.calc_ground_name)
-        .filter(Boolean),
-    ),
-  ].sort();
-  const tid = tenantId || "";
-  const vid = vorgId || "";
-  const rerender = `document.getElementById('cg-content').innerHTML=_renderUnitPriceTab('${tid}','${vid}')`;
-
-  return `
-<div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
-  <div style="display:flex;align-items:center;gap:6px">
-    <span style="font-size:12px;font-weight:800;color:#374151">교육장소</span>
-    <select onchange="_cgUnitPriceFilterVenue=this.value;_cgUnitPricePage=1;${rerender}"
-      style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;min-width:140px">
-      <option value="">전체</option>
-      ${venues.map((v) => `<option value="${v}" ${_cgUnitPriceFilterVenue === v ? "selected" : ""}>${v}</option>`).join("")}
-    </select>
-  </div>
-  <div style="display:flex;align-items:center;gap:6px">
-    <span style="font-size:12px;font-weight:800;color:#374151">세부산출근거</span>
-    <select onchange="_cgUnitPriceFilterGround=this.value;_cgUnitPricePage=1;${rerender}"
-      style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;min-width:140px">
-      <option value="">전체</option>
-      ${groundNames.map((g) => `<option value="${g}" ${_cgUnitPriceFilterGround === g ? "selected" : ""}>${g}</option>`).join("")}
-    </select>
-  </div>
-  <button onclick="_cgUnitPriceFilterVenue='';_cgUnitPriceFilterGround='';_cgUnitPricePage=1;${rerender}"
-    style="margin-left:auto;padding:7px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:11px;font-weight:700;background:white;cursor:pointer;color:#6B7280">초기화</button>
-</div>
-<div style="background:white;border:1.5px solid #E5E7EB;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05)">
-  <table style="width:100%;border-collapse:collapse;font-size:12px">
-    <thead>
-      <tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB">
-        <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#6B7280;width:50px">NO.</th>
-        <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151">교육장소</th>
-        <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151">세부산출근거</th>
-        <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#374151">프리셋 (세부항목)</th>
-        <th style="padding:10px 14px;text-align:right;font-size:11px;font-weight:800;color:#374151">단가</th>
-        <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#374151">qty2 기본값</th>
-        <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#374151">활성화</th>
-        <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#374151">관리</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${
-        pageItems.length === 0
-          ? `
-      <tr><td colspan="7" style="text-align:center;padding:48px;color:#9CA3AF;font-size:13px">
-        조회된 단가 항목이 없습니다.<br>
-        <button onclick="_cgOpenUnitPriceModal(null)" class="bo-btn-primary bo-btn-sm" style="margin-top:10px;display:inline-flex;padding:6px 14px;font-size:12px;border-radius:8px">+ 첫 단가 등록</button>
-      </td></tr>`
-          : pageItems
-              .map(
-                (p, i) => `
-      <tr style="border-bottom:1px solid #F3F4F6;${p.active === false ? "opacity:.5" : ""}">
-        <td style="padding:10px 14px;text-align:center;font-size:11px;color:#9CA3AF;font-weight:700">${p.id || startIdx + i + 1}</td>
-        <td style="padding:10px 14px"><span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#EFF6FF;color:#1D4ED8;font-weight:700">${p.venue_name || "\u2014"}</span></td>
-        <td style="padding:10px 14px;font-weight:700;font-size:12px;color:#374151">${p.calc_ground_name || "\u2014"}</td>
-        <td style="padding:10px 14px;font-size:12px;color:#374151">${p.preset_name || p.detail_name || "\u2014"}</td>
-        <td style="padding:10px 14px;text-align:right;font-weight:700;font-size:12px;color:#111827">${p.unit_price ? Number(p.unit_price).toLocaleString() + "원" : "\u2014"}</td>
-        <td style="padding:10px 14px;text-align:center;font-size:11px;color:#6B7280;font-weight:700">${p.qty2_value || 1}</td>
-        <td style="padding:10px 14px;text-align:center">${
-          p.active !== false
-            ? '<span style="background:#D1FAE5;color:#065F46;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:800">활성화</span>'
-            : '<span style="background:#FEE2E2;color:#991B1B;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:800">비활성화</span>'
-        }</td>
-        <td style="padding:10px 14px;text-align:center">
-          <div style="display:flex;gap:4px;justify-content:center">
-            <button onclick="_cgToggleUnitPriceActive(${p.id})" style="padding:3px 8px;border:1px solid #E5E7EB;border-radius:5px;background:white;font-size:10px;font-weight:700;cursor:pointer;color:#6B7280">${p.active !== false ? "비활성" : "활성"}</button>
-            <button onclick="_cgOpenUnitPriceModal(${p.id})" style="padding:3px 8px;border:1px solid #BFDBFE;border-radius:5px;background:#EFF6FF;font-size:10px;font-weight:700;cursor:pointer;color:#1D4ED8">수정</button>
-          </div>
-        </td>
-      </tr>`,
-              )
-              .join("")
-      }
-    </tbody>
-  </table>
-</div>
-${
-  totalPages > 1
-    ? `
-<div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:16px">
-  <button onclick="_cgUnitPricePage=1;${rerender}" ${_cgUnitPricePage <= 1 ? "disabled" : ""} style="padding:5px 10px;border:1px solid #E5E7EB;border-radius:6px;background:white;cursor:pointer;font-size:11px;font-weight:700">\u226a</button>
-  <button onclick="_cgUnitPricePage=Math.max(1,_cgUnitPricePage-1);${rerender}" ${_cgUnitPricePage <= 1 ? "disabled" : ""} style="padding:5px 10px;border:1px solid #E5E7EB;border-radius:6px;background:white;cursor:pointer;font-size:11px;font-weight:700">\u25c0</button>
-  ${Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-    const pg = Math.max(1, Math.min(_cgUnitPricePage - 2, totalPages - 4)) + i;
-    if (pg > totalPages) return "";
-    return `<button onclick="_cgUnitPricePage=${pg};${rerender}" style="padding:5px 12px;border:1px solid ${pg === _cgUnitPricePage ? "#1D4ED8" : "#E5E7EB"};border-radius:6px;background:${pg === _cgUnitPricePage ? "#1D4ED8" : "white"};color:${pg === _cgUnitPricePage ? "white" : "#374151"};cursor:pointer;font-size:12px;font-weight:800">${pg}</button>`;
-  }).join("")}
-  <button onclick="_cgUnitPricePage=Math.min(${totalPages},_cgUnitPricePage+1);${rerender}" ${_cgUnitPricePage >= totalPages ? "disabled" : ""} style="padding:5px 10px;border:1px solid #E5E7EB;border-radius:6px;background:white;cursor:pointer;font-size:11px;font-weight:700">\u25b6</button>
-  <button onclick="_cgUnitPricePage=${totalPages};${rerender}" ${_cgUnitPricePage >= totalPages ? "disabled" : ""} style="padding:5px 10px;border:1px solid #E5E7EB;border-radius:6px;background:white;cursor:pointer;font-size:11px;font-weight:700">\u226b</button>
-  <span style="margin-left:12px;font-size:11px;font-weight:700;color:#6B7280">${totalCount} 건</span>
-</div>`
-    : `<div style="text-align:right;margin-top:8px;font-size:11px;font-weight:700;color:#6B7280">${totalCount} 건</div>`
-}`;
-}
-
-// ─── 단가 모달 ────────────────────────────────────────────────────────────
-function _cgOpenUnitPriceModal(id) {
-  _cgUnitPriceEditId = id;
-  const item = id ? _cgUnitPrices.find((p) => p.id === id) : null;
-  const tenantId = _cgFilterTenant || boCurrentPersona.tenantId || "HMC";
-  const groundItems = CALC_GROUNDS_MASTER.filter(
-    (g) => g.active !== false && (!tenantId || g.tenantId === tenantId),
-  );
-  const venues = _cgGetVenues(tenantId);
-  const isNewVenue = item?.venue_name && !venues.includes(item.venue_name);
-
-  const modal = document.getElementById("cg-modal");
-  document.getElementById("cg-modal-title").textContent = id
-    ? "단가 수정"
-    : "단가 등록";
-  document.getElementById("cg-modal-body").innerHTML = `
-<div style="display:flex;flex-direction:column;gap:14px">
-  <div>
-    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">\uad50\uc721\uc7a5\uc18c *</label>
-    <div style="display:flex;gap:8px">
-      <select id="up-venue" onchange="document.getElementById('up-venue-new').style.display=this.value==='__new__'?'block':'none'"
-        style="flex:1;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-        <option value="">\u2014 \uc120\ud0dd \u2014</option>
-        ${venues.map((v) => `<option value="${v}" ${item?.venue_name === v ? "selected" : ""}>${v}</option>`).join("")}
-        <option value="__new__" ${isNewVenue ? "selected" : ""}>+ \uc0c8 \uad50\uc721\uc7a5\uc18c \uc785\ub825</option>
-      </select>
-      <input id="up-venue-new" type="text" placeholder="\uc0c8 \uad50\uc721\uc7a5\uc18c\uba85" value="${isNewVenue ? item.venue_name : ""}"
-        style="flex:1;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;display:${isNewVenue ? "block" : "none"}">
-    </div>
-  </div>
-  <div>
-    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">세부산출근거 *</label>
-    <select id="up-ground" style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-      <option value="">\u2014 선택 \u2014</option>
-      ${groundItems.map((g) => `<option value="${g.name}" ${item?.calc_ground_name === g.name ? "selected" : ""}>${g.name}</option>`).join("")}
-    </select>
-  </div>
-  <div>
-    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">세부 항목 *</label>
-    <input id="up-detail" type="text" value="${item?.detail_name || ""}" placeholder="예: 조/중/석식(현대 인원)"
-      style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-  </div>
-  <div>
-    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">단가 (원)</label>
-    <input id="up-price" type="number" value="${item?.unit_price || ""}" placeholder="0"
-      style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-  </div>
-  <div>
-    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:4px">활성화 상태</label>
-    <div style="display:flex;gap:8px">
-      ${["true", "false"]
-        .map((v) => {
-          const isSel = (item?.active !== false ? "true" : "false") === v;
-          return `<label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;cursor:pointer;
-                      border:1.5px solid ${isSel ? (v === "true" ? "#059669" : "#DC2626") : "#E5E7EB"};
-                      background:${isSel ? (v === "true" ? "#F0FDF4" : "#FEF2F2") : "#fff"}">
-          <input type="radio" name="up-active" value="${v}" ${isSel ? "checked" : ""}>
-          <span style="font-size:12px;font-weight:700">${v === "true" ? "\u2705 활성화" : "\u23f8\ufe0f 비활성화"}</span>
-        </label>`;
-        })
-        .join("")}
-    </div>
-  </div>
-</div>`;
-  const saveBtn = modal.querySelector(".bo-btn-primary");
-  if (saveBtn) saveBtn.setAttribute("onclick", "_cgSaveUnitPrice()");
-  modal.style.display = "flex";
-}
-
-function _cgSaveUnitPrice() {
-  const venueSelect = document.getElementById("up-venue")?.value;
-  const venueNew = document.getElementById("up-venue-new")?.value.trim();
-  const venue = venueSelect === "__new__" ? venueNew : venueSelect;
-  const groundSel = document.getElementById("up-ground-id");
-  const groundId = groundSel?.value || "";
-  const groundName = groundSel?.selectedOptions[0]?.dataset?.name || groundSel?.selectedOptions[0]?.text?.split(" (")[0] || groundId;
-  const preset = document.getElementById("up-preset")?.value.trim();
-  const price = Number(document.getElementById("up-price")?.value) || 0;
-  const qty2Value = Number(document.getElementById("up-qty2-value")?.value) || 1;
-  const sortOrder = Number(document.getElementById("up-sort-order")?.value) || 99;
-  const active =
-    document.querySelector('input[name="up-active"]:checked')?.value === "true";
-  if (!venue) {
-    alert("교육장소를 선택하세요.");
-    return;
-  }
-  if (!groundId) {
-    alert("세부산출근거 항목을 선택하세요.");
-    return;
-  }
-  if (!preset) {
-    alert("프리셋명(세부항목)을 입력하세요.");
-    return;
-  }
-  const tenantId = _cgFilterTenant || boCurrentPersona.tenantId || "HMC";
-  const obj = {
-    tenant_id: tenantId,
-    virtual_org_template_id: _cgFilterGroup || null,
-    venue_name: venue,
-    calc_ground_id: groundId,
-    calc_ground_name: groundName,
-    preset_name: preset,
-    detail_name: preset, // 레거시 호환
-    unit_price: price,
-    qty2_value: qty2Value,
-    sort_order: sortOrder,
-    active,
-  };
-  if (_cgUnitPriceEditId) {
-    const idx = _cgUnitPrices.findIndex((p) => p.id === _cgUnitPriceEditId);
-    if (idx > -1) _cgUnitPrices[idx] = { ..._cgUnitPrices[idx], ...obj };
-    _cgSyncUnitPriceToDb(_cgUnitPriceEditId, obj);
-  } else {
-    const newId = Date.now();
-    _cgUnitPrices.unshift({ id: newId, ...obj });
-    _cgInsertUnitPriceToDb({ id: newId, ...obj });
-  }
-  cgCloseModal();
-  const modal = document.getElementById("cg-modal");
-  const saveBtn = modal?.querySelector(".bo-btn-primary");
-  if (saveBtn) saveBtn.setAttribute("onclick", "cgSaveItem()");
-  document.getElementById("cg-content").innerHTML = _renderUnitPriceTab(
-    tenantId,
-    _cgFilterGroup || "",
-  );
-}
-
-function _cgToggleUnitPriceActive(id) {
-  const item = _cgUnitPrices.find((p) => p.id === id);
-  if (item) {
-    item.active = item.active === false;
-    _cgSyncUnitPriceToDb(id, { active: item.active });
-  }
-  const tenantId = _cgFilterTenant || boCurrentPersona.tenantId || "HMC";
-  document.getElementById("cg-content").innerHTML = _renderUnitPriceTab(
-    tenantId,
-    _cgFilterGroup || "",
-  );
-}
-
-async function _cgSyncUnitPriceToDb(id, updates) {
-  try {
-    const sb = typeof _sb === "function" ? _sb() : null;
-    if (sb)
-      await sb.from("calc_ground_unit_prices").update(updates).eq("id", id);
-  } catch (e) {
-    console.warn("[UnitPrice] DB:", e.message);
-  }
-}
-async function _cgInsertUnitPriceToDb(obj) {
-  try {
-    const sb = typeof _sb === "function" ? _sb() : null;
-    if (sb) {
-      const { data } = await sb
-        .from("calc_ground_unit_prices")
-        .insert({
-          tenant_id: obj.tenant_id,
-          virtual_org_template_id: obj.virtual_org_template_id,
-          venue_name: obj.venue_name,
-          calc_ground_id: obj.calc_ground_id || null,
-          calc_ground_name: obj.calc_ground_name,
-          preset_name: obj.preset_name,
-          detail_name: obj.detail_name,
-          unit_price: obj.unit_price,
-          qty2_value: obj.qty2_value || 1,
-          sort_order: obj.sort_order || 99,
-          active: obj.active,
-        })
-        .select("id")
-        .single();
-      if (data?.id) {
-        const local = _cgUnitPrices.find((p) => p.id === obj.id);
-        if (local) local.id = data.id;
-      }
-    }
-  } catch (e) {
-    console.warn("[UnitPrice] DB:", e.message);
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ─── Phase 3: FO 공통 유틸 함수 (plans.js / apply.js에서 사용) ──────────────
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * 목적(purpose.id) 기반으로 세부산출근거 유형 판별
- * @param {string} purposeId - FO purpose ID
- * @param {string} [formTargetType] - form_template.target_type (폴백용)
- * @returns {'self_learning'|'edu_operation'}
- */
 window._getCalcGroundsType = function(purposeId, formTargetType) {
   if (purposeId === "external_personal") return "self_learning";
   if (["internal_edu","conf_seminar","misc_ops","elearning_class"].includes(purposeId)) return "edu_operation";
-  // 폴백: form_template.target_type
   if (formTargetType === "learner") return "self_learning";
   return "edu_operation";
 };
 
-/**
- * usage_type 기반으로 항목 필터링 (엄격한 매칭 — 'both' 없음)
- * @param {'self_learning'|'edu_operation'} type
- * @param {string} [vorgId] - VOrg ID (null이면 전체 공유 항목 포함)
- * @param {boolean} [isOverseas] - 해외 여부
- * @returns {Array}
- */
 window._getCalcGroundsForType = function(type, vorgId, isOverseas) {
   return (CALC_GROUNDS_MASTER || []).filter((g) => {
     if (g.active === false) return false;
     if ((g.usageType || "edu_operation") !== type) return false;
     if (g.domainId && vorgId && g.domainId !== vorgId) return false;
-    if (g.isOverseas && !isOverseas) return false; // 해외 전용 항목: 해외 선택 시만
+    if (g.isOverseas && !isOverseas) return false;
     return true;
   }).sort((a, b) => (a.sortOrder || 99) - (b.sortOrder || 99));
 };
 
-/**
- * 교육운영형: 특정 항목의 장소별 단가(프리셋) 목록 로드 (비동기)
- * @param {string} itemId - calc_grounds.id
- * @param {string} [tenantId]
- * @returns {Promise<Array>} - [{venue_name, preset_name, unit_price, qty2_value, sort_order}]
- */
 window._loadUnitPricesForItem = async function(itemId, tenantId) {
   if (!itemId) return [];
   try {
     const sb = typeof _sb === "function" ? _sb() : null;
     if (!sb) {
-      // 캐시 폴백
-      return (typeof _cgUnitPrices !== "undefined" ? _cgUnitPrices : [])
+      return (typeof _cgDetailUnitPrices !== "undefined" ? _cgDetailUnitPrices : [])
         .filter((p) => p.active !== false && (p.calc_ground_id === itemId || p.calc_ground_name === CALC_GROUNDS_MASTER.find(g=>g.id===itemId)?.name))
         .sort((a, b) => (a.sort_order||99) - (b.sort_order||99));
     }
@@ -1341,11 +1023,6 @@ window._loadUnitPricesForItem = async function(itemId, tenantId) {
   }
 };
 
-/**
- * 소계 계산 (2중/3중 통합)
- * @param {{unitPrice:number, qty1:number, qty2?:number, qty3?:number}} row
- * @returns {number}
- */
 window._calcGroundTotal = function(row) {
   return (row.unitPrice || 0) * (row.qty1 || 1) * (row.qty2 || 1) * (row.qty3 || 1);
 };

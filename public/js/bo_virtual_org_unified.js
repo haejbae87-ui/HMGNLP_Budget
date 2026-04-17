@@ -1,4 +1,4 @@
-﻿// ─── 가상교육조직 통합 관리 화면 ──────────────────────────────────────────────
+// ─── 가상교육조직 통합 관리 화면 ──────────────────────────────────────────────
 // 기존 3개 메뉴(교육조직/예산계정/교육지원조직)를 용도별 동적 탭으로 통합
 // 공통 탭: ① 기본정보  ② 교육조직 구성  ③ 담당자  ④ 협조처
 // 용도별:  ⑤ 예산계정(edu_support) / ⑤ 자격증 맵핑(cert)
@@ -586,15 +586,16 @@ function _vuBuildBreadcrumb(orgId) {
   return parts.length ? parts.join(" > ") : "";
 }
 
-// 현재 tplId/gi 를 제외한 모든 VOrg 맵핑 팀 ID 수집
+// 같은 제도그룹(템플릿) 내에서 다른 교육조직(HQ)에 맵핑된 팀만 수집
+// → 다른 제도그룹 간 중복 맵핑은 허용 (비즈니스 규칙)
 function _vuGetGlobalMappedTeams(excludeTplId, excludeGi) {
   const mapped = {}; // { teamId: "제도그룹 명칭 > 그룹명" }
-  _vuTplList.forEach((tpl) => {
-    (tpl.tree?.hqs || []).forEach((group, gi) => {
-      if (tpl.id === excludeTplId && gi === excludeGi) return;
-      (group.teams || []).forEach((team) => {
-        mapped[team.id] = `${tpl.name} > ${group.name}`;
-      });
+  const tpl = _vuTplList.find((t) => t.id === excludeTplId);
+  if (!tpl) return mapped;
+  (tpl.tree?.hqs || []).forEach((group, gi) => {
+    if (gi === excludeGi) return; // 현재 편집 중인 HQ 제외
+    (group.teams || []).forEach((team) => {
+      mapped[team.id] = `${tpl.name} > ${group.name}`;
     });
   });
   return mapped;
@@ -1949,24 +1950,17 @@ async function _vuConfirmOrgPick() {
       .join("\n");
     if (
       !confirm(
-        `\u26a0\ufe0f \ub2e4\uc74c \ud300\uc740 \ub2e4\ub978 VOrg\uc5d0 \ub9f5\ud551:\n${conflictList}\n\n\ud655\uc778 \uc2dc \uc7ac\ub9f5\ud551`,
+        `\u26a0\ufe0f \ub2e4\uc74c \ud300\uc740 \uac19\uc740 \uc81c\ub3c4\uadf8\ub8f9 \ub0b4 \ub2e4\ub978 \uad50\uc721\uc870\uc9c1\uc5d0 \ub9f5\ud551:\n${conflictList}\n\n\ud655\uc778 \uc2dc \uc7ac\ub9f5\ud551`,
       )
     )
       return;
-    const modifiedTpls = new Set();
+    // 같은 템플릿 내 다른 HQ에서만 해당 팀 제거
     conflicts.forEach((chk) => {
-      _vuTplList.forEach((otherTpl) => {
-        (otherTpl.tree?.hqs || []).forEach((group) => {
-          const before = (group.teams || []).length;
-          group.teams = (group.teams || []).filter((t) => t.id !== chk.value);
-          if ((group.teams || []).length < before) modifiedTpls.add(otherTpl);
-        });
+      (tpl.tree?.hqs || []).forEach((group, gIdx) => {
+        if (gIdx === window._vuPickerGi) return; // 현재 HQ 제외
+        group.teams = (group.teams || []).filter((t) => t.id !== chk.value);
       });
     });
-    // 수정된 다른 템플릿도 DB에 저장 (기존 버그: 메모리만 변경, DB 미반영)
-    for (const modTpl of modifiedTpls) {
-      await _vuAutoSave(modTpl);
-    }
   }
   newlyChecked.forEach((chk) => {
     const item = { id: chk.value, name: chk.dataset.name };

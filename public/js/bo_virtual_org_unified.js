@@ -1924,7 +1924,7 @@ function _vuRenderOrgList(query) {
   listEl.innerHTML = html;
 }
 
-function _vuConfirmOrgPick() {
+async function _vuConfirmOrgPick() {
   const newlyChecked = [
     ...document.querySelectorAll(".vu-org-chk:checked:not([disabled])"),
   ];
@@ -1961,13 +1961,20 @@ function _vuConfirmOrgPick() {
       )
     )
       return;
+    const modifiedTpls = new Set();
     conflicts.forEach((chk) => {
       _vuTplList.forEach((otherTpl) => {
         (otherTpl.tree?.hqs || []).forEach((group) => {
+          const before = (group.teams || []).length;
           group.teams = (group.teams || []).filter((t) => t.id !== chk.value);
+          if ((group.teams || []).length < before) modifiedTpls.add(otherTpl);
         });
       });
     });
+    // 수정된 다른 템플릿도 DB에 저장 (기존 버그: 메모리만 변경, DB 미반영)
+    for (const modTpl of modifiedTpls) {
+      await _vuAutoSave(modTpl);
+    }
   }
   newlyChecked.forEach((chk) => {
     const item = { id: chk.value, name: chk.dataset.name };

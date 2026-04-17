@@ -1,4 +1,4 @@
-// ─── UTILITY FUNCTIONS ────────────────────────────────────────────────────────
+﻿// ─── UTILITY FUNCTIONS ────────────────────────────────────────────────────────
 
 function fmt(n) {
   return Number(n).toLocaleString("ko-KR");
@@ -230,7 +230,7 @@ function _getActivePolicies(persona) {
 }
 
 // 현재 페르소나에 오픈된 정책 기반 예산 목록 반환
-// ★ vorg(가상조직) 기반 정책 매칭 → 해당 vorg 정책의 purpose로 필터
+// ★ vorg(교육조직) 기반 정책 매칭 → 해당 vorg 정책의 purpose로 필터
 // ★ target_type 기반 접근 제어 없음: 모든 사용자는 자신의 vorg 정책의 모든 예산에 접근 가능
 function getPersonaBudgets(persona, purposeId) {
   const result = _getActivePolicies(persona);
@@ -401,7 +401,7 @@ const _CATEGORY_META = {
 };
 
 // 정책 기반 교육 목적 목록 반환
-// ★ vorg(가상조직) 기반 정책 매칭 → 해당 vorg에 설정된 모든 교육지원 운영 규칙의 목적을 표시
+// ★ vorg(교육조직) 기반 정책 매칭 → 해당 vorg에 설정된 모든 교육지원 운영 규칙의 목적을 표시
 // ★ target_type 접근 제어 없음: 조O성·이O봉 모두 자신의 vorg 정책 목적 전체에 접근 가능
 // (직접학습·교육운영 모두 vorg 정책 설정에 의해 결정됨)
 function getPersonaPurposes(persona) {

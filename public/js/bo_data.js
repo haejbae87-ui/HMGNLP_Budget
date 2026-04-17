@@ -2073,7 +2073,7 @@ let boCurrentPersona =
   BO_PERSONAS[savedPersonaBo] || BO_PERSONAS.platform_admin;
 let boCurrentMenu = sessionStorage.getItem("boLastMenu") || "dashboard";
 
-// ─── 가상 조직도 (Virtual Org) ───────────────────────────────────────────────
+// ─── 교육 조직도 (Virtual Org) ───────────────────────────────────────────────
 
 var VIRTUAL_EDU_ORGS = [
   {
@@ -2238,7 +2238,7 @@ var VIRTUAL_EDU_ORGS = [
       ],
     },
   },
-  // KIA 가상조직 템플릿
+  // KIA 교육조직 템플릿
   {
     id: "TPL_KIA_GEN_01",
     tenantId: "KIA",
@@ -2280,7 +2280,7 @@ var VIRTUAL_EDU_ORGS = [
       ],
     },
   },
-  // HAE 가상조직 템플릿
+  // HAE 교육조직 템플릿
   {
     id: "TPL_HAE_GEN_01",
     tenantId: "HAE",
@@ -2342,7 +2342,7 @@ var VIRTUAL_EDU_ORGS = [
       ],
     },
   },
-  // HSC 가상조직 템플릿
+  // HSC 교육조직 템플릿
   {
     id: "TPL_HSC_ALL_01",
     tenantId: "HSC",
@@ -3202,8 +3202,8 @@ let FORM_ACCESS_RULES = {
   KIA_HQ02: { formIds: ["FM005"] },
 };
 
-// ─── [Step4] 예산 ↔ 가상조직 템플릿 ↔ 신청/계획 통합 매핑 룰 ──────────
-// accountCode 기반으로 가상조직 템플릿, 양식, 허용 학습유형, 복수계획옵션을 매핑
+// ─── [Step4] 예산 ↔ 교육조직 템플릿 ↔ 신청/계획 통합 매핑 룰 ──────────
+// accountCode 기반으로 교육조직 템플릿, 양식, 허용 학습유형, 복수계획옵션을 매핑
 let FORM_BUDGET_RULES = [
   // [Type B] 신청→결과: 일반직군 사외교육 참가 (일반-참가계정)
   {

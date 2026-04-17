@@ -1,6 +1,6 @@
-// bo_badge_operation.js
+﻿// bo_badge_operation.js
 // 뱃지 심사 및 학습자 현황 (운영자 전용)
-// 필터: 회사(tenant) + 가상조직(vorg) + 뱃지그룹 + 오류 수정
+// 필터: 회사(tenant) + 교육조직(vorg) + 뱃지그룹 + 오류 수정
 
 let requestsData = [];
 let progressData = [];
@@ -45,7 +45,7 @@ async function renderBadgeOperation() {
       }
       <select id="op-filter-vorg" onchange="onOpVorgChange()"
         style="padding:7px 12px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;min-width:180px">
-        <option value="">전체 가상조직</option>
+        <option value="">전체 교육조직</option>
       </select>
       <select id="op-filter-group" onchange="_opFilterGroupId=this.value;_reloadOpData()"
         style="padding:7px 12px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;min-width:150px">
@@ -72,7 +72,7 @@ async function renderBadgeOperation() {
     <!-- 심사 요청 탭 -->
     <div id="op-content-requests">
       <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:24px">
-        <h4 style="margin:0 0 16px;font-size:15px;color:#334155">가상조직 내 수동 증빙 요청 건</h4>
+        <h4 style="margin:0 0 16px;font-size:15px;color:#334155">교육조직 내 수동 증빙 요청 건</h4>
         <table style="width:100%;border-collapse:collapse;font-size:13px;text-align:left">
           <thead>
             <tr style="border-bottom:2px solid var(--border);color:var(--text-sub)">
@@ -172,7 +172,7 @@ async function _opLoadVorgs(tenantId) {
     const sel = document.getElementById("op-filter-vorg");
     if (!sel) return;
     sel.innerHTML =
-      `<option value="">전체 가상조직</option>` +
+      `<option value="">전체 교육조직</option>` +
       _opVorgTemplates
         .map((v) => `<option value="${v.id}">${v.name}</option>`)
         .join("");

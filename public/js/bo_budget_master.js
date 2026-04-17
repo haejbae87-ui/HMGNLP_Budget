@@ -1,10 +1,10 @@
-// ─── Tenant Admin: 예산 기초 관리 (7탭) ──────────────────────────────────────
+﻿// ─── Tenant Admin: 예산 기초 관리 (7탭) ──────────────────────────────────────
 // Step1:계정마스터CRUD  Step2:조직-계정매핑  Step3:양식빌더(FORM_MASTER)
-// Step4:양식접근권한    Step5:양식-예산-계획룰  Step6:공지관리  +가상조직+권한
+// Step4:양식접근권한    Step5:양식-예산-계획룰  Step6:공지관리  +교육조직+권한
 
 const BM_TABS = [
   { label: "[Step1] 계정 마스터 관리" },
-  { label: "[Step2] 가상조직 제도그룹 관리" },
+  { label: "[Step2] 교육조직 제도그룹 관리" },
   { label: "[Step3] 양식 및 유형 마스터" },
   { label: "[Step4] 통합 정책 매핑 설정" },
   { label: "[Step5] 신청 양식별 공지 관리" },
@@ -1093,7 +1093,7 @@ function renderPolicyMapping() {
       <h1 class="bo-page-title" style="margin:0">예산-조직-양식 정책 설정</h1>
       <span style="font-size:13px;color:#6B7280">— ${tenantName}</span>
     </div>
-    <p class="bo-page-sub">예산 계정 × 가상조직 × 학습유형별 프로세스 흐름과 양식을 한 화면에서 조립합니다</p>
+    <p class="bo-page-sub">예산 계정 × 교육조직 × 학습유형별 프로세스 흐름과 양식을 한 화면에서 조립합니다</p>
   </div>
   <div id="bm-content">${renderStep3()}</div>
 </div>`;
@@ -1307,7 +1307,7 @@ function renderStep2OrgMap() {
   const mappedOrgIds = ORG_ACCOUNT_MAP[mapKey] || new Set();
   const selAcc = accounts.find((a) => a.code === _s2SelAccount);
 
-  // 가상 조직 목록
+  // 교육 조직 목록
   const allGroups = [
     ...virtualOrgState.general.hqs.map((h) => ({
       id: h.id,
@@ -1333,7 +1333,7 @@ function renderStep2OrgMap() {
     <div class="bo-card" style="padding:10px 14px;flex:1;display:flex;align-items:center;gap:8px">
       <span style="font-size:16px">📌</span>
       <span style="font-size:12px;color:#374151">
-        <strong>좌측</strong>에서 계정을 선택하고, <strong>우측</strong>에서 이 계정을 사용할 가상 조직을 체크합니다.
+        <strong>좌측</strong>에서 계정을 선택하고, <strong>우측</strong>에서 이 계정을 사용할 교육 조직을 체크합니다.
       </span>
     </div>
   </div>
@@ -1360,7 +1360,7 @@ function renderStep2OrgMap() {
         .join("")}
     </div>
 
-    <!-- 우: 가상 조직 체크박스 -->
+    <!-- 우: 교육 조직 체크박스 -->
     <div class="bo-split-right">
       ${
         selAcc
@@ -1484,14 +1484,14 @@ function renderStep2() {
     <div class="bo-card" style="padding:10px 14px;flex:1;display:flex;align-items:center;gap:8px">
       <span style="font-size:16px">📌</span>
       <span style="font-size:12px;color:#374151">
-        <strong>좌측</strong>에서 가상 조직을 선택하고, <strong>우측</strong>에서 해당 조직에 노출할 신청 양식을 체크합니다.
+        <strong>좌측</strong>에서 교육 조직을 선택하고, <strong>우측</strong>에서 해당 조직에 노출할 신청 양식을 체크합니다.
       </span>
     </div>
   </div>
   <div class="bo-split">
     <!-- 좌: 조직 목록 -->
     <div class="bo-split-left">
-      <div style="padding:10px 16px;font-size:10px;font-weight:900;color:#9CA3AF;text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid #F3F4F6">가상 조직</div>
+      <div style="padding:10px 16px;font-size:10px;font-weight:900;color:#9CA3AF;text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid #F3F4F6">교육 조직</div>
       ${groups
         .map((g) => {
           const gKey = `${tenantId}_${g.id}`;
@@ -1744,7 +1744,7 @@ function renderStep3() {
   <div class="bo-fade">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <div>
-        <div style="font-size:13px;font-weight:800;color:#111827">${tenantName} — 예산 ↔ 가상조직 제도그룹 ↔ 양식/학습유형 통합 매핑 (Top-down)</div>
+        <div style="font-size:13px;font-weight:800;color:#111827">${tenantName} — 예산 ↔ 교육조직 제도그룹 ↔ 양식/학습유형 통합 매핑 (Top-down)</div>
         <div style="font-size:12px;color:#6B7280">${rules.length}개의 통합 매핑 정책이 설정됨</div>
       </div>
       <button class="bo-btn-primary bo-btn-sm" onclick="openAddRuleModal()">+ 새 매핑 정책 추가</button>
@@ -1844,7 +1844,7 @@ function _s3ModalBody(rule) {
   <div style="margin-bottom:14px;padding:12px;background:#FAFAFA;border:1px solid #E5E7EB;border-radius:8px">
     <label style="font-size:12px;font-weight:800;color:#111827;display:block;margin-bottom:5px">2. 대상 조직 제도그룹 통째 연결 (Virtual Org Template)</label>
     <select id="s3-template" style="width:100%;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;outline:none">
-      <option value="">— 매핑할 가상조직 제도그룹 선택 —</option>
+      <option value="">— 매핑할 교육조직 제도그룹 선택 —</option>
       ${templates.map((t) => `<option value="${t.id}" ${tplVal === t.id ? "selected" : ""}>🧩 ${t.name}</option>`).join("")}
     </select>
     <p style="font-size:11px;color:#6B7280;margin:6px 0 0">선택한 제도그룹에 속한 모든 하위 본부/팀에 권한이 부여됩니다.</p>

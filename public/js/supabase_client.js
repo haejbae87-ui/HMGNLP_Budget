@@ -1,4 +1,4 @@
-// ─── Supabase 클라이언트 초기화 ──────────────────────────────────────────────
+﻿// ─── Supabase 클라이언트 초기화 ──────────────────────────────────────────────
 // CDN에서 로드된 @supabase/supabase-js 를 사용 (backoffice.html, index.html에 추가)
 
 const SUPABASE_URL = "https://wihsojhucgmcdfpufonf.supabase.co";
@@ -181,7 +181,7 @@ async function sbLoadApplications(filters = {}) {
   }
 }
 
-// ─── 가상조직 템플릿 로더 ─────────────────────────────────────────────────────
+// ─── 교육조직 템플릿 로더 ─────────────────────────────────────────────────────
 async function sbLoadVirtualOrgTemplates(filters = {}) {
   try {
     let q = getSB().from("virtual_edu_orgs").select("*");

@@ -1,4 +1,4 @@
-// bo_cert_mapping.js
+﻿// bo_cert_mapping.js
 // 자격증 맵핑 관리 독립 메뉴 화면 (기존 통합 화면의 4번 탭에서 분리)
 
 let _cmTemplates = []; // 로드된 자격증 제도그룹 목록
@@ -39,7 +39,7 @@ async function _cmLoadTemplates() {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    // tree 필드를 파싱해야 내부 가상조직에 접근 가능
+    // tree 필드를 파싱해야 내부 교육조직에 접근 가능
     _cmTemplates = (data || []).map((t) => {
       if (typeof t.tree === "string") {
         try {
@@ -117,7 +117,7 @@ function _cmRenderFilterArea() {
 
   const tplOptions = `
     <div style="display:flex;align-items:center;gap:8px;margin-left:12px;border-left:1px solid #FDBA74;padding-left:20px">
-      <label style="font-size:12px;font-weight:700;color:#9A3412">자격증 가상조직(제도그룹)</label>
+      <label style="font-size:12px;font-weight:700;color:#9A3412">자격증 교육조직(제도그룹)</label>
       <select onchange="_cmOnChangeTpl(this.value)" style="padding:6px 10px;border:1px solid #FDBA74;border-radius:6px;font-size:13px;font-weight:600;min-width:200px;color:#9A3412;outline:none">
         ${filteredTpls.length === 0 ? '<option value="">조회된 조직이 없습니다</option>' : ""}
         ${filteredTpls.map((t) => `<option value="${t.id}" ${t.id === _cmSelectedTplId ? "selected" : ""}>${t.name}</option>`).join("")}
@@ -162,10 +162,10 @@ function _cmRenderContent(tpl) {
     <div class="bo-card" style="padding:24px">
       <div style="margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #F1F5F9">
         <h3 style="font-size:16px;font-weight:900;color:#111827;margin:0 0 4px">📜 자격증 맵핑 (제도그룹: ${tpl.name})</h3>
-        <p style="font-size:12px;color:#64748B;margin:0">가상조직 단위로 지원 대상 자격증을 등록합니다.</p>
+        <p style="font-size:12px;color:#64748B;margin:0">교육조직 단위로 지원 대상 자격증을 등록합니다.</p>
       </div>
       
-      ${groups.length ? groups.map((g, gi) => _cmRenderGroupCard(tpl, g, gi)).join("") : '<div style="padding:40px;text-align:center;color:#9CA3AF;font-size:13px;font-weight:700;background:#F9FAFB;border-radius:8px;border:1px dashed #E5E7EB">가상조직이 등록되지 않았습니다.<br><small style="font-weight:400;margin-top:4px;display:block">제도그룹 관리 메뉴에서 조직을 먼저 구성하세요.</small></div>'}
+      ${groups.length ? groups.map((g, gi) => _cmRenderGroupCard(tpl, g, gi)).join("") : '<div style="padding:40px;text-align:center;color:#9CA3AF;font-size:13px;font-weight:700;background:#F9FAFB;border-radius:8px;border:1px dashed #E5E7EB">교육조직이 등록되지 않았습니다.<br><small style="font-weight:400;margin-top:4px;display:block">제도그룹 관리 메뉴에서 조직을 먼저 구성하세요.</small></div>'}
     </div>
   `;
 }

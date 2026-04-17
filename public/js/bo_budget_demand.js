@@ -1,4 +1,4 @@
-// ─── 📊 교육예산 수요분석 (VOrg 계층 기반 3단계 드릴다운) ─────────────────────
+﻿// ─── 📊 교육예산 수요분석 (VOrg 계층 기반 3단계 드릴다운) ─────────────────────
 // 필터: 테넌트(회사) → VOrg 제도그룹 → 예산계정
 // Level 1: VOrg 그룹(본부/센터)별 요약
 // Level 2: 본부/센터 → 하위 팀별 상세
@@ -252,7 +252,7 @@ function _renderBdLevel1(el, isPlatform, tenants) {
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
       <div>
         <h1 class="bo-page-title">📊 교육예산 수요분석</h1>
-        <p class="bo-page-sub">가상조직 기반 예산 수요·확정 현황</p>
+        <p class="bo-page-sub">교육조직 기반 예산 수요·확정 현황</p>
       </div>
       <button onclick="_bdStartSimulation()" style="padding:10px 20px;border-radius:12px;border:none;background:linear-gradient(135deg,#7C3AED,#4F46E5);color:white;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 4px 16px rgba(124,58,237,.3);transition:transform .15s"
         onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
@@ -381,7 +381,7 @@ function _renderBdLevel2(el, isPlatform, tenants) {
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
       <div>
         <h1 class="bo-page-title">📊 교육예산 수요분석</h1>
-        <p class="bo-page-sub">가상조직 기반 예산 수요·확정 현황</p>
+        <p class="bo-page-sub">교육조직 기반 예산 수요·확정 현황</p>
       </div>
     </div>
 

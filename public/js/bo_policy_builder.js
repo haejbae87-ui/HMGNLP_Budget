@@ -1,4 +1,4 @@
-// ─── 🔧 교육지원 운영 규칙 ─────────────────────────────────────────────────────
+﻿// ─── 🔧 교육지원 운영 규칙 ─────────────────────────────────────────────────────
 // 8단계 위저드: 범위설정(회사·그룹·계정) → 정책명+대상자 → 목적 → 교육유형 → 패턴 → 대상조직 → 양식 → 결재라인
 
 let _policyWizardStep = 0;
@@ -273,7 +273,7 @@ async function renderServicePolicy() {
   let myPolicies = SERVICE_POLICIES.filter((p) => {
     // 1. 테넌트 필터
     if (activeTenantId && p.tenantId !== activeTenantId) return false;
-    // 2. 가상조직 필터
+    // 2. 교육조직 필터
     if (pbVorgId && p.vorgTemplateId !== pbVorgId) return false;
     // 3. 예산계정 필터
     if (_pbAccountFilter && !(p.accountCodes || []).includes(_pbAccountFilter))
@@ -1710,7 +1710,7 @@ function _addStageReviewer(stage) {
   if (!cfg.reviewers) cfg.reviewers = [];
   if (cfg.reviewers.length >= 2) return; // 최대 2명
 
-  // 자동 매핑: 가상조직 담당자 + 총괄담당자
+  // 자동 매핑: 교육조직 담당자 + 총괄담당자
   const vorgId = _policyWizardData.vorgTemplateId || "";
   const _vorgList = typeof _pbTplList !== "undefined" ? _pbTplList : [];
   const vorg = _vorgList.find((v) => v.id === vorgId);
@@ -1736,15 +1736,15 @@ function _addStageReviewer(stage) {
       userName: adminPersona?.name || globalAdminKey || "(미지정)",
     });
   } else if (cfg.reviewers.length === 1) {
-    // 두번째 추가 → 기존 최종을 1차로 변경, 새 최종 = 가상조직 담당자
+    // 두번째 추가 → 기존 최종을 1차로 변경, 새 최종 = 교육조직 담당자
     // 먼저 기존 최종의 role을 first로 변경하고 source를 global_admin으로 유지
-    // 새 1차 = 가상조직 담당자
+    // 새 1차 = 교육조직 담당자
     const vorgManager = vorg?.head_manager_user || null;
     const newFirst = {
       role: "first",
       sourceType: "vorg_manager",
       userId: vorgManager?.id || "",
-      userName: vorgManager?.name || "(가상조직 담당자 미설정)",
+      userName: vorgManager?.name || "(교육조직 담당자 미설정)",
     };
     // 기존 최종은 그대로 유지
     cfg.reviewers.unshift(newFirst); // 1차를 앞에 삽입

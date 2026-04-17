@@ -1,4 +1,4 @@
-// ─── 백오피스: 서비스 매뉴얼 (v8.0) ────────────────────────────────────────────
+﻿// ─── 백오피스: 서비스 매뉴얼 (v8.0) ────────────────────────────────────────────
 // 대상: 차세대학습플랫폼 서비스 기획자 및 개발자
 // 내용: 멀티테넌트 교육예산 관리 시스템의 전체 구조·역할·메뉴·데이터 흐름 안내
 // 최종 업데이트: 2026-04-07 (교육지원 운영 규칙 설정 5단계 위저드 간소화, 폼빌더 isolation_group_id·account_code 추가 반영)
@@ -167,7 +167,7 @@ function _manOverview() {
         {
           n: "1",
           t: "마스터 설정",
-          s: "계정·산출근거·통장정책·가상조직",
+          s: "계정·산출근거·통장정책·교육조직",
           c: "#6366F1",
         },
         {
@@ -242,7 +242,7 @@ function _manPersonas() {
         {
           i: "💳",
           t: "예산 계정 설정 (6단계 위저드)",
-          d: "기본정보→가상조직→학습유형→산출근거→역할권한→기간상태",
+          d: "기본정보→교육조직→학습유형→산출근거→역할권한→기간상태",
         },
         {
           i: "🔧",
@@ -251,7 +251,7 @@ function _manPersonas() {
         },
         {
           i: "🏢",
-          t: "가상조직 관리",
+          t: "교육조직 관리",
           d: "본부/팀 구조를 VOrg 템플릿으로 정의. 관리자·협력팀·직무유형 설정.",
         },
         {
@@ -274,7 +274,7 @@ function _manPersonas() {
         "대시보드",
         "내 격리그룹관리",
         "예산계정관리",
-        "가상조직",
+        "교육조직",
         "교육신청양식마법사",
         "세부산출근거",
         "결재라인",
@@ -306,7 +306,7 @@ function _manPersonas() {
         "대시보드",
         "내 격리그룹관리",
         "예산계정관리(R&D)",
-        "가상조직",
+        "교육조직",
         "세부산출근거(운영탭)",
         "결재라인",
         "교육지원 운영 규칙",
@@ -350,7 +350,7 @@ function _manPersonas() {
         "대시보드",
         "내 격리그룹관리",
         "예산계정관리",
-        "가상조직",
+        "교육조직",
         "세부산출근거",
         "결재라인",
         "교육지원 운영 규칙",
@@ -442,7 +442,7 @@ function _manMenus() {
       name: "예산 계정 관리",
       roles: "budget_global_admin",
       desc: `6단계 위저드로 예산 계정을 설정합니다.<br>
-            Step1 기본정보 → Step2 가상조직 → Step3 학습유형 → Step4 산출근거 → Step5 역할·권한 → Step6 기간·상태<br>
+            Step1 기본정보 → Step2 교육조직 → Step3 학습유형 → Step4 산출근거 → Step5 역할·권한 → Step6 기간·상태<br>
             테넌트별 isolationGroup으로 타사 데이터 완전 차단.`,
       impl: "계정 생성 시 UUID 발급. isolationGroup은 DB 쿼리 필터로 구현.",
     },
@@ -451,7 +451,7 @@ function _manMenus() {
       id: "virtual-org",
       name: "제도그룹 관리",
       roles: "budget_global_admin",
-      desc: `실제 조직도와 독립된 <strong>예산 집행용 가상 조직</strong>을 템플릿으로 정의합니다.<br>
+      desc: `실제 조직도와 독립된 <strong>예산 집행용 교육 조직</strong>을 템플릿으로 정의합니다.<br>
             VOrg 관리자·협력팀·직무유형 제한(생산직/사무직) 설정 가능. 격리그룹별로 독립 관리.`,
       impl: "관리자 지정 시 persona FK 참조. 직무 유형은 HR 시스템 동기화 필요.",
     },
@@ -690,7 +690,7 @@ function _manTech() {
       &nbsp;&nbsp;&nbsp;├── <span style="color:#7C3AED">bo_policy_builder.js</span>  — ★ 교육지원 운영 규칙 설정 (5단계 위저드·패턴A/B/C/D/E·결재라인)<br>
       &nbsp;&nbsp;&nbsp;├── <span style="color:#7C3AED">bo_approval.js</span>        — ★ 나의 운영 업무 (3탭 단계별 승인함)<br>
       &nbsp;&nbsp;&nbsp;├── bo_budget_master.js    — 예산 계정 관리 (통장정책 UI 포함)<br>
-      &nbsp;&nbsp;&nbsp;├── bo_virtual_org.js      — 가상조직 템플릿<br>
+      &nbsp;&nbsp;&nbsp;├── bo_virtual_org.js      — 교육조직 템플릿<br>
       &nbsp;&nbsp;&nbsp;├── bo_form_builder.js     — 교육신청양식마법사 (3탭)<br>
       &nbsp;&nbsp;&nbsp;├── <span style="color:#059669">bo_calc_grounds.js</span>    — 세부산출근거 관리<br>
       &nbsp;&nbsp;&nbsp;├── <span style="color:#059669">bo_approval_routing.js</span> — 계정별 결재라인 설정<br>
@@ -846,7 +846,7 @@ function _manDevPlan() {
           days: 5,
         },
         {
-          task: "가상조직 템플릿 API",
+          task: "교육조직 템플릿 API",
           detail: "VOrg 트리 구조 저장·조회, 관리자/협력팀/직무유형",
           days: 4,
         },
@@ -913,7 +913,7 @@ function _manDevPlan() {
         },
         {
           task: "교육계획 위저드 (4단계)",
-          detail: "가상조직 선택, 세부산출근거 입력, 계획 상신",
+          detail: "교육조직 선택, 세부산출근거 입력, 계획 상신",
           days: 5,
         },
         {
@@ -1190,7 +1190,7 @@ function _manIA() {
     },
     {
       area: "테넌트운영",
-      menu: "가상조직 템플릿",
+      menu: "교육조직 템플릿",
       screen: "VOrg 제도그룹 목록",
       type: "화면",
       role: "테넌트",
@@ -1316,7 +1316,7 @@ function _manIA() {
     { label: "교육유형 관리 (트리)", indent: 2, icon: "└", bold: false },
     { label: "테넌트 운영", indent: 1, icon: "🏢", bold: true },
     { label: "예산계정 관리 (목록·편집)", indent: 2, icon: "└", bold: false },
-    { label: "가상조직(VOrg) 템플릿 관리", indent: 2, icon: "└", bold: false },
+    { label: "교육조직(VOrg) 템플릿 관리", indent: 2, icon: "└", bold: false },
     { label: "산정기준 관리", indent: 2, icon: "└", bold: false },
     { label: "교육지원 운영 규칙", indent: 1, icon: "🔧", bold: true },
     {
@@ -1538,7 +1538,7 @@ function _manDbSchema() {
       layer: "L5 예산설정",
       color: "#0369A1",
       bg: "#E0F2FE",
-      desc: "가상조직 템플릿. tree jsonb에 본부/센터/실/팀 저장",
+      desc: "교육조직 템플릿. tree jsonb에 본부/센터/실/팀 저장",
       cols: [
         "id PK",
         "tenant_id FK",
@@ -1552,7 +1552,7 @@ function _manDbSchema() {
       layer: "L6 서비스구성",
       color: "#9D174D",
       bg: "#FCE7F3",
-      desc: "교육지원 운영 규칙. 예산계정·양식·가상조직·결재선을 묶는 허브",
+      desc: "교육지원 운영 규칙. 예산계정·양식·교육조직·결재선을 묶는 허브",
       cols: [
         "id PK",
         "tenant_id FK",
@@ -1660,13 +1660,13 @@ function _manDbSchema() {
       "service_policies",
       "vorg_template_id",
       "virtual_org_templates.id",
-      "정책 → 가상조직",
+      "정책 → 교육조직",
     ],
     [
       "virtual_org_templates",
       "isolation_group_id",
       "isolation_groups.id",
-      "가상조직 → 격리그룹",
+      "교육조직 → 격리그룹",
     ],
     ["form_templates", "tenant_id", "tenants.id", "양식 → 회사"],
     ["plans", "tenant_id", "tenants.id", "계획 → 회사"],

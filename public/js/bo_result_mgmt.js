@@ -1,4 +1,4 @@
-// ─── 📄 교육결과 관리 + 공통 캐스케이드 필터 ───────────────────────────────────
+﻿// ─── 📄 교육결과 관리 + 공통 캐스케이드 필터 ───────────────────────────────────
 // 공통 필터 상태
 let _boEduFilter = {
   tenantId: "",
@@ -74,9 +74,9 @@ function _boEduFilterBar(onChangeCallback) {
     <div class="bo-filter-divider"></div>
 
     <div style="display:flex;align-items:center;gap:8px">
-      <span class="bo-filter-label">가상조직</span>
+      <span class="bo-filter-label">교육조직</span>
       <select id="bf-vorg" class="bo-filter-select" onchange="_boFilterChange('vorgId',this.value,'${onChangeCallback}')">
-        <option value="">전체 가상조직</option>
+        <option value="">전체 교육조직</option>
         ${filteredVorgs.map((v) => '<option value="' + v.id + '"' + (_boEduFilter.vorgId === v.id ? " selected" : "") + ">" + v.name + "</option>").join("")}
       </select>
     </div>

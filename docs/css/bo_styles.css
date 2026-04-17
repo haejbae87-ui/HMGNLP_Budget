@@ -218,6 +218,18 @@ body {
 .bo-table tbody td { padding: 12px 14px; color: var(--text-main); vertical-align: middle; }
 .bo-table tbody tr:last-child { border-bottom: 1px solid #CBD5E1; }
 
+/* ── BO Search & Filter Container Standard ── */
+.bo-filter-bar { background:white; border:1.5px solid var(--border); border-radius:14px; padding:16px 20px; margin-bottom:20px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; box-shadow:0 1px 4px rgba(0,0,0,.05); }
+.bo-filter-label { font-size:12px; font-weight:800; color:var(--text-sub); white-space:nowrap; }
+.bo-filter-select { padding:8px 32px 8px 12px; border:1.5px solid var(--border); border-radius:10px; font-size:13px; font-weight:700; color:var(--text-main); background:#FAFAFA; cursor:pointer; min-width:140px; }
+.bo-filter-select:disabled { background:#F3F4F6; cursor:default; }
+.bo-filter-divider { width:1px; height:28px; background:var(--border); }
+.bo-filter-btn-search { padding:9px 20px; background:linear-gradient(135deg,var(--accent),#2563EB); color:white; border:none; border-radius:10px; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:6px; box-shadow:0 2px 8px rgba(37,99,235,.35); white-space:nowrap; margin-left:auto; }
+.bo-filter-btn-reset { padding:9px 14px; border:1.5px solid var(--border); border-radius:10px; font-size:12px; font-weight:700; background:white; cursor:pointer; color:#6B7280; white-space:nowrap; }
+
+.bo-list-count { font-size:11px; font-weight:700; color:#6B7280; text-transform:uppercase; letter-spacing:.05em; margin-bottom:10px; }
+.bo-table-container { background:white; border:1.5px solid var(--border); border-radius:12px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.05); }
+
 /* ── Role tag ── */
 .role-tag {
   display: inline-block;

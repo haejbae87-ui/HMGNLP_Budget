@@ -1,4 +1,4 @@
-﻿// ─── 3 Depth: 교육계획 관리 (DB 연동 + 인라인 편집) ──────────────────────────
+// ─── 3 Depth: 교육계획 관리 (DB 연동 + 인라인 편집) ──────────────────────────
 let _boPlanMgmtData = null;
 let _boPlanDetailView = null; // 상세 보기 대상 계획
 let _boPlanFiscalYear = new Date().getFullYear(); // 연도 필터
@@ -347,9 +347,9 @@ async function renderBoPlanMgmt() {
         편집 모드 — 배정액 셀을 직접 수정하고 <strong>💾 일괄 저장</strong>을 클릭하세요. 수정된 셀은 <span style="background:#FFFBEB;border:1px solid #FCD34D;padding:1px 6px;border-radius:4px">노란색</span>으로 표시됩니다.
       </div>` : ''}
 
-      <div class="bo-card" style="overflow:hidden">
-        <div style="padding:14px 20px;border-bottom:1px solid #F3F4F6;display:flex;justify-content:space-between;align-items:center">
-          <span class="bo-section-title">교육계획 목록 (${plans.length}건)</span>
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:8px">
+          <div class="bo-list-count" style="margin-bottom:0">교육계획 목록 (${plans.length}건)</div>
           <div style="display:flex;gap:12px;align-items:center">
             ${_boPlanEditMode ? `<span style="font-size:11px;font-weight:800;color:#D97706">⚡ ${editCount}건 수정됨</span>` : ''}
             <span style="font-size:12px;color:#9CA3AF">승인 대기: <strong style="color:#1D4ED8">${plans.filter((p) => p.status === "pending" || p.status === "pending_approval").length}건</strong></span>
@@ -358,15 +358,19 @@ async function renderBoPlanMgmt() {
         ${
           plans.length > 0
             ? `
-        <div style="overflow-x:auto">
+        <div class="bo-table-container" style="overflow-x:auto">
         <table class="bo-table" style="min-width:900px">
-          <thead><tr>
-            <th>제출팀</th><th>계획명</th><th>유형</th><th>계정</th>
-            <th style="text-align:right">계획액</th>
-            <th style="text-align:right;${_boPlanEditMode ? 'background:#EFF6FF;color:#1D4ED8' : 'color:#059669'}">배정액 ${_boPlanEditMode ? '✏️' : ''}</th>
-            <th style="text-align:right">실사용액</th>
-            <th>제출일</th><th>상태</th>
-            ${canApprove ? '<th style="text-align:center">처리</th>' : ""}
+          <thead><tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB">
+            <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">제출팀</th>
+            <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">계획명</th>
+            <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">유형</th>
+            <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">계정</th>
+            <th style="padding:10px 14px;text-align:right;font-size:11px;font-weight:800;color:#6B7280">계획액</th>
+            <th style="padding:10px 14px;text-align:right;font-size:11px;font-weight:800;${_boPlanEditMode ? 'background:#EFF6FF;color:#1D4ED8' : 'color:#059669'}">배정액 ${_boPlanEditMode ? '✏️' : ''}</th>
+            <th style="padding:10px 14px;text-align:right;font-size:11px;font-weight:800;color:#6B7280">실사용액</th>
+            <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">제출일</th>
+            <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">상태</th>
+            ${canApprove ? '<th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#6B7280">처리</th>' : ""}
           </tr></thead>
           <tbody>${rows}
             ${totalRow}
@@ -374,7 +378,7 @@ async function renderBoPlanMgmt() {
         </table>
         </div>`
             : `
-        <div style="padding:60px;text-align:center;color:#9CA3AF">
+        <div class="bo-table-container" style="padding:60px;text-align:center;color:#9CA3AF">
           <div style="font-size:48px;margin-bottom:10px">📭</div>
           <div style="font-weight:700">${_boPlanFiscalYear}년 교육계획 데이터가 없습니다</div>
           <div style="font-size:12px;margin-top:6px">프론트 오피스에서 교육계획을 수립하면 이 화면에서 조회할 수 있습니다.</div>

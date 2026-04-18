@@ -492,17 +492,18 @@ function _renderApplyList() {
           _dbMyApps = data.map((d) => ({
             id: d.id,
             title: d.edu_name,
-            type: d.edu_type || "교육",
-            date: d.created_at?.slice(0, 10) || "",
-            endDate: d.created_at?.slice(0, 10) || "",
+            type: d.edu_type || '교육',
+            date: d.created_at?.slice(0, 10) || '',
+            endDate: d.created_at?.slice(0, 10) || '',
             hours: 0,
             amount: Number(d.amount || 0),
-            budget: d.account_code || "",
+            budget: d.account_code || '',
             applyStatus: _mapAppDbStatus(d.status),
-            resultDone: d.status === "completed",
+            resultDone: d.status === 'completed',
             author: d.applicant_name,
-            rawStatus: d.status,
+            rawStatus: d.status,  // UI-2: 원본 DB 상태 보존
           }));
+
         }
         _renderApplyList();
       });
@@ -659,50 +660,52 @@ function _renderApplyList() {
           <span>💰 ${h.budget} · ${(h.amount || 0).toLocaleString()}원</span>
           <span>⏱ ${h.hours}H</span>
         </div>
+        ${(() => {
+          if (h.rawStatus !== 'saved') return '';
+          const _sid = String(h.id || '').replace(/["'<>&]/g, '');
+          const _stitle = String(h.title || '').replace(/["'<>&]/g, '');
+          return `<div style="margin-top:8px;padding:8px 12px;border-radius:8px;background:#ECFDF5;border:1px solid #6EE7B7;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><span style="font-size:11px;font-weight:800;color:#065F46">📤 저장완료 — 결재함에서 상신 가능</span><button onclick="event.stopPropagation();_appSingleSubmit('${_sid}','${_stitle}')" style="padding:5px 14px;border-radius:8px;background:#059669;color:white;font-size:11px;font-weight:900;border:none;cursor:pointer;white-space:nowrap">📤 상신하기</button></div>`;
+        })()}
+
+      <div style="flex-shrink:0;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
         ${
-          h.applyStatus === "반려"
-            ? `
-        <div style="margin-top:8px;padding:8px 12px;border-radius:8px;background:#FEE2E2;border:1px solid #FECACA;font-size:11px;color:#DC2626;font-weight:700">
-          ⚠️ 반려 사유: 예산 잔액 부족으로 반려되었습니다. 예산 계획 수립 후 재신청 바랍니다.
-        </div>`
-            : ""
+          h.applyStatus === '반려'
+            ? `<div style="margin-top:8px;padding:8px 12px;border-radius:8px;background:#FEE2E2;border:1px solid #FECACA;font-size:11px;color:#DC2626;font-weight:700">
+                ⚠️ 반려 사유: ${h.rejectReason || '예산 잔액 부족으로 반려되었습니다. 예산 계획 수립 후 재신청 바랍니다.'}
+               </div>`
+            : ''
         }
       </div>
       <div style="flex-shrink:0;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
         ${
-          h.applyStatus === "작성중"
-            ? `
-        <button onclick="resumeApplyDraft('${h.id.replace(/'/g, "\\\'")}')" style="padding:8px 14px;border-radius:8px;background:#0369A1;color:white;font-size:11px;font-weight:800;border:none;cursor:pointer;white-space:nowrap">✏️ 이어쓰기</button>
-        <button onclick="deleteApplyDraft('${h.id.replace(/'/g, "\\\'")}')" style="padding:8px 14px;border-radius:8px;background:white;color:#DC2626;font-size:11px;font-weight:800;border:1.5px solid #FECACA;cursor:pointer;white-space:nowrap">🗑 삭제</button>`
-            : ""
+          h.rawStatus === 'draft' || h.applyStatus === '작성중'
+            ? `<button onclick="resumeApplyDraft('${h.id.replace(/'/g, "\\\"'\\\"")}')"
+               style="padding:8px 14px;border-radius:8px;background:#0369A1;color:white;font-size:11px;font-weight:800;border:none;cursor:pointer;white-space:nowrap">✏️ 이어쓰기</button>
+               <button onclick="deleteApplyDraft('${h.id.replace(/'/g, "\\\"'\\\"")}')"
+               style="padding:8px 14px;border-radius:8px;background:white;color:#DC2626;font-size:11px;font-weight:800;border:1.5px solid #FECACA;cursor:pointer;white-space:nowrap">🗑 삭제</button>`
+            : ''
         }
         ${
-          h.applyStatus === "승인대기" || h.applyStatus === "결재진행중"
-            ? `
-        <button onclick="cancelApply('${h.id.replace(/'/g, "\\\'")}')" style="padding:8px 14px;border-radius:8px;background:white;color:#DC2626;font-size:11px;font-weight:800;border:1.5px solid #FECACA;cursor:pointer;white-space:nowrap">취소 요청</button>`
-            : ""
+          (h.rawStatus === 'pending' || h.rawStatus === 'submitted' || h.applyStatus === '승인대기' || h.applyStatus === '결재진행중') && h.rawStatus !== 'saved'
+            ? `<button onclick="cancelApply('${h.id.replace(/'/g, "\\\"'\\\"")}')"
+               style="padding:8px 14px;border-radius:8px;background:white;color:#DC2626;font-size:11px;font-weight:800;border:1.5px solid #FECACA;cursor:pointer;white-space:nowrap">취소 요청</button>`
+            : ''
         }
         ${
-          canResult && !h.resultDone
-            ? `
-        <button onclick="_openResultForm('${h.id.replace(/'/g, "\\\\\'")}','${(h.title || "").replace(/'/g, "\\\\\'")}',${h.amount || 0})"
-          style="padding:8px 14px;border-radius:8px;background:#002C5F;color:white;font-size:11px;font-weight:800;border:none;cursor:pointer;white-space:nowrap">
-          📝 결과 작성
-        </button>`
-            : ""
+          h.applyStatus === '승인완료' && !h.resultDone
+            ? `<button onclick="_openResultForm('${h.id.replace(/'/g, "\\\"'\\\"")}',${'\'' + (h.title||'').replace(/'/g,'') + '\''},${h.amount||0})"
+               style="padding:8px 14px;border-radius:8px;background:#002C5F;color:white;font-size:11px;font-weight:800;border:none;cursor:pointer;white-space:nowrap">📝 결과 작성</button>`
+            : ''
         }
         ${
-          canResult && h.resultDone
-            ? `
-        <button style="padding:8px 14px;border-radius:8px;background:#F3F4F6;color:#9CA3AF;font-size:11px;font-weight:800;border:none;cursor:default;white-space:nowrap">
-          ✅ 결과 제출 완료
-        </button>`
-            : ""
+          h.applyStatus === '승인완료' && h.resultDone
+            ? `<button style="padding:8px 14px;border-radius:8px;background:#F3F4F6;color:#9CA3AF;font-size:11px;font-weight:800;border:none;cursor:default;white-space:nowrap">✅ 결과 제출 완료</button>`
+            : ''
         }
       </div>
     </div>`;
     })
-    .join("");
+    .join('');
 
   const emptyMsg = `<div style="padding:60px 20px;text-align:center;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB">
     <div style="font-size:48px;margin-bottom:16px">📭</div>
@@ -1899,10 +1902,23 @@ function _renderApplyConfirm() {
           ⚠️ 제출 후에는 결재라인이 자동 구성되며, 상위 승인자가 취소하기 전까지 취소가 불가합니다.
         </div>
       </div>
-      <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6">
-        <button onclick="applyState.confirmMode=false;renderApply()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">← 수정하기</button>
-        <button onclick="confirmApply()" style="padding:10px 28px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#002C5F;color:white;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">✅ 확정 제출</button>
+      <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6;flex-wrap:wrap">
+        <button onclick="applyState.confirmMode=false;renderApply()"
+          style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">
+          ← 수정하기
+        </button>
+        <!-- UI-1: 저장완료(saved) 버튼 —  팀장 대표 상신 또는 결재함 상신 전 보관 -->
+        <button onclick="saveApplyAsReady()"
+          style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #059669;background:white;color:#059669;cursor:pointer;transition:all .15s"
+          onmouseover="this.style.background='#F0FDF4'" onmouseout="this.style.background='white'">
+          📤 저장완료로 보관
+        </button>
+        <button onclick="confirmApply()"
+          style="padding:10px 28px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#002C5F;color:white;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">
+          ✅ 확정 제출
+        </button>
       </div>
+
     </div>
   </div>`;
 }

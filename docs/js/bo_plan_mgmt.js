@@ -1358,13 +1358,15 @@ function _boPlanCancelEdit() {
 // 운영담당자가 saved/pending 계획을 'in_review'로 전환
 // 총괄담당자에게 "검토 완료 → 승인 요청" 신호
 async function boPlanReview(planId) {
-  if (!confirm(`이 교육계획을 1차검토 완료 처리하시겠습니까?\n\n총괄담당자에게 최종 승인 요청이 전달됩니다.`)) return;
+  const plan = (_boPlanMgmtData || []).find(p => p.id === planId);
+  const planName = plan?.edu_name || plan?.title || planId;
+  if (!confirm(`🔍 1차검토 — "${planName}"\n\n이 교육계획을 1차검토 완료 처리하시겠습니까?\n\n총괄담당자에게 최종 승인 요청이 전달됩니다.`)) return;
 
   const sb = typeof getSB === 'function' ? getSB() : null;
   if (!sb) { alert('DB 연결 실패'); return; }
 
   try {
-    const { data: cur } = await sb.from('plans').select('status').eq('id', planId).single();
+    const { data: cur } = await sb.from('plans').select('status,tenant_id').eq('id', planId).single();
     if (!['saved','pending','pending_approval'].includes(cur?.status)) {
       alert('⚠️ 1차검토는 저장완료(saved) 또는 결재대기(pending) 상태에서만 가능합니다.');
       return;
@@ -1372,11 +1374,17 @@ async function boPlanReview(planId) {
 
     const { error } = await sb.from('plans').update({
       status: 'in_review',
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: boCurrentPersona?.name || 'admin',
       updated_at: new Date().toISOString(),
     }).eq('id', planId);
     if (error) throw error;
 
-    alert('✅ 1차검토 완료 처리되었습니다.\n\n총괄담당자에게 최종 승인 요청이 전달됩니다.');
+    // UI-3: approval_history 기록 + 토스트 알림
+    await _boNotifyPlanStatus(sb, planId, { ...plan, status: cur?.status, tenant_id: cur?.tenant_id || plan?.tenant_id },
+      'in_review', boCurrentPersona);
+    _boShowToast(`🔍 "${planName}" 1차검토 완료! 총괄담당자에게 전달됩니다.`, 'info');
+
     _boPlanMgmtData = null;
     renderBoPlanMgmt();
   } catch (err) {

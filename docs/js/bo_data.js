@@ -1,4 +1,4 @@
-﻿// ─── BACK-OFFICE DATA LAYER ──────────────────────────────────────────────────
+// ─── BACK-OFFICE DATA LAYER ──────────────────────────────────────────────────
 
 // ─── 사전 정의된 학습유형 (Learning Types) ──────────────────────────────────
 const LEARNING_TYPES = [
@@ -4383,4 +4383,73 @@ function getApprovalRoute(accountCode, amount) {
     routingName: result.routingName,
     range: { ...result.range, approvers },
   };
+}
+
+// ─── BO 역할 유틸 함수 (E-1 정식화) ──────────────────────────────────────────
+// bo_data.js가 모든 BO 파일보다 먼저 로드되므로, 이곳에 정의.
+// bo_allocation.js / bo_plan_mgmt.js / bo_calc_grounds.js 에서 직접 사용.
+
+/**
+ * 총괄담당자 여부 판별
+ * - platform_admin / tenant_admin / budget_global_admin 또는 ownedAccounts 보유
+ */
+function isGlobalAdmin(persona) {
+  if (!persona) return false;
+  const role = persona.role || persona.boRole || '';
+  if (['platform_admin', 'tenant_admin', 'budget_global_admin'].includes(role)) return true;
+  if ((persona.ownedAccounts || []).length > 0) return true;
+  return false;
+}
+
+/**
+ * 운영담당자(VOrg Manager) 여부 판별
+ * - budget_op_manager 역할이거나 managedVorgId가 있는 경우
+ */
+function isOpManager(persona) {
+  if (!persona) return false;
+  const role = persona.role || persona.boRole || '';
+  if (role === 'budget_op_manager') return true;
+  if (persona.managedVorgId) return true;
+  return false;
+}
+
+/**
+ * 역할 기반 관할 필터
+ * - 총괄담당자(isGlobalAdmin && !isOpManager): 전체 반환
+ * - 운영담당자(isOpManager): managedVorgId 하위 팀만 반환
+ * @param {Array}  items    - 필터링할 배열
+ * @param {object} persona  - BO 페르소나
+ * @param {string} orgField - 팀명 매칭 필드 (기본: 'org_name')
+ */
+function applyRoleFilter(items, persona, orgField) {
+  if (!items || !items.length) return items;
+  if (isGlobalAdmin(persona) && !isOpManager(persona)) return items;
+
+  const managedVorgId = persona.managedVorgId || persona.scope_vorg_id;
+  if (!managedVorgId) return items;
+
+  let teamNames = null;
+  if (typeof VIRTUAL_EDU_ORGS !== 'undefined') {
+    const vorg = VIRTUAL_EDU_ORGS
+      .flatMap(t => [...(t.tree?.hqs || []), ...(t.tree?.centers || [])])
+      .find(vg => vg.id === managedVorgId);
+    if (vorg) teamNames = (vorg.teams || []).map(t => t.name);
+  }
+  if (!teamNames) return items;
+
+  const field = orgField || 'org_name';
+  return items.filter(item => {
+    const orgName = item[field] || item['org_name'] || item['orgName'] || item['team_name'] || '';
+    return teamNames.some(tn => orgName.includes(tn) || tn.includes(orgName));
+  });
+}
+
+/**
+ * 역할 라벨 반환 (GNB 표시용)
+ */
+function getRoleLabel(persona) {
+  if (!persona) return '';
+  if (isGlobalAdmin(persona) && !isOpManager(persona)) return '총괄담당자';
+  if (isOpManager(persona)) return '운영담당자';
+  return persona.roleLabel || persona.role || '관리자';
 }

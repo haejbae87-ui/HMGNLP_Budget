@@ -151,12 +151,8 @@ async function renderBoPlanMgmt() {
       "center_rnd",
     ];
     // E-4: 역할 구분 — 운영담당자(일차검토) vs 총괄담당자(최종승인)
-    const isGlobalBO = typeof isGlobalAdmin === 'function'
-      ? isGlobalAdmin(boCurrentPersona)
-      : (_approveRoles.includes(boCurrentPersona.role) || /admin|budget|total/i.test(boCurrentPersona.role || ''));
-    const isOpBO = typeof isOpManager === 'function'
-      ? isOpManager(boCurrentPersona)
-      : /ops|operation|manager/i.test(boCurrentPersona.role || '');
+    const isGlobalBO = isGlobalAdmin(boCurrentPersona);
+    const isOpBO = isOpManager(boCurrentPersona);
 
     // 총괄담당자: 승인/반려 가능  | 운영담당자: 1차검토 가능
     const canApprove = isGlobalBO;

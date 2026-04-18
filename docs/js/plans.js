@@ -1,4 +1,4 @@
-﻿// ─── PLANS (교육계획) ──────────────────────────────────────────────────────
+// ─── PLANS (교육계획) ──────────────────────────────────────────────────────
 
 // FO 정책 연동용: BO service_policies + VOrg 템플릿 DB 프리로드
 // var 재선언 금지 — bo_data.js에 let VORG_TEMPLATES 선언이 있어 SyntaxError 방지
@@ -1378,9 +1378,13 @@ ${
         <button onclick="savePlanDraft()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-blue-200 text-blue-700 hover:bg-blue-50 transition">
           💾 임시저장
         </button>
+        <button onclick="savePlanSaved()" ${s.hardLimitViolated ? "disabled" : ""}
+          class="px-7 py-3 rounded-xl font-black text-sm transition ${s.hardLimitViolated ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-md"}">
+          ✅ 저장
+        </button>
         <button onclick="savePlan()" ${s.hardLimitViolated ? "disabled" : ""}
           class="px-10 py-3 rounded-xl font-black text-sm transition shadow-lg ${s.hardLimitViolated ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-brand text-white hover:bg-blue-900"}">
-          제출 →
+          📤 상신 →
         </button>
       </div>
   </div>
@@ -1552,6 +1556,93 @@ async function savePlanDraft() {
   } catch (err) {
     alert("임시저장 실패: " + err.message);
     console.error("[savePlanDraft] 실패:", err.message);
+  }
+}
+
+// ─── 저장 (saved 상태 — 작성완료, 상신 전 대기) ──────────────────────────
+//   draft  → saved : 작성이 완료된 항목. 목록에서 단건/다건 상신 가능
+//   saved  → pending : 상신 완료. 결재 대기
+async function savePlanSaved() {
+  if (!planState.title) {
+    alert("계획명을 입력해주세요.");
+    return;
+  }
+  if (planState.formTemplate && typeof validateRequiredFields === "function") {
+    const result = validateRequiredFields(planState.formTemplate, planState);
+    if (!result.valid) {
+      alert("⚠️ 필수 항목을 입력해주세요:\n\n• " + result.errors.join("\n• "));
+      return;
+    }
+  }
+  if (planState.hardLimitViolated) {
+    alert("🚫 Hard Limit 초과 항목이 있어 저장할 수 없습니다.");
+    return;
+  }
+  const total = _calcGroundsTotal();
+  const amount = total || Number(planState.amount || 0);
+  const curBudget = planState.budgetId
+    ? (currentPersona.budgets || []).find((b) => b.id === planState.budgetId)
+    : null;
+  const accountCode =
+    curBudget?.accountCode || _getPlanAccountCode(curBudget) || "";
+  const sb = typeof getSB === "function" ? getSB() : null;
+  if (!sb) { alert("DB 연결 실패"); return; }
+  try {
+    const planId = planState.editId || `PLAN-${Date.now()}`;
+    const row = {
+      id: planId,
+      tenant_id: currentPersona.tenantId,
+      account_code: accountCode,
+      applicant_id: currentPersona.id,
+      applicant_name: currentPersona.name,
+      applicant_org_id: currentPersona.orgId || null,
+      edu_name: planState.title || "교육계획",
+      edu_type: planState.eduType || planState.eduSubType || null,
+      amount: amount,
+      status: "saved",           // ← 3단계 상태 중 2단계
+      policy_id: planState.policyId || null,
+      plan_type: planState.plan_type || "ongoing",
+      fiscal_year: planState.fiscal_year || new Date().getFullYear(),
+      form_template_id: planState.formTemplate?.id || null,
+      form_version: planState.formTemplate?.version || null,
+      detail: {
+        purpose: planState.purpose?.id || null,
+        budgetId: planState.budgetId || null,
+        eduType: planState.eduType,
+        eduSubType: planState.eduSubType,
+        calcGrounds: planState.calcGrounds || [],
+        period: planState.period || null,
+        institution: planState.institution || null,
+        notes: planState.notes || null,
+        dept: currentPersona.dept,
+        content: planState.content || "",
+        startDate: planState.startDate || "",
+        endDate: planState.endDate || "",
+        _form_snapshot: planState.formTemplate
+          ? {
+              id: planState.formTemplate.id,
+              name: planState.formTemplate.name,
+              version: planState.formTemplate.version || 1,
+              fields: (planState.formTemplate.fields || []).map((f) => ({
+                key: typeof f === "object" ? f.key : f,
+                scope: f?.scope,
+                required: f?.required,
+              })),
+            }
+          : null,
+      },
+    };
+    const { error } = await sb.from("plans").upsert(row, { onConflict: "id" });
+    if (error) throw error;
+    planState.editId = planId;
+    alert(`✅ 저장되었습니다!\n\n계획: ${planState.title}\n계획액: ${amount.toLocaleString()}원\n\n[결재함] 목록에서 단건 또는 다건 선택 후 상신할 수 있습니다.`);
+    console.log(`[savePlanSaved] 저장 성공 (saved): ${planId}`);
+    closePlanWizard();
+    _plansDbLoaded = false;
+    renderPlans();
+  } catch (err) {
+    alert("저장 실패: " + err.message);
+    console.error("[savePlanSaved] 실패:", err.message);
   }
 }
 
@@ -1863,8 +1954,9 @@ function _friendlyStatusError(msg) {
   const m = msg.match(/Invalid status transition:\s*(\w+)\s*→\s*(\w+)/);
   if (!m) return msg;
   const labels = {
-    draft: "작성중",
-    pending: "결재대기",
+    draft: "작성중(임시저장)",
+    saved: "저장완료",
+    pending: "결재대기(상신됨)",
     approved: "승인완료",
     rejected: "반려",
     cancelled: "취소",

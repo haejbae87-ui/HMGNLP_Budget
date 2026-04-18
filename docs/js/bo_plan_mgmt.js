@@ -150,9 +150,17 @@ async function renderBoPlanMgmt() {
       "hq_general",
       "center_rnd",
     ];
-    const canApprove =
-      _approveRoles.includes(boCurrentPersona.role) ||
-      /admin|budget|total|ops/i.test(boCurrentPersona.role || "");
+    // E-4: 역할 구분 — 운영담당자(일차검토) vs 총괄담당자(최종승인)
+    const isGlobalBO = typeof isGlobalAdmin === 'function'
+      ? isGlobalAdmin(boCurrentPersona)
+      : (_approveRoles.includes(boCurrentPersona.role) || /admin|budget|total/i.test(boCurrentPersona.role || ''));
+    const isOpBO = typeof isOpManager === 'function'
+      ? isOpManager(boCurrentPersona)
+      : /ops|operation|manager/i.test(boCurrentPersona.role || '');
+
+    // 총괄담당자: 승인/반려 가능  | 운영담당자: 1차검토 가능
+    const canApprove = isGlobalBO;
+    const canReview = isOpBO && !isGlobalBO; // 운영담당자전용 (1차검토)
 
     // ★ 편집 모드가 아닐 때 originals 초기화
     if (!_boPlanEditMode) {
@@ -232,9 +240,9 @@ async function renderBoPlanMgmt() {
             ? `
         <td style="text-align:center" onclick="event.stopPropagation()">
           ${
-            status === "pending" || status === "pending_approval"
+            status === "pending" || status === "pending_approval" || status === "saved" || status === "in_review"
               ? `
-          <div style="display:flex;gap:6px;justify-content:center">
+          <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
             <button onclick="boPlanApprove('${safeId}')" class="bo-btn-accent bo-btn-sm">승인</button>
             <button onclick="boPlanReject('${safeId}')" class="bo-btn-sm" style="border:1px solid #EF4444;color:#EF4444;background:#fff;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer">반려</button>
           </div>`
@@ -1294,3 +1302,35 @@ function _boPlanCancelEdit() {
   _boPlanEdits = {};
   renderBoPlanMgmt();
 }
+
+// ─── E-4: 1차검토 완료 (운영담당자 → in_review) ───────────────────────────────
+// 운영담당자가 saved/pending 계획을 'in_review'로 전환
+// 총괄담당자에게 "검토 완료 → 승인 요청" 신호
+async function boPlanReview(planId) {
+  if (!confirm(`이 교육계획을 1차검토 완료 처리하시겠습니까?\n\n총괄담당자에게 최종 승인 요청이 전달됩니다.`)) return;
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 실패'); return; }
+
+  try {
+    const { data: cur } = await sb.from('plans').select('status').eq('id', planId).single();
+    if (!['saved','pending','pending_approval'].includes(cur?.status)) {
+      alert('⚠️ 1차검토는 저장완료(saved) 또는 결재대기(pending) 상태에서만 가능합니다.');
+      return;
+    }
+
+    const { error } = await sb.from('plans').update({
+      status: 'in_review',
+      updated_at: new Date().toISOString(),
+    }).eq('id', planId);
+    if (error) throw error;
+
+    alert('✅ 1차검토 완료 처리되었습니다.\n\n총괄담당자에게 최종 승인 요청이 전달됩니다.');
+    _boPlanMgmtData = null;
+    renderBoPlanMgmt();
+  } catch (err) {
+    alert('1차검토 처리 실패: ' + err.message);
+    console.error('[boPlanReview]', err.message);
+  }
+}
+

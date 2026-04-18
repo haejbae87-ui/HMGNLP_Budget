@@ -1691,6 +1691,11 @@ async function savePlanDraft() {
       fiscal_year: planState.fiscal_year || new Date().getFullYear(),
       form_template_id: planState.formTemplate?.id || null,
       form_version: planState.formTemplate?.version || null,
+      // 필드 표준화 (field_standardization.md PL-04, A-18~A-20)
+      expected_benefit: planState.expectedBenefit || planState.expected_benefit || null,
+      education_format: planState.educationFormat || planState.education_format || null,
+      is_overseas: planState.isOverseas === true || planState.is_overseas === true || false,
+      overseas_country: planState.overseasCountry || planState.overseas_country || null,
       detail: {
         purpose: planState.purpose?.id || null,
         budgetId: planState.budgetId || null,
@@ -1776,6 +1781,11 @@ async function savePlanSaved() {
       fiscal_year: planState.fiscal_year || new Date().getFullYear(),
       form_template_id: planState.formTemplate?.id || null,
       form_version: planState.formTemplate?.version || null,
+      // 필드 표준화 (field_standardization.md PL-04, A-18~A-20)
+      expected_benefit: planState.expectedBenefit || planState.expected_benefit || null,
+      education_format: planState.educationFormat || planState.education_format || null,
+      is_overseas: planState.isOverseas === true || planState.is_overseas === true || false,
+      overseas_country: planState.overseasCountry || planState.overseas_country || null,
       detail: {
         purpose: planState.purpose?.id || null,
         budgetId: planState.budgetId || null,

@@ -1986,6 +1986,10 @@ async function confirmApply() {
           planId: applyState.planId || null,
           policyId: applyState.policyId || null,
           budgetLinked: svc?.budgetLinked !== false,
+          // 필드 표준화 (field_standardization.md A-18~A-20)
+          education_format: applyState.educationFormat || applyState.education_format || null,
+          is_overseas: applyState.isOverseas === true || applyState.is_overseas === true || false,
+          overseas_country: applyState.overseasCountry || applyState.overseas_country || null,
           detail: {
             purpose: applyState.purpose?.id || null,
             budgetId: applyState.budgetId || null,
@@ -2036,6 +2040,10 @@ async function confirmApply() {
           policy_id: applyState.policyId || null,
           form_template_id: applyState.formTemplate?.id || null,
           form_version: applyState.formTemplate?.version || null,
+          // 필드 표준화 (field_standardization.md A-18~A-20)
+          education_format: applyState.educationFormat || applyState.education_format || null,
+          is_overseas: applyState.isOverseas === true || applyState.is_overseas === true || false,
+          overseas_country: applyState.overseasCountry || applyState.overseas_country || null,
           detail: {
             purpose: applyState.purpose?.id || null,
             expenses: applyState.expenses,

@@ -4453,3 +4453,78 @@ function getRoleLabel(persona) {
   if (isOpManager(persona)) return '운영담당자';
   return persona.roleLabel || persona.role || '관리자';
 }
+
+// === BO 공통 교육 캐스케이드 필터 (Phase 16 - bo_result_mgmt.js에서 이관) ===
+// 사용법: ${_boEduFilterBar("renderMyScreen")}  <- 화면 렌더 함수명 문자열로 전달
+// 전역 필터 상태 (모든 BO 화면 공유)
+var _boEduFilter = (typeof _boEduFilter !== "undefined") ? _boEduFilter : {
+  tenantId: "",
+  vorgId: "",
+  accountCode: "",
+  purpose: "",
+  eduType: "",
+  eduSubType: "",
+};
+
+function _boEduFilterBar(onChangeCallback) {
+  var tenants = (typeof TENANTS !== "undefined" && Array.isArray(TENANTS)) ? TENANTS : [];
+  var vorgTemplates = (typeof VORG_TEMPLATES !== "undefined" && Array.isArray(VORG_TEMPLATES)) ? VORG_TEMPLATES : [];
+  var budgetAccounts = (typeof BUDGET_ACCOUNTS !== "undefined" && Array.isArray(BUDGET_ACCOUNTS)) ? BUDGET_ACCOUNTS : [];
+  var purposes = (typeof EDU_PURPOSE_GROUPS !== "undefined" && Array.isArray(EDU_PURPOSE_GROUPS)) ? EDU_PURPOSE_GROUPS : [];
+  var typeGroups = (typeof EDU_TYPE_GROUPS !== "undefined" && Array.isArray(EDU_TYPE_GROUPS)) ? EDU_TYPE_GROUPS : [];
+  var typeItems = (typeof EDU_TYPE_ITEMS !== "undefined" && Array.isArray(EDU_TYPE_ITEMS)) ? EDU_TYPE_ITEMS : [];
+  if (!_boEduFilter.tenantId && boCurrentPersona && boCurrentPersona.tenantId) {
+    _boEduFilter.tenantId = boCurrentPersona.tenantId;
+  }
+  var filteredVorgs = _boEduFilter.tenantId ? vorgTemplates.filter(function(v) { return (v.tenant_id || v.tenantId) === _boEduFilter.tenantId; }) : vorgTemplates;
+  var filteredAccounts = _boEduFilter.tenantId ? budgetAccounts.filter(function(a) { return (a.tenant_id || a.tenantId) === _boEduFilter.tenantId; }) : budgetAccounts;
+  var filteredTypes = _boEduFilter.purpose ? typeGroups.filter(function(g) { return g.purpose_id === _boEduFilter.purpose; }) : typeGroups;
+  var filteredSubTypes = _boEduFilter.eduType ? typeItems.filter(function(i) { return i.group_id === _boEduFilter.eduType; }) : typeItems;
+  return '<div class="bo-filter-bar">' +
+    '<span style="font-size:12px;font-weight:800;color:#6B7280;margin-right:8px">' + String.fromCodePoint(0x1F50D) + ' ' + String.fromCodePoint(0xC870) + String.fromCodePoint(0xD68C) + ' ' + String.fromCodePoint(0xD544) + String.fromCodePoint(0xD130) + '</span>' +
+    '<div style="display:flex;align-items:center;gap:8px"><span class="bo-filter-label">' + String.fromCodePoint(0xD68C) + String.fromCodePoint(0xC0AC) + '</span>' +
+    '<select id="bf-tenant" class="bo-filter-select" onchange="_boFilterChange(\'tenantId\',this.value,\'' + onChangeCallback + '\')">' +
+    '<option value="">' + String.fromCodePoint(0xC804) + String.fromCodePoint(0xCCB4) + ' ' + String.fromCodePoint(0xD68C) + String.fromCodePoint(0xC0AC) + '</option>' +
+    tenants.map(function(t) { return '<option value="' + t.id + '"' + (_boEduFilter.tenantId === t.id ? ' selected' : '') + '>' + (t.name || t.id) + '</option>'; }).join('') +
+    '</select></div>' +
+    '<div class="bo-filter-divider"></div>' +
+    '<div style="display:flex;align-items:center;gap:8px"><span class="bo-filter-label">' + String.fromCodePoint(0xACC4) + String.fromCodePoint(0xC815) + '</span>' +
+    '<select id="bf-account" class="bo-filter-select" onchange="_boFilterChange(\'accountCode\',this.value,\'' + onChangeCallback + '\')">' +
+    '<option value="">' + String.fromCodePoint(0xC804) + String.fromCodePoint(0xCCB4) + ' ' + String.fromCodePoint(0xACC4) + String.fromCodePoint(0xC815) + '</option>' +
+    filteredAccounts.map(function(a) { var code = a.code || a.id; return '<option value="' + code + '"' + (_boEduFilter.accountCode === code ? ' selected' : '') + '>' + a.name + '</option>'; }).join('') +
+    '</select></div>' +
+    '<div class="bo-filter-divider"></div>' +
+    '<button onclick="window[\'' + onChangeCallback + '\']()" class="bo-filter-btn-search">' + String.fromCodePoint(0x25CF) + ' ' + String.fromCodePoint(0xC870) + String.fromCodePoint(0xD68C) + '</button>' +
+    '<button onclick="_boFilterReset(\'' + onChangeCallback + '\')" class="bo-filter-btn-reset">' + String.fromCodePoint(0xCD08) + String.fromCodePoint(0xAE30) + String.fromCodePoint(0xD654) + '</button>' +
+    '</div>';
+}
+
+function _boFilterChange(key, value, callbackName) {
+  _boEduFilter[key] = value;
+  var order = ["tenantId", "vorgId", "accountCode", "purpose", "eduType", "eduSubType"];
+  var idx = order.indexOf(key);
+  for (var i = idx + 1; i < order.length; i++) _boEduFilter[order[i]] = "";
+  if (typeof window[callbackName] === "function") window[callbackName]();
+}
+
+function _boFilterReset(callbackName) {
+  _boEduFilter = {
+    tenantId: (boCurrentPersona && boCurrentPersona.tenantId) ? boCurrentPersona.tenantId : "",
+    vorgId: "",
+    accountCode: "",
+    purpose: "",
+    eduType: "",
+    eduSubType: "",
+  };
+  if (typeof window[callbackName] === "function") window[callbackName]();
+}
+
+function _boApplyEduFilter(items) {
+  return items.filter(function(item) {
+    if (_boEduFilter.tenantId && (item.tenant_id || item.tenantId) !== _boEduFilter.tenantId) return false;
+    if (_boEduFilter.accountCode && (item.account_code || item.account) !== _boEduFilter.accountCode) return false;
+    if (_boEduFilter.purpose && item.detail && item.detail.purpose !== _boEduFilter.purpose) return false;
+    if (_boEduFilter.eduType && (item.edu_type || item.eduType) !== _boEduFilter.eduType) return false;
+    return true;
+  });
+}

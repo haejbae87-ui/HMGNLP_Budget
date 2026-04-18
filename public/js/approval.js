@@ -918,3 +918,68 @@ function _aprSingleSubmitFromPlan(planId, planTitle) {
   }
 }
 
+
+// ─── #4: 팀원 수요예측 계획 대표 상신 (팀뷰 → 일괄 상신 모달) ──────────────
+// plans.js 팀뷰에서 teamSavedBar의 "일괄 상신" 버튼이 이 함수를 호출
+// planIds: saved 상태인 팀원 계획 ID 배열
+async function _aprBulkSubmitFromTeam(planIds) {
+  if (!planIds || planIds.length === 0) {
+    alert('상신할 계획이 없습니다.');
+    return;
+  }
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 실패'); return; }
+
+  try {
+    // DB에서 해당 계획 상세 조회 (계정 동일성 검증)
+    const { data: plans, error } = await sb.from('plans')
+      .select('id, edu_name, account_code, status, applicant_name')
+      .in('id', planIds)
+      .eq('status', 'saved');
+    if (error) throw error;
+    if (!plans || plans.length === 0) {
+      alert('상신 가능한 계획이 없습니다. (이미 상신됐거나 상태가 변경됐을 수 있습니다)');
+      return;
+    }
+
+    // 계정 동일성 검사
+    const accounts = [...new Set(plans.map(p => p.account_code).filter(Boolean))];
+    if (accounts.length > 1) {
+      alert(`⚠️ 일괄 상신은 같은 예산 계정만 가능합니다.\n\n발견된 계정: ${accounts.join(', ')}\n\n동일 계정의 계획만 선택해 주세요.`);
+      return;
+    }
+
+    // _aprSelectedItems에 등록 후 모달 오픈
+    if (typeof _aprSelectedItems !== 'undefined') _aprSelectedItems.clear();
+    const items = plans.map(p => ({
+      id: p.id,
+      title: `${p.applicant_name || '팀원'} — ${p.edu_name || p.id}`,
+      account: p.account_code || '',
+    }));
+
+    // _aprSelectedItems에 추가
+    if (typeof _aprSelectedItems !== 'undefined') {
+      items.forEach(item => {
+        _aprSelectedItems.set(item.id, {
+          id: item.id,
+          table: 'plans',
+          type: 'plan',
+          account: item.account,
+        });
+      });
+    }
+
+    // 모달 오픈
+    if (typeof _aprOpenModal === 'function') {
+      _aprOpenModal(items);
+    } else {
+      // approval.js가 아직 로드되지 않은 경우 — 결재함으로 이동
+      if (typeof navigateTo === 'function') navigateTo('approval-member');
+      setTimeout(() => { if (typeof _aprOpenModal === 'function') _aprOpenModal(items); }, 600);
+    }
+  } catch (err) {
+    alert('팀원 계획 조회 실패: ' + err.message);
+    console.error('[_aprBulkSubmitFromTeam]', err.message);
+  }
+}

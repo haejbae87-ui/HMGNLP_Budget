@@ -1,6 +1,6 @@
 # 🚧 개발 진행 상황 (실시간)
 
-> **[22:39] 재개** — 이전 세션 멈춤 지점부터 이어서 진행 중
+> **[22:54] 병렬 코딩 중!**
 
 ---
 
@@ -8,28 +8,21 @@
 
 | # | 작업 | 상태 | 비고 |
 |---|------|:---:|------|
-| **S-5** | plans.js 목록 카드에 saved 상신 버튼 추가 | 🔄 진행 중 | _renderPlanCard() L523 수정 |
-| **S-6** | 리더용 결재함 in_review 섹션 표시 | ⏳ 대기 | approval.js |
-| **E-5** | 회수(recalled) 기능 | ⏳ 대기 | approval.js |
+| **#13-P2** | budget_allocation_sync 개선 | 🔄 코딩 중 | bo_allocation.js L809/L867 |
+| **#7** | FO 계획 목록 상태/계정 필터 추가 | 🔄 코딩 중 | plans.js L390-L514 |
+| **#4** | 수요예측 팀원 대표 상신 | 🔄 코딩 중 | plans.js 팀뷰 섹션 |
 
 ---
 
-## 🔄 현재 단계: **[22:39] S-5 코딩 시작**
+## 🔄 현재 단계: **[22:54] 3개 작업 동시 코딩**
 
-### 작업 계획:
-- `plans.js` STATUS_CFG에 saved 색상 추가
-- `plans.js` actionBtns에 saved 상태 → 상신 버튼
-- `plans.js` _renderPlanDetailView()에도 saved 버튼 추가
-- `approval.js` 리더용 결재함에 in_review 필터 추가
-- `approval.js` 회수(recalled) 함수 추가
+### 내용:
+- `plans.js` L390 near: 상태 필터(전체/저장완료/결재대기/승인완료/반려) + 계정 필터 드롭다운 추가
+- `plans.js` 팀뷰: 팀장이 팀원 saved 계획들을 일괄 선택·상신하는 버튼 추가
+- `bo_allocation.js` L809, L867: account_budgets upsert 후 org_budget_bankbooks → budget_allocations도 연쇄 동기화
 
 ---
 
-## ✅ 이전 세션 완료
+## ✅ Core Phase 완료
 
-| 시각 | 작업 |
-|------|------|
-| 21:48 | S-3/S-4 상신 문서 모달 + saved 목록 섹션 |
-| 21:48 | E-4 1차검토/최종승인 역할 분기 |
-| 21:37 | S-2 plans.js 3단계 버튼 |
-| 21:37 | E-2 bo_allocation.js 역할 분기 |
+S-2 ~ E-5 완료 (커밋 `7c22246`)

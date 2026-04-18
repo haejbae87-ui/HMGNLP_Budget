@@ -253,6 +253,11 @@ function _foEduTypeLabel(key) {
 let _dbMyPlans = [];
 let _plansDbCache = []; // raw DB data for detail view
 let _plansDbLoaded = false;
+
+// #7: 필터 상태 변수
+let _planStatusFilter = 'all'; // all | saved | pending | approved | rejected
+let _planAccountFilter = ''; // '' = 전체
+
 function _mapDbStatus(s) {
   const m = {
     draft: "작성중",
@@ -389,19 +394,35 @@ function renderPlans() {
   }
   const plans = _planViewTab === "mine" ? myPlans : teamPlans;
 
+  // #7: 상태/계정 필터 적용
+  const uniqueAccounts = [...new Set(plans.map(p => p.account || '').filter(Boolean))];
+  const filteredPlans = plans.filter(p => {
+    const rawSt = p.status || '';
+    // 상태 필터 매칬
+    const statusMatch = _planStatusFilter === 'all' ||
+      ((_planStatusFilter === 'saved') && (rawSt === 'saved' || rawSt === '저장완료')) ||
+      ((_planStatusFilter === 'pending') && (rawSt === 'pending' || rawSt === 'submitted' || rawSt === 'in_review' || rawSt === '신청중' || rawSt === '결재진행중')) ||
+      ((_planStatusFilter === 'approved') && (rawSt === 'approved' || rawSt === '승인완료')) ||
+      ((_planStatusFilter === 'rejected') && (rawSt === 'rejected' || rawSt === '반려'));
+    const accountMatch = !_planAccountFilter || p.account === _planAccountFilter;
+    return statusMatch && accountMatch;
+  });
+
   // 통계
   const stats = {
     total: plans.length,
+    saved: plans.filter(p => p.status === 'saved' || p.status === '저장완료').length,
     active: plans.filter(
       (p) =>
         p.status === "승인완료" ||
+        p.status === "approved" ||
         p.status === "신청중" ||
         p.status === "진행중" ||
         p.status === "결재진행중",
     ).length,
     done: plans.filter((p) => p.status === "완료").length,
-    rejected: plans.filter((p) => p.status === "반려").length,
-    draft: plans.filter((p) => p.status === "작성중").length,
+    rejected: plans.filter((p) => p.status === "반려" || p.status === "rejected").length,
+    draft: plans.filter((p) => p.status === "작성중" || p.status === "draft").length,
   };
 
   // 연도 선택
@@ -476,10 +497,46 @@ function renderPlans() {
       .join("")}
   </div>`;
 
+  // #7: 필터 UI
+  const filterBar = `
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+    <div style="display:flex;gap:4px">
+      ${[['all','표전체'],['saved','📤저장완료'],['pending','⏳결재대기'],['approved','✅승인완료'],['rejected','❌반려']]
+        .map(([val,label]) => `<button onclick="_planStatusFilter='${val}';_plansDbLoaded=false;_dbMyPlans=[];_plansDbCache=[];renderPlans()"
+          style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;
+          border:1.5px solid ${_planStatusFilter===val?'#002C5F':'#E5E7EB'};
+          background:${_planStatusFilter===val?'#002C5F':'white'};
+          color:${_planStatusFilter===val?'white':'#6B7280'}">${label}</button>`).join('')}
+    </div>
+    ${uniqueAccounts.length > 1 ? `<select onchange="_planAccountFilter=this.value;renderPlans()"
+      style="padding:6px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer">
+      <option value="">계정 전체</option>
+      ${uniqueAccounts.map(a=>`<option value="${a}" ${_planAccountFilter===a?'selected':''}>${a}</option>`).join('')}
+    </select>` : ''}
+    <span style="font-size:11px;color:#9CA3AF;margin-left:auto">필터된 결과: <b>${filteredPlans.length}</b>건</span>
+  </div>`;
+
+  // #4: 팅의 saved 계획 일괄 상신 UI (팀장 + 팀뮤)
+  const teamSavedPlans = _planViewTab === 'team'
+    ? filteredPlans.filter(p => p.status === 'saved' || p.status === '저장완료')
+    : [];
+  const teamSavedBar = teamSavedPlans.length > 0
+    ? `<div style="margin-bottom:16px;padding:14px 18px;border-radius:14px;background:#ECFDF5;border:1.5px solid #6EE7B7;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-size:13px;font-weight:900;color:#065F46">📤 저장완료 팀원 계획 ${teamSavedPlans.length}건</div>
+          <div style="font-size:11px;color:#059669;margin-top:2px">한번에 상신할 수 있습니다 (동일 계정 항목만)</div>
+        </div>
+        <button onclick="_aprBulkSubmitFromTeam([${teamSavedPlans.map(p=>`'${String(p.id).replace(/'/g,'')}'`).join(',')}])"
+          style="padding:8px 20px;border-radius:10px;background:#059669;color:white;font-size:12px;font-weight:900;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.25)">
+          📤 일괄 상신 (${teamSavedPlans.length}건)
+        </button>
+       </div>`
+    : '';
+
   // 계획 카드 목록
   const listHtml =
-    plans.length > 0
-      ? plans.map((p) => _renderPlanCard(p)).join("")
+    filteredPlans.length > 0
+      ? filteredPlans.map((p) => _renderPlanCard(p)).join("")
       : `<div style="padding:60px 20px;text-align:center;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB">
         <div style="font-size:48px;margin-bottom:16px">📋</div>
         <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">
@@ -509,6 +566,8 @@ function renderPlans() {
   </div>
   ${tabBar}
   ${statsBar}
+  ${filterBar}
+  ${teamSavedBar}
   <div id="fo-realloc-area"></div>
   <div id="plan-list">${listHtml}</div>
 </div>`;

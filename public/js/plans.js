@@ -2366,13 +2366,21 @@ function _checkHardLimits() {
 function _renderCalcGroundsSection(s, curBudget) {
   if (typeof CALC_GROUNDS_MASTER === "undefined") return "";
 
-  // v3: 교육운영형 항목만 필터링
+  // ─── PURPOSE 기반 유형 자동 판별 ───────────────────────────────────────────
+  const purposeId = s.purpose?.id || "";
+  // external_personal = 직접학습형(개인 사외교육), 나머지 = 교육운영형
+  const isSelfLearning = purposeId === "external_personal";
+  const usageType = isSelfLearning ? "self_learning" : "edu_operation";
+
   const vorgId = currentPersona?.vorgTemplateId || null;
   const items = (typeof _getCalcGroundsForType === "function")
-    ? _getCalcGroundsForType("edu_operation", vorgId, false)
+    ? _getCalcGroundsForType(usageType, vorgId, false)
     : (typeof getCalcGroundsForVorg === "function" ? getCalcGroundsForVorg(vorgId, null) : []);
 
   if (items.length === 0 && (!s.calcGrounds || s.calcGrounds.length === 0)) return "";
+
+  // 직접학습형 → 별도 심플 UI
+  if (isSelfLearning) return _renderSLCalcGrounds(s, items);
 
   const rows = s.calcGrounds || [];
   const subtotal = rows.reduce((sum, r) => sum + (r.total || 0), 0);
@@ -2524,6 +2532,170 @@ function _renderApprovalRouteInfo(s, curBudget) {
   <span class="text-xs font-bold text-amber-800">${route.range.label}: ${route.range.approvers.join(" → ")}</span>
   <span class="text-[10px] text-amber-600 ml-1">(예상 결재라인)</span>
 </div>`;
+}
+
+// ─── 직접학습형 (self_learning) 산출근거 UI ──────────────────────────────────
+// purpose = external_personal (개인 사외교육) → 단가 × 인원 = 소계 (2중 승산)
+function _renderSLCalcGrounds(s, items) {
+  const rows = s.calcGrounds || [];
+  const subtotal = rows.reduce((sum, r) => sum + (r.total || 0), 0);
+
+  // DB에 self_learning 항목이 없으면 하드코딩 폴백 제공
+  const SL_FALLBACK = [
+    { id: "_sl_edu",   name: "교육비/등록비",  unitPrice: 0 },
+    { id: "_sl_mat",   name: "교보재비",       unitPrice: 0 },
+    { id: "_sl_exam",  name: "시험응시료",      unitPrice: 0 },
+    { id: "_sl_trvl",  name: "교통비",         unitPrice: 0 },
+    { id: "_sl_other", name: "기타",           unitPrice: 0 },
+  ];
+  const itemList = items.length > 0 ? items : SL_FALLBACK;
+
+  const rowHtml = rows.map((row, idx) => {
+    const item = itemList.find(g => g.id === row.itemId) || null;
+    const isSoftOver = item?.softLimit > 0 && row.total > item.softLimit;
+    const isHardOver = item?.hardLimit > 0 && row.total > item.hardLimit;
+    const rowBg = isHardOver ? "#FEF2F2" : isSoftOver ? "#FFFBEB" : "#fff";
+    return `
+    <tr style="background:${rowBg};border-top:1px solid #F3F4F6">
+      <td class="px-3 py-2">
+        <select onchange="_cgSlUpdateItem(${idx}, this.value)"
+          style="font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:4px 6px;background:#fff;max-width:150px">
+          <option value="">-- 항목 선택 --</option>
+          ${itemList.map(g => `<option value="${g.id}" ${row.itemId === g.id ? "selected" : ""}>${g.name}</option>`).join("")}
+        </select>
+        ${isSoftOver && !isHardOver ? `<div class="mt-1"><span style="color:#D97706;font-size:10px;font-weight:800">⚠ Soft Limit 초과</span>
+          <input type="text" placeholder="초과 사유 입력" value="${row.limitOverrideReason||""}"
+            oninput="_cgUpdateReason(${idx},this.value)"
+            style="display:block;margin-top:2px;font-size:10px;border:1px solid #FDE68A;border-radius:4px;padding:2px 6px;width:100%;box-sizing:border-box"></div>` : ""}
+        ${isHardOver ? `<span style="color:#DC2626;font-size:10px;font-weight:800;display:block;margin-top:2px">🚫 Hard Limit 초과 — 저장 불가</span>` : ""}
+      </td>
+      <td class="px-3 py-2">
+        <input type="number" value="${row.unitPrice || 0}"
+          oninput="_cgSlUpdatePrice(${idx}, this.value)"
+          style="width:90px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:4px 6px">
+      </td>
+      <td class="px-3 py-2">
+        <input type="number" value="${row.qty1 || 1}" min="1"
+          oninput="_cgSlUpdateQty(${idx}, this.value)"
+          style="width:52px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:4px 6px">
+      </td>
+      <td class="px-3 py-2 text-right font-black" style="color:${isHardOver?"#DC2626":isSoftOver?"#D97706":"#111827"};min-width:80px">
+        ${fmt(row.total)}원
+      </td>
+      <td class="px-3 py-2">
+        <input type="text" value="${row.note || ""}" placeholder="비고"
+          oninput="_cgSlUpdateNote(${idx}, this.value)"
+          style="width:80px;font-size:11px;border:1.5px solid #E5E7EB;border-radius:6px;padding:4px 6px">
+      </td>
+      <td class="px-3 py-2 text-center">
+        <button onclick="_cgRemoveRow(${idx})" style="color:#D1D5DB;font-size:14px;border:none;background:none;cursor:pointer">✕</button>
+      </td>
+    </tr>`;
+  }).join("");
+
+  return `
+<div class="rounded-2xl border-2 border-green-100 bg-gradient-to-br from-green-50 to-emerald-50 p-5">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <div class="text-xs font-black text-green-600 uppercase tracking-widest mb-0.5">
+        💰 세부 산출 근거
+        <span style="font-size:10px;background:#D1FAE5;color:#059669;padding:2px 8px;border-radius:5px">🎒 개인직무/사외교육용 (단가 × 인원)</span>
+      </div>
+      <div class="text-[11px] text-gray-500">항목 선택 후 단가·인원을 입력하면 소계가 자동 계산됩니다.</div>
+    </div>
+    <button onclick="_cgAddRowSL()"
+      class="text-xs font-black text-white bg-green-600 px-4 py-2 rounded-xl hover:bg-green-700 transition shadow">
+      + 항목 추가
+    </button>
+  </div>
+
+  ${rows.length > 0 ? `
+  <div class="bg-white rounded-xl overflow-hidden border border-green-100 mb-3" style="overflow-x:auto">
+    <table class="w-full text-xs" style="min-width:520px">
+      <thead class="bg-green-50">
+        <tr class="text-[10px] font-black text-green-600 uppercase tracking-wider">
+          <th class="px-3 py-2 text-left" style="min-width:140px">항목</th>
+          <th class="px-3 py-2 text-right w-24">단가 (원)</th>
+          <th class="px-3 py-2 text-right w-16">인원 (명)</th>
+          <th class="px-3 py-2 text-right w-24">소계 (원)</th>
+          <th class="px-3 py-2 text-left w-20">비고</th>
+          <th class="px-3 py-2 w-8"></th>
+        </tr>
+      </thead>
+      <tbody>${rowHtml}</tbody>
+    </table>
+  </div>
+  <div class="flex items-center justify-between bg-white rounded-xl px-4 py-3 border border-green-100">
+    <div class="text-xs font-black text-gray-500">세부 산출 합계</div>
+    <div class="font-black text-lg text-green-700">${fmt(subtotal)}원</div>
+  </div>` : `
+  <div class="bg-white rounded-xl px-4 py-6 text-center text-sm text-gray-400 border border-dashed border-green-200">
+    위의 '+ 항목 추가' 버튼을 눌러 비용 항목을 입력하세요 (교육비, 교보재비, 시험응시료 등).
+  </div>`}
+</div>`;
+}
+
+// 직접학습형 행 추가
+function _cgAddRowSL() {
+  if (!planState.calcGrounds) planState.calcGrounds = [];
+  const vorgId = currentPersona?.vorgTemplateId || null;
+  const items = (typeof _getCalcGroundsForType === "function")
+    ? _getCalcGroundsForType("self_learning", vorgId, false)
+    : [];
+  const first = items[0] || null;
+  planState.calcGrounds.push({
+    itemId: first?.id || "_sl_edu",
+    unitPrice: first?.unitPrice || 0,
+    qty1: 1,
+    qty: 1,
+    qty2: 1,
+    qty3: 1,
+    total: 0,
+    note: "",
+    limitOverrideReason: "",
+  });
+  _syncCalcToAmount();
+  renderPlanWizard();
+}
+
+// 직접학습형 행 업데이트 헬퍼
+function _cgSlUpdateItem(idx, itemId) {
+  const row = planState.calcGrounds[idx];
+  if (!row) return;
+  const vorgId = currentPersona?.vorgTemplateId || null;
+  const items = (typeof _getCalcGroundsForType === "function")
+    ? _getCalcGroundsForType("self_learning", vorgId, false)
+    : [];
+  const item = items.find(g => g.id === itemId) || null;
+  row.itemId = itemId;
+  row.unitPrice = item?.unitPrice || row.unitPrice || 0;
+  row.total = row.unitPrice * (row.qty1 || 1);
+  _syncCalcToAmount();
+  renderPlanWizard();
+}
+
+function _cgSlUpdatePrice(idx, val) {
+  const row = planState.calcGrounds[idx];
+  if (!row) return;
+  row.unitPrice = Number(val) || 0;
+  row.total = row.unitPrice * (row.qty1 || 1);
+  _syncCalcToAmount();
+  if (planState.step === 4) renderPlanWizard();
+}
+
+function _cgSlUpdateQty(idx, val) {
+  const row = planState.calcGrounds[idx];
+  if (!row) return;
+  row.qty1 = Math.max(1, Number(val) || 1);
+  row.qty = row.qty1;
+  row.total = (row.unitPrice || 0) * row.qty1;
+  _syncCalcToAmount();
+  if (planState.step === 4) renderPlanWizard();
+}
+
+function _cgSlUpdateNote(idx, val) {
+  const row = planState.calcGrounds[idx];
+  if (row) row.note = val;
 }
 
 // ─── Calc Grounds 행 조작 함수 ─────────────────────────────────────────────── v3

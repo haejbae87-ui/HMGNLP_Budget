@@ -44,6 +44,12 @@ async function _foLoadCalcGrounds() {
       limitType: r.limit_type || "none",
       active: true,
       sortOrder: r.sort_order || 99,
+      // ── 신규 컬럼 (calc_grounds_ux_redesign PRD 5.1) ──
+      usageType: r.usage_type || "edu_operation", // 'self_learning' | 'edu_operation'
+      hasRounds: r.has_rounds === true,           // 차수(qty3) 컬럼 활성 여부
+      hasQty2: r.has_qty2 === true,              // 박/일/회(qty2) 컬럼 활성 여부
+      qty2Type: r.qty2_type || "박",             // qty2 단위: '박' | '일' | '회'
+      isOverseas: r.is_overseas === true,        // 해외 전용 항목 여부
     }));
     // CALC_GROUNDS_MASTER 동기화 (plans.js _renderCalcGroundsSection 재사용)
     if (typeof CALC_GROUNDS_MASTER !== "undefined") {

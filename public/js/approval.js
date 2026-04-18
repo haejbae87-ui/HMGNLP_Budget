@@ -46,6 +46,7 @@ function _aprStatusLabel(s) {
     rejected: "반려",
     cancelled: "취소",
     completed: "완료",
+    result_pending: "BO 검토 중",  // 정산 검토 대기
   };
   return m[s] || s || "결재대기";
 }
@@ -130,6 +131,7 @@ async function renderApprovalMember() {
       (d) => ['pending','pending_approval','submitted','in_review'].includes(d.status)
     ).length,
     rejected: data.filter((d) => d.status === "rejected").length,
+    resultPending: data.filter((d) => d.status === "result_pending").length,
   };
 
   const STATUS_FINAL = {
@@ -142,6 +144,8 @@ async function renderApprovalMember() {
     recalled: { label: "회수됨", color: "#6B7280", bg: "#F9FAFB", icon: "↩️" },
     cancelled: { label: "취소", color: "#9CA3AF", bg: "#F9FAFB", icon: "🚫" },
     completed: { label: "완료", color: "#059669", bg: "#F0FDF4", icon: "✅" },
+    result_pending: { label: "BO 검토 중", color: "#1D4ED8", bg: "#EFF6FF", icon: "🔵" },
+    // BO 담당자가 정산 결과를 검토 중인 상태 (result.js → result_pending 전환 후)
   };
 
   // ── [S-4] 저장완료(상신대기) 섹션 ───────────────────────────────────────
@@ -297,12 +301,13 @@ async function renderApprovalMember() {
   ${savedSection}
 
   <!-- 통계 카드 -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px">
     ${[
       { label: "상신대기", val: stats.saved, color: "#059669", bg: "#F0FDF4", icon: "📤" },
       { label: "전체", val: stats.total, color: "#002C5F", bg: "#EFF6FF", icon: "📋" },
       { label: "승인완료", val: stats.approved, color: "#059669", bg: "#F0FDF4", icon: "✅" },
       { label: "결재대기", val: stats.inProgress, color: "#D97706", bg: "#FFFBEB", icon: "⏳" },
+      { label: "BO 검토 중", val: stats.resultPending, color: "#1D4ED8", bg: "#EFF6FF", icon: "🔵" },
     ]
       .map(
         (s) => `

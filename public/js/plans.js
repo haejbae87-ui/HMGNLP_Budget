@@ -572,7 +572,12 @@ function renderPlans() {
   <div id="plan-list">${listHtml}</div>
 </div>`;
   _foRenderReallocUI();
+  // B-1: 카드 렌더링 후 잔여예산 뱃지 비동기 업데이트
+  if (filteredPlans.length > 0) {
+    setTimeout(() => _updateBudgetBadges(filteredPlans), 300);
+  }
 }
+
 
 // 팀 계획 DB 캐시
 let _dbTeamPlans = [];
@@ -665,12 +670,77 @@ function _renderPlanCard(p) {
           <span>💳 ${p.account || "-"} 예산</span>
           <span>💰 ${(p.amount || 0).toLocaleString()}원</span>
           ${Number(p.allocated_amount||0)>0?`<span style="font-weight:800;color:#059669">✅ 배정 ${Number(p.allocated_amount).toLocaleString()}원</span>`:`<span style="color:#D1D5DB">⏳ 미배정</span>`}
+          <!-- B-1: 잔여예산 뱃지 (비동기 로드) -->
+          ${p.account ? `<span id="budget-badge-${safeId}" style="font-size:10px;padding:2px 8px;border-radius:6px;background:#F3F4F6;color:#9CA3AF">잔액 로딩중...</span>` : ''}
         </div>
         ${actionBtns}
       </div>
       <div style="flex-shrink:0;color:#9CA3AF;font-size:16px;margin-top:4px">›</div>
     </div>`;
 }
+
+// ─── B-1: 계획 카드 잔여예산 비동기 업데이트 ─────────────────────────────────
+// 카드 렌더링 후 account_budgets를 조회하여 잔여예산 뱃지 업데이트
+let _budgetBadgeCache = {}; // account_code → { balance, total }
+
+async function _updateBudgetBadges(plans) {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) return;
+  // 고유 계정코드 수집 (빈값 제외, 캐시 미적중것만)
+  const accounts = [...new Set(plans.map(p => p.account || p.account_code).filter(Boolean))]
+    .filter(ac => !_budgetBadgeCache[ac]);
+  if (accounts.length === 0) {
+    // 캐시 히트: 바로 뱃지 업데이트
+    _applyBudgetBadges(plans);
+    return;
+  }
+  try {
+    const fiscal = _planYear || new Date().getFullYear();
+    const { data, error } = await sb.from('account_budgets')
+      .select('account_code, total_budget, balance, used')
+      .in('account_code', accounts)
+      .eq('fiscal_year', fiscal)
+      .eq('tenant_id', currentPersona.tenantId);
+    if (!error && data) {
+      data.forEach(row => {
+        const balance = row.balance ?? (Number(row.total_budget||0) - Number(row.used||0));
+        _budgetBadgeCache[row.account_code] = {
+          total: Number(row.total_budget || 0),
+          balance: Math.max(0, balance),
+        };
+      });
+    }
+  } catch (e) {
+    console.warn('[B-1] budget badge query failed:', e.message);
+  }
+  _applyBudgetBadges(plans);
+}
+
+function _applyBudgetBadges(plans) {
+  plans.forEach(p => {
+    const ac = p.account || p.account_code;
+    if (!ac) return;
+    const safeId = String(p.id || '').replace(/'/g, "\\'");
+    const el = document.getElementById(`budget-badge-${safeId}`);
+    if (!el) return;
+    const info = _budgetBadgeCache[ac];
+    if (!info) {
+      el.textContent = '잔액 정보 없음';
+      return;
+    }
+    const bal = info.balance;
+    const pct = info.total > 0 ? Math.round(bal / info.total * 100) : 0;
+    const color = bal <= 0 ? '#DC2626' : pct < 20 ? '#D97706' : '#059669';
+    const bg    = bal <= 0 ? '#FEE2E2' : pct < 20 ? '#FFFBEB' : '#F0FDF4';
+    el.style.background = bg;
+    el.style.color = color;
+    el.style.fontWeight = '800';
+    el.textContent = bal <= 0
+      ? '🔴 잔액 없음'
+      : `🟢 잔액 ${bal.toLocaleString()}원`;
+  });
+}
+
 
 // ─── PLAN WIZARD ─────────────────────────────────────────────────────────────
 

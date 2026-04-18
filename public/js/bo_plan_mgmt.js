@@ -825,27 +825,50 @@ function _toBoAdminKey(key) {
 }
 
 async function boPlanApprove(id) {
-  const sb = typeof getSB === "function" ? getSB() : null;
+  const plan = (_boPlanMgmtData || []).find(p => p.id === id);
+  const planName = plan?.edu_name || plan?.title || id;
+  if (!confirm(`✅ "${planName}"\n\n이 교육계획을 승인하시겠습니까?`)) return;
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  const prevStatus = plan?.status || 'pending';
   if (sb) {
-    await sb.from("plans").update({ status: "approved" }).eq("id", id);
+    await sb.from('plans').update({
+      status: 'approved',
+      approved_at: new Date().toISOString(),
+      approved_by: boCurrentPersona?.name || 'admin',
+      updated_at: new Date().toISOString(),
+    }).eq('id', id);
+
+    // E-6: 알림 — 1차검토 완료 상태에서 승인된 경우 신청자에게 알림 기록
+    await _boNotifyPlanStatus(sb, id, plan, 'approved', boCurrentPersona);
   }
   _boPlanMgmtData = null;
   _boPlanDetailView = null;
+  _boShowToast(`✅ "${planName}" 승인 완료!`, 'success');
   renderBoPlanMgmt();
 }
 
 async function boPlanReject(id) {
-  const reason = prompt("반려 사유를 입력해주세요:");
+  const plan = (_boPlanMgmtData || []).find(p => p.id === id);
+  const planName = plan?.edu_name || plan?.title || id;
+  const reason = prompt(`❌ "${planName}" 반려\n\n반려 사유를 입력해주세요:`);
   if (!reason) return;
-  const sb = typeof getSB === "function" ? getSB() : null;
+  const sb = typeof getSB === 'function' ? getSB() : null;
   if (sb) {
-    await sb
-      .from("plans")
-      .update({ status: "rejected", reject_reason: reason })
-      .eq("id", id);
+    await sb.from('plans').update({
+      status: 'rejected',
+      reject_reason: reason,
+      rejected_at: new Date().toISOString(),
+      rejected_by: boCurrentPersona?.name || 'admin',
+      updated_at: new Date().toISOString(),
+    }).eq('id', id);
+
+    // E-6: 반려 알림 기록
+    await _boNotifyPlanStatus(sb, id, plan, 'rejected', boCurrentPersona, reason);
   }
   _boPlanMgmtData = null;
   _boPlanDetailView = null;
+  _boShowToast(`❌ "${planName}" 반려 처리됨`, 'error');
   renderBoPlanMgmt();
 }
 
@@ -1362,3 +1385,85 @@ async function boPlanReview(planId) {
   }
 }
 
+// ─── E-6: 알림 시스템 헬퍼 ─────────────────────────────────────────────────
+
+/**
+ * 계획 상태 변경 시 approval_history 테이블에 기록
+ * FO 결재함에서 신청자가 최신 결재 이력을 확인할 수 있도록 합니다.
+ */
+async function _boNotifyPlanStatus(sb, planId, plan, newStatus, actor, reason) {
+  if (!sb || !planId) return;
+  try {
+    const actionLabel = {
+      approved:  '최종승인',
+      rejected:  '반려',
+      in_review: '1차검토완료',
+      recalled:  '회수',
+    }[newStatus] || newStatus;
+
+    // approval_history 테이블에 이력 기록
+    const { error } = await sb.from('approval_history').insert({
+      plan_id:       planId,
+      action:        actionLabel,
+      actor_id:      actor?.id || null,
+      actor_name:    actor?.name || 'system',
+      actor_role:    actor?.role || null,
+      from_status:   plan?.status || null,
+      to_status:     newStatus,
+      reason:        reason || null,
+      tenant_id:     plan?.tenant_id || actor?.tenantId || null,
+      created_at:    new Date().toISOString(),
+    });
+    if (error) {
+      // approval_history 컬럼 이름이 다를 수 있으므로 비치명적 처리
+      console.warn('[E-6] approval_history 기록 오류 (비치명적):', error.message);
+    } else {
+      console.log(`[E-6] 알림 기록 완료: ${planId} → ${newStatus} by ${actor?.name}`);
+    }
+  } catch (e) {
+    console.warn('[E-6] _boNotifyPlanStatus 오류:', e.message);
+  }
+}
+
+/**
+ * BO 화면 우측 하단 토스트 알림 표시 (2.5초 자동 사라짐)
+ * @param msg    표시할 메시지
+ * @param type   'success' | 'error' | 'info'
+ */
+function _boShowToast(msg, type = 'info') {
+  const COLOR = {
+    success: { bg: '#059669', border: '#065F46' },
+    error:   { bg: '#DC2626', border: '#991B1B' },
+    info:    { bg: '#1D4ED8', border: '#1E3A8A' },
+  }[type] || { bg: '#374151', border: '#111827' };
+
+  const toastId = `bo-toast-${Date.now()}`;
+  const div = document.createElement('div');
+  div.id = toastId;
+  div.style.cssText = `
+    position:fixed;bottom:28px;right:28px;z-index:99999;
+    background:${COLOR.bg};color:white;
+    padding:12px 22px;border-radius:12px;
+    font-size:13px;font-weight:800;
+    box-shadow:0 4px 20px rgba(0,0,0,.25);
+    border-left:4px solid ${COLOR.border};
+    animation:_boToastIn .25s ease;
+    max-width:320px;line-height:1.4;
+  `;
+  div.textContent = msg;
+  document.body.appendChild(div);
+
+  // CSS 애니메이션 주입 (중복 방지)
+  if (!document.getElementById('_boToastStyle')) {
+    const s = document.createElement('style');
+    s.id = '_boToastStyle';
+    s.textContent = `@keyframes _boToastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}`;
+    document.head.appendChild(s);
+  }
+
+  setTimeout(() => {
+    div.style.transition = 'opacity .3s';
+    div.style.opacity = '0';
+    setTimeout(() => div.remove(), 350);
+  }, 2500);
+}

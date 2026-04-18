@@ -1,4 +1,4 @@
-﻿// ─── APPLY (교육신청) — 목록 ↔ 신청폼 ↔ 결과폼 전환 허브 ────────────────────
+// ─── APPLY (교육신청) — 목록 ↔ 신청폼 ↔ 결과폼 전환 허브 ────────────────────
 
 // ─── DB 승인된 교육계획 캐시 (MOCK_PLANS 대체) ──────────────────────────────
 let _dbApprovedPlans = [];
@@ -2907,3 +2907,97 @@ async function _submitResult() {
     console.error("[_submitResult]", err.message);
   }
 }
+
+// ─── A-1: 신청 저장완료(saved) 저장 — 상신 대기 상태 ──────────────────────
+// 작성 완료 후 바로 결재 요청하지 않고 "저장완료" 상태로 보관
+// 팀원이 완성 후 팀장이 대표 상신하거나, 본인이 결재함에서 상신하는 패턴
+async function saveApplyAsReady() {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 실패'); return; }
+
+  // 필수 필드 검증 (저장완료 → 상신 가능 상태이므로 유효성 확인)
+  if (applyState.formTemplate && typeof validateRequiredFields === 'function') {
+    const result = validateRequiredFields(applyState.formTemplate, applyState);
+    if (!result.valid) {
+      alert('⚠️ 필수 항목을 모두 입력해야 저장완료 상태로 전환할 수 있습니다:\n\n• ' + result.errors.join('\n• '));
+      return;
+    }
+  }
+  if (!applyState.eduName && !applyState.title) {
+    alert('교육명을 입력해주세요.');
+    return;
+  }
+
+  try {
+    const curBudget = applyState.budgetId
+      ? (currentPersona.budgets || []).find(b => b.id === applyState.budgetId)
+      : null;
+    const totalExp = (applyState.expenses || []).reduce(
+      (sum, e) => sum + Number(e.price) * Number(e.qty), 0
+    );
+    const appId = applyState.editId || `APP-${Date.now()}`;
+    const _fSnap = applyState.formTemplate ? {
+      id: applyState.formTemplate.id,
+      name: applyState.formTemplate.name,
+      version: applyState.formTemplate.version || 1,
+      fields: (applyState.formTemplate.fields || []).map(f => ({
+        key: typeof f === 'object' ? f.key : f,
+        scope: f?.scope,
+        required: f?.required,
+      })),
+    } : null;
+
+    const row = {
+      id: appId,
+      tenant_id: currentPersona.tenantId,
+      plan_id: applyState.planId || null,
+      account_code: curBudget?.accountCode || '',
+      applicant_id: currentPersona.id,
+      applicant_name: currentPersona.name,
+      applicant_org_id: currentPersona.orgId || null,
+      dept: currentPersona.dept || '',
+      edu_name: applyState.eduName || applyState.title || '교육신청',
+      edu_type: applyState.eduType || applyState.eduSubType || null,
+      amount: totalExp,
+      status: 'saved',  // ← A-1 핵심: draft 아닌 saved로 저장
+      policy_id: applyState.policyId || null,
+      form_template_id: applyState.formTemplate?.id || null,
+      form_version: applyState.formTemplate?.version || null,
+      detail: {
+        purpose: applyState.purpose?.id || null,
+        budgetId: applyState.budgetId || null,
+        expenses: applyState.expenses,
+        courseSessionLinks: applyState.courseSessionLinks || [],
+        _form_snapshot: _fSnap,
+      },
+    };
+    const { error } = await sb.from('applications').upsert(row, { onConflict: 'id' });
+    if (error) throw error;
+    applyState.editId = appId;
+    alert('📤 저장완료 상태로 저장되었습니다.\n\n결재함(내 결재)에서 상신하거나,\n팀장이 대표로 상신할 수 있습니다.');
+    applyState = resetApplyState();
+    applyViewMode = 'list';
+    _appsDbLoaded = false;
+    _dbMyApps = [];
+    renderApply();
+  } catch (err) {
+    alert('저장완료 실패: ' + err.message);
+    console.error('[saveApplyAsReady]', err.message);
+  }
+}
+
+// ─── A-1: 신청 카드에서 단건 상신 브릿지 ─────────────────────────────────────
+// apply.js 신청 내역 카드의 saved 항목에 "상신하기" 버튼이 이 함수를 호출
+function _appSingleSubmit(appId, appTitle) {
+  if (typeof _aprSingleSubmit === 'function') {
+    _aprSingleSubmit(appId, 'applications', appTitle || '교육신청 상신');
+  } else {
+    if (typeof navigateTo === 'function') navigateTo('approval-member');
+    setTimeout(() => {
+      if (typeof _aprSingleSubmit === 'function') {
+        _aprSingleSubmit(appId, 'applications', appTitle || '교육신청 상신');
+      }
+    }, 600);
+  }
+}
+

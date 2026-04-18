@@ -1067,7 +1067,8 @@ async function _submitResultRegistration() {
       const { error } = await sb
         .from("applications")
         .update({
-          status: "completed",
+          status: "result_pending",
+          amount: Number(s.actualCost) || Number(prevDetail.amount) || 0,
           detail: {
             ...prevDetail,
             result: resultData,
@@ -1094,7 +1095,7 @@ async function _submitResultRegistration() {
         edu_name: s.title,
         edu_type: s.learningType || null,
         amount: totalCost,
-        status: "completed",
+        status: "result_pending",  // BO 정산 검토 후 → completed
         policy_id: null,
         detail: {
           resultType: "direct",
@@ -1112,7 +1113,7 @@ async function _submitResultRegistration() {
       if (error) throw error;
     }
 
-    alert("✅ 교육결과가 성공적으로 등록되었습니다.");
+    alert("✅ 교육결과가 등록되었습니다.\n\nBO 담당자 검토 후 최종 확정됩니다.");
     _resultWizardState = null;
     _resultDbLoaded = false;
     _resultDbRows = [];

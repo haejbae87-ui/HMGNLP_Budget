@@ -1251,15 +1251,32 @@ function renderPlanWizard() {
       <button onclick="planSelectBudget('${b.id}')" class="w-full text-left transition-all" style="padding:18px 20px;border-radius:14px;border:2px solid ${active ? "#002C5F" : "#E5E7EB"};background:${active ? "#EFF6FF" : "white"};cursor:pointer">
         <div style="display:flex;align-items:center;justify-content:space-between">
           <div>
-            <div style="display:flex;align-items:center;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">
               <span style="font-size:14px;font-weight:900;color:${active ? "#002C5F" : "#111827"}">${b.name}</span>
               ${vorgLabel}
             </div>
             <div style="font-size:11px;color:#9CA3AF;margin-top:3px">${acctTypeLabel}</div>
           </div>
-          ${active ? '<span style="font-size:11px;font-weight:900;padding:3px 10px;border-radius:6px;background:#DBEAFE;color:#1D4ED8">선택됨</span>' : ""}
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            ${(() => {
+              // currentPersona.budgets에서 잔액 즉시 조회
+              const personaBudget = (currentPersona.budgets || []).find(pb => pb.id === b.id || pb.name === b.name);
+              if (!personaBudget) return '<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:#F3F4F6;color:#9CA3AF;font-weight:800">⏳ 미배정</span>';
+              const remain = (personaBudget.balance || 0) - (personaBudget.used || 0);
+              const total  = personaBudget.balance || 0;
+              const pct    = total > 0 ? Math.round(remain / total * 100) : 0;
+              const [col, bg, icon] = remain <= 0
+                ? ['#DC2626', '#FEE2E2', '🔴']
+                : pct < 20
+                  ? ['#D97706', '#FFFBEB', '🟡']
+                  : ['#059669', '#F0FDF4', '🟢'];
+              return `<span style="font-size:10px;padding:2px 10px;border-radius:6px;background:${bg};color:${col};font-weight:900">${icon} 잔액 ${remain.toLocaleString()}원</span>`;
+            })()}
+            ${active ? '<span style="font-size:11px;font-weight:900;padding:3px 10px;border-radius:6px;background:#DBEAFE;color:#1D4ED8">선택됨</span>' : ""}
+          </div>
         </div>
       </button>`;
+
               })
               .join("")
           : `

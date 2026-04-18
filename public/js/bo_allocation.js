@@ -14,6 +14,28 @@ function renderBoAllocation() {
   const tenantName =
     TENANTS.find((t) => t.id === persona.tenantId)?.name || "전체";
 
+  // ── E-2: 역할 판별 ────────────────────────────────────────────────────
+  const isGlobal = typeof isGlobalAdmin === 'function' ? isGlobalAdmin(persona) : (persona.ownedAccounts || []).length > 0;
+  const isOp = typeof isOpManager === 'function' ? isOpManager(persona) : false;
+  // 운영담당자 = 정의된 역할이 budget_op_manager이거나 managedVorgId만 있고 ownedAccounts는 없는 사람
+  const isOpOnly = isOp && !isGlobal;
+
+  // 탭 목록: 운영담당자 차단 탭 (ⓗ 기초·추가배정)
+  const allTabs = [
+    { label: "📊 계정 예산 현황", fn: "renderAllocOverview", idx: 0 },
+    { label: "➕ 기초·추가 배정", fn: "renderAllocEntry", idx: 1, globalOnly: true },
+    { label: "📋 팀 배분", fn: "renderTeamDist", idx: 2 },
+    { label: "↔ 이관", fn: "renderAllocTransfer", idx: 3, globalOnly: true },
+    { label: "📜 변경 이력", fn: "renderAllocHistory", idx: 4 },
+  ];
+  const visibleTabs = isOpOnly ? allTabs.filter(t => !t.globalOnly) : allTabs;
+
+  // 역할 라벨
+  const roleLabel = typeof getRoleLabel === 'function' ? getRoleLabel(persona) : (isOpOnly ? '운영담당자' : '총괄담당자');
+  const roleBadge = isOpOnly
+    ? `<span style="background:#DBEAFE;color:#1D4ED8;font-size:10px;font-weight:800;padding:3px 10px;border-radius:6px">👤 ${roleLabel} — 조회전용</span>`
+    : `<span style="background:#D1FAE5;color:#065F46;font-size:10px;font-weight:800;padding:3px 10px;border-radius:6px">📊 ${roleLabel} — 전체 관리</span>`;
+
   el.innerHTML = `
 <div class="bo-fade">
   <div style="margin-bottom:20px">
@@ -21,41 +43,42 @@ function renderBoAllocation() {
       <span style="background:#059669;color:#fff;font-size:9px;font-weight:900;padding:3px 8px;border-radius:6px;letter-spacing:.08em">예산 배정</span>
       <h1 class="bo-page-title" style="margin:0">예산 배정 현황 관리</h1>
       <span style="font-size:13px;color:#6B7280">— ${tenantName}</span>
+      ${roleBadge}
     </div>
-    <p class="bo-page-sub">계정 총액 관리 → 팀 배분 → 실시간 원장 조회</p>
+    <p class="bo-page-sub">예산 흐름: 계정 총액 관리 → 팀 배분 → 실시간 원장 조회</p>
   </div>
 
   <!-- 예산 흐름 안내 -->
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:20px;padding:10px 16px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;font-size:12px;color:#065F46;font-weight:600;flex-wrap:wrap">
     <span>📌 예산 흐름:</span>
-    <span style="background:#DBEAFE;color:#1E40AF;padding:2px 8px;border-radius:6px">① 기초 예산 등록</span>
+    <span style="background:#DBEAFE;color:#1E40AF;padding:2px 8px;border-radius:6px">ⓘ 기초 예산 등록</span>
     <span style="color:#9CA3AF">→</span>
-    <span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:6px">② 계정 추가 배정 (연중 증액)</span>
+    <span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:6px">ⓙ 계정 추가 배정 (연중 증액)</span>
     <span style="color:#9CA3AF">→</span>
-    <span style="background:#D1FAE5;color:#065F46;padding:2px 8px;border-radius:6px">③ 팀 배분 (배분가능 재원 → 팀)</span>
+    <span style="background:#D1FAE5;color:#065F46;padding:2px 8px;border-radius:6px">ⓚ 팀 배분 (배분가능 재원 → 팀)</span>
     <span style="color:#9CA3AF">→</span>
-    <span style="background:#EDE9FE;color:#5B21B6;padding:2px 8px;border-radius:6px">④ 팀별 집행 관리</span>
+    <span style="background:#EDE9FE;color:#5B21B6;padding:2px 8px;border-radius:6px">ⓛ 팀별 집행 관리</span>
   </div>
+
+  ${isOpOnly ? `
+  <!-- 운영담당자 권한 안내 배너 -->
+  <div style="padding:10px 16px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:10px;margin-bottom:16px;font-size:12px;color:#1E40AF;font-weight:600;display:flex;align-items:center;gap:8px">
+    <span style="font-size:16px">🔒</span>
+    <div>
+      <div style="font-weight:800">운영담당자 모드: 계정 배정 탭은 조회전용입니다</div>
+      <div style="font-size:11px;color:#3B82F6">기초/추가 배정, 이관은 총괄담당자 권한입니다. 팀 배분 요청은 팀 배분 탭에서 가능합니다.</div>
+    </div>
+  </div>` : ''}
 
   <!-- 탭 -->
   <div style="display:flex;gap:0;border-bottom:2px solid #E5E7EB;margin-bottom:24px" id="alloc-tabs">
-    ${[
-      "📊 계정 예산 현황",
-      "➕ 기초·추가 배정",
-      "📋 팀 배분",
-      "↔ 이관",
-      "📜 변경 이력",
-    ]
-      .map(
-        (t, i) => `
-    <button onclick="showAllocTab(${i})" id="alloc-tab-${i}"
+    ${visibleTabs.map((t, i) => `
+    <button onclick="showAllocTabByIdx(${t.idx})" id="alloc-tab-${t.idx}"
       style="padding:10px 18px;font-size:12px;font-weight:700;border:none;background:transparent;cursor:pointer;
-             color:${i === 0 ? "#059669" : "#9CA3AF"};border-bottom:${i === 0 ? "3px solid #059669" : "3px solid transparent"};
+             color:${t.idx === _allocTab ? '#059669' : '#9CA3AF'};border-bottom:${t.idx === _allocTab ? '3px solid #059669' : '3px solid transparent'};
              margin-bottom:-2px;transition:all .15s;white-space:nowrap">
-      ${t}
-    </button>`,
-      )
-      .join("")}
+      ${t.label}
+    </button>`).join('')}
   </div>
   <div id="alloc-content">${renderAllocOverview()}</div>
 </div>`;
@@ -70,7 +93,25 @@ function renderBoAllocation() {
 }
 
 function showAllocTab(idx) {
+  showAllocTabByIdx(idx);
+}
+
+// E-2: idx 기반 탭 전환 (역할 서리 주치대상)
+function showAllocTabByIdx(idx) {
+  const persona = typeof boCurrentPersona !== 'undefined' ? boCurrentPersona : null;
+  const isGlobal = typeof isGlobalAdmin === 'function' ? isGlobalAdmin(persona) : true;
+  const isOp = typeof isOpManager === 'function' ? isOpManager(persona) : false;
+  const isOpOnly = isOp && !isGlobal;
+
+  // 운영담당자가 globalOnly 탭(탭1: 기초/추가배정, 탭3: 이관) 접근 시돈 경우 차단
+  const globalOnlyIdxs = [1, 3];
+  if (isOpOnly && globalOnlyIdxs.includes(idx)) {
+    alert('총괄담당자만 사용할 수 있는 메뉴입니다.\n\n기초 및 추가 배정은 총괄담당자에게 요청하세요.');
+    return;
+  }
+
   _allocTab = idx;
+  // 탭 스타일 업데이트 (0~4 모두)
   [0, 1, 2, 3, 4].forEach((i) => {
     const t = document.getElementById(`alloc-tab-${i}`);
     if (!t) return;

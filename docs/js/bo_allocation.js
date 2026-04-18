@@ -1,4 +1,4 @@
-﻿// ─── 예산 배정 및 관리 ────────────────────────────────────────────────────────
+// ─── 예산 배정 및 관리 ────────────────────────────────────────────────────────
 // 계층 구조:  계정 총액 (ACCOUNT_BUDGETS)
 //              └─ 팀 배분 (TEAM_DIST)
 //
@@ -734,7 +734,7 @@ function showAddSrcBadge() {
   </div>`;
 }
 
-function submitInitBudget() {
+async function submitInitBudget() {
   const abId = document.getElementById("init-ab")?.value;
   const amount = Number(document.getElementById("init-amount")?.value);
   const note =
@@ -749,6 +749,8 @@ function submitInitBudget() {
     alert("이미 기초 예산이 등록된 계정입니다. 증액은 추가 배정을 이용하세요.");
     return;
   }
+
+  // ── 인메모리 업데이트 ────────────────────────────────────────────────────
   ab.baseAmount = amount;
   ab.status = "confirmed";
   ab.enteredBy = boCurrentPersona.name;
@@ -762,16 +764,38 @@ function submitInitBudget() {
     note,
     by: boCurrentPersona.name,
   });
+
+  // ── Supabase DB 저장 (account_budgets upsert) ────────────────────────────
+  const sb = typeof getSB === "function" ? getSB() : null;
+  if (sb) {
+    try {
+      const { error } = await sb.from("account_budgets").upsert({
+        account_code: ab.accountCode,
+        fiscal_year: _allocYear || new Date().getFullYear(),
+        total_budget: amount,
+        deducted: 0,
+        holding: 0,
+        tenant_id: ab.tenantId,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'account_code,fiscal_year,tenant_id' });
+      if (error) throw error;
+      console.log(`[BO 기초예산] DB 저장 완료: ${ab.accountCode} ${amount}원`);
+    } catch (e) {
+      console.error("[BO 기초예산] DB 저장 오류:", e.message);
+      alert(`⚠ 인메모리에는 반영됐으나 DB 저장에 실패했습니다: ${e.message}`);
+    }
+  }
+
   const acctName =
     ACCOUNT_MASTER.find((a) => a.code === ab.accountCode)?.name ||
     ab.accountCode;
   alert(
-    `✅ 기초 예산 등록 완료!\n\n계정: ${acctName}\n금액: ${boFmt(amount)}원\n\n이제 [팀 배분] 탭에서 팀에 배분하세요.`,
+    `✅ 기초 예산 등록 완료!\n\n계정: ${acctName}\n금액: ${boFmt(amount)}원\n(DB 저장 완료)\n\n이제 [팀 배분] 탭에서 팀에 배분하세요.`,
   );
   showAllocTab(0);
 }
 
-function submitAddBudget() {
+async function submitAddBudget() {
   const abId = document.getElementById("add-ab")?.value;
   const amount = Number(document.getElementById("add-amount")?.value);
   const reason = document.getElementById("add-reason")?.value;
@@ -781,6 +805,8 @@ function submitAddBudget() {
   }
   const ab = ACCOUNT_BUDGETS.find((x) => x.id === abId);
   if (!ab) return;
+
+  // ── 인메모리 업데이트 ────────────────────────────────────────────────────
   ab.totalAdded += amount;
   ACCOUNT_ADJUST_HISTORY.push({
     id: `AH${Date.now()}`,
@@ -791,12 +817,33 @@ function submitAddBudget() {
     note: reason,
     by: boCurrentPersona.name,
   });
+
+  // ── Supabase DB 저장 (account_budgets upsert) ────────────────────────────
+  const sb = typeof getSB === "function" ? getSB() : null;
+  if (sb) {
+    try {
+      const newTotal = ab.baseAmount + ab.totalAdded;
+      const { error } = await sb.from("account_budgets").upsert({
+        account_code: ab.accountCode,
+        fiscal_year: _allocYear || new Date().getFullYear(),
+        total_budget: newTotal,
+        tenant_id: ab.tenantId,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'account_code,fiscal_year,tenant_id' });
+      if (error) throw error;
+      console.log(`[BO 추가배정] DB 저장 완료: ${ab.accountCode} +${amount}원, 총액 ${newTotal}원`);
+    } catch (e) {
+      console.error("[BO 추가배정] DB 저장 오류:", e.message);
+      alert(`⚠ 인메모리에는 반영됐으나 DB 저장에 실패했습니다: ${e.message}`);
+    }
+  }
+
   const acctName =
     ACCOUNT_MASTER.find((a) => a.code === ab.accountCode)?.name ||
     ab.accountCode;
   const newTotal = ab.baseAmount + ab.totalAdded;
   alert(
-    `✅ 추가 배정 완료!\n\n계정: ${acctName}\n+${boFmt(amount)}원 추가\n새 계정 총액: ${boFmt(newTotal)}원\n\n[팀 배분] 탭에서 배분 가능 재원을 팀에 배분하세요.`,
+    `✅ 추가 배정 완료!\n\n계정: ${acctName}\n+${boFmt(amount)}원 추가\n새 계정 총액: ${boFmt(newTotal)}원 (DB 저장 완료)\n\n[팀 배분] 탭에서 배분 가능 재원을 팀에 배분하세요.`,
   );
   showAllocTab(0);
 }

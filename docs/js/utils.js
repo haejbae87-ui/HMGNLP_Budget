@@ -1,4 +1,4 @@
-﻿// ─── UTILITY FUNCTIONS ────────────────────────────────────────────────────────
+// ─── UTILITY FUNCTIONS ────────────────────────────────────────────────────────
 
 function fmt(n) {
   return Number(n).toLocaleString("ko-KR");
@@ -639,3 +639,109 @@ function _restorePageFromHash() {
   if (hash && document.getElementById("page-" + hash)) return hash;
   return "dashboard";
 }
+
+// ─── BO 역할 판별 유틸 (E-1: edu_support_operations_role_design.md 기반) ──────
+//
+// 역할 체계:
+//   총괄담당자 (Global Admin)  : 전체 교육조직 관할, 최종 승인권
+//   운영담당자 (Op Manager)    : 담당 교육조직만 관할, 1차 검토/상신
+//   플랫폼 어드민              : 시스템 전체 권한 (총괄담당자 상위)
+//
+// 판별 기준: boCurrentPersona.role 또는 persona.role
+// 가능한 role 값: 'platform_admin' | 'budget_global_admin' | 'budget_op_manager' | 'tenant_admin'
+
+/**
+ * 총괄담당자 여부 판별
+ * - platform_admin, tenant_admin, budget_global_admin → true
+ * - budget_op_manager → false
+ * @param {object} persona - BO 페르소나 (boCurrentPersona)
+ * @returns {boolean}
+ */
+function isGlobalAdmin(persona) {
+  if (!persona) return false;
+  const role = persona.role || persona.boRole || '';
+  // platform_admin / tenant_admin 은 총괄담당자 이상
+  if (['platform_admin', 'tenant_admin', 'budget_global_admin'].includes(role)) return true;
+  // ownedAccounts가 있으면 총괄담당자(계정 오너 = 총괄)
+  if ((persona.ownedAccounts || []).length > 0) return true;
+  return false;
+}
+
+/**
+ * 운영담당자(VOrg Manager) 여부 판별
+ * - budget_op_manager 또는 managedVorgId가 있는 경우 → true
+ * - 총괄담당자이면서 managedVorgId도 있는 경우 → true (겸직 허용)
+ * @param {object} persona - BO 페르소나
+ * @returns {boolean}
+ */
+function isOpManager(persona) {
+  if (!persona) return false;
+  const role = persona.role || persona.boRole || '';
+  if (role === 'budget_op_manager') return true;
+  // managedVorgId가 있으면 VOrg 담당자 (isVorgManager와 동일)
+  if (persona.managedVorgId) return true;
+  return false;
+}
+
+/**
+ * 역할 기반 관할 필터 적용
+ * 운영담당자이면 자신의 managedVorgId에 해당하는 항목만 반환,
+ * 총괄담당자이면 전체 반환.
+ *
+ * @param {Array} items     - 필터링할 배열 (plan, application, result 등)
+ * @param {object} persona  - BO 페르소나
+ * @param {string} orgField - items의 어떤 필드로 교육조직 매칭할지 (기본: 'vorg_id' | 'vorgId')
+ * @param {Array}  vorgTeamNames - 운영담당자 관할 VOrg의 팀명 목록 (applyRoleFilter 내에서 자동 계산)
+ * @returns {Array} - 필터링된 배열
+ */
+function applyRoleFilter(items, persona, orgField) {
+  if (!items || !items.length) return items;
+
+  // 총괄담당자면 전체 반환
+  if (isGlobalAdmin(persona) && !isOpManager(persona)) return items;
+
+  // 운영담당자 관할 VOrg 확인
+  const managedVorgId = persona.managedVorgId || persona.scope_vorg_id;
+  if (!managedVorgId) return items; // 관할 없으면 전체 (안전 폴백)
+
+  // VIRTUAL_EDU_ORGS에서 관할 VOrg의 팀명 목록 추출
+  let teamNames = null;
+  if (typeof VIRTUAL_EDU_ORGS !== 'undefined') {
+    const vorg = VIRTUAL_EDU_ORGS
+      .flatMap(t => [
+        ...(t.tree?.hqs || []),
+        ...(t.tree?.centers || []),
+      ])
+      .find(vg => vg.id === managedVorgId);
+    if (vorg) {
+      teamNames = (vorg.teams || []).map(t => t.name);
+    }
+  }
+
+  if (!teamNames) return items; // VOrg 정보 없으면 전체 폴백
+
+  // orgField로 팀명 매칭
+  const field = orgField || 'org_name';
+  return items.filter(item => {
+    const orgName = item[field] || item['org_name'] || item['orgName'] || item['team_name'] || '';
+    return teamNames.some(tn =>
+      orgName.includes(tn) || tn.includes(orgName)
+    );
+  });
+}
+
+/**
+ * 역할 표시 라벨 반환 (UI용)
+ * @param {object} persona
+ * @returns {string}
+ */
+function getRoleLabel(persona) {
+  if (!persona) return '—';
+  const role = persona.role || persona.boRole || '';
+  if (role === 'platform_admin') return '플랫폼 관리자';
+  if (role === 'tenant_admin') return '테넌트 관리자';
+  if (role === 'budget_global_admin' || isGlobalAdmin(persona)) return '총괄담당자';
+  if (role === 'budget_op_manager' || isOpManager(persona)) return '운영담당자';
+  return role || '—';
+}
+

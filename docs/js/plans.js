@@ -206,6 +206,7 @@ function resetPlanState() {
     title: "",
     startDate: "",
     endDate: "",
+    locations: [],   // Phase5: 교육장소 멀티 선택 (배열, 선택사항)
     amount: "",
     content: "",
     calcGrounds: [],
@@ -1501,6 +1502,8 @@ ${
           </div>
         </div>
         ${_renderCalcGroundsSection(s, curBudget)}
+        <!-- Phase5: 교육장소 멀티 TAG 입력 (선택사항) -->
+        ${_renderLocationTagInput(s)}
         <div>
           <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">예산 계획액
             ${s.calcGrounds && s.calcGrounds.length > 0 ? '<span class="text-xs font-medium text-blue-500 ml-2">(세부 산출 근거 합계 자동 반영)</span>' : ""}
@@ -1677,6 +1680,7 @@ async function savePlanDraft() {
         eduType: planState.eduType,
         eduSubType: planState.eduSubType,
         calcGrounds: planState.calcGrounds || [],
+        locations: planState.locations || [],
         period: planState.period || null,
         institution: planState.institution || null,
         notes: planState.notes || null,
@@ -1761,6 +1765,7 @@ async function savePlanSaved() {
         eduType: planState.eduType,
         eduSubType: planState.eduSubType,
         calcGrounds: planState.calcGrounds || [],
+        locations: planState.locations || [],
         period: planState.period || null,
         institution: planState.institution || null,
         notes: planState.notes || null,
@@ -1932,6 +1937,7 @@ async function confirmPlan() {
           eduType: planState.eduType,
           eduSubType: planState.eduSubType,
           calcGrounds: planState.calcGrounds || [],
+          locations: planState.locations || [],
           period: planState.period || null,
           institution: planState.institution || null,
           notes: planState.notes || null,
@@ -1996,6 +2002,7 @@ async function resumePlanDraft(planId) {
     planState.endDate = data.detail?.endDate || "";
     planState.budgetId = data.detail?.budgetId || "";
     planState.calcGrounds = data.detail?.calcGrounds || [];
+    planState.locations = Array.isArray(data.detail?.locations) ? data.detail.locations : [];
     planState.policyId = data.policy_id || null;
     planState.region = data.detail?.region || "domestic";
     planState.accountCode = data.account_code || "";
@@ -2265,6 +2272,50 @@ function _getPlanAccountCode(curBudget) {
     HAE: { 참가: "HAE-PART", 자격증: "HAE-CERT", 운영: "HAE-OPS" },
   };
   return (prefixed[tenantId] || acctMap)[curBudget.account] || null;
+}
+
+// ─── Phase5: 교육장소 멀티 TAG 입력 ───────────────────────────────────────
+function _renderLocationTagInput(s) {
+  const locs = Array.isArray(s.locations) ? s.locations : [];
+  const tagHtml = locs.map((loc, i) => {
+    const safe = String(loc).replace(/['"<>&]/g, '');
+    return `<span style="display:inline-flex;align-items:center;gap:4px;background:#DBEAFE;color:#1D4ED8;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px">
+      📍 ${safe}
+      <button onclick="event.stopPropagation();_planRemoveLocation(${i})" style="background:none;border:none;cursor:pointer;color:#3B82F6;font-size:13px;line-height:1;padding:0 0 0 2px">✕</button>
+    </span>`;
+  }).join('');
+
+  return `
+<div style="margin-bottom:16px">
+  <label style="display:block;font-size:11px;font-weight:900;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
+    📍 교육장소 <span style="font-size:9px;font-weight:500;color:#9CA3AF;text-transform:none">(선택사항 · 복수 입력 가능)</span>
+  </label>
+  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:${locs.length > 0 ? 'auto':'0'}">
+    ${tagHtml}
+  </div>
+  <div style="display:flex;gap:6px;align-items:center">
+    <input id="plan-location-input" type="text" placeholder="장소 입력 후 Enter (예: 현대인재개발원)"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();_planAddLocation(document.getElementById('plan-location-input').value)}"
+      style="flex:1;padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:600;outline:none;transition:border .15s"
+      onfocus="this.style.borderColor='#3B82F6'" onblur="this.style.borderColor='#E5E7EB'">
+    <button onclick="_planAddLocation(document.getElementById('plan-location-input').value)"
+      style="padding:7px 14px;border-radius:8px;background:#EFF6FF;color:#1D4ED8;border:1.5px solid #BFDBFE;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap">+ 추가</button>
+  </div>
+</div>`;
+}
+
+function _planAddLocation(val) {
+  const v = (val || '').trim();
+  if (!v) return;
+  if (!Array.isArray(planState.locations)) planState.locations = [];
+  if (!planState.locations.includes(v)) planState.locations.push(v);
+  renderPlanWizard();
+}
+
+function _planRemoveLocation(idx) {
+  if (!Array.isArray(planState.locations)) return;
+  planState.locations.splice(idx, 1);
+  renderPlanWizard();
 }
 
 // 세부산출근거 합계 계산

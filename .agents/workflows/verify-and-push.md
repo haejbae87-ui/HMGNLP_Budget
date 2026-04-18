@@ -4,9 +4,12 @@ description: 코드 변경 완료 후 반드시 실행하는 검증 + 깃 배포
 
 // turbo-all
 
-## 필수 실행 순서: 검증 → git push → GitHub Pages 배포 확인
+## 필수 실행 순서: 작업 상태 저장 → 검증 → git push → GitHub Pages 배포 확인
 
-### 1. 변경된 파일 목록 확인
+### 0. 완료된 작업 상태 영구 저장 (docs/TASKS/active_tasks.md)
+배포를 시작하기 전, 오늘 완료한 작업 내역을 `docs/TASKS/active_tasks.md`에 반영해 줍니다. 완료된 건 `[x]` 처리하고 내역에 추가합니다. (사용자가 굳이 말하지 않아도 이 워크플로우 실행 시 모델이 알아서 파일 내용을 수정해야 함)
+
+### 1. 변경된 파일 목록 확인 (Status)
 ```
 & "C:\Program Files\Git\cmd\git.exe" -C "c:\Users\jbae\OneDrive\바탕 화면\HMGNLP_Budget" status
 ```

@@ -12,6 +12,9 @@ description: 코드 개발 완료 후 자동 검증, 커밋 및 GitHub 배포를
 ## 실행 프로세스 및 기본 지침
 아래 7단계를 순서대로 수행하되, 각 단계의 결과를 바탕으로 능동적인 피드백 루프를 가집니다.
 
+### 0. 완료된 작업 상태 영구 저장 (docs/TASKS/active_tasks.md)
+배포 명령어(`git status` 등)를 치기 직전에, 방금 진행한 개발 작업이 무엇인지 파악하여 `docs/TASKS/active_tasks.md` 파일 내의 할 일 목록(To-Do)에 `[x]` 처리를 하고 히스토리에 기록을 자동 업데이트합니다.
+
 ### 1. 변경된 파일 목록 확인 (Status)
 ```powershell
 & "C:\Program Files\Git\cmd\git.exe" -C "c:\Users\jbae\OneDrive\바탕 화면\HMGNLP_Budget" status

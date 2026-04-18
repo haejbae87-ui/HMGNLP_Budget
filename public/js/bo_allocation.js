@@ -15,8 +15,8 @@ function renderBoAllocation() {
     TENANTS.find((t) => t.id === persona.tenantId)?.name || "전체";
 
   // ── E-2: 역할 판별 ────────────────────────────────────────────────────
-  const isGlobal = typeof isGlobalAdmin === 'function' ? isGlobalAdmin(persona) : (persona.ownedAccounts || []).length > 0;
-  const isOp = typeof isOpManager === 'function' ? isOpManager(persona) : false;
+  const isGlobal = isGlobalAdmin(persona);
+  const isOp = isOpManager(persona);
   // 운영담당자 = 정의된 역할이 budget_op_manager이거나 managedVorgId만 있고 ownedAccounts는 없는 사람
   const isOpOnly = isOp && !isGlobal;
 
@@ -99,8 +99,8 @@ function showAllocTab(idx) {
 // E-2: idx 기반 탭 전환 (역할 서리 주치대상)
 function showAllocTabByIdx(idx) {
   const persona = typeof boCurrentPersona !== 'undefined' ? boCurrentPersona : null;
-  const isGlobal = typeof isGlobalAdmin === 'function' ? isGlobalAdmin(persona) : true;
-  const isOp = typeof isOpManager === 'function' ? isOpManager(persona) : false;
+  const isGlobal = isGlobalAdmin(persona);
+  const isOp = isOpManager(persona);
   const isOpOnly = isOp && !isGlobal;
 
   // 운영담당자가 globalOnly 탭(탭1: 기초/추가배정, 탭3: 이관) 접근 시돈 경우 차단
@@ -138,7 +138,7 @@ function renderAllocOverview(year) {
   const persona = boCurrentPersona;
 
   // ── vorg manager : 계정 총액·타 VOrg 비공개, 관할 VOrg만 표시 ─────────────
-  if (typeof isVorgManager === "function" && isVorgManager(persona)) {
+  if (isVorgManager(persona)) {
     return renderVorgManagerOverview();
   }
 
@@ -471,7 +471,6 @@ function renderAbDetail(ab) {
 
   // vorg manager이면 자신의 VOrg만 표시
   const _isVorgMgr =
-    typeof isVorgManager === "function" &&
     isVorgManager(ab._persona || boCurrentPersona);
   const _myVorgId = _isVorgMgr ? boCurrentPersona.managedVorgId : null;
   const _filteredGroups = _myVorgId
@@ -902,7 +901,7 @@ function renderTeamDist() {
   const persona = boCurrentPersona;
   const isOwner = (persona.ownedAccounts || []).length > 0;
   const canDist =
-    isOwner || (typeof isVorgManager === "function" && isVorgManager(persona));
+    isOwner || (isVorgManager(persona));
   if (!canDist)
     return `<div style="padding:40px;text-align:center"><div style="font-size:40px">🔒</div><div style="font-weight:900;color:#374151">팀 배분은 계정 오너 또는 본부/센터 담당자만 가능합니다</div></div>`;
 
@@ -953,7 +952,6 @@ function renderTeamDist() {
 
   // vorg manager이면 자신의 VOrg만 표시
   const _isVorgMgr =
-    typeof isVorgManager === "function" &&
     isVorgManager(ab._persona || boCurrentPersona);
   const _myVorgId = _isVorgMgr ? boCurrentPersona.managedVorgId : null;
   const _filteredGroups = _myVorgId
@@ -1265,12 +1263,12 @@ function renderAllocTransfer() {
   const persona = boCurrentPersona;
   const isOwner = (persona.ownedAccounts || []).length > 0;
   const canTransfer =
-    isOwner || (typeof isVorgManager === "function" && isVorgManager(persona));
+    isOwner || (isVorgManager(persona));
   if (!canTransfer)
     return `<div style="padding:40px;text-align:center"><div style="font-size:40px">🔒</div><div style="font-weight:900;color:#374151">이관은 계정 오너 또는 본부/센터 담당자만 가능합니다</div></div>`;
 
   const myBudgets = getPersonaAccountBudgets(persona);
-  const isVM = typeof isVorgManager === "function" && isVorgManager(persona);
+  const isVM = isVorgManager(persona);
   const vmVorg = isVM ? getPersonaManagedVorg(persona) : null;
   const vmTeamNames = vmVorg ? (vmVorg.teams || []).map((t) => t.name) : null;
 
@@ -1654,4 +1652,5 @@ async function _syncBudgetAllocations(sb, ab, totalBudget, usedAmount, fiscalYea
     console.warn('[_syncBudgetAllocations] non-critical error:', e.message);
   }
 }
+
 

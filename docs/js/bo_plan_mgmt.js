@@ -361,11 +361,39 @@ async function renderBoPlanMgmt() {
           <div style="display:flex;gap:12px;align-items:center">
             ${_boPlanEditMode ? `<span style="font-size:11px;font-weight:800;color:#D97706">⚡ ${editCount}건 수정됨</span>` : ''}
             <span style="font-size:12px;color:#9CA3AF">승인 대기: <strong style="color:#1D4ED8">${plans.filter((p) => p.status === "pending" || p.status === "pending_approval").length}건</strong></span>
+            <span style="font-size:12px;color:#7C3AED">1차검토완료: <strong>${plans.filter(p => p.status === 'in_review').length}건</strong></span>
           </div>
         </div>
+
+        <!-- P-3: in_review 전용 하이라이트 섹션 (총괄담당자용) -->
+        ${(() => {
+          const rp = plans.filter(p => p.status === 'in_review');
+          if (rp.length === 0 || !canApprove) return '';
+          return `<div style="margin-bottom:16px;padding:16px 20px;border-radius:14px;background:linear-gradient(135deg,#F5F3FF,#EDE9FE);border:2px solid #7C3AED">
+            <div style="font-size:13px;font-weight:900;color:#7C3AED;margin-bottom:10px">🔄 1차검토 완료 — 최종 승인 대기 (${rp.length}건)</div>
+            <div style="font-size:11px;color:#6D28D9;margin-bottom:12px">운영담당자 검토 완료 건입니다. 검토 후 최종 승인/반려 처리해 주세요.</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              ${rp.map(p => {
+                const sid = String(p.id).replace(/'/g,'');
+                return `<div style="background:white;border-radius:10px;padding:12px 16px;border:1px solid #DDD6FE;display:flex;align-items:center;justify-content:space-between;gap:12px">
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13px;font-weight:900;color:#111827">${p.edu_name||'-'}</div>
+                  <div style="font-size:11px;color:#6B7280">${p.applicant_name||'-'} · ${p.account_code||'-'} · ${Number(p.amount||0).toLocaleString()}원</div>
+                </div>
+                <div style="display:flex;gap:6px;flex-shrink:0">
+                  <button onclick="boPlanApprove('${sid}')" style="padding:6px 16px;border-radius:8px;background:#059669;color:white;font-size:11px;font-weight:900;border:none;cursor:pointer">✅ 승인</button>
+                  <button onclick="boPlanReject('${sid}')" style="padding:6px 14px;border-radius:8px;background:white;color:#EF4444;font-size:11px;font-weight:800;border:1.5px solid #EF4444;cursor:pointer">❌ 반려</button>
+                </div>
+              </div>`;
+              }).join('')}
+            </div>
+          </div>`;
+        })()}
+
         ${
           plans.length > 0
             ? `
+
         <div class="bo-table-container" style="overflow-x:auto">
         <table class="bo-table" style="min-width:900px">
           <thead><tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB">

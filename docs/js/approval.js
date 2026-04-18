@@ -227,6 +227,28 @@ async function renderApprovalMember() {
         <span style="flex-shrink:0;font-size:11px;font-weight:900;padding:4px 12px;border-radius:10px;
                      background:${fc.bg};color:${fc.color}">${fc.icon} ${fc.label}</span>
       </div>
+
+      <!-- P-2: 결재 상태 타임라인 -->
+      <div style="display:flex;align-items:center;gap:0;margin:12px 0;padding:10px 14px;background:#F9FAFB;border-radius:10px">
+        ${(() => {
+          const steps = [
+            { label: '신청', done: true, icon: '📄' },
+            { label: '1차검토', done: ['in_review','approved','rejected'].includes(item.status), icon: '🔍', active: item.status === 'in_review' },
+            { label: '최종결재', done: ['approved','rejected'].includes(item.status), icon: item.status === 'approved' ? '✅' : item.status === 'rejected' ? '❌' : '⏳', active: item.status === 'approved' || item.status === 'rejected' },
+          ];
+          return steps.map((step, i) => `
+            <div style="display:flex;align-items:center;flex:1">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+                <div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;
+                  background:${step.done ? '#059669' : step.active ? '#7C3AED' : '#E5E7EB'};
+                  color:${step.done || step.active ? 'white' : '#9CA3AF'}">${step.done ? '✔' : step.icon}</div>
+                <span style="font-size:9px;font-weight:800;color:${step.done ? '#059669' : step.active ? '#7C3AED' : '#9CA3AF'}">${step.label}</span>
+              </div>
+              ${i < steps.length - 1 ? `<div style="flex:1;height:2px;background:${step.done ? '#059669' : '#E5E7EB'};margin:0 4px;margin-bottom:14px"></div>` : ''}
+            </div>`).join('');
+        })()}
+      </div>
+
       ${
         item.rejectReason
           ? `
@@ -239,7 +261,7 @@ async function renderApprovalMember() {
         // E-5: pending/submitted 상태에서만 회수 버튼 표시 (결재 시작 전)
         ['pending','submitted'].includes(item.status)
           ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid #F3F4F6">
-              <button onclick="_aprRecallSubmit('${String(item.id).replace(/'/g,"\\'")}','${(item._table || (item._type==='plan'?'plans':'applications'))}')"
+              <button onclick="_aprRecallSubmit('${String(item.id).replace(/'/g,"\\'")}',${'\'' + (item._table || (item._type==='plan'?'plans':'applications')) + '\''})"
                 style="padding:6px 14px;border-radius:8px;border:1.5px solid #9CA3AF;background:white;color:#6B7280;font-size:11px;font-weight:800;cursor:pointer"
                 onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='white'">
                 ↩️ 회수

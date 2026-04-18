@@ -121,36 +121,80 @@ async function renderApprovalMember() {
     }
   }
 
-  const data = _aprMemberData;
-
-  // 상태별 통계
+  // 상태별 통계 (saved 제외)
   const stats = {
+    saved: _aprSavedData.length,
     total: data.length,
     approved: data.filter((d) => d.status === "approved").length,
     inProgress: data.filter(
-      (d) => d.status === "pending" || d.status === "pending_approval",
+      (d) => ['pending','pending_approval','submitted','in_review'].includes(d.status)
     ).length,
     rejected: data.filter((d) => d.status === "rejected").length,
   };
 
   const STATUS_FINAL = {
-    approved: {
-      label: "승인완료",
-      color: "#059669",
-      bg: "#F0FDF4",
-      icon: "✅",
-    },
+    approved: { label: "승인완료", color: "#059669", bg: "#F0FDF4", icon: "✅" },
     pending: { label: "결재대기", color: "#D97706", bg: "#FFFBEB", icon: "⏳" },
-    pending_approval: {
-      label: "결재대기",
-      color: "#D97706",
-      bg: "#FFFBEB",
-      icon: "⏳",
-    },
+    pending_approval: { label: "결재대기", color: "#D97706", bg: "#FFFBEB", icon: "⏳" },
+    submitted: { label: "결재대기", color: "#D97706", bg: "#FFFBEB", icon: "⏳" },
+    in_review: { label: "결재진행중", color: "#7C3AED", bg: "#F5F3FF", icon: "🔄" },
     rejected: { label: "반려", color: "#DC2626", bg: "#FEF2F2", icon: "❌" },
+    recalled: { label: "회수됨", color: "#6B7280", bg: "#F9FAFB", icon: "↩️" },
     cancelled: { label: "취소", color: "#9CA3AF", bg: "#F9FAFB", icon: "🚫" },
     completed: { label: "완료", color: "#059669", bg: "#F0FDF4", icon: "✅" },
   };
+
+  // ── [S-4] 저장완료(상신대기) 섹션 ───────────────────────────────────────
+  const savedSection = _aprSavedData.length > 0 ? `
+  <div style="background:#F0FDF4;border:2px solid #6EE7B7;border-radius:16px;padding:20px 24px;margin-bottom:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="font-size:18px">📤</span>
+          <span style="font-size:15px;font-weight:900;color:#065F46">상신 대기 목록</span>
+          <span style="background:#059669;color:white;font-size:11px;font-weight:800;padding:2px 8px;border-radius:8px">${_aprSavedData.length}건</span>
+        </div>
+        <div style="font-size:11px;color:#6B7280">작성이 완료된 항목들입니다. 단건 혹은 다건 선택 후 상신할 수 있습니다.</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="_aprBulkSubmit()" id="btn-bulk-submit"
+          style="padding:10px 20px;border-radius:10px;background:#059669;color:white;font-size:12px;font-weight:900;border:none;cursor:pointer;opacity:.5;pointer-events:none"
+          >📤 다건 상신 (<span id="apr-bulk-count">0</span>건)
+        </button>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${_aprSavedData.map(item => {
+        const typeBadge = item._type === 'plan'
+          ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#DBEAFE;color:#1D4ED8">📋 교육계획</span>'
+          : '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#FEF3C7;color:#B45309">📝 교육신청</span>';
+        const safeId = String(item.id).replace(/'/g,"\\'");
+        const safeTable = item._table || (item._type === 'plan' ? 'plans' : 'applications');
+        return `
+        <div style="background:white;border-radius:10px;border:1.5px solid #D1FAE5;padding:14px 16px;display:flex;align-items:center;gap:12px">
+          <input type="checkbox" id="apr-chk-${safeId}" data-id="${safeId}" data-type="${item._type}" data-table="${safeTable}" data-account="${item.account_code || ''}"
+            onchange="_aprToggleSelect(this)"
+            style="width:18px;height:18px;accent-color:#059669;cursor:pointer;flex-shrink:0">
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+              <span style="font-size:13px;font-weight:800;color:#111827">${item.title}</span>
+              ${typeBadge}
+            </div>
+            <div style="font-size:11px;color:#6B7280;display:flex;gap:10px;flex-wrap:wrap">
+              <span>📅 ${item.date}</span>
+              <span>📚 ${item.type}</span>
+              <span>💰 ${item.amount.toLocaleString()}원</span>
+              ${item.account_code ? `<span>🏷 ${item.account_code}</span>` : ''}
+            </div>
+          </div>
+          <button onclick="_aprSingleSubmit('${safeId}','${safeTable}','${item.title.replace(/'/g,"")}')"
+            style="padding:8px 16px;border-radius:8px;background:#059669;color:white;font-size:11px;font-weight:800;border:none;cursor:pointer;white-space:nowrap;flex-shrink:0">
+            📤 단건 상신
+          </button>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>` : '';
 
   const cards = data
     .map((item) => {
@@ -209,41 +253,20 @@ async function renderApprovalMember() {
       <h1 class="text-3xl font-black text-brand tracking-tight">팀원용 결재함</h1>
       <p style="font-size:12px;color:#9CA3AF;margin-top:4px">${currentPersona.name} · ${currentPersona.dept} — 내 교육신청의 결재 현황</p>
     </div>
-    <button onclick="_aprMemberLoaded=false;_aprMemberData=[];renderApprovalMember()"
+    <button onclick="_aprMemberLoaded=false;_aprMemberData=[];_aprSavedData=[];_aprSelectedItems=new Set();renderApprovalMember()"
       style="padding:8px 16px;border-radius:10px;background:white;border:1.5px solid #E5E7EB;font-size:12px;font-weight:800;color:#374151;cursor:pointer">🔄 새로고침</button>
   </div>
+
+  <!-- [S-4] 저장완료(상신 대기) 섹션 -->
+  ${savedSection}
 
   <!-- 통계 카드 -->
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
     ${[
-      {
-        label: "전체",
-        val: stats.total,
-        color: "#002C5F",
-        bg: "#EFF6FF",
-        icon: "📋",
-      },
-      {
-        label: "승인완료",
-        val: stats.approved,
-        color: "#059669",
-        bg: "#F0FDF4",
-        icon: "✅",
-      },
-      {
-        label: "결재대기",
-        val: stats.inProgress,
-        color: "#D97706",
-        bg: "#FFFBEB",
-        icon: "⏳",
-      },
-      {
-        label: "반려",
-        val: stats.rejected,
-        color: "#DC2626",
-        bg: "#FEF2F2",
-        icon: "❌",
-      },
+      { label: "상신대기", val: stats.saved, color: "#059669", bg: "#F0FDF4", icon: "📤" },
+      { label: "전체", val: stats.total, color: "#002C5F", bg: "#EFF6FF", icon: "📋" },
+      { label: "승인완료", val: stats.approved, color: "#059669", bg: "#F0FDF4", icon: "✅" },
+      { label: "결재대기", val: stats.inProgress, color: "#D97706", bg: "#FFFBEB", icon: "⏳" },
     ]
       .map(
         (s) => `
@@ -257,7 +280,44 @@ async function renderApprovalMember() {
 
   <!-- 결재 목록 -->
   <div>${data.length === 0 ? emptyMsg : cards}</div>
+</div>
+
+<!-- [S-3] 상신 문서 작성 인라인 모달 (id=apr-submit-modal) -->
+<div id="apr-submit-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center">
+  <div style="background:white;border-radius:20px;width:540px;max-width:95vw;max-height:85vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div>
+        <div style="font-size:13px;font-weight:900;color:#059669;margin-bottom:2px">📤 상신 문서 작성</div>
+        <div style="font-size:11px;color:#6B7280">상신 제목과 내용을 입력하린 승인자에게 전달됩니다.</div>
+      </div>
+      <button onclick="_aprCloseModal()" style="border:none;background:none;font-size:20px;cursor:pointer;color:#9CA3AF">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:6px">상신 제목 <span style="color:#EF4444">*</span></label>
+        <input id="apr-doc-title" type="text" placeholder="예) 2026년 2분기 교육계획 상신"
+          style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:600">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:6px">상신 내용</label>
+        <textarea id="apr-doc-content" rows="3" placeholder="예) AI 역량 교육 3건 일괄 상신합니다."
+          style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;resize:none"></textarea>
+      </div>
+      <div id="apr-modal-items" style="background:#F9FAFB;border-radius:10px;padding:12px 14px;font-size:12px;color:#374151">
+        <div style="font-weight:800;margin-bottom:8px">📋 첨부 항목</div>
+        <div id="apr-modal-items-list"></div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:10px;border-top:1px solid #F3F4F6">
+        <button onclick="_aprCloseModal()" style="padding:10px 20px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:13px;font-weight:700;cursor:pointer;color:#6B7280">취소</button>
+        <button onclick="_aprConfirmSubmit()" style="padding:10px 28px;border-radius:10px;border:none;background:#059669;color:white;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 4px 16px rgba(5,150,105,.3)">✅ 상신 확정</button>
+      </div>
+    </div>
+  </div>
 </div>`;
+
+  // 모달 초기 숨김 (값 설정 후 display none)
+  const modal = document.getElementById('apr-submit-modal');
+  if (modal) modal.style.display = 'none';
 }
 
 // ─── 리더용 결재함 ────────────────────────────────────────────────────────────
@@ -605,8 +665,177 @@ async function _approvalAction(id, table, action) {
     // 팀원 목록도 갱신 (다른 탭에서 볼 때 반영)
     _aprMemberLoaded = false;
     _aprMemberData = [];
+    _aprSavedData = [];
   } catch (err) {
     alert("처리 실패: " + err.message);
     console.error("[_approvalAction]", err.message);
+  }
+}
+
+// ─── [S-3/S-4] 상신 처리 함수 ────────────────────────────────────────────────
+
+// 체크박스 선택/해제 + 다건 상신 버튼 활성화
+function _aprToggleSelect(el) {
+  const id = el.dataset.id;
+  const account = el.dataset.account || '';
+
+  if (el.checked) {
+    // 계정 동일성 검사 — 다건 상신은 같은 예산 계정만 허용
+    if (_aprSelectedItems.size > 0) {
+      const firstAccount = [..._aprSelectedItems.values()][0]?.account || '';
+      if (firstAccount && account && firstAccount !== account) {
+        alert('⚠️ 다건 상신은 같은 예산 계정만 가능합니다.\n\n선택된 계정: ' + firstAccount + '\n현재 항목 계정: ' + account);
+        el.checked = false;
+        return;
+      }
+    }
+    _aprSelectedItems.set(id, { id, table: el.dataset.table, type: el.dataset.type, account });
+  } else {
+    _aprSelectedItems.delete(id);
+  }
+
+  // 다건 상신 버튼 활성화/비활성화
+  const btn = document.getElementById('btn-bulk-submit');
+  const countEl = document.getElementById('apr-bulk-count');
+  const count = _aprSelectedItems.size;
+  if (btn) {
+    btn.style.opacity = count > 0 ? '1' : '.5';
+    btn.style.pointerEvents = count > 0 ? 'auto' : 'none';
+  }
+  if (countEl) countEl.textContent = count;
+}
+
+// 단건 상신 — 모달 열기 (선택 항목 1건)
+function _aprSingleSubmit(id, table, title) {
+  _aprSelectedItems.clear();
+  _aprSelectedItems.set(id, { id, table, type: table === 'plans' ? 'plan' : 'app', account: '' });
+  _aprOpenModal([{ id, title }]);
+}
+
+// 다건 상신 — 모달 열기
+function _aprBulkSubmit() {
+  if (_aprSelectedItems.size === 0) return;
+  const items = [..._aprSelectedItems.values()].map(sel => {
+    const item = _aprSavedData.find(d => String(d.id) === String(sel.id));
+    return { id: sel.id, title: item?.title || sel.id };
+  });
+  _aprOpenModal(items);
+}
+
+// 상신 모달 열기
+function _aprOpenModal(items) {
+  const modal = document.getElementById('apr-submit-modal');
+  if (!modal) return;
+
+  // 제목 자동 생성
+  const titleEl = document.getElementById('apr-doc-title');
+  if (titleEl) {
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '.');
+    titleEl.value = items.length === 1
+      ? `${items[0].title} 상신`
+      : `교육 ${items.length}건 일괄 상신 (${today})`;
+  }
+
+  // 첨부 항목 목록
+  const listEl = document.getElementById('apr-modal-items-list');
+  if (listEl) {
+    listEl.innerHTML = items.map((item, i) =>
+      `<div style="padding:6px 0;border-bottom:1px solid #E5E7EB;font-size:12px;color:#374151">
+        ${i + 1}. ${item.title}
+      </div>`
+    ).join('');
+  }
+
+  modal.style.display = 'flex';
+}
+
+// 모달 닫기
+function _aprCloseModal() {
+  const modal = document.getElementById('apr-submit-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+// 상신 확정 — DB에 pending 상태로 업데이트 + submission_documents 생성
+async function _aprConfirmSubmit() {
+  const titleEl = document.getElementById('apr-doc-title');
+  const contentEl = document.getElementById('apr-doc-content');
+  const docTitle = titleEl?.value?.trim();
+  const docContent = contentEl?.value?.trim() || '';
+
+  if (!docTitle) {
+    alert('상신 제목을 입력해주세요.');
+    titleEl?.focus();
+    return;
+  }
+  if (_aprSelectedItems.size === 0) {
+    alert('상신할 항목이 없습니다.');
+    return;
+  }
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 실패'); return; }
+
+  try {
+    const selectedArr = [..._aprSelectedItems.values()];
+    const now = new Date().toISOString();
+
+    // 1. submission_documents 테이블에 상신 문서 생성
+    const docId = `SUBDOC-${Date.now()}`;
+    const docRow = {
+      id: docId,
+      tenant_id: currentPersona.tenantId,
+      submitter_id: currentPersona.id,
+      submitter_name: currentPersona.name,
+      title: docTitle,
+      content: docContent,
+      status: 'pending',
+      submitted_at: now,
+      item_count: selectedArr.length,
+      total_amount: selectedArr.reduce((sum, sel) => {
+        const item = _aprSavedData.find(d => String(d.id) === String(sel.id));
+        return sum + (item?.amount || 0);
+      }, 0),
+    };
+
+    // submission_documents 테이블이 존재하는 경우에만 삽입
+    try {
+      await sb.from('submission_documents').insert(docRow);
+      console.log('[_aprConfirmSubmit] 상신 문서 생성:', docId);
+    } catch (e) {
+      console.warn('[_aprConfirmSubmit] submission_documents 테이블 없음 (무시):', e.message);
+    }
+
+    // 2. 각 항목의 status를 'pending'으로 업데이트 (saved → pending)
+    const errors = [];
+    for (const sel of selectedArr) {
+      try {
+        const { error } = await sb
+          .from(sel.table)
+          .update({ status: 'pending', updated_at: now })
+          .eq('id', sel.id)
+          .eq('status', 'saved'); // 낙관적 잠금 — saved 상태만 업데이트
+        if (error) errors.push(error.message);
+      } catch (e) {
+        errors.push(e.message);
+      }
+    }
+
+    if (errors.length > 0) {
+      alert('⚠️ 일부 항목 상신 실패:\n' + errors.join('\n'));
+    } else {
+      alert(`✅ 상신 완료!\n\n제목: ${docTitle}\n항목 수: ${selectedArr.length}건\n\n담당자 검토 후 결재선이 자동 구성됩니다.`);
+    }
+
+    _aprCloseModal();
+    _aprSelectedItems.clear();
+
+    // 목록 새로고침
+    _aprMemberLoaded = false;
+    _aprMemberData = [];
+    _aprSavedData = [];
+    renderApprovalMember();
+  } catch (err) {
+    alert('상신 처리 실패: ' + err.message);
+    console.error('[_aprConfirmSubmit]', err.message);
   }
 }

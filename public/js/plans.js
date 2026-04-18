@@ -519,55 +519,76 @@ function renderPlans() {
 let _dbTeamPlans = [];
 let _teamPlansLoaded = false;
 
-// 계획 카드 렌더러
 function _renderPlanCard(p) {
   const STATUS_CFG = {
-    승인완료: {
-      color: "#059669",
-      bg: "#F0FDF4",
-      border: "#BBF7D0",
-      icon: "✅",
-    },
+    승인완료: { color: "#059669", bg: "#F0FDF4", border: "#BBF7D0", icon: "✅" },
     진행중: { color: "#059669", bg: "#F0FDF4", border: "#BBF7D0", icon: "✅" },
     반려: { color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", icon: "❌" },
-    결재진행중: {
-      color: "#D97706",
-      bg: "#FFFBEB",
-      border: "#FDE68A",
-      icon: "⏳",
-    },
+    결재진행중: { color: "#D97706", bg: "#FFFBEB", border: "#FDE68A", icon: "⏳" },
     신청중: { color: "#D97706", bg: "#FFFBEB", border: "#FDE68A", icon: "⏳" },
-    승인대기: {
-      color: "#6B7280",
-      bg: "#F9FAFB",
-      border: "#E5E7EB",
-      icon: "🕐",
-    },
+    승인대기: { color: "#6B7280", bg: "#F9FAFB", border: "#E5E7EB", icon: "🕐" },
     작성중: { color: "#0369A1", bg: "#EFF6FF", border: "#BFDBFE", icon: "📝" },
     취소: { color: "#9CA3AF", bg: "#F9FAFB", border: "#E5E7EB", icon: "🚫" },
+    // S-5: saved 상태 (DB 저장완료, 상신 대기)
+    저장완료: { color: "#065F46", bg: "#ECFDF5", border: "#6EE7B7", icon: "✅" },
+    // DB 영문 상태 매핑
+    draft: { color: "#0369A1", bg: "#EFF6FF", border: "#BFDBFE", icon: "📝" },
+    saved: { color: "#065F46", bg: "#ECFDF5", border: "#6EE7B7", icon: "📤" },
+    pending: { color: "#D97706", bg: "#FFFBEB", border: "#FDE68A", icon: "⏳" },
+    submitted: { color: "#D97706", bg: "#FFFBEB", border: "#FDE68A", icon: "⏳" },
+    in_review: { color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE", icon: "🔄" },
+    approved: { color: "#059669", bg: "#F0FDF4", border: "#BBF7D0", icon: "✅" },
+    rejected: { color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", icon: "❌" },
+    recalled: { color: "#9CA3AF", bg: "#F9FAFB", border: "#E5E7EB", icon: "↩️" },
+    cancelled: { color: "#9CA3AF", bg: "#F9FAFB", border: "#E5E7EB", icon: "🚫" },
   };
-  const status = p.status || "승인완료";
-  const cfg = STATUS_CFG[status] || STATUS_CFG["승인대기"];
+
+  // DB 영문 상태를 한글 라벨로
+  const STATUS_LABEL = {
+    draft: "임시저장",
+    saved: "저장완료",
+    pending: "결재대기",
+    submitted: "결재대기",
+    in_review: "1차검토완료",
+    approved: "승인완료",
+    rejected: "반려",
+    recalled: "회수됨",
+    cancelled: "취소",
+  };
+
+  const rawStatus = p.status || "승인완료";
+  const status = STATUS_LABEL[rawStatus] || rawStatus; // 화면 표시용 한글 라벨
+  const cfg = STATUS_CFG[rawStatus] || STATUS_CFG[status] || STATUS_CFG["승인대기"];
   const authorBadge = p.author
     ? `<span style="font-size:10px;background:#E5E7EB;color:#374151;padding:2px 8px;border-radius:10px;margin-left:6px">👤 ${p.author}</span>`
     : "";
-  const isDraft = status === "작성중";
-  const isPending = status === "신청중" || status === "결재진행중";
+  const isDraft = rawStatus === "draft" || rawStatus === "작성중";
+  const isSaved = rawStatus === "saved"; // S-5: 저장완료 상태
+  const isPending = rawStatus === "pending" || rawStatus === "submitted" || rawStatus === "신청중" || rawStatus === "결재진행중";
   const safeId = String(p.id || "").replace(/'/g, "\\'");
+  const safeTitle = (p.title || "").replace(/'/g, "");
+
   const actionBtns = isDraft
     ? `<div style="display:flex;gap:6px;margin-top:8px">
         <button onclick="resumePlanDraft('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:#0369A1;color:white;border:none;cursor:pointer">✏️ 이어쓰기</button>
         <button onclick="deletePlanDraft('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#DC2626;border:1.5px solid #FECACA;cursor:pointer">🗑 삭제</button>
        </div>`
-    : isPending
-      ? `<div style="margin-top:8px">
-        <button onclick="cancelPlan('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#DC2626;border:1.5px solid #FECACA;cursor:pointer">취소 요청</button>
-       </div>`
-      : ((status === "승인" || status === "approved") && Number(p.allocated_amount||0) > 0)
-        ? `<div style="display:flex;gap:6px;margin-top:8px">
-            <button onclick="event.stopPropagation();_startApplyFromPlan('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.2)">📝 교육 신청</button>
-           </div>`
-        : "";
+    : isSaved
+      ? `<div style="display:flex;gap:6px;margin-top:8px">
+          <button onclick="event.stopPropagation();_aprSingleSubmitFromPlan('${safeId}','${safeTitle}')"
+            style="padding:6px 16px;border-radius:8px;font-size:11px;font-weight:900;background:#059669;color:white;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.25)">📤 상신하기</button>
+          <button onclick="event.stopPropagation();resumePlanDraft('${safeId}')"
+            style="padding:6px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#0369A1;border:1.5px solid #BFDBFE;cursor:pointer">✏️ 수정</button>
+         </div>`
+      : isPending
+        ? `<div style="margin-top:8px">
+          <button onclick="cancelPlan('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#DC2626;border:1.5px solid #FECACA;cursor:pointer">취소 요청</button>
+         </div>`
+        : ((rawStatus === "승인" || rawStatus === "approved") && Number(p.allocated_amount||0) > 0)
+          ? `<div style="display:flex;gap:6px;margin-top:8px">
+              <button onclick="event.stopPropagation();_startApplyFromPlan('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.2)">📝 교육 신청</button>
+             </div>`
+          : "";
 
   return `
     <div onclick="viewPlanDetail('${safeId}')" style="display:flex;align-items:flex-start;gap:16px;padding:18px 20px;border-radius:14px;

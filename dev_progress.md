@@ -1,6 +1,6 @@
 # 🚧 개발 진행 상황 (실시간)
 
-> 이 파일은 개발 중 자동으로 업데이트됩니다.
+> **[22:39] 재개** — 이전 세션 멈춤 지점부터 이어서 진행 중
 
 ---
 
@@ -8,26 +8,28 @@
 
 | # | 작업 | 상태 | 비고 |
 |---|------|:---:|------|
-| 1 | **S-3**: 상신 문서 작성 화면 + 단건/다건 상신 UI | 🔄 코딩 중 | approval.js 수정 중 |
-| 2 | **S-4**: 팀원용 결재함 saved 섹션 + 상신 버튼 | 🔄 병렬 진행 | approval.js 동시 |
-| 3 | **E-4**: BO 교육계획 1차검토/최종승인 분기 | 🔄 병렬 진행 | bo_plan_mgmt.js |
+| **S-5** | plans.js 목록 카드에 saved 상신 버튼 추가 | 🔄 진행 중 | _renderPlanCard() L523 수정 |
+| **S-6** | 리더용 결재함 in_review 섹션 표시 | ⏳ 대기 | approval.js |
+| **E-5** | 회수(recalled) 기능 | ⏳ 대기 | approval.js |
 
 ---
 
-## 🔄 현재 단계: **[21:40] 파악 완료 → 코딩 시작**
+## 🔄 현재 단계: **[22:39] S-5 코딩 시작**
 
 ### 작업 계획:
-- `approval.js` — `saved` 섹션 추가 (단건 상신 버튼 + 다건 체크박스 상신)
-- `approval.js` — `renderSubmissionDoc()` 함수 (상신 문서 작성 모달)
-- `bo_plan_mgmt.js` — 역할별 검토/승인 분기 (`reviewed` 상태 추가)
+- `plans.js` STATUS_CFG에 saved 색상 추가
+- `plans.js` actionBtns에 saved 상태 → 상신 버튼
+- `plans.js` _renderPlanDetailView()에도 saved 버튼 추가
+- `approval.js` 리더용 결재함에 in_review 필터 추가
+- `approval.js` 회수(recalled) 함수 추가
 
 ---
 
-## ✅ 이번 세션 완료
+## ✅ 이전 세션 완료
 
 | 시각 | 작업 |
 |------|------|
-| 21:37 | S-2: plans.js 3단계 버튼 (임시저장/저장/상신) |
-| 21:37 | E-2: bo_allocation.js 역할 기반 탭 분기 |
-| 21:37 | DB: plans.status `saved` 추가 |
-| 21:27 | Foundation 4-pack (S-1, E-1, #13-P1, #14-P1) |
+| 21:48 | S-3/S-4 상신 문서 모달 + saved 목록 섹션 |
+| 21:48 | E-4 1차검토/최종승인 역할 분기 |
+| 21:37 | S-2 plans.js 3단계 버튼 |
+| 21:37 | E-2 bo_allocation.js 역할 분기 |

@@ -235,9 +235,23 @@ async function renderApprovalMember() {
       </div>`
           : ""
       }
+      ${
+        // E-5: pending/submitted 상태에서만 회수 버튼 표시 (결재 시작 전)
+        ['pending','submitted'].includes(item.status)
+          ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid #F3F4F6">
+              <button onclick="_aprRecallSubmit('${String(item.id).replace(/'/g,"\\'")}','${(item._table || (item._type==='plan'?'plans':'applications'))}')"
+                style="padding:6px 14px;border-radius:8px;border:1.5px solid #9CA3AF;background:white;color:#6B7280;font-size:11px;font-weight:800;cursor:pointer"
+                onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='white'">
+                ↩️ 회수
+              </button>
+              <span style="font-size:10px;color:#9CA3AF;margin-left:6px">결재 시작 전 회수 가능</span>
+             </div>`
+          : ""
+      }
     </div>`;
     })
     .join("");
+
 
   const emptyMsg = `<div style="padding:60px 20px;text-align:center;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB">
     <div style="font-size:48px;margin-bottom:16px">📭</div>
@@ -354,11 +368,11 @@ async function renderApprovalLeader() {
           : null;
       const filterTids = ctInfo?.linkedTids || [tid];
 
-      // plans: pending 상태 + 본인이 아닌 문서
+      // plans: pending/in_review/submitted 상태 + 본인이 아닌 문서 (S-6)
       let plansQ = sb
         .from("plans")
         .select("*")
-        .eq("status", "pending")
+        .in("status", ["pending", "submitted", "in_review"])
         .neq("applicant_id", pid)
         .order("created_at", { ascending: false });
       if (filterTids.length > 1) plansQ = plansQ.in("tenant_id", filterTids);
@@ -366,11 +380,11 @@ async function renderApprovalLeader() {
       const { data: plans, error: pe } = await plansQ;
       if (pe) throw pe;
 
-      // applications: pending 상태 + 본인이 아닌 문서
+      // applications: pending/submitted/in_review 상태 + 본인이 아닌 문서 (S-6)
       let appsQ = sb
         .from("applications")
         .select("*")
-        .eq("status", "pending")
+        .in("status", ["pending", "submitted", "in_review"])
         .neq("applicant_id", pid)
         .order("created_at", { ascending: false });
       if (filterTids.length > 1) appsQ = appsQ.in("tenant_id", filterTids);
@@ -392,6 +406,7 @@ async function renderApprovalLeader() {
           date: (p.created_at || "").slice(0, 10),
           account_code: p.account_code || "",
           tenantId: p.tenant_id || "",
+          status: p.status || "pending", // S-6: 상태 포함
         })),
         ...(apps || []).map((a) => ({
           _type: "app",
@@ -406,6 +421,7 @@ async function renderApprovalLeader() {
           date: (a.created_at || "").slice(0, 10),
           account_code: a.account_code || a.detail?.account_code || "",
           tenantId: a.tenant_id || "",
+          status: a.status || "pending", // S-6: 상태 포함
         })),
       ];
 
@@ -493,9 +509,15 @@ async function renderApprovalLeader() {
             ${item.purpose !== "-" ? `<span>🎯 ${item.purpose}</span>` : ""}
           </div>
         </div>
-        <div style="flex-shrink:0;font-size:11px;font-weight:800;padding:4px 12px;border-radius:10px;background:#FFF7ED;color:#C2410C">
-          🕐 결재 대기
-        </div>
+        <!-- S-6: 상태 별 다른 모양 -->
+        ${item.status === 'in_review'
+          ? `<div style="flex-shrink:0;font-size:11px;font-weight:800;padding:4px 12px;border-radius:10px;background:#F5F3FF;color:#7C3AED">
+              🔄 1차검토완료
+             </div>`
+          : `<div style="flex-shrink:0;font-size:11px;font-weight:800;padding:4px 12px;border-radius:10px;background:#FFF7ED;color:#C2410C">
+              🕐 결재 대기
+             </div>`
+        }
       </div>
       <!-- 결재 액션 -->
       <div style="display:flex;gap:10px;padding-top:14px;border-top:1px solid #F3F4F6">
@@ -839,3 +861,60 @@ async function _aprConfirmSubmit() {
     console.error('[_aprConfirmSubmit]', err.message);
   }
 }
+
+// ─── E-5: 상신 회수 (pending → saved/recalled) ───────────────────────────────
+// 팀원이 상신한 항목을 결재 시작 전에 회수
+async function _aprRecallSubmit(id, table) {
+  if (!confirm('이 항목의 상신을 회수하시겠습니까?\n\n• 결재 대기 상태로 돌아갑니다.\n• 수정 후 다시 상신할 수 있습니다.')) return;
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 실패'); return; }
+
+  try {
+    // 현재 상태 확인 — in_review 이후면 회수 불가
+    const { data: cur } = await sb.from(table).select('status').eq('id', id).single();
+    if (cur?.status === 'in_review' || cur?.status === 'approved') {
+      alert('⚠️ 결재가 이미 진행 중이거나 완료된 항목은 회수할 수 없습니다.');
+      return;
+    }
+
+    const { error } = await sb.from(table).update({
+      status: 'saved', // 회수 후 saved(저장완료)로 복귀 → 수정 후 재상신 가능
+      updated_at: new Date().toISOString(),
+    }).eq('id', id).in('status', ['pending', 'submitted']); // 낙관적 잠금
+
+    if (error) throw error;
+
+    alert('✅ 상신이 회수되었습니다.\n\n저장완료 상태로 복귀됩니다. 수정 후 다시 상신할 수 있습니다.');
+
+    // 목록 새로고침
+    _aprMemberLoaded = false;
+    _aprMemberData = [];
+    _aprSavedData = [];
+    renderApprovalMember();
+  } catch (err) {
+    alert('회수 실패: ' + err.message);
+    console.error('[_aprRecallSubmit]', err.message);
+  }
+}
+
+// ─── S-5: plans.js 카드 상신 버튼 → 결재함 상신 모달 연결 ────────────────────
+// plans.js의 _renderPlanCard()에서 saved 상태 카드의 "상신하기" 버튼이 이 함수를 호출
+function _aprSingleSubmitFromPlan(planId, planTitle) {
+  // 결재함 페이지가 로드되어 있으면 바로 모달 표시
+  // 그렇지 않으면 approval.js의 _aprSingleSubmit 직접 호출
+  if (typeof _aprSingleSubmit === 'function') {
+    _aprSingleSubmit(planId, 'plans', planTitle || '교육계획 상신');
+  } else {
+    // approval.js가 아직 초기화되지 않은 경우 — 결재함 탭으로 이동
+    if (typeof navigateTo === 'function') {
+      navigateTo('approval-member');
+    }
+    setTimeout(() => {
+      if (typeof _aprSingleSubmit === 'function') {
+        _aprSingleSubmit(planId, 'plans', planTitle || '교육계획 상신');
+      }
+    }, 600);
+  }
+}
+

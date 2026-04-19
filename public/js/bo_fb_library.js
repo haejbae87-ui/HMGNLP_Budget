@@ -1,34 +1,7 @@
-﻿// ─── bo_fb_library.js — 폼빌더 목록/라이브러리 UI (REFACTOR-1) ───
-  const role = boCurrentPersona.role;
-  const tenants = typeof TENANTS !== "undefined" ? TENANTS : [];
-  const isPlatform = role === "platform_admin";
-  const isTenant = role === "tenant_global_admin";
-
-  // 테넌트 초기화
-  if (!_fbTenantId) {
-    _fbTenantId = isPlatform
-      ? tenants[0]?.id || "HMC"
-      : boCurrentPersona.tenantId || "HMC";
-  }
-  // 데이터 로드
-  await _fbLoadDbData();
-
-  // 제도그룹 초기화
-  if (!_fbGroupId) {
-    _fbGroupId = _fbTplList[0]?.id || null;
-  }
-  // 계정 초기화 (가상교육조직 하위 예산계정)
-  if (!_fbAccountCode && _fbGroupId) {
-    const accs = _fbAccountList.filter(
-      (a) => a.virtual_org_template_id === _fbGroupId,
-    );
-    _fbAccountCode = accs[0]?.code || null;
-  }
-
-  document.getElementById("bo-content").innerHTML = _fbRenderPage();
-}
+// ─── bo_fb_library.js — 폼빌더 목록/라이브러리 UI (REFACTOR-1) ───
 
 function _fbRenderPage() {
+
   const role = boCurrentPersona.role;
   const isPlatform = role === "platform_admin";
   const isTenant = role === "tenant_global_admin";

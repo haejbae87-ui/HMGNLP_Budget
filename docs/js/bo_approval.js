@@ -1,4 +1,4 @@
-﻿// ─── 📥 BO 결재 화면 — 상신 문서(submission_documents) 기반 전환 (S-8) ─────
+// ─── 📥 BO 결재 화면 — 상신 문서(submission_documents) 기반 전환 (S-8) ─────
 // PRD: fo_submission_approval.md §10.1, §12 S-8
 // 기존: 정책(SERVICE_POLICIES) 기반 개별 건 필터링
 // 변경: submission_documents.approval_nodes[current_node_order] 기반 문서 단위 결재
@@ -79,8 +79,13 @@ function renderMyOperations() {
     el.innerHTML = `<div class="bo-fade">
       ${typeof boIsolationGroupBanner==="function" ? boIsolationGroupBanner() : ""}
       <div style="margin-bottom:24px">
-        <h1 class="bo-page-title">📥 나의 운영 업무</h1>
-        <p class="bo-page-sub">상신 문서 기반 결재 처리 — 내가 현재 결재자인 문서가 자동 표시됩니다</p>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+          <h1 class="bo-page-title" style="margin:0">📥 나의 운영 업무</h1>
+          ${typeof boRoleModeBadge==="function" ? boRoleModeBadge() : ""}
+        </div>
+        <p class="bo-page-sub">${typeof boIsOpManager==="function" && boIsOpManager()
+          ? "운영담당자 — 1차 검토 처리 후 총괄담당자에게 전달됩니다"
+          : "총괄담당자 — 최종 승인/반려 권한을 가집니다"}</p>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:16px">${tabHtml}</div>
       <div style="display:flex;flex-direction:column;gap:12px">${cards}</div>
@@ -152,23 +157,37 @@ function renderSubDocCard(doc) {
 
     ${doc.reject_reason ? `<div style="padding:8px 12px;background:#FEF2F2;border-radius:8px;font-size:12px;color:#991B1B;margin-bottom:12px">❌ 반려 사유: ${doc.reject_reason}</div>` : ""}
 
-    ${isPending ? `
-    <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;border-top:1px solid #F3F4F6;padding-top:12px">
+    ${isPending ? _boRenderApprovalBtns(safeId, doc) : `<div style="text-align:right;font-size:12px;font-weight:700;color:#9CA3AF;border-top:1px solid #F3F4F6;padding-top:10px">처리 완료</div>`}
+  </div>`;
+}
+// ── P16: 역할별 승인 버튼 HTML 생성 ────────────────────────────────────────────
+function _boRenderApprovalBtns(safeId, doc) {
+  // P16 헬퍼 사용 가능 시 역할 분기
+  const docType = doc.doc_type === "application" ? "application" : doc.doc_type === "result" ? "result" : "plan";
+  // 운영담당자 + 이미 in_review인 건 → 총괄 처리 대기 표시
+  if (typeof boIsOpManager === "function" && boIsOpManager() && doc.status === "in_review") {
+    return `<div style="border-top:1px solid #F3F4F6;padding-top:10px;text-align:right;font-size:11px;color:#7C3AED;font-weight:700">🔄 1차 검토 완료 — 총괄담당자 최종 승인 대기</div>`;
+  }
+  const act = typeof boGetApproveAction === "function"
+    ? boGetApproveAction(docType)
+    : { label: "✅ 승인", newStatus: "approved", color: "#059669" };
+
+  return `<div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;border-top:1px solid #F3F4F6;padding-top:12px">
       <button onclick="_boShowSubDocDetail('${safeId}')"
         style="padding:7px 14px;border-radius:8px;border:1.5px solid #BFDBFE;background:#EFF6FF;font-size:11px;font-weight:800;color:#1D4ED8;cursor:pointer">
         📄 상세보기
       </button>
       <button onclick="boApproveSubDoc('${safeId}')"
-        style="padding:8px 20px;border-radius:8px;border:none;background:#059669;color:white;font-size:12px;font-weight:900;cursor:pointer">
-        ✅ 승인
+        style="padding:8px 20px;border-radius:8px;border:none;background:${act.color};color:white;font-size:12px;font-weight:900;cursor:pointer">
+        ${act.label}
       </button>
       <button onclick="boRejectSubDoc('${safeId}')"
         style="padding:8px 16px;border-radius:8px;border:1.5px solid #EF4444;color:#EF4444;background:white;font-size:12px;font-weight:700;cursor:pointer">
         ❌ 반려
       </button>
-    </div>` : `<div style="text-align:right;font-size:12px;font-weight:700;color:#9CA3AF;border-top:1px solid #F3F4F6;padding-top:10px">처리 완료</div>`}
-  </div>`;
+    </div>`;
 }
+
 // ── 승인 처리 ─────────────────────────────────────────────────────────────────
 async function boApproveSubDoc(docId) {
   if (!confirm("이 상신 문서를 승인하시겠습니까?")) return;
@@ -180,7 +199,11 @@ async function boApproveSubDoc(docId) {
     const nodes = doc.approval_nodes || [];
     const curIdx = doc.current_node_order || 0;
     const nextIdx = curIdx + 1;
-    const isFinal = nextIdx >= nodes.length;
+    // P16: 역할에 따라 최종 상태 결정
+    // 총괄담당자: 노드 소진 시 approved / 운영담당자: 무조건 in_review(1차검토)
+    const isLastNode = nextIdx >= nodes.length;
+    const isGlobal = typeof boIsGlobalAdmin === "function" ? boIsGlobalAdmin() : true;
+    const isFinal = isLastNode && isGlobal; // 총괄이 마지막 노드를 처리해야 최종 승인
     const newStatus = isFinal ? "approved" : "in_review";
     const now = new Date().toISOString();
 
@@ -251,6 +274,8 @@ async function boApproveSubDoc(docId) {
     if (doc) { doc.status = newStatus; doc.current_node_order = nextIdx; }
     if (isFinal) {
       alert("✅ 최종 승인 완료되었습니다.");
+    } else if (!isGlobal) {
+      alert(`📤 1차 검토 완료. 총괄담당자에게 전달됩니다.`);
     } else {
       alert(`✅ 승인되었습니다. 다음 결재자(${nodes[nextIdx]?.label || ""})에게 전달됩니다.`);
     }

@@ -1,18 +1,14 @@
-# 🚧 실시간 AI 작업 진행 상황 (Progress Signal)
+# 기능 단위 파일 분리 체크리스트
 
-> **안내**: 이 문서는 AI 에이전트가 긴 작업을 수행할 때 진행 상황을 실시간으로 보여주기 위한 대시보드입니다. 세션이 바뀌어도 항상 이 파일(`docs/task.md`)을 통해 현재 작업 상태를 확인할 수 있습니다.
-
----
-
-## 🎯 현재 진행 중인 목표: **P12(계획 묶음 상신) & P15(다중 계획 합산 신청) 구현**
-
-- [x] 🟢 **사전 작업**: `progress_signal` 스킬 적용 및 비즈니스 철학 PRD 반영
-- [x] 🟢 **Step 1: P12 & P15 기획 및 코드 분석 완료**
-- [x] 🟢 **Step 2: 구현 계획서(Implementation Plan) 사용자 승인 완료**
-- [x] 🟢 **Step 3: DB 스키마 업데이트 (`application_plan_items` 테이블 생성 마이그레이션)**
-- [x] 🟢 **Step 4: `fo_plans_list.js` 교육계획 묶음 상신 UI 및 계정 제약 방어 로직 구현**
-- [x] 🟢 **Step 5: `apply.js` 교육신청 다중 계획 선택 및 폼 통합 UI 구현**
-- [ ] ⏳ **Step 6: 검증 및 배포 (verify-and-push) (진행 중... 📝)**
-
----
-*진행 상황이 업데이트 될 때마다 이 파일의 내용이 실시간으로 변경됩니다.*
+- [ ] js/data.js – 데이터 레이어 (PERSONAS, MOCK_HISTORY, MOCK_PLANS, applyState)
+- [ ] css/styles.css – 전역 CSS 스타일
+- [ ] js/utils.js – 공통 유틸 함수 (fmt, statusBadge, navigate, switchPersona)
+- [ ] js/gnb.js – GNB(상단 네비게이션) + Floating Budget Widget
+- [ ] js/dashboard.js – 대시보드 렌더링
+- [ ] js/plans.js – 교육계획 렌더링 + 폼 핸들러
+- [ ] js/history.js – 교육신청 목록 렌더링
+- [ ] js/apply.js – 교육신청 4단계 스텝 렌더링 + 핸들러
+- [ ] js/budget.js – 예산 관리 렌더링
+- [ ] js/mypage.js – 마이페이지 렌더링
+- [ ] js/main.js – 앱 초기화 (DOMContentLoaded)
+- [ ] index.html – 슬림화 (script/style 태그 → 외부 파일 참조)

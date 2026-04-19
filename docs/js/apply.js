@@ -1871,6 +1871,13 @@ function _renderApplyConfirm() {
     : null;
   const accountCode = curBudget?.accountCode || "";
 
+  // 다중 계획 정보 가져오기
+  const planIds = s.planIds && s.planIds.length > 0 ? s.planIds : (s.planId ? [s.planId] : []);
+  const plansText = planIds.map(pid => {
+    const pl = (_plansDbCache || []).find(p => p.id === pid);
+    return pl ? pl.edu_name || pl.title : pid;
+  }).join('<br>');
+
   document.getElementById("page-apply").innerHTML = `
   <div class="max-w-3xl mx-auto">
     <div style="background:white;border-radius:20px;border:1.5px solid #E5E7EB;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.08)">
@@ -1884,6 +1891,10 @@ function _renderApplyConfirm() {
           <tr style="border-bottom:1px solid #F3F4F6">
             <td style="padding:12px 0;font-weight:800;color:#6B7280;width:120px">교육명</td>
             <td style="padding:12px 0;font-weight:900;color:#111827">${s.eduName || s.title || "-"}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #F3F4F6">
+            <td style="padding:12px 0;font-weight:800;color:#6B7280">연결된 교육계획</td>
+            <td style="padding:12px 0;font-weight:900;color:#111827">${plansText || "-"}</td>
           </tr>
           <tr style="border-bottom:1px solid #F3F4F6">
             <td style="padding:12px 0;font-weight:800;color:#6B7280">예산계정</td>
@@ -2049,6 +2060,7 @@ async function confirmApply() {
             purpose: applyState.purpose?.id || null,
             expenses: applyState.expenses,
             courseSessionLinks: applyState.courseSessionLinks || [],
+            planIds: applyState.planIds || [],
             _form_snapshot: _fSnap,
           },
         };
@@ -2058,6 +2070,31 @@ async function confirmApply() {
         if (error) throw error;
       }
     }
+
+    // ★ application_plan_items (다중 계획 합산 신청 매핑)
+    const sb = typeof getSB === "function" ? getSB() : null;
+    if (sb) {
+      const planIds = applyState.planIds && applyState.planIds.length > 0 ? applyState.planIds : (applyState.planId ? [applyState.planId] : []);
+      if (planIds.length > 0) {
+        const planItems = planIds.map((pid, idx) => {
+          const pl = (_plansDbCache || []).find((p) => p.id === pid) || {};
+          return {
+            application_id: appId,
+            plan_id: pid,
+            course_name: pl.edu_name || pl.title || null,
+            institution_name: pl.detail?.institution || null,
+            start_date: pl.detail?.startDate || null,
+            end_date: pl.detail?.endDate || null,
+            edu_type: pl.edu_type || null,
+            subtotal: pl.amount || 0,
+            sort_order: idx
+          };
+        });
+        await sb.from("application_plan_items").delete().eq("application_id", appId);
+        await sb.from("application_plan_items").insert(planItems);
+      }
+    }
+
   } catch (err) {
     alert("제출 실패: " + _friendlyApplyError(err.message));
     return;
@@ -2163,6 +2200,7 @@ async function saveApplyDraft() {
         budgetId: applyState.budgetId || null,
         expenses: applyState.expenses,
         courseSessionLinks: applyState.courseSessionLinks || [],
+        planIds: applyState.planIds || [],
         _form_snapshot: _fSnapDraft,
       },
     };
@@ -2170,6 +2208,27 @@ async function saveApplyDraft() {
       .from("applications")
       .upsert(row, { onConflict: "id" });
     if (error) throw error;
+    
+    // ★ application_plan_items (임시저장 시 매핑 보존)
+    const planIds = applyState.planIds && applyState.planIds.length > 0 ? applyState.planIds : (applyState.planId ? [applyState.planId] : []);
+    if (planIds.length > 0) {
+      const planItems = planIds.map((pid, idx) => {
+        const pl = (_plansDbCache || []).find((p) => p.id === pid) || {};
+        return {
+          application_id: appId,
+          plan_id: pid,
+          course_name: pl.edu_name || pl.title || null,
+          institution_name: pl.detail?.institution || null,
+          start_date: pl.detail?.startDate || null,
+          end_date: pl.detail?.endDate || null,
+          edu_type: pl.edu_type || null,
+          subtotal: pl.amount || 0,
+          sort_order: idx
+        };
+      });
+      await sb.from("application_plan_items").delete().eq("application_id", appId);
+      await sb.from("application_plan_items").insert(planItems);
+    }
     applyState.editId = appId;
     alert("💾 임시저장되었습니다.");
   } catch (err) {
@@ -2261,6 +2320,9 @@ async function resumeApplyDraft(appId) {
     ];
     applyState.policyId = data.policy_id || null;
     if (data.detail?.purpose) applyState.purpose = { id: data.detail.purpose };
+    applyState.planIds = data.detail?.planIds || [];
+    if (!applyState.planIds.length && data.plan_id) applyState.planIds = [data.plan_id];
+    applyState.planId = applyState.planIds[0] || "";
     applyState.step = 3;
     applyViewMode = "form";
     renderApply();

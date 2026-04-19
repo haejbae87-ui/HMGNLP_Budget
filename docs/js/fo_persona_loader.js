@@ -289,15 +289,12 @@ async function switchPersonaAndReload(key) {
     _appsDbLoaded = false;
     _dbMyApps = [];
   }
-  if (typeof _aprMemberLoaded !== "undefined") {
-    _aprMemberLoaded = false;
-    _aprMemberData = [];
-  }
-  if (typeof _aprLeaderLoaded !== "undefined") {
-    _aprLeaderLoaded = false;
-    _aprLeaderData = [];
-  }
-  if (typeof navigate === "function") navigate(currentPage || "dashboard");
+  if (typeof _aprMemberLoaded !== 'undefined') { _aprMemberLoaded = false; _aprMemberData = []; }
+  if (typeof _aprLeaderLoaded !== 'undefined')  { _aprLeaderLoaded = false;  _aprLeaderData = [];  }
+  // PRD#13: 페르소나 전환 시 Realtime 채널 재구독 (applicant_id 기준 채널 교체)
+  if (typeof foStopRealtime === 'function')  foStopRealtime();
+  if (typeof foStartRealtime === 'function') setTimeout(foStartRealtime, 300);
+  if (typeof navigate === 'function') navigate(currentPage || 'dashboard');
 }
 
 // ─── org_budget_bankbooks 기반 allowedAccounts + budgets 로드 ───────────────

@@ -3,9 +3,10 @@
 // 기존: 정책(SERVICE_POLICIES) 기반 개별 건 필터링
 // 변경: submission_documents.approval_nodes[current_node_order] 기반 문서 단위 결재
 
-let _boApprovalTab = "pending";   // pending | done
-let _boApprovalLoaded = false;
-let _boSubDocs = [];              // 내가 처리해야 할 상신 문서 목록
+let _boApprovalTab       = "pending";   // pending | done
+let _boApprovalDocFilter = "all";       // all | plan | application | result
+let _boApprovalLoaded    = false;
+let _boSubDocs           = [];          // 내가 처리해야 할 상신 문서 목록
 
 // ── 데이터 로드 ──────────────────────────────────────────────────────────────
 async function _loadBoApprovalData() {
@@ -50,7 +51,33 @@ function renderMyOperations() {
 
     const pendingDocs = _boSubDocs.filter(d => ["submitted","in_review"].includes(d.status));
     const doneDocs    = _boSubDocs.filter(d => ["approved","rejected","recalled"].includes(d.status));
-    const currentDocs = _boApprovalTab === "pending" ? pendingDocs : doneDocs;
+
+    // P12: 문서 타입 필터 적용
+    const _filterByType = (arr) => _boApprovalDocFilter === "all" ? arr
+      : arr.filter(d => d.doc_type === _boApprovalDocFilter);
+    const currentDocs = _filterByType(_boApprovalTab === "pending" ? pendingDocs : doneDocs);
+
+    // P12: 문서 타입 필터 탭 (전체/교육계획/신청/결과)
+    const docTypeTabs = [
+      { id:"all",         label:"전체",       color:"#374151" },
+      { id:"plan",        label:"교육계획",    color:"#1D4ED8" },
+      { id:"application", label:"교육신청",    color:"#7C3AED" },
+      { id:"result",      label:"결과보고",    color:"#059669" },
+    ];
+    const docFilterCounts = { all: _boSubDocs.length };
+    ["plan","application","result"].forEach(t => {
+      docFilterCounts[t] = _boSubDocs.filter(d => d.doc_type === t).length;
+    });
+    const docFilterHtml = docTypeTabs.map(t => {
+      const active = _boApprovalDocFilter === t.id;
+      const cnt = docFilterCounts[t.id] || 0;
+      return `<span onclick="_boApprovalDocFilter='${t.id}';renderMyOperations()"
+        style="padding:4px 12px;border-radius:20px;border:1.5px solid ${active?t.color:'#E5E7EB'};
+        background:${active?t.color:'white'};color:${active?'white':'#6B7280'};
+        font-size:11px;font-weight:700;cursor:pointer">
+        ${t.label} <span style="font-size:10px;opacity:.8">${cnt}</span>
+      </span>`;
+    }).join("");
 
     const tabHtml = [
       { id:"pending", label:"📥 승인 대기", count: pendingDocs.length, color:"#1D4ED8" },
@@ -87,6 +114,8 @@ function renderMyOperations() {
           ? "운영담당자 — 1차 검토 처리 후 총괄담당자에게 전달됩니다"
           : "총괄담당자 — 최종 승인/반려 권한을 가집니다"}</p>
       </div>
+      <!-- P12: 문서 타입 필터 -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${docFilterHtml}</div>
       <div style="display:flex;gap:8px;margin-bottom:16px">${tabHtml}</div>
       <div style="display:flex;flex-direction:column;gap:12px">${cards}</div>
     </div>`;

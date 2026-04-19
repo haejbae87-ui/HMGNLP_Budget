@@ -79,3 +79,10 @@ saved/pending → 1차검토(boPlanReview) → in_review [운영담당자]
 1. P12: 신청 관리 목록에서 운영담당자 1차검토 UI 추가 (bo_approval.js 신청 파트)
 2. REFACTOR-4: prd_data.js (384KB) 분리
 3. S-13: FO 상신 후 BO 알림 토스트 (Realtime 연동)
+
+## 2026-04-19 P12 + REFACTOR-4 완료
+- P12: bo_approval.js에 문서타입 필터탭(전체/교육계획/신청/결과) 추가 + _boApprovalDocFilter 상태 변수
+- REFACTOR-4: prd_data.js(384KB) → prd_data_part1(123KB)+part2(164KB)+part3(98KB) 3분할
+  - PRD_DATA_1/2/3 배열로 분리. part3에서 통합 PRD_DATA = [...1,...2,...3] 생성
+  - 기존 코드 참조 호환 유지
+- pre_dev_check.js Windows PowerShell 출력 깨짐 완전 수정(ASCII 전용)

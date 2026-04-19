@@ -289,15 +289,29 @@ async function renderBoPlanMgmt() {
         `}
         <button onclick="_boPlanMgmtData=null;_boPlanEditMode=false;_boPlanEdits={};renderBoPlanMgmt()" class="bo-btn-primary" style="margin-left:auto">🔄 새로고침</button>
       </div>
+    ` : canReview ? `
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="padding:4px 14px;border-radius:8px;background:#FEF3C7;color:#92400E;font-size:11px;font-weight:900">🔍 운영담당자 — 1차 검토 모드</span>
+        <button onclick="_boPlanMgmtData=null;renderBoPlanMgmt()" class="bo-btn-primary" style="margin-left:auto">🔄 새로고침</button>
+      </div>
     ` : `<div style="display:flex;gap:8px;align-items:center"><button onclick="_boPlanMgmtData=null;renderBoPlanMgmt()" class="bo-btn-primary">🔄 새로고침</button></div>`;
+
+    // ★ 운영담당자 전용: 1차 검토 대기 목록
+    const reviewPending = canReview
+      ? plans.filter(p => ["pending","pending_approval","saved","submitted"].includes(p.status))
+      : [];
 
     el.innerHTML = `
     <div class="bo-fade">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
         <div>
-          <h1 class="bo-page-title">📋 교육계획 관리</h1>
-          <p class="bo-page-sub">${canApprove ? "교육계획 검토·승인 및 배정액 관리" : "교육계획 수립 및 상신"}</p>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+            <h1 class="bo-page-title" style="margin:0">📋 교육계획 관리</h1>
+            ${typeof boRoleModeBadge==="function" ? boRoleModeBadge() : ""}
+          </div>
+          <p class="bo-page-sub">${canApprove ? "총괄담당자 — 최종 승인/반려 및 배정액 관리" : canReview ? "운영담당자 — 1차 검토 후 총괄담당자에게 전달" : "교육계획 수립 및 상신"}</p>
         </div>
+
         ${editBar}
       </div>
 
@@ -360,6 +374,34 @@ async function renderBoPlanMgmt() {
             <span style="font-size:12px;color:#7C3AED">1차검토완료: <strong>${plans.filter(p => p.status === 'in_review').length}건</strong></span>
           </div>
         </div>
+
+        <!-- P11: 운영담당자 전용 — 1차 검토 대기 섹션 -->
+        ${canReview && reviewPending.length > 0 ? `
+        <div style="margin-bottom:20px;padding:20px;border-radius:14px;background:linear-gradient(135deg,#FFFBEB,#FEF3C7);border:2px solid #F59E0B">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div>
+              <div style="font-size:14px;font-weight:900;color:#92400E">🔍 1차 검토 대기 (${reviewPending.length}건)</div>
+              <div style="font-size:11px;color:#B45309;margin-top:2px">검토 완료 시 총괄담당자에게 자동 전달됩니다</div>
+            </div>
+            <span style="font-size:11px;padding:4px 12px;border-radius:8px;background:#F59E0B;color:white;font-weight:800">운영담당자 전용</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${reviewPending.map(p => {
+              const sid = String(p.id).replace(/'/g,'');
+              const amt = Number(p.amount||0).toLocaleString();
+              return '<div style="background:white;border-radius:10px;padding:12px 16px;border:1px solid #FCD34D;display:flex;align-items:center;justify-content:space-between;gap:12px">'
+                + '<div style="flex:1;min-width:0">'
+                + '<div style="font-size:13px;font-weight:900;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (p.edu_name||p.title||'-') + '</div>'
+                + '<div style="font-size:11px;color:#6B7280;margin-top:2px">' + (p.applicant_name||'-') + ' · ' + (p.account_code||'-') + ' · ' + amt + '원</div>'
+                + '</div>'
+                + '<div style="display:flex;gap:6px;flex-shrink:0">'
+                + '<button onclick="_openBoPlanDetail(\'' + sid + '\')" style="padding:6px 12px;border-radius:8px;background:#EFF6FF;color:#1D4ED8;font-size:11px;font-weight:800;border:1.5px solid #BFDBFE;cursor:pointer">📄 상세</button>'
+                + '<button onclick="boPlanOpReview(\'' + sid + '\')" style="padding:6px 16px;border-radius:8px;background:#F59E0B;color:white;font-size:11px;font-weight:900;border:none;cursor:pointer">🔍 1차 검토 완료</button>'
+                + '<button onclick="boPlanReject(\'' + sid + '\')" style="padding:6px 12px;border-radius:8px;background:white;color:#EF4444;font-size:11px;font-weight:800;border:1.5px solid #EF4444;cursor:pointer">❌ 반려</button>'
+                + '</div></div>';
+            }).join('')}
+          </div>
+        </div>` : ''}
 
         <!-- P-3: in_review 전용 하이라이트 섹션 (총괄담당자용) -->
         ${(() => {
@@ -818,6 +860,35 @@ function _toBoAdminKey(key) {
     실지출액: "actualCost",
   };
   return map[key] || key.replace(/\s+/g, "_");
+}
+
+// ─── P11: 운영담당자 1차 검토 완료 ────────────────────────────────────────
+async function boPlanOpReview(id) {
+  const plan = (_boPlanMgmtData || []).find(p => p.id === id);
+  const planName = plan?.edu_name || plan?.title || id;
+  if (!confirm(`🔍 "${planName}"\n\n1차 검토를 완료하고 총괄담당자에게 전달하시겠습니까?`)) return;
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (sb) {
+    try {
+      await sb.from('plans').update({
+        status: 'in_review',
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: boCurrentPersona?.name || 'op_manager',
+        updated_at: new Date().toISOString(),
+      }).eq('id', id);
+
+      // 검토 이력 기록
+      await _boNotifyPlanStatus(sb, id, plan, 'in_review', boCurrentPersona);
+    } catch (err) {
+      alert('❌ 1차 검토 처리 실패: ' + err.message);
+      return;
+    }
+  }
+  _boPlanMgmtData = null;
+  _boPlanDetailView = null;
+  _boShowToast(`📤 "${planName}" 1차 검토 완료 — 총괄담당자에게 전달됨`, 'info');
+  renderBoPlanMgmt();
 }
 
 async function boPlanApprove(id) {

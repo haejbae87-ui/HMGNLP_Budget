@@ -1,4 +1,4 @@
-﻿// ─── FO 결재 페이지 (DB 연동) ────────────────────────────────────────────────
+// ─── FO 결재 페이지 (DB 연동) ────────────────────────────────────────────────
 // 팀원용 결재함 / 리더용 결재함
 
 // 리더 역할 판별 (pos 기반)
@@ -573,7 +573,6 @@ async function renderApprovalLeader() {
 </div>`;
 }
 
-// [S-5] 상신 문서 기반 승인/반려 처리
 async function _approvalActionDoc(docId, action) {
   const commentEl = document.getElementById("comment-doc-" + docId);
   const comment = commentEl?.value?.trim() || "";
@@ -607,18 +606,15 @@ async function _approvalActionDoc(docId, action) {
         const upd = { status: newStatus, updated_at: now };
         if (action === "reject") upd.reject_reason = comment;
         await sb.from(tab).update(upd).eq("id", si.item_id);
-        // submission_items 상태도 업데이트
         await sb.from("submission_items").update({ item_status: action === "approve" ? "approved" : "rejected" }).eq("id", si.id);
       }
     }
 
-    // 3. 승인 시 예산 차감 (submission 단위)
+    // 3. [S-9] 예산 처리: 승인 → 확정 차감, 반려 → 예약 해제
     if (action === "approve") {
-      const doc = _aprSubDocData.find(d => String(d.id) === String(docId));
-      if (doc?.total_amount && doc?.account_code) {
-        console.log(`[예산차감] 상신문서 ${docId}: ${doc.total_amount}원 (계정: ${doc.account_code})`);
-        // 예산 차감 로직은 기존 _approvalAction의 로직을 준용 (생략 - 향후 S-9에서 처리)
-      }
+      _s9ConfirmBudget(sb, { submissionId: docId }).catch(e => console.warn('[S-9] 확정 차감 실패:', e.message));
+    } else if (action === "reject") {
+      _s9ReleaseBudget(sb, { submissionId: docId, reason: 'rejected' }).catch(e => console.warn('[S-9] 예약 해제 실패:', e.message));
     }
 
     alert(`✅ ${actionLabel} 처리 완료!\n\n${comment ? "의견: " + comment + "\n\n" : ""}연결된 건들의 상태가 모두 업데이트되었습니다.`);
@@ -917,7 +913,7 @@ async function _aprConfirmSubmit() {
       await sb.from('submission_documents').insert(docRow);
       console.log('[_aprConfirmSubmit] 상신 문서 생성:', docId);
 
-      // 2. submission_items — 건별 연결 행 삽입 (S-1 테이블 활용)
+      // 2. submission_items — 건별 연결 행 삽입
       const itemRows = selectedArr.map((sel, idx) => {
         const item = _aprSavedData.find(d => String(d.id) === String(sel.id));
         return {
@@ -934,6 +930,18 @@ async function _aprConfirmSubmit() {
       });
       await sb.from('submission_items').insert(itemRows);
       console.log('[_aprConfirmSubmit] 상신 항목 연결:', itemRows.length, '건');
+
+      // [S-9] 예산 예약 — 상신 시 frozen_amount 증가
+      if (totalAmount > 0 && accountCode) {
+        _s9ReserveBudget(sb, {
+          submissionId: docId,
+          submitterId: currentPersona.id,
+          submitterName: currentPersona.name,
+          tenantId: currentPersona.tenantId,
+          accountCode,
+          amount: totalAmount,
+        }).catch(e => console.warn('[S-9] 예산 예약 실패:', e.message));
+      }
     } catch (e) {
       console.warn('[_aprConfirmSubmit] submission 테이블 삽입 실패 (무시):', e.message);
     }
@@ -989,12 +997,21 @@ async function _aprRecallSubmit(id, table) {
       return;
     }
 
-    const { error } = await sb.from(table).update({
-      status: 'saved', // 회수 후 saved(저장완료)로 복귀 → 수정 후 재상신 가능
+    const { error: recallErr } = await sb.from(table).update({
+      status: 'saved',
       updated_at: new Date().toISOString(),
     }).eq('id', id).in('status', ['pending', 'submitted']); // 낙관적 잠금
+    if (recallErr) throw recallErr;
 
-    if (error) throw error;
+    // [S-9] 연결된 submission_documents 찾아 예산 예약 해제
+    sb.from('submission_items').select('submission_id').eq('item_id', id)
+      .order('created_at', { ascending: false }).limit(1).single()
+      .then(({ data: si }) => {
+        if (!si?.submission_id) return;
+        _s9ReleaseBudget(sb, { submissionId: si.submission_id, reason: 'recalled' }).catch(() => {});
+        sb.from('submission_documents').update({ status: 'recalled', recalled_at: new Date().toISOString() })
+          .eq('id', si.submission_id).catch(() => {});
+      }).catch(() => {});
 
     alert('✅ 상신이 회수되었습니다.\n\n저장완료 상태로 복귀됩니다. 수정 후 다시 상신할 수 있습니다.');
 

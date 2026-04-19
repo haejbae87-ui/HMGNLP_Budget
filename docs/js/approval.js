@@ -40,8 +40,12 @@ function _aprEduType(k) {
 function _aprStatusLabel(s) {
   const m = {
     draft: "작성중",
+    saved: "저장완료",           // fo_submission_approval.md S-2
     pending: "결재대기",
     pending_approval: "결재대기",
+    submitted: "결재대기",       // fo_submission_approval.md S-2 (pending 대체)
+    in_review: "결재진행중",     // fo_submission_approval.md S-2
+    recalled: "회수됨",          // fo_submission_approval.md S-6
     approved: "승인완료",
     rejected: "반려",
     cancelled: "취소",
@@ -771,7 +775,7 @@ function _aprBulkSubmit() {
   _aprOpenModal(items);
 }
 
-// 상신 모달 열기
+// 상신 모달 열기 (S-3 고도화: 예산 요약 + 계정 정보)
 function _aprOpenModal(items) {
   const modal = document.getElementById('apr-submit-modal');
   if (!modal) return;
@@ -785,14 +789,34 @@ function _aprOpenModal(items) {
       : `교육 ${items.length}건 일괄 상신 (${today})`;
   }
 
-  // 첨부 항목 목록
+  // 첨부 항목 목록 + 예산 요약
   const listEl = document.getElementById('apr-modal-items-list');
   if (listEl) {
-    listEl.innerHTML = items.map((item, i) =>
-      `<div style="padding:6px 0;border-bottom:1px solid #E5E7EB;font-size:12px;color:#374151">
-        ${i + 1}. ${item.title}
-      </div>`
-    ).join('');
+    const totalAmt = items.reduce((sum, item) => {
+      const d = _aprSavedData.find(x => String(x.id) === String(item.id));
+      return sum + (d?.amount || 0);
+    }, 0);
+    const acctCodes = [...new Set(items.map(item => {
+      const d = _aprSavedData.find(x => String(x.id) === String(item.id));
+      return d?.accountCode || d?.account_code || '';
+    }).filter(Boolean))];
+    const multiAcct = acctCodes.length > 1;
+
+    listEl.innerHTML = `
+      <div style="margin-bottom:10px">
+        ${items.map((item, i) => {
+          const d = _aprSavedData.find(x => String(x.id) === String(item.id));
+          const amt = d?.amount || 0;
+          return `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #F3F4F6;font-size:12px">
+            <span style="color:#374151;font-weight:700">${i + 1}. ${item.title}</span>
+            <span style="color:#002C5F;font-weight:900">${amt.toLocaleString()}원</span>
+          </div>`;
+        }).join('')}
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;font-weight:900;color:#002C5F">
+          <span>합계</span><span>${totalAmt.toLocaleString()}원</span>
+        </div>
+      </div>
+      ${multiAcct ? `<div style="font-size:11px;color:#EF4444;padding:6px 8px;background:#FEF2F2;border-radius:6px;margin-top:6px">⚠️ 서로 다른 예산계정의 건이 포함되어 있습니다. 같은 계정의 건만 모아 상신하는 것을 권장합니다.</div>` : acctCodes.length ? `<div style="font-size:11px;color:#6B7280">예산계정: <strong>${acctCodes[0]}</strong></div>` : ''}`;
   }
 
   modal.style.display = 'flex';
@@ -804,7 +828,7 @@ function _aprCloseModal() {
   if (modal) modal.style.display = 'none';
 }
 
-// 상신 확정 — DB에 pending 상태로 업데이트 + submission_documents 생성
+// 상신 확정 — submission_documents + submission_items 생성 + status → submitted
 async function _aprConfirmSubmit() {
   const titleEl = document.getElementById('apr-doc-title');
   const contentEl = document.getElementById('apr-doc-content');
@@ -828,41 +852,69 @@ async function _aprConfirmSubmit() {
     const selectedArr = [..._aprSelectedItems.values()];
     const now = new Date().toISOString();
 
-    // 1. submission_documents 테이블에 상신 문서 생성
+    // ── 계정코드·총액 집계
+    const totalAmount = selectedArr.reduce((sum, sel) => {
+      const item = _aprSavedData.find(d => String(d.id) === String(sel.id));
+      return sum + (item?.amount || 0);
+    }, 0);
+    const acctCodes = [...new Set(selectedArr.map(sel => {
+      const item = _aprSavedData.find(d => String(d.id) === String(sel.id));
+      return item?.accountCode || item?.account_code || '';
+    }).filter(Boolean))];
+    const accountCode = acctCodes[0] || null;
+
+    // 1. submission_documents 행 생성 (S-1 테이블 활용)
     const docId = `SUBDOC-${Date.now()}`;
     const docRow = {
       id: docId,
       tenant_id: currentPersona.tenantId,
+      submission_type: 'fo_user',
       submitter_id: currentPersona.id,
       submitter_name: currentPersona.name,
+      submitter_org_id: currentPersona.orgId || null,
+      submitter_org_name: currentPersona.dept || null,
       title: docTitle,
       content: docContent,
-      status: 'pending',
+      account_code: accountCode,
+      total_amount: totalAmount,
+      status: 'submitted',
       submitted_at: now,
-      item_count: selectedArr.length,
-      total_amount: selectedArr.reduce((sum, sel) => {
-        const item = _aprSavedData.find(d => String(d.id) === String(sel.id));
-        return sum + (item?.amount || 0);
-      }, 0),
     };
 
-    // submission_documents 테이블이 존재하는 경우에만 삽입
     try {
       await sb.from('submission_documents').insert(docRow);
       console.log('[_aprConfirmSubmit] 상신 문서 생성:', docId);
+
+      // 2. submission_items — 건별 연결 행 삽입 (S-1 테이블 활용)
+      const itemRows = selectedArr.map((sel, idx) => {
+        const item = _aprSavedData.find(d => String(d.id) === String(sel.id));
+        return {
+          submission_id: docId,
+          item_type: sel.table === 'plans' ? 'plan' : 'application',
+          item_id: sel.id,
+          item_title: item?.title || sel.id,
+          item_amount: item?.amount || 0,
+          account_code: item?.accountCode || item?.account_code || accountCode,
+          policy_id: item?.policyId || item?.policy_id || null,
+          item_status: 'pending',
+          sort_order: idx,
+        };
+      });
+      await sb.from('submission_items').insert(itemRows);
+      console.log('[_aprConfirmSubmit] 상신 항목 연결:', itemRows.length, '건');
     } catch (e) {
-      console.warn('[_aprConfirmSubmit] submission_documents 테이블 없음 (무시):', e.message);
+      console.warn('[_aprConfirmSubmit] submission 테이블 삽입 실패 (무시):', e.message);
     }
 
-    // 2. 각 항목의 status를 'pending'으로 업데이트 (saved → pending)
+    // 3. 각 항목 status → 'submitted' (saved → submitted, 낙관적 잠금)
     const errors = [];
     for (const sel of selectedArr) {
       try {
         const { error } = await sb
           .from(sel.table)
-          .update({ status: 'pending', updated_at: now })
+          .update({ status: 'submitted', updated_at: now })
           .eq('id', sel.id)
-          .eq('status', 'saved'); // 낙관적 잠금 — saved 상태만 업데이트
+          .in('status', ['saved', 'pending']); // pending 레거시도 허용
         if (error) errors.push(error.message);
       } catch (e) {
         errors.push(e.message);
@@ -872,7 +924,7 @@ async function _aprConfirmSubmit() {
     if (errors.length > 0) {
       alert('⚠️ 일부 항목 상신 실패:\n' + errors.join('\n'));
     } else {
-      alert(`✅ 상신 완료!\n\n제목: ${docTitle}\n항목 수: ${selectedArr.length}건\n\n담당자 검토 후 결재선이 자동 구성됩니다.`);
+      alert(`✅ 상신 완료!\n\n제목: ${docTitle}\n항목 수: ${selectedArr.length}건 │ 합계: ${totalAmount.toLocaleString()}원\n\n담당자 검토 후 결재선이 자동 구성됩니다.`);
     }
 
     _aprCloseModal();

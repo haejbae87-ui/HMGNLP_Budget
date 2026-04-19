@@ -1,10 +1,10 @@
-# S-8 배포 전용 (비대화형)
+# P10/P11 DB 트리거 + 문서 업데이트 배포
 $OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $fso = New-Object -ComObject Scripting.FileSystemObject
 $shortRepo = $fso.GetFolder($PSScriptRoot).ShortPath
 $git = "C:\Program Files\Git\cmd\git.exe"
-$msg = "feat: S-8 BO 결재화면 상신문서 기반 전환 완료"
+$msg = "feat: P10/P11 DB 트리거 적용 + P2 인라인편집 확인"
 
 Write-Host "[ add ]" -ForegroundColor Cyan
 & $git -C $shortRepo add -A 2>&1

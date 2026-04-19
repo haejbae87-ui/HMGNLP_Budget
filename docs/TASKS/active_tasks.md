@@ -1,6 +1,6 @@
 # 📋 HMGNLP_Budget — 작업 현황 (active_tasks.md)
 
-> 최종 갱신: 2026-04-19 (S-8 BO 결재화면 상신문서 기반 전환 완료)
+> 최종 갱신: 2026-04-19 (P2 확인 완료, P10 실사용액 DB 트리거, P11 plan_type 자동분류 트리거 완료)
 
 ---
 
@@ -23,6 +23,9 @@
   - BO 결재함 필터: 역할 기반 전체 조회 (총괄담당자 = 전체, 운영담당자 = 관할 교육조직 문서만)
   - 승인/반려 시 `submission_items.final_status` 업데이트
   - `bo_approval_routing.js` 외부결재(external) 배지 제거
+- [x] **P2 교육계획 인라인 편집** 확인 (`bo_plan_mgmt.js`) — `_boPlanToggleEdit`, `_boPlanBatchSave`, `_boPlanInlineChange` 등 1597줄 기구현 확인 완료
+- [x] **P10 실사용액 자동 집계** — `trg_sync_plan_actual_amount` DB 트리거: `applications.status='approved'` 시 `plans.actual_amount` 자동 합산
+- [x] **P11 plan_type 자동분류** — `trg_auto_classify_plan_type` DB 트리거: 수요예측 기간 내 INSERT 시 `forecast`, 외 시 `ongoing` 자동 설정 (Q-10)
 
 ---
 

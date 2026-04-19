@@ -53,3 +53,12 @@ saved/pending → 1차검토(boPlanReview) → in_review [운영담당자]
 ## ✅ 시스템 완성도
 
 핵심 라이프사이클 플로우 **완전 구현** 완료
+
+## 2026-04-19 REFACTOR-1 — 대형 JS 모듈 분리 완료
+
+| 원본 파일 | 분리 모듈 | 크기 절감 |
+|-----------|----------|----------|
+| o_budget_master.js (154KB, 3149줄) | o_budget_account_mgmt.js + o_budget_policy_mgmt.js + o_budget_org_mgmt.js | 각 52KB 수준 |
+| o_form_builder.js (151KB, 3344줄) | o_fb_core.js + o_fb_library.js + o_fb_editor.js | 25/42/80KB |
+
+- 기존 원본 파일은 호환성을 위해 보존 (backoffice.html에서만 분리 모듈로 교체)

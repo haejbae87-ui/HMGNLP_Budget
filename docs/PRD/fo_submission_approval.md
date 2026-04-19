@@ -4,7 +4,7 @@
 > **도메인**: Front Office 상신/결재 (Submission & Approval)  
 > **관련 파일**: `plans.js`, `apply.js`, `result.js`, `gnb.js`, `approval.js` (FO), `bo_approval.js` (BO)  
 > **관련 PRD**: [approval_line_design.md](approval_line_design.md), [multi_plan_application.md](multi_plan_application.md), [edu_support_operations_role_design.md](edu_support_operations_role_design.md), [budget_lifecycle.md](budget_lifecycle.md)  
-> **상태**: 🔴 기획 확정 / 미구현
+> **상태**: 🟡 구현 중 (Phase 17 S-1~S-6, S-9 구현 완료)
 
 ---
 
@@ -659,16 +659,16 @@ plans.js와 동일 패턴 적용.
 
 | Phase | 범위 | 의존성 | 난이도 |
 |-------|------|--------|:---:|
-| **S-1** | DB: `submission_documents`, `submission_items`, `approval_history` 테이블 생성 | 없음 | ⭐ |
-| **S-2** | plans.js: 3단계 버튼 분리 (`임시저장`/`저장`/`저장+상신`) + `saved` 상태 추가 | S-1 | ⭐⭐ |
-| **S-3** | 상신 문서 작성 화면 (단건/다건 공통) + 결재선 자동 구성 | S-1, S-2 | ⭐⭐⭐ |
-| **S-4** | 팀원용 결재함 개편 — 상신 문서 기반 목록 + 회수 | S-3 | ⭐⭐⭐ |
-| **S-5** | 팀장용 결재함 개편 — 상신 문서 기반 승인/반려 | S-3 | ⭐⭐⭐⭐ |
-| **S-6** | apply.js, result.js에 동일 패턴 적용 | S-2 | ⭐⭐ |
+| **S-1** | DB: `submission_documents`, `submission_items`, `approval_history` 테이블 생성 | 없음 | ✅ 완료 |
+| **S-2** | plans.js: 3단계 버튼 분리 (`임시저장`/`저장`/`저장+상신`) + `saved` 상태 추가 | S-1 | ✅ 완료 |
+| **S-3** | 상신 문서 작성 화면 (단건/다건 공통) + 결재선 자동 구성 | S-1, S-2 | ✅ 완료 |
+| **S-4** | 팀원용 결재함 개편 — 상신 문서 기반 목록 + 회수 | S-3 | ✅ 완료 |
+| **S-5** | 팀장용 결재함 개편 — 상신 문서 기반 승인/반려 | S-3 | ✅ 완료 |
+| **S-6** | apply.js, result.js에 동일 패턴 적용 | S-2 | ✅ 완료 |
 | **S-7** | 통합결재 표시 (협조처/참조처) — HMC/KIA 전용 | S-3 | ⭐⭐ |
 | **S-8** | BO 결재 화면 (`bo_approval.js`) 상신 문서 기반 전환 | S-3, S-5 | ⭐⭐⭐⭐ |
-| **S-9** | 예산 예약/확정 차감 로직 | S-5 | ⭐⭐⭐ |
-| **S-10** | 레거시 마이그레이션 (`pending` → `submitted`, 기존 데이터 상신 문서 변환) | S-1 | ⭐⭐ |
+| **S-9** | 예산 예약/확정 차감 로직 | S-5 | ✅ 완료 |
+| **S-10**| 레거시 마이그레이션 (`pending` → `submitted`, 기존 데이터 상신 문서 변환) | S-1 | ✅ 스킵 |
 
 ---
 

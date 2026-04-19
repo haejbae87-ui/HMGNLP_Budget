@@ -201,21 +201,33 @@ async function renderBoPlanMgmt() {
         const isEdited = _boPlanEdits.hasOwnProperty(pl.id);
         const editVal = isEdited ? _boPlanEdits[pl.id] : allocAmt;
         const cellBg = isEdited ? 'background:#FFFBEB;' : '';
+        // F-010-a: 변경 diff 뱃지 (원본 → 변경값)
+        const diffBadge = isEdited
+          ? `<span style="font-size:9px;color:#B45309;margin-left:4px;white-space:nowrap">
+               (${allocAmt > 0 ? allocAmt.toLocaleString() : '-'} → ${editVal.toLocaleString()})
+             </span>`
+          : '';
         const allocCell = _boPlanEditMode
           ? `<td style="text-align:right;${cellBg}padding:4px 6px" onclick="event.stopPropagation()">
-              <input type="number" min="0" value="${editVal}"
-                onchange="_boPlanInlineChange('${safeId}',this.value)"
-                onkeydown="_boPlanInlineKeyNav(event,${idx})"
-                id="bo-alloc-input-${idx}"
-                style="width:110px;text-align:right;padding:6px 8px;border:1.5px solid ${isEdited ? '#F59E0B' : '#E5E7EB'};border-radius:6px;font-size:12px;font-weight:800;background:${isEdited ? '#FFFBEB' : '#fff'};outline:none;transition:border-color .15s"
-                onfocus="this.style.borderColor='#1D4ED8';this.select()" onblur="this.style.borderColor='${isEdited ? '#F59E0B' : '#E5E7EB'}'"
-              />
+              <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px">
+                <input type="number" min="0" value="${editVal}"
+                  onchange="_boPlanInlineChange('${safeId}',this.value)"
+                  onkeydown="_boPlanInlineKeyNav(event,${idx})"
+                  id="bo-alloc-input-${idx}"
+                  style="width:110px;text-align:right;padding:6px 8px;border:1.5px solid ${isEdited ? '#F59E0B' : '#E5E7EB'};border-radius:6px;font-size:12px;font-weight:800;background:${isEdited ? '#FFFBEB' : '#fff'};outline:none;transition:border-color .15s"
+                  onfocus="this.style.borderColor='#1D4ED8';this.select()" onblur="this.style.borderColor='${isEdited ? '#F59E0B' : '#E5E7EB'}'"
+                />
+                ${isEdited ? `<button onclick="event.stopPropagation();_boPlanResetCell('${safeId}',${idx})" title="원래대로" style="border:none;background:none;cursor:pointer;font-size:12px;color:#9CA3AF;padding:0" onmouseover="this.style.color='#DC2626'" onmouseout="this.style.color='#9CA3AF'">↩</button>` : ''}
+              </div>
+              ${diffBadge}
              </td>`
           : `<td style="text-align:right;font-weight:800;color:#059669">${allocAmt > 0 ? allocAmt.toLocaleString() + '원' : '<span style="color:#D1D5DB">-</span>'}</td>`;
 
         return `
-      <tr onclick="${_boPlanEditMode ? '' : "_openBoPlanDetail('" + safeId + "')"}" style="cursor:${_boPlanEditMode ? 'default' : 'pointer'};transition:background .12s"
-          onmouseover="this.style.background='#F0F9FF'" onmouseout="this.style.background='${isEdited ? '#FFFBEB' : ''}'" ${isEdited ? 'style="background:#FFFBEB"' : ''}>
+      <tr onclick="${_boPlanEditMode ? '' : "_openBoPlanDetail('" + safeId + "')"}" 
+          style="cursor:${_boPlanEditMode ? 'default' : 'pointer'};transition:background .12s;${isEdited ? 'background:#FFFBEB;' : ''}"
+          onmouseover="this.style.background='${isEdited ? '#FEF3C7' : '#F0F9FF'}'" 
+          onmouseout="this.style.background='${isEdited ? '#FFFBEB' : ''}'">
         <td>
           <div style="font-weight:700;font-size:12px">${pl.team || pl.dept || pl.applicant_name || ""}</div>
           <div style="font-size:10px;color:#9CA3AF">${pl.hq || pl.center || ""}</div>
@@ -1422,6 +1434,36 @@ function _boPlanCancelEdit() {
   _boPlanEditMode = false;
   _boPlanEdits = {};
   renderBoPlanMgmt();
+}
+
+// ── F-010-d: 셀 단위 개별 초기화 (↩ 버튼) ──
+function _boPlanResetCell(planId, idx) {
+  delete _boPlanEdits[planId];
+  // input 값 직접 복원
+  const orig = _boPlanOriginals[planId] || 0;
+  const input = document.getElementById(`bo-alloc-input-${idx}`);
+  if (input) {
+    input.value = orig;
+    input.style.borderColor = '#E5E7EB';
+    input.style.background = '#fff';
+    // 부모 td 배경 복원
+    const td = input.closest('td');
+    if (td) td.style.background = '';
+    const tr = input.closest('tr');
+    if (tr) {
+      tr.style.background = '';
+      tr.onmouseout = () => { tr.style.background = ''; };
+      tr.onmouseover = () => { tr.style.background = '#F0F9FF'; };
+    }
+    // diff 뱃지 제거
+    const badge = td?.querySelector('span[style*="B45309"]');
+    if (badge) badge.remove();
+    // 개별 ↩ 버튼 제거
+    const resetBtn = td?.querySelector('button');
+    if (resetBtn) resetBtn.remove();
+  }
+  _boPlanUpdateTotal();
+  _boPlanUpdateEditCount();
 }
 
 // ─── E-4: 1차검토 완료 (운영담당자 → in_review) ───────────────────────────────

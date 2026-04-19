@@ -1939,9 +1939,10 @@ async function confirmPlan() {
   }
 
   const sb = typeof getSB === "function" ? getSB() : null;
+  let planId = planState.editId || `PLAN-${Date.now()}`;
+
   if (sb) {
     try {
-      const planId = planState.editId || `PLAN-${Date.now()}`;
       const row = {
         id: planId,
         tenant_id: currentPersona.tenantId,
@@ -1952,7 +1953,7 @@ async function confirmPlan() {
         edu_name: planState.title || planState.eduTypeName || "교육계획",
         edu_type: planState.eduType || planState.eduSubType || null,
         amount: amount,
-        status: "pending",
+        status: "submitted",  // [S-6] pending → submitted
         policy_id: planState.policyId || null,
         plan_type: planState.plan_type || "ongoing",
         fiscal_year: planState.fiscal_year || new Date().getFullYear(),
@@ -1994,9 +1995,46 @@ async function confirmPlan() {
       console.error("[confirmPlan] 실패:", err.message);
       return;
     }
+
+    // [S-6] submission_documents + submission_items 자동 생성
+    try {
+      const now = new Date().toISOString();
+      const docId = `SUBDOC-${Date.now()}`;
+      const docRow = {
+        id: docId,
+        tenant_id: currentPersona.tenantId,
+        submission_type: 'fo_user',
+        submitter_id: currentPersona.id,
+        submitter_name: currentPersona.name,
+        submitter_org_id: currentPersona.orgId || null,
+        submitter_org_name: currentPersona.dept || null,
+        title: `${planState.title || planState.eduTypeName || '교육계획'} 상신`,
+        account_code: accountCode || null,
+        total_amount: amount,
+        status: 'submitted',
+        submitted_at: now,
+      };
+      await sb.from('submission_documents').insert(docRow).catch(e => console.warn('[confirmPlan] submission_documents 생성 실패:', e.message));
+      const itemRow = {
+        submission_id: docId,
+        item_type: 'plan',
+        item_id: planId,
+        item_title: planState.title || planState.eduTypeName || '교육계획',
+        item_amount: amount,
+        account_code: accountCode || null,
+        policy_id: planState.policyId || null,
+        item_status: 'pending',
+        sort_order: 0,
+      };
+      await sb.from('submission_items').insert(itemRow).catch(e => console.warn('[confirmPlan] submission_items 생성 실패:', e.message));
+      console.log('[confirmPlan] 상신 문서 자동 생성:', docId);
+    } catch (sdErr) {
+      console.warn('[confirmPlan] 상신 문서 생성 오류 (비치명적):', sdErr.message);
+    }
   }
+
   alert(
-    `✅ 교육계획이 상신되었습니다.\n\n계획액: ${amount.toLocaleString()}원\n담당자 검토 후 결재선이 자동 구성됩니다.`,
+    `✅ 교육계획이 상신되었습니다.\n\n계획액: ${amount.toLocaleString()}원\n상신 문서가 자동 생성되어 팀장 결재함으로 전달됩니다.`,
   );
   closePlanWizard();
   _plansDbLoaded = false;

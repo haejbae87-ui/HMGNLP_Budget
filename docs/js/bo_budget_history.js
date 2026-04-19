@@ -78,6 +78,16 @@ async function renderBudgetHistory() {
   }
   if (!_bhDateTo) _bhDateTo = new Date().toISOString().split("T")[0];
 
+  // F-150: 운영담당자 자동 열 필터 초기화
+  const _bhIsOp = typeof boIsOpManager === 'function' ? boIsOpManager() : false;
+  if (_bhIsOp && !_bhGroupId && typeof boGetMyGroups === 'function') {
+    const myGroups = boGetMyGroups();
+    if (myGroups.length === 1) {
+      // 단일 관할 그룹: 자동 필터 적용
+      _bhGroupId = _bhGroupId || myGroups[0]?.id || null;
+    }
+  }
+
   // 템플릿 로드
   try {
     const { data } = await sb
@@ -299,16 +309,28 @@ function _bhRender(el, isPlatform, tenants) {
     ${actionEntries.map(([k, v]) => `<option value="${k}" ${k === _bhActionFilter ? "selected" : ""}>${v}</option>`).join("")}
   </select>`;
 
+  // F-155: 역할 백지 + F-150: 관할 배너
+  const _bhRoleBadge = typeof boRoleModeBadge === 'function' ? boRoleModeBadge() : '';
+  const _bhIsOp = typeof boIsOpManager === 'function' ? boIsOpManager() : false;
+  const _bhOpBanner = typeof boOpScopeBanner === 'function' ? boOpScopeBanner() : '';
+
   el.innerHTML = `
 <div class="bo-fade" style="max-width:1200px">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
     <div>
-      <h1 style="font-size:20px;font-weight:900;color:#111827;margin:0">📒 예산 사용이력</h1>
-      <p style="font-size:12px;color:#6B7280;margin:4px 0 0">조직별 통장 입출금 트랜잭션을 추적합니다.</p>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <h1 style="font-size:20px;font-weight:900;color:#111827;margin:0">📒 예산 사용이력</h1>
+        ${_bhRoleBadge}
+      </div>
+      <p style="font-size:12px;color:#6B7280;margin:4px 0 0">${_bhIsOp ? '관할 조직별 통장 입출금 트랜잭션을 추적합니다.' : '조직별 통장 입출금 트랜잭션을 추적합니다.'}</p>
     </div>
-    <button onclick="_bhExportCSV()" style="padding:8px 16px;background:#059669;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">📥 CSV 내보내기</button>
-    <button onclick="_bhShowLifecycle()" style="padding:8px 16px;background:linear-gradient(135deg,#7C3AED,#4F46E5);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(124,58,237,.2)">📊 6단계 추적</button>
+    <div style="display:flex;gap:8px">
+      <button onclick="_bhExportCSV()" style="padding:8px 16px;background:#059669;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">📥 CSV 내보내기</button>
+      <button onclick="_bhShowLifecycle()" style="padding:8px 16px;background:linear-gradient(135deg,#7C3AED,#4F46E5);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(124,58,237,.2)">📊 6단계 추적</button>
+    </div>
   </div>
+
+  ${_bhOpBanner}
 
   <!-- 필터 바 -->
   <div class="bo-card" style="padding:14px 18px;margin-bottom:14px">

@@ -26,6 +26,7 @@
 - [x] **P2 교육계획 인라인 편집** 확인 (`bo_plan_mgmt.js`) — `_boPlanToggleEdit`, `_boPlanBatchSave`, `_boPlanInlineChange` 등 1597줄 기구현 확인 완료
 - [x] **P10 실사용액 자동 집계** — `trg_sync_plan_actual_amount` DB 트리거: `applications.status='approved'` 시 `plans.actual_amount` 자동 합산
 - [x] **P11 plan_type 자동분류** — `trg_auto_classify_plan_type` DB 트리거: 수요예측 기간 내 INSERT 시 `forecast`, 외 시 `ongoing` 자동 설정 (Q-10)
+- [x] **P12 FO 묶음 상신 UI** — `fo_plans_list.js`: HMC/KIA 테넌트 전용 `bundled_forecast_enabled` 체크, `forecast` + `saved` 계획 선택형 묶음 상신(팀장 결재) UI 구현
 
 ---
 

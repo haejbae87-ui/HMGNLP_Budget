@@ -7,6 +7,7 @@ let _boApprovalTab       = "pending";   // pending | done
 let _boApprovalDocFilter = "all";       // all | plan | application | result
 let _boApprovalLoaded    = false;
 let _boSubDocs           = [];          // 내가 처리해야 할 상신 문서 목록
+let _boSelectedForecasts = new Set();   // P13: 선택된 수요예측 묶음 ID 집합
 
 // ── 데이터 로드 ──────────────────────────────────────────────────────────────
 async function _loadBoApprovalData() {
@@ -76,22 +77,27 @@ function renderMyOperations() {
     const pendingDocs = _boSubDocs.filter(d => ["submitted","in_review"].includes(d.status));
     const doneDocs    = _boSubDocs.filter(d => ["approved","rejected","recalled"].includes(d.status));
 
-    // P12: 문서 타입 필터 적용
+    // P12/P13: 문서 타입 필터 적용
     const _filterByType = (arr) => _boApprovalDocFilter === "all" ? arr
-      : arr.filter(d => d.doc_type === _boApprovalDocFilter);
+      : _boApprovalDocFilter === "forecast" ? arr.filter(d => d.submission_type === 'team_forecast' || d.submission_type === 'org_forecast')
+      : arr.filter(d => d.doc_type === _boApprovalDocFilter && d.submission_type !== 'team_forecast' && d.submission_type !== 'org_forecast');
     const currentDocs = _filterByType(_boApprovalTab === "pending" ? pendingDocs : doneDocs);
 
-    // P12: 문서 타입 필터 탭 (전체/교육계획/신청/결과)
+    // 문서 타입 필터 탭
     const docTypeTabs = [
       { id:"all",         label:"전체",       color:"#374151" },
+      { id:"forecast",    label:"📦 수요예측 묶음", color:"#D97706" },
       { id:"plan",        label:"교육계획",    color:"#1D4ED8" },
       { id:"application", label:"교육신청",    color:"#7C3AED" },
       { id:"result",      label:"결과보고",    color:"#059669" },
       { id:"cancel",      label:"⚠️ 취소요청", color:"#DC2626" },
     ];
     const docFilterCounts = { all: _boSubDocs.length };
-    ["plan","application","result","cancel"].forEach(t => {
-      docFilterCounts[t] = _boSubDocs.filter(d => d.doc_type === t).length;
+    ["forecast","plan","application","result","cancel"].forEach(t => {
+      docFilterCounts[t] = _boSubDocs.filter(d => 
+        t === "forecast" ? (d.submission_type === 'team_forecast' || d.submission_type === 'org_forecast')
+        : (d.doc_type === t && d.submission_type !== 'team_forecast' && d.submission_type !== 'org_forecast')
+      ).length;
     });
     // GAP-1: 취소요청 탭 선택 시 bo_cancel_handler 렌더링
     if (_boApprovalDocFilter === 'cancel') {
@@ -127,6 +133,19 @@ function renderMyOperations() {
       </div>`;
     }).join("");
 
+    // P13: 교육조직 묶음 생성 플로팅 바 (운영담당자 전용)
+    const isOpManager = typeof boIsOpManager === "function" && boIsOpManager();
+    const canBundle = isOpManager && _boApprovalTab === "pending" && _boApprovalDocFilter === "forecast";
+    const bundleBarHtml = canBundle && _boSelectedForecasts.size > 0 ? `
+      <div style="position:fixed;bottom:40px;left:50%;transform:translateX(-50%);z-index:99;
+        background:#1F2937;color:white;padding:16px 32px;border-radius:99px;box-shadow:0 10px 25px rgba(0,0,0,0.3);
+        display:flex;align-items:center;gap:20px">
+        <div style="font-size:14px;font-weight:700">📦 선택한 팀 묶음 <span style="color:#FBBF24;font-size:18px;margin:0 4px">${_boSelectedForecasts.size}</span>건</div>
+        <button onclick="boOrgForecastModal()" style="padding:10px 24px;border-radius:99px;background:#D97706;color:white;border:none;font-weight:900;cursor:pointer">
+          교육조직 묶음 생성 및 상신 →
+        </button>
+      </div>` : "";
+
     const cards = currentDocs.length === 0
       ? `<div style="padding:60px;text-align:center;color:#9CA3AF">
            <div style="font-size:40px">📭</div>
@@ -151,6 +170,7 @@ function renderMyOperations() {
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${docFilterHtml}</div>
       <div style="display:flex;gap:8px;margin-bottom:16px">${tabHtml}</div>
       <div style="display:flex;flex-direction:column;gap:12px">${cards}</div>
+      ${bundleBarHtml}
     </div>`;
   } catch(err) {
     console.error("[renderMyOperations]", err);
@@ -195,9 +215,22 @@ function renderSubDocCard(doc) {
   ).join("");
   const moreHtml = items.length > 3 ? `<div style="font-size:11px;color:#9CA3AF;padding:4px 10px">... 외 ${items.length-3}건</div>` : "";
 
-  return `<div class="bo-card" style="padding:20px;${!isPending?"opacity:0.75":""}">
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px">
-      <div style="flex:1">
+  // P13: 체크박스 렌더링 (운영담당자 + team_forecast + pending)
+  const isOpManager = typeof boIsOpManager === "function" && boIsOpManager();
+  const showCheckbox = isOpManager && isPending && doc.submission_type === "team_forecast";
+  const isChecked = typeof _boSelectedForecasts !== 'undefined' && _boSelectedForecasts.has(doc.id);
+  const chkHtml = showCheckbox ? `
+    <div style="margin-right:12px;display:flex;align-items:center">
+      <input type="checkbox" ${isChecked?"checked":""} onchange="boToggleForecastBundle('${doc.id}', this.checked)"
+        style="width:20px;height:20px;cursor:pointer;accent-color:#D97706">
+    </div>
+  ` : "";
+
+  return `<div class="bo-card" style="padding:20px;${!isPending?"opacity:0.75":""};display:flex;align-items:flex-start">
+    ${chkHtml}
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px">
+        <div style="flex:1">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
           <span style="font-size:10px;font-weight:900;padding:2px 9px;border-radius:6px;background:${st.bg};color:${st.c}">${st.label}</span>
           <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#EDE9FE;color:#7C3AED;font-weight:700">${dtypeLabel}</span>
@@ -220,6 +253,7 @@ function renderSubDocCard(doc) {
     ${doc.reject_reason ? `<div style="padding:8px 12px;background:#FEF2F2;border-radius:8px;font-size:12px;color:#991B1B;margin-bottom:12px">❌ 반려 사유: ${doc.reject_reason}</div>` : ""}
 
     ${isPending ? _boRenderApprovalBtns(safeId, doc) : `<div style="text-align:right;font-size:12px;font-weight:700;color:#9CA3AF;border-top:1px solid #F3F4F6;padding-top:10px">처리 완료</div>`}
+    </div>
   </div>`;
 }
 // ── P16: 역할별 승인 버튼 HTML 생성 ────────────────────────────────────────────
@@ -438,18 +472,29 @@ async function _boShowSubDocDetail(docId) {
   }
 
   const items = doc.submission_items || [];
-  const itemsHtml = items.map(it => `
-    <tr style="border-bottom:1px solid #F3F4F6">
-      <td style="padding:8px 12px;font-size:12px;color:#374151">${it.item_title||"제목없음"}</td>
-      <td style="padding:8px 12px;font-size:12px;text-align:right;color:#374151">${Number(it.item_amount||0).toLocaleString()}원</td>
-      <td style="padding:8px 12px;font-size:12px;text-align:center">
-        <span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;
-          background:${it.final_status==="approved"?"#D1FAE5":it.final_status==="rejected"?"#FEE2E2":"#EFF6FF"};
-          color:${it.final_status==="approved"?"#065F46":it.final_status==="rejected"?"#991B1B":"#1D4ED8"}">
-          ${it.final_status||"대기"}
-        </span>
-      </td>
-    </tr>`).join("");
+  const isOpManager = typeof boIsOpManager === "function" && boIsOpManager();
+  const canEditAmount = isOpManager && doc.submission_type === "team_forecast" && ["submitted", "in_review"].includes(doc.status);
+  
+  const itemsHtml = items.map(it => {
+    const amtHtml = canEditAmount 
+      ? `<input type="text" value="${Number(it.item_amount||0).toLocaleString()}" 
+          onblur="boAdjustForecastAmount('${doc.id}', '${it.id}', '${it.item_id}', '${it.item_amount||0}', this.value)"
+          style="width:90px;text-align:right;padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px;background:#F9FAFB">원`
+      : `${Number(it.item_amount||0).toLocaleString()}원`;
+
+    return `
+      <tr style="border-bottom:1px solid #F3F4F6">
+        <td style="padding:8px 12px;font-size:12px;color:#374151">${it.item_title||"제목없음"}</td>
+        <td style="padding:8px 12px;font-size:12px;text-align:right;color:#374151">${amtHtml}</td>
+        <td style="padding:8px 12px;font-size:12px;text-align:center">
+          <span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;
+            background:${it.final_status==="approved"?"#D1FAE5":it.final_status==="rejected"?"#FEE2E2":"#EFF6FF"};
+            color:${it.final_status==="approved"?"#065F46":it.final_status==="rejected"?"#991B1B":"#1D4ED8"}">
+            ${it.final_status||"대기"}
+          </span>
+        </td>
+      </tr>`;
+  }).join("");
 
   const histHtml = history.map(h => `
     <div style="display:flex;gap:10px;align-items:flex-start">
@@ -507,3 +552,151 @@ async function _boShowSubDocDetail(docId) {
 async function myOpsApprove(id) { console.warn("[Deprecated] myOpsApprove — boApproveSubDoc 사용"); }
 async function myOpsReject(id)  { console.warn("[Deprecated] myOpsReject — boRejectSubDoc 사용"); }
 async function myOpsCancel(id)  { console.warn("[Deprecated] myOpsCancel — 상신 문서 단위로 처리"); }
+// ── P13: 수요예측 묶음 상신(교육조직 묶음) 처리 로직 ──────────────────────────
+function boToggleForecastBundle(docId, isChecked) {
+  if (isChecked) {
+    _boSelectedForecasts.add(docId);
+  } else {
+    _boSelectedForecasts.delete(docId);
+  }
+  renderMyOperations();
+}
+
+async function boOrgForecastModal() {
+  if (_boSelectedForecasts.size === 0) return;
+  const docs = Array.from(_boSelectedForecasts).map(id => _boSubDocs.find(d => d.id === id)).filter(Boolean);
+  const totalAmount = docs.reduce((sum, d) => sum + Number(d.total_adjusted || d.total_amount || 0), 0);
+  
+  const html = `
+    <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center">
+      <div style="background:white;width:500px;border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,0.2);overflow:hidden;animation:boSlideUp 0.3s ease">
+        <div style="padding:20px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;justify-content:space-between">
+          <h2 style="margin:0;font-size:16px;font-weight:900;color:#111827">📦 교육조직 묶음 상신</h2>
+          <button onclick="document.getElementById('boOrgBundleModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9CA3AF">×</button>
+        </div>
+        <div style="padding:24px">
+          <div style="margin-bottom:16px">
+            <label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px">선택한 팀 묶음</label>
+            <div style="font-size:14px;color:#111827;font-weight:600">${docs.length}건</div>
+          </div>
+          <div style="margin-bottom:16px">
+            <label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px">총 예산액 (1차 조정액 반영)</label>
+            <div style="font-size:20px;color:#002C5F;font-weight:900">${totalAmount.toLocaleString()}원</div>
+          </div>
+          <div style="margin-bottom:20px">
+            <label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px">상신 제목 (자동생성)</label>
+            <input type="text" id="boOrgBundleTitle" value="2026년 교육조직 수요예측 묶음 상신 (${docs.length}개 팀)"
+              style="width:100%;padding:10px;border-radius:8px;border:1px solid #D1D5DB;font-size:14px">
+          </div>
+        </div>
+        <div style="padding:16px 24px;background:#F9FAFB;border-top:1px solid #E5E7EB;display:flex;justify-content:flex-end;gap:8px">
+          <button onclick="document.getElementById('boOrgBundleModal').remove()" style="padding:10px 16px;border-radius:8px;border:1px solid #D1D5DB;background:white;color:#374151;font-weight:700;cursor:pointer">취소</button>
+          <button onclick="boSubmitOrgForecast()" style="padding:10px 24px;border-radius:8px;border:none;background:#D97706;color:white;font-weight:900;cursor:pointer">
+            상신하기
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  const el = document.createElement("div");
+  el.id = "boOrgBundleModal";
+  el.innerHTML = html;
+  document.body.appendChild(el);
+}
+
+async function boSubmitOrgForecast() {
+  const title = document.getElementById("boOrgBundleTitle").value;
+  const sb = typeof getSB === "function" ? getSB() : null;
+  if (!sb) return;
+  
+  const docs = Array.from(_boSelectedForecasts).map(id => _boSubDocs.find(d => d.id === id)).filter(Boolean);
+  const totalAmount = docs.reduce((sum, d) => sum + Number(d.total_adjusted || d.total_amount || 0), 0);
+  const tenantId = boCurrentPersona?.tenantId || "HMC";
+  
+  try {
+    const now = new Date().toISOString();
+    
+    // 1) org_forecast 생성
+    const { data: newDoc, error: insertErr } = await sb.from("submission_documents").insert({
+      tenant_id: tenantId,
+      submission_type: "org_forecast",
+      title: title,
+      content: `운영담당자가 ${docs.length}개의 팀 묶음을 하나로 묶어 상신합니다.`,
+      submitter_id: boCurrentPersona?.id || "sys",
+      submitter_name: boCurrentPersona?.name || "운영담당자",
+      submitter_org_id: boCurrentPersona?.dept || "교육조직",
+      submitter_org_name: boCurrentPersona?.dept || "교육조직",
+      total_amount: totalAmount,
+      total_adjusted: totalAmount,
+      status: "in_review",
+      submitted_at: now
+    }).select().single();
+    
+    if (insertErr) throw insertErr;
+    
+    // 2) 팀 묶음(team_forecast) 들의 parent_submission_id 업데이트 및 상태 in_review로 변경
+    for (const d of docs) {
+      await sb.from("submission_documents").update({
+        parent_submission_id: newDoc.id,
+        status: "in_review",
+        updated_at: now
+      }).eq("id", d.id);
+    }
+    
+    alert(`✅ 교육조직 묶음이 성공적으로 생성되어 상신되었습니다. (${docs.length}건)`);
+    document.getElementById("boOrgBundleModal").remove();
+    _boSelectedForecasts.clear();
+    _boApprovalLoaded = false;
+    renderMyOperations();
+  } catch(err) {
+    alert("❌ 상신 실패: " + err.message);
+  }
+}
+
+// 1차 조정 (인라인 수정)
+async function boAdjustForecastAmount(docId, subItemId, planId, oldAmt, newAmtStr) {
+  const newAmt = Number(newAmtStr.replace(/[^0-9]/g, ''));
+  if (isNaN(newAmt)) return;
+  if (newAmt === Number(oldAmt)) return; // 변경 없음
+  
+  const sb = typeof getSB === "function" ? getSB() : null;
+  if (!sb) return;
+  
+  try {
+    const now = new Date().toISOString();
+    // 1. plans.allocated_amount 업데이트
+    await sb.from("plans").update({ allocated_amount: newAmt, updated_at: now }).eq("id", planId);
+    
+    // 2. submission_items.item_amount 업데이트 (선택적)
+    await sb.from("submission_items").update({ item_amount: newAmt }).eq("id", subItemId);
+    
+    // 3. budget_adjust_logs 기록
+    await sb.from("budget_adjust_logs").insert({
+      tenant_id: boCurrentPersona?.tenantId || "HMC",
+      submission_id: docId,
+      plan_id: planId,
+      before_amount: oldAmt,
+      after_amount: newAmt,
+      adjusted_by: boCurrentPersona?.id || "system",
+      adjusted_at: now,
+      reason: "운영담당자 1차 예산 조정"
+    });
+    
+    // 4. submission_documents 의 total_adjusted 재계산
+    const { data: items } = await sb.from("submission_items").select("item_amount").eq("submission_id", docId);
+    if (items) {
+      const newTotal = items.reduce((sum, it) => sum + Number(it.item_amount||0), 0);
+      await sb.from("submission_documents").update({ total_adjusted: newTotal }).eq("id", docId);
+    }
+    
+    alert("✅ 1차 예산 조정이 완료되었습니다.");
+    _boApprovalLoaded = false;
+    // 상세보기 모달 다시 렌더링하도록 닫고 열기
+    const modal = document.getElementById("boSubDocModal");
+    if (modal) modal.remove();
+    _boShowSubDocDetail(docId);
+  } catch(err) {
+    alert("❌ 조정 실패: " + err.message);
+  }
+}
+

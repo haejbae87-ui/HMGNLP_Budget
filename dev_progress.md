@@ -1,4 +1,4 @@
-# 🚧 개발 진행 상황 (실시간)
+﻿# 🚧 개발 진행 상황 (실시간)
 
 > 이 파일은 개발 중 자동으로 업데이트됩니다.
 
@@ -62,3 +62,20 @@ saved/pending → 1차검토(boPlanReview) → in_review [운영담당자]
 | o_form_builder.js (151KB, 3344줄) | o_fb_core.js + o_fb_library.js + o_fb_editor.js | 25/42/80KB |
 
 - 기존 원본 파일은 호환성을 위해 보존 (backoffice.html에서만 분리 모듈로 교체)
+
+## 2026-04-19 REFACTOR-3 — bo_data.js / bo_virtual_org_unified.js 분리 완료
+| 원본 파일 | 분리 모듈 | 크기 |
+|-----------|----------|------|
+| bo_data.js (132KB, 4432줄) | bo_data_core.js + bo_data_vorg_templates.js + bo_data_mock.js | 44 / 24 / 60KB |
+| bo_virtual_org_unified.js (127KB, 2772줄) | bo_vorg_render.js + bo_vorg_actions.js | 42 / 83KB |
+
+## 2026-04-19 S-12 + P11 완료
+- S-12: bo_approval.js에 boRoleModeBadge / boGetApproveAction 연동 완료
+- P11: 운영담당자 전용 1차 검토 섹션 + boPlanOpReview 함수 구현
+- REFACTOR-2: apply.js(142KB)→3분리, plans.js(141KB)→3분리 완료
+- backoffice.html 한글 인코딩 전체 수정 완료
+
+## 다음 우선 개발 로드맵
+1. P12: 신청 관리 목록에서 운영담당자 1차검토 UI 추가 (bo_approval.js 신청 파트)
+2. REFACTOR-4: prd_data.js (384KB) 분리
+3. S-13: FO 상신 후 BO 알림 토스트 (Realtime 연동)

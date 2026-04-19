@@ -14,6 +14,10 @@
 const fs   = require('fs');
 const path = require('path');
 
+// Windows PowerShell ANSI/UTF-8 호환 설정
+if (process.stdout.setEncoding) process.stdout.setEncoding('utf8');
+const USE_ANSI = process.env.NO_COLOR === undefined && (process.platform !== 'win32' || process.env.FORCE_COLOR || process.env.WT_SESSION || process.env.TERM_PROGRAM);
+
 const ROOT      = path.resolve(__dirname, '..');
 const JS_DIR    = path.join(ROOT, 'public', 'js');
 const PRD_DIR   = path.join(ROOT, 'docs', 'PRD');
@@ -35,42 +39,43 @@ const ANSI = {
   magenta:'\x1b[35m',
 };
 
-function c(color, text) { return ANSI[color] + text + ANSI.reset; }
-function hr(char = '─', n = 60) { return char.repeat(n); }
+function c(color, text) { return USE_ANSI ? (ANSI[color] + text + ANSI.reset) : text; }
+function hr(n = 60) { return '='.repeat(n); }
 function kb(bytes) { return Math.round(bytes / 1024); }
 
-console.log('\n' + c('bold', c('cyan', '╔══════════════════════════════════════════════════╗')));
-console.log(       c('bold', c('cyan', '║  🔍  HMGNLP_Budget  사전 체크 (pre_dev_check)  ║')));
-console.log(       c('bold', c('cyan', '╚══════════════════════════════════════════════════╝')) + '\n');
+console.log('');
+console.log(c('cyan', '================================================'));
+console.log(c('cyan', '  [pre_dev_check]  HMGNLP_Budget  사전 체크'));
+console.log(c('cyan', '================================================') + '\n');
 
-// ── 1) 수정 대상 파일 체크 ───────────────────────────────────────────────
+// 1) 수정 대상 파일 체크
 const targets = process.argv.slice(2);
 if (targets.length > 0) {
-  console.log(c('bold', '① 수정 대상 파일 크기 체크'));
+  console.log(c('bold', '[1] 수정 대상 파일 크기 체크'));
   console.log(c('gray', hr()));
   let needRefactor = false;
   targets.forEach(t => {
     const p = path.isAbsolute(t) ? t : path.join(JS_DIR, t);
     if (!fs.existsSync(p)) {
-      console.log(c('yellow', `  ⚠  파일 없음: ${t}  (신규 생성 예정)`));
+      console.log(c('yellow', `  WARNING: 파일 없음: ${t}  (신규 생성 예정)`));
       return;
     }
     const size = kb(fs.statSync(p).size);
-    let icon = '✅';
+    let icon = 'OK ';
     let col  = 'green';
-    if (size >= REFACTOR_THRESHOLD_KB) { icon = '🔴 REFACTOR 필요'; col = 'red'; needRefactor = true; }
-    else if (size >= WARN_THRESHOLD_KB) { icon = '🟡 크기 주의'; col = 'yellow'; }
-    console.log(`  ${c(col, icon)}  ${path.basename(t)}  ${c('bold', size + 'KB')}`);
+    if (size >= REFACTOR_THRESHOLD_KB) { icon = 'REFACTOR 필요'; col = 'red'; needRefactor = true; }
+    else if (size >= WARN_THRESHOLD_KB) { icon = '주의'; col = 'yellow'; }
+    console.log(`  [${c(col, icon)}]  ${path.basename(t)}  ${c('bold', size + 'KB')}`);
   });
   if (needRefactor) {
-    console.log('\n' + c('red', '  ⛔  100KB 초과 파일이 있습니다. 개발 전 모듈 분리 후 진행하세요.'));
-    console.log(c('gray', '     분리 예시: scripts/split_module.sh <파일명> <분리경계행>'));
+    console.log('\n' + c('red', '  STOP: 100KB 초과 파일이 있습니다. 개발 전 모듈 분리 후 진행하세요.'));
+    console.log(c('gray', '     예시: PowerShell 분리 스크립트로 경계 줄을 기준으로 파일 분할'));
   }
   console.log();
 }
 
-// ── 2) 전체 JS 리팩토링 후보 ─────────────────────────────────────────────
-console.log(c('bold', '② 전체 JS 파일 크기 현황 (상위 15개)'));
+// 2) 전체 JS 리팩토링 후보
+console.log(c('bold', '[2] 전체 JS 파일 크기 현황 (상위 15개)'));
 console.log(c('gray', hr()));
 const jsFiles = fs.readdirSync(JS_DIR)
   .filter(f => f.endsWith('.js'))
@@ -79,14 +84,15 @@ const jsFiles = fs.readdirSync(JS_DIR)
   .slice(0, 15);
 
 jsFiles.forEach(f => {
-  let bar = '▓'.repeat(Math.min(Math.round(f.size / 10), 20));
+  const barLen = Math.min(Math.round(f.size / 10), 20);
+  const bar = '#'.repeat(barLen).padEnd(20, '.');
   let col = f.size >= REFACTOR_THRESHOLD_KB ? 'red' : f.size >= WARN_THRESHOLD_KB ? 'yellow' : 'green';
-  const flag = f.size >= REFACTOR_THRESHOLD_KB ? ' ← REFACTOR 후보' : '';
-  console.log(`  ${c(col, bar.padEnd(20))}  ${f.size.toString().padStart(4)}KB  ${f.name}${c('red', flag)}`);
+  const flag = f.size >= REFACTOR_THRESHOLD_KB ? ' [REFACTOR]' : '';
+  console.log(`  ${c(col, bar)}  ${f.size.toString().padStart(4)}KB  ${f.name}${c('red', flag)}`);
 });
 console.log();
 
-// ── 3) PRD 키워드 매칭 ──────────────────────────────────────────────────
+// 3) PRD 키워드 매칭
 const keywords = targets.map(t =>
   path.basename(t, '.js')
     .replace(/^bo_|^fo_/, '')
@@ -94,52 +100,53 @@ const keywords = targets.map(t =>
 ).join('|');
 
 if (keywords && fs.existsSync(PRD_DIR)) {
-  console.log(c('bold', '③ 관련 PRD 파일'));
+  console.log(c('bold', '[3] 관련 PRD 파일'));
   console.log(c('gray', hr()));
   const prdFiles = fs.readdirSync(PRD_DIR).filter(f => f.endsWith('.md'));
   const regex = new RegExp(keywords, 'i');
   const matched = prdFiles.filter(f => regex.test(f));
   if (matched.length > 0) {
-    matched.forEach(f => console.log(`  📄 docs/PRD/${f}`));
+    matched.forEach(f => console.log(`  >> docs/PRD/${f}`));
   } else {
-    console.log(c('gray', '  (키워드 매칭 PRD 없음 — 전체 목록에서 수동 확인 필요)'));
-    prdFiles.forEach(f => console.log(c('gray', `    · ${f}`)));
+    console.log(c('gray', '  (키워드 매칭 PRD 없음 - 전체 목록에서 수동 확인 필요)'));
+    prdFiles.forEach(f => console.log(c('gray', `    - ${f}`)));
   }
   console.log();
 }
 
-// ── 4) dev_progress.md 최근 맥락 ────────────────────────────────────────
+// 4) dev_progress.md 최근 맥락
 if (fs.existsSync(PROGRESS)) {
   const lines = fs.readFileSync(PROGRESS, 'utf8').split('\n').filter(l => l.trim());
   const recent = lines.slice(-12);
-  console.log(c('bold', '④ dev_progress.md 최근 컨텍스트'));
+  console.log(c('bold', '[4] dev_progress.md 최근 컨텍스트'));
   console.log(c('gray', hr()));
   recent.forEach(l => console.log(c('gray', '  ' + l)));
   console.log();
 }
 
-// ── 5) 스킬 & 워크플로우 리마인더 ──────────────────────────────────────
-console.log(c('bold', '⑤ 스킬 & 워크플로우 가이드'));
+// 5) 스킬 & 워크플로우 리마인더
+console.log(c('bold', '[5] 스킬 & 워크플로우 가이드'));
 console.log(c('gray', hr()));
 const reminders = [
-  ['PRD 업데이트',  '/PRD Manager  →  .agents/skills/prd_manager/SKILL.md'],
-  ['역추적 PRD',    '/PRD Engineer →  .agents/skills/prd_engineer/SKILL.md'],
-  ['BO UI 표준',    '/bo_ui_std    →  .agents/skills/bo_ui_standard/SKILL.md'],
-  ['배포',          '/verify-and-push → .agents/workflows/verify-and-push.md'],
-  ['네비 검증',     '/nav_verify   →  .agents/skills/nav_verify/SKILL.md'],
+  ['PRD 업데이트',  '/PRD Manager   -> .agents/skills/prd_manager/SKILL.md'],
+  ['역추적 PRD',    '/PRD Engineer  -> .agents/skills/prd_engineer/SKILL.md'],
+  ['BO UI 표준',    '/bo_ui_std     -> .agents/skills/bo_ui_standard/SKILL.md'],
+  ['배포',          '/verify-and-push -> .agents/workflows/verify-and-push.md'],
+  ['네비 검증',     '/nav_verify    -> .agents/skills/nav_verify/SKILL.md'],
 ];
 reminders.forEach(([k, v]) => console.log(`  ${c('magenta', k.padEnd(14))}  ${c('gray', v)}`));
 console.log();
 
-// ── 6) 리팩토링 대상 요약 ───────────────────────────────────────────────
+// 6) 리팩토링 대상 요약
 const refactorCandidates = jsFiles.filter(f => f.size >= REFACTOR_THRESHOLD_KB);
 if (refactorCandidates.length > 0) {
-  console.log(c('bold', c('red', '⑥ 즉시 리팩토링 필요 파일 목록')));
+  console.log(c('bold', c('red', '[6] 즉시 리팩토링 필요 파일 목록')));
   console.log(c('gray', hr()));
   refactorCandidates.forEach(f => {
-    console.log(`  ${c('red', '🔴')}  ${f.name.padEnd(40)} ${f.size}KB`);
+    console.log(`  [REFACTOR]  ${f.name.padEnd(40)} ${f.size}KB`);
   });
   console.log();
 }
 
-console.log(c('green', '  ✅  사전 체크 완료. 개발을 진행하세요!\n'));
+console.log(c('green', '  [DONE] 사전 체크 완료. 개발을 진행하세요!\n'));
+

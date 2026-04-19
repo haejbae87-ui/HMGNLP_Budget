@@ -761,7 +761,8 @@ function _applyBudgetBadges(plans) {
 let _foBundleSelected = new Set();
 
 function _foIsBundleEnabled() {
-  return ['HMC', 'KIA'].includes((currentPersona && currentPersona.tenantId) || '');
+  // 모든 테넌트에서 교육계획 묶음 상신 허용 (이전 HMC/KIA 제약 해제)
+  return true;
 }
 
 function _foRenderBundleBar(saves) {
@@ -776,10 +777,10 @@ function _foRenderBundleBar(saves) {
 <div id="fo-bundle-bar" style="margin-bottom:16px;padding:14px 18px;border-radius:14px;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);border:1.5px solid #BFDBFE">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
     <div>
-      <div style="font-size:13px;font-weight:900;color:#1D4ED8">📦 수요예측 묶음 상신
-        <span style="font-size:10px;background:#DBEAFE;color:#1D4ED8;padding:2px 7px;border-radius:5px;margin-left:4px">HMC/KIA 전용</span>
+      <div style="font-size:13px;font-weight:900;color:#1D4ED8">📦 교육계획 묶음 상신
+        <span style="font-size:10px;background:#DBEAFE;color:#1D4ED8;padding:2px 7px;border-radius:5px;margin-left:4px">동일 계정</span>
       </div>
-      <div style="font-size:11px;color:#3B82F6;margin-top:2px">저장완료 수요예측 계획 ${saves.length}건 — 체크박스로 선택 후 묶음 상신</div>
+      <div style="font-size:11px;color:#3B82F6;margin-top:2px">저장완료 교육계획 ${saves.length}건 — 체크박스로 다건 선택 후 묶음 상신</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">${selBtns}</div>
   </div>
@@ -788,27 +789,42 @@ function _foRenderBundleBar(saves) {
 
 function _foRefreshBundleBar() {
   const bar = document.getElementById('fo-bundle-bar');
-  const raw = (_plansDbCache || []).filter(d => d.plan_type === 'forecast' && d.status === 'saved');
+  const raw = (_plansDbCache || []).filter(d => d.status === 'saved');
   if (!bar) return;
   const tmp = document.createElement('div');
   tmp.innerHTML = _foRenderBundleBar(raw);
   if (tmp.firstChild) bar.replaceWith(tmp.firstChild);
 }
 
-function _foBundleToggle(planId, checked) {
-  if (checked) _foBundleSelected.add(planId);
-  else _foBundleSelected.delete(planId);
+function _foBundleToggle(planId, checkboxEl) {
+  const plan = (_plansDbCache || []).find(d => String(d.id) === planId);
+  
+  if (checkboxEl.checked) {
+    // [동일 계정 제약 방어 로직]
+    if (_foBundleSelected.size > 0) {
+      const firstId = Array.from(_foBundleSelected)[0];
+      const firstPlan = (_plansDbCache || []).find(d => String(d.id) === String(firstId));
+      if (firstPlan && firstPlan.account_code !== plan.account_code) {
+        alert("교육계획 묶음 상신은 '동일한 예산계정'의 항목만 묶을 수 있습니다.\n선택하신 계획은 기존에 선택된 계획과 예산계정이 다릅니다.");
+        checkboxEl.checked = false;
+        return;
+      }
+    }
+    _foBundleSelected.add(planId);
+  } else {
+    _foBundleSelected.delete(planId);
+  }
   _foRefreshBundleBar();
 }
 
 function _foBundleCheckbox(plan) {
   if (!_foIsBundleEnabled()) return '';
   const rawPlan = (_plansDbCache || []).find(d => String(d.id) === String(plan.id));
-  if (!rawPlan || rawPlan.plan_type !== 'forecast' || rawPlan.status !== 'saved') return '';
+  if (!rawPlan || rawPlan.status !== 'saved') return '';
   const checked = _foBundleSelected.has(String(plan.id));
   const safeId = String(plan.id).replace(/'/g, "\\'");
   return `<label onclick="event.stopPropagation()" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-left:6px;vertical-align:middle">
-    <input type="checkbox" ${checked ? 'checked' : ''} onchange="_foBundleToggle('${safeId}',this.checked);event.stopPropagation()" style="width:15px;height:15px;accent-color:#1D4ED8;cursor:pointer">
+    <input type="checkbox" ${checked ? 'checked' : ''} onchange="_foBundleToggle('${safeId}', this); event.stopPropagation()" style="width:15px;height:15px;accent-color:#1D4ED8;cursor:pointer">
   </label>`;
 }
 
@@ -817,7 +833,10 @@ function foBundleSubmitModal() {
   const sel = (_plansDbCache || []).filter(d => _foBundleSelected.has(String(d.id)));
   const total = sel.reduce((s, d) => s + Number(d.amount || 0), 0);
   const accs = [...new Set(sel.map(d => d.account_code).filter(Boolean))];
-  if (accs.length > 1 && !confirm(`계정이 ${accs.length}개 혼재합니다(${accs.join(', ')}).\n계속하시겠습니까?`)) return;
+  if (accs.length > 1) {
+    alert(`동일 계정의 교육계획만 묶음 상신할 수 있습니다.\n현재 ${accs.length}개의 계정이 혼재되어 있습니다.`);
+    return;
+  }
 
   const rows = sel.map(d => `
 <tr style="border-bottom:1px solid #F3F4F6">
@@ -832,7 +851,7 @@ function foBundleSubmitModal() {
 <div id="fo-bundle-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9000;display:flex;align-items:center;justify-content:center">
   <div style="background:white;border-radius:20px;width:560px;max-height:80vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.25)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-      <h3 style="font-size:16px;font-weight:900;margin:0">📦 수요예측 묶음 상신</h3>
+      <h3 style="font-size:16px;font-weight:900;margin:0">📦 교육계획 묶음 상신</h3>
       <button onclick="document.getElementById('fo-bundle-modal').remove()" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">✕</button>
     </div>
     <div style="margin-bottom:14px">
@@ -888,7 +907,7 @@ async function foBundleConfirmSubmit() {
   try {
     const { data: doc, error: docErr } = await sb.from('submission_documents').insert({
       tenant_id: currentPersona.tenantId,
-      submission_type: 'team_forecast',
+      submission_type: 'bundle_plan',
       submitter_id: currentPersona.id,
       submitter_name: currentPersona.name,
       submitter_org_id: currentPersona.orgId || null,

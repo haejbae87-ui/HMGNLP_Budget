@@ -1,4 +1,4 @@
-// ─── FO 결재 페이지 (DB 연동) ────────────────────────────────────────────────
+﻿// ─── FO 결재 페이지 (DB 연동) ────────────────────────────────────────────────
 // 팀원용 결재함 / 리더용 결재함
 
 // 리더 역할 판별 (pos 기반)
@@ -59,7 +59,8 @@ function _aprStatusLabel(s) {
 let _aprMemberLoaded = false;
 let _aprMemberData = []; // plans + applications (내가 신청한 것)
 let _aprLeaderLoaded = false;
-let _aprLeaderData = []; // plans + applications (결재대기, 남이 신청한 것)
+let _aprLeaderData = []; // plans + applications (결재대기, 남이 신청한 것) — 레거시
+let _aprSubDocData = []; // submission_documents (S-5: 상신 문서 기반 쯸사)
 
 // ─── 팀원용 결재함 ────────────────────────────────────────────────────────────
 // 내가 신청한 교육의 결재 상태 확인 (DB 실시간)
@@ -365,20 +366,18 @@ async function renderApprovalMember() {
   if (modal) modal.style.display = 'none';
 }
 
-// ─── 리더용 결재함 ────────────────────────────────────────────────────────────
-// 같은 테넌트 내 결재대기 문서 (본인 제외) 조회 + 승인/반려 처리
+// --- 리더용 결재함 (S-5: submission_documents 기반) ---
 
 async function renderApprovalLeader() {
   const el = document.getElementById("page-approval-leader");
 
-  // 권한 체크
   if (!_isLeaderPersona()) {
     el.innerHTML = `
     <div class="max-w-4xl mx-auto">
       <div class="card p-16 text-center">
-        <div style="font-size:48px;margin-bottom:16px">🔒</div>
-        <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">접근 권한이 없습니다</div>
-        <div style="font-size:12px;color:#9CA3AF">리더용 결재함은 팀장·실장·센터장·본부장·사업부장만 접근할 수 있습니다.</div>
+        <div style="font-size:48px;margin-bottom:16px">&#x1F512;</div>
+        <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">&#xC811;&#xADFC; &#xAD8C;&#xD55C;&#xC774; &#xC5C6;&#xC2B5;&#xB2C8;&#xB2E4;</div>
+        <div style="font-size:12px;color:#9CA3AF">&#xB9AC;&#xB354;&#xC6A9; &#xACB0;&#xC7AC;&#xD568;&#xC740; &#xD300;&#xC7A5;&#xB7B7;&#xC2E4;&#xC7A5;&#xB7B7;&#xC13C;&#xD130;&#xC7A5;&#xB7B7;&#xBCF8;&#xBD80;&#xC7A5;&#xB7B7;&#xC0AC;&#xC5C5;&#xBD80;&#xC7A5;&#xB9CC; &#xC811;&#xADFC;&#xD560; &#xC218; &#xC788;&#xC2B5;&#xB2C8;&#xB2E4;.</div>
       </div>
     </div>`;
     return;
@@ -386,197 +385,168 @@ async function renderApprovalLeader() {
 
   const sb = typeof getSB === "function" ? getSB() : null;
 
-  // DB 조회 (최초 1회)
   if (sb && !_aprLeaderLoaded) {
     _aprLeaderLoaded = true;
+    _aprSubDocData = [];
+    _aprLeaderData = [];
     try {
       const pid = currentPersona.id;
       const tid = currentPersona.tenantId;
-      // 크로스 테넌트: 총괄부서 팀장이면 양쪽 회사 pending 문서 조회
-      const ctInfo =
-        typeof getCrossTenantInfo === "function"
-          ? await getCrossTenantInfo(currentPersona)
-          : null;
+      const ctInfo = typeof getCrossTenantInfo === "function"
+        ? await getCrossTenantInfo(currentPersona) : null;
       const filterTids = ctInfo?.linkedTids || [tid];
 
-      // plans: pending/in_review/submitted 상태 + 본인이 아닌 문서 (S-6)
-      let plansQ = sb
-        .from("plans")
-        .select("*")
-        .in("status", ["pending", "submitted", "in_review"])
-        .neq("applicant_id", pid)
-        .order("created_at", { ascending: false });
-      if (filterTids.length > 1) plansQ = plansQ.in("tenant_id", filterTids);
-      else plansQ = plansQ.eq("tenant_id", tid);
-      const { data: plans, error: pe } = await plansQ;
-      if (pe) throw pe;
+      // [S-5] submission_documents 기반 조회
+      try {
+        let sdQ = sb.from("submission_documents")
+          .select("*, submission_items(*)")
+          .in("status", ["submitted", "in_review"])
+          .neq("submitter_id", pid)
+          .order("submitted_at", { ascending: false });
+        if (filterTids.length > 1) sdQ = sdQ.in("tenant_id", filterTids);
+        else sdQ = sdQ.eq("tenant_id", tid);
+        const { data: sdDocs } = await sdQ;
+        _aprSubDocData = sdDocs || [];
+        console.log(`[renderApprovalLeader] 상신문서 ${_aprSubDocData.length}건`);
+      } catch (sdErr) {
+        console.warn("[renderApprovalLeader] submission_documents 조회 실패:", sdErr.message);
+      }
 
-      // applications: pending/submitted/in_review 상태 + 본인이 아닌 문서 (S-6)
-      let appsQ = sb
-        .from("applications")
-        .select("*")
-        .in("status", ["pending", "submitted", "in_review"])
-        .neq("applicant_id", pid)
-        .order("created_at", { ascending: false });
-      if (filterTids.length > 1) appsQ = appsQ.in("tenant_id", filterTids);
-      else appsQ = appsQ.eq("tenant_id", tid);
-      const { data: apps, error: ae } = await appsQ;
-      if (ae) throw ae;
+      // 레거시: 상신 문서에 포함되지 않은 건
+      const linkedIds = new Set(_aprSubDocData.flatMap(d => (d.submission_items||[]).map(i => i.item_id)));
+      const legacySt = ["pending","submitted","in_review"];
 
-      _aprLeaderData = [
-        ...(plans || []).map((p) => ({
-          _type: "plan",
-          _table: "plans",
-          id: p.id,
-          applicant: p.applicant_name || "-",
-          dept: p.detail?.dept || p.dept || "-",
-          title: p.edu_name || p.title || "-",
-          type: _aprEduType(p.edu_type),
-          purpose: _aprPurpose(p.detail?.purpose),
-          amount: Number(p.amount || 0),
-          date: (p.created_at || "").slice(0, 10),
-          account_code: p.account_code || "",
-          tenantId: p.tenant_id || "",
-          status: p.status || "pending", // S-6: 상태 포함
-        })),
-        ...(apps || []).map((a) => ({
-          _type: "app",
-          _table: "applications",
-          id: a.id,
-          applicant: a.applicant_name || "-",
-          dept: a.dept || a.detail?.dept || "-",
-          title: a.edu_name || "-",
-          type: _aprEduType(a.edu_type),
-          purpose: _aprPurpose(a.detail?.purpose),
-          amount: Number(a.amount || 0),
-          date: (a.created_at || "").slice(0, 10),
-          account_code: a.account_code || a.detail?.account_code || "",
-          tenantId: a.tenant_id || "",
-          status: a.status || "pending", // S-6: 상태 포함
-        })),
-      ];
+      let plansQ = sb.from("plans").select("*").in("status",legacySt).neq("applicant_id",pid).order("created_at",{ascending:false});
+      if (filterTids.length > 1) plansQ = plansQ.in("tenant_id",filterTids); else plansQ = plansQ.eq("tenant_id",tid);
+      const { data: plans } = await plansQ;
 
-      // 결재라인 매칭 필터 — 정책(SERVICE_POLICIES) approvalConfig 기반
-      if (
-        typeof SERVICE_POLICIES !== "undefined" &&
-        SERVICE_POLICIES.length > 0
-      ) {
-        const myPos = currentPersona.pos || "";
-        const posToKey = {
-          팀장: "team_leader",
-          실장: "director",
-          사업부장: "division_head",
-          센터장: "center_head",
-          본부장: "hq_head",
-        };
-        const myKey =
-          Object.entries(posToKey).find(([k]) => myPos.includes(k))?.[1] || "";
-        _aprLeaderData = _aprLeaderData.filter((item) => {
-          // 매칭 정책 찾기
-          const policy = SERVICE_POLICIES.find(
-            (p) =>
-              p.tenantId === item.tenantId &&
-              (p.accountCodes || []).some((c) => item.account_code.includes(c)),
-          );
-          if (!policy || !policy.approvalConfig) return true; // 정책 미설정 → 기본 표시
-          // 신청 단계 결재라인 확인 (apply 기본)
-          const stage = item._type === "plan" ? "plan" : "apply";
-          const cfg = policy.approvalConfig[stage];
-          if (!cfg || !cfg.thresholds || cfg.thresholds.length === 0)
-            return true; // 구간 미설정 → 기본 표시
-          // 금액에 맞는 구간 결재자 매칭
-          const sorted = [...cfg.thresholds].sort(
-            (a, b) => (a.maxAmt || Infinity) - (b.maxAmt || Infinity),
-          );
-          const matched =
-            sorted.find((t) => t.maxAmt && item.amount <= t.maxAmt) ||
-            sorted[sorted.length - 1];
-          if (!matched || !matched.approverKey) return true;
-          return matched.approverKey === myKey;
+      let appsQ = sb.from("applications").select("*").in("status",legacySt).neq("applicant_id",pid).order("created_at",{ascending:false});
+      if (filterTids.length > 1) appsQ = appsQ.in("tenant_id",filterTids); else appsQ = appsQ.eq("tenant_id",tid);
+      const { data: apps } = await appsQ;
+
+      const toLegacy = (rows,type,tab) => (rows||[]).filter(r=>!linkedIds.has(r.id)).map(r=>({
+        _type:type,_table:tab,id:r.id,
+        applicant:r.applicant_name||"-",dept:r.detail?.dept||r.dept||"-",
+        title:r.edu_name||r.title||"-",type:_aprEduType(r.edu_type),
+        purpose:_aprPurpose(r.detail?.purpose),amount:Number(r.amount||0),
+        date:(r.created_at||"").slice(0,10),account_code:r.account_code||"",
+        tenantId:r.tenant_id||"",status:r.status||"pending",
+      }));
+      _aprLeaderData = [...toLegacy(plans,"plan","plans"),...toLegacy(apps,"app","applications")];
+
+      // 결재라인 필터 (레거시)
+      if (typeof SERVICE_POLICIES!=="undefined" && SERVICE_POLICIES.length>0) {
+        const myPos = currentPersona.pos||"";
+        const posToKey = {팀장:"team_leader",실장:"director",사업부장:"division_head",센터장:"center_head",본부장:"hq_head"};
+        const myKey = Object.entries(posToKey).find(([k])=>myPos.includes(k))?.[1]||"";
+        _aprLeaderData = _aprLeaderData.filter(item=>{
+          const pol = SERVICE_POLICIES.find(p=>p.tenantId===item.tenantId&&(p.accountCodes||[]).some(c=>item.account_code.includes(c)));
+          if (!pol?.approvalConfig) return true;
+          const cfg = pol.approvalConfig[item._type==="plan"?"plan":"apply"];
+          if (!cfg?.thresholds?.length) return true;
+          const sorted=[...cfg.thresholds].sort((a,b)=>(a.maxAmt||Infinity)-(b.maxAmt||Infinity));
+          const matched=sorted.find(t=>t.maxAmt&&item.amount<=t.maxAmt)||sorted[sorted.length-1];
+          return !matched?.approverKey||matched.approverKey===myKey;
         });
       }
     } catch (err) {
-      console.error("[renderApprovalLeader] DB 조회 실패:", err.message);
-      _aprLeaderData = [];
+      console.error("[renderApprovalLeader] 조회 실패:", err.message);
     }
   }
 
-  const pending = _aprLeaderData;
+  const totalPending = _aprSubDocData.length + _aprLeaderData.length;
 
-  const cards = pending
-    .map((item) => {
-      const typeBadge =
-        item._type === "plan"
-          ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#DBEAFE;color:#1D4ED8">📋 교육계획</span>'
-          : '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#FEF3C7;color:#B45309">📝 교육신청</span>';
-      const tenantBadge =
-        typeof getTenantBadgeHtml === "function"
-          ? getTenantBadgeHtml(item.tenantId, currentPersona.tenantId)
-          : "";
-      const safeId = String(item.id).replace(/'/g, "\\'");
-      const safeTable = item._table;
-
-      return `
-    <div style="border-radius:14px;border:1.5px solid #E5E7EB;background:white;padding:18px 20px;margin-bottom:12px">
+  // 상신 문서 카드 (파란 테두리)
+  const subDocCards = _aprSubDocData.map(doc => {
+    const items = doc.submission_items||[];
+    const safeDocId = String(doc.id).replace(/'/g,"\\'");
+    const totalAmt = Number(doc.total_amount||0);
+    const subAt = (doc.submitted_at||doc.created_at||"").slice(0,16).replace("T"," ");
+    const stBadge = doc.status==="in_review"
+      ? `<span style="font-size:10px;font-weight:800;padding:3px 10px;border-radius:8px;background:#F5F3FF;color:#7C3AED">🔄 검토완료</span>`
+      : `<span style="font-size:10px;font-weight:800;padding:3px 10px;border-radius:8px;background:#FFF7ED;color:#C2410C">🕐 결재대기</span>`;
+    const itemList = items.length>0
+      ? items.map((it,i)=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F9FAFB;font-size:12px"><span>${i+1}. ${it.item_title||it.item_id}</span><span style="font-weight:800;color:#002C5F">${Number(it.item_amount||0).toLocaleString()}원</span></div>`).join("")
+      : `<div style="font-size:11px;color:#9CA3AF;padding:6px 0">연결된 항목 없음</div>`;
+    return `
+    <div style="border-radius:16px;border:2px solid #DBEAFE;background:white;padding:20px 22px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,44,95,.06)">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px">
         <div style="flex:1">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-            <div style="width:32px;height:32px;border-radius:50%;background:#EFF6FF;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#1D4ED8;flex-shrink:0">
-              ${item.applicant.charAt(0)}
-            </div>
-            <div>
-              <div style="font-size:13px;font-weight:900;color:#374151">${item.applicant}</div>
-              <div style="font-size:11px;color:#9CA3AF">${item.dept}</div>
-            </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-size:11px;font-weight:900;padding:2px 8px;border-radius:6px;background:#DBEAFE;color:#1D4ED8">📤 상신문서</span>
+            ${stBadge}
           </div>
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
-            <span style="font-size:14px;font-weight:900;color:#111827">${item.title}</span>
-            ${typeBadge}${tenantBadge}
-          </div>
-          <div style="font-size:11px;color:#6B7280;display:flex;gap:10px;flex-wrap:wrap">
-            <span>📅 신청 ${item.date}</span>
-            <span>📚 ${item.type}</span>
-            <span>💰 ${item.amount.toLocaleString()}원</span>
-            ${item.purpose !== "-" ? `<span>🎯 ${item.purpose}</span>` : ""}
+          <div style="font-size:15px;font-weight:900;color:#111827;margin-bottom:6px">${doc.title}</div>
+          <div style="font-size:11px;color:#6B7280;display:flex;gap:12px;flex-wrap:wrap">
+            <span>👤 ${doc.submitter_name}${doc.submitter_org_name?" · "+doc.submitter_org_name:""}</span>
+            <span>📅 ${subAt}</span>
+            <span>📊 ${items.length}건</span>
+            ${doc.account_code?`<span>🏦 ${doc.account_code}</span>`:""}
           </div>
         </div>
-        <!-- S-6: 상태 별 다른 모양 -->
-        ${item.status === 'in_review'
-          ? `<div style="flex-shrink:0;font-size:11px;font-weight:800;padding:4px 12px;border-radius:10px;background:#F5F3FF;color:#7C3AED">
-              🔄 1차검토완료
-             </div>`
-          : `<div style="flex-shrink:0;font-size:11px;font-weight:800;padding:4px 12px;border-radius:10px;background:#FFF7ED;color:#C2410C">
-              🕐 결재 대기
-             </div>`
-        }
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:11px;color:#6B7280;margin-bottom:2px">신청 총액</div>
+          <div style="font-size:22px;font-weight:900;color:#002C5F">${totalAmt.toLocaleString()}원</div>
+        </div>
       </div>
-      <!-- 결재 액션 -->
+      <div style="background:#F8FAFF;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:800;color:#374151;margin-bottom:8px">📋 첨부 항목</div>
+        ${itemList}
+      </div>
+      ${doc.content?`<div style="font-size:12px;color:#6B7280;background:#F9FAFB;border-radius:8px;padding:10px 12px;margin-bottom:12px;line-height:1.6">"${doc.content}"</div>`:""}
       <div style="display:flex;gap:10px;padding-top:14px;border-top:1px solid #F3F4F6">
         <div style="flex:1">
-          <textarea id="comment-${safeId}" placeholder="결재 의견 입력 (선택사항)" rows="2"
+          <textarea id="comment-doc-${safeDocId}" placeholder="결재 의견 (반려 시 필수)" rows="2"
             style="width:100%;padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;resize:none;box-sizing:border-box"></textarea>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
-          <button onclick="_approvalAction('${safeId}','${safeTable}','approve')"
-            style="padding:8px 20px;border-radius:8px;background:#059669;color:white;font-size:12px;font-weight:900;border:none;cursor:pointer;white-space:nowrap;min-width:80px"
-            onmouseover="this.style.background='#047857'" onmouseout="this.style.background='#059669'">
-            ✅ 승인
-          </button>
-          <button onclick="_approvalAction('${safeId}','${safeTable}','reject')"
-            style="padding:8px 20px;border-radius:8px;background:white;color:#DC2626;font-size:12px;font-weight:900;border:1.5px solid #DC2626;cursor:pointer;white-space:nowrap;min-width:80px"
-            onmouseover="this.style.background='#FEF2F2'" onmouseout="this.style.background='white'">
-            ❌ 반려
-          </button>
+          <button onclick="_approvalActionDoc('${safeDocId}','approve')" style="padding:8px 20px;border-radius:8px;background:#059669;color:white;font-size:12px;font-weight:900;border:none;cursor:pointer;min-width:80px" onmouseover="this.style.background='#047857'" onmouseout="this.style.background='#059669'">✅ 승인</button>
+          <button onclick="_approvalActionDoc('${safeDocId}','reject')"  style="padding:8px 20px;border-radius:8px;background:white;color:#DC2626;font-size:12px;font-weight:900;border:1.5px solid #DC2626;cursor:pointer;min-width:80px" onmouseover="this.style.background='#FEF2F2'" onmouseout="this.style.background='white'">❌ 반려</button>
         </div>
       </div>
     </div>`;
-    })
-    .join("");
+  }).join("");
+
+  // 레거시 카드
+  const legacyCards = _aprLeaderData.map(item=>{
+    const typeBdg = item._type==="plan"
+      ? `<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#DBEAFE;color:#1D4ED8">📋 교육계획</span>`
+      : `<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#FEF3C7;color:#B45309">📝 교육신청</span>`;
+    const tBdg = typeof getTenantBadgeHtml==="function"?getTenantBadgeHtml(item.tenantId,currentPersona.tenantId):"";
+    const sid = String(item.id).replace(/'/g,"\\'");
+    return `
+    <div style="border-radius:14px;border:1.5px solid #E5E7EB;background:#FAFAFA;padding:18px 20px;margin-bottom:12px">
+      <div style="font-size:10px;color:#9CA3AF;font-weight:700;margin-bottom:8px">📄 레거시 방식 (상신 문서 미연결)</div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+            <div style="width:32px;height:32px;border-radius:50%;background:#EFF6FF;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#1D4ED8;flex-shrink:0">${item.applicant.charAt(0)}</div>
+            <div><div style="font-size:13px;font-weight:900;color:#374151">${item.applicant}</div><div style="font-size:11px;color:#9CA3AF">${item.dept}</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap"><span style="font-size:14px;font-weight:900;color:#111827">${item.title}</span>${typeBdg}${tBdg}</div>
+          <div style="font-size:11px;color:#6B7280;display:flex;gap:10px;flex-wrap:wrap">
+            <span>📅 ${item.date}</span><span>📚 ${item.type}</span><span>💰 ${item.amount.toLocaleString()}원</span>
+            ${item.purpose!=="-"?`<span>🎯 ${item.purpose}</span>`:""}
+          </div>
+        </div>
+        ${item.status==="in_review"
+          ? `<div style="flex-shrink:0;font-size:11px;font-weight:800;padding:4px 12px;border-radius:10px;background:#F5F3FF;color:#7C3AED">🔄 검토완료</div>`
+          : `<div style="flex-shrink:0;font-size:11px;font-weight:800;padding:4px 12px;border-radius:10px;background:#FFF7ED;color:#C2410C">🕐 결재대기</div>`}
+      </div>
+      <div style="display:flex;gap:10px;padding-top:14px;border-top:1px solid #F3F4F6">
+        <div style="flex:1"><textarea id="comment-${sid}" placeholder="결재 의견 (반려 시 필수)" rows="2" style="width:100%;padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;resize:none;box-sizing:border-box"></textarea></div>
+        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+          <button onclick="_approvalAction('${sid}','${item._table}','approve')" style="padding:8px 20px;border-radius:8px;background:#059669;color:white;font-size:12px;font-weight:900;border:none;cursor:pointer;min-width:80px" onmouseover="this.style.background='#047857'" onmouseout="this.style.background='#059669'">✅ 승인</button>
+          <button onclick="_approvalAction('${sid}','${item._table}','reject')"  style="padding:8px 20px;border-radius:8px;background:white;color:#DC2626;font-size:12px;font-weight:900;border:1.5px solid #DC2626;cursor:pointer;min-width:80px" onmouseover="this.style.background='#FEF2F2'" onmouseout="this.style.background='white'">❌ 반려</button>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
 
   const emptyMsg = `<div class="card p-16 text-center">
     <div style="font-size:48px;margin-bottom:16px">📭</div>
     <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">결재 대기 건이 없습니다</div>
-    <div style="font-size:12px;color:#9CA3AF">팀원의 교육계획 또는 교육신청이 접수되면 여기서 결재할 수 있습니다.</div>
+    <div style="font-size:12px;color:#9CA3AF">팀원의 교육계획·신청이 상신되면 여기서 결재할 수 있습니다.</div>
   </div>`;
 
   el.innerHTML = `
@@ -588,18 +558,80 @@ async function renderApprovalLeader() {
       <p style="font-size:12px;color:#9CA3AF;margin-top:4px">${currentPersona.name} ${currentPersona.pos} · ${currentPersona.dept}</p>
     </div>
     <div style="display:flex;gap:10px;align-items:center">
-      <button onclick="_aprLeaderLoaded=false;_aprLeaderData=[];renderApprovalLeader()"
+      <button onclick="_aprLeaderLoaded=false;_aprLeaderData=[];_aprSubDocData=[];renderApprovalLeader()"
         style="padding:8px 16px;border-radius:10px;background:white;border:1.5px solid #E5E7EB;font-size:12px;font-weight:800;color:#374151;cursor:pointer">🔄 새로고침</button>
       <div style="background:#EFF6FF;border-radius:12px;padding:10px 18px;text-align:center">
         <div style="font-size:11px;font-weight:700;color:#1D4ED8;margin-bottom:2px">결재 대기</div>
-        <div style="font-size:28px;font-weight:900;color:#002C5F">${pending.length}<span style="font-size:14px">건</span></div>
+        <div style="font-size:28px;font-weight:900;color:#002C5F">${totalPending}<span style="font-size:14px">건</span></div>
       </div>
     </div>
   </div>
-
-  <div>${pending.length === 0 ? emptyMsg : cards}</div>
+  ${totalPending===0 ? emptyMsg : `
+    ${_aprSubDocData.length>0?`<div style="font-size:11px;font-weight:800;color:#1D4ED8;margin:8px 0 4px">📤 상신 문서 기반 (${_aprSubDocData.length}건)</div>${subDocCards}`:""}
+    ${_aprLeaderData.length>0?`<div style="font-size:11px;font-weight:800;color:#9CA3AF;margin:${_aprSubDocData.length>0?"16px":"8px"} 0 4px">📄 레거시 방식 (${_aprLeaderData.length}건)</div>${legacyCards}`:""}
+  `}
 </div>`;
 }
+
+// [S-5] 상신 문서 기반 승인/반려 처리
+async function _approvalActionDoc(docId, action) {
+  const commentEl = document.getElementById("comment-doc-" + docId);
+  const comment = commentEl?.value?.trim() || "";
+  const actionLabel = action === "approve" ? "승인" : "반려";
+
+  if (action === "reject" && !comment) {
+    alert("반려 시 의견을 입력해주세요.");
+    return;
+  }
+  if (!confirm(`이 상신 문서를 ${actionLabel} 처리하시겠습니까?`)) return;
+
+  const sb = typeof getSB === "function" ? getSB() : null;
+  if (!sb) { alert("DB 연결 실패"); return; }
+
+  try {
+    const now = new Date().toISOString();
+    const newStatus = action === "approve" ? "approved" : "rejected";
+
+    // 1. submission_documents 상태 업데이트
+    const updateDoc = { status: newStatus, updated_at: now };
+    if (action === "approve") updateDoc.approved_at = now;
+    if (action === "reject") { updateDoc.rejected_at = now; updateDoc.reject_reason = comment; updateDoc.reject_node_label = currentPersona.pos || "팀장"; }
+    const { error: docErr } = await sb.from("submission_documents").update(updateDoc).eq("id", docId);
+    if (docErr) throw docErr;
+
+    // 2. submission_items 조회 → 연결된 plans/applications 상태 업데이트
+    const { data: sItems } = await sb.from("submission_items").select("*").eq("submission_id", docId);
+    if (sItems && sItems.length > 0) {
+      for (const si of sItems) {
+        const tab = si.item_type === "plan" ? "plans" : "applications";
+        const upd = { status: newStatus, updated_at: now };
+        if (action === "reject") upd.reject_reason = comment;
+        await sb.from(tab).update(upd).eq("id", si.item_id);
+        // submission_items 상태도 업데이트
+        await sb.from("submission_items").update({ item_status: action === "approve" ? "approved" : "rejected" }).eq("id", si.id);
+      }
+    }
+
+    // 3. 승인 시 예산 차감 (submission 단위)
+    if (action === "approve") {
+      const doc = _aprSubDocData.find(d => String(d.id) === String(docId));
+      if (doc?.total_amount && doc?.account_code) {
+        console.log(`[예산차감] 상신문서 ${docId}: ${doc.total_amount}원 (계정: ${doc.account_code})`);
+        // 예산 차감 로직은 기존 _approvalAction의 로직을 준용 (생략 - 향후 S-9에서 처리)
+      }
+    }
+
+    alert(`✅ ${actionLabel} 처리 완료!\n\n${comment ? "의견: " + comment + "\n\n" : ""}연결된 건들의 상태가 모두 업데이트되었습니다.`);
+
+    _aprLeaderLoaded = false; _aprLeaderData = []; _aprSubDocData = [];
+    _aprMemberLoaded = false; _aprMemberData = []; _aprSavedData = [];
+    renderApprovalLeader();
+  } catch (err) {
+    alert("처리 실패: " + err.message);
+    console.error("[_approvalActionDoc]", err.message);
+  }
+}
+
 
 // ─── 결재 액션 (승인/반려) — DB 실반영 ───────────────────────────────────────
 async function _approvalAction(id, table, action) {

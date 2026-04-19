@@ -535,6 +535,12 @@ function renderPlans() {
        </div>`
     : '';
 
+  // P12: 묶음 상신 배너 (내 계획 탭 + HMC/KIA + forecast+saved 계획 존재 시)
+  const forecastSaved = _planViewTab === 'mine'
+    ? (_plansDbCache || []).filter(d => d.plan_type === 'forecast' && d.status === 'saved')
+    : [];
+  const bundleBar = typeof _foRenderBundleBar === 'function' ? _foRenderBundleBar(forecastSaved) : '';
+
   // 계획 카드 목록
   const listHtml =
     filteredPlans.length > 0
@@ -569,6 +575,7 @@ function renderPlans() {
   ${tabBar}
   ${statsBar}
   ${filterBar}
+  ${bundleBar}
   ${teamSavedBar}
   <div id="fo-realloc-area"></div>
   <div id="plan-list">${listHtml}</div>
@@ -747,3 +754,185 @@ function _applyBudgetBadges(plans) {
   });
 }
 
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// P12: 수요예측 묶음 상신 (HMC/KIA 전용, Q-07/Q-08)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let _foBundleSelected = new Set();
+
+function _foIsBundleEnabled() {
+  return ['HMC', 'KIA'].includes((currentPersona && currentPersona.tenantId) || '');
+}
+
+function _foRenderBundleBar(saves) {
+  if (!_foIsBundleEnabled() || !saves.length) return '';
+  const cnt = _foBundleSelected.size;
+  const selBtns = cnt > 0
+    ? `<span style="font-size:12px;font-weight:800;color:#1D4ED8">${cnt}건 선택</span>
+       <button onclick="foBundleSubmitModal()" style="padding:8px 18px;border-radius:10px;background:#1D4ED8;color:white;font-size:12px;font-weight:900;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(29,78,216,.3)">📦 묶음 상신</button>
+       <button onclick="_foBundleSelected.clear();_foRefreshBundleBar()" style="padding:8px 12px;border-radius:10px;background:white;color:#6B7280;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;cursor:pointer">해제</button>`
+    : `<span style="font-size:11px;color:#6B7280">카드의 ☑ 체크박스로 선택하세요</span>`;
+  return `
+<div id="fo-bundle-bar" style="margin-bottom:16px;padding:14px 18px;border-radius:14px;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);border:1.5px solid #BFDBFE">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+    <div>
+      <div style="font-size:13px;font-weight:900;color:#1D4ED8">📦 수요예측 묶음 상신
+        <span style="font-size:10px;background:#DBEAFE;color:#1D4ED8;padding:2px 7px;border-radius:5px;margin-left:4px">HMC/KIA 전용</span>
+      </div>
+      <div style="font-size:11px;color:#3B82F6;margin-top:2px">저장완료 수요예측 계획 ${saves.length}건 — 체크박스로 선택 후 묶음 상신</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">${selBtns}</div>
+  </div>
+</div>`;
+}
+
+function _foRefreshBundleBar() {
+  const bar = document.getElementById('fo-bundle-bar');
+  const raw = (_plansDbCache || []).filter(d => d.plan_type === 'forecast' && d.status === 'saved');
+  if (!bar) return;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = _foRenderBundleBar(raw);
+  if (tmp.firstChild) bar.replaceWith(tmp.firstChild);
+}
+
+function _foBundleToggle(planId, checked) {
+  if (checked) _foBundleSelected.add(planId);
+  else _foBundleSelected.delete(planId);
+  _foRefreshBundleBar();
+}
+
+function _foBundleCheckbox(plan) {
+  if (!_foIsBundleEnabled()) return '';
+  const rawPlan = (_plansDbCache || []).find(d => String(d.id) === String(plan.id));
+  if (!rawPlan || rawPlan.plan_type !== 'forecast' || rawPlan.status !== 'saved') return '';
+  const checked = _foBundleSelected.has(String(plan.id));
+  const safeId = String(plan.id).replace(/'/g, "\\'");
+  return `<label onclick="event.stopPropagation()" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-left:6px;vertical-align:middle">
+    <input type="checkbox" ${checked ? 'checked' : ''} onchange="_foBundleToggle('${safeId}',this.checked);event.stopPropagation()" style="width:15px;height:15px;accent-color:#1D4ED8;cursor:pointer">
+  </label>`;
+}
+
+function foBundleSubmitModal() {
+  if (!_foBundleSelected.size) { alert('상신할 계획을 선택해주세요.'); return; }
+  const sel = (_plansDbCache || []).filter(d => _foBundleSelected.has(String(d.id)));
+  const total = sel.reduce((s, d) => s + Number(d.amount || 0), 0);
+  const accs = [...new Set(sel.map(d => d.account_code).filter(Boolean))];
+  if (accs.length > 1 && !confirm(`계정이 ${accs.length}개 혼재합니다(${accs.join(', ')}).\n계속하시겠습니까?`)) return;
+
+  const rows = sel.map(d => `
+<tr style="border-bottom:1px solid #F3F4F6">
+  <td style="padding:8px 10px;font-size:12px;font-weight:700">${d.edu_name || '-'}</td>
+  <td style="padding:8px 10px;font-size:11px;color:#6B7280">${d.account_code || '-'}</td>
+  <td style="padding:8px 10px;font-size:12px;font-weight:800;text-align:right;color:#1D4ED8">${Number(d.amount || 0).toLocaleString()}원</td>
+</tr>`).join('');
+
+  const defaultTitle = `${(currentPersona && (currentPersona.dept || currentPersona.team)) || ''} ${new Date().getFullYear()}년도 수요예측`;
+
+  document.body.insertAdjacentHTML('beforeend', `
+<div id="fo-bundle-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9000;display:flex;align-items:center;justify-content:center">
+  <div style="background:white;border-radius:20px;width:560px;max-height:80vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h3 style="font-size:16px;font-weight:900;margin:0">📦 수요예측 묶음 상신</h3>
+      <button onclick="document.getElementById('fo-bundle-modal').remove()" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">✕</button>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">묶음 제목 *</label>
+      <input id="fo-bundle-title" type="text" value="${defaultTitle}"
+        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">검토 의견</label>
+      <textarea id="fo-bundle-content" rows="2" placeholder="팀장에게 전달할 의견"
+        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;resize:vertical"></textarea>
+    </div>
+    <div style="margin-bottom:20px;border-radius:10px;border:1px solid #E5E7EB;overflow:hidden">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:#F9FAFB">
+          <th style="padding:8px 10px;font-size:11px;font-weight:800;text-align:left">과정명</th>
+          <th style="padding:8px 10px;font-size:11px;font-weight:800;text-align:left">계정</th>
+          <th style="padding:8px 10px;font-size:11px;font-weight:800;text-align:right">계획액</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr style="background:#F9FAFB;font-weight:900">
+          <td colspan="2" style="padding:9px 10px;font-size:12px">합계 (${sel.length}건)</td>
+          <td style="padding:9px 10px;font-size:13px;text-align:right;color:#1D4ED8">${total.toLocaleString()}원</td>
+        </tr></tfoot>
+      </table>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="document.getElementById('fo-bundle-modal').remove()"
+        style="padding:10px 20px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:13px;font-weight:700;color:#6B7280;cursor:pointer">취소</button>
+      <button onclick="foBundleConfirmSubmit()"
+        style="padding:10px 24px;border-radius:10px;background:#1D4ED8;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(29,78,216,.3)">📦 묶음 상신</button>
+    </div>
+  </div>
+</div>`);
+}
+
+async function foBundleConfirmSubmit() {
+  const titleEl = document.getElementById('fo-bundle-title');
+  const title = (titleEl && titleEl.value || '').trim();
+  const content = (document.getElementById('fo-bundle-content') && document.getElementById('fo-bundle-content').value || '').trim();
+  if (!title) { alert('묶음 제목을 입력해주세요.'); return; }
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 실패'); return; }
+
+  const sel = (_plansDbCache || []).filter(d => _foBundleSelected.has(String(d.id)));
+  if (!sel.length) { alert('선택된 계획이 없습니다.'); return; }
+
+  const total = sel.reduce((s, d) => s + Number(d.amount || 0), 0);
+  const acct = (sel[0] && sel[0].account_code) || null;
+  const now = new Date().toISOString();
+
+  try {
+    const { data: doc, error: docErr } = await sb.from('submission_documents').insert({
+      tenant_id: currentPersona.tenantId,
+      submission_type: 'team_forecast',
+      submitter_id: currentPersona.id,
+      submitter_name: currentPersona.name,
+      submitter_org_id: currentPersona.orgId || null,
+      submitter_org_name: currentPersona.dept || null,
+      title,
+      content,
+      account_code: acct,
+      total_amount: total,
+      approval_system: 'platform',
+      approval_nodes: [{ order: 0, type: 'approval', label: '팀장', approverKey: 'leader', activation: 'always' }],
+      current_node_order: 0,
+      doc_type: 'plan',
+      status: 'submitted',
+      submitted_at: now,
+    }).select('id').single();
+    if (docErr) throw docErr;
+    const docId = doc && doc.id;
+    if (!docId) throw new Error('id 미반환');
+
+    await sb.from('submission_items').insert(
+      sel.map((d, i) => ({
+        submission_id: docId,
+        item_type: 'plan',
+        item_id: String(d.id),
+        item_title: d.edu_name || String(d.id),
+        item_amount: Number(d.amount || 0),
+        item_status_at_submit: d.status || 'saved',
+        final_status: 'pending',
+        sort_order: i,
+      }))
+    );
+
+    for (const d of sel) {
+      await sb.from('plans').update({ status: 'submitted', updated_at: now }).eq('id', d.id);
+    }
+
+    const modal = document.getElementById('fo-bundle-modal');
+    if (modal) modal.remove();
+    _foBundleSelected.clear();
+    _plansDbLoaded = false; _dbMyPlans = []; _plansDbCache = [];
+    alert(`✅ 묶음 상신 완료!\n"${title}" — ${sel.length}건, ${total.toLocaleString()}원`);
+    renderPlans();
+  } catch (err) {
+    alert('❌ 묶음 상신 실패: ' + err.message);
+    console.error('[P12]', err);
+  }
+}

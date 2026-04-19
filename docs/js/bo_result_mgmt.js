@@ -206,6 +206,10 @@ async function _confirmResult(appId, actualCost, accountCode) {
     }
 
     alert("✅ 정산 완료 처리되었습니다.\n\n예산 집행액에 반영되었습니다.");
+    // GAP-2: bankbooks.used_amount 확정 + frozen_amount 해제
+    if (typeof boFinalizeUsedAmount === 'function') {
+      await boFinalizeUsedAmount(appId, actualCost);
+    }
     _resultMgmtData = null;
     _resultMgmtPending = null;
     renderResultMgmt();

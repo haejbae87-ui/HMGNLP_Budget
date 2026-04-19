@@ -180,3 +180,92 @@ async function boRejectCancelRequest(appId) {
     alert('처리 실패: ' + err.message);
   }
 }
+
+// ─── GAP-2: used_amount 확정 (결과보고 완료 시) ────────────────────────────────
+// 흐름: 결과보고 BO 최종 승인 → frozen_amount 해제 → used_amount 확정
+// 호출: bo_result_mgmt.js의 결과보고 승인 완료 시점에서 호출
+
+/**
+ * 결과보고 완료 시 bankbook 집행액 확정
+ * @param {string} appId    - applications.id
+ * @param {number} usedAmt  - 실집행 금액 (결과보고 상의 실제 비용)
+ */
+async function boFinalizeUsedAmount(appId, usedAmt) {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) return;
+
+  try {
+    const now = new Date().toISOString();
+
+    // 1) applications 조회 → org_id, tenant_id, 기존 신청 금액 확인
+    const { data: appData } = await sb.from('applications')
+      .select('id,tenant_id,applicant_org_id,amount,status')
+      .eq('id', appId).single();
+
+    if (!appData || appData.status === 'cancelled') return;
+
+    const originalAmt = Number(appData.amount || 0);
+    const finalUsed   = Number(usedAmt || originalAmt);
+    const releasedAmt = originalAmt - finalUsed; // 신청액 - 실집행액 = 환원액
+
+    // 2) applications → completed 상태 업데이트
+    await sb.from('applications').update({
+      status:     'completed',
+      refund_amount: releasedAmt > 0 ? releasedAmt : 0,
+    }).eq('id', appId);
+
+    // 3) bankbooks 업데이트
+    //    frozen_amount -= originalAmt (전액 해제)
+    //    used_amount   += finalUsed   (실집행 확정)
+    //    current_balance += releasedAmt (잔액 복원: 신청액과 실집행액 차이)
+    if (appData.applicant_org_id) {
+      const { data: bks } = await sb.from('bankbooks')
+        .select('id,frozen_amount,current_balance,used_amount')
+        .eq('tenant_id', appData.tenant_id)
+        .eq('org_id', appData.applicant_org_id)
+        .eq('status', 'active')
+        .limit(1);
+
+      if (bks && bks.length > 0) {
+        const bk = bks[0];
+        const newFrozen  = Math.max(0, Number(bk.frozen_amount  || 0) - originalAmt);
+        const newUsed    = Number(bk.used_amount    || 0) + finalUsed;
+        const newBalance = Number(bk.current_balance || 0) + releasedAmt;
+
+        await sb.from('bankbooks').update({
+          frozen_amount:   newFrozen,
+          used_amount:     newUsed,
+          current_balance: newBalance,
+          updated_at:      now,
+        }).eq('id', bk.id);
+
+        console.log(`[GAP-2] bankbook 확정: frozen -${originalAmt.toLocaleString()} / used +${finalUsed.toLocaleString()} / balance +${releasedAmt.toLocaleString()}`);
+      }
+    }
+
+    if (typeof _boShowToast === 'function') {
+      _boShowToast(`✅ 집행 확정: 실집행 ${finalUsed.toLocaleString()}원 / ${releasedAmt > 0 ? '잔액 ' + releasedAmt.toLocaleString() + '원 환원' : '전액 집행'}`, 'success');
+    }
+
+  } catch (err) {
+    console.error('[GAP-2] boFinalizeUsedAmount 오류:', err.message);
+  }
+}
+
+/**
+ * GAP-2: 결과보고 승인 완료 버튼에서 호출할 통합 처리
+ * bo_result_mgmt.js에서 결과보고 최종 승인 시 이 함수를 사용
+ */
+async function boApproveResultAndFinalize(appId, usedAmt) {
+  if (!confirm(`결과보고를 최종 승인하고 집행액 ${(usedAmt||0).toLocaleString()}원을 확정하시겠습니까?`)) return;
+  await boFinalizeUsedAmount(appId, usedAmt);
+  // 결재 문서 상태도 approved로 갱신
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (sb) {
+    await sb.from('submission_documents').update({
+      status: 'approved',
+      updated_at: new Date().toISOString(),
+    }).like('title', `%${appId}%`).eq('doc_type', 'result')
+      .catch(e => console.warn('[GAP-2] 결과문서 업데이트 skip:', e.message));
+  }
+}

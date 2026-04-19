@@ -19,14 +19,33 @@
 
 ---
 
+### 2026-04-19 세션 2 (P16 역할 기반 뷰 모드 구현)
+
+- [x] **P16 bo_role_view.js 전면 재작성 (F-150~F-156)**
+  - `boGetRoleClass()`, `boIsGlobalAdmin()`, `boIsOpManager()` — 역할 판별 유틸
+  - `boGetMyOrgIds()`, `boApplyOrgScopeFilter()`, `boFilterPlansByScope()` — 관할 데이터 스코핑
+  - `boCanEditAllocation()`, `boCanRebalanceInScope()`, `boCanSimulate()` — 기능 권한 분기
+  - `boRoleModeBadge()`, `boOpScopeBanner()` — 역할 뱃지 & 관할 배너 UI
+  - `boRenderOpDashboard()` — 운영담당자 전용 KPI 대시보드 위젯
+  - `boRenderRoleActionButtons()`, `boRoleApprove()`, `boRoleReject()` — 역할별 승인/반려 액션
+- [x] **P16 bo_budget_demand.js 역할뷰 적용 (F-150, F-152)**
+  - 운영담당자: 시뮬레이션 버튼 숨김 → "1차 검토 모드" 안내로 대체
+  - 역할 뱃지 + 관할 배너 헤더 표시
+- [x] **P16 bo_budget_history.js 역할뷰 적용 (F-150, F-155)**
+  - 운영담당자: 단일 관할 그룹 자동 필터 초기화
+  - 역할 뱃지 + 관할 배너 헤더 표시
+
+---
+
 ## 🔄 진행 중 / 다음 작업
 
 | 우선순위 | 항목 | 파일 | 상태 |
 |---------|------|------|:---:|
+| 🟠 HIGH | **P16 bo_plan_mgmt.js 역할뷰 검증** | `bo_plan_mgmt.js` | 🔄 검토 필요 |
+| 🟠 HIGH | **P16 bo_allocation.js 역할뷰 검증** | `bo_allocation.js` | 🔄 검토 필요 |
 | 🟠 HIGH | P8 조직개편 이관 UI | `bo_org_transfer.js` (신규) | ⏳ 미착수 |
-| 🟠 HIGH | P9 6단계 예산 추적 레포트 | `bo_budget_report.js` (신규) | ⏳ 미착수 |
 | 🟠 HIGH | P11~P15 수요예측 묶음 상신 | 다수 파일 | ⏳ 미착수 |
-| 🟡 MED | PRD #16 배정-신청 연동 분석 대시보드 | BO 화면 | ⏳ 미착수 |
+| 🟠 HIGH | P7 통장 간 이관 잔액 검증 | `bo_budget_transfer.js` | ⏳ 미착수 |
 | 🟡 MED | PRD #21 FO 결재라인 3단계 이상 지원 | `approval.js` | ⏳ 미착수 |
 
 ---
@@ -38,6 +57,6 @@
 | PRD #1~12 | 기초 아키텍처, 페르소나, 폼빌더, 정책 등 | ✅ 완료 |
 | PRD #13 | BO↔FO 예산 배정 실시간 동기 | ✅ 완료 |
 | PRD #14 | 산출근거 UX 개선 + DB 정규화 | ✅ 완료 |
-| PRD #15 (P1~P7, P10, P16) | 예산 라이프사이클 고도화 | ✅ 완료 |
+| PRD #15 (P1~P7, P10, **P16**) | 예산 라이프사이클 고도화 | ✅ 완료 |
 | PRD #15 (P8, P9, P11~P15) | 조직이관, 6단계 레포트, 묶음 상신 | 🔴 미구현 |
 | PRD #16~21 | 배정-신청 분석, 양식 간소화 등 | 🔴 미구현 |

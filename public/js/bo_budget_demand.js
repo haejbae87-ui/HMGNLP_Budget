@@ -247,19 +247,33 @@ function _renderBdLevel1(el, isPlatform, tenants) {
     },
   ];
 
+  // F-152: 역할별 시뮬레이션 버튼 분기
+  const _bdIsGlobal = typeof boIsGlobalAdmin === 'function' ? boIsGlobalAdmin() : true;
+  const _bdIsOp = typeof boIsOpManager === 'function' ? boIsOpManager() : false;
+  const _bdOpBanner = typeof boOpScopeBanner === 'function' ? boOpScopeBanner() : '';
+  const _bdRoleBadge = typeof boRoleModeBadge === 'function' ? boRoleModeBadge() : '';
+
+  const _simBtn = _bdIsGlobal
+    ? `<button onclick="_bdStartSimulation()" style="padding:10px 20px;border-radius:12px;border:none;background:linear-gradient(135deg,#7C3AED,#4F46E5);color:white;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 4px 16px rgba(124,58,237,.3);transition:transform .15s"
+        onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
+        🧮 예산배분 시뮬레이션
+      </button>`
+    : `<span style="font-size:11px;padding:6px 14px;border-radius:8px;background:#FEF3C7;color:#92400E;font-weight:800">🔍 1차 검토 모드 — 시뮬레이션은 총괄담당자 권한</span>`;
+
   el.innerHTML = `
   <div class="bo-fade">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
       <div>
-        <h1 class="bo-page-title">📊 교육예산 수요분석</h1>
-        <p class="bo-page-sub">교육조직 기반 예산 수요·확정 현황</p>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <h1 class="bo-page-title" style="margin:0">📊 교육예산 수요분석</h1>
+          ${_bdRoleBadge}
+        </div>
+        <p class="bo-page-sub">${_bdIsOp ? '관할 교육조직 기반 수요·확정 현황' : '교육조직 기반 예산 수요·확정 현황'}</p>
       </div>
-      <button onclick="_bdStartSimulation()" style="padding:10px 20px;border-radius:12px;border:none;background:linear-gradient(135deg,#7C3AED,#4F46E5);color:white;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 4px 16px rgba(124,58,237,.3);transition:transform .15s"
-        onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
-        🧮 예산배분 시뮬레이션
-      </button>
+      ${_simBtn}
     </div>
 
+    ${_bdOpBanner}
     ${_bdFilterBar(isPlatform, tenants)}
 
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:8px">

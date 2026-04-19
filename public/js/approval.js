@@ -547,6 +547,7 @@ async function renderApprovalLeader() {
             <span>📅 ${subAt}</span>
             <span>📊 ${items.length}건</span>
             ${doc.account_code?`<span>🏦 ${doc.account_code}</span>`:""}
+            ${doc.approval_system === 'integrated' ? `<span style="font-size:9px;font-weight:900;padding:2px 7px;border-radius:5px;background:#DBEAFE;color:#1D4ED8;margin-left:2px">🔗 통합결재</span>` : ''}
           </div>
         </div>
         <div style="text-align:right;flex-shrink:0">
@@ -559,6 +560,16 @@ async function renderApprovalLeader() {
         ${itemList}
       </div>
       ${doc.content?`<div style="font-size:12px;color:#6B7280;background:#F9FAFB;border-radius:8px;padding:10px 12px;margin-bottom:12px;line-height:1.6">"${doc.content}"</div>`:""}
+      ${(() => {
+        const coop = Array.isArray(doc.coop_teams) ? doc.coop_teams : [];
+        const ref = Array.isArray(doc.reference_teams) ? doc.reference_teams : [];
+        if (doc.approval_system !== 'integrated' || (coop.length === 0 && ref.length === 0)) return '';
+        return `<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:11px">
+          <div style="font-weight:900;color:#1D4ED8;margin-bottom:6px">🔗 통합결재 정보</div>
+          ${coop.length > 0 ? `<div style="margin-bottom:4px"><span style="color:#6B7280;font-weight:700">협조처:</span> <span style="color:#374151">${coop.map(c => c.name||c).join(', ')}</span></div>` : ''}
+          ${ref.length > 0 ? `<div><span style="color:#6B7280;font-weight:700">참조처:</span> <span style="color:#374151">${ref.map(r => r.name||r).join(', ')}</span></div>` : ''}
+        </div>`;
+      })()}
       <div style="display:flex;gap:10px;padding-top:14px;border-top:1px solid #F3F4F6">
         <div style="flex:1">
           <textarea id="comment-doc-${safeDocId}" placeholder="결재 의견 (반려 시 필수)" rows="2"
@@ -912,6 +923,43 @@ function _aprOpenModal(items) {
       ${multiAcct ? `<div style="font-size:11px;color:#EF4444;padding:6px 8px;background:#FEF2F2;border-radius:6px;margin-top:6px">⚠️ 서로 다른 예산계정의 건이 포함되어 있습니다. 같은 계정의 건만 모아 상신하는 것을 권장합니다.</div>` : acctCodes.length ? `<div style="font-size:11px;color:#6B7280">예산계정: <strong>${acctCodes[0]}</strong></div>` : ''}`;
   }
 
+  // [S-7] 통합결재 여부 감지 → 협조처/참조처 섹션 동적 삽입
+  const acct = (selectedArr?.length > 0 ? selectedArr[0]?.account : '') ||
+    ([..._aprSelectedItems.values()][0]?.account || '');
+  let isIntegrated = false;
+  if (acct && typeof SERVICE_POLICIES !== 'undefined' && SERVICE_POLICIES.length > 0) {
+    const matchedPol = SERVICE_POLICIES.find(pol =>
+      (pol.accountCodes || []).some(c => acct.includes(c))
+    );
+    if (matchedPol?.approvalConfig?.approvalSystem === 'integrated') isIntegrated = true;
+  }
+  // 협조처/참조처 섹션을 모달에 삽입/제거
+  const existCoopSec = document.getElementById('apr-integrated-section');
+  if (existCoopSec) existCoopSec.remove();
+  if (isIntegrated) {
+    const coopSection = document.createElement('div');
+    coopSection.id = 'apr-integrated-section';
+    coopSection.innerHTML = `
+      <div style="background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:12px;padding:14px 16px;margin-top:14px">
+        <div style="font-size:11px;font-weight:900;color:#1D4ED8;margin-bottom:10px">🔗 통합결재 — 협조처/참조처</div>
+        <div style="margin-bottom:10px">
+          <label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:5px">협조처 <span style="color:#6B7280;font-weight:400">(쉼표 구분)</span></label>
+          <input id="apr-coop-input" type="text" placeholder="예) 교육협조처, 인사팀"
+            style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:12px;font-weight:600;color:#374151"
+            onfocus="this.style.borderColor='#1D4ED8'" onblur="this.style.borderColor='#BFDBFE'">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:5px">참조처 <span style="color:#6B7280;font-weight:400">(쉼표 구분)</span></label>
+          <input id="apr-ref-input" type="text" placeholder="예) 재경팀, 전략기획팀"
+            style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:12px;font-weight:600;color:#374151"
+            onfocus="this.style.borderColor='#1D4ED8'" onblur="this.style.borderColor='#BFDBFE'">
+        </div>
+        <div style="font-size:10px;color:#6B7280;margin-top:8px">📌 통합결재 계정 — 협조처·참조처 정보가 결재문서에 포함됩니다.</div>
+      </div>`;
+    const modalItems = document.getElementById('apr-modal-items');
+    if (modalItems) modalItems.parentNode.insertBefore(coopSection, modalItems.nextSibling);
+  }
+
   modal.style.display = 'flex';
 }
 
@@ -956,6 +1004,28 @@ async function _aprConfirmSubmit() {
     }).filter(Boolean))];
     const accountCode = acctCodes[0] || null;
 
+    // [S-7] 통합결재 여부 + 협조처/참조처 수집
+    const acct = accountCode || '';
+    let approvalSystem = 'platform';
+    let coopTeams = [];
+    let referenceTeams = [];
+    if (acct && typeof SERVICE_POLICIES !== 'undefined') {
+      const matchedPol = SERVICE_POLICIES.find(pol =>
+        (pol.accountCodes || []).some(c => acct.includes(c))
+      );
+      if (matchedPol?.approvalConfig?.approvalSystem === 'integrated') {
+        approvalSystem = 'integrated';
+        const coopInput = document.getElementById('apr-coop-input');
+        const refInput = document.getElementById('apr-ref-input');
+        if (coopInput?.value?.trim()) {
+          coopTeams = coopInput.value.split(',').map(s => ({ name: s.trim() })).filter(x => x.name);
+        }
+        if (refInput?.value?.trim()) {
+          referenceTeams = refInput.value.split(',').map(s => ({ name: s.trim() })).filter(x => x.name);
+        }
+      }
+    }
+
     // 1. submission_documents 행 생성 (S-1 테이블 활용)
     const docId = `SUBDOC-${Date.now()}`;
     const docRow = {
@@ -970,6 +1040,9 @@ async function _aprConfirmSubmit() {
       content: docContent,
       account_code: accountCode,
       total_amount: totalAmount,
+      approval_system: approvalSystem,
+      coop_teams: coopTeams.length > 0 ? coopTeams : [],
+      reference_teams: referenceTeams.length > 0 ? referenceTeams : [],
       status: 'submitted',
       submitted_at: now,
     };

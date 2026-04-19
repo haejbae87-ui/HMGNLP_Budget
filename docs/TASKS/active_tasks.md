@@ -1,6 +1,80 @@
 # 📋 HMGNLP_Budget — 작업 현황 (active_tasks.md)
 
-> 최종 갱신: 2026-04-19
+> 최종 갱신: 2026-04-19 (S-7 통합결재 협조처/참조처 + S-11 배정액 축소 UI 완료)
+
+---
+
+## ✅ 완료된 작업 이력
+
+### ~ 2026-04-19 세션 2 (P16 역할 기반 뷰 모드 구현 완료)
+
+- [x] **PRD #14** — calc_grounds DB 마이그레이션 + FO 아키텍처 정규화
+- [x] **PRD #13** — fo_realtime.js 구현 확인, bo_allocation.js DB 연동 확인
+- [x] **P16 bo_role_view.js 전면 재작성** (F-150~F-156 전체 구현)
+- [x] **P16 bo_budget_demand.js, bo_budget_history.js, bo_plan_mgmt.js, bo_allocation.js** 역할뷰 통합
+- [x] **GitHub Actions sync-docs.yml 수정**, auto_deploy SKILL.md 개선
+- [x] **git push 배포** — ba58c57 커밋 동기화 완료
+- [x] **S-7 통합결재 협조처/참조처 구현** (`approval.js`) — 상신 모달에 integrated 계정 자동 감지 후 협조처/참조처 입력 UI + submission_documents 저장
+- [x] **S-11 배정액 축소 UI 연결** (`fo_plans_list.js`) — approved 카드에 `foOpenReduceAllocation` 버튼 추가 (환불 로직은 기구현 `fo_budget_refund.js` 활용)
+
+---
+
+## 🟢 확정된 정책 (2026-04-19)
+
+| ID | 내용 |
+|----|------|
+| Q-07 | 묶음 대표 = 생성자 자동 지정. 한 팀에서 여러 묶음 상신 가능, 개별 상신도 허용 |
+| Q-08 | 수요예측 묶음 기능 = **HMC/KIA 테넌트 전용** (feature flag: `bundled_forecast_enabled`) |
+| Q-09 | 결재문서 = **웹 화면만** (PDF 불필요) |
+| Q-10 | `plan_type` 분류 기준 = **수요예측 기간 여부**. 기간 중 → forecast, 기간 외 → regular |
+| Q-11 | 운영담당자가 복수 교육조직 관할 가능. 교육조직별 드롭다운 선택 (기구현 EC-34 활용) |
+| Q-SUB7 | 결재 방식 = **`platform`(자체) + `integrated`(통합/HMC-KIA)** 2개 체계. `external` 폐지. `integrated`는 외부 시스템에 상신문서 전송 → 결과 회신 → 내부 상태 전환 |
+
+---
+
+## 🎯 개발 순서 (정책 확정 기준 재정렬)
+
+### 1순위 — 즉시 착수 가능 (미결정 정책 없음)
+
+| 항목 | 파일 | 규모 | 이유 |
+|------|------|:----:|------|
+| **P2 교육계획 인라인 편집** (F-008~F-010) | `bo_plan_mgmt.js` | ⭐⭐⭐ | P16 완료 → 바로 착수 가능. 운영담당자 1차 조정(P13)에도 재사용 |
+| **S-7 통합결재 협조처/참조처 표시** | `approval.js`, `gnb.js` | ⭐⭐ | HMC/KIA integrated 계정 전용. Q-SUB7 확정으로 설계 완료 |
+| **S-8 BO 결재화면 상신문서 기반 전환** | `bo_approval.js` | ⭐⭐⭐⭐ | 가장 복잡. 정책 기반 → 상신문서 기반 전환 |
+| **S-11 승인 후 배정액 축소 + 환불** | FO 상세 UI + `_s9RefundBudget()` | ⭐⭐⭐ | SC-001 시나리오 완성 |
+| **P10 실사용액 자동 집계** | `bo_plan_mgmt.js`, DB 트리거 | ⭐⭐ | `applications` → `plans.actual_amount` 연동 |
+
+### 2순위 — P2 완료 후 착수
+
+| 항목 | 파일 | 의존성 |
+|------|------|--------|
+| **P11 plan_type 자동분류 + submission_documents 통합** | DB 마이그레이션 | P2 완료 후 |
+| **P12 FO 묶음 상신 UI** (HMC/KIA 전용) | `plans.js`, 신규 UI | P11 완료 후 |
+| **P3 상세뷰 조회전용 전환** | `bo_plan_mgmt.js` | P2 완료 후 |
+
+### 3순위 — 중기 작업
+
+| 항목 | 파일 | 의존성 |
+|------|------|--------|
+| **P13 BO 운영담당자 1차 검토** | `bo_plan_mgmt.js`, 신규 UI | P12, P16 완료 후 |
+| **P14 BO 총괄 최종 배정** | `bo_budget_demand.js` 재활용 | P13 완료 후 |
+| **P8 조직개편 이관 UI** | `bo_org_transfer.js` (신규) | 독립 |
+| **P9 6단계 추적 레포트** | 신규 리포트 페이지 | P10 완료 후 |
+
+---
+
+## 📊 전체 PRD 구현 상태 요약
+
+| PRD | 제목 | 상태 |
+|-----|------|:---:|
+| PRD #1~14 | 기초 아키텍처, 정책, 산출근거, 실시간 동기 등 | ✅ 완료 |
+| PRD #15 (P1, P4, P6, P16) | DB 스키마, 시뮬레이션, bankbooks, 역할뷰 | ✅ 완료 |
+| PRD #15 (P2, P3, P7~P10, P11~P15) | 인라인 편집, 이관, 레포트, 묶음 상신 | 🔴 미구현 |
+| PRD #21 (S-1~S-6, S-9) | FO 상신문서 기반, 결재함, Hold 로직 | ✅ 완료 |
+| PRD #21 (S-7, S-11) | 통합결재 협조처/참조처 표시, 배정액 축소 UI 연결 | ✅ 완료 |
+| PRD #21 (S-8) | BO 결재화면 상신문서 기반 전환 | 🔴 미구현 |
+| PRD #16~20 | 배정-신청 분석, 양식 간소화, 복수계획 등 | 🔴 미구현 |
+
 
 ---
 

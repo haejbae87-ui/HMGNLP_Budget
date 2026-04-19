@@ -672,7 +672,7 @@ plans.js와 동일 패턴 적용.
 | ~~**Q-SUB4**~~ | ~~반려 후 재상신 방식~~ | EC-S07 | — | ✅ **확정 (v1.2)**: 반려 → **saved 상태 유지** (draft 아님). saved 상태에서 수정 가능하므로 임시저장으로 변경 불필요. 재상신 시 새 상신 문서 생성. 반려 시 예산 Hold 해제(frozen_amount 감소). 재상신 시 잔액 재검증 + Hold 재시도 |
 | ~~**Q-SUB5**~~ | ~~`plan_bundles`/`submission_bundles`를 `submission_documents`로 통합?~~ | 10.4 | — | ✅ **확정 (D안)**: `plan_bundles` → `submission_documents` 통합. `submission_bundles` 분리 유지 |
 | ~~**Q-SUB6**~~ | ~~예산 예약(hold) 메커니즘 구현 여부~~ | EC-S20 | — | ✅ **확정 (v1.2)**: **상신(submitted) 시점에 Hold**. `frozen_amount += amount`. 임시저장(draft)/저장완료(saved) 시에는 Hold 없음. 승인 시 Hold→확정 차감. 반려/회수 시 Hold 해제. 현재 S-9 구현과 정합 |
-| **Q-SUB7** | 외부결재 계정의 상신 문서 — 내부에서는 기록만 하고 결재 진행 안 함? | EC-S11 | 🟢 | ⏳ 미결정 |
+| ~~**Q-SUB7**~~ | ~~외부결재 계정의 상신 문서 — 내부에서는 기록만 하고 결재 진행 안 함?~~ | EC-S11 | — | ✅ **확정 (v1.4)**: 용어 정리 확정 — **`platform`(플랫폼 자체 결재)와 `integrated`(통합결재 = HMC/KIA 외부 결재 시스템)**. `external` 타입은 폐지. `integrated` 상신 시 상신문서 정보를 외부 결재 시스템에 전송 → 외부에서 승인/반려/회수 결과를 회신받아 내부 상태를 다음 단계로 전환. 각 결재 단계도 동일한 패턴 적용. |
 
 ### 예산 Hold/Release 정책 요약 (v1.2 확정)
 

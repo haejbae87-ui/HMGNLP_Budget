@@ -258,12 +258,21 @@ function renderSubDocCard(doc) {
 }
 // ── P16: 역할별 승인 버튼 HTML 생성 ────────────────────────────────────────────
 function _boRenderApprovalBtns(safeId, doc) {
-  // P16 헬퍼 사용 가능 시 역할 분기
   const docType = doc.doc_type === "application" ? "application" : doc.doc_type === "result" ? "result" : "plan";
-  // 운영담당자 + 이미 in_review인 건 → 총괄 처리 대기 표시
   if (typeof boIsOpManager === "function" && boIsOpManager() && doc.status === "in_review") {
     return `<div style="border-top:1px solid #F3F4F6;padding-top:10px;text-align:right;font-size:11px;color:#7C3AED;font-weight:700">🔄 1차 검토 완료 — 총괄담당자 최종 승인 대기</div>`;
   }
+  
+  // P14: org_forecast인 경우 총괄담당자에게는 최종 배정(시뮬레이션) 버튼 노출
+  if (doc.submission_type === "org_forecast" && typeof boIsGlobalAdmin === "function" && boIsGlobalAdmin() && doc.status === "in_review") {
+    return `<div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;border-top:1px solid #F3F4F6;padding-top:12px">
+      <button onclick="_boShowSubDocDetail('${safeId}')"
+        style="padding:8px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#7C3AED,#4F46E5);color:white;font-size:12px;font-weight:900;cursor:pointer">
+        🧮 최종 예산 배정 (시뮬레이션)
+      </button>
+    </div>`;
+  }
+
   const act = typeof boGetApproveAction === "function"
     ? boGetApproveAction(docType)
     : { label: "✅ 승인", newStatus: "approved", color: "#059669" };
@@ -471,30 +480,53 @@ async function _boShowSubDocDetail(docId) {
     history = data || [];
   }
 
-  const items = doc.submission_items || [];
-  const isOpManager = typeof boIsOpManager === "function" && boIsOpManager();
-  const canEditAmount = isOpManager && doc.submission_type === "team_forecast" && ["submitted", "in_review"].includes(doc.status);
-  
-  const itemsHtml = items.map(it => {
-    const amtHtml = canEditAmount 
-      ? `<input type="text" value="${Number(it.item_amount||0).toLocaleString()}" 
-          onblur="boAdjustForecastAmount('${doc.id}', '${it.id}', '${it.item_id}', '${it.item_amount||0}', this.value)"
-          style="width:90px;text-align:right;padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px;background:#F9FAFB">원`
-      : `${Number(it.item_amount||0).toLocaleString()}원`;
+  let itemsHtml = "";
+  if (doc.submission_type === "org_forecast") {
+    const childDocs = _boSubDocs.filter(d => d.parent_submission_id === doc.id);
+    itemsHtml = childDocs.map(cd => {
+      const childItems = cd.submission_items || [];
+      const childRows = childItems.map(it => `
+        <tr style="border-bottom:1px solid #F3F4F6;background:#fdfdfd">
+          <td style="padding:6px 12px;font-size:11px;color:#6B7280;padding-left:24px">└ ${it.item_title||"제목없음"}</td>
+          <td style="padding:6px 12px;font-size:11px;text-align:right;color:#6B7280">${Number(it.item_amount||0).toLocaleString()}원</td>
+          <td style="padding:6px 12px;font-size:11px;text-align:center">-</td>
+        </tr>
+      `).join("");
+      return `
+        <tr style="background:#F9FAFB;border-top:1px solid #E5E7EB">
+          <td style="padding:8px 12px;font-size:12px;font-weight:800;color:#111827">🏢 ${cd.submitter_org_name || '팀'} 묶음</td>
+          <td style="padding:8px 12px;font-size:12px;font-weight:800;text-align:right;color:#111827">${Number(cd.total_adjusted || cd.total_amount || 0).toLocaleString()}원</td>
+          <td style="padding:8px 12px;font-size:12px;text-align:center"><span style="font-size:10px;padding:2px 6px;background:#E5E7EB;border-radius:4px">${childItems.length}건</span></td>
+        </tr>
+        ${childRows}
+      `;
+    }).join("");
+  } else {
+    const items = doc.submission_items || [];
+    const isOpManager = typeof boIsOpManager === "function" && boIsOpManager();
+    const canEditAmount = isOpManager && doc.submission_type === "team_forecast" && ["submitted", "in_review"].includes(doc.status);
+    
+    itemsHtml = items.map(it => {
+      const amtHtml = canEditAmount 
+        ? `<input type="text" value="${Number(it.item_amount||0).toLocaleString()}" 
+            onblur="boAdjustForecastAmount('${doc.id}', '${it.id}', '${it.item_id}', '${it.item_amount||0}', this.value)"
+            style="width:90px;text-align:right;padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px;background:#F9FAFB">원`
+        : `${Number(it.item_amount||0).toLocaleString()}원`;
 
-    return `
-      <tr style="border-bottom:1px solid #F3F4F6">
-        <td style="padding:8px 12px;font-size:12px;color:#374151">${it.item_title||"제목없음"}</td>
-        <td style="padding:8px 12px;font-size:12px;text-align:right;color:#374151">${amtHtml}</td>
-        <td style="padding:8px 12px;font-size:12px;text-align:center">
-          <span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;
-            background:${it.final_status==="approved"?"#D1FAE5":it.final_status==="rejected"?"#FEE2E2":"#EFF6FF"};
-            color:${it.final_status==="approved"?"#065F46":it.final_status==="rejected"?"#991B1B":"#1D4ED8"}">
-            ${it.final_status||"대기"}
-          </span>
-        </td>
-      </tr>`;
-  }).join("");
+      return `
+        <tr style="border-bottom:1px solid #F3F4F6">
+          <td style="padding:8px 12px;font-size:12px;color:#374151">${it.item_title||"제목없음"}</td>
+          <td style="padding:8px 12px;font-size:12px;text-align:right;color:#374151">${amtHtml}</td>
+          <td style="padding:8px 12px;font-size:12px;text-align:center">
+            <span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;
+              background:${it.final_status==="approved"?"#D1FAE5":it.final_status==="rejected"?"#FEE2E2":"#EFF6FF"};
+              color:${it.final_status==="approved"?"#065F46":it.final_status==="rejected"?"#991B1B":"#1D4ED8"}">
+              ${it.final_status||"대기"}
+            </span>
+          </td>
+        </tr>`;
+    }).join("");
+  }
 
   const histHtml = history.map(h => `
     <div style="display:flex;gap:10px;align-items:flex-start">
@@ -522,6 +554,17 @@ async function _boShowSubDocDetail(docId) {
           style="background:none;border:none;font-size:20px;cursor:pointer;color:#9CA3AF">✕</button>
       </div>
       ${doc.content ? `<div style="padding:12px 16px;background:#F9FAFB;border-radius:8px;font-size:13px;color:#374151;margin-bottom:16px">${doc.content}</div>` : ""}
+      
+      ${doc.submission_type === "org_forecast" && typeof boIsGlobalAdmin === "function" && boIsGlobalAdmin() && doc.status === "in_review"
+        ? `<div style="margin-bottom:16px;text-align:right">
+            <button onclick="boShowSimulationModal('${doc.id}')"
+              style="padding:10px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#7C3AED,#4F46E5);color:white;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(124,58,237,.3)">
+              🧮 최종 배정 시뮬레이션 시작
+            </button>
+          </div>`
+        : ""
+      }
+
       <div style="margin-bottom:16px">
         <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:8px;text-transform:uppercase">첨부 건 목록</div>
         <table style="width:100%;border-collapse:collapse;border:1px solid #E5E7EB;border-radius:8px;overflow:hidden">
@@ -533,7 +576,7 @@ async function _boShowSubDocDetail(docId) {
           <tbody>${itemsHtml}</tbody>
           <tfoot><tr style="background:#F9FAFB">
             <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#374151">합계</td>
-            <td style="padding:8px 12px;font-size:13px;font-weight:900;text-align:right;color:#002C5F">${Number(doc.total_amount||0).toLocaleString()}원</td>
+            <td style="padding:8px 12px;font-size:13px;font-weight:900;text-align:right;color:#002C5F">${Number(doc.total_adjusted||doc.total_amount||0).toLocaleString()}원</td>
             <td></td>
           </tr></tfoot>
         </table>
@@ -700,3 +743,211 @@ async function boAdjustForecastAmount(docId, subItemId, planId, oldAmt, newAmtSt
   }
 }
 
+let _boSimEdits = {};
+let _boSimEnvelope = 0;
+
+window.boShowSimulationModal = function(docId) {
+  const doc = _boSubDocs.find(d => d.id === docId);
+  if (!doc) return;
+  
+  _boSimEdits = {};
+  _boSimEnvelope = Number(doc.total_adjusted || doc.total_amount || 0);
+
+  const childDocs = _boSubDocs.filter(d => d.parent_submission_id === doc.id);
+  const allItems = [];
+  childDocs.forEach(cd => {
+    if (cd.submission_items) {
+      cd.submission_items.forEach(it => {
+        allItems.push({ ...it, team_name: cd.submitter_org_name, account_code: cd.account_code || doc.account_code });
+      });
+    }
+  });
+
+  const renderModal = () => {
+    let allocTotal = 0;
+    const itemsHtml = allItems.map(it => {
+      const amt = Number(it.item_amount||0);
+      const editVal = _boSimEdits.hasOwnProperty(it.item_id) ? _boSimEdits[it.item_id] : amt;
+      allocTotal += editVal;
+      const isEdited = _boSimEdits.hasOwnProperty(it.item_id);
+      
+      return `
+        <tr style="border-bottom:1px solid #E5E7EB;background:${isEdited ? '#FFFBEB' : '#FFFFFF'}">
+          <td style="padding:10px 12px;font-size:12px;color:#6B7280">${it.team_name||'-'}</td>
+          <td style="padding:10px 12px;font-size:12px;color:#111827;font-weight:700">${it.item_title}</td>
+          <td style="padding:10px 12px;font-size:12px;text-align:right;color:#6B7280">${amt.toLocaleString()}원</td>
+          <td style="padding:10px 12px;text-align:right">
+            <input type="text" value="${editVal.toLocaleString()}" 
+              onblur="boUpdateSimEdit('${it.item_id}', this.value)"
+              style="width:100px;text-align:right;padding:6px;border:1px solid ${isEdited ? '#D97706' : '#D1D5DB'};border-radius:6px;font-size:12px;font-weight:700;color:#111827">원
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    const remaining = _boSimEnvelope - allocTotal;
+    const remColor = remaining < 0 ? '#DC2626' : remaining > 0 ? '#059669' : '#111827';
+
+    return `
+      <div id="bo-sim-modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center">
+        <div style="background:white;border-radius:16px;width:800px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.3);overflow:hidden;animation:boSlideUp 0.3s ease">
+          <div style="padding:24px 28px;background:linear-gradient(135deg,#1E1B4B,#4338CA);color:white;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:12px;color:#A5B4FC;margin-bottom:4px;font-weight:700">최종 예산 배정 시뮬레이션</div>
+              <h2 style="margin:0;font-size:20px;font-weight:900">${doc.title}</h2>
+            </div>
+            <button onclick="document.getElementById('bo-sim-modal-overlay').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#A5B4FC">×</button>
+          </div>
+          
+          <div style="padding:24px 28px;background:#F8FAFC;border-bottom:1px solid #E2E8F0;display:flex;gap:20px;align-items:flex-end">
+            <div style="flex:1">
+              <label style="display:block;font-size:12px;font-weight:800;color:#475569;margin-bottom:8px">Envelope (최종 가용 예산 총액)</label>
+              <div style="display:flex;align-items:center;gap:8px">
+                <input type="text" id="boSimEnvInput" value="${_boSimEnvelope.toLocaleString()}"
+                  onblur="boUpdateSimEnv(this.value, '${docId}')"
+                  style="width:200px;padding:10px 14px;border-radius:8px;border:2px solid #CBD5E1;font-size:18px;font-weight:900;color:#0F172A;text-align:right">
+                <span style="font-size:16px;font-weight:800;color:#475569">원</span>
+              </div>
+            </div>
+            <div style="flex:1;background:white;padding:12px 20px;border-radius:12px;border:1px solid #E2E8F0;box-shadow:0 2px 8px rgba(0,0,0,.02)">
+              <div style="font-size:11px;font-weight:800;color:#64748B;margin-bottom:4px">현재 배정 합계</div>
+              <div style="font-size:16px;font-weight:900;color:#0F172A">${allocTotal.toLocaleString()}원</div>
+            </div>
+            <div style="flex:1;background:${remaining < 0 ? '#FEF2F2' : remaining > 0 ? '#ECFDF5' : '#F1F5F9'};padding:12px 20px;border-radius:12px;border:1px solid ${remaining < 0 ? '#FECACA' : remaining > 0 ? '#A7F3D0' : '#E2E8F0'}">
+              <div style="font-size:11px;font-weight:800;color:${remaining < 0 ? '#991B1B' : remaining > 0 ? '#065F46' : '#475569'};margin-bottom:4px">잔여 재원 (차액)</div>
+              <div style="font-size:16px;font-weight:900;color:${remColor}">${remaining > 0 ? '+' : ''}${remaining.toLocaleString()}원</div>
+            </div>
+          </div>
+
+          <div style="flex:1;overflow-y:auto;padding:20px 28px">
+            <table style="width:100%;border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden">
+              <thead style="position:sticky;top:0;background:#F1F5F9;z-index:1">
+                <tr>
+                  <th style="padding:10px 12px;font-size:11px;text-align:left;color:#475569;font-weight:800;border-bottom:2px solid #E2E8F0">소속팀</th>
+                  <th style="padding:10px 12px;font-size:11px;text-align:left;color:#475569;font-weight:800;border-bottom:2px solid #E2E8F0">계획명 (건명)</th>
+                  <th style="padding:10px 12px;font-size:11px;text-align:right;color:#475569;font-weight:800;border-bottom:2px solid #E2E8F0">1차 조정액 (요청)</th>
+                  <th style="padding:10px 12px;font-size:11px;text-align:right;color:#475569;font-weight:800;border-bottom:2px solid #E2E8F0">최종 배정액 수정</th>
+                </tr>
+              </thead>
+              <tbody>${itemsHtml}</tbody>
+            </table>
+          </div>
+
+          <div style="padding:20px 28px;background:white;border-top:1px solid #E2E8F0;display:flex;justify-content:flex-end;gap:12px">
+            <button onclick="document.getElementById('bo-sim-modal-overlay').remove()" style="padding:10px 20px;border-radius:8px;border:1px solid #CBD5E1;background:white;color:#475569;font-weight:800;cursor:pointer">취소</button>
+            <button onclick="boApproveOrgForecast('${docId}')" style="padding:10px 28px;border-radius:8px;border:none;background:linear-gradient(135deg,#059669,#10B981);color:white;font-size:14px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(5,150,105,.3)">
+              ✅ 최종 승인 및 확정
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
+  window.boUpdateSimEdit = function(planId, valStr) {
+    const val = Number(valStr.replace(/[^0-9]/g, ''));
+    if (!isNaN(val)) _boSimEdits[planId] = val;
+    const existing = document.getElementById('bo-sim-modal-overlay');
+    if (existing) existing.outerHTML = renderModal();
+  };
+
+  window.boUpdateSimEnv = function(valStr, did) {
+    const val = Number(valStr.replace(/[^0-9]/g, ''));
+    if (!isNaN(val)) _boSimEnvelope = val;
+    const existing = document.getElementById('bo-sim-modal-overlay');
+    if (existing) existing.outerHTML = renderModal();
+    const input = document.getElementById('boSimEnvInput');
+    if (input) {
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    }
+  };
+
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = renderModal();
+  document.body.appendChild(wrapper.firstElementChild);
+};
+
+window.boApproveOrgForecast = async function(docId) {
+  const sb = typeof getSB === "function" ? getSB() : null;
+  if (!sb) return;
+  const doc = _boSubDocs.find(d => d.id === docId);
+  if (!doc) return;
+
+  if (!confirm("모든 하위 문서와 계획이 '최종 확정' 처리됩니다. 진행하시겠습니까?")) return;
+
+  const now = new Date().toISOString();
+  try {
+    document.getElementById('bo-sim-modal-overlay').remove();
+    
+    // 1) Update child items & plans based on _boSimEdits
+    const childDocs = _boSubDocs.filter(d => d.parent_submission_id === doc.id);
+    for (const cd of childDocs) {
+      if (cd.submission_items) {
+        for (const it of cd.submission_items) {
+          const finalAmt = _boSimEdits.hasOwnProperty(it.item_id) ? _boSimEdits[it.item_id] : Number(it.item_amount||0);
+          
+          await sb.from("plans").update({ allocated_amount: finalAmt, status: "approved", updated_at: now }).eq("id", it.item_id);
+          await sb.from("submission_items").update({ final_status: "approved" }).eq("id", it.id);
+          
+          await sb.from("budget_adjust_logs").insert({
+            tenant_id: boCurrentPersona?.tenantId || "HMC",
+            submission_id: doc.id,
+            plan_id: it.item_id,
+            before_amount: Number(it.item_amount||0),
+            after_amount: finalAmt,
+            adjusted_by: boCurrentPersona?.id || "system",
+            adjusted_at: now,
+            reason: "총괄담당자 최종 배정 및 확정"
+          });
+
+          // 예산 Hold → 확정 차감 (frozen→used)
+          const acctCode = cd.account_code || doc.account_code;
+          if (acctCode) {
+            try {
+              const { data: bk } = await sb.from("bankbooks")
+                .select("id,current_balance,frozen_amount,used_amount")
+                .eq("tenant_id", doc.tenant_id)
+                .eq("account_code", acctCode)
+                .eq("status", "active")
+                .order("current_balance", { ascending: false })
+                .limit(1).single();
+              if (bk) {
+                // 원요청액(item_amount)만큼 가점유 차감, 최종 배정액(finalAmt)만큼 사용액 증가
+                await sb.from("bankbooks").update({
+                  frozen_amount: Math.max(0, Number(bk.frozen_amount || 0) - Number(it.item_amount||0)),
+                  used_amount: Number(bk.used_amount || 0) + finalAmt,
+                  updated_at: now
+                }).eq("id", bk.id);
+              }
+            } catch(bkErr) { console.warn("예산 처리 skip:", bkErr.message); }
+          }
+        }
+      }
+      await sb.from("submission_documents").update({ status: "approved", updated_at: now }).eq("id", cd.id);
+    }
+
+    await sb.from("submission_documents").update({ status: "approved", updated_at: now }).eq("id", doc.id);
+    
+    await sb.from("approval_history").insert({
+      submission_id: doc.id,
+      node_order: 0,
+      node_type: "approval",
+      node_label: "총괄담당자",
+      action: "approved",
+      actor_id: boCurrentPersona?.id || "system",
+      actor_name: boCurrentPersona?.name || "BO총괄",
+      comment: `최종 배정 완료 (총 Envelope: ${_boSimEnvelope.toLocaleString()}원)`,
+      acted_at: now
+    });
+
+    alert("✅ 최종 배정 및 승인이 완료되었습니다.");
+    const detailModal = document.getElementById('bo-subdoc-modal');
+    if (detailModal) detailModal.remove();
+    
+    _boApprovalLoaded = false;
+    renderMyOperations();
+  } catch (err) {
+    alert("❌ 최종 확정 중 오류가 발생했습니다: " + err.message);
+  }
+};

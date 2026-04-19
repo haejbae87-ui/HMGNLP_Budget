@@ -130,6 +130,20 @@
 
 ---
 
+### 2026-04-20 세션 (P14 BO 총괄담당자 최종 예산 배정)
+
+- [x] **P14 `org_forecast` 상세 뷰 고도화 (`bo_approval.js`)**
+  - `_boShowSubDocDetail` 로직 수정: `submission_type`이 `org_forecast`일 경우 하위 `team_forecast`를 불러와 계층적 UI 렌더링
+- [x] **P14 총괄담당자 전용 시뮬레이션 모달 (`boShowSimulationModal`) 구현**
+  - Envelope 총액 설정, 하위 `plan`별 배정액 인라인 수정 기능
+  - 잔여 재원 실시간 계산 로직 추가
+- [x] **P14 최종 승인 및 확정 로직 (`boApproveOrgForecast`) 구현**
+  - `submission_documents` 및 연관 `submission_items` 상태 일괄 `approved` 전이
+  - `plans.allocated_amount` 실 DB 업데이트 및 `budget_adjust_logs` 이력 인서트
+  - 확정된 배정액에 따라 `bankbooks` 가점유(`frozen_amount`) 차감 및 `used_amount` 반영
+
+---
+
 ## 🔄 진행 중 / 다음 작업
 
 | 우선순위 | 항목 | 파일 | 상태 |

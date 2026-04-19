@@ -1,8 +1,9 @@
 # 📋 교육지원제도 운영관리 — 역할별 업무 설계 PRD
 
-> **v1.2** · 2026-04-19 최종 갱신  
+> **v1.3** · 2026-04-19 최종 갱신  
 > **도메인**: 교육지원제도 운영관리 (Back Office)  
-> **상태**: 🔴 기획 확정 / 미구현  
+> **상태**: 🟡 구현 중 (P16 역할 뷰 헬퍼 완료 — bo_role_view.js)  
+> **관련 파일**: `bo_role_view.js`(신규), `bo_approval.js`, `bo_plan_mgmt.js`, `bo_allocation.js`, `bo_budget_history.js`, `bo_budget_demand.js`  
 > **관련 PRD**: [multi_plan_application.md](multi_plan_application.md), [field_standardization.md](field_standardization.md), [budget_lifecycle.md](budget_lifecycle.md)
 
 ---
@@ -445,3 +446,4 @@ function renderSomeModule() {
 | 2026-04-18 | v1.0 최초 작성 — 역할별 업무 설계, 2단계 결재, submission_bundles, 권한 유틸, 구현 Phase 7단계 | AI |
 | 2026-04-18 | **v1.1** — `submission_bundles` **분리 유지 확정** (D안). `plan_bundles` → `submission_documents` 통합은 fo_submission_approval.md에서 처리. submission_bundles는 BO 검토 보고 전용으로 유지 | AI |
 | **2026-04-19** | **v1.2** — **Q-12~14 확정 반영**: §2.2 운영담당자 예산 배정 권한 확대(조회만→관할 내 팀간 재배분). §3.4 Tab2 팀배분(관할 내), Tab3 이관(관할 내 같은 계정). EC-8~10 신규 3건(동시 편집 잠금, 운영 퇴직, 운영 없는 조직). 운영 유무 자동 감지 정책 추가 | AI |
+| **2026-04-19** | **v1.3 (P16)** — `bo_role_view.js` 신규 모듈 구현: `boGetRoleClass()`, `boIsGlobalAdmin()`, `boIsOpManager()`, `boGetApproveAction()`, `boGetMyOrgIds()`, `boCanEditAllocation()`, `boCanSimulate()`, `boRenderRoleActionButtons()`, `boRoleApprove()`, `boRoleReject()`. `backoffice.html`에 script 등록. 역할별 승인 라벨/상태 분기(총괄: approved / 운영: reviewed) 완성 | AI |

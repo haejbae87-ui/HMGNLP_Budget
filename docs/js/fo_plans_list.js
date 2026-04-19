@@ -1,4 +1,4 @@
-﻿// ─── fo_plans_list.js — 계획 목록/카드/상세뷰 (REFACTOR-2: plans.js 분리) ───
+// ─── fo_plans_list.js — 계획 목록/카드/상세뷰 (REFACTOR-2: plans.js 분리) ───
 // ─── PLANS (교육계획) ──────────────────────────────────────────────────────
 
 // FO 정책 연동용: BO service_policies + VOrg 템플릿 DB 프리로드
@@ -650,10 +650,14 @@ function _renderPlanCard(p) {
         ? `<div style="margin-top:8px">
           <button onclick="cancelPlan('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#DC2626;border:1.5px solid #FECACA;cursor:pointer">취소 요청</button>
          </div>`
-        : ((rawStatus === "승인" || rawStatus === "approved") && Number(p.allocated_amount||0) > 0)
-          ? `<div style="display:flex;gap:6px;margin-top:8px">
-              <button onclick="event.stopPropagation();_startApplyFromPlan('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.2)">📝 교육 신청</button>
-             </div>`
+        : (rawStatus === "approved")
+          ? (() => {
+              const hasAlloc = Number(p.allocated_amount||0) > 0;
+              return `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+              ${hasAlloc ? `<button onclick="event.stopPropagation();_startApplyFromPlan('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.2)">📝 교육 신청</button>` : ''}
+              <button onclick="event.stopPropagation();foOpenReduceAllocation('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#D97706;border:1.5px solid #FDE68A;cursor:pointer" title="승인된 배정액을 하향 조정하고 잔액을 통장으로 환불합니다">📉 배정액 축소</button>
+             </div>`;
+            })()
           : "";
 
   return `

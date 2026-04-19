@@ -14,9 +14,9 @@ function renderBoAllocation() {
   const tenantName =
     TENANTS.find((t) => t.id === persona.tenantId)?.name || "전체";
 
-  // ── E-2: 역할 판별 ────────────────────────────────────────────────────
-  const isGlobal = isGlobalAdmin(persona);
-  const isOp = isOpManager(persona);
+  // ── E-2: P16 역할 판별 ────────────────────────────────────────────────────
+  const isGlobal = typeof boIsGlobalAdmin === 'function' ? boIsGlobalAdmin() : isGlobalAdmin(persona);
+  const isOp = typeof boIsOpManager === 'function' ? boIsOpManager() : isOpManager(persona);
   // 운영담당자 = 정의된 역할이 budget_op_manager이거나 managedVorgId만 있고 ownedAccounts는 없는 사람
   const isOpOnly = isOp && !isGlobal;
 
@@ -99,8 +99,8 @@ function showAllocTab(idx) {
 // E-2: idx 기반 탭 전환 (역할 서리 주치대상)
 function showAllocTabByIdx(idx) {
   const persona = typeof boCurrentPersona !== 'undefined' ? boCurrentPersona : null;
-  const isGlobal = isGlobalAdmin(persona);
-  const isOp = isOpManager(persona);
+  const isGlobal = typeof boIsGlobalAdmin === 'function' ? boIsGlobalAdmin() : isGlobalAdmin(persona);
+  const isOp = typeof boIsOpManager === 'function' ? boIsOpManager() : isOpManager(persona);
   const isOpOnly = isOp && !isGlobal;
 
   // 운영담당자가 globalOnly 탭(탭1: 기초/추가배정, 탭3: 이관) 접근 시돈 경우 차단

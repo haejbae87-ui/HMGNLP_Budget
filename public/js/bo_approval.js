@@ -63,11 +63,20 @@ function renderMyOperations() {
       { id:"plan",        label:"교육계획",    color:"#1D4ED8" },
       { id:"application", label:"교육신청",    color:"#7C3AED" },
       { id:"result",      label:"결과보고",    color:"#059669" },
+      { id:"cancel",      label:"⚠️ 취소요청", color:"#DC2626" },
     ];
     const docFilterCounts = { all: _boSubDocs.length };
-    ["plan","application","result"].forEach(t => {
+    ["plan","application","result","cancel"].forEach(t => {
       docFilterCounts[t] = _boSubDocs.filter(d => d.doc_type === t).length;
     });
+    // GAP-1: 취소요청 탭 선택 시 bo_cancel_handler 렌더링
+    if (_boApprovalDocFilter === 'cancel') {
+      if (typeof renderBoCancelRequests === 'function') {
+        el.innerHTML = '<div id="alloc-content"></div>';
+        renderBoCancelRequests();
+        return;
+      }
+    }
     const docFilterHtml = docTypeTabs.map(t => {
       const active = _boApprovalDocFilter === t.id;
       const cnt = docFilterCounts[t.id] || 0;

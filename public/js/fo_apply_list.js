@@ -1,4 +1,4 @@
-﻿// ─── fo_apply_list.js — 신청 목록/결과등록/스마트버튼 (REFACTOR-2: apply.js 분리) ───
+// ─── fo_apply_list.js — 신청 목록/결과등록/스마트버튼 (REFACTOR-2: apply.js 분리) ───
 // ─── APPLY (교육신청) — 목록 ↔ 신청폼 ↔ 결과폼 전환 허브 ────────────────────
 
 // ─── DB 승인된 교육계획 캐시 (MOCK_PLANS 대체) ──────────────────────────────
@@ -502,7 +502,8 @@ function _renderApplyList() {
             applyStatus: _mapAppDbStatus(d.status),
             resultDone: d.status === 'completed',
             author: d.applicant_name,
-            rawStatus: d.status,  // UI-2: 원본 DB 상태 보존
+            rawStatus: d.status,       // UI-2: 원본 DB 상태 보존
+            refundStatus: d.refund_status || null, // GAP-1: 취소 요청 상태
           }));
 
         }
@@ -673,6 +674,13 @@ function _renderApplyList() {
           h.applyStatus === '반려'
             ? `<div style="margin-top:8px;padding:8px 12px;border-radius:8px;background:#FEE2E2;border:1px solid #FECACA;font-size:11px;color:#DC2626;font-weight:700">
                 ⚠️ 반려 사유: ${h.rejectReason || '예산 잔액 부족으로 반려되었습니다. 예산 계획 수립 후 재신청 바랍니다.'}
+               </div>`
+            : ''
+        }
+        ${
+          h.refundStatus === 'pending'
+            ? `<div style="margin-top:8px;padding:8px 12px;border-radius:8px;background:#FEF3C7;border:1px solid #FCD34D;font-size:11px;color:#92400E;font-weight:700">
+                ⏳ 취소 요청 처리 중
                </div>`
             : ''
         }

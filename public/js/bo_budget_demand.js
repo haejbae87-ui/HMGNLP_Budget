@@ -1,4 +1,4 @@
-﻿// ─── 📊 교육예산 수요분석 (VOrg 계층 기반 3단계 드릴다운) ─────────────────────
+// ─── 📊 교육예산 수요분석 (VOrg 계층 기반 3단계 드릴다운) ─────────────────────
 // 필터: 테넌트(회사) → VOrg 제도그룹 → 예산계정
 // Level 1: VOrg 그룹(본부/센터)별 요약
 // Level 2: 본부/센터 → 하위 팀별 상세
@@ -1024,38 +1024,75 @@ async function _bdSimConfirm() {
   }
 
   const plans = _bdPlans || [];
-  const allocCount = Object.keys(_bdSimEdits).length;
   const totalAlloc = plans.reduce((s, p) => {
     const ed = _bdSimEdits[p.id];
     return s + (ed !== undefined ? ed : Number(p.allocated_amount || 0));
   }, 0);
   const remaining = _bdSimEnvelope - totalAlloc;
 
+  // ── P5 강화: 배분 합계 0원 경고
+  if (totalAlloc === 0) {
+    alert('⚠️ 배분액이 전부 0원입니다. 배분액을 입력한 후 확정하세요.');
+    return;
+  }
+
+  // ── P5 강화: 예산 초과 시 차단
+  if (remaining < 0) {
+    const overAmt = Math.abs(remaining).toLocaleString();
+    if (!confirm(
+      `⚠️ 예산안 초과 경고\n\n배분 합계가 Envelope를 ${overAmt}원 초과합니다.\n\n` +
+      `예산 초과 상태에서 확정할 경우 집행 시 예산 부족이 발생할 수 있습니다.\n\n` +
+      `초과 상태로 확정하시겠습니까?`
+    )) return;
+  }
+
+  // ── 확정 확인 다이얼로그
+  const editCount = Object.keys(_bdSimEdits).length;
   let msg = `✅ 시뮬레이션 확정\n\n`;
   msg += `예상 예산안: ${_bdSimEnvelope.toLocaleString()}원\n`;
   msg += `배분 합계:   ${totalAlloc.toLocaleString()}원\n`;
-  msg += `잔여:        ${remaining.toLocaleString()}원\n`;
-  msg += `대상:        ${plans.length}건\n\n`;
+  msg += `잔여:        ${remaining >= 0 ? '+' : ''}${remaining.toLocaleString()}원\n`;
+  msg += `변경 항목:   ${editCount}건 / 전체 ${plans.length}건\n\n`;
   msg += `확정하면 각 교육계획의 배정액(allocated_amount)이 일괄 업데이트됩니다.\n계속하시겠습니까?`;
-
   if (!confirm(msg)) return;
+
+  // ── P5: 진행 Toast 표시
+  const _toast = (m, t = 'info') => {
+    if (typeof _boShowToast === 'function') _boShowToast(m, t);
+    else console.log('[P5]', m);
+  };
+  _toast('🔄 배정액 일괄 확정 중... (1/3) 시뮬레이션 저장');
 
   try {
     // 1. 시뮬레이션 먼저 저장
     await _bdSimSaveInternal(sb, plans);
 
-    // 2. plans.allocated_amount 일괄 업데이트
+    // 2. plans.allocated_amount 일괄 업데이트 (50건 chunk)
+    _toast('🔄 배정액 일괄 확정 중... (2/3) 교육계획 배정액 반영');
+    const chunk = 50;
     let updated = 0;
-    for (const p of plans) {
-      const newAlloc = _bdSimEdits.hasOwnProperty(p.id)
-        ? _bdSimEdits[p.id]
-        : Number(p.allocated_amount || 0);
-      const { error } = await sb.from('plans').update({
-        allocated_amount: newAlloc,
-        updated_at: new Date().toISOString(),
-      }).eq('id', p.id);
-      if (error) throw error;
-      updated++;
+    const changedPlans = []; // bankbooks 연동용
+
+    for (let i = 0; i < plans.length; i += chunk) {
+      const batch = plans.slice(i, i + chunk);
+      const promises = batch.map(p => {
+        const newAlloc = _bdSimEdits.hasOwnProperty(p.id)
+          ? _bdSimEdits[p.id]
+          : Number(p.allocated_amount || 0);
+        const prevAlloc = Number(p.allocated_amount || 0);
+        if (newAlloc !== prevAlloc) {
+          changedPlans.push({ p, prevAlloc, newAlloc });
+        }
+        return sb.from('plans').update({
+          allocated_amount: newAlloc,
+          updated_at: new Date().toISOString(),
+        }).eq('id', p.id);
+      });
+      const results = await Promise.all(promises);
+      results.forEach((r, j) => {
+        if (r.error) throw new Error(`${batch[j].id}: ${r.error.message}`);
+      });
+      updated += batch.length;
     }
 
     // 3. 시뮬레이션 상태 confirmed
@@ -1064,15 +1101,70 @@ async function _bdSimConfirm() {
         status: 'confirmed',
         confirmed_at: new Date().toISOString(),
         confirmed_by: boCurrentPersona?.name || 'admin',
+        total_allocated: totalAlloc,
+        remaining_amount: remaining,
       }).eq('id', _bdSimData.id);
     }
 
-    alert(`✅ ${updated}건 배정액 확정 완료!`);
-    _bdSimMode = false;
-    _bdSimEdits = {};
-    _bdPlans = null;
-    renderBudgetDemand();
+    // 4. ── P5 신규: bankbooks.current_balance 동기화
+    _toast('🔄 배정액 일괄 확정 중... (3/3) 통장 잔액 동기화');
+    if (changedPlans.length > 0) {
+      // orgId별로 차이 집계
+      const orgDiff = {}; // { `${orgId}|${acctCode}`: diffAmount }
+      changedPlans.forEach(({ p, prevAlloc, newAlloc }) => {
+        const orgId = p.applicant_org_id || p.org_id;
+        const acctCode = p.account_code || '';
+        if (!orgId) return;
+        const key = `${orgId}|${acctCode}|${p.tenant_id || _bdTenant}`;
+        if (!orgDiff[key]) orgDiff[key] = { orgId, acctCode, tenantId: p.tenant_id || _bdTenant, diff: 0 };
+        orgDiff[key].diff += (newAlloc - prevAlloc);
+      });
+
+      for (const { orgId, acctCode, tenantId, diff } of Object.values(orgDiff)) {
+        if (diff === 0 || !orgId) continue;
+        try {
+          const { data: bk } = await sb.from('bankbooks')
+            .select('id,current_balance')
+            .eq('tenant_id', tenantId)
+            .eq('org_id', orgId)
+            .eq('account_code', acctCode)
+            .eq('status', 'active')
+            .limit(1).single();
+          if (bk) {
+            const newBal = Math.max(0, Number(bk.current_balance) + diff);
+            await sb.from('bankbooks').update({
+              current_balance: newBal,
+              updated_at: new Date().toISOString(),
+            }).eq('id', bk.id);
+            // 이력 기록
+            await sb.from('budget_usage_log').insert({
+              tenant_id: tenantId,
+              bankbook_id: bk.id,
+              action: diff > 0 ? 'deposit' : 'withdrawal',
+              amount: Math.abs(diff),
+              balance_before: Number(bk.current_balance),
+              balance_after: newBal,
+              reference_type: 'simulation_confirm',
+              memo: `시뮬레이션 확정 배정액 조정 (v${_bdSimData?.version || '?'})`,
+              performed_by: boCurrentPersona?.name || 'system',
+            }).catch(e => console.warn('[P5] budget_usage_log 기록 skip:', e.message));
+          }
+        } catch (bkErr) {
+          console.warn('[P5] bankbook sync skip:', bkErr.message);
+        }
+      }
+    }
+
+    _toast(`✅ ${updated}건 배정액 확정 완료!`, 'success');
+    setTimeout(() => {
+      _bdSimMode = false;
+      _bdSimEdits = {};
+      _bdPlans = null;
+      renderBudgetDemand();
+    }, 600);
+
   } catch (err) {
+    _toast('❌ 확정 실패: ' + err.message, 'error');
     alert('❌ 확정 실패: ' + err.message);
   }
 }

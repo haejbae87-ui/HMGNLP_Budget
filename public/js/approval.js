@@ -100,34 +100,68 @@ async function renderApprovalMember() {
       _aprMemberData = [
         ...(plans || []).map((p) => ({
           _type: "plan",
+          _table: "plans",
           id: p.id,
           title: p.edu_name || p.title || "-",
           type: _aprEduType(p.edu_type),
           purpose: _aprPurpose(p.detail?.purpose),
           amount: Number(p.amount || 0),
+          account_code: p.account_code || '',
           status: p.status,
           date: (p.created_at || "").slice(0, 10),
           rejectReason: p.reject_reason || null,
         })),
         ...(apps || []).map((a) => ({
           _type: "app",
+          _table: "applications",
           id: a.id,
           title: a.edu_name || "-",
           type: _aprEduType(a.edu_type),
           purpose: _aprPurpose(a.detail?.purpose),
           amount: Number(a.amount || 0),
+          account_code: a.account_code || '',
           status: a.status,
           date: (a.created_at || "").slice(0, 10),
           rejectReason: a.reject_reason || null,
         })),
       ];
+
+      // [S-9] 예산 잔액 조회 (frozen 포함 실가용 잔액)
+      try {
+        const { data: bbs } = await sb.from('org_budget_bankbooks')
+          .select('id, account_code, current_balance')
+          .eq('tenant_id', tid)
+          .eq("org_id", currentPersona.orgId)
+          .eq('status', 'active');
+        if (bbs && bbs.length > 0) {
+          let totalAllocated = 0, totalUsed = 0, totalFrozen = 0;
+          for (const bb of bbs) {
+            const { data: alloc } = await sb.from('budget_allocations')
+              .select('allocated_amount, used_amount, frozen_amount')
+              .eq('bankbook_id', bb.id)
+              .order('created_at', { ascending: false }).limit(1).single();
+            if (alloc) {
+              totalAllocated += Number(alloc.allocated_amount || 0);
+              totalUsed += Number(alloc.used_amount || 0);
+              totalFrozen += Number(alloc.frozen_amount || 0);
+            } else {
+              totalAllocated += Number(bb.current_balance || 0);
+            }
+          }
+          window._aprBudgetSummary = { totalAllocated, totalUsed, totalFrozen, available: totalAllocated - totalUsed - totalFrozen };
+        } else {
+          window._aprBudgetSummary = null;
+        }
+      } catch { window._aprBudgetSummary = null; }
+
     } catch (err) {
       console.error("[renderApprovalMember] DB 조회 실패:", err.message);
       _aprMemberData = [];
     }
   }
 
-  // 상태별 통계 (saved 제외)
+  // 상태별 통계 (saved·recalled 제외 — recalled는 회수됐으므로 목록에서 숨김)
+  const data = _aprMemberData.filter(d => !['recalled', 'draft'].includes(d.status) && !_aprSavedData.find(s => String(s.id) === String(d.id)));
   const stats = {
     saved: _aprSavedData.length,
     total: data.length,
@@ -323,6 +357,37 @@ async function renderApprovalMember() {
       )
       .join("")}
   </div>
+
+  <!-- [S-9] 예산 실잔액 배너 -->
+  ${
+    (() => {
+      const bs = window._aprBudgetSummary;
+      if (!bs) return '';
+      const avail = bs.available;
+      const frozen = bs.totalFrozen;
+      const used = bs.totalUsed;
+      const alloc = bs.totalAllocated;
+      const pct = alloc > 0 ? Math.min(100, Math.round((used + frozen) / alloc * 100)) : 0;
+      const availColor = avail < 0 ? '#DC2626' : avail < alloc * 0.1 ? '#D97706' : '#059669';
+      const availBg = avail < 0 ? '#FEF2F2' : avail < alloc * 0.1 ? '#FFFBEB' : '#F0FDF4';
+      return `
+  <div style="background:${availBg};border:1.5px solid ${availColor}33;border-radius:14px;padding:16px 20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-size:11px;font-weight:800;color:${availColor};margin-bottom:4px">💰 팀 예산 실가용 잔액</div>
+        <div style="font-size:22px;font-weight:900;color:${availColor}">${avail.toLocaleString()}<span style="font-size:13px;margin-left:2px">원</span></div>
+        <div style="font-size:10px;color:#6B7280;margin-top:2px">배정: ${alloc.toLocaleString()}원 | 사용: ${used.toLocaleString()}원 | 예약(대기): <strong style="color:#D97706">${frozen.toLocaleString()}원</strong></div>
+      </div>
+      <div style="min-width:120px;flex:1;max-width:220px">
+        <div style="height:8px;background:#E5E7EB;border-radius:4px;overflow:hidden">
+          <div style="height:100%;background:linear-gradient(90deg,#002C5F ${Math.round(used/alloc*100)}%,#FDE68A ${Math.round(used/alloc*100)}% ${pct}%);border-radius:4px;transition:width .4s"></div>
+        </div>
+        <div style="font-size:10px;color:#6B7280;margin-top:4px;text-align:right">${pct}% 사용 (예약 포함)</div>
+      </div>
+    </div>
+  </div>`;
+    })()
+  }
 
   <!-- 결재 목록 -->
   <div>${data.length === 0 ? emptyMsg : cards}</div>

@@ -1877,7 +1877,7 @@ function _renderApplyConfirm() {
       <div style="padding:24px 28px;background:linear-gradient(135deg,#002C5F,#0369A1);color:white">
         <div style="font-size:11px;font-weight:700;opacity:.7;margin-bottom:4px">✅ 작성 확인</div>
         <h2 style="margin:0;font-size:20px;font-weight:900">교육신청 제출 전 확인</h2>
-        <p style="margin:6px 0 0;font-size:12px;opacity:.8">아래 내용을 확인한 후 확정하면 결재라인으로 전달됩니다.</p>
+        <p style="margin:6px 0 0;font-size:12px;opacity:.8">아래 내용을 확인한 후 확정 제출하면 상신 문서가 자동 생성됩니다.</p>
       </div>
       <div style="padding:24px 28px">
         <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -1899,7 +1899,8 @@ function _renderApplyConfirm() {
           </tr>
         </table>
         <div style="margin-top:20px;padding:12px 16px;background:#FEF3C7;border-radius:10px;border:1.5px solid #FDE68A;font-size:12px;color:#92400E">
-          ⚠️ 제출 후에는 결재라인이 자동 구성되며, 상위 승인자가 취소하기 전까지 취소가 불가합니다.
+          ⚠️ <strong>확정 제출</strong> 시 상신 문서가 자동 생성되어 팀장 결재함으로 전달됩니다.<br>
+          결재 진행 중 취소가 필요하면 결재함 → <strong>상신 회수</strong> 버튼을 이용하세요.
         </div>
       </div>
       <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6;flex-wrap:wrap">
@@ -1982,7 +1983,7 @@ async function confirmApply() {
           eduName: applyState.eduName || applyState.title || "교육신청",
           eduType: applyState.eduType || applyState.eduSubType || null,
           amount: totalExp,
-          status: "pending",
+          status: "submitted",
           planId: applyState.planId || null,
           policyId: applyState.policyId || null,
           budgetLinked: svc?.budgetLinked !== false,
@@ -2036,7 +2037,7 @@ async function confirmApply() {
           edu_name: applyState.eduName || applyState.title || "교육신청",
           edu_type: applyState.eduType || applyState.eduSubType || null,
           amount: totalExp,
-          status: "pending",
+          status: "submitted",
           policy_id: applyState.policyId || null,
           form_template_id: applyState.formTemplate?.id || null,
           form_version: applyState.formTemplate?.version || null,
@@ -2061,8 +2062,51 @@ async function confirmApply() {
     alert("제출 실패: " + _friendlyApplyError(err.message));
     return;
   }
+
+  // [S-6] submission_documents + submission_items 자동 생성
+  try {
+    const sb2 = typeof getSB === "function" ? getSB() : null;
+    if (sb2) {
+      const now = new Date().toISOString();
+      const docId = `SUBDOC-${Date.now()}`;
+      const curBudget2 = applyState.budgetId
+        ? (currentPersona.budgets || []).find(b => b.id === applyState.budgetId) : null;
+      const totalExp2 = (applyState.expenses || []).reduce((s,e) => s + Number(e.price)*Number(e.qty), 0);
+      const docRow = {
+        id: docId,
+        tenant_id: currentPersona.tenantId,
+        submission_type: 'fo_user',
+        submitter_id: currentPersona.id,
+        submitter_name: currentPersona.name,
+        submitter_org_id: currentPersona.orgId || null,
+        submitter_org_name: currentPersona.dept || null,
+        title: `${applyState.eduName || applyState.title || '교육신청'} 상신`,
+        account_code: curBudget2?.accountCode || null,
+        total_amount: totalExp2,
+        status: 'submitted',
+        submitted_at: now,
+      };
+      await sb2.from('submission_documents').insert(docRow).catch(e => console.warn('[confirmApply] submission_documents 생성 실패:', e.message));
+      const itemRow = {
+        submission_id: docId,
+        item_type: 'application',
+        item_id: appId,
+        item_title: applyState.eduName || applyState.title || '교육신청',
+        item_amount: totalExp2,
+        account_code: curBudget2?.accountCode || null,
+        policy_id: applyState.policyId || null,
+        item_status: 'pending',
+        sort_order: 0,
+      };
+      await sb2.from('submission_items').insert(itemRow).catch(e => console.warn('[confirmApply] submission_items 생성 실패:', e.message));
+      console.log('[confirmApply] 상신 문서 자동 생성:', docId);
+    }
+  } catch (sdErr) {
+    console.warn('[confirmApply] 상신 문서 생성 오류 (비치명적):', sdErr.message);
+  }
+
   alert(
-    "✅ 교육신청서가 성공적으로 제출되었습니다.\n\n담당자 검토 후 알림이 발송됩니다.",
+    "✅ 교육신청서가 제출되었습니다.\n\n상신 문서가 자동 생성되어 팀장 결재함으로 전달됩니다.",
   );
   applyState = resetApplyState();
   applyViewMode = "list";
@@ -2247,11 +2291,16 @@ async function deleteApplyDraft(appId) {
 function _mapAppDbStatus(s) {
   const m = {
     draft: "작성중",
+    saved: "저장완료",         // fo_submission_approval.md
     pending: "승인대기",
+    submitted: "결재대기",     // fo_submission_approval.md (pending 대체)
+    in_review: "결재진행중",   // fo_submission_approval.md
+    recalled: "회수됨",        // fo_submission_approval.md
     approved: "승인완료",
     completed: "승인완료",
     rejected: "반려",
     cancelled: "취소",
+    result_pending: "BO 검토중",
   };
   return m[s] || s || "승인대기";
 }

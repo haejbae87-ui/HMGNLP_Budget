@@ -56,5 +56,7 @@ node --check "c:\Users\jbae\OneDrive\바탕 화면\HMGNLP_Budget\public\js\bo_vi
 출력된 7자리 SHA가 6단계의 로컬 커밋 SHA와 일치하면 GitHub에 push 완료.
 GitHub Pages 배포는 통상 push 후 1~2분 내 자동 완료된다.
 
+> ⚡ **sync-docs 자동 커밋 대처**: `public/` 파일을 수정한 push 후에는 GitHub Actions `sync-docs.yml`이 `chore: sync docs from public [skip ci]` 자동 커밋을 추가 생성하여 SHA가 1커밋 차이 날 수 있다. push 결과에 `main -> main`이 표시되었으면 **배포 성공**으로 판단한다. 로컬 동기화: `pull --rebase origin main`.
+
 > ⚠️ 절대 금지: 로컬 파일만 확인하고 "배포/반영 완료"로 보고하는 행위
 > ⚠️ read_url_content 도구는 JS 파일을 마크다운으로 변환하여 내용이 누락될 수 있으므로 배포 확인에 사용 금지

@@ -91,6 +91,7 @@ node ".agents\skills\auto_deploy\check_menu_db_sync.js" --fix
 ```
 **[⚠️ 예외 처리]**
 - SHA가 일치하지 않거나 푸시 거절(Rejected)이 난 경우, 에러 원인을 분석하여 5단계(Pull)부터 다시 시도합니다.
+- **⚡ sync-docs 자동 커밋 대처**: `public/` 파일이 변경된 push를 하면 GitHub Actions의 `sync-docs.yml`이 자동으로 `chore: sync docs from public [skip ci]` 커밋을 추가 생성합니다. 이 경우 `ls-remote`의 SHA가 로컬과 1커밋 차이가 나는 것은 **정상**입니다. push 결과 로그에 `main -> main`이 표시되었으면 배포 성공으로 판단하고, `pull --rebase origin main`으로 로컬을 동기화하면 됩니다. SHA 비교 실패로 무한 재시도하지 마세요.
 
 ---
 **[🔥 스킬 발동 훅 요약]**

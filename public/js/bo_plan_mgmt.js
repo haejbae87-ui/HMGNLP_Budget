@@ -150,9 +150,14 @@ async function renderBoPlanMgmt() {
       "hq_general",
       "center_rnd",
     ];
-    // E-4: 역할 구분 — 운영담당자(일차검토) vs 총괄담당자(최종승인)
-    const isGlobalBO = isGlobalAdmin(boCurrentPersona);
-    const isOpBO = isOpManager(boCurrentPersona);
+    // E-4: P16 역할 구분 — bo_role_view.js 신규 함수 사용
+    const isGlobalBO = typeof boIsGlobalAdmin === 'function' ? boIsGlobalAdmin() : isGlobalAdmin(boCurrentPersona);
+    const isOpBO = typeof boIsOpManager === 'function' ? boIsOpManager() : isOpManager(boCurrentPersona);
+
+    // P16 F-150: 운영담당자 관할 데이터 스코핑
+    if (typeof boFilterPlansByScope === 'function') {
+      plans = boFilterPlansByScope(plans);
+    }
 
     // 총괄담당자: 승인/반려 가능  | 운영담당자: 1차검토 가능
     const canApprove = isGlobalBO;
@@ -329,6 +334,8 @@ async function renderBoPlanMgmt() {
 
         ${editBar}
       </div>
+
+      ${typeof boOpScopeBanner === 'function' ? boOpScopeBanner() : ''}
 
       <!-- 수요예측 요약 카드 -->
       <div style="margin-bottom:16px;padding:12px 20px;border-radius:12px;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);border:1.5px solid #BFDBFE">

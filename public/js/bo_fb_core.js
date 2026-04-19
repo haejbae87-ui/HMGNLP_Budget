@@ -1,4 +1,4 @@
-﻿// ─── bo_fb_core.js — 폼빌더 공통 상수/카탈로그/DB로드 (REFACTOR-1) ───
+// ─── bo_fb_core.js — 폼빌더 공통 상수/카탈로그/DB로드 (REFACTOR-1) ───
 // ─── 교육신청양식마법사 (Form Builder Enhanced) ─────────────────────────────────
 // 3탭 구조: ① 양식 라이브러리 ② 양식 빌더 ③ 서비스 통합 매핑
 // 기획안 기반 고도화: 양식 분류체계, 입력 주체 제어, 조건부 로직, 서비스 매핑
@@ -941,3 +941,29 @@ async function _fbLoadDbData() {
 }
 
 async function renderFormBuilderMenu() {
+  const role = boCurrentPersona.role;
+  const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
+  const isPlatform = role === 'platform_admin';
+  const isTenant = role === 'tenant_global_admin';
+
+  // 테넌트 초기화
+  if (!_fbTenantId) {
+    _fbTenantId = isPlatform
+      ? tenants[0]?.id || 'HMC'
+      : boCurrentPersona.tenantId || 'HMC';
+  }
+  // 데이터 로드
+  await _fbLoadDbData();
+
+  // 제도그룹 초기화
+  if (!_fbGroupId) {
+    _fbGroupId = _fbTplList[0]?.id || null;
+  }
+  // 계정 초기화
+  if (!_fbAccountCode && _fbGroupId) {
+    const accs = _fbAccountList.filter(a => a.virtual_org_template_id === _fbGroupId);
+    _fbAccountCode = accs[0]?.code || null;
+  }
+
+  document.getElementById('bo-content').innerHTML = _fbRenderPage();
+}

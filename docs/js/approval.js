@@ -1026,10 +1026,50 @@ async function _aprConfirmSubmit() {
       }
     }
 
-    // 1. submission_documents 행 생성 (S-1 테이블 활용)
-    const docId = `SUBDOC-${Date.now()}`;
+    // [S-8] approval_nodes 자동 구성: APPROVAL_ROUTING에서 계정+금액 기반 노드 생성
+    let approvalNodes = [];
+    try {
+      const routing = typeof APPROVAL_ROUTING !== 'undefined'
+        ? APPROVAL_ROUTING.find(r =>
+            r.tenantId === currentPersona.tenantId &&
+            (r.accountCodes || []).some(c => accountCode && accountCode.includes(c))
+          )
+        : null;
+      if (routing && routing.ranges && routing.ranges.length > 0) {
+        // 금액 구간 매칭 (max가 null이면 상한 없음)
+        const matchedRange = routing.ranges
+          .filter(rng => rng.max === null || totalAmount <= rng.max)
+          .sort((a, b) => (a.max ?? Infinity) - (b.max ?? Infinity))[0];
+        if (matchedRange) {
+          approvalNodes = (matchedRange.nodes || [])
+            .filter(n => n.type !== 'draft') // 기안 노드 제외
+            .map((n, i) => ({
+              order: i,
+              type: n.type,
+              label: n.label || n.role || '결재자',
+              approverKey: n.role || n.coopType || n.label || '',
+              activation: n.activation || 'always',
+              conditionRuleId: n.conditionRuleId || null,
+            }));
+        }
+      }
+      // 라우팅 없으면 기본 1단계 노드
+      if (approvalNodes.length === 0) {
+        approvalNodes = [{ order: 0, type: 'approval', label: '결재자', approverKey: 'leader', activation: 'always' }];
+      }
+    } catch (nodeErr) {
+      console.warn('[S-8] approval_nodes 구성 실패:', nodeErr.message);
+      approvalNodes = [{ order: 0, type: 'approval', label: '결재자', approverKey: 'leader', activation: 'always' }];
+    }
+
+    // doc_type 파생: item 유형에서 자동 결정
+    const itemTypes = [...new Set(selectedArr.map(sel =>
+      sel.table === 'plans' ? 'plan' : 'application'
+    ))];
+    const docType = itemTypes.length === 1 ? itemTypes[0] : 'plan';
+
+    // 1. submission_documents 행 생성 (S-1 테이블 활용, id는 DB auto UUID)
     const docRow = {
-      id: docId,
       tenant_id: currentPersona.tenantId,
       submission_type: 'fo_user',
       submitter_id: currentPersona.id,
@@ -1041,6 +1081,9 @@ async function _aprConfirmSubmit() {
       account_code: accountCode,
       total_amount: totalAmount,
       approval_system: approvalSystem,
+      approval_nodes: approvalNodes,
+      current_node_order: 0,
+      doc_type: docType,
       coop_teams: coopTeams.length > 0 ? coopTeams : [],
       reference_teams: referenceTeams.length > 0 ? referenceTeams : [],
       status: 'submitted',
@@ -1048,21 +1091,23 @@ async function _aprConfirmSubmit() {
     };
 
     try {
-      await sb.from('submission_documents').insert(docRow);
+      const { data: insertedDoc, error: insertErr } = await sb.from('submission_documents').insert(docRow).select('id').single();
+      if (insertErr) throw insertErr;
+      const docId = insertedDoc?.id;
+      if (!docId) throw new Error('submission_documents insert 후 id 미반환');
       console.log('[_aprConfirmSubmit] 상신 문서 생성:', docId);
 
-      // 2. submission_items — 건별 연결 행 삽입
+      // 2. submission_items — 건별 연결 행 삽입 (실제 DB 컬럼에 맞게)
       const itemRows = selectedArr.map((sel, idx) => {
         const item = _aprSavedData.find(d => String(d.id) === String(sel.id));
         return {
           submission_id: docId,
           item_type: sel.table === 'plans' ? 'plan' : 'application',
-          item_id: sel.id,
-          item_title: item?.title || sel.id,
+          item_id: String(sel.id),
+          item_title: item?.title || String(sel.id),
           item_amount: item?.amount || 0,
-          account_code: item?.accountCode || item?.account_code || accountCode,
-          policy_id: item?.policyId || item?.policy_id || null,
-          item_status: 'pending',
+          item_status_at_submit: item?.status || 'saved',
+          final_status: 'pending',
           sort_order: idx,
         };
       });

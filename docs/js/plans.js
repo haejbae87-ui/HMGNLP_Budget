@@ -896,6 +896,21 @@ function _renderPlanDetailView(plan) {
             <td style="padding:12px 0;font-weight:800;color:#6B7280">계획액</td>
             <td style="padding:12px 0;font-weight:900;color:#002C5F;font-size:16px">${amount.toLocaleString()}원</td>
           </tr>
+          ${(() => {
+            const alloc = Number(plan.allocated_amount || 0);
+            if (!isApproved) return '';
+            return `<tr style="border-bottom:1px solid #F3F4F6">
+              <td style="padding:12px 0;font-weight:800;color:#6B7280">배정액</td>
+              <td style="padding:12px 0">
+                ${alloc > 0
+                  ? `<span style="font-weight:900;color:#059669;font-size:16px">${alloc.toLocaleString()}원</span>
+                     <span style="margin-left:8px;font-size:10px;font-weight:700;background:#D1FAE5;color:#065F46;padding:2px 8px;border-radius:5px">✅ 배정완료</span>`
+                  : `<span style="color:#D97706;font-weight:700;font-size:12px">⏳ 배정 대기 중</span>
+                     <span style="margin-left:6px;font-size:11px;color:#9CA3AF">운영담당자가 배정액을 입력하면 자동 표시됩니다</span>`
+                }
+              </td>
+            </tr>`;
+          })()}
           <tr style="border-bottom:1px solid #F3F4F6">
             <td style="padding:12px 0;font-weight:800;color:#6B7280">기간</td>
             <td style="padding:12px 0;color:#374151">${d.startDate || "-"} ~ ${d.endDate || "-"}</td>

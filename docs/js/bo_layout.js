@@ -400,6 +400,13 @@ const PLATFORM_MENUS = [
     section: null,
     gnb: GNB_CATE.PROGRAM,
   },
+  {
+    id: "budget-carryover",
+    icon: "↔",
+    label: "예산 이관/이월",
+    section: null,
+    gnb: GNB_CATE.PROGRAM,
+  },
   // 자격증 지원관리
   {
     id: "cert-mapping",
@@ -1626,6 +1633,7 @@ function boNavigate(menuId) {
   if (menuId === "allocation") renderOrgBudget();
   if (menuId === "budget-history") renderBudgetHistory();
   if (menuId === "budget-demand") renderBudgetDemand();
+  if (menuId === "budget-carryover") renderBudgetCarryover();
   if (menuId === "my-operations") renderMyOperations();
   if (menuId === "result-mgmt") renderResultMgmt();
   if (menuId === "org-budget") renderOrgBudget();

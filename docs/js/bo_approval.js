@@ -1,670 +1,417 @@
-﻿// ─── 📥 나의 운영 업무 (My Operations) ──────────────────────────────────────
-// 정책 기반 결재 자동 라우팅 — 단계별 승인함: 계획승인대기 / 신청승인대기 / 결과정산대기
+﻿// ─── 📥 BO 결재 화면 — 상신 문서(submission_documents) 기반 전환 (S-8) ─────
+// PRD: fo_submission_approval.md §10.1, §12 S-8
+// 기존: 정책(SERVICE_POLICIES) 기반 개별 건 필터링
+// 변경: submission_documents.approval_nodes[current_node_order] 기반 문서 단위 결재
 
-let _myOpsTab = "plan";
+let _boApprovalTab = "pending";   // pending | done
 let _boApprovalLoaded = false;
-let _boDbApps = [];
-let _boDbPlans = [];
+let _boSubDocs = [];              // 내가 처리해야 할 상신 문서 목록
 
+// ── 데이터 로드 ──────────────────────────────────────────────────────────────
 async function _loadBoApprovalData() {
   const sb = typeof getSB === "function" ? getSB() : null;
   const tenantId = boCurrentPersona?.tenantId || "HMC";
-  if (sb) {
-    try {
-      const [appsRes, plansRes] = await Promise.all([
-        sb
-          .from("applications")
-          .select("*")
-          .eq("tenant_id", tenantId)
-          .order("created_at", { ascending: false }),
-        sb
-          .from("plans")
-          .select("*")
-          .eq("tenant_id", tenantId)
-          .order("created_at", { ascending: false }),
-      ]);
-      _boDbApps = appsRes.data || [];
-      _boDbPlans = plansRes.data || [];
-    } catch (err) {
-      console.error("[_loadBoApprovalData] DB 조회 실패:", err.message);
-      _boDbApps = [];
-      _boDbPlans = [];
-    }
-  } else {
-    // MOCK 폴백
-    _boDbApps = typeof MOCK_BO_APPS !== "undefined" ? MOCK_BO_APPS : [];
-    _boDbPlans = typeof MOCK_BO_PLANS !== "undefined" ? MOCK_BO_PLANS : [];
+  if (!sb) { _boSubDocs = []; return; }
+  try {
+    // 1) 내가 현재 결재자인 상신 문서: approval_nodes[current_node_order].approverKey 매칭
+    const personaKey = Object.keys(BO_PERSONAS || {}).find(k => BO_PERSONAS[k] === boCurrentPersona) || "";
+    const { data: docs, error } = await sb
+      .from("submission_documents")
+      .select("*, submission_items(*)")
+      .eq("tenant_id", tenantId)
+      .in("status", ["submitted", "in_review", "approved", "rejected", "recalled"])
+      .order("submitted_at", { ascending: false });
+    if (error) throw error;
+    // 2) 내가 처리할 문서만 필터 (approval_nodes 기반)
+    _boSubDocs = (docs || []).filter(doc => {
+      const nodes = doc.approval_nodes || [];
+      if (!nodes.length) return false;
+      const cur = nodes[doc.current_node_order || 0];
+      if (!cur) return false;
+      return cur.approverKey === personaKey || cur.actorKey === personaKey;
+    });
+  } catch (err) {
+    console.error("[_loadBoApprovalData] 실패:", err.message);
+    _boSubDocs = [];
   }
 }
 
+// ── 메인 렌더 ─────────────────────────────────────────────────────────────────
 function renderMyOperations() {
   const el = document.getElementById("bo-content");
+  if (!el) return;
   try {
-    const persona = boCurrentPersona;
-    const personaKey =
-      Object.keys(BO_PERSONAS).find((k) => BO_PERSONAS[k] === persona) || "";
-    const activeGroupId =
-      typeof boGetActiveGroupId === "function" ? boGetActiveGroupId() : null;
-
-    // 자신이 승인자인 정책 (격리그룹 기준 필터 우선)
-    const myPolicies = SERVICE_POLICIES.filter((p) => {
-      // 격리그룹 필터
-      if (activeGroupId && p.domainId && p.domainId !== activeGroupId)
-        return false;
-      if (p.tenantId !== persona.tenantId) return false;
-      if (p.approverPersonaKey === personaKey) return true;
-      return (p.approvalThresholds || []).some(
-        (t) => t.approverKey === personaKey,
-      );
-    });
-    const myPolicyIds = myPolicies.map((p) => p.id);
-
-    // 패턴별로 분류
-    const patternA_PolicyIds = myPolicies
-      .filter((p) => (p.processPattern || "B") === "A")
-      .map((p) => p.id);
-    const patternAB_PolicyIds = myPolicies
-      .filter((p) => ["A", "B"].includes(p.processPattern || "B"))
-      .map((p) => p.id);
-
-    // DB에서 결재 건 조회 (비동기 → 캐시)
     if (!_boApprovalLoaded) {
       _boApprovalLoaded = true;
       _loadBoApprovalData().then(() => renderMyOperations());
+      el.innerHTML = '<div style="padding:60px;text-align:center;color:#9CA3AF"><div style="font-size:32px">⏳</div><div style="margin-top:8px;font-size:13px;font-weight:700">결재 문서 로딩 중...</div></div>';
       return;
     }
-    const allApps = _boDbApps.filter((a) => myPolicyIds.includes(a.policyId));
-    const allPlans = _boDbPlans.filter(
-      (a) =>
-        patternA_PolicyIds.length > 0 ||
-        myPolicies.some((p) => (p.flow || "").includes("plan")),
-    );
 
-    // 단계별 탭 데이터
-    const planItems = _boDbPlans.filter((a) =>
-      (a.status || "").startsWith("pending"),
-    );
-    const applyItems = allApps.filter((a) => a.type === "신청" || !a.type);
-    const resultItems = allApps.filter((a) => a.type === "결과보고");
+    const pendingDocs = _boSubDocs.filter(d => ["submitted","in_review"].includes(d.status));
+    const doneDocs    = _boSubDocs.filter(d => ["approved","rejected","recalled"].includes(d.status));
+    const currentDocs = _boApprovalTab === "pending" ? pendingDocs : doneDocs;
 
-    const pendingPlans = planItems.filter((a) =>
-      a.status?.startsWith("pending"),
-    ).length;
-    const pendingApply = applyItems.filter((a) =>
-      a.status?.startsWith("pending"),
-    ).length;
-    const pendingResult = resultItems.filter((a) =>
-      a.status?.startsWith("pending"),
-    ).length;
-    const pendingAll = pendingPlans + pendingApply + pendingResult;
+    const tabHtml = [
+      { id:"pending", label:"📥 승인 대기", count: pendingDocs.length, color:"#1D4ED8" },
+      { id:"done",    label:"✅ 처리 완료",  count: doneDocs.length,   color:"#059669" }
+    ].map(t => {
+      const active = _boApprovalTab === t.id;
+      return `<div onclick="_boApprovalTab='${t.id}';renderMyOperations()"
+        style="padding:10px 18px;border-radius:10px;border:1.5px solid ${active?t.color:"#E5E7EB"};
+        background:${active?t.color:"white"};color:${active?"white":"#6B7280"};
+        font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px">
+        ${t.label}
+        <span style="background:${active?"rgba(255,255,255,.25)":"#F3F4F6"};color:${active?"white":"#374151"};
+          padding:2px 8px;border-radius:99px;font-size:11px;font-weight:900">${t.count}</span>
+      </div>`;
+    }).join("");
 
-    const tabs = [
-      {
-        id: "plan",
-        icon: "📊",
-        label: "계획 승인 대기",
-        items: planItems,
-        pending: pendingPlans,
-        badge: "#059669",
-        note: "패턴 A 서비스의 교육계획 검토 및 승인",
-      },
-      {
-        id: "apply",
-        icon: "📝",
-        label: "신청 승인 대기",
-        items: applyItems,
-        pending: pendingApply,
-        badge: "#1D4ED8",
-        note: "학습자 신청서 검토 및 예산 가점유/정산 승인",
-      },
-      {
-        id: "result",
-        icon: "📄",
-        label: "결과 정산 대기",
-        items: resultItems,
-        pending: pendingResult,
-        badge: "#D97706",
-        note: "교육 완료 후 결과보고 검토 및 실차감 정산",
-      },
-    ];
-
-    const tabHtml = tabs
-      .map((t) => {
-        const active = _myOpsTab === t.id;
-        return `<div onclick="_myOpsTab='${t.id}';renderMyOperations()"
-      style="padding:10px 16px;border-radius:10px;border:1.5px solid ${active ? t.badge : "#E5E7EB"};
-        background:${active ? t.badge : "white"};color:${active ? "white" : "#6B7280"};
-        font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap">
-      ${t.icon} ${t.label}
-      ${
-        t.pending > 0
-          ? `<span style="background:${active ? "rgba(255,255,255,.25)" : "#FEF2F2"};color:${active ? "white" : "#DC2626"};
-        padding:2px 7px;border-radius:99px;font-size:11px;font-weight:900">${t.pending}</span>`
-          : `<span style="background:${active ? "rgba(255,255,255,.2)" : "#F3F4F6"};padding:2px 7px;border-radius:99px;font-size:11px">${t.items.length}</span>`
-      }
-    </div>`;
-      })
-      .join("");
-
-    const currentTab = tabs.find((t) => t.id === _myOpsTab) || tabs[0];
-    const currentItems = currentTab.items;
-
-    // 내 담당 정책 배지
-    const policyBadges = myPolicies
-      .map((p) => {
-        const pat = p.processPattern || "B";
-        const PM = { A: "#7C3AED", B: "#1D4ED8", C: "#D97706", D: "#6B7280" };
-        const thCnt = (p.approvalThresholds || []).length;
-        return `<div style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:#F5F3FF;border-radius:8px;font-size:11px">
-      <span style="font-weight:900;color:${PM[pat] || "#7C3AED"}">패턴${pat}</span>
-      <span style="font-weight:700;color:#374151">${p.name}</span>
-      ${thCnt > 0 ? `<span style="color:#9CA3AF">🔑 ${thCnt}구간</span>` : ""}
-    </div>`;
-      })
-      .join("");
-
-    // 결재 카드 렌더
-    const typeStyle = {
-      신청: { bg: "#DBEAFE", c: "#1E40AF" },
-      결과보고: { bg: "#FEF3C7", c: "#92400E" },
-      교육계획: { bg: "#D1FAE5", c: "#065F46" },
-    };
-
-    function renderApprovalCard(a) {
-      const isPending = a.status?.startsWith("pending");
-      const isResult = a.type === "결과보고";
-      const isPlan = a.type === "교육계획" || (!a.type && _myOpsTab === "plan");
-      const policy = SERVICE_POLICIES.find((p) => p.id === a.policyId);
-      const ts =
-        typeStyle[a.type] ||
-        (_myOpsTab === "plan" ? typeStyle["교육계획"] : typeStyle["신청"]);
-
-      // 금액별 결재라인 체크 (임계값 맞는 결재자인지)
-      let thresholdInfo = "";
-      if (
-        policy &&
-        (policy.approvalThresholds || []).length > 0 &&
-        a.requestAmt
-      ) {
-        const matched = policy.approvalThresholds.find(
-          (t) =>
-            t.approverKey === personaKey && t.maxAmt >= (a.requestAmt || 0),
-        );
-        if (matched) {
-          thresholdInfo = `<span style="font-size:9px;padding:2px 7px;border-radius:4px;background:#EDE9FE;color:#7C3AED;font-weight:700">🔑 ${matched.maxAmt / 10000}만원 구간 담당</span>`;
-        }
-      }
-
-      const safeId = String(a.id || "").replace(/'/g, "\\'");
-      const tableName = isPlan ? "plans" : "applications";
-      const panelId = `bo-ops-af-${safeId}`;
-
-      return `
-<div class="bo-card" style="padding:20px;${!isPending ? "opacity:0.65" : ""}">
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
-    <div style="flex:1">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
-        <span style="font-size:10px;font-weight:900;padding:2px 9px;border-radius:6px;background:${ts.bg};color:${ts.c}">${a.type || (_myOpsTab === "plan" ? "교육계획" : "신청")}</span>
-        ${typeof boAccountBadge !== "undefined" ? boAccountBadge(a.account) : ""}
-        ${policy ? `<span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#F5F3FF;color:#7C3AED;font-weight:700">⚡ ${policy.name}</span>` : ""}
-        ${thresholdInfo}
-        ${typeof boPlanStatusBadge !== "undefined" ? boPlanStatusBadge(a.status) : ""}
-      </div>
-      <div style="font-weight:900;font-size:15px;color:#111827;margin-bottom:2px">${a.title}</div>
-      <div style="font-size:12px;color:#9CA3AF">${a.team || a.hq || ""} · 신청자: ${a.submitter || a.applicant || ""} · 제출일: ${a.submittedAt || ""}</div>
-    </div>
-    <div style="text-align:right;min-width:120px">
-      ${
-        a.requestAmt !== undefined
-          ? `
-      <div style="font-size:11px;color:#9CA3AF;font-weight:700;margin-bottom:2px">신청금액</div>
-      <div style="font-size:18px;font-weight:900;color:#002C5F">${typeof boFmt !== "undefined" ? boFmt(a.requestAmt || a.amount || 0) : (a.requestAmt || 0).toLocaleString()}원</div>
-      ${
-        a.actualAmt !== null && a.actualAmt !== undefined
-          ? `
-      <div style="font-size:11px;color:#059669;font-weight:700;margin-top:4px">실 사용: ${typeof boFmt !== "undefined" ? boFmt(a.actualAmt) : a.actualAmt.toLocaleString()}원</div>`
-          : ""
-      }`
-          : ""
-      }
-    </div>
-  </div>
-  ${
-    isPending
-      ? `
-  <div style="display:flex;gap:8px;margin-top:14px;justify-content:space-between;align-items:center">
-    <button onclick="event.stopPropagation();_toggleOpsAdminFields('${safeId}','${tableName}')"
-      style="padding:6px 14px;border-radius:8px;border:1.5px solid #BFDBFE;background:#EFF6FF;font-size:11px;font-weight:800;color:#1D4ED8;cursor:pointer">
-      🔧 관리자 필드
-    </button>
-    <div style="display:flex;gap:8px">
-      <button onclick="myOpsApprove('${a.id}')" class="bo-btn-accent">
-        ${isResult ? "✅ 정산 승인 (실차감)" : isPlan ? "✅ 계획 승인" : "✅ 신청 승인"}
-      </button>
-      <button onclick="myOpsReject('${a.id}')" style="border:1.5px solid #EF4444;color:#EF4444;background:#fff;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">반려</button>
-      ${!isResult && !isPlan ? `<button onclick="myOpsCancel('${a.id}')" style="border:1.5px solid #9CA3AF;color:#9CA3AF;background:#fff;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">환원</button>` : ""}
-    </div>
-  </div>`
-      : `<div style="margin-top:10px;font-size:12px;font-weight:700;color:#9CA3AF;text-align:right">처리 완료</div>`
-  }
-  <div id="${panelId}" style="margin-top:12px;display:none"></div>
-</div>`;
-    }
-
-    const appCards =
-      currentItems.length === 0
-        ? `<div style="padding:50px;text-align:center;color:#9CA3AF">
-        <div style="font-size:36px;margin-bottom:8px">📭</div>
-        <div style="font-weight:700;font-size:14px">${currentTab.label} 항목이 없습니다</div>
-        <div style="font-size:12px;margin-top:6px;color:#D1D5DB">${currentTab.note}</div>
-       </div>`
-        : currentItems.map(renderApprovalCard).join("");
-
-    el.innerHTML = `
-<div class="bo-fade">
-  ${typeof boIsolationGroupBanner === "function" ? boIsolationGroupBanner() : ""}
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">
-    <div>
-      <h1 class="bo-page-title">📥 나의 운영 업무</h1>
-      <p class="bo-page-sub">내가 승인자로 등록된 정책의 결재 대기건이 단계별로 자동 표시됩니다</p>
-    </div>
-    ${
-      pendingAll > 0
-        ? `<div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:12px 18px;text-align:center">
-      <div style="font-size:24px;font-weight:900;color:#B45309">${pendingAll}</div>
-      <div style="font-size:11px;font-weight:700;color:#92400E">전체 대기</div>
-    </div>`
-        : ""
-    }
-  </div>
-
-  <!-- 내 담당 정책 -->
-  <div style="margin-bottom:16px">
-    <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;margin-bottom:8px">내 담당 정책 (${myPolicies.length}개)</div>
-    ${
-      myPolicies.length > 0
-        ? `<div style="display:flex;flex-wrap:wrap;gap:6px">${policyBadges}</div>`
-        : `<div style="padding:12px 16px;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;font-size:12px;color:#991B1B">
-          현재 이 담당자가 승인자로 등록된 정책이 없습니다. 교육지원 운영 규칙에서 승인자를 지정해주세요.
+    const cards = currentDocs.length === 0
+      ? `<div style="padding:60px;text-align:center;color:#9CA3AF">
+           <div style="font-size:40px">📭</div>
+           <div style="font-weight:700;font-size:14px;margin-top:8px">
+             ${_boApprovalTab==="pending"?"승인 대기 문서가 없습니다":"처리 완료 문서가 없습니다"}
+           </div>
          </div>`
-    }
-  </div>
+      : currentDocs.map(renderSubDocCard).join("");
 
-  <!-- 단계별 탭 -->
-  <div style="display:flex;gap:8px;margin-bottom:4px;flex-wrap:wrap">${tabHtml}</div>
-  <div style="margin-bottom:16px;padding:10px 14px;background:#F9FAFB;border-radius:8px;font-size:11px;color:#6B7280">
-    💡 ${currentTab.note}
-  </div>
-
-  <!-- 결재 카드 리스트 -->
-  <div style="display:flex;flex-direction:column;gap:12px">${appCards}</div>
-</div>`;
-  } catch (err) {
-    console.error("[renderMyOperations] 렌더링 에러:", err);
-    el.innerHTML = `<div class="bo-fade" style="padding:40px;text-align:center;color:#EF4444">
-      <h2>📥 교육신청 관리 로드 실패</h2>
-      <p style="font-size:13px">${err.message}</p>
+    el.innerHTML = `<div class="bo-fade">
+      ${typeof boIsolationGroupBanner==="function" ? boIsolationGroupBanner() : ""}
+      <div style="margin-bottom:24px">
+        <h1 class="bo-page-title">📥 나의 운영 업무</h1>
+        <p class="bo-page-sub">상신 문서 기반 결재 처리 — 내가 현재 결재자인 문서가 자동 표시됩니다</p>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">${tabHtml}</div>
+      <div style="display:flex;flex-direction:column;gap:12px">${cards}</div>
+    </div>`;
+  } catch(err) {
+    console.error("[renderMyOperations]", err);
+    el.innerHTML = `<div style="padding:40px;text-align:center;color:#EF4444">
+      <h2>결재 화면 로드 실패</h2><p>${err.message}</p>
       <button onclick="_boApprovalLoaded=false;renderMyOperations()" class="bo-btn-primary" style="margin-top:12px">🔄 재시도</button>
     </div>`;
   }
 }
+// ── 상신 문서 카드 렌더 ────────────────────────────────────────────────────────
+function renderSubDocCard(doc) {
+  const items = doc.submission_items || [];
+  const isPending = ["submitted","in_review"].includes(doc.status);
+  const statusMap = {
+    submitted: { label:"상신됨",    bg:"#DBEAFE", c:"#1E40AF" },
+    in_review: { label:"결재중",    bg:"#FEF3C7", c:"#92400E" },
+    approved:  { label:"승인완료",  bg:"#D1FAE5", c:"#065F46" },
+    rejected:  { label:"반려됨",    bg:"#FEE2E2", c:"#991B1B" },
+    recalled:  { label:"회수됨",    bg:"#F3F4F6", c:"#6B7280" }
+  };
+  const st = statusMap[doc.status] || { label: doc.status, bg:"#F3F4F6", c:"#6B7280" };
+  const dtypeLabel = doc.doc_type === "application" ? "신청" : doc.doc_type === "result" ? "결과보고" : "교육계획";
+  const safeId = String(doc.id).replace(/'/g,"\\'");
+  const submittedAt = doc.submitted_at ? new Date(doc.submitted_at).toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}) : "-";
 
-async function myOpsApprove(id) {
-  const sb = typeof getSB === "function" ? getSB() : null;
-  // 계획인지 신청인지 판별
-  const isPlan = _boDbPlans.some((x) => x.id === id);
-  const item = isPlan
-    ? _boDbPlans.find((x) => x.id === id)
-    : _boDbApps.find((x) => x.id === id);
-  if (!item) return;
+  // 결재선 진행 표시
+  const nodes = doc.approval_nodes || [];
+  const nodeHtml = nodes.map((n, i) => {
+    const isCur = i === (doc.current_node_order || 0) && isPending;
+    const isDone = i < (doc.current_node_order || 0);
+    const clr = isDone ? "#059669" : isCur ? "#1D4ED8" : "#9CA3AF";
+    const icon = isDone ? "✅" : isCur ? "🔄" : "⏳";
+    return `<span style="font-size:11px;color:${clr};font-weight:${isCur?"900":"500"}">${icon} ${n.label||n.approverKey||"결재자"}</span>`;
+  }).join(`<span style="color:#D1D5DB;margin:0 4px">→</span>`);
 
-  const isResult = item.type === "결과보고";
-  const newStatus = isResult ? "completed" : "approved";
-  item.status = newStatus;
+  // 첨부 건 목록 (최대 3건)
+  const itemsHtml = items.slice(0,3).map(it =>
+    `<div style="display:flex;justify-content:space-between;padding:6px 10px;background:#F9FAFB;border-radius:6px;font-size:11px">
+      <span style="color:#374151;font-weight:600">📋 ${it.item_title || "제목없음"}</span>
+      <span style="color:#6B7280">${it.item_amount ? Number(it.item_amount).toLocaleString()+"원" : "-"}</span>
+    </div>`
+  ).join("");
+  const moreHtml = items.length > 3 ? `<div style="font-size:11px;color:#9CA3AF;padding:4px 10px">... 외 ${items.length-3}건</div>` : "";
 
-  // DB 업데이트
-  if (sb) {
-    try {
-      const table = isPlan ? "plans" : "applications";
-      const { error } = await sb
-        .from(table)
-        .update({ status: newStatus })
-        .eq("id", id);
-      if (error) throw error;
-
-      // ★ Phase G: 교육계획 승인 시 자동 배정 (allocated_amount 미설정 시)
-      if (isPlan && newStatus === "approved") {
-        try {
-          const { data: plan } = await sb.from("plans").select("amount,allocated_amount").eq("id", id).single();
-          if (plan && (!plan.allocated_amount || Number(plan.allocated_amount) === 0)) {
-            await sb.from("plans").update({
-              allocated_amount: plan.amount,
-              updated_at: new Date().toISOString(),
-            }).eq("id", id);
-            console.log(`[BO Approve] Auto-allocation: ${id} allocated_amount = ${plan.amount}`);
-          }
-        } catch (autoErr) {
-          console.warn("[BO Approve] Auto-allocation skip:", autoErr.message);
-        }
-      }
-
-      // ★ Phase D: 교육신청 승인 시 통장 차감
-      if (!isPlan && newStatus === "approved") {
-        try {
-          const { data: app } = await sb.from("applications")
-            .select("amount,account_code,applicant_org_id,tenant_id")
-            .eq("id", id).single();
-          if (app) {
-            const { data: bk } = await sb.from("bankbooks")
-              .select("id,current_balance")
-              .eq("tenant_id", app.tenant_id)
-              .eq("org_id", app.applicant_org_id)
-              .eq("account_code", app.account_code)
-              .eq("status", "active")
-              .order("current_balance", { ascending: false })
-              .limit(1).single();
-            if (bk && Number(bk.current_balance) >= Number(app.amount)) {
-              const newBal = Number(bk.current_balance) - Number(app.amount);
-              await sb.from("bankbooks").update({
-                current_balance: newBal,
-                updated_at: new Date().toISOString()
-              }).eq("id", bk.id);
-              await sb.from("budget_usage_log").insert({
-                tenant_id: app.tenant_id,
-                bankbook_id: bk.id,
-                action: "use",
-                amount: Number(app.amount),
-                balance_before: Number(bk.current_balance),
-                balance_after: newBal,
-                reference_type: "application",
-                reference_id: id,
-                memo: "교육신청 승인 차감",
-                performed_by: boCurrentPersona?.name || "system"
-              });
-              console.log(`[BO Approve] Bankbook deducted: ${app.amount} from ${bk.id}`);
-            }
-          }
-        } catch (bkErr) {
-          console.warn("[BO Approve] Bankbook deduction skip:", bkErr.message);
-        }
-      }
-    } catch (err) {
-      console.error("[BO Approve] DB update err:", err.message);
-    }
-  }
-  renderMyOperations();
-}
-async function myOpsReject(id) {
-  const r = prompt("반려 사유를 입력하세요:");
-  if (!r) return;
-  const isPlan = _boDbPlans.some((x) => x.id === id);
-  const item = isPlan
-    ? _boDbPlans.find((x) => x.id === id)
-    : _boDbApps.find((x) => x.id === id);
-  if (item) item.status = "rejected";
-
-  const sb = typeof getSB === "function" ? getSB() : null;
-  if (sb) {
-    try {
-      const table = isPlan ? "plans" : "applications";
-      const { error } = await sb
-        .from(table)
-        .update({ status: "rejected" })
-        .eq("id", id);
-      if (error) throw error;
-      console.log(`[BO Reject] ${id} → rejected: ${r}`);
-    } catch (err) {
-
-      // ★ Phase D: 교육신청 반려 시 통장 환불
-      if (!isPlan) {
-        try {
-          const { data: app } = await sb.from("applications")
-            .select("amount,account_code,applicant_org_id,tenant_id")
-            .eq("id", id).single();
-          if (app) {
-            const { data: bk } = await sb.from("bankbooks")
-              .select("id,current_balance")
-              .eq("tenant_id", app.tenant_id)
-              .eq("org_id", app.applicant_org_id)
-              .eq("account_code", app.account_code)
-              .eq("status", "active")
-              .limit(1).single();
-            if (bk) {
-              const newBal = Number(bk.current_balance) + Number(app.amount);
-              await sb.from("bankbooks").update({
-                current_balance: newBal,
-                updated_at: new Date().toISOString()
-              }).eq("id", bk.id);
-              await sb.from("budget_usage_log").insert({
-                tenant_id: app.tenant_id,
-                bankbook_id: bk.id,
-                action: "refund",
-                amount: Number(app.amount),
-                balance_before: Number(bk.current_balance),
-                balance_after: newBal,
-                reference_type: "application",
-                reference_id: id,
-                memo: "교육신청 반려 환불: " + r,
-                performed_by: boCurrentPersona?.name || "system"
-              });
-              console.log(`[BO Reject] Bankbook refunded: ${app.amount} to ${bk.id}`);
-            }
-          }
-        } catch (bkErr) {
-          console.warn("[BO Reject] Bankbook refund skip:", bkErr.message);
-        }
-      }
-      console.error("[BO Reject] DB 업데이트 실패:", err.message);
-    }
-  }
-  renderMyOperations();
-}
-async function myOpsCancel(id) {
-  if (!confirm("가점유 예산을 즉시 환원하시겠습니까?")) return;
-  const item = _boDbApps.find((x) => x.id === id);
-  if (item) item.status = "cancelled";
-
-  const sb = typeof getSB === "function" ? getSB() : null;
-  if (sb) {
-    try {
-      const { error } = await sb
-        .from("applications")
-        .update({ status: "cancelled" })
-        .eq("id", id);
-      if (error) throw error;
-      console.log(`[BO Cancel] ${id} → cancelled`);
-    } catch (err) {
-      console.error("[BO Cancel] DB 업데이트 실패:", err.message);
-    }
-  }
-  renderMyOperations();
-}
-
-// ━━━ 결재카드 관리자 필드 인라인 토글 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-async function _toggleOpsAdminFields(recordId, tableName) {
-  const panel = document.getElementById(`bo-ops-af-${recordId}`);
-  if (!panel) return;
-  if (panel.style.display !== "none") {
-    panel.style.display = "none";
-    panel.innerHTML = "";
-    return;
-  }
-  panel.style.display = "block";
-  panel.innerHTML =
-    '<div style="text-align:center;padding:16px;font-size:12px;color:#9CA3AF">로딩중...</div>';
-
-  const sb = typeof getSB === "function" ? getSB() : null;
-  if (!sb) {
-    panel.innerHTML =
-      '<div style="color:#EF4444;font-size:12px;padding:12px">DB 연결 필요</div>';
-    return;
-  }
-
-  // 1) 레코드 detail + form_template_id 가져오기
-  const { data: rec } = await sb
-    .from(tableName)
-    .select("detail, form_template_id")
-    .eq("id", recordId)
-    .maybeSingle();
-  if (!rec) {
-    panel.innerHTML =
-      '<div style="color:#9CA3AF;font-size:12px;padding:12px">레코드를 찾을 수 없습니다</div>';
-    return;
-  }
-
-  // 2) 양식 필드 가져오기
-  let formFields = [];
-  if (rec.form_template_id) {
-    const { data: ft } = await sb
-      .from("form_templates")
-      .select("fields")
-      .eq("id", rec.form_template_id)
-      .maybeSingle();
-    if (ft?.fields) formFields = ft.fields;
-  }
-
-  const adminFields = formFields
-    .map((f) => (typeof f === "object" ? f : { key: f, scope: "front" }))
-    .filter((f) => f.scope === "back" || f.scope === "provide");
-
-  if (adminFields.length === 0) {
-    panel.innerHTML =
-      '<div style="padding:12px 16px;background:#F9FAFB;border-radius:8px;font-size:12px;color:#9CA3AF;border:1px dashed #E5E7EB">이 양식에 관리자 입력 필드(back/provide)가 없습니다.</div>';
-    return;
-  }
-
-  _renderOpsAdminPanel(
-    panel,
-    adminFields,
-    rec.detail || {},
-    recordId,
-    tableName,
-  );
-}
-
-function _renderOpsAdminPanel(panel, adminFields, detail, recordId, tableName) {
-  const allDefs = typeof ADVANCED_FIELDS !== "undefined" ? ADVANCED_FIELDS : [];
-  const provideData = detail._provide || {};
-  const backData = detail._back || {};
-  const _esc = (v) =>
-    String(v || "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-
-  let html = `<div style="border:2px solid #DBEAFE;border-radius:12px;overflow:hidden">
-    <div style="padding:12px 16px;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);border-bottom:1.5px solid #DBEAFE;display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:12px;font-weight:900;color:#1E40AF">🔧 관리자 입력 필드</span>
-      <button onclick="_saveOpsAdminFields('${recordId}','${tableName}')"
-        style="padding:6px 16px;border-radius:8px;border:none;background:#1D4ED8;color:white;font-size:11px;font-weight:900;cursor:pointer">
-        💾 저장
-      </button>
-    </div>
-    <div id="bo-ops-fields-${recordId}" style="padding:14px 16px;display:flex;flex-direction:column;gap:14px">`;
-
-  adminFields.forEach((fld) => {
-    const def = allDefs.find((d) => d.key === fld.key) || {};
-    const scopeNs = fld.scope === "provide" ? provideData : backData;
-    const stateKey = _toOpsAdminKey(fld.key);
-    const val = scopeNs[stateKey] ?? "";
-    const icon = def.icon || "📝";
-    const hint = def.hint || "";
-    const ft = def.fieldType || "text";
-    const scopeBadge =
-      fld.scope === "provide"
-        ? '<span style="font-size:8px;font-weight:800;color:#1D4ED8;background:#DBEAFE;padding:1px 6px;border-radius:3px">📢 BO→FO</span>'
-        : '<span style="font-size:8px;font-weight:800;color:#7C3AED;background:#F5F3FF;padding:1px 6px;border-radius:3px">🔒 BO전용</span>';
-    const baseStyle =
-      "width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;background:#FAFAFA";
-
-    let inputHtml = "";
-    if (ft === "textarea") {
-      inputHtml = `<textarea data-scope="${fld.scope}" data-key="${stateKey}" rows="2" placeholder="${_esc(hint)}" style="${baseStyle};resize:vertical">${_esc(val)}</textarea>`;
-    } else if (ft === "select" && def.options?.length) {
-      inputHtml = `<select data-scope="${fld.scope}" data-key="${stateKey}" style="${baseStyle}">
-        <option value="">선택</option>
-        ${def.options.map((o) => `<option value="${_esc(o.value)}" ${val === o.value ? "selected" : ""}>${_esc(o.label)}</option>`).join("")}
-      </select>`;
-    } else if (ft === "number") {
-      inputHtml = `<input data-scope="${fld.scope}" data-key="${stateKey}" type="number" value="${_esc(val)}" placeholder="0" style="${baseStyle}"/>`;
-    } else {
-      inputHtml = `<input data-scope="${fld.scope}" data-key="${stateKey}" type="text" value="${_esc(val)}" placeholder="${_esc(hint || fld.key)}" style="${baseStyle}"/>`;
-    }
-
-    html += `<div>
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-        ${scopeBadge}
-        <span style="font-size:11px;font-weight:800;color:#374151">${icon} ${fld.key}</span>
+  return `<div class="bo-card" style="padding:20px;${!isPending?"opacity:0.75":""}">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px">
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+          <span style="font-size:10px;font-weight:900;padding:2px 9px;border-radius:6px;background:${st.bg};color:${st.c}">${st.label}</span>
+          <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#EDE9FE;color:#7C3AED;font-weight:700">${dtypeLabel}</span>
+          ${doc.account_code ? `<span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#F0FDF4;color:#166534;font-weight:600">${doc.account_code}</span>` : ""}
+        </div>
+        <div style="font-weight:900;font-size:15px;color:#111827;margin-bottom:3px">${doc.title || "제목없음"}</div>
+        <div style="font-size:12px;color:#9CA3AF">${doc.submitter_name||""} · ${doc.submitter_org_name||""} · ${submittedAt} 상신</div>
       </div>
-      ${inputHtml}
-    </div>`;
-  });
+      <div style="text-align:right">
+        <div style="font-size:11px;color:#9CA3AF;font-weight:700">총 금액</div>
+        <div style="font-size:18px;font-weight:900;color:#002C5F">${Number(doc.total_amount||0).toLocaleString()}원</div>
+        <div style="font-size:11px;color:#6B7280;margin-top:2px">${items.length}건</div>
+      </div>
+    </div>
 
-  html += `</div></div>`;
-  panel.innerHTML = html;
+    ${nodeHtml ? `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;padding:8px 10px;background:#F9FAFB;border-radius:8px;margin-bottom:12px">${nodeHtml}</div>` : ""}
+
+    ${itemsHtml ? `<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px">${itemsHtml}${moreHtml}</div>` : ""}
+
+    ${doc.reject_reason ? `<div style="padding:8px 12px;background:#FEF2F2;border-radius:8px;font-size:12px;color:#991B1B;margin-bottom:12px">❌ 반려 사유: ${doc.reject_reason}</div>` : ""}
+
+    ${isPending ? `
+    <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;border-top:1px solid #F3F4F6;padding-top:12px">
+      <button onclick="_boShowSubDocDetail('${safeId}')"
+        style="padding:7px 14px;border-radius:8px;border:1.5px solid #BFDBFE;background:#EFF6FF;font-size:11px;font-weight:800;color:#1D4ED8;cursor:pointer">
+        📄 상세보기
+      </button>
+      <button onclick="boApproveSubDoc('${safeId}')"
+        style="padding:8px 20px;border-radius:8px;border:none;background:#059669;color:white;font-size:12px;font-weight:900;cursor:pointer">
+        ✅ 승인
+      </button>
+      <button onclick="boRejectSubDoc('${safeId}')"
+        style="padding:8px 16px;border-radius:8px;border:1.5px solid #EF4444;color:#EF4444;background:white;font-size:12px;font-weight:700;cursor:pointer">
+        ❌ 반려
+      </button>
+    </div>` : `<div style="text-align:right;font-size:12px;font-weight:700;color:#9CA3AF;border-top:1px solid #F3F4F6;padding-top:10px">처리 완료</div>`}
+  </div>`;
 }
-
-async function _saveOpsAdminFields(recordId, tableName) {
-  const container = document.getElementById(`bo-ops-fields-${recordId}`);
-  if (!container) return;
-
-  const provideUpdate = {};
-  const backUpdate = {};
-  container.querySelectorAll("[data-scope]").forEach((input) => {
-    const scope = input.dataset.scope;
-    const key = input.dataset.key;
-    const val = input.value || "";
-    if (scope === "provide") provideUpdate[key] = val;
-    else if (scope === "back") backUpdate[key] = val;
-  });
-
+// ── 승인 처리 ─────────────────────────────────────────────────────────────────
+async function boApproveSubDoc(docId) {
+  if (!confirm("이 상신 문서를 승인하시겠습니까?")) return;
   const sb = typeof getSB === "function" ? getSB() : null;
-  if (!sb) {
-    alert("DB 연결 필요");
-    return;
-  }
+  const doc = _boSubDocs.find(d => d.id === docId);
+  if (!doc) return;
 
   try {
-    const { data: row } = await sb
-      .from(tableName)
-      .select("detail")
-      .eq("id", recordId)
-      .maybeSingle();
-    const detail = row?.detail || {};
-    detail._provide = { ...(detail._provide || {}), ...provideUpdate };
-    detail._back = { ...(detail._back || {}), ...backUpdate };
+    const nodes = doc.approval_nodes || [];
+    const curIdx = doc.current_node_order || 0;
+    const nextIdx = curIdx + 1;
+    const isFinal = nextIdx >= nodes.length;
+    const newStatus = isFinal ? "approved" : "in_review";
+    const now = new Date().toISOString();
 
-    const { error } = await sb
-      .from(tableName)
-      .update({ detail })
-      .eq("id", recordId);
-    if (error) throw error;
+    if (sb) {
+      // 1) 상신 문서 상태 업데이트
+      await sb.from("submission_documents").update({
+        status: newStatus,
+        current_node_order: nextIdx,
+        ...(isFinal ? { approved_at: now } : {}),
+        updated_at: now
+      }).eq("id", docId);
 
-    // 메모리 캐시 갱신
-    const cached = (tableName === "plans" ? _boDbPlans : _boDbApps).find(
-      (p) => p.id === recordId,
-    );
-    if (cached) cached.detail = detail;
+      // 2) 결재 이력 기록
+      const actorName = boCurrentPersona?.name || "BO담당자";
+      const actorId = boCurrentPersona?.id || "system";
+      await sb.from("approval_history").insert({
+        submission_id: docId,
+        node_order: curIdx,
+        node_type: nodes[curIdx]?.type || "approval",
+        node_label: nodes[curIdx]?.label || "결재",
+        action: "approved",
+        actor_id: actorId,
+        actor_name: actorName,
+        comment: "",
+        acted_at: now
+      });
 
-    alert("✅ 관리자 필드 저장 완료");
-  } catch (err) {
-    alert("❌ 저장 실패: " + err.message);
+      // 3) 최종 승인 시 — 포함 건들 approved 처리 + 예산 확정 차감
+      if (isFinal) {
+        const items = doc.submission_items || [];
+        for (const it of items) {
+          const table = it.item_type === "plan" ? "plans" : "applications";
+          await sb.from(table).update({ status: "approved", updated_at: now }).eq("id", it.item_id);
+
+          // 교육계획: allocated_amount 자동 배정
+          if (it.item_type === "plan") {
+            const { data: plan } = await sb.from("plans").select("amount,allocated_amount").eq("id", it.item_id).single();
+            if (plan && (!plan.allocated_amount || Number(plan.allocated_amount) === 0)) {
+              await sb.from("plans").update({ allocated_amount: plan.amount, updated_at: now }).eq("id", it.item_id);
+            }
+          }
+
+          // 예산 Hold → 확정 차감 (frozen→used)
+          if (it.item_amount && doc.account_code) {
+            try {
+              const { data: bk } = await sb.from("bankbooks")
+                .select("id,current_balance,frozen_amount,used_amount")
+                .eq("tenant_id", doc.tenant_id)
+                .eq("account_code", doc.account_code)
+                .eq("status", "active")
+                .order("current_balance", { ascending: false })
+                .limit(1).single();
+              if (bk) {
+                const amt = Number(it.item_amount);
+                await sb.from("bankbooks").update({
+                  frozen_amount: Math.max(0, Number(bk.frozen_amount || 0) - amt),
+                  used_amount: Number(bk.used_amount || 0) + amt,
+                  updated_at: now
+                }).eq("id", bk.id);
+              }
+            } catch(bkErr) { console.warn("[boApproveSubDoc] 예산 처리 skip:", bkErr.message); }
+          }
+        }
+      }
+    }
+
+    // 메모리 갱신
+    if (doc) { doc.status = newStatus; doc.current_node_order = nextIdx; }
+    if (isFinal) {
+      alert("✅ 최종 승인 완료되었습니다.");
+    } else {
+      alert(`✅ 승인되었습니다. 다음 결재자(${nodes[nextIdx]?.label || ""})에게 전달됩니다.`);
+    }
+  } catch(err) {
+    alert("❌ 승인 처리 실패: " + err.message);
   }
+  _boApprovalLoaded = false;
+  renderMyOperations();
 }
 
-function _toOpsAdminKey(key) {
-  const map = {
-    안내사항: "announcement",
-    준비물: "preparation",
-    "확정 교육장소": "confirmedVenue",
-    "확정 강사": "confirmedInstructor",
-    "합격/수료 여부": "passStatus",
-    "관리자 피드백": "managerFeedback",
-    ERP코드: "erpCode",
-    검토의견: "reviewComment",
-    관리자비고: "adminNote",
-    실지출액: "actualCost",
-  };
-  return map[key] || key.replace(/\s+/g, "_");
+// ── 반려 처리 ─────────────────────────────────────────────────────────────────
+async function boRejectSubDoc(docId) {
+  const reason = prompt("반려 사유를 입력하세요 (필수):");
+  if (!reason || !reason.trim()) return;
+  const sb = typeof getSB === "function" ? getSB() : null;
+  const doc = _boSubDocs.find(d => d.id === docId);
+  if (!doc) return;
+
+  try {
+    const now = new Date().toISOString();
+    const nodes = doc.approval_nodes || [];
+    const curIdx = doc.current_node_order || 0;
+
+    if (sb) {
+      // 1) 상신 문서 반려
+      await sb.from("submission_documents").update({
+        status: "rejected",
+        reject_reason: reason.trim(),
+        reject_node_label: nodes[curIdx]?.label || "결재자",
+        rejected_at: now,
+        updated_at: now
+      }).eq("id", docId);
+
+      // 2) 결재 이력
+      await sb.from("approval_history").insert({
+        submission_id: docId,
+        node_order: curIdx,
+        node_type: "approval",
+        node_label: nodes[curIdx]?.label || "결재",
+        action: "rejected",
+        actor_id: boCurrentPersona?.id || "system",
+        actor_name: boCurrentPersona?.name || "BO담당자",
+        comment: reason.trim(),
+        acted_at: now
+      });
+
+      // 3) 포함 건 → saved 복귀 + Hold 해제
+      const items = doc.submission_items || [];
+      for (const it of items) {
+        const table = it.item_type === "plan" ? "plans" : "applications";
+        await sb.from(table).update({ status: "saved", updated_at: now }).eq("id", it.item_id);
+      }
+
+      // 4) frozen_amount 해제
+      if (doc.total_amount && doc.account_code) {
+        try {
+          const { data: bk } = await sb.from("bankbooks")
+            .select("id,frozen_amount")
+            .eq("tenant_id", doc.tenant_id)
+            .eq("account_code", doc.account_code)
+            .eq("status", "active").limit(1).single();
+          if (bk) {
+            await sb.from("bankbooks").update({
+              frozen_amount: Math.max(0, Number(bk.frozen_amount||0) - Number(doc.total_amount)),
+              updated_at: now
+            }).eq("id", bk.id);
+          }
+        } catch(bkErr) { console.warn("[boRejectSubDoc] Hold해제 skip:", bkErr.message); }
+      }
+    }
+
+    if (doc) doc.status = "rejected";
+    alert("반려 처리되었습니다. 상신자가 수정 후 재상신할 수 있습니다.");
+  } catch(err) {
+    alert("❌ 반려 처리 실패: " + err.message);
+  }
+  _boApprovalLoaded = false;
+  renderMyOperations();
 }
+
+// ── 상세 모달 ─────────────────────────────────────────────────────────────────
+async function _boShowSubDocDetail(docId) {
+  const doc = _boSubDocs.find(d => d.id === docId);
+  if (!doc) return;
+  const sb = typeof getSB === "function" ? getSB() : null;
+
+  // 결재 이력 조회
+  let history = [];
+  if (sb) {
+    const { data } = await sb.from("approval_history")
+      .select("*").eq("submission_id", docId).order("acted_at");
+    history = data || [];
+  }
+
+  const items = doc.submission_items || [];
+  const itemsHtml = items.map(it => `
+    <tr style="border-bottom:1px solid #F3F4F6">
+      <td style="padding:8px 12px;font-size:12px;color:#374151">${it.item_title||"제목없음"}</td>
+      <td style="padding:8px 12px;font-size:12px;text-align:right;color:#374151">${Number(it.item_amount||0).toLocaleString()}원</td>
+      <td style="padding:8px 12px;font-size:12px;text-align:center">
+        <span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;
+          background:${it.final_status==="approved"?"#D1FAE5":it.final_status==="rejected"?"#FEE2E2":"#EFF6FF"};
+          color:${it.final_status==="approved"?"#065F46":it.final_status==="rejected"?"#991B1B":"#1D4ED8"}">
+          ${it.final_status||"대기"}
+        </span>
+      </td>
+    </tr>`).join("");
+
+  const histHtml = history.map(h => `
+    <div style="display:flex;gap:10px;align-items:flex-start">
+      <div style="width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0;
+        background:${h.action==="approved"?"#059669":h.action==="rejected"?"#EF4444":"#9CA3AF"}"></div>
+      <div style="font-size:12px">
+        <span style="font-weight:700;color:#374151">${h.node_label||""} ${h.actor_name||""}</span>
+        <span style="color:#9CA3AF;margin-left:6px">${h.action}</span>
+        ${h.comment ? `<div style="color:#6B7280;margin-top:2px">"${h.comment}"</div>` : ""}
+        <div style="color:#D1D5DB;font-size:11px;margin-top:2px">${new Date(h.acted_at).toLocaleString("ko-KR")}</div>
+      </div>
+    </div>`).join("");
+
+  const modal = document.createElement("div");
+  modal.id = "bo-subdoc-modal";
+  modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center";
+  modal.innerHTML = `
+    <div style="background:white;border-radius:16px;width:640px;max-height:80vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+        <div>
+          <h2 style="font-size:18px;font-weight:900;color:#111827;margin:0">${doc.title||"상신 문서"}</h2>
+          <p style="font-size:12px;color:#9CA3AF;margin:4px 0 0">${doc.submitter_name||""} · ${doc.submitter_org_name||""}</p>
+        </div>
+        <button onclick="document.getElementById('bo-subdoc-modal').remove()"
+          style="background:none;border:none;font-size:20px;cursor:pointer;color:#9CA3AF">✕</button>
+      </div>
+      ${doc.content ? `<div style="padding:12px 16px;background:#F9FAFB;border-radius:8px;font-size:13px;color:#374151;margin-bottom:16px">${doc.content}</div>` : ""}
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:8px;text-transform:uppercase">첨부 건 목록</div>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #E5E7EB;border-radius:8px;overflow:hidden">
+          <thead><tr style="background:#F9FAFB">
+            <th style="padding:8px 12px;font-size:11px;text-align:left;color:#6B7280">건명</th>
+            <th style="padding:8px 12px;font-size:11px;text-align:right;color:#6B7280">금액</th>
+            <th style="padding:8px 12px;font-size:11px;text-align:center;color:#6B7280">상태</th>
+          </tr></thead>
+          <tbody>${itemsHtml}</tbody>
+          <tfoot><tr style="background:#F9FAFB">
+            <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#374151">합계</td>
+            <td style="padding:8px 12px;font-size:13px;font-weight:900;text-align:right;color:#002C5F">${Number(doc.total_amount||0).toLocaleString()}원</td>
+            <td></td>
+          </tr></tfoot>
+        </table>
+      </div>
+      ${histHtml ? `<div style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:8px;text-transform:uppercase">결재 이력</div>
+        <div style="display:flex;flex-direction:column;gap:10px">${histHtml}</div>
+      </div>` : ""}
+    </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener("click", e => { if (e.target === modal) modal.remove(); });
+}
+
+// ── 레거시 호환 ───────────────────────────────────────────────────────────────
+// 기존 plans.js / apply.js 에서 호출하던 함수들 — 제거하지 않고 빈 wrapper 유지
+async function myOpsApprove(id) { console.warn("[Deprecated] myOpsApprove — boApproveSubDoc 사용"); }
+async function myOpsReject(id)  { console.warn("[Deprecated] myOpsReject — boRejectSubDoc 사용"); }
+async function myOpsCancel(id)  { console.warn("[Deprecated] myOpsCancel — 상신 문서 단위로 처리"); }

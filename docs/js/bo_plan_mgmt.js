@@ -244,8 +244,11 @@ async function renderBoPlanMgmt() {
           </div>`
               : status === "approved"
                 ? `
-          <div style="display:flex;gap:4px;justify-content:center">
+          <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap">
             <button onclick="boPlanForceRevert('${safeId}')" title="승인 취소 → 임시저장" style="border:1px solid #F59E0B;color:#B45309;background:#FFFBEB;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:800;cursor:pointer">↩ 취소</button>
+            ${typeof boOpenBudgetTransfer==="function" && Number(pl.allocated_amount||0)>0
+              ? `<button onclick="boOpenBudgetTransfer('${safeId}')" title="배정액 이전 (F-007)" style="border:1px solid #0369A1;color:#0369A1;background:#EFF6FF;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:800;cursor:pointer">💸 이전</button>`
+              : ''}
             <button onclick="boPlanSoftDelete('${safeId}')" title="삭제(복구가능)" style="border:1px solid #EF4444;color:#DC2626;background:#FEF2F2;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:800;cursor:pointer">🗑</button>
           </div>`
                 : status === "draft"

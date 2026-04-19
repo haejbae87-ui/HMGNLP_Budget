@@ -40,9 +40,9 @@ function renderApprovalRouting() {
     </div>
     <div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <span style="font-size:10px;font-weight:700;color:#6B7280">결재방식:</span>
-      <span style="font-size:10px;padding:3px 8px;border-radius:5px;background:#EFF6FF;color:#1D4ED8;font-weight:700">🏢 외부결재</span>
-      <span style="font-size:10px;padding:3px 8px;border-radius:5px;background:#F0FDF4;color:#059669;font-weight:700">⚡ 자체결재 (축1)</span>
-      <span style="font-size:10px;padding:3px 8px;border-radius:5px;background:#FEF3C7;color:#92400E;font-weight:700">🔗 통합결재 (축1+축2)</span>
+      <span style="font-size:10px;padding:3px 8px;border-radius:5px;background:#F0FDF4;color:#059669;font-weight:700">⚡ 자체결재 (platform · 축1)</span>
+      <span style="font-size:10px;padding:3px 8px;border-radius:5px;background:#FEF3C7;color:#92400E;font-weight:700">🔗 통합결재 (integrated · 축1+축2)</span>
+      <span style="font-size:10px;color:#9CA3AF">※ 외부결재(external) 타입 폐지 — 2개 체계만 운영</span>
     </div>
   </div>
 

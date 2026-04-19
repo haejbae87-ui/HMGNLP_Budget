@@ -1,6 +1,6 @@
 # 📋 HMGNLP_Budget — 작업 현황 (active_tasks.md)
 
-> 최종 갱신: 2026-04-19 (S-7 통합결재 협조처/참조처 + S-11 배정액 축소 UI 완료)
+> 최종 갱신: 2026-04-19 (S-8 BO 결재화면 상신문서 기반 전환 완료)
 
 ---
 
@@ -16,6 +16,13 @@
 - [x] **git push 배포** — ba58c57 커밋 동기화 완료
 - [x] **S-7 통합결재 협조처/참조처 구현** (`approval.js`) — 상신 모달에 integrated 계정 자동 감지 후 협조처/참조처 입력 UI + submission_documents 저장
 - [x] **S-11 배정액 축소 UI 연결** (`fo_plans_list.js`) — approved 카드에 `foOpenReduceAllocation` 버튼 추가 (환불 로직은 기구현 `fo_budget_refund.js` 활용)
+- [x] **S-8 BO 결재화면 상신문서 기반 전환** (`bo_approval.js`, `approval.js`, `bo_approval_routing.js`)
+  - FO 상신 시 `approval_nodes` 자동 구성 (APPROVAL_ROUTING 기반, 종러 없으면 1단계 fallback)
+  - FO 상신 시 `doc_type` 자동 파생 (plan/application), uuid auto생성 방식으로 전환
+  - `submission_items` DB 콤럼 불일치 수정 (`item_status_at_submit`, `final_status`)
+  - BO 결재함 필터: 역할 기반 전체 조회 (총괄담당자 = 전체, 운영담당자 = 관할 교육조직 문서만)
+  - 승인/반려 시 `submission_items.final_status` 업데이트
+  - `bo_approval_routing.js` 외부결재(external) 배지 제거
 
 ---
 
@@ -72,7 +79,7 @@
 | PRD #15 (P2, P3, P7~P10, P11~P15) | 인라인 편집, 이관, 레포트, 묶음 상신 | 🔴 미구현 |
 | PRD #21 (S-1~S-6, S-9) | FO 상신문서 기반, 결재함, Hold 로직 | ✅ 완료 |
 | PRD #21 (S-7, S-11) | 통합결재 협조처/참조처 표시, 배정액 축소 UI 연결 | ✅ 완료 |
-| PRD #21 (S-8) | BO 결재화면 상신문서 기반 전환 | 🔴 미구현 |
+| PRD #21 (S-8) | BO 결재화면 상신문서 기반 전환 | ✅ 완료 |
 | PRD #16~20 | 배정-신청 분석, 양식 간소화, 복수계획 등 | 🔴 미구현 |
 
 

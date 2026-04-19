@@ -14,8 +14,8 @@ async function _loadBoApprovalData() {
   const tenantId = boCurrentPersona?.tenantId || "HMC";
   if (!sb) { _boSubDocs = []; return; }
   try {
-    // 1) 내가 현재 결재자인 상신 문서: approval_nodes[current_node_order].approverKey 매칭
-    const personaKey = Object.keys(BO_PERSONAS || {}).find(k => BO_PERSONAS[k] === boCurrentPersona) || "";
+    // [S-8] 역할 기반 조회: 운영담당자 또는 총괄 역할이면 테넌트 전체 제출 문서 조회
+    const isBoRole = typeof boIsOpManager === "function" || typeof boIsGlobalAdmin === "function";
     const { data: docs, error } = await sb
       .from("submission_documents")
       .select("*, submission_items(*)")
@@ -23,14 +23,38 @@ async function _loadBoApprovalData() {
       .in("status", ["submitted", "in_review", "approved", "rejected", "recalled"])
       .order("submitted_at", { ascending: false });
     if (error) throw error;
-    // 2) 내가 처리할 문서만 필터 (approval_nodes 기반)
-    _boSubDocs = (docs || []).filter(doc => {
-      const nodes = doc.approval_nodes || [];
-      if (!nodes.length) return false;
-      const cur = nodes[doc.current_node_order || 0];
-      if (!cur) return false;
-      return cur.approverKey === personaKey || cur.actorKey === personaKey;
-    });
+
+    if (isBoRole) {
+      // BO 역할이면 테넌트의 모든 문서를 표시 (담당자 화면)
+      // 단, 운영담당자는 관할 교육조직의 문서만, 총괄은 전체
+      const isGlobal = typeof boIsGlobalAdmin === "function" ? boIsGlobalAdmin() : true;
+      const isOp = typeof boIsOpManager === "function" ? boIsOpManager() : false;
+      if (isGlobal) {
+        _boSubDocs = docs || [];
+      } else if (isOp) {
+        // 운영담당자: 관할 교육조직(managedGroups) 소속 상신자 문서만
+        const myGroups = boCurrentPersona?.managedGroups || boCurrentPersona?.managed_groups || [];
+        _boSubDocs = (docs || []).filter(doc => {
+          if (myGroups.length === 0) return true; // 관할 없으면 전체 허용(fallback)
+          return myGroups.some(g =>
+            doc.submitter_org_id === g ||
+            doc.submitter_org_name?.includes(g)
+          );
+        });
+      } else {
+        _boSubDocs = docs || [];
+      }
+    } else {
+      // personaKey 기반 레거시 매칭 (BO_PERSONAS 사용 환경)
+      const personaKey = Object.keys(BO_PERSONAS || {}).find(k => BO_PERSONAS[k] === boCurrentPersona) || "";
+      _boSubDocs = (docs || []).filter(doc => {
+        const nodes = doc.approval_nodes || [];
+        if (!nodes.length) return ["submitted","in_review"].includes(doc.status); // nodes 없으면 pending 문서 허용
+        const cur = nodes[doc.current_node_order || 0];
+        if (!cur) return false;
+        return cur.approverKey === personaKey || cur.actorKey === personaKey;
+      });
+    }
   } catch (err) {
     console.error("[_loadBoApprovalData] 실패:", err.message);
     _boSubDocs = [];
@@ -276,6 +300,9 @@ async function boApproveSubDoc(docId) {
           const table = it.item_type === "plan" ? "plans" : "applications";
           await sb.from(table).update({ status: "approved", updated_at: now }).eq("id", it.item_id);
 
+          // submission_items.final_status → 'approved'
+          await sb.from("submission_items").update({ final_status: "approved" }).eq("id", it.id);
+
           // 교육계획: allocated_amount 자동 배정
           if (it.item_type === "plan") {
             const { data: plan } = await sb.from("plans").select("amount,allocated_amount").eq("id", it.item_id).single();
@@ -365,6 +392,8 @@ async function boRejectSubDoc(docId) {
       for (const it of items) {
         const table = it.item_type === "plan" ? "plans" : "applications";
         await sb.from(table).update({ status: "saved", updated_at: now }).eq("id", it.item_id);
+        // submission_items.final_status → 'rejected'
+        await sb.from("submission_items").update({ final_status: "rejected" }).eq("id", it.id);
       }
 
       // 4) frozen_amount 해제

@@ -1,10 +1,12 @@
-# P10/P11 DB 트리거 + 문서 업데이트 배포
 $OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $fso = New-Object -ComObject Scripting.FileSystemObject
 $shortRepo = $fso.GetFolder($PSScriptRoot).ShortPath
 $git = "C:\Program Files\Git\cmd\git.exe"
-$msg = "feat: P10/P11 DB 트리거 적용 + P2 인라인편집 확인"
+$msg = "feat: P12 FO 수요예측 묶음 상신 UI (HMC/KIA 전용)"
+
+# 임시 파일 정리
+Remove-Item (Join-Path $PSScriptRoot "append_p12.ps1") -Force -ErrorAction SilentlyContinue
 
 Write-Host "[ add ]" -ForegroundColor Cyan
 & $git -C $shortRepo add -A 2>&1
@@ -19,5 +21,5 @@ Write-Host "[ push ]" -ForegroundColor Cyan
 & $git -C $shortRepo push origin main 2>&1
 
 Write-Host "[ log ]" -ForegroundColor Cyan
-& $git -C $shortRepo log --oneline -3 2>&1
+& $git -C $shortRepo log --oneline -4 2>&1
 Write-Host "Done!" -ForegroundColor Green

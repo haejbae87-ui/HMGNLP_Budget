@@ -6,10 +6,16 @@ let _boPlanTypeFilter = "all"; // 'all' | 'forecast' | 'ongoing'
 let _boForecastDeadlines = []; // 수요예측 마감 상태 (다건, 계정별)
 let _boTenantAccounts = []; // 테넌트 예산계정 목록
 
+// ★ P2: 탭 전환 ('plans' | 'forecast_bundle') + 번들 데이터
+let _boPlanTab = "plans"; // 현재 탭
+let _boForecastBundles = null; // submission_documents (team_forecast / org_forecast)
+let _boForecastBundleDetail = null; // 번들 상세 뷰 대상
+
 // ★ 인라인 편집 상태
 let _boPlanEditMode = false;
 let _boPlanOriginals = {}; // { planId: originalAllocatedAmount }
 let _boPlanEdits = {};     // { planId: newAllocatedAmount }
+
 
 // 인라인 편집 미저장 경고
 window.addEventListener('beforeunload', function(e) {
@@ -76,11 +82,18 @@ async function renderBoPlanMgmt() {
     _boPlanMgmtData = typeof MOCK_BO_PLANS !== "undefined" ? MOCK_BO_PLANS : [];
   }
 
+  // P2: 수요예측 번들 탭이면 별도 렌더러로 라우팅
+  if (_boPlanTab === "forecast_bundle") {
+    await renderBoPlanForecastBundles(el, tenantId, sb);
+    return;
+  }
+
   // 상세 뷰 모드
   if (_boPlanDetailView) {
     _renderBoPlanDetail(el, _boPlanDetailView);
     return;
   }
+
 
   try {
     // 수요예측 마감 상태 조회 (계정별 다건)
@@ -337,7 +350,20 @@ async function renderBoPlanMgmt() {
 
       ${typeof boOpScopeBanner === 'function' ? boOpScopeBanner() : ''}
 
-      <!-- 수요예측 요약 카드 -->
+      <!-- P2: 탭 네비게이션 -->
+      <div style="display:flex;gap:4px;margin-bottom:16px;border-bottom:2px solid #E5E7EB;padding-bottom:0">
+        <button onclick="_boPlanTab='plans';renderBoPlanMgmt()"
+          style="padding:10px 20px;border:none;border-bottom:${_boPlanTab==='plans'?'3px solid #1D4ED8':'3px solid transparent'};background:none;font-size:13px;font-weight:${_boPlanTab==='plans'?'900':'600'};color:${_boPlanTab==='plans'?'#1D4ED8':'#6B7280'};cursor:pointer;transition:all .15s;margin-bottom:-2px">
+          📋 계획 목록
+        </button>
+        <button onclick="_boPlanTab='forecast_bundle';_boForecastBundles=null;renderBoPlanMgmt()"
+          style="padding:10px 20px;border:none;border-bottom:${_boPlanTab==='forecast_bundle'?'3px solid #7C3AED':'3px solid transparent'};background:none;font-size:13px;font-weight:${_boPlanTab==='forecast_bundle'?'900':'600'};color:${_boPlanTab==='forecast_bundle'?'#7C3AED':'#6B7280'};cursor:pointer;transition:all .15s;margin-bottom:-2px">
+          📦 수요예측 번들 취합
+          ${forecastPending > 0 ? `<span style="margin-left:6px;font-size:10px;font-weight:900;padding:2px 7px;border-radius:12px;background:#EF4444;color:white">${forecastPending}</span>` : ''}
+        </button>
+      </div>
+
+
       <div style="margin-bottom:16px;padding:12px 20px;border-radius:12px;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);border:1.5px solid #BFDBFE">
         <div style="display:flex;align-items:center;justify-content:space-between">
           <div style="display:flex;align-items:center;gap:10px">
@@ -1851,4 +1877,345 @@ function _boShowToast(msg, type = 'info') {
     div.style.opacity = '0';
     setTimeout(() => div.remove(), 350);
   }, 2500);
+}
+
+// ─── P2: 수요예측 번들 취합 뷰 ─────────────────────────────────────────────────
+async function renderBoPlanForecastBundles(el, tenantId, sb) {
+  // 1) 번들 상세 뷰 라우팅
+  if (_boForecastBundleDetail) {
+    _renderForecastBundleDetail(el, _boForecastBundleDetail);
+    return;
+  }
+
+  const isGlobalBO = typeof boIsGlobalAdmin === 'function' ? boIsGlobalAdmin() : false;
+  const isOpBO = typeof boIsOpManager === 'function' ? boIsOpManager() : false;
+  const canApprove = isGlobalBO;
+  const canReview = isOpBO && !isGlobalBO;
+
+  // 2) submission_documents 로드 (team_forecast + org_forecast)
+  if (!_boForecastBundles && sb) {
+    try {
+      const { data } = await sb
+        .from('submission_documents')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('fiscal_year', _boPlanFiscalYear)
+        .in('submission_type', ['team_forecast', 'org_forecast'])
+        .order('created_at', { ascending: false });
+      _boForecastBundles = data || [];
+    } catch (e) {
+      _boForecastBundles = [];
+    }
+  }
+  if (!_boForecastBundles) _boForecastBundles = [];
+
+  // 3) org_forecast(취합본) vs team_forecast(팀 수요) 분리
+  const orgBundles = _boForecastBundles.filter(b => b.submission_type === 'org_forecast');
+  const teamForecasts = _boForecastBundles.filter(b => b.submission_type === 'team_forecast');
+
+  // 4) KPI 집계
+  const pending = teamForecasts.filter(t => t.status === 'submitted' || t.status === 'pending').length;
+  const approved = teamForecasts.filter(t => t.status === 'approved').length;
+  const totalRequested = teamForecasts.reduce((s, t) => s + Number(t.total_amount || 0), 0);
+  const totalAllocated = orgBundles.reduce((s, b) => s + Number(b.total_allocated || 0), 0);
+
+  // 5) 계정코드별 팀 수요 그루핑
+  const byAccount = {};
+  teamForecasts.forEach(t => {
+    const k = t.account_code || '미분류';
+    if (!byAccount[k]) byAccount[k] = [];
+    byAccount[k].push(t);
+  });
+
+  // 6) 탭 공통 헤더 렌더링 함수
+  function tabHeader() {
+    const forecastPending = pending;
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+            <h1 class="bo-page-title" style="margin:0">📋 교육계획 관리</h1>
+            ${typeof boRoleModeBadge==="function" ? boRoleModeBadge() : ""}
+          </div>
+          <p class="bo-page-sub">${canApprove ? "총괄담당자 — 수요예측 번들 최종 승인" : canReview ? "운영담당자 — 수요예측 1차 검토" : "수요예측 번들 조회"}</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="_boForecastBundles=null;_boPlanTab='forecast_bundle';renderBoPlanMgmt()" class="bo-btn-primary">🔄 새로고침</button>
+        </div>
+      </div>
+      ${typeof boOpScopeBanner === 'function' ? boOpScopeBanner() : ''}
+      <!-- 탭 네비게이션 -->
+      <div style="display:flex;gap:4px;margin-bottom:16px;border-bottom:2px solid #E5E7EB">
+        <button onclick="_boPlanTab='plans';renderBoPlanMgmt()"
+          style="padding:10px 20px;border:none;border-bottom:3px solid transparent;background:none;font-size:13px;font-weight:600;color:#6B7280;cursor:pointer;margin-bottom:-2px">
+          📋 계획 목록
+        </button>
+        <button onclick="_boPlanTab='forecast_bundle';_boForecastBundles=null;renderBoPlanMgmt()"
+          style="padding:10px 20px;border:none;border-bottom:3px solid #7C3AED;background:none;font-size:13px;font-weight:900;color:#7C3AED;cursor:pointer;margin-bottom:-2px">
+          📦 수요예측 번들 취합
+          ${forecastPending > 0 ? `<span style="margin-left:6px;font-size:10px;font-weight:900;padding:2px 7px;border-radius:12px;background:#EF4444;color:white">${forecastPending}</span>` : ''}
+        </button>
+      </div>`;
+  }
+
+  // 7) KPI 카드
+  const kpiCards = `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+      <div style="padding:16px 20px;border-radius:12px;background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border:1.5px solid #BFDBFE">
+        <div style="font-size:11px;font-weight:700;color:#1D4ED8;margin-bottom:6px">📝 팀 제출 건수</div>
+        <div style="font-size:26px;font-weight:900;color:#1E40AF">${teamForecasts.length}<span style="font-size:12px;margin-left:4px;color:#6B7280">건</span></div>
+      </div>
+      <div style="padding:16px 20px;border-radius:12px;background:linear-gradient(135deg,#FFFBEB,#FEF3C7);border:1.5px solid #FDE68A">
+        <div style="font-size:11px;font-weight:700;color:#D97706;margin-bottom:6px">⏳ 검토 대기</div>
+        <div style="font-size:26px;font-weight:900;color:#B45309">${pending}<span style="font-size:12px;margin-left:4px;color:#6B7280">건</span></div>
+      </div>
+      <div style="padding:16px 20px;border-radius:12px;background:linear-gradient(135deg,#F0FDF4,#D1FAE5);border:1.5px solid #6EE7B7">
+        <div style="font-size:11px;font-weight:700;color:#059669;margin-bottom:6px">✅ 승인 완료</div>
+        <div style="font-size:26px;font-weight:900;color:#047857">${approved}<span style="font-size:12px;margin-left:4px;color:#6B7280">건</span></div>
+      </div>
+      <div style="padding:16px 20px;border-radius:12px;background:linear-gradient(135deg,#F5F3FF,#EDE9FE);border:1.5px solid #DDD6FE">
+        <div style="font-size:11px;font-weight:700;color:#7C3AED;margin-bottom:6px">💰 총 요청액</div>
+        <div style="font-size:18px;font-weight:900;color:#5B21B6">${totalRequested.toLocaleString()}<span style="font-size:11px;margin-left:2px">원</span></div>
+      </div>
+    </div>`;
+
+  // 8) org_forecast(취합본) 섹션
+  const orgSection = canApprove || canReview ? `
+    <div style="margin-bottom:24px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:14px;font-weight:900;color:#1F2937">🏢 1차 취합본 (org_forecast)</div>
+        ${canApprove ? `<button onclick="boCreateOrgForecastBundle()" style="padding:8px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#7C3AED,#5B21B6);color:white;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 3px 10px rgba(124,58,237,.3)">+ 취합본 생성</button>` : ''}
+      </div>
+      ${orgBundles.length === 0 ? `
+        <div style="padding:30px;text-align:center;border-radius:12px;background:#F9FAFB;border:1.5px dashed #E5E7EB;color:#9CA3AF">
+          <div style="font-size:32px;margin-bottom:8px">📭</div>
+          <div style="font-weight:700">생성된 취합본이 없습니다</div>
+          <div style="font-size:12px;margin-top:4px">팀 수요예측 제출 완료 후 취합본을 생성하세요</div>
+        </div>` : orgBundles.map(b => {
+          const sid = String(b.id).replace(/'/g, '');
+          const stColors = { submitted:'#D97706', approved:'#059669', rejected:'#DC2626', draft:'#6B7280', in_review:'#7C3AED' };
+          const stLabels = { submitted:'검토 대기', approved:'승인 완료', rejected:'반려', draft:'임시저장', in_review:'1차 검토 완료' };
+          const stC = stColors[b.status] || '#6B7280';
+          const stL = stLabels[b.status] || b.status;
+          return `
+          <div style="margin-bottom:10px;padding:16px 20px;border-radius:12px;background:white;border:1.5px solid ${stC}40;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                  <span style="font-size:10px;font-weight:900;padding:3px 10px;border-radius:8px;background:${stC}20;color:${stC}">${stL}</span>
+                  <span style="font-size:12px;font-weight:900;color:#111827">${b.title || '수요예측 취합본'}</span>
+                </div>
+                <div style="font-size:11px;color:#6B7280">
+                  ${b.submitter_org_name||''} · 계정: ${b.account_code||'-'} · 
+                  요청: <strong>${Number(b.total_requested||b.total_amount||0).toLocaleString()}원</strong>
+                  ${b.total_allocated ? ` · 배정: <strong style="color:#059669">${Number(b.total_allocated).toLocaleString()}원</strong>` : ''}
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;flex-shrink:0;margin-left:12px">
+                <button onclick="_boForecastBundleDetail=${JSON.stringify(b).replace(/"/g,'&quot;')};renderBoPlanForecastBundles(document.getElementById('bo-content'),'${tenantId}',${sb?'getSB()':'null'})" style="padding:6px 12px;border-radius:8px;background:#EFF6FF;color:#1D4ED8;font-size:11px;font-weight:800;border:1.5px solid #BFDBFE;cursor:pointer">📄 상세</button>
+                ${(b.status === 'submitted' || b.status === 'in_review') && canApprove ? `
+                <button onclick="boApproveOrgForecast('${sid}')" style="padding:6px 14px;border-radius:8px;background:#059669;color:white;font-size:11px;font-weight:900;border:none;cursor:pointer">✅ 최종승인</button>
+                <button onclick="boRejectOrgForecast('${sid}')" style="padding:6px 10px;border-radius:8px;background:white;color:#EF4444;font-size:11px;font-weight:800;border:1.5px solid #EF4444;cursor:pointer">❌ 반려</button>` : ''}
+                ${b.status === 'submitted' && canReview ? `
+                <button onclick="boReviewOrgForecast('${sid}')" style="padding:6px 14px;border-radius:8px;background:#F59E0B;color:white;font-size:11px;font-weight:900;border:none;cursor:pointer">🔍 1차 검토</button>` : ''}
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+    </div>` : '';
+
+  // 9) 계정별 팀 수요 그루핑 섹션
+  const accountKeys = Object.keys(byAccount);
+  const teamSection = `
+    <div>
+      <div style="font-size:14px;font-weight:900;color:#1F2937;margin-bottom:12px">👥 팀별 수요예측 제출 현황 (${_boPlanFiscalYear}년)</div>
+      ${teamForecasts.length === 0 ? `
+        <div style="padding:40px;text-align:center;border-radius:12px;background:#F9FAFB;border:1.5px dashed #E5E7EB;color:#9CA3AF">
+          <div style="font-size:36px;margin-bottom:10px">📭</div>
+          <div style="font-weight:700">팀이 제출한 수요예측이 없습니다</div>
+          <div style="font-size:12px;margin-top:4px">프론트 오피스에서 수요예측을 제출하면 이 화면에서 확인할 수 있습니다</div>
+        </div>` : accountKeys.map(accCode => {
+          const items = byAccount[accCode];
+          const accTotal = items.reduce((s, t) => s + Number(t.total_amount || 0), 0);
+          const accPending = items.filter(t => t.status === 'submitted' || t.status === 'pending').length;
+          const accApproved = items.filter(t => t.status === 'approved').length;
+          return `
+          <div style="margin-bottom:16px;border-radius:14px;border:1.5px solid #E5E7EB;overflow:hidden">
+            <div style="padding:14px 20px;background:linear-gradient(135deg,#F8FAFC,#F1F5F9);display:flex;align-items:center;justify-content:space-between">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:13px;font-weight:900;color:#1E3A5F">💳 ${accCode}</span>
+                <span style="font-size:11px;padding:2px 8px;border-radius:6px;background:#E0F2FE;color:#0369A1;font-weight:700">${items.length}팀</span>
+                ${accPending > 0 ? `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:#FEF3C7;color:#D97706;font-weight:700">대기 ${accPending}</span>` : ''}
+                ${accApproved > 0 ? `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:#D1FAE5;color:#059669;font-weight:700">승인 ${accApproved}</span>` : ''}
+              </div>
+              <div style="font-size:13px;font-weight:900;color:#1D4ED8">${accTotal.toLocaleString()}원</div>
+            </div>
+            <div style="background:white">
+              ${items.map((t, idx) => {
+                const stC2 = { submitted:'#D97706', approved:'#059669', rejected:'#DC2626', draft:'#6B7280', in_review:'#7C3AED' }[t.status] || '#6B7280';
+                const stL2 = { submitted:'제출완료', approved:'승인', rejected:'반려', draft:'임시저장', in_review:'1차검토' }[t.status] || t.status;
+                return `
+                <div style="display:flex;align-items:center;padding:12px 20px;${idx > 0 ? 'border-top:1px solid #F3F4F6' : ''}">
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:13px;font-weight:700;color:#111827">${t.submitter_org_name || t.submitter_name || '-'}</div>
+                    <div style="font-size:11px;color:#6B7280;margin-top:2px">${t.title || '수요예측'} · ${(t.submitted_at||t.created_at||'').slice(0,10)}</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+                    <span style="font-size:12px;font-weight:900;color:#1F2937">${Number(t.total_amount||0).toLocaleString()}원</span>
+                    <span style="font-size:10px;font-weight:900;padding:3px 10px;border-radius:8px;background:${stC2}20;color:${stC2}">${stL2}</span>
+                  </div>
+                </div>`;
+              }).join('')}
+            </div>
+          </div>`;
+        }).join('')}
+    </div>`;
+
+  el.innerHTML = `<div class="bo-fade">${tabHeader()}${kpiCards}${orgSection}${teamSection}</div>`;
+}
+
+// 번들 상세 뷰
+function _renderForecastBundleDetail(el, bundle) {
+  const status = bundle.status || 'draft';
+  const stColors = { submitted:'#D97706', approved:'#059669', rejected:'#DC2626', draft:'#6B7280', in_review:'#7C3AED' };
+  const stLabels = { submitted:'검토 대기', approved:'승인 완료', rejected:'반려', draft:'임시저장', in_review:'1차 검토 완료' };
+  const stC = stColors[status] || '#6B7280';
+  const stL = stLabels[status] || status;
+  const sid = String(bundle.id).replace(/'/g,'');
+  const isGlobalBO = typeof boIsGlobalAdmin === 'function' ? boIsGlobalAdmin() : false;
+  const isOpBO = typeof boIsOpManager === 'function' ? boIsOpManager() : false;
+
+  el.innerHTML = `
+  <div class="bo-fade">
+    <div style="margin-bottom:16px">
+      <button onclick="_boForecastBundleDetail=null;renderBoPlanMgmt()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">
+        ← 번들 목록으로
+      </button>
+    </div>
+    <div class="bo-card" style="overflow:hidden">
+      <div style="padding:24px 28px;background:linear-gradient(135deg,#4C1D95,#6D28D9);color:white">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:${stC}60;color:white">${stL}</span>
+          <span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,.15);color:white">${bundle.submission_type === 'org_forecast' ? '1차 취합본' : '팀 수요예측'}</span>
+        </div>
+        <h2 style="margin:0;font-size:20px;font-weight:900">${bundle.title || '수요예측 번들'}</h2>
+        <p style="margin:8px 0 0;font-size:12px;opacity:.8">${bundle.submitter_org_name||''} · 계정: ${bundle.account_code||'-'} · ${_boPlanFiscalYear}년도</p>
+      </div>
+      <div style="padding:24px 28px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+          <div style="padding:14px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0">
+            <div style="font-size:11px;color:#6B7280;font-weight:700;margin-bottom:4px">요청 금액</div>
+            <div style="font-size:18px;font-weight:900;color:#1D4ED8">${Number(bundle.total_requested||bundle.total_amount||0).toLocaleString()}원</div>
+          </div>
+          <div style="padding:14px;border-radius:10px;background:#F0FDF4;border:1px solid #BBF7D0">
+            <div style="font-size:11px;color:#6B7280;font-weight:700;margin-bottom:4px">배정 금액</div>
+            <div style="font-size:18px;font-weight:900;color:#059669">${Number(bundle.total_allocated||0).toLocaleString()}원</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${(status === 'submitted' || status === 'in_review') && isGlobalBO ? `
+            <button onclick="boApproveOrgForecast('${sid}')" style="padding:10px 24px;border-radius:10px;border:none;background:#059669;color:white;font-size:13px;font-weight:900;cursor:pointer">✅ 최종 승인</button>
+            <button onclick="boRejectOrgForecast('${sid}')" style="padding:10px 20px;border-radius:10px;border:1.5px solid #EF4444;background:white;color:#EF4444;font-size:13px;font-weight:800;cursor:pointer">❌ 반려</button>
+          ` : ''}
+          ${status === 'submitted' && isOpBO && !isGlobalBO ? `
+            <button onclick="boReviewOrgForecast('${sid}')" style="padding:10px 24px;border-radius:10px;border:none;background:#F59E0B;color:white;font-size:13px;font-weight:900;cursor:pointer">🔍 1차 검토 완료</button>
+          ` : ''}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// org_forecast 취합본 생성
+async function boCreateOrgForecastBundle() {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  const tenantId = boCurrentPersona?.tenantId || 'HMC';
+  const title = prompt(`${_boPlanFiscalYear}년도 수요예측 취합본 제목을 입력하세요:`, `${_boPlanFiscalYear}년도 수요예측 취합본`);
+  if (!title) return;
+  const accountCode = prompt('예산계정 코드를 입력하세요 (예: ACC-001):') || '';
+  if (!sb) { alert('DB 연결이 필요합니다.'); return; }
+  try {
+    const { error } = await sb.from('submission_documents').insert({
+      tenant_id: tenantId,
+      submission_type: 'org_forecast',
+      title,
+      account_code: accountCode,
+      fiscal_year: _boPlanFiscalYear,
+      status: 'submitted',
+      submitter_id: boCurrentPersona?.userId || '',
+      submitter_name: boCurrentPersona?.name || '',
+      submitter_org_name: boCurrentPersona?.orgName || '',
+      total_amount: 0,
+      total_requested: 0,
+      total_allocated: 0,
+    });
+    if (error) throw error;
+    _boForecastBundles = null;
+    renderBoPlanMgmt();
+  } catch(e) {
+    alert('취합본 생성 실패: ' + e.message);
+  }
+}
+
+// org_forecast 최종 승인
+async function boApproveOrgForecast(bundleId) {
+  if (!confirm('이 수요예측 취합본을 최종 승인하시겠습니까?')) return;
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결이 필요합니다.'); return; }
+  try {
+    const { error } = await sb.from('submission_documents').update({
+      status: 'approved',
+      approver_id: boCurrentPersona?.userId || '',
+      approver_name: boCurrentPersona?.name || '',
+      approved_at: new Date().toISOString(),
+    }).eq('id', bundleId);
+    if (error) throw error;
+    _boForecastBundles = null;
+    _boForecastBundleDetail = null;
+    renderBoPlanMgmt();
+  } catch(e) {
+    alert('승인 처리 실패: ' + e.message);
+  }
+}
+
+// org_forecast 반려
+async function boRejectOrgForecast(bundleId) {
+  const reason = prompt('반려 사유를 입력하세요:');
+  if (reason === null) return;
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결이 필요합니다.'); return; }
+  try {
+    const { error } = await sb.from('submission_documents').update({
+      status: 'rejected',
+      reject_reason: reason,
+      rejected_at: new Date().toISOString(),
+    }).eq('id', bundleId);
+    if (error) throw error;
+    _boForecastBundles = null;
+    _boForecastBundleDetail = null;
+    renderBoPlanMgmt();
+  } catch(e) {
+    alert('반려 처리 실패: ' + e.message);
+  }
+}
+
+// org_forecast 1차 검토 (운영담당자)
+async function boReviewOrgForecast(bundleId) {
+  if (!confirm('이 수요예측 취합본을 1차 검토 완료 처리하시겠습니까?\n총괄담당자에게 전달됩니다.')) return;
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결이 필요합니다.'); return; }
+  try {
+    const { error } = await sb.from('submission_documents').update({
+      status: 'in_review',
+      reviewer_id: boCurrentPersona?.userId || '',
+      reviewer_name: boCurrentPersona?.name || '',
+      reviewed_at: new Date().toISOString(),
+    }).eq('id', bundleId);
+    if (error) throw error;
+    _boForecastBundles = null;
+    _boForecastBundleDetail = null;
+    renderBoPlanMgmt();
+  } catch(e) {
+    alert('1차 검토 처리 실패: ' + e.message);
+  }
 }

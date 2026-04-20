@@ -330,10 +330,11 @@ async function boApproveSubDoc(docId) {
         node_type: nodes[curIdx]?.type || "approval",
         node_label: nodes[curIdx]?.label || "결재",
         action: "approved",
-        actor_id: actorId,
-        actor_name: actorName,
+        approver_id: actorId,
+        approver_name: actorName,
+        approver_role: nodes[curIdx]?.approverKey || "",
         comment: "",
-        acted_at: now
+        action_at: now
       });
 
       // 3) 최종 승인 시 — 포함 건들 approved 처리 + 예산 확정 차감
@@ -424,10 +425,11 @@ async function boRejectSubDoc(docId) {
         node_type: "approval",
         node_label: nodes[curIdx]?.label || "결재",
         action: "rejected",
-        actor_id: boCurrentPersona?.id || "system",
-        actor_name: boCurrentPersona?.name || "BO담당자",
+        approver_id: boCurrentPersona?.id || "system",
+        approver_name: boCurrentPersona?.name || "BO담당자",
+        approver_role: nodes[curIdx]?.approverKey || "",
         comment: reason.trim(),
-        acted_at: now
+        action_at: now
       });
 
       // 3) 포함 건 → saved 복귀 + Hold 해제
@@ -476,7 +478,7 @@ async function _boShowSubDocDetail(docId) {
   let history = [];
   if (sb) {
     const { data } = await sb.from("approval_history")
-      .select("*").eq("submission_id", docId).order("acted_at");
+      .select("*").eq("submission_id", docId).order("action_at");
     history = data || [];
   }
 
@@ -528,17 +530,19 @@ async function _boShowSubDocDetail(docId) {
     }).join("");
   }
 
+  const ACTION_LABEL = { approved: "승인", rejected: "반려", in_review: "1차검토완료", recalled: "회수" };
   const histHtml = history.map(h => `
     <div style="display:flex;gap:10px;align-items:flex-start">
       <div style="width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0;
         background:${h.action==="approved"?"#059669":h.action==="rejected"?"#EF4444":"#9CA3AF"}"></div>
       <div style="font-size:12px">
-        <span style="font-weight:700;color:#374151">${h.node_label||""} ${h.actor_name||""}</span>
-        <span style="color:#9CA3AF;margin-left:6px">${h.action}</span>
+        <span style="font-weight:700;color:#374151">${h.node_label||""} ${h.approver_name||h.approver_name||"-"}</span>
+        <span style="color:#9CA3AF;margin-left:6px">${ACTION_LABEL[h.action]||h.action}</span>
         ${h.comment ? `<div style="color:#6B7280;margin-top:2px">"${h.comment}"</div>` : ""}
-        <div style="color:#D1D5DB;font-size:11px;margin-top:2px">${new Date(h.acted_at).toLocaleString("ko-KR")}</div>
+        <div style="color:#D1D5DB;font-size:11px;margin-top:2px">${new Date(h.action_at||h.created_at).toLocaleString("ko-KR")}</div>
       </div>
     </div>`).join("");
+
 
   const modal = document.createElement("div");
   modal.id = "bo-subdoc-modal";
@@ -935,10 +939,11 @@ window.boApproveOrgForecast = async function(docId) {
       node_type: "approval",
       node_label: "총괄담당자",
       action: "approved",
-      actor_id: boCurrentPersona?.id || "system",
-      actor_name: boCurrentPersona?.name || "BO총괄",
+      approver_id: boCurrentPersona?.id || "system",
+      approver_name: boCurrentPersona?.name || "BO총괄",
+      approver_role: "global_admin",
       comment: `최종 배정 완료 (총 Envelope: ${_boSimEnvelope.toLocaleString()}원)`,
-      acted_at: now
+      action_at: now
     });
 
     alert("✅ 최종 배정 및 승인이 완료되었습니다.");

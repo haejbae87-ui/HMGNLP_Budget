@@ -27,4 +27,5 @@
 | 19 | **🆕 교육계획 N:1 교육신청 복수 계획 연동** | [multi_plan_application.md](multi_plan_application.md) | 🟡 기획 확정 / 개발 대기 | v1.4 |
 | 20 | **🆕 교육지원제도 운영관리 역할별 업무 설계** | [edu_support_operations_role_design.md](edu_support_operations_role_design.md) | 🟡 기획 확정 / 역할 2개 유지 | v1.0 |
 | 21 | **🆕 FO 상신·결재 프로세스 (상신 문서 기반)** | [fo_submission_approval.md](fo_submission_approval.md) | 🟡 v1.4 확정 (S-1~S-6,S-9 완료) | v1.4 |
+| 22 | **🆕 양식 필드 카탈로그 v2 (재표준화)** | [field_catalog_v2.md](field_catalog_v2.md) | 🟡 기획 확정 대기 | v2.0 |
 

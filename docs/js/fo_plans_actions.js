@@ -1,4 +1,4 @@
-﻿// ─── fo_plans_actions.js — 마법사 핼퍼/저장/확정/이어쓰기 (REFACTOR-2: plans.js 분리) ───
+// ─── fo_plans_actions.js — 마법사 핼퍼/저장/확정/이어쓰기 (REFACTOR-2: plans.js 분리) ───
 // ─── PLAN WIZARD HELPERS ─────────────────────────────────────────────────────
 
 function selectPlanPurpose(id) {
@@ -132,6 +132,10 @@ async function savePlanDraft() {
       education_format: planState.educationFormat || planState.education_format || null,
       is_overseas: planState.isOverseas === true || planState.is_overseas === true || false,
       overseas_country: planState.overseasCountry || planState.overseas_country || null,
+      // Phase A 정규화 콜럼 이중 기록 (dual-write)
+      venue_type: planState.venueType || planState.venue_type || 'internal',
+      planned_rounds: planState.plannedRounds || planState.planned_rounds || 1,
+      planned_days: planState.plannedDays || planState.planned_days || null,
       detail: {
         purpose: planState.purpose?.id || null,
         budgetId: planState.budgetId || null,
@@ -222,6 +226,10 @@ async function savePlanSaved() {
       education_format: planState.educationFormat || planState.education_format || null,
       is_overseas: planState.isOverseas === true || planState.is_overseas === true || false,
       overseas_country: planState.overseasCountry || planState.overseas_country || null,
+      // Phase A 정규화 콜럼 이중 기록 (dual-write)
+      venue_type: planState.venueType || planState.venue_type || 'internal',
+      planned_rounds: planState.plannedRounds || planState.planned_rounds || 1,
+      planned_days: planState.plannedDays || planState.planned_days || null,
       detail: {
         purpose: planState.purpose?.id || null,
         budgetId: planState.budgetId || null,
@@ -389,12 +397,20 @@ async function confirmPlan() {
         edu_name: planState.title || planState.eduTypeName || "교육계획",
         edu_type: planState.eduType || planState.eduSubType || null,
         amount: amount,
-        status: "submitted",  // [S-6] pending → submitted
+        status: 'submitted',  // [S-6] pending → submitted
         policy_id: planState.policyId || null,
-        plan_type: planState.plan_type || "ongoing",
+        plan_type: planState.plan_type || 'ongoing',
         fiscal_year: planState.fiscal_year || new Date().getFullYear(),
         form_template_id: planState.formTemplate?.id || null,
         form_version: planState.formTemplate?.version || null,
+        // Phase A 정규화 콜럼 이중 기록
+        is_overseas: planState.isOverseas === true || planState.is_overseas === true || false,
+        overseas_country: planState.overseasCountry || planState.overseas_country || null,
+        education_format: planState.educationFormat || planState.education_format || null,
+        expected_benefit: planState.expectedBenefit || planState.expected_benefit || null,
+        venue_type: planState.venueType || planState.venue_type || 'internal',
+        planned_rounds: planState.plannedRounds || planState.planned_rounds || 1,
+        planned_days: planState.plannedDays || planState.planned_days || null,
         detail: {
           purpose: planState.purpose?.id || null,
           budgetId: planState.budgetId || null,

@@ -56,6 +56,8 @@ async function _cgLoadFromDb() {
         sapCode: r.sap_code || "",
         pricingType: r.pricing_type || "simple",
         dimensionCategory: r.dimension_category || null,
+        // Phase C: 조건부 산출근거 태깅
+        applyConditions: r.apply_conditions || {},
       }));
       _cgDbLoaded = true;
       console.log("[CalcGrounds] DB에서", res1.data.length, "건 로드 완료");
@@ -223,6 +225,9 @@ function _renderCgListPage() {
           if (g.hasRounds) badges.push('<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#EDE9FE;color:#7C3AED;font-weight:800">차수</span>');
           if (g.hasQty2) badges.push('<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#FEF3C7;color:#D97706;font-weight:800">' + (g.qty2Type||'박') + '</span>');
           if (g.isOverseas) badges.push('<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#FEE2E2;color:#DC2626;font-weight:800">해외</span>');
+          // Phase C: apply_conditions 배지
+          const ac = g.applyConditions || {};
+          if (Object.keys(ac).length > 0) badges.push('<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#FEF9C3;color:#92400E;font-weight:800">🏷조건부</span>');
           return `
         <tr style="${g.active === false ? 'opacity:.5;' : ''}">
           <td style="text-align:center;color:#9CA3AF;font-size:12px">${i+1}</td>
@@ -478,7 +483,44 @@ async function _renderCgDetailPage() {
     </div>
   </div>
 
-  <!-- ④ 하단 액션 바 -->
+  <!-- ④ 적용 조건 (Phase C: apply_conditions) -->
+  <div class="bo-card" style="padding:18px;margin-bottom:16px;border:1.5px solid #FEF08A">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:800;color:#92400E">🏷️ 적용 조건 (apply_conditions)</div>
+      <span style="font-size:10px;color:#78716C;background:#FEF9C3;padding:2px 8px;border-radius:4px">조건 없음 = 항상 표시 / 조건 있으면 FO에서 자동 필터링</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">국내/해외</label>
+        <select id="cg-dt-ac-overseas" style="width:100%;padding:8px 10px;border:1.5px solid #FDE68A;border-radius:8px;font-size:12px;background:#FFFBEB">
+          <option value="any" ${(!item?.applyConditions || item.applyConditions.is_overseas === undefined) ? 'selected' : ''}>전체 (조건없음)</option>
+          <option value="true" ${item?.applyConditions?.is_overseas === true ? 'selected' : ''}>해외만</option>
+          <option value="false" ${item?.applyConditions?.is_overseas === false ? 'selected' : ''}>국내만</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">숙박 여부</label>
+        <select id="cg-dt-ac-accommodation" style="width:100%;padding:8px 10px;border:1.5px solid #FDE68A;border-radius:8px;font-size:12px;background:#FFFBEB">
+          <option value="any" ${(!item?.applyConditions || item.applyConditions.has_accommodation === undefined) ? 'selected' : ''}>전체 (조건없음)</option>
+          <option value="true" ${item?.applyConditions?.has_accommodation === true ? 'selected' : ''}>숙박 포함만</option>
+          <option value="false" ${item?.applyConditions?.has_accommodation === false ? 'selected' : ''}>숙박 없을 때만</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">장소유형</label>
+        <select id="cg-dt-ac-venue" style="width:100%;padding:8px 10px;border:1.5px solid #FDE68A;border-radius:8px;font-size:12px;background:#FFFBEB">
+          <option value="any" ${!item?.applyConditions?.venue_type ? 'selected' : ''}>전체 (조건없음)</option>
+          <option value="internal" ${item?.applyConditions?.venue_type === 'internal' ? 'selected' : ''}>사내만</option>
+          <option value="external" ${item?.applyConditions?.venue_type === 'external' || (Array.isArray(item?.applyConditions?.venue_type) && !item.applyConditions.venue_type.includes('hotel')) ? 'selected' : ''}>사외만</option>
+          <option value="online" ${item?.applyConditions?.venue_type === 'online' ? 'selected' : ''}>온라인만</option>
+          <option value="external_hotel" ${Array.isArray(item?.applyConditions?.venue_type) && item.applyConditions.venue_type.includes('hotel') ? 'selected' : ''}>사외+호텔</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:8px;font-size:10px;color:#9CA3AF">💡 FO에서 신청자가 선택한 조건에 맞는 항목만 세부산출근거에 표시됩니다. (EC-05 정책: 조건 키 없으면 표시)</div>
+  </div>
+
+  <!-- ⑤ 하단 액션 바 -->
   <div style="display:flex;gap:10px;justify-content:flex-end;padding:16px 0;border-top:2px solid #E5E7EB">
     ${!isNew ? `
       <button onclick="_cgDeleteItem('${item.id}')" style="padding:10px 20px;border:1.5px solid #FECACA;border-radius:10px;background:#FEF2F2;color:#DC2626;font-size:13px;font-weight:700;cursor:pointer;margin-right:auto">🗑️ 삭제</button>
@@ -879,6 +921,20 @@ async function _cgSaveDetail() {
     hardLimit = Number(document.getElementById("cg-dt-hard-limit-eo")?.value) || 0;
   }
 
+  // Phase C: apply_conditions 수집
+  const acOverseas = document.getElementById("cg-dt-ac-overseas")?.value;
+  const acAccommodation = document.getElementById("cg-dt-ac-accommodation")?.value;
+  const acVenue = document.getElementById("cg-dt-ac-venue")?.value;
+  const applyConditions = {};
+  if (acOverseas === "true")  applyConditions.is_overseas = true;
+  else if (acOverseas === "false") applyConditions.is_overseas = false;
+  if (acAccommodation === "true")  applyConditions.has_accommodation = true;
+  else if (acAccommodation === "false") applyConditions.has_accommodation = false;
+  if (acVenue === "internal") applyConditions.venue_type = "internal";
+  else if (acVenue === "external") applyConditions.venue_type = "external";
+  else if (acVenue === "online") applyConditions.venue_type = "online";
+  else if (acVenue === "external_hotel") applyConditions.venue_type = ["external", "hotel"];
+
   const dbPayload = {
     name, description: document.getElementById("cg-dt-desc")?.value.trim() || null,
     sap_code: document.getElementById("cg-dt-sap-code")?.value.trim() || null,
@@ -892,6 +948,7 @@ async function _cgSaveDetail() {
     is_overseas: isOverseas,
     pricing_type: pricingType,
     dimension_category: pricingType === 'composite' ? (document.getElementById("cg-dt-dim-cat")?.value || 'venue') : null,
+    apply_conditions: applyConditions,
   };
 
   try {
@@ -1187,6 +1244,43 @@ window._getCalcGroundsForType = function(type, vorgId, isOverseas) {
     if (g.isOverseas && !isOverseas) return false;
     return true;
   }).sort((a, b) => (a.sortOrder || 99) - (b.sortOrder || 99));
+};
+
+/**
+ * Phase C: apply_conditions 기반 조건부 필터링 (PRD form_simplification.md 4.3절)
+ * userSelections = { is_overseas: bool, has_accommodation: bool, venue_type: string }
+ * 관대한 매칭(EC-05): 조건 키가 userSelections에 없으면 항상 표시
+ */
+window.getApplicableCalcGrounds = function(allItems, userSelections) {
+  const sel = userSelections || {};
+  return allItems.filter(function(item) {
+    const conds = item.applyConditions || item.apply_conditions || {};
+    if (Object.keys(conds).length === 0) return true; // 조건 없음 = 항상 표시
+    return Object.entries(conds).every(function([key, val]) {
+      if (!(key in sel)) return true; // 관대한 매칭: 키 없으면 표시
+      const userVal = sel[key];
+      if (Array.isArray(val)) return val.includes(userVal);
+      if (typeof val === 'boolean') return userVal === val;
+      return userVal === val;
+    });
+  });
+};
+
+/**
+ * Phase C: 타입 + apply_conditions 복합 필터 (FO에서 직접 호출)
+ * type: 'self_learning' | 'edu_operation'
+ * vorgId: 가상교육조직 ID
+ * userSelections: { is_overseas, has_accommodation, venue_type }
+ */
+window.getApplicableCalcGroundsForType = function(type, vorgId, userSelections) {
+  const byType = (CALC_GROUNDS_MASTER || []).filter(function(g) {
+    if (g.active === false) return false;
+    if (type && (g.usageType || 'edu_operation') !== type) return false;
+    if (g.domainId && vorgId && g.domainId !== vorgId) return false;
+    return true;
+  });
+  return window.getApplicableCalcGrounds(byType, userSelections)
+    .sort(function(a, b) { return (a.sortOrder || 99) - (b.sortOrder || 99); });
 };
 
 window._loadUnitPricesForItem = async function(itemId, tenantId) {

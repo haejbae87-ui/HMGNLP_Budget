@@ -222,9 +222,9 @@ function renderDynamicFormFields(formFields, formState, prefix) {
   if (!formFields || !formFields.length) return "";
   const fieldDefs = _FIELD_DEF_CACHE || [];
 
-  // FO 표시 대상 필드: front + provide (미입력 provide는 숨김)
+  // FO 표시 대상 필드: front + provide + is_bo_only (미입력 provide/bo_only는 숨김)
   const foFields = formFields.filter(
-    (f) => !f.scope || f.scope === "front" || f.scope === "provide",
+    (f) => !f.scope || f.scope === "front" || f.scope === "provide" || f.is_bo_only,
   );
   if (!foFields.length) return "";
 
@@ -233,6 +233,11 @@ function renderDynamicFormFields(formFields, formState, prefix) {
       const key = fieldRef.key;
       const def = fieldDefs.find((d) => d.key === key);
       if (!def) return "";
+
+      // is_bo_only: 값이 있을 때만 읽기전용 카드로 표시
+      if (fieldRef.is_bo_only || def.is_bo_only) {
+        return _renderBoOnlyField(def, formState, prefix);
+      }
 
       // provide scope: 미입력 시 숨김, 입력되어 있으면 읽기전용 카드
       if (fieldRef.scope === "provide") {
@@ -247,6 +252,37 @@ function renderDynamicFormFields(formFields, formState, prefix) {
   return html;
 }
 window.renderDynamicFormFields = renderDynamicFormFields;
+
+// ─── BO 전용 필드 읽기전용 렌더링 (FO에서 값 있을 때만 표시) ─────────────────
+function _renderBoOnlyField(def, s, prefix) {
+  const { key, field_type, icon, hint } = def;
+  const stateKey = _toStateKey(key);
+  // bo_only 데이터는 detail._bo 네임스페이스 또는 state 직접 참조
+  const boData = s?._bo || {};
+  const val = boData[stateKey] ?? s?.[stateKey] ?? "";
+
+  // 미입력 시 숨김
+  if (!val && val !== 0) return "";
+
+  // select 타입: value → label 변환
+  let displayVal = val;
+  if (field_type === "select" && def.options) {
+    const opt = def.options.find((o) => o.value === val);
+    if (opt) displayVal = opt.label;
+  }
+
+  const label = `${icon || ""} ${key}`;
+  return `<div style="margin-bottom:16px">
+      <div style="padding:14px 18px;background:linear-gradient(135deg,#FFF7ED,#FFFBEB);border:1.5px solid #FED7AA;border-radius:12px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <span style="font-size:9px;font-weight:800;color:#C2410C;background:#FEF3C7;padding:2px 8px;border-radius:4px">🛡️ 운영담당자 코멘트</span>
+          <label style="font-size:12px;font-weight:800;color:#92400E">${label}</label>
+        </div>
+        <div style="font-size:14px;font-weight:600;color:#111827;white-space:pre-wrap;line-height:1.5">${_esc(String(displayVal))}</div>
+        ${hint ? `<div style="font-size:11px;color:#B45309;margin-top:6px">${hint}</div>` : ""}
+      </div>
+    </div>`;
+}
 
 // ─── provide 필드 읽기전용 렌더링 (미입력 시 숨김) ───────────────────────────────
 function _renderProvideField(def, s, prefix) {

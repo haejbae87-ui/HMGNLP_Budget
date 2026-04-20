@@ -1,4 +1,4 @@
-﻿// ─── bo_fb_editor.js — 폼빌더 에디터/저장/배포 (REFACTOR-1) ───
+// ─── bo_fb_editor.js — 폼빌더 에디터/저장/배포 (REFACTOR-1) ───
 
 // ─── DnD 핸들러 ──────────────────────────────────────────────────────────────
 function _fbDragStart(idx, e) {
@@ -943,6 +943,13 @@ function _fbRenderFieldCatalog() {
             </label>
             <p style="font-size:11px;color:#9CA3AF;margin:4px 0 0">체크 시 양식 에디터에서 선택 불가 상태가 됩니다.</p>
           </div>
+          <div style="grid-column:1/-1;padding:12px 14px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:10px">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:700;color:#1D4ED8">
+              <input id="fc-l1-bo-only" type="checkbox" style="width:16px;height:16px;accent-color:#1D4ED8">
+              BO 전용 필드 (사용자 읽기전용)
+            </label>
+            <p style="font-size:11px;color:#3B82F6;margin:4px 0 0">체크 시 BO 담당자만 입력 가능하며, FO 사용자에게는 읽기전용으로 표시됩니다. (예: 반려사유, 운영 코멘트)</p>
+          </div>
         </div>
       </div>
       <div style="padding:14px 24px;border-top:1px solid #F3F4F6;background:#FAFAFA;display:flex;justify-content:space-between;align-items:center">
@@ -1001,6 +1008,14 @@ function _fbRenderFieldCatalog() {
             <input id="fc-m-opt-value" type="text" placeholder="저장값(키)" style="flex:1;min-width:0;padding:8px 10px;border:1.5px solid #D4D4D8;border-radius:6px;font-size:12px;font-family:monospace">
             <button onclick="_fcAddTempOption()" style="padding:8px 14px;background:#52525B;color:white;border:none;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer">➕ 추가</button>
           </div>
+        </div>
+        <!-- BO 전용 필드 체크박스 -->
+        <div style="margin-top:14px;padding:12px 14px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:10px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:700;color:#1D4ED8">
+            <input id="fc-m-bo-only" type="checkbox" style="width:16px;height:16px;accent-color:#1D4ED8">
+            BO 전용 필드 (사용자 읽기전용)
+          </label>
+          <p style="font-size:11px;color:#3B82F6;margin:4px 0 0">체크 시 BO 담당자만 입력 가능하며, FO 사용자에게는 읽기전용으로 표시됩니다. (예: 반려사유, 운영 코멘트)</p>
         </div>
       </div>
       <div style="padding:16px 24px;border-top:1px solid #F3F4F6;background:#FAFAFA;display:flex;justify-content:flex-end;gap:10px">
@@ -1386,6 +1401,7 @@ window._fcSaveL2Modal = async function () {
   const name = document.getElementById("fc-m-new-name").value.trim();
   const type = document.getElementById("fc-m-new-type").value;
   const cat = document.getElementById("fc-m-new-cat").value;
+  const isBoOnly = document.getElementById("fc-m-bo-only")?.checked || false;
   if (!name) return alert("필드명을 입력해주세요.");
   if (
     (type === "select" || type === "multi_select") &&
@@ -1419,6 +1435,7 @@ window._fcSaveL2Modal = async function () {
         is_reportable: false,
         is_locked: false,
         default_required: false,
+        is_bo_only: isBoOnly,
         sort_order: 100 + _fbL2Fields.length,
       });
       // 옵션 저장
@@ -1440,15 +1457,16 @@ window._fcSaveL2Modal = async function () {
     // 로컬 캐시 갱신
     _fbL2Fields.push({
       key: name,
-      icon: "📝",
+      icon: isBoOnly ? "🛡️" : "📝",
       required: false,
-      scope: "front",
+      scope: isBoOnly ? "provide" : "front",
       category: cat,
       fieldType: type,
       hint: "",
       canonicalKey: canonicalKey,
       layer: "L2",
       dbId: fieldId,
+      is_bo_only: isBoOnly,
       options:
         type === "select" || type === "multi_select"
           ? _fcTempOptions.map((o) => ({ ...o, layer: "L2", locked: false }))
@@ -1658,6 +1676,7 @@ window._fcOpenL1EditModal = function (canonicalKey) {
     ov.default_required != null ? String(ov.default_required) : "";
   document.getElementById("fc-l1-scope").value = ov.scope || "";
   document.getElementById("fc-l1-hidden").checked = ov.is_hidden || false;
+  document.getElementById("fc-l1-bo-only").checked = ov.is_bo_only || false;
 
   // 현재 코드 기본값을 플레이스홀더로 표시
   document.getElementById("fc-l1-display-name").placeholder =
@@ -1678,6 +1697,7 @@ window._fcSaveL1Override = async function () {
   const reqVal = document.getElementById("fc-l1-required").value;
   const scope = document.getElementById("fc-l1-scope").value;
   const isHidden = document.getElementById("fc-l1-hidden").checked;
+  const isBoOnly = document.getElementById("fc-l1-bo-only")?.checked || false;
 
   const tenantId = boCurrentPersona?.tenantId || "HMC";
   const payload = {
@@ -1688,6 +1708,7 @@ window._fcSaveL1Override = async function () {
     default_required: reqVal === "" ? null : reqVal === "true",
     scope: scope || null,
     is_hidden: isHidden,
+    is_bo_only: isBoOnly,
     updated_at: new Date().toISOString(),
     updated_by: boCurrentPersona?.userId || "system",
   };
@@ -1721,6 +1742,7 @@ window._fcSaveL1Override = async function () {
       if (reqVal !== "") fld.required = reqVal === "true";
       if (scope) fld.scope = scope;
       fld._hidden = isHidden;
+      fld.is_bo_only = isBoOnly;
     }
 
     _fbShowToast(`✅ L1 필드 (${canonicalKey}) 조정 저장 완료`);

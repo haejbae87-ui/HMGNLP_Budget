@@ -725,10 +725,10 @@ async function _renderBoAdminFieldsPanel(record, tableName) {
     }
   }
 
-  // back + provide scope 필드만 추출
+  // back + provide + is_bo_only 필드만 추출
   const adminFields = formFields
     .map((f) => (typeof f === "object" ? f : { key: f, scope: "front" }))
-    .filter((f) => f.scope === "back" || f.scope === "provide");
+    .filter((f) => f.scope === "back" || f.scope === "provide" || f.is_bo_only);
 
   if (adminFields.length === 0) {
     panel.innerHTML = "";
@@ -739,6 +739,7 @@ async function _renderBoAdminFieldsPanel(record, tableName) {
   const detail = record.detail || {};
   const provideData = detail._provide || {};
   const backData = detail._back || {};
+  const boOnlyData = detail._bo || {};
 
   // ADVANCED_FIELDS 참조 (bo_form_builder.js에서 정의)
   const allDefs = typeof ADVANCED_FIELDS !== "undefined" ? ADVANCED_FIELDS : [];
@@ -755,7 +756,7 @@ async function _renderBoAdminFieldsPanel(record, tableName) {
       <div style="padding:14px 20px;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);border-bottom:1.5px solid #DBEAFE;display:flex;justify-content:space-between;align-items:center">
         <div>
           <h3 style="margin:0;font-size:14px;font-weight:900;color:#1E40AF">🔧 관리자 입력 필드</h3>
-          <p style="margin:2px 0 0;font-size:11px;color:#6B7280">back(BO전용) 및 provide(BO제공→FO읽기전용) 필드를 입력합니다</p>
+          <p style="margin:2px 0 0;font-size:11px;color:#6B7280">back(BO전용) · provide(BO제공→FO읽기전용) · 필드(BO코멘트)를 입력합니다</p>
         </div>
         <button onclick="_saveBoAdminFields('${record.id}','${tableName}')"
           style="padding:8px 20px;border-radius:10px;border:none;background:#1D4ED8;color:white;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(29,78,216,.2)">
@@ -766,14 +767,17 @@ async function _renderBoAdminFieldsPanel(record, tableName) {
 
   adminFields.forEach((fld) => {
     const def = allDefs.find((d) => d.key === fld.key) || {};
-    const scopeNs = fld.scope === "provide" ? provideData : backData;
+    // is_bo_only 필드는 _bo 네임스페이스, provide는 _provide, back는 _back
+    const isBoOnly = fld.is_bo_only || def.is_bo_only;
+    const scopeNs = isBoOnly ? boOnlyData : (fld.scope === "provide" ? provideData : backData);
     const stateKey = _toBoAdminKey(fld.key);
     const val = scopeNs[stateKey] ?? "";
-    const icon = def.icon || "📝";
+    const icon = def.icon || (isBoOnly ? "🛡️" : "📝");
     const hint = def.hint || "";
-    const ft = def.fieldType || "text";
-    const scopeLabel =
-      fld.scope === "provide"
+    const ft = def.fieldType || "textarea";
+    const scopeLabel = isBoOnly
+      ? '<span style="font-size:9px;font-weight:800;color:#C2410C;background:#FEF3C7;padding:2px 8px;border-radius:4px">🛡️ BO코멘트 (FO에 표시됨)</span>'
+      : fld.scope === "provide"
         ? '<span style="font-size:9px;font-weight:800;color:#1D4ED8;background:#DBEAFE;padding:2px 8px;border-radius:4px">📢 BO제공→FO</span>'
         : '<span style="font-size:9px;font-weight:800;color:#7C3AED;background:#F5F3FF;padding:2px 8px;border-radius:4px">🔒 BO전용</span>';
     const reqMark = def.required ? '<span style="color:#EF4444"> *</span>' : "";
@@ -797,7 +801,7 @@ async function _renderBoAdminFieldsPanel(record, tableName) {
     }
 
     html += `
-      <div data-scope="${fld.scope}" data-key="${stateKey}">
+      <div data-scope="${fld.is_bo_only || def.is_bo_only ? 'bo_only' : fld.scope}" data-key="${stateKey}">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           ${scopeLabel}
           <label style="font-size:12px;font-weight:800;color:#374151">${icon} ${fld.key}${reqMark}</label>
@@ -819,6 +823,7 @@ async function _saveBoAdminFields(recordId, tableName) {
   const inputs = panel.querySelectorAll("[data-scope]");
   const provideUpdate = {};
   const backUpdate = {};
+  const boOnlyUpdate = {};
 
   inputs.forEach((wrapper) => {
     const scope = wrapper.dataset.scope;
@@ -828,6 +833,7 @@ async function _saveBoAdminFields(recordId, tableName) {
     const val = input.value || "";
     if (scope === "provide") provideUpdate[key] = val;
     else if (scope === "back") backUpdate[key] = val;
+    else if (scope === "bo_only") boOnlyUpdate[key] = val;
   });
 
   const sb = typeof getSB === "function" ? getSB() : null;
@@ -845,9 +851,10 @@ async function _saveBoAdminFields(recordId, tableName) {
       .maybeSingle();
     const detail = row?.detail || {};
 
-    // _provide, _back 네임스페이스에 병합
+    // _provide, _back, _bo 네임스페이스에 병합
     detail._provide = { ...(detail._provide || {}), ...provideUpdate };
     detail._back = { ...(detail._back || {}), ...backUpdate };
+    detail._bo = { ...(detail._bo || {}), ...boOnlyUpdate };
 
     // DB 업데이트
     const { error } = await sb

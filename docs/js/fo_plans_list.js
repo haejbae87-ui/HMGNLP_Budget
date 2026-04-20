@@ -642,27 +642,34 @@ function _renderPlanCard(p) {
   const safeTitle = (p.title || "").replace(/'/g, "");
 
   const actionBtns = isDraft
-    ? `<div style="display:flex;gap:6px;margin-top:8px">
+    ? `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
         <button onclick="resumePlanDraft('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:#0369A1;color:white;border:none;cursor:pointer">✏️ 이어쓰기</button>
+        <button onclick="event.stopPropagation();clonePlan('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#7C3AED;border:1.5px solid #DDD6FE;cursor:pointer">📱 복제</button>
         <button onclick="deletePlanDraft('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#DC2626;border:1.5px solid #FECACA;cursor:pointer">🗑 삭제</button>
        </div>`
     : isSaved
-      ? `<div style="display:flex;gap:6px;margin-top:8px">
+      ? `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
           <button onclick="event.stopPropagation();_aprSingleSubmitFromPlan('${safeId}','${safeTitle}')"
             style="padding:6px 16px;border-radius:8px;font-size:11px;font-weight:900;background:#059669;color:white;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.25)">📤 상신하기</button>
           <button onclick="event.stopPropagation();resumePlanDraft('${safeId}')"
             style="padding:6px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#0369A1;border:1.5px solid #BFDBFE;cursor:pointer">✏️ 수정</button>
+          <button onclick="event.stopPropagation();clonePlan('${safeId}')"
+            style="padding:6px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#7C3AED;border:1.5px solid #DDD6FE;cursor:pointer">📱 복제</button>
          </div>`
       : isPending
-        ? `<div style="margin-top:8px">
+        ? `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
           <button onclick="cancelPlan('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#DC2626;border:1.5px solid #FECACA;cursor:pointer">취소 요청</button>
+          <button onclick="event.stopPropagation();clonePlan('${safeId}')"
+            style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#7C3AED;border:1.5px solid #DDD6FE;cursor:pointer">📱 복제</button>
          </div>`
         : (rawStatus === "approved")
           ? (() => {
               const hasAlloc = Number(p.allocated_amount||0) > 0;
               return `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
               ${hasAlloc ? `<button onclick="event.stopPropagation();_startApplyFromPlan('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.2)">📝 교육 신청</button>` : ''}
-              <button onclick="event.stopPropagation();foOpenReduceAllocation('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#D97706;border:1.5px solid #FDE68A;cursor:pointer" title="승인된 배정액을 하향 조정하고 잔액을 통장으로 환불합니다">📉 배정액 축소</button>
+              <button onclick="event.stopPropagation();foOpenReduceAllocation('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#D97706;border:1.5px solid #FDE68A;cursor:pointer" title="승인된 배정액을 하향 조정하고 잌액을 통장으로 환불합니다">📉 배정액 축소</button>
+              <button onclick="event.stopPropagation();clonePlan('${safeId}')"
+                style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#7C3AED;border:1.5px solid #DDD6FE;cursor:pointer">📱 복제</button>
              </div>`;
             })()
           : "";
@@ -955,3 +962,74 @@ async function foBundleConfirmSubmit() {
     console.error('[P12]', err);
   }
 }
+
+// ─── P2: 교육계획 복제 (Deep Copy) ─────────────────────────────────────────
+// 기존 교육계획 데이터를 새 draft로 복제하여 유사 내용 재입력 부담을 줄임
+async function clonePlan(planId) {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 필요'); return; }
+  if (!confirm('이 교육계획을 복제하시겠습니까?\n제목에 "[복제]"가 추가되고 임시저장 상태로 새로 생성됩니다.')) return;
+
+  try {
+    // 원본 계획 조회
+    const { data: original, error: fetchErr } = await sb
+      .from('plans')
+      .select('*')
+      .eq('id', planId)
+      .maybeSingle();
+    if (fetchErr || !original) throw new Error(fetchErr?.message || '원본 계획을 찾을 수 없습니다.');
+
+    const now = new Date().toISOString();
+    const newId = 'PLN_CLONE_' + Date.now();
+
+    // 복제 payload: 상태 초기화, 승인 관련 필드 제거, 제목에 [복제] 추가
+    const clonePayload = {
+      id: newId,
+      tenant_id: original.tenant_id,
+      user_id: original.user_id,
+      applicant_name: original.applicant_name,
+      dept: original.dept,
+      account_code: original.account_code,
+      purpose: original.purpose,
+      edu_type: original.edu_type,
+      edu_name: '[복제] ' + (original.edu_name || ''),
+      amount: original.amount,
+      plan_type: original.plan_type || 'ongoing',
+      fiscal_year: original.fiscal_year || new Date().getFullYear(),
+      // detail(동적 필드 포함) Deep Copy — BO 코멘트(_bo)는 제거
+      detail: (() => {
+        const d = JSON.parse(JSON.stringify(original.detail || {}));
+        delete d._bo;  // BO 전용 코멘트는 복제 시 초기화
+        return d;
+      })(),
+      form_template_id: original.form_template_id,
+      // 상태/승인 관련 초기화
+      status: 'draft',
+      allocated_amount: 0,
+      actual_amount: 0,
+      frozen_amount: 0,
+      approved_at: null,
+      approved_by: null,
+      reject_reason: null,
+      reviewed_at: null,
+      reviewed_by: null,
+      created_at: now,
+      updated_at: now,
+    };
+
+    const { error: insertErr } = await sb.from('plans').insert(clonePayload);
+    if (insertErr) throw insertErr;
+
+    // 캐시 초기화 후 목록 갱신
+    _plansDbLoaded = false;
+    _dbMyPlans = [];
+    _plansDbCache = [];
+
+    alert(`✅ 복제 완료!\n"[복제] ${original.edu_name || ''}" 이 임시저장 상태로 생성되었습니다.`);
+    renderPlans();
+  } catch (err) {
+    alert('❌ 복제 실패: ' + err.message);
+    console.error('[clonePlan]', err);
+  }
+}
+window.clonePlan = clonePlan;

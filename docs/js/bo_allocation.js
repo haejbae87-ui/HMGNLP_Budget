@@ -1262,8 +1262,7 @@ async function submitBulkDist() {
 function renderAllocTransfer() {
   const persona = boCurrentPersona;
   const isOwner = (persona.ownedAccounts || []).length > 0;
-  const canTransfer =
-    isOwner || (isVorgManager(persona));
+  const canTransfer = isOwner || (isVorgManager(persona));
   if (!canTransfer)
     return `<div style="padding:40px;text-align:center"><div style="font-size:40px">🔒</div><div style="font-weight:900;color:#374151">이관은 계정 오너 또는 본부/센터 담당자만 가능합니다</div></div>`;
 
@@ -1293,7 +1292,10 @@ function renderAllocTransfer() {
   return `
 <div class="bo-card" style="padding:24px;max-width:680px">
   ${vmBannerTr}
-  <div class="bo-section-title" style="margin-bottom:4px">예산 이관 — 팀 간 잔액 이동</div>
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+    <div class="bo-section-title" style="margin:0">예산 이관 — 팀 간 잔액 이동</div>
+    <span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;background:#DBEAFE;color:#1E40AF">P8</span>
+  </div>
   <p style="font-size:12px;color:#6B7280;margin-bottom:16px">동일 계정 내에서 A팀의 잔여 배분액을 B팀으로 이동 — 사유 필수</p>
   <div style="display:grid;gap:14px">
     <div>
@@ -1306,7 +1308,8 @@ function renderAllocTransfer() {
     <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center">
       <div>
         <label style="font-size:11px;font-weight:700;color:#EF4444;text-transform:uppercase;display:block;margin-bottom:6px">From (이관 출처)</label>
-        <select id="tr-from" style="width:100%;border:1.5px solid #FECACA;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:700"><option>— 계정 먼저 선택 —</option></select>
+        <select id="tr-from" onchange="updateTrFromPreview()" style="width:100%;border:1.5px solid #FECACA;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:700"><option>— 계정 먼저 선택 —</option></select>
+        <div id="tr-from-balance" style="font-size:11px;color:#EF4444;margin-top:4px;font-weight:700"></div>
       </div>
       <div style="font-size:22px;color:#9CA3AF;text-align:center;margin-top:18px">→</div>
       <div>
@@ -1317,14 +1320,18 @@ function renderAllocTransfer() {
     <div>
       <label style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;display:block;margin-bottom:6px">이관 금액</label>
       <div style="position:relative">
-        <input type="number" id="tr-amount" placeholder="0" style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:12px 50px 12px 16px;font-size:18px;font-weight:900"/>
+        <input type="number" id="tr-amount" placeholder="0" oninput="updateTrFromPreview()" style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:12px 50px 12px 16px;font-size:18px;font-weight:900"/>
         <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:13px;font-weight:700;color:#9CA3AF">원</span>
       </div>
+      <div id="tr-amount-preview" style="font-size:11px;margin-top:4px;font-weight:700"></div>
     </div>
     <div>
       <label style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;display:block;margin-bottom:6px">이관 사유 (필수)</label>
       <textarea id="tr-reason" rows="3" placeholder="조직 개편, 예산 부족, 사업 계획 변경 등"
         style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-size:13px;resize:none;font-family:inherit"></textarea>
+    </div>
+    <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:12px;color:#92400E">
+      ⚠️ 이관 처리 후 취소 불가 · 이관 이력은 <b>변경 이력</b> 탭에서 확인 가능
     </div>
     <button onclick="submitTransfer()" class="bo-btn-primary" style="padding:14px">↔ 이관 처리</button>
   </div>
@@ -1346,14 +1353,45 @@ function updateTrTeams() {
     teams
       .map(
         (t) =>
-          `<option value="${t.id}">${t.teamName} (잔액: ${boFmt(t.allocAmount - t.spent - t.reserved)}원)</option>`,
+          `<option value="${t.id}" data-balance="${t.allocAmount - t.spent - t.reserved}">${t.teamName} (잔액: ${boFmt(t.allocAmount - t.spent - t.reserved)}원)</option>`,
       )
       .join("");
   const frm = document.getElementById("tr-from");
   const to = document.getElementById("tr-to");
   if (frm) frm.innerHTML = opts;
   if (to) to.innerHTML = opts;
+  // 잔액 미리보기 초기화
+  const balEl = document.getElementById("tr-from-balance");
+  const preEl = document.getElementById("tr-amount-preview");
+  if (balEl) balEl.textContent = "";
+  if (preEl) preEl.textContent = "";
 }
+
+// [P8] From팀 잔액 미리보기 실시간 업데이트
+function updateTrFromPreview() {
+  const fromSel = document.getElementById("tr-from");
+  const amtInput = document.getElementById("tr-amount");
+  const balEl = document.getElementById("tr-from-balance");
+  const preEl = document.getElementById("tr-amount-preview");
+  if (!fromSel || !balEl) return;
+  const selectedOpt = fromSel.options[fromSel.selectedIndex];
+  const balance = Number(selectedOpt?.dataset?.balance || 0);
+  if (balance > 0) {
+    balEl.textContent = `현재 잔액: ${boFmt(balance)}원`;
+  } else {
+    balEl.textContent = "";
+  }
+  if (!preEl || !amtInput) return;
+  const amt = Number(amtInput.value || 0);
+  if (amt > 0 && balance > 0) {
+    const afterBalance = balance - amt;
+    const color = afterBalance < 0 ? "#EF4444" : "#059669";
+    preEl.innerHTML = `이관 후 잔액: <span style="color:${color};font-weight:900">${boFmt(afterBalance)}원</span>`;
+  } else {
+    preEl.textContent = "";
+  }
+}
+window.updateTrFromPreview = updateTrFromPreview;
 
 async function submitTransfer() {
   const fromId = document.getElementById("tr-from")?.value;
@@ -1372,65 +1410,118 @@ async function submitTransfer() {
     return;
   }
 
-  // ── Supabase DB 저장 ────────────────────────────────────────────────────
+  // ── [P8] Supabase DB 저장 (bankbooks 현행 구조) ────────────────────────
   const sb = typeof getSB === "function" ? getSB() : null;
+  const tenantId = boCurrentPersona?.tenantId || "HMC";
+  const now = new Date().toISOString();
+
   if (sb) {
     try {
-      // From team bankbook 찾기 (teamName 기반)
-      const { data: bankbooks } = await sb
-        .from("org_budget_bankbooks")
-        .select("id, org_name, account_id")
-        .eq("tenant_id", boCurrentPersona.tenantId)
-        .or("bb_status.eq.active,bb_status.is.null");
-
-      // AB의 accountCode로 DB account id 매핑
+      // [P8] 현행 bankbooks 테이블에서 From/To 팀 통장 조회
       const fromAbCode = ACCOUNT_BUDGETS.find(x => x.id === from.accountBudgetId)?.accountCode;
-      const toAbCode = ACCOUNT_BUDGETS.find(x => x.id === to.accountBudgetId)?.accountCode;
+      const { data: books } = await sb.from("bankbooks")
+        .select("id, account_code, org_name, current_balance, used_amount")
+        .eq("tenant_id", tenantId)
+        .eq("account_code", fromAbCode || "")
+        .eq("status", "active")
+        .is("user_id", null); // 팀 통장 (개인 아님)
 
-      const { data: accts } = await sb
-        .from("budget_accounts")
-        .select("id, code")
-        .in("code", [fromAbCode, toAbCode].filter(Boolean))
-        .eq("tenant_id", boCurrentPersona.tenantId)
-        .eq("active", true);
-      const acctCodeIdMap = {};
-      (accts || []).forEach(a => { acctCodeIdMap[a.code] = a.id; });
-
-      const fromBb = (bankbooks || []).find(b =>
-        (b.org_name === from.teamName || b.org_name.includes(from.teamName) || from.teamName.includes(b.org_name)) &&
-        (acctCodeIdMap[fromAbCode] ? b.account_id === acctCodeIdMap[fromAbCode] : true)
+      const fromBk = (books || []).find(b =>
+        b.org_name === from.teamName ||
+        b.org_name?.includes(from.teamName) ||
+        from.teamName?.includes(b.org_name)
       );
-      const toBb = (bankbooks || []).find(b =>
-        (b.org_name === to.teamName || b.org_name.includes(to.teamName) || to.teamName.includes(b.org_name)) &&
-        (acctCodeIdMap[toAbCode] ? b.account_id === acctCodeIdMap[toAbCode] : true)
+      const toBk = (books || []).find(b =>
+        b.org_name === to.teamName ||
+        b.org_name?.includes(to.teamName) ||
+        to.teamName?.includes(b.org_name)
       );
 
-      if (fromBb && toBb) {
-        // From: allocated_amount 차감
-        const { data: fromAlloc } = await sb
-          .from("budget_allocations").select("id, allocated_amount")
-          .eq("bankbook_id", fromBb.id).order("updated_at", { ascending: false }).limit(1);
-        if (fromAlloc?.[0]) {
-          await sb.from("budget_allocations")
-            .update({ allocated_amount: Number(fromAlloc[0].allocated_amount) - amount, updated_at: new Date().toISOString() })
-            .eq("id", fromAlloc[0].id);
-        }
-        // To: allocated_amount 증가
-        const { data: toAlloc } = await sb
-          .from("budget_allocations").select("id, allocated_amount")
-          .eq("bankbook_id", toBb.id).order("updated_at", { ascending: false }).limit(1);
-        if (toAlloc?.[0]) {
-          await sb.from("budget_allocations")
-            .update({ allocated_amount: Number(toAlloc[0].allocated_amount) + amount, updated_at: new Date().toISOString() })
-            .eq("id", toAlloc[0].id);
-        } else {
-          await sb.from("budget_allocations").insert({ bankbook_id: toBb.id, allocated_amount: amount, used_amount: 0, frozen_amount: 0 });
-        }
+      if (fromBk && toBk) {
+        // From: current_balance 차감
+        const newFromBalance = Math.max(0, Number(fromBk.current_balance || 0) - amount);
+        await sb.from("bankbooks")
+          .update({ current_balance: newFromBalance, updated_at: now })
+          .eq("id", fromBk.id);
+
+        // To: current_balance 증가
+        const newToBalance = Number(toBk.current_balance || 0) + amount;
+        await sb.from("bankbooks")
+          .update({ current_balance: newToBalance, updated_at: now })
+          .eq("id", toBk.id);
+
+        // [P8] budget_adjust_logs 이관 이력 저장 (비치명적)
+        try {
+          await sb.from("budget_adjust_logs").insert([
+            {
+              tenant_id: tenantId,
+              before_amount: Number(fromBk.current_balance || 0),
+              after_amount: newFromBalance,
+              adjusted_by: boCurrentPersona?.id || boCurrentPersona?.name || "bo_admin",
+              adjusted_at: now,
+              reason: `[이관출처] → ${to.teamName}: ${reason}`,
+            },
+            {
+              tenant_id: tenantId,
+              before_amount: Number(toBk.current_balance || 0),
+              after_amount: newToBalance,
+              adjusted_by: boCurrentPersona?.id || boCurrentPersona?.name || "bo_admin",
+              adjusted_at: now,
+              reason: `[이관수신] ← ${from.teamName}: ${reason}`,
+            },
+          ]);
+        } catch(logErr) { console.warn("[P8] 이관 이력 저장 skip:", logErr.message); }
+
+        console.log(`[P8] 이관 완료: ${from.teamName}(${fromBk.id}) → ${to.teamName}(${toBk.id}) ${amount.toLocaleString()}원`);
       } else {
-        console.warn("[BO 이관] 일부 팀 bankbook 미매칭 — 인메모리만 업데이트");
+        // bankbooks 미매칭 — 레거시 org_budget_bankbooks 폴백 시도
+        console.warn("[P8] bankbooks 미매칭 — 레거시 폴백 시도:", from.teamName, to.teamName);
+        const { data: legacyBooks } = await sb.from("org_budget_bankbooks")
+          .select("id, org_name, account_id")
+          .eq("tenant_id", tenantId)
+          .or("bb_status.eq.active,bb_status.is.null");
+
+        const fromAbCodeFallback = ACCOUNT_BUDGETS.find(x => x.id === from.accountBudgetId)?.accountCode;
+        const toAbCodeFallback   = ACCOUNT_BUDGETS.find(x => x.id === to.accountBudgetId)?.accountCode;
+        const { data: accts } = await sb.from("budget_accounts")
+          .select("id, code")
+          .in("code", [fromAbCodeFallback, toAbCodeFallback].filter(Boolean))
+          .eq("tenant_id", tenantId).eq("active", true);
+        const acctCodeIdMap = {};
+        (accts || []).forEach(a => { acctCodeIdMap[a.code] = a.id; });
+
+        const fromLegacy = (legacyBooks || []).find(b =>
+          (b.org_name === from.teamName || b.org_name?.includes(from.teamName) || from.teamName?.includes(b.org_name)) &&
+          (acctCodeIdMap[fromAbCodeFallback] ? b.account_id === acctCodeIdMap[fromAbCodeFallback] : true)
+        );
+        const toLegacy = (legacyBooks || []).find(b =>
+          (b.org_name === to.teamName || b.org_name?.includes(to.teamName) || to.teamName?.includes(b.org_name)) &&
+          (acctCodeIdMap[toAbCodeFallback] ? b.account_id === acctCodeIdMap[toAbCodeFallback] : true)
+        );
+        if (fromLegacy && toLegacy) {
+          const { data: fromAlloc } = await sb.from("budget_allocations").select("id, allocated_amount")
+            .eq("bankbook_id", fromLegacy.id).order("updated_at", { ascending: false }).limit(1);
+          if (fromAlloc?.[0]) {
+            await sb.from("budget_allocations")
+              .update({ allocated_amount: Number(fromAlloc[0].allocated_amount) - amount, updated_at: now })
+              .eq("id", fromAlloc[0].id);
+          }
+          const { data: toAlloc } = await sb.from("budget_allocations").select("id, allocated_amount")
+            .eq("bankbook_id", toLegacy.id).order("updated_at", { ascending: false }).limit(1);
+          if (toAlloc?.[0]) {
+            await sb.from("budget_allocations")
+              .update({ allocated_amount: Number(toAlloc[0].allocated_amount) + amount, updated_at: now })
+              .eq("id", toAlloc[0].id);
+          } else {
+            await sb.from("budget_allocations").insert({ bankbook_id: toLegacy.id, allocated_amount: amount, used_amount: 0, frozen_amount: 0 });
+          }
+          console.log("[P8] 레거시 폴백 이관 처리 완료");
+        } else {
+          console.warn("[P8] 팀 bankbook 미매칭 — 인메모리만 업데이트");
+        }
       }
     } catch (e) {
-      console.error("[BO 이관] DB 저장 오류:", e.message);
+      console.error("[P8 이관] DB 저장 오류:", e.message);
     }
   }
 

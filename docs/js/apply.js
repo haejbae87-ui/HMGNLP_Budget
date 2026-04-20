@@ -465,14 +465,27 @@ function _renderApplyList() {
       border: "#FDE68A",
       icon: "⏳",
     },
+    결재대기: {
+      color: "#D97706",
+      bg: "#FFFBEB",
+      border: "#FDE68A",
+      icon: "⏳",
+    },
     승인대기: {
       color: "#6B7280",
       bg: "#F9FAFB",
       border: "#E5E7EB",
       icon: "🕐",
     },
+    저장완료: {
+      color: "#059669",
+      bg: "#ECFDF5",
+      border: "#6EE7B7",
+      icon: "📤",
+    },
     작성중: { color: "#0369A1", bg: "#EFF6FF", border: "#BFDBFE", icon: "📝" },
     취소: { color: "#9CA3AF", bg: "#F9FAFB", border: "#E5E7EB", icon: "🚫" },
+    회수됨: { color: "#6B7280", bg: "#F9FAFB", border: "#E5E7EB", icon: "↩️" },
   };
 
   const teamViewEnabled =
@@ -2236,9 +2249,10 @@ async function saveApplyDraft() {
   }
 }
 
-// ─── 신청 취소 ────────────────────────────────────────────────────
+// ─── 신청 회수/취소 ────────────────────────────────────────────────────────
 async function cancelApply(appId) {
   const sb = typeof getSB === "function" ? getSB() : null;
+  let curStatus = null;
   if (sb) {
     try {
       const { data } = await sb
@@ -2246,36 +2260,58 @@ async function cancelApply(appId) {
         .select("status")
         .eq("id", appId)
         .single();
-      if (data?.status === "approved") {
+      curStatus = data?.status;
+      if (curStatus === "approved") {
         alert("⚠️ 이미 승인된 신청은 상위 승인자가 취소해야 합니다.");
         return;
       }
-      if (data?.status === "draft") {
+      if (curStatus === "draft") {
         alert("이미 임시저장 상태입니다.");
         return;
       }
-    } catch (e) {
-      /* pass */
-    }
+      if (curStatus === "in_review") {
+        alert("⚠️ 결재가 이미 진행 중입니다.\n상위 결재자에게 반려를 요청하세요.");
+        return;
+      }
+    } catch (e) { /* pass */ }
   }
-  if (!confirm("이 교육신청을 취소하고 임시저장 상태로 되돌리시겠습니까?"))
+
+  // [A-1] saved → draft 복귀 (상신 전 취소)
+  if (curStatus === "saved") {
+    if (!confirm("저장완료 상태의 신청을 임시저장으로 되돌리시겠습니까?")) return;
+    if (sb) {
+      try {
+        const { error } = await sb.from("applications").update({ status: "draft" }).eq("id", appId);
+        if (error) throw error;
+        alert("임시저장 상태로 되돌렸습니다. 수정 후 다시 저장할 수 있습니다.");
+      } catch (err) {
+        alert("실패: " + _friendlyApplyError(err.message));
+        return;
+      }
+    }
+    _appsDbLoaded = false; _dbMyApps = [];
+    _renderApplyList();
+    return;
+  }
+
+  // [A-1] submitted → recalled → saved 복귀 (상신 후 회수)
+  if (!confirm("이 교육신청을 회수하시겠습니까?\n회수 후 저장완료 상태에서 수정하여 재상신 할 수 있습니다."))
     return;
   if (sb) {
     try {
       const { error } = await sb
         .from("applications")
-        .update({ status: "draft" })
+        .update({ status: "saved" })  // [A-1] recalled 대신 saved 복귀로 즉시 재상신 가능
         .eq("id", appId);
       if (error) throw error;
-      alert(
-        "교육신청이 임시저장 상태로 되돌려졌습니다.\n수정 후 다시 제출할 수 있습니다.",
-      );
+      alert("신청이 회수되었습니다.\n저장완료 상태로 보관됩니다. 수정 후 다시 상신할 수 있습니다.");
     } catch (err) {
-      alert("취소 실패: " + _friendlyApplyError(err.message));
+      alert("회수 실패: " + _friendlyApplyError(err.message));
       return;
     }
   }
   _appsDbLoaded = false;
+  _dbMyApps = [];
   _renderApplyList();
 }
 

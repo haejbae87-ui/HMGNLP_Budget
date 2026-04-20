@@ -702,6 +702,9 @@ function _renderBoPlanDetail(el, plan) {
       <!-- [P3] 결재 이력 -->
       <div id="bo-approval-history-panel" style="padding:0 28px 24px"></div>
 
+      <!-- [P3] 연결 신청서 드릴다운 -->
+      <div id="bo-plan-applications-panel" style="padding:0 28px 24px"></div>
+
       <!-- 액션 -->
       <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6;flex-wrap:wrap">
         <button onclick="_boPlanDetailView=null;renderBoPlanMgmt()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">← 목록으로</button>
@@ -736,8 +739,9 @@ function _renderBoPlanDetail(el, plan) {
   // 비동기 패널 렌더링
   setTimeout(() => {
     _renderBoAdminFieldsPanel(plan, "plans");
-    _renderBoAllocEditPanel(plan);           // [P2] 배정액 수정
-    _renderBoApprovalHistoryPanel(plan.id);  // [P3] 결재 이력
+    _renderBoAllocEditPanel(plan);            // [P2] 배정액 수정
+    _renderBoApprovalHistoryPanel(plan.id);   // [P3] 결재 이력
+    _renderBoPlanApplicationsPanel(plan.id); // [P3] 연결 신청서 드릴다운
   }, 100);
 }
 
@@ -909,6 +913,122 @@ async function _saveBoAdminFields(recordId, tableName) {
     alert("❌ 저장 실패: " + err.message);
   }
 }
+
+// ━━━ [P3] 연결 신청서 드릴다운 패널 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let _boPlanAppDetailId = null; // 신청서 상세 펼침 ID
+
+async function _renderBoPlanApplicationsPanel(planId) {
+  const panel = document.getElementById('bo-plan-applications-panel');
+  if (!panel) return;
+  if (!planId) { panel.innerHTML = ''; return; }
+
+  panel.innerHTML = `<div style="text-align:center;color:#9CA3AF;font-size:12px;padding:16px">🔄 연결 신청서 로딩 중...</div>`;
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  let apps = [];
+  if (sb) {
+    try {
+      const { data } = await sb
+        .from('applications')
+        .select('id,applicant_name,dept,edu_name,edu_type,amount,status,created_at,account_code,detail')
+        .eq('plan_id', planId)
+        .order('created_at', { ascending: false });
+      apps = data || [];
+    } catch(e) { apps = []; }
+  }
+
+  if (apps.length === 0) {
+    panel.innerHTML = `
+      <div style="border-radius:12px;border:1.5px dashed #E5E7EB;padding:24px;text-align:center;color:#9CA3AF">
+        <div style="font-size:28px;margin-bottom:8px">📭</div>
+        <div style="font-weight:700;font-size:13px">이 계획에 연결된 신청서가 없습니다</div>
+        <div style="font-size:11px;margin-top:4px">FO에서 이 계획을 선택한 신청서가 생성되면 여기에 표시됩니다</div>
+      </div>`;
+    return;
+  }
+
+  // 집계
+  const totalAmt   = apps.reduce((s, a) => s + Number(a.amount || 0), 0);
+  const approvedAmt = apps.filter(a => a.status === 'approved').reduce((s, a) => s + Number(a.amount || 0), 0);
+  const pendingCnt  = apps.filter(a => ['pending','pending_approval','saved','submitted'].includes(a.status)).length;
+  const approvedCnt = apps.filter(a => a.status === 'approved').length;
+  const rejectedCnt = apps.filter(a => a.status === 'rejected').length;
+
+  const stC = { approved:'#059669', rejected:'#DC2626', draft:'#9CA3AF', pending:'#D97706', pending_approval:'#D97706', saved:'#D97706', submitted:'#D97706', cancelled:'#9CA3AF', in_review:'#7C3AED' };
+  const stL = { approved:'승인', rejected:'반려', draft:'임시저장', pending:'대기', pending_approval:'대기', saved:'상신', submitted:'상신', cancelled:'취소', in_review:'1차검토' };
+
+  const rows = apps.map(a => {
+    const sid = String(a.id || '').replace(/'/g, '');
+    const c = stC[a.status] || '#6B7280';
+    const l = stL[a.status] || a.status;
+    const isOpen = _boPlanAppDetailId === a.id;
+    const detailRows = isOpen ? _buildAppDetailRows(a) : '';
+    return `
+    <div style="border:1.5px solid ${isOpen ? c+'60' : '#E5E7EB'};border-radius:10px;overflow:hidden;margin-bottom:8px;transition:all .2s">
+      <div onclick="_boPlanAppDetailId='${isOpen ? '' : sid}';_renderBoPlanApplicationsPanel('${planId}')"
+        style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;background:${isOpen ? c+'08' : 'white'};"
+        onmouseover="this.style.background='${c}10'" onmouseout="this.style.background='${isOpen ? c+'08' : 'white'}'">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;background:${c}20;color:${c}">${l}</span>
+            <span style="font-size:13px;font-weight:700;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.edu_name || '-'}</span>
+          </div>
+          <div style="font-size:11px;color:#6B7280">${a.applicant_name || '-'} · ${a.dept || '-'} · ${(a.created_at||'').slice(0,10)}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:14px;font-weight:900;color:#1D4ED8">${Number(a.amount||0).toLocaleString()}원</div>
+        </div>
+        <span style="color:#9CA3AF;font-size:16px;transition:transform .2s;transform:rotate(${isOpen?'90':'0'}deg)">▶</span>
+      </div>
+      ${isOpen ? `<div style="padding:16px;background:#FAFAFA;border-top:1px solid #F0F0F0">${detailRows}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div style="border-radius:14px;border:1.5px solid #E0E7FF;overflow:hidden">
+      <!-- 헤더 -->
+      <div style="padding:14px 20px;background:linear-gradient(135deg,#EEF2FF,#E0E7FF);display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:14px;font-weight:900;color:#3730A3">📑 연결 신청서 (${apps.length}건)</span>
+          ${pendingCnt > 0 ? `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:#FEF3C7;color:#D97706;font-weight:700">대기 ${pendingCnt}</span>` : ''}
+          ${approvedCnt > 0 ? `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:#D1FAE5;color:#059669;font-weight:700">승인 ${approvedCnt}</span>` : ''}
+          ${rejectedCnt > 0 ? `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:#FEE2E2;color:#DC2626;font-weight:700">반려 ${rejectedCnt}</span>` : ''}
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:#6B7280;font-weight:700">총 신청액 <strong style="color:#1D4ED8">${totalAmt.toLocaleString()}원</strong></div>
+          <div style="font-size:11px;color:#6B7280;font-weight:700">승인 집행액 <strong style="color:#059669">${approvedAmt.toLocaleString()}원</strong></div>
+        </div>
+      </div>
+      <!-- 목록 -->
+      <div style="padding:12px 16px;background:white">${rows}</div>
+    </div>`;
+}
+
+// 신청서 상세 행 렌더 (아코디언)
+function _buildAppDetailRows(app) {
+  const d = app.detail || {};
+  const fields = [
+    ['교육명', app.edu_name || d.edu_name || '-'],
+    ['교육유형', app.edu_type || d.eduType || '-'],
+    ['예산계정', app.account_code || '-'],
+    ['신청금액', Number(app.amount || 0).toLocaleString() + '원'],
+    ['신청일', (app.created_at || '').slice(0, 10) || '-'],
+  ];
+  if (d.startDate) fields.push(['교육기간', `${d.startDate} ~ ${d.endDate || '-'}`]);
+  if (d.institution) fields.push(['교육기관', d.institution]);
+  if (d.purpose) fields.push(['목적', d.purpose]);
+  if (app.status === 'rejected' && d.reject_reason) fields.push(['반려사유', d.reject_reason]);
+
+  const rows = fields.map(([label, val]) =>
+    `<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #F3F4F6;font-size:12px">
+      <span style="width:90px;flex-shrink:0;font-weight:700;color:#6B7280">${label}</span>
+      <span style="color:#111827">${val}</span>
+    </div>`
+  ).join('');
+
+  return `<div>${rows}</div>`;
+}
+window._renderBoPlanApplicationsPanel = _renderBoPlanApplicationsPanel;
 
 // ━━━ [P2] 배정액 직접 수정 패널 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function _renderBoAllocEditPanel(plan) {

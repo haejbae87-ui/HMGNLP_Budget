@@ -1065,3 +1065,247 @@ async function clonePlan(planId) {
 }
 window.clonePlan = clonePlan;
 
+// ─── [S-11] 배정액 축소 + 예산 환불 ──────────────────────────────────────────
+// PRD: allocation_reduce_refund.md
+// 승인(approved)된 계획의 allocated_amount를 하향 조정하고,
+// 줄어든 금액만큼 bankbooks.used_amount를 환불 처리한다.
+
+async function foOpenReduceAllocation(planId) {
+  const sb = typeof getSB === "function" ? getSB() : null;
+  if (!sb) { alert("DB 연결 실패"); return; }
+
+  // 1) 현재 계획 데이터 조회
+  let plan = null;
+  try {
+    const { data, error } = await sb.from("plans")
+      .select("id, edu_name, amount, allocated_amount, status, account_code, tenant_id, applicant_id")
+      .eq("id", planId).single();
+    if (error) throw error;
+    plan = data;
+  } catch(e) {
+    alert("계획 조회 실패: " + e.message);
+    return;
+  }
+
+  if (!plan || plan.status !== "approved") {
+    alert("승인된 계획만 배정액 축소가 가능합니다.");
+    return;
+  }
+
+  const curAlloc = Number(plan.allocated_amount || plan.amount || 0);
+  const planTitle = plan.edu_name || plan.id;
+
+  // 2) 모달 DOM 생성
+  const existModal = document.getElementById("fo-reduce-alloc-modal");
+  if (existModal) existModal.remove();
+
+  const modal = document.createElement("div");
+  modal.id = "fo-reduce-alloc-modal";
+  modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center";
+  modal.innerHTML = `
+    <div style="background:white;border-radius:20px;width:480px;max-width:95vw;padding:32px;box-shadow:0 24px 60px rgba(0,0,0,.3);animation:boSlideUp .25s ease">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+        <div>
+          <div style="font-size:11px;font-weight:800;color:#B45309;margin-bottom:4px">📉 배정액 축소</div>
+          <h2 style="font-size:17px;font-weight:900;color:#111827;margin:0;line-height:1.4">${planTitle}</h2>
+        </div>
+        <button onclick="document.getElementById('fo-reduce-alloc-modal').remove()"
+          style="background:none;border:none;font-size:20px;cursor:pointer;color:#9CA3AF;line-height:1">✕</button>
+      </div>
+
+      <!-- 현재 배정액 표시 -->
+      <div style="background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:12px;padding:14px 18px;margin-bottom:20px">
+        <div style="font-size:11px;font-weight:700;color:#B45309;margin-bottom:4px">현재 배정액</div>
+        <div style="font-size:24px;font-weight:900;color:#92400E">${curAlloc.toLocaleString()}<span style="font-size:13px;margin-left:2px">원</span></div>
+        <div style="font-size:10px;color:#9CA3AF;margin-top:4px">최초 신청액: ${Number(plan.amount||0).toLocaleString()}원</div>
+      </div>
+
+      <!-- 새 금액 입력 -->
+      <div style="margin-bottom:20px">
+        <label style="font-size:12px;font-weight:800;color:#374151;display:block;margin-bottom:8px">
+          축소 후 새 배정액 <span style="color:#EF4444">*</span>
+          <span style="font-size:10px;font-weight:400;color:#9CA3AF"> (현재 배정액보다 낮아야 함)</span>
+        </label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input id="fo-reduce-new-amount" type="text"
+            placeholder="0"
+            oninput="foReduceAllocPreview(${curAlloc})"
+            style="flex:1;padding:12px 16px;border:2px solid #E5E7EB;border-radius:10px;font-size:18px;font-weight:900;color:#111827;text-align:right;outline:none"
+            onfocus="this.style.borderColor='#F59E0B'" onblur="this.style.borderColor='#E5E7EB'">
+          <span style="font-size:14px;font-weight:700;color:#6B7280">원</span>
+        </div>
+        <!-- 환불 예정액 미리보기 -->
+        <div id="fo-reduce-preview" style="margin-top:8px;font-size:12px;color:#6B7280;min-height:20px"></div>
+      </div>
+
+      <!-- 사유 입력 -->
+      <div style="margin-bottom:24px">
+        <label style="font-size:12px;font-weight:800;color:#374151;display:block;margin-bottom:6px">축소 사유</label>
+        <textarea id="fo-reduce-reason" rows="2" placeholder="예) 교육 기간 단축으로 인한 비용 절감"
+          style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;resize:none;outline:none"
+          onfocus="this.style.borderColor='#F59E0B'" onblur="this.style.borderColor='#E5E7EB'"></textarea>
+      </div>
+
+      <!-- 경고 안내 -->
+      <div style="background:#FEF3C7;border-radius:8px;padding:10px 14px;margin-bottom:20px;font-size:11px;color:#78350F;line-height:1.6">
+        ⚠️ <strong>주의:</strong> 배정액 축소 후에는 원래 금액으로 되돌릴 수 없습니다.<br>
+        증액이 필요하면 새로운 교육계획을 상신하거나 BO 담당자에게 문의하세요.
+      </div>
+
+      <!-- 버튼 -->
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="document.getElementById('fo-reduce-alloc-modal').remove()"
+          style="padding:10px 20px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:13px;font-weight:700;cursor:pointer;color:#6B7280">
+          취소
+        </button>
+        <button id="fo-reduce-confirm-btn" onclick="foConfirmReduceAllocation('${planId}', ${curAlloc})"
+          style="padding:10px 28px;border-radius:10px;border:none;background:#B45309;color:white;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(180,83,9,.3)">
+          📉 축소 확정
+        </button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(modal);
+  modal.addEventListener("click", e => { if (e.target === modal) modal.remove(); });
+  document.getElementById("fo-reduce-new-amount")?.focus();
+}
+window.foOpenReduceAllocation = foOpenReduceAllocation;
+
+// 환불 미리보기 업데이트
+function foReduceAllocPreview(curAlloc) {
+  const input = document.getElementById("fo-reduce-new-amount");
+  const preview = document.getElementById("fo-reduce-preview");
+  if (!input || !preview) return;
+  const raw = input.value.replace(/[^0-9]/g, "");
+  const newAmt = Number(raw);
+  if (!raw) { preview.innerHTML = ""; return; }
+  const refund = curAlloc - newAmt;
+  if (newAmt >= curAlloc) {
+    preview.innerHTML = `<span style="color:#EF4444">⚠️ 새 금액은 현재 배정액(${curAlloc.toLocaleString()}원)보다 작아야 합니다</span>`;
+  } else if (newAmt < 0) {
+    preview.innerHTML = `<span style="color:#EF4444">⚠️ 0원 이상이어야 합니다</span>`;
+  } else {
+    preview.innerHTML = `<span style="color:#059669;font-weight:700">💰 환불 예정액: ${refund.toLocaleString()}원 (예산 통장 복원)</span>`;
+  }
+}
+window.foReduceAllocPreview = foReduceAllocPreview;
+
+// 배정액 축소 확정 처리
+async function foConfirmReduceAllocation(planId, curAlloc) {
+  const sb = typeof getSB === "function" ? getSB() : null;
+  if (!sb) { alert("DB 연결 실패"); return; }
+
+  const input  = document.getElementById("fo-reduce-new-amount");
+  const reason = document.getElementById("fo-reduce-reason")?.value?.trim() || "";
+  const newAmt = Number((input?.value || "").replace(/[^0-9]/g, ""));
+
+  // 유효성 검증
+  if (isNaN(newAmt) || newAmt < 0) {
+    alert("유효한 금액을 입력하세요.");
+    input?.focus();
+    return;
+  }
+  if (newAmt >= curAlloc) {
+    alert(`새 배정액(${newAmt.toLocaleString()}원)은 현재 배정액(${curAlloc.toLocaleString()}원)보다 작아야 합니다.`);
+    input?.focus();
+    return;
+  }
+
+  const refundAmt = curAlloc - newAmt;
+  if (!confirm(`배정액을 ${curAlloc.toLocaleString()}원 → ${newAmt.toLocaleString()}원으로 축소합니다.\n\n💰 환불 예정액: ${refundAmt.toLocaleString()}원\n\n이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?`)) return;
+
+  // 버튼 비활성화 (중복 클릭 방지)
+  const btn = document.getElementById("fo-reduce-confirm-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "처리 중..."; }
+
+  try {
+    const now = new Date().toISOString();
+
+    // 1) plans.allocated_amount 업데이트
+    const { data: planData, error: planErr } = await sb.from("plans")
+      .select("account_code, tenant_id, applicant_id")
+      .eq("id", planId).single();
+    if (planErr) throw planErr;
+
+    const { error: updErr } = await sb.from("plans")
+      .update({ allocated_amount: newAmt, updated_at: now })
+      .eq("id", planId);
+    if (updErr) throw updErr;
+
+    // 2) bankbooks.used_amount 환불 (비치명적 — 실패해도 plans 업데이트는 유지)
+    let budgetRefundOk = false;
+    try {
+      budgetRefundOk = await _s9RefundBudget(sb, {
+        planId,
+        tenantId: planData.tenant_id,
+        accountCode: planData.account_code,
+        refundAmt,
+        reason: reason || "FO 배정액 축소",
+        adjustedBy: currentPersona?.id || planData.applicant_id || "system",
+      });
+    } catch(bkErr) {
+      console.warn("[S-11] bankbooks 환불 실패 (비치명적):", bkErr.message);
+    }
+
+    // 3) budget_adjust_logs 이력 저장
+    try {
+      await sb.from("budget_adjust_logs").insert({
+        tenant_id: planData.tenant_id,
+        plan_id: planId,
+        before_amount: curAlloc,
+        after_amount: newAmt,
+        adjusted_by: currentPersona?.id || "system",
+        adjusted_at: now,
+        reason: reason || "FO 배정액 축소",
+      });
+    } catch(logErr) {
+      console.warn("[S-11] 이력 저장 실패 (비치명적):", logErr.message);
+    }
+
+    document.getElementById("fo-reduce-alloc-modal")?.remove();
+
+    const msg = budgetRefundOk
+      ? `✅ 배정액 축소 완료!\n\n${newAmt.toLocaleString()}원으로 변경되었습니다.\n💰 ${refundAmt.toLocaleString()}원이 예산 통장에 환불되었습니다.`
+      : `✅ 배정액 축소 완료!\n\n${newAmt.toLocaleString()}원으로 변경되었습니다.\n⚠️ 예산 통장 환불은 관리자에게 문의하세요.`;
+    alert(msg);
+
+    // 목록 새로고침
+    _viewingPlanDetail = null;
+    if (typeof renderPlans === "function") renderPlans();
+
+  } catch(err) {
+    alert("처리 실패: " + err.message);
+    if (btn) { btn.disabled = false; btn.textContent = "📉 축소 확정"; }
+  }
+}
+window.foConfirmReduceAllocation = foConfirmReduceAllocation;
+
+// ── [S-9/S-11] 예산 환불 공통 함수 ─────────────────────────────────────────
+// bankbooks.used_amount -= refundAmt (frozen 미사용 — 이미 approved 상태)
+async function _s9RefundBudget(sb, { planId, tenantId, accountCode, refundAmt, reason, adjustedBy }) {
+  if (!accountCode || !tenantId || refundAmt <= 0) return false;
+
+  const { data: bk, error: bkErr } = await sb.from("bankbooks")
+    .select("id, used_amount, current_balance")
+    .eq("tenant_id", tenantId)
+    .eq("account_code", accountCode)
+    .eq("status", "active")
+    .order("current_balance", { ascending: false })
+    .limit(1).single();
+
+  if (bkErr || !bk) {
+    console.warn("[_s9RefundBudget] bankbooks 없음 — accountCode:", accountCode);
+    return false;
+  }
+
+  const newUsed = Math.max(0, Number(bk.used_amount || 0) - refundAmt);
+  const { error: updateErr } = await sb.from("bankbooks").update({
+    used_amount: newUsed,
+    updated_at: new Date().toISOString(),
+  }).eq("id", bk.id);
+
+  if (updateErr) throw updateErr;
+  console.log(`[_s9RefundBudget] 환불 완료 — bankbook: ${bk.id}, refundAmt: ${refundAmt}, used: ${bk.used_amount} → ${newUsed}`);
+  return true;
+}
+window._s9RefundBudget = _s9RefundBudget;

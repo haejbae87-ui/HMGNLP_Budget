@@ -1,11 +1,24 @@
 # 📋 FO 상신·결재 프로세스 — 상신 문서 기반 통합 설계 PRD
 
-> **v1.3** · 2026-04-19 최종 갱신  
+> **v1.4** · 2026-04-20 최종 갱신  
 > **도메인**: Front Office 상신/결재 (Submission & Approval)  
 > **관련 파일**: `plans.js`, `apply.js`, `result.js`, `gnb.js`, `approval.js` (FO), `bo_approval.js` (BO)  
 > **관련 PRD**: [approval_line_design.md](approval_line_design.md), [multi_plan_application.md](multi_plan_application.md), [edu_support_operations_role_design.md](edu_support_operations_role_design.md), [budget_lifecycle.md](budget_lifecycle.md)  
 > **관련 시나리오**: [SC-001](../SCENARIOS/SC-001_plan_budget_reallocation.md)  
 > **상태**: 🟡 구현 중 (Phase 17 S-1~S-6, S-9 구현 완료)
+
+### v1.4 주요 확정 사항 (2026-04-20)
+
+> [!IMPORTANT]
+> **Q1 (3단계 상태)**: `draft`(임시저장, 필수항목 무시) → `saved`(저장완료, 필수항목 충족) → `submitted`(상신). 양식 변경으로 필수항목 누락 발생 시에도 `saved` 상태 유지.
+>
+> **Q2 (회수 기준)**: `current_node_order === 0`일 때만 회수 가능. 결재라인의 첫 노드(직급 무관)가 액션하면 회수 불가. 팀장뿐 아니라 실장·센터장 등 모든 상위직급자에 동일 적용.
+>
+> **Q3 (N:M 계획-신청)**: 1개 신청서에 N개 계획 포함 가능. **동일 예산계정 + 동일 교육유형만 묶기 허용**. 부분 승인 불가(신청서 단위 승인/반려만). 계획 담당자 ≠ 신청 작성자 허용(팀 대표 작성 개념).
+>
+> **Q7 (이어쓰기)**: 회수/반려 → saved 복귀 후 이어쓰기 시 **계획 목록 추가/삭제 모두 가능**.
+>
+> **Q8 (상신 팝업)**: 결재라인 미리보기 + 신청 금액 정보 표시 예정. **개발은 보류** — 계획·신청·결과 저장 흐름 테스트 완료 후 상세 정의.
 
 ---
 
@@ -598,10 +611,10 @@ plans.js와 동일 패턴 적용.
 
 | # | 시나리오 | 위험도 | 처리 |
 |---|---------|:---:|------|
-| EC-S06 | **팀장이 이미 1단계 승인한 후 회수 시도** | 🔴 | ✅ **확정 (v1.2 Q-SUB3)**: 회수 불가 — 팀장 결재 후에는 **협조처 또는 상위 결재자가 반려해야 함**. UI에서 "회수 불가 — 상위 결재자에게 반려 요청하세요" 안내 |
-| EC-S07 | **회수 후 건 내용 수정 → 재상신** | 🟡 | ✅ **확정 (v1.2 Q-SUB3)**: 회수 시 건 status → `saved` + **예산 Hold 해제**. 수정 후 새 상신 문서 생성(기존 상신 문서는 `recalled` 이력 보존) |
+| EC-S06 | **첫 결재 노드가 이미 액션한 후 회수 시도** | 🔴 | ✅ **확정 (v1.4)**: 회수 불가 — `current_node_order > 0` 이면 차단. 직급(팀장/실장/센터장 등)에 관계없이 **누구든 첫 노드가 액션하면 회수 불가**. UI에서 "회수 불가 — 결재 진행 중입니다" 안내 |
+| EC-S07 | **회수 후 건 내용 수정 → 재상신** | 🟡 | ✅ **확정 (v1.4)**: 회수 시 건 status → `saved` + **예산 Hold 해제** + **계획 목록 편집 가능**(추가/삭제). 수정 후 새 상신 문서 생성(기존 상신 문서는 `recalled` 이력 보존) |
 | EC-S08 | **다건 상신 후 일부만 회수하고 싶음** | 🔴 | 일부 회수 불가 — 상신 문서 단위로 전체 회수만 가능. 부분 수정 필요 시 전체 회수 → 수정 → 재상신 |
-| EC-S09 | **회수와 동시에 팀장이 승인 처리** | 🔴 | 낙관적 잠금 — 회수 시 `current_node_order = 0` 체크. 이미 진행됐으면 회수 실패 알림 |
+| EC-S09 | **회수와 동시에 결재자가 승인 처리 (Race Condition)** | 🔴 | Row-level 보호 — 회수 API에서 `status = 'submitted' AND current_node_order = 0` 조건으로 UPDATE. 이미 진행됐으면 0행 업데이트 → 회수 실패 알림 |
 
 ### 9.3 결재 처리
 
@@ -759,3 +772,4 @@ plans.js와 동일 패턴 적용.
 | 2026-04-18 | **v1.1** — Q-SUB1 확정(동일 계정만 다건 상신), Q-SUB5 확정(D안: plan_bundles→submission_documents 통합, submission_bundles 분리 유지). DB에 submission_type, 수요예측 확장 컬럼(fiscal_year, parent_submission_id, 3단 금액) 추가. account_codes배열→account_code 단일값 변경 | AI |
 | **2026-04-19** | **v1.2** — **Q-SUB2 확정**: 혼합 상신 불허(통장+유형 동일성 강제). **Q-SUB3 확정**: 팀장 결재 전까지만 회수, 이후 상위 결재자 반려 필요. **Q-SUB4 확정**: 반려→saved 유지(draft 아님), 재상신 시 새 문서. **Q-SUB6 확정**: 상신 시 Hold(현행 S-9 유지), 회수/반려 시 해제. EC-S02 변경, EC-S21~S24 신규 4건 추가. Hold/Release 정책 요약표 추가 | AI |
 | **2026-04-19** | **v1.3** — **승인 후 배정액 축소 정책 추가 (SC-001)**: approved 상태에서 배정액 하향 조정 허용(내용 불변, 승인 불필요). 부분 축소 허용. `_s9RefundBudget()` 환불 로직 설계. Hold/Release 표에 Refund 행 추가. S-11 Phase 신규. 검증계획 §13.5 추가. 시나리오 관리 체계 도입 (docs/SCENARIOS/) | AI |
+| **2026-04-20** | **v1.4** — 사용자 Q1~Q8 확정 반영. **회수 기준 변경**: 팀장 한정 → `current_node_order === 0` (직급 무관). **N:M 계획-신청**: 동일계정+동일교육유형 제약 확정. 부분승인 불가 확정. **이어쓰기**: 계획 목록 추가/삭제 허용. **상신 팝업**: 결재라인 미리보기+금액정보 예정, 개발 보류(저장 흐름 테스트 후 정의). **양식-정책 통합**: 현행 분리 유지. EC-S06/S07/S09 갱신 | AI |

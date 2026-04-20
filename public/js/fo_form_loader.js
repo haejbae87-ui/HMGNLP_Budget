@@ -50,6 +50,8 @@ async function _foLoadCalcGrounds() {
       hasQty2: r.has_qty2 === true,              // 박/일/회(qty2) 컬럼 활성 여부
       qty2Type: r.qty2_type || "박",             // qty2 단위: '박' | '일' | '회'
       isOverseas: r.is_overseas === true,        // 해외 전용 항목 여부
+      // Phase C: 조건부 산출근거 태깅
+      applyConditions: r.apply_conditions || {},
     }));
     // CALC_GROUNDS_MASTER 동기화 (plans.js _renderCalcGroundsSection 재사용)
     if (typeof CALC_GROUNDS_MASTER !== "undefined") {
@@ -992,3 +994,51 @@ function _csRemoveSession(prefix, stateKey, courseIdx, sessionId) {
   _reRenderForm(prefix);
 }
 window._csRemoveSession = _csRemoveSession;
+
+// ─── Phase C: FO 조건부 산출근거 필터링 ────────────────────────────────────
+// plans.js / apply.js 에서 호출: foGetApplicableCalcGrounds(calcGroundsList, foContext)
+// foContext = { isOverseas: bool, hasAccommodation: bool, venueType: 'internal'|'external'|'online' }
+// 관대한 매칭(EC-05): 조건 키가 foContext에 없으면 항상 표시
+window.foGetApplicableCalcGrounds = function(calcGroundsList, foContext) {
+  if (!Array.isArray(calcGroundsList)) return [];
+  if (typeof window.getApplicableCalcGrounds === 'function') {
+    // bo_calc_grounds.js의 표준 필터 함수 재사용
+    const sel = {
+      is_overseas:      foContext?.isOverseas ?? undefined,
+      has_accommodation: foContext?.hasAccommodation ?? undefined,
+      venue_type:       foContext?.venueType ?? undefined,
+    };
+    // undefined 키 제거 (관대한 매칭 보장)
+    Object.keys(sel).forEach(k => sel[k] === undefined && delete sel[k]);
+    return window.getApplicableCalcGrounds(calcGroundsList, sel);
+  }
+  // 폴백: apply_conditions 없으면 모두 표시
+  return calcGroundsList.filter(function(item) {
+    const conds = item.applyConditions || item.apply_conditions || {};
+    if (!Object.keys(conds).length) return true;
+    if (foContext?.isOverseas !== undefined && 'is_overseas' in conds) {
+      if (conds.is_overseas !== foContext.isOverseas) return false;
+    }
+    if (foContext?.hasAccommodation !== undefined && 'has_accommodation' in conds) {
+      if (conds.has_accommodation !== foContext.hasAccommodation) return false;
+    }
+    if (foContext?.venueType !== undefined && 'venue_type' in conds) {
+      const vt = conds.venue_type;
+      const match = Array.isArray(vt) ? vt.includes(foContext.venueType) : vt === foContext.venueType;
+      if (!match) return false;
+    }
+    return true;
+  });
+};
+
+// FO에서 사용자 선택 변경 시 calc_grounds 섹션을 재렌더링하는 트리거 함수
+window.refreshCalcGroundsByContext = function(foContext, prefix) {
+  // foContext 저장
+  if (prefix === 'planState' && typeof planState !== 'undefined') {
+    planState._foContext = foContext;
+  } else if (prefix === 'applyState' && typeof applyState !== 'undefined') {
+    applyState._foContext = foContext;
+  }
+  // 페이지 재렌더링
+  _reRenderForm(prefix);
+};

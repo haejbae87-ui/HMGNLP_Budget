@@ -1,6 +1,6 @@
-﻿# 📋 HMGNLP_Budget — 작업 현황 (active_tasks.md)
+# 📋 HMGNLP_Budget — 작업 현황 (active_tasks.md)
 
-> 최종 갱신: 2026-04-19 (P2 확인 완료, P10 실사용액 DB 트리거, P11 plan_type 자동분류 트리거 완료)
+> 최종 갱신: 2026-04-21 (교육양식 간소화 Phase A+C 구현 완료 — DB 정규화 컬럼, apply_conditions 태깅, FO 조건부 필터링)
 
 ---
 
@@ -27,6 +27,8 @@
 - [x] **P10 실사용액 자동 집계** — `trg_sync_plan_actual_amount` DB 트리거: `applications.status='approved'` 시 `plans.actual_amount` 자동 합산
 - [x] **P11 plan_type 자동분류** — `trg_auto_classify_plan_type` DB 트리거: 수요예측 기간 내 INSERT 시 `forecast`, 외 시 `ongoing` 자동 설정 (Q-10)
 - [x] **P12 FO 묶음 상신 UI** — `fo_plans_list.js`: HMC/KIA 테넌트 전용 `bundled_forecast_enabled` 체크, `forecast` + `saved` 계획 선택형 묶음 상신(팀장 결재) UI 구현
+- [x] **Form Simplification Phase A** — DB 정규화: `plans` 테이블 `venue_type`, `planned_rounds`, `planned_days`, `locations`, `extra_fields` 컬럼 추가; `applications` 테이블 `venue_type`, `extra_fields` 추가; 기존 데이터 backfill (detail JSON → 정규화 컬럼). `fo_plans_actions.js` 세 저장 함수에 dual-write 이중 기록 추가.
+- [x] **Form Simplification Phase C** — `apply_conditions` JSONB 컬럼 추가 (calc_grounds); 기존 항목 자동 태깅(항공료→해외, 숙박비→숙박); `bo_calc_grounds.js` 상세 편집 UI에 적용조건 섹션(🏷️) 추가; `fo_form_loader.js`에 `foGetApplicableCalcGrounds`, `getApplicableCalcGrounds`, `getApplicableCalcGroundsForType` 공용 필터 함수 추가.
 
 ---
 

@@ -963,73 +963,105 @@ async function foBundleConfirmSubmit() {
   }
 }
 
-// ─── P2: 교육계획 복제 (Deep Copy) ─────────────────────────────────────────
-// 기존 교육계획 데이터를 새 draft로 복제하여 유사 내용 재입력 부담을 줄임
+// ─── P2: 교육계획 복제 (폼 선로드 방식) ─────────────────────────────────────
+// DB에 즉시 저장하지 않고, 원본 데이터를 읽어 폼 마법사에 미리 채운다.
+// 사용자가 내용 수정 후 '저장'을 눌러야 비로소 새 draft가 생성된다.
 async function clonePlan(planId) {
   const sb = typeof getSB === 'function' ? getSB() : null;
-  if (!sb) { alert('DB 연결 필요'); return; }
-  if (!confirm('이 교육계획을 복제하시겠습니까?\n제목에 "[복제]"가 추가되고 임시저장 상태로 새로 생성됩니다.')) return;
 
-  try {
-    // 원본 계획 조회
-    const { data: original, error: fetchErr } = await sb
-      .from('plans')
-      .select('*')
-      .eq('id', planId)
-      .maybeSingle();
-    if (fetchErr || !original) throw new Error(fetchErr?.message || '원본 계획을 찾을 수 없습니다.');
+  // 캐시에서 먼저 탐색
+  let original = (_plansDbCache || []).find(p => p.id === planId);
 
-    const now = new Date().toISOString();
-    const newId = 'PLN_CLONE_' + Date.now();
+  // 캐시 미적중 시 DB 조회
+  if (!original && sb) {
+    try {
+      const { data, error } = await sb
+        .from('plans')
+        .select('*')
+        .eq('id', planId)
+        .maybeSingle();
+      if (error || !data) {
+        alert('❌ 원본 계획을 찾을 수 없습니다.');
+        return;
+      }
+      original = data;
+    } catch (err) {
+      alert('❌ 복제 실패: ' + err.message);
+      return;
+    }
+  }
 
-    // 복제 payload: 상태 초기화, 승인 관련 필드 제거, 제목에 [복제] 추가
-    const clonePayload = {
-      id: newId,
-      tenant_id: original.tenant_id,
-      user_id: original.user_id,
-      applicant_name: original.applicant_name,
-      dept: original.dept,
-      account_code: original.account_code,
-      purpose: original.purpose,
-      edu_type: original.edu_type,
-      edu_name: '[복제] ' + (original.edu_name || ''),
-      amount: original.amount,
-      plan_type: original.plan_type || 'ongoing',
-      fiscal_year: original.fiscal_year || new Date().getFullYear(),
-      // detail(동적 필드 포함) Deep Copy — BO 코멘트(_bo)는 제거
-      detail: (() => {
-        const d = JSON.parse(JSON.stringify(original.detail || {}));
-        delete d._bo;  // BO 전용 코멘트는 복제 시 초기화
-        return d;
-      })(),
-      form_template_id: original.form_template_id,
-      // 상태/승인 관련 초기화
-      status: 'draft',
-      allocated_amount: 0,
-      actual_amount: 0,
-      frozen_amount: 0,
-      approved_at: null,
-      approved_by: null,
-      reject_reason: null,
-      reviewed_at: null,
-      reviewed_by: null,
-      created_at: now,
-      updated_at: now,
-    };
+  if (!original) { alert('❌ 원본 계획을 찾을 수 없습니다.'); return; }
 
-    const { error: insertErr } = await sb.from('plans').insert(clonePayload);
-    if (insertErr) throw insertErr;
+  // ── planState 초기화 후 원본 데이터 매핑 ──────────────────────────────────
+  const d = original.detail || {};
 
-    // 캐시 초기화 후 목록 갱신
-    _plansDbLoaded = false;
-    _dbMyPlans = [];
-    _plansDbCache = [];
+  // resumePlanDraft()와 동일한 방식으로 planState 복원
+  planState = resetPlanState();
+  planState.editId = null;                              // 새 계획 → ID 없음
+  planState.title = '[복제] ' + (original.edu_name || ''); // 제목에 [복제] 접두어
+  planState.eduType = original.edu_type || d.eduType || '';
+  planState.eduSubType = d.eduSubType || '';
+  planState.subType = d.eduSubType || '';
+  planState.amount = original.amount || '';
+  planState.content = d.content || '';
+  planState.startDate = d.startDate || '';
+  planState.endDate = d.endDate || '';
+  planState.budgetId = d.budgetId || '';
+  planState.calcGrounds = d.calcGrounds ? JSON.parse(JSON.stringify(d.calcGrounds)) : [];
+  planState.locations = Array.isArray(d.locations) ? [...d.locations] : [];
+  planState.policyId = original.policy_id || null;
+  planState.region = d.region || 'domestic';
+  planState.accountCode = original.account_code || '';
+  planState.fiscal_year = original.fiscal_year || new Date().getFullYear();
+  planState.plan_type = original.plan_type || 'ongoing';
+  planState.form_template_id = original.form_template_id || null;
 
-    alert(`✅ 복제 완료!\n"[복제] ${original.edu_name || ''}" 이 임시저장 상태로 생성되었습니다.`);
-    renderPlans();
-  } catch (err) {
-    alert('❌ 복제 실패: ' + err.message);
-    console.error('[clonePlan]', err);
+  // BO 코멘트(_bo)는 복제 대상에서 제외 — 운영자 코멘트는 새 계획에 인계 안 함
+  planState._clonedFromId = planId; // 복제 출처 추적용 (저장 시 detail에 기록됨)
+
+  // purpose 복원: resumePlanDraft()와 동일 로직
+  const purposeId = d.purpose;
+  if (purposeId) {
+    const policyPurposes = typeof getPersonaPurposes === 'function'
+      ? getPersonaPurposes(currentPersona) : [];
+    const PURPOSES_ARR = typeof PURPOSES !== 'undefined' ? PURPOSES : [];
+    const matched = policyPurposes.find(p => p.id === purposeId)
+      || PURPOSES_ARR.find(p => p.id === purposeId);
+    if (matched) {
+      planState.purpose = matched;
+    } else {
+      const groups = typeof EDU_PURPOSE_GROUPS !== 'undefined' ? EDU_PURPOSE_GROUPS : [];
+      for (const g of groups) {
+        const found = (g.items || g.purposes || []).find(p => p.id === purposeId);
+        if (found) { planState.purpose = found; break; }
+      }
+      if (!planState.purpose) planState.purpose = { id: purposeId, label: purposeId };
+    }
+  }
+
+  // step 4(상세 입력)로 바로 진입 — 제목/목적은 이미 채워져 있음
+  planState.step = 4;
+  planState.formTemplateLoading = true;
+  _viewingPlanDetail = null;
+
+  // 폼 템플릿 비동기 로드 (resumePlanDraft 동일 패턴)
+  renderPlans();
+  if (typeof _loadFormTemplateForPlan === 'function') {
+    _loadFormTemplateForPlan(planState).then(() => {
+      planState.formTemplateLoading = false;
+      renderPlans();
+    }).catch(() => {
+      planState.formTemplateLoading = false;
+      renderPlans();
+    });
+  } else {
+    // 폼 템플릿 로더 없을 시 즉시 step 4 표시
+    setTimeout(() => {
+      planState.formTemplateLoading = false;
+      renderPlans();
+    }, 100);
   }
 }
 window.clonePlan = clonePlan;
+

@@ -361,7 +361,7 @@ async function _fbLoadDbData() {
   }
 }
 
-async function renderFormBuilderMenu() {
+async function _renderFormBuilderMenu_legacy() {
   const role = boCurrentPersona.role;
   const tenants = typeof TENANTS !== "undefined" ? TENANTS : [];
   const isPlatform = role === "platform_admin";

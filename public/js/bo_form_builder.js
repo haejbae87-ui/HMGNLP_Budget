@@ -1,4 +1,4 @@
-﻿// ─── 교육신청양식마법사 (Form Builder Enhanced) ─────────────────────────────────
+// ─── 교육신청양식마법사 (Form Builder Enhanced) ─────────────────────────────────
 // 3탭 구조: ① 양식 라이브러리 ② 양식 빌더 ③ 서비스 통합 매핑
 // 기획안 기반 고도화: 양식 분류체계, 입력 주체 제어, 조건부 로직, 서비스 매핑
 
@@ -909,7 +909,6 @@ let _fbBuilderMode = "create"; // 'create' | 'edit'
 // ─── 역할별 필터 상태 ─────────────────────────────────────────────────────────
 let _fbTenantId = null;
 let _fbGroupId = null;
-let _fbAccountCode = null;
 let _fbServiceTypeFilter = ""; // '' = 전체
 let _fbPurposeFilter = ""; // '' = 전체
 let _fbEduTypeFilter = ""; // '' = 전체
@@ -958,13 +957,6 @@ async function renderFormBuilderMenu() {
   if (!_fbGroupId) {
     _fbGroupId = _fbTplList[0]?.id || null;
   }
-  // 계정 초기화 (가상교육조직 하위 예산계정)
-  if (!_fbAccountCode && _fbGroupId) {
-    const accs = _fbAccountList.filter(
-      (a) => a.virtual_org_template_id === _fbGroupId,
-    );
-    _fbAccountCode = accs[0]?.code || null;
-  }
 
   document.getElementById("bo-content").innerHTML = _fbRenderPage();
 }
@@ -979,16 +971,11 @@ function _fbRenderPage() {
 
   // 제도그룹 목록
   const groups = _fbTplList;
-  // 선택된 가상교육조직의 예산 계정
+  // 선택된 가상교육조직
   const selGroup = groups.find((g) => g.id === _fbGroupId);
-  const accounts = _fbGroupId
-    ? _fbAccountList
-        .filter((a) => a.virtual_org_template_id === _fbGroupId)
-        .map((a) => ({ code: a.code, name: a.name || a.code }))
-    : [];
 
   // ── 필터바 ── 교육지원 운영 규칙관리와 동일 스타일
-  // 행 1: 데이터 범위 필터 (tenant/group/account)
+  // 행 1: 데이터 범위 필터 (tenant/group)
   const filterBar =
     isPlatform || isTenant
       ? `
@@ -999,7 +986,7 @@ function _fbRenderPage() {
         ? `
     <div style="display:flex;align-items:center;gap:6px">
       <label style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap">회사</label>
-      <select onchange="_fbTenantId=this.value;_fbGroupId=null;_fbAccountCode=null;_fbServiceTypeFilter='';_fbPurposeFilter='';_fbEduTypeFilter='';_fbEduSubTypeFilter='';renderFormBuilderMenu()"
+      <select onchange="_fbTenantId=this.value;_fbGroupId=null;_fbServiceTypeFilter='';_fbPurposeFilter='';_fbEduTypeFilter='';_fbEduSubTypeFilter='';renderFormBuilderMenu()"
         style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer">
         ${tenants.map((t) => `<option value="${t.id}" ${t.id === _fbTenantId ? "selected" : ""}>${t.name}</option>`).join("")}
       </select>
@@ -1012,18 +999,10 @@ function _fbRenderPage() {
     }
     <div style="display:flex;align-items:center;gap:6px">
       <label style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap">제도그룹</label>
-      <select onchange="_fbGroupId=this.value;_fbAccountCode=null;_fbServiceTypeFilter='';_fbPurposeFilter='';_fbEduTypeFilter='';_fbEduSubTypeFilter='';renderFormBuilderMenu()"
+      <select onchange="_fbGroupId=this.value;_fbServiceTypeFilter='';_fbPurposeFilter='';_fbEduTypeFilter='';_fbEduSubTypeFilter='';renderFormBuilderMenu()"
         style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:160px">
         <option value="">전체 조직</option>
         ${groups.map((g) => `<option value="${g.id}" ${g.id === _fbGroupId ? "selected" : ""}>${g.name}</option>`).join("")}
-      </select>
-    </div>
-    <div style="display:flex;align-items:center;gap:6px">
-      <label style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap">예산계정</label>
-      <select onchange="_fbAccountCode=this.value;_fbServiceTypeFilter='';_fbPurposeFilter='';_fbEduTypeFilter='';_fbEduSubTypeFilter='';renderFormBuilderMenu()"
-        style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;min-width:160px">
-        <option value="">전체 계정</option>
-        ${accounts.map((a) => `<option value="${a.code}" ${a.code === _fbAccountCode ? "selected" : ""}>${a.name}</option>`).join("")}
       </select>
     </div>
   </div>`
@@ -1174,10 +1153,6 @@ function _fbRenderLibrary() {
   // 가상교육조직 필터 (virtual_org_template_id 없는 양식은 하위호환으로 표시)
   if (_fbGroupId) {
     allForms = allForms.filter((f) => !f.domainId || f.domainId === _fbGroupId);
-  }
-  // 예산계정 필터 (엄격 모드: accountCode 없는 양식은 계정 선택 시 제외)
-  if (_fbAccountCode) {
-    allForms = allForms.filter((f) => f.accountCode === _fbAccountCode);
   }
 
   // 서비스 유형 (목적 필드 기반으로 targetUser 매칭)
@@ -1508,6 +1483,12 @@ function _fbEditorPage(form) {
   const categories = [...new Set(allFields.map((f) => f.category))];
 
   const titleText = form ? `'${form.name}' 편집` : "새 양식 만들기";
+
+  // 소속 정보 명시화 (회사 > 제도그룹)
+  const tenants = typeof TENANTS !== "undefined" ? TENANTS : [];
+  const tenantName = tenants.find((t) => t.id === _fbTenantId)?.name || _fbTenantId || "현대자동차";
+  const groupName = _fbGroupId ? _fbTplList.find((x) => x.id === _fbGroupId)?.name || _fbGroupId : "전사 공용 (모든 제도그룹)";
+
   return `
 <div class="bo-fade">
 <!-- 상단 헤더 -->
@@ -1522,31 +1503,15 @@ function _fbEditorPage(form) {
     <button onclick="fbSaveAndDeploy()" style="padding:8px 22px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#047857);color:white;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">🚀 배포하기</button>
   </div>
 </div>
-<!-- 범위 배지 -->
-${
-  _fbGroupId || _fbAccountCode
-    ? `
-<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;background:#F5F3FF;border:1.5px solid #DDD6FE;border-radius:10px;margin-bottom:14px">
-  <span style="font-size:10px;font-weight:900;color:#5B21B6">📌 분류 범위</span>
-  ${
-    _fbGroupId
-      ? (() => {
-          const g = _fbTplList.find((x) => x.id === _fbGroupId);
-          return `<span style="font-size:11px;font-weight:700;background:#EDE9FE;color:#5B21B6;padding:2px 8px;border-radius:6px">🏢 ${g?.name || _fbGroupId}</span>`;
-        })()
-      : ""
-  }
-  ${
-    _fbAccountCode
-      ? (() => {
-          const a = _fbAccountList.find((x) => x.code === _fbAccountCode);
-          return `<span style="font-size:11px;font-weight:700;background:#DBEAFE;color:#1E40AF;padding:2px 8px;border-radius:6px">💳 ${a?.name || _fbAccountCode}</span>`;
-        })()
-      : ""
-  }
-</div>`
-    : ""
-}
+<!-- 양식 소속 정보 패널 (Scope Awareness) -->
+<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:10px;margin-bottom:16px">
+  <span style="font-size:11px;font-weight:900;color:#475569">📌 양식 소속 범위:</span>
+  <div style="display:flex;align-items:center;gap:6px">
+    <span style="font-size:12px;font-weight:800;color:#0F172A">🏢 ${tenantName}</span>
+    <span style="color:#94A3B8;font-size:14px;font-weight:900">></span>
+    <span style="font-size:12px;font-weight:800;color:${_fbGroupId ? "#1D4ED8" : "#059669"}">${_fbGroupId ? `🎯 ${groupName}` : "🌐 전사 공용"}</span>
+  </div>
+</div>
 <!-- 서비스 유형 선택 (직접학습 / 교육운영) -->
 <div style="margin-bottom:12px">
   <label style="font-size:11px;font-weight:800;display:block;margin-bottom:6px;color:#374151">서비스 유형 *</label>
@@ -2077,7 +2042,7 @@ async function fbSaveForm() {
     id: formId,
     tenantId,
     domainId: _fbGroupId || null,
-    accountCode: _fbAccountCode || null,
+    accountCode: null, // 범용 양식을 위해 계정 종속 완전 해제 (null 고정)
     type,
     name,
     desc,
@@ -2206,7 +2171,7 @@ window.fbCopyFormConfirm = async function (originId) {
     name: newName,
     active: false, // ① 항상 비활성으로 시작
     domainId: _fbGroupId || origin.domainId || null, // ② 현재 필터 기준
-    accountCode: _fbAccountCode || origin.accountCode || null,
+    accountCode: origin.accountCode || null,
     _copiedFrom: originId, // ③ 추적용 메타데이터
     _copiedAt: new Date().toISOString(),
   };

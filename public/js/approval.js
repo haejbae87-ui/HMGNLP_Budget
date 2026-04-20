@@ -96,6 +96,47 @@ async function renderApprovalMember() {
         .order("created_at", { ascending: false });
       if (ae) throw ae;
 
+      // [S-7] 내 항목이 포함된 submission_documents + 결재 이력 조회
+      let mySubDocMap = {};   // item_id → submission_document
+      let myHistoryMap = {};  // submission_id → approval_history[]
+      try {
+        const allItemIds = [
+          ...(plans || []).map(p => String(p.id)),
+          ...(apps  || []).map(a => String(a.id)),
+        ];
+        if (allItemIds.length > 0) {
+          // submission_items 에서 내 항목과 연결된 submission_id 찾기
+          const { data: myItems } = await sb.from("submission_items")
+            .select("submission_id, item_id, item_type")
+            .in("item_id", allItemIds);
+          if (myItems && myItems.length > 0) {
+            const subIds = [...new Set(myItems.map(i => i.submission_id))];
+            // submission_documents 조회
+            const { data: subDocs } = await sb.from("submission_documents")
+              .select("id, status, title, approval_nodes, current_node_order, reject_reason, reject_node_label, approved_at, rejected_at, submitted_at")
+              .in("id", subIds);
+            if (subDocs) {
+              subDocs.forEach(doc => {
+                myItems.filter(i => i.submission_id === doc.id).forEach(i => {
+                  mySubDocMap[i.item_id] = doc;
+                });
+              });
+              // approval_history 조회 (결재 이력)
+              const { data: histories } = await sb.from("approval_history")
+                .select("submission_id, node_order, node_label, action, approver_name, comment, action_at")
+                .in("submission_id", subIds)
+                .order("action_at");
+              if (histories) {
+                histories.forEach(h => {
+                  if (!myHistoryMap[h.submission_id]) myHistoryMap[h.submission_id] = [];
+                  myHistoryMap[h.submission_id].push(h);
+                });
+              }
+            }
+          }
+        }
+      } catch(e) { console.warn("[S-7] submission 연동 실패:", e.message); }
+
       // 통합
       _aprMemberData = [
         ...(plans || []).map((p) => ({
@@ -110,6 +151,8 @@ async function renderApprovalMember() {
           status: p.status,
           date: (p.created_at || "").slice(0, 10),
           rejectReason: p.reject_reason || null,
+          submissionDoc: mySubDocMap[String(p.id)] || null,
+          approvalHistory: myHistoryMap[mySubDocMap[String(p.id)]?.id] || [],
         })),
         ...(apps || []).map((a) => ({
           _type: "app",
@@ -123,6 +166,8 @@ async function renderApprovalMember() {
           status: a.status,
           date: (a.created_at || "").slice(0, 10),
           rejectReason: a.reject_reason || null,
+          submissionDoc: mySubDocMap[String(a.id)] || null,
+          approvalHistory: myHistoryMap[mySubDocMap[String(a.id)]?.id] || [],
         })),
       ];
 
@@ -271,35 +316,90 @@ async function renderApprovalMember() {
                      background:${fc.bg};color:${fc.color}">${fc.icon} ${fc.label}</span>
       </div>
 
-      <!-- P-2: 결재 상태 타임라인 -->
-      <div style="display:flex;align-items:center;gap:0;margin:12px 0;padding:10px 14px;background:#F9FAFB;border-radius:10px">
+      <!-- [S-7] 결재선 진행 타임라인 -->
+      <div style="margin:12px 0;padding:10px 14px;background:#F9FAFB;border-radius:10px">
         ${(() => {
-          const steps = [
-            { label: '신청', done: true, icon: '📄' },
-            { label: '1차검토', done: ['in_review','approved','rejected'].includes(item.status), icon: '🔍', active: item.status === 'in_review' },
-            { label: '최종결재', done: ['approved','rejected'].includes(item.status), icon: item.status === 'approved' ? '✅' : item.status === 'rejected' ? '❌' : '⏳', active: item.status === 'approved' || item.status === 'rejected' },
-          ];
-          return steps.map((step, i) => `
-            <div style="display:flex;align-items:center;flex:1">
-              <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
-                <div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;
-                  background:${step.done ? '#059669' : step.active ? '#7C3AED' : '#E5E7EB'};
-                  color:${step.done || step.active ? 'white' : '#9CA3AF'}">${step.done ? '✔' : step.icon}</div>
-                <span style="font-size:9px;font-weight:800;color:${step.done ? '#059669' : step.active ? '#7C3AED' : '#9CA3AF'}">${step.label}</span>
+          const doc = item.submissionDoc;
+          const hist = item.approvalHistory || [];
+          if (doc && (doc.approval_nodes || []).length > 0) {
+            // [S-7] 실제 결재 노드 기반 타임라인
+            const nodes = doc.approval_nodes;
+            const curIdx = doc.current_node_order || 0;
+            const docStatus = doc.status;
+            return `<div style="display:flex;align-items:center;gap:0;flex-wrap:wrap">
+              <div style="display:flex;align-items:center;flex-shrink:0">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+                  <div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;background:#059669;color:white">✔</div>
+                  <span style="font-size:9px;font-weight:800;color:#059669">상신완료</span>
+                </div>
               </div>
-              ${i < steps.length - 1 ? `<div style="flex:1;height:2px;background:${step.done ? '#059669' : '#E5E7EB'};margin:0 4px;margin-bottom:14px"></div>` : ''}
-            </div>`).join('');
+              ${nodes.map((n, i) => {
+                const matchH = hist.filter(h => h.node_order === i);
+                const lastH = matchH[matchH.length - 1];
+                const isDone = i < curIdx || (i === curIdx && ['approved','rejected'].includes(docStatus));
+                const isCur  = i === curIdx && ['submitted','in_review'].includes(docStatus);
+                const isRej  = lastH?.action === 'rejected';
+                const nodeColor = isRej ? '#DC2626' : isDone ? '#059669' : isCur ? '#7C3AED' : '#9CA3AF';
+                const nodeBg    = isRej ? '#FEE2E2' : isDone ? '#059669'  : isCur ? '#7C3AED' : '#E5E7EB';
+                const nodeIcon  = isRej ? '❌' : isDone ? '✔' : isCur ? '🔄' : '⏳';
+                const lineColor = isDone && !isRej ? '#059669' : '#E5E7EB';
+                const tooltip = lastH ? ` title="${lastH.approver_name||''} ${lastH.action==='approved'?'승인':'반려'} (${(lastH.action_at||'').slice(0,10)})"` : '';
+                return `<div style="display:flex;align-items:center;flex-shrink:0">
+                  <div style="width:24px;height:2px;background:${lineColor}"></div>
+                  <div${tooltip} style="display:flex;flex-direction:column;align-items:center;gap:2px">
+                    <div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;background:${nodeBg};color:${isDone||isCur?'white':'#9CA3AF'}">${nodeIcon}</div>
+                    <span style="font-size:9px;font-weight:800;color:${nodeColor};max-width:52px;text-align:center;line-height:1.2">${n.label||n.approverKey||'결재'}</span>
+                    ${lastH?.approver_name ? `<span style="font-size:8px;color:#9CA3AF">${lastH.approver_name}</span>` : ''}
+                  </div>
+                </div>`;
+              }).join('')}
+            </div>`;
+          } else {
+            // [S-7] submission_doc 없음(레거시) → 간단한 상태 기반 타임라인
+            const steps = [
+              { label: '신청', done: true },
+              { label: '1차검토', done: ['in_review','approved','rejected'].includes(item.status), active: item.status === 'in_review' },
+              { label: '최종결재', done: ['approved','rejected'].includes(item.status), icon: item.status === 'approved' ? '✅' : item.status === 'rejected' ? '❌' : '⏳' },
+            ];
+            return `<div style="display:flex;align-items:center;gap:0">${steps.map((step, i) => `
+              <div style="display:flex;align-items:center;flex:1">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+                  <div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;
+                    background:${step.done ? '#059669' : step.active ? '#7C3AED' : '#E5E7EB'};
+                    color:${step.done || step.active ? 'white' : '#9CA3AF'}">${step.done ? '✔' : step.icon||'⏳'}</div>
+                  <span style="font-size:9px;font-weight:800;color:${step.done ? '#059669' : step.active ? '#7C3AED' : '#9CA3AF'}">${step.label}</span>
+                </div>
+                ${i < steps.length - 1 ? `<div style="flex:1;height:2px;background:${step.done ? '#059669' : '#E5E7EB'};margin:0 4px;margin-bottom:14px"></div>` : ''}
+              </div>`).join('')}</div>`;
+          }
         })()}
       </div>
 
-      ${
-        item.rejectReason
-          ? `
-      <div style="margin-top:8px;padding:10px 14px;border-radius:8px;background:#FEE2E2;border:1px solid #FECACA;font-size:11px;color:#DC2626;font-weight:700">
-        ⚠️ 반려 사유: ${item.rejectReason}
-      </div>`
-          : ""
-      }
+      <!-- [S-7] 반려 사유 + 담당자 표시 -->
+      ${(() => {
+        const doc = item.submissionDoc;
+        const hist = item.approvalHistory || [];
+        const rejectH = hist.find(h => h.action === 'rejected');
+        const rejectReason = doc?.reject_reason || item.rejectReason || (rejectH?.comment || null);
+        const rejectBy = doc?.reject_node_label || rejectH?.node_label || null;
+        const rejectWho = rejectH?.approver_name || null;
+        if (rejectReason) {
+          return `<div style="margin-top:8px;padding:10px 14px;border-radius:8px;background:#FEF2F2;border:1px solid #FECACA;font-size:11px">
+            <div style="font-weight:800;color:#DC2626;margin-bottom:3px">❌ 반려 사유${rejectBy||rejectWho ? ` (${[rejectBy,rejectWho].filter(Boolean).join(' · ')})` : ''}</div>
+            <div style="color:#991B1B;line-height:1.5">${rejectReason}</div>
+          </div>`;
+        }
+        // 승인 완료인 경우 승인 정보 표시
+        if (item.status === 'approved' && doc?.approved_at) {
+          const approveH = [...hist].reverse().find(h => h.action === 'approved');
+          return `<div style="margin-top:8px;padding:8px 14px;border-radius:8px;background:#F0FDF4;border:1px solid #A7F3D0;font-size:11px;display:flex;align-items:center;gap:8px">
+            <span style="font-weight:800;color:#059669">✅ 승인완료</span>
+            ${approveH?.approver_name ? `<span style="color:#6B7280">${approveH.approver_name}${approveH.node_label ? ' · ' + approveH.node_label : ''}</span>` : ''}
+            <span style="color:#9CA3AF">${new Date(doc.approved_at).toLocaleDateString('ko-KR')}</span>
+          </div>`;
+        }
+        return '';
+      })()}
       ${
         // E-5: pending/submitted 상태에서만 회수 버튼 표시 (결재 시작 전)
         ['pending','submitted'].includes(item.status)

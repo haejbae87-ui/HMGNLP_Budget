@@ -405,19 +405,52 @@ async function renderApprovalMember() {
         }
         return '';
       })()}
-      ${
-        // E-5: pending/submitted 상태에서만 회수 버튼 표시 (결재 시작 전)
-        ['pending','submitted'].includes(item.status)
-          ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid #F3F4F6">
-              <button onclick="_aprRecallSubmit('${String(item.id).replace(/'/g,"\\'")}',${'\'' + (item._table || (item._type==='plan'?'plans':'applications')) + '\''})"
+      ${(() => {
+        // [A-3] 회수 조건 강화: current_node_order === 0 + docStatus 기반
+        // PRD fo_submission_approval.md Q2 확정: "첫 노드 액션 전까지만 회수 가능"
+        const isSubmitted = ['pending','submitted','in_review'].includes(item.status);
+        if (!isSubmitted) return '';
+        const doc = item.submissionDoc;
+        let canRecall = false;
+        let recallBlockMsg = '';
+        if (doc) {
+          const curOrder = typeof doc.current_node_order === 'number' ? doc.current_node_order : 0;
+          const docStatus = doc.status;
+          if (['approved','rejected','recalled'].includes(docStatus)) {
+            canRecall = false;
+            recallBlockMsg = docStatus === 'recalled' ? '이미 회수된 상신입니다.' : '결재가 완료된 항목입니다.';
+          } else if (curOrder === 0 && ['submitted','pending'].includes(docStatus)) {
+            canRecall = true; // 첫 결재자 검토 전 — 회수 가능
+          } else if (docStatus === 'in_review') {
+            canRecall = false;
+            recallBlockMsg = '담당자가 검토 중입니다. 검토 완료 후 반려될 수 있습니다. (PRD Q2)';
+          } else if (curOrder > 0) {
+            canRecall = false;
+            recallBlockMsg = `${curOrder + 1}단계 결재 진행 중입니다. 담당자에게 반려 요청하세요.`;
+          }
+        } else {
+          // 레거시(submission_doc 없음): status 기반 폴백
+          canRecall = ['pending','submitted'].includes(item.status);
+          if (!canRecall && item.status === 'in_review') {
+            recallBlockMsg = '담당자가 검토 중입니다. 회수할 수 없습니다.';
+          }
+        }
+        if (canRecall) {
+          const _tid = String(item.id).replace(/'/g,"\\'");
+          const _ttbl = item._table || (item._type === 'plan' ? 'plans' : 'applications');
+          return `<div style="margin-top:10px;padding-top:10px;border-top:1px solid #F3F4F6;display:flex;align-items:center;gap:8px">
+              <button onclick="_aprRecallSubmit('${_tid}','${_ttbl}')"
                 style="padding:6px 14px;border-radius:8px;border:1.5px solid #9CA3AF;background:white;color:#6B7280;font-size:11px;font-weight:800;cursor:pointer"
                 onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='white'">
                 ↩️ 회수
               </button>
-              <span style="font-size:10px;color:#9CA3AF;margin-left:6px">결재 시작 전 회수 가능</span>
-             </div>`
-          : ""
-      }
+              <span style="font-size:10px;color:#9CA3AF">첫 결재자 검토 전만 회수 가능</span>
+             </div>`;
+        } else if (recallBlockMsg) {
+          return `<div style="margin-top:10px;padding:8px 12px;border-radius:8px;background:#FFF7ED;border:1px solid #FED7AA;font-size:10px;color:#92400E;font-weight:700">⚠️ ${recallBlockMsg}</div>`;
+        }
+        return '';
+      })()}
     </div>`;
     })
     .join("");
@@ -1269,26 +1302,60 @@ async function _aprConfirmSubmit() {
   }
 }
 
-// ─── E-5: 상신 회수 (pending → saved/recalled) ───────────────────────────────
-// 팀원이 상신한 항목을 결재 시작 전에 회수
+
+// ─── E-5 / A-3: 상신 회수 (submitted → saved) ───────────────────────────────
+// [A-3] current_node_order === 0 + docStatus 기반 엄격한 회수 검증
 async function _aprRecallSubmit(id, table) {
-  if (!confirm('이 항목의 상신을 회수하시겠습니까?\n\n• 결재 대기 상태로 돌아갑니다.\n• 수정 후 다시 상신할 수 있습니다.')) return;
+  if (!confirm('이 항목의 상신을 회수하시겠습니까?\n\n• 저장완료 상태로 복귀됩니다.\n• 수정 후 다시 상신할 수 있습니다.')) return;
 
   const sb = typeof getSB === 'function' ? getSB() : null;
   if (!sb) { alert('DB 연결 실패'); return; }
 
   try {
-    // 현재 상태 확인 — in_review 이후면 회수 불가
-    const { data: cur } = await sb.from(table).select('status').eq('id', id).single();
-    if (cur?.status === 'in_review' || cur?.status === 'approved') {
-      alert('⚠️ 결재가 이미 진행 중이거나 완료된 항목은 회수할 수 없습니다.');
-      return;
+    // [A-3] 1단계: submission_documents 조회 → current_node_order 검증
+    let subDocId = null;
+    try {
+      const { data: siRow } = await sb.from('submission_items')
+        .select('submission_id')
+        .eq('item_id', id)
+        .order('created_at', { ascending: false })
+        .limit(1).single();
+      if (siRow?.submission_id) {
+        subDocId = siRow.submission_id;
+        const { data: subDoc } = await sb.from('submission_documents')
+          .select('id, status, current_node_order')
+          .eq('id', subDocId).single();
+        if (subDoc) {
+          const curOrder = typeof subDoc.current_node_order === 'number' ? subDoc.current_node_order : 0;
+          if (['approved','rejected'].includes(subDoc.status)) {
+            alert('⚠️ 결재가 완료된 항목은 회수할 수 없습니다.');
+            return;
+          }
+          if (subDoc.status === 'in_review') {
+            alert('⚠️ 담당자가 검토 중입니다.\n검토 완료 후 반려될 수 있습니다. (PRD Q2)');
+            return;
+          }
+          if (curOrder > 0) {
+            alert(`⚠️ 결재가 ${curOrder + 1}단계까지 진행되었습니다.\n담당자에게 반려를 요청하세요.`);
+            return;
+          }
+          // curOrder === 0 && status in [submitted, pending] → 회수 가능
+        }
+      }
+    } catch(e) {
+      // submission_doc 없음 (레거시) → DB status 기반 폴백 검사
+      const { data: cur } = await sb.from(table).select('status').eq('id', id).single();
+      if (['approved','in_review'].includes(cur?.status)) {
+        alert('⚠️ 결재가 이미 진행 중이거나 완료된 항목은 회수할 수 없습니다.');
+        return;
+      }
     }
 
+    // [A-3] 2단계: 낙관적 잠금으로 saved로 업데이트
     const { error: recallErr } = await sb.from(table).update({
       status: 'saved',
       updated_at: new Date().toISOString(),
-    }).eq('id', id).in('status', ['pending', 'submitted']); // 낙관적 잠금
+    }).eq('id', id).in('status', ['pending', 'submitted']);
     if (recallErr) throw recallErr;
 
     // [S-9] 연결된 submission_documents 찾아 예산 예약 해제

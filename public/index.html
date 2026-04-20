@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Next Learning - 로그인</title>
+  <title>Next Learning - Login</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -32,31 +32,27 @@
   <div class="login-container">
     <div class="text-center mb-8">
       <h1 class="text-3xl font-black text-brand tracking-tight mb-2">Next Learning</h1>
-      <p class="text-sm text-gray-500 font-medium">통합교육이력관리 시스템</p>
+      <p class="text-sm text-gray-500 font-medium">Next Learning Education Management System</p>
     </div>
 
     <form id="login-form">
       <div class="mb-5">
-        <label for="emp_no" class="block text-sm font-bold text-gray-700 mb-1">아이디 (사번)</label>
+        <label for="emp_no" class="block text-sm font-bold text-gray-700 mb-1">ID (Employee No.)</label>
         <input type="text" id="emp_no" class="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 focus:bg-white focus:border-brand focus:ring-2 focus:ring-brand focus:ring-opacity-20 transition-colors" placeholder="HMGNLP" required />
       </div>
-      
       <div class="mb-6">
-        <label for="password" class="block text-sm font-bold text-gray-700 mb-1">비밀번호</label>
+        <label for="password" class="block text-sm font-bold text-gray-700 mb-1">Password</label>
         <input type="password" id="password" class="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 focus:bg-white focus:border-brand focus:ring-2 focus:ring-brand focus:ring-opacity-20 transition-colors" placeholder="1218" required />
       </div>
-
       <p id="login-error" style="display:none;color:#DC2626;font-size:12px;font-weight:700;margin-bottom:10px;padding:8px 12px;background:#FEF2F2;border-radius:6px;border:1px solid #FECACA"></p>
-
       <button type="submit" id="login-btn" class="w-full bg-brand hover:bg-[#001D40] text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
-        <span>로그인</span>
+        <span>Login</span>
       </button>
-
       <div class="mt-5 p-3 bg-gray-50 rounded-lg text-xs text-gray-400 leading-5">
-        <div class="font-semibold text-gray-500 mb-1">테스트 계정</div>
-        <div>플랫폼 총괄: HMGNLP / 1218</div>
-        <div>HMC 테넌트 총괄: P001 / 1218</div>
-        <div>운영담당자: P101 / 1218</div>
+        <div class="font-semibold text-gray-500 mb-1">Test Accounts</div>
+        <div>Platform Admin: HMGNLP / 1218</div>
+        <div>HMC Tenant Admin: P001 / 1218</div>
+        <div>Operations Manager: P101 / 1218</div>
       </div>
     </form>
   </div>
@@ -66,8 +62,3 @@
   <script src="js/login.js"></script>
 </body>
 </html>
-
-
-
-
-<!-- Force rebuild -->

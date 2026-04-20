@@ -874,6 +874,16 @@ function fbOpenBuilderModal(formId) {
   // DB에서 필드 카탈로그 로드 (비동기)
   _fbLoadFieldCatalog()
     .then(() => {
+      // locked 필드 자동 보장: 목록에 없으면 맨 앞에 삽입
+      const lockedFields = _fbAllFields().filter((f) => f.locked);
+      lockedFields.reverse().forEach((lf) => {
+        const exists = _fbTempFields.some(
+          (tf) => (typeof tf === "object" ? tf.key : tf) === lf.key
+        );
+        if (!exists) {
+          _fbTempFields.unshift({ key: lf.key, scope: lf.scope || "front", required: true });
+        }
+      });
       document.getElementById("bo-content").innerHTML = _fbEditorPage(form);
     })
     .catch(() => {
@@ -1037,7 +1047,7 @@ function _fbEditorPage(form) {
 <!-- 필드 빌더 영역 (2패널: 팔레트 40% / 선택 60%) -->
 <div style="border:1.5px solid #E5E7EB;border-radius:12px;overflow:hidden">
   <div style="background:#F9FAFB;padding:10px 16px;border-bottom:1px solid #E5E7EB;font-size:13px;font-weight:800;color:#374151;display:flex;align-items:center;gap:6px">
-    📋 입력 필드 구성 <span style="font-size:10px;color:#9CA3AF;font-weight:500">(클릭으로 추가, 드래그로 순서 변경)</span>
+    📋 입력 필드 구성 <span style="font-size:10px;color:#9CA3AF;font-weight:500">— 카테고리 순서 고정 | ON/OFF 및 필수 토글로 설정</span>
   </div>
   <div style="display:grid;grid-template-columns:2fr 3fr;min-height:320px">
     <!-- 좌: 필드 팔레트 -->
@@ -1075,13 +1085,33 @@ function _fbEditorPage(form) {
                   f.fieldType === "select" || f.fieldType === "multi_select"
                     ? '<span style="font-size:7px;vertical-align:super;color:#7C3AED">▼</span>'
                     : "";
-                return `<span onclick="fbToggleField('${f.key}')" id="fbf-${f.key}"
-                title="${f.hint || ""} ${f.budget ? "💰예산연동" : ""} ${f.fieldType === "select" ? "(셀렉트)" : ""} ${f.predecessors?.length ? "⚡선행:" + f.predecessors.join(",") : ""}"
-                class="fb-field-chip ${isSelected ? "selected" : ""}"
-                style="${scopeStyle};${isSelected ? "opacity:.45;text-decoration:line-through;" : ""}">
-                ${f.icon} ${f.key}${f.required ? "<sup style=color:#EF4444>*</sup>" : ""}${layerBadge}${selectBadge}
-                ${f.budget ? '<span style="font-size:7px;vertical-align:super;color:#D97706">💰</span>' : ""}
-              </span>`;
+                // 잠금 필드(locked): 항상 ON, 토글 불가
+                // 종속 필드(dependsOn): 부모 필드에 종속 — 독립 ON/OFF 없음
+                const isLocked = !!f.locked;
+                const hasDep = !!f.dependsOn;
+                const isDepActive = hasDep
+                  ? _fbTempFields.some(tf => (typeof tf === "object" ? tf.key : tf) === f.dependsOn)
+                  : true;
+                const canToggle = !isLocked && !hasDep;
+                const toggleLabel = isLocked ? "🔒" : hasDep ? "↳" : isSelected ? "ON" : "OFF";
+                const toggleBg = isSelected ? "#059669" : isLocked ? "#6B7280" : "#E5E7EB";
+                const toggleColor = isSelected || isLocked ? "white" : "#6B7280";
+                const depNote = hasDep ? `<span style="font-size:9px;color:#9CA3AF;margin-left:4px">${f.dependsOn} 켜면 자동</span>` : "";
+                return `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;margin-bottom:4px;
+                            background:${isSelected ? "#F0FDF4" : hasDep && !isDepActive ? "#F9FAFB" : "white"};
+                            border:1.5px solid ${isSelected ? "#6EE7B7" : "#E5E7EB"};
+                            opacity:${hasDep && !isDepActive ? "0.45" : "1"}"
+                     id="fbf-${f.key}" title="${f.hint || ""}">
+                  <span style="font-size:13px">${f.icon}</span>
+                  <span style="flex:1;font-size:12px;font-weight:${isLocked ? "900" : "700"};color:${isLocked ? "#374151" : "#111827"}">
+                    ${f.key}${isLocked ? " 🔒" : ""}${f.required && isSelected ? "<sup style='color:#EF4444'>*</sup>" : ""}
+                    ${depNote}
+                  </span>
+                  <button onclick="event.stopPropagation();${canToggle ? `fbToggleField('${f.key}')` : ""}"
+                    style="min-width:38px;padding:3px 8px;border-radius:6px;border:none;font-size:10px;font-weight:800;
+                           background:${toggleBg};color:${toggleColor};cursor:${canToggle ? "pointer" : "default"}"
+                    ${!canToggle ? "disabled" : ""}>${toggleLabel}</button>
+                </div>`;
               })
               .join("")}
           </div>
@@ -1092,7 +1122,7 @@ function _fbEditorPage(form) {
     <!-- 우: 선택된 필드 목록 -->
     <div style="padding:16px;overflow-y:auto;max-height:520px;background:#FAFAFA">
       <div style="font-size:11px;color:#6B7280;font-weight:800;margin-bottom:10px">
-        선택된 필드 (${_fbTempFields.length}개) <span style="font-size:9px;font-weight:400;color:#9CA3AF">⠿ 드래그하여 순서 변경 | 필수/선택 토글</span>
+        선택된 필드 (${_fbTempFields.length}개) <span style="font-size:9px;font-weight:400;color:#9CA3AF">순서 고정 | 필수/선택 토글로 설정</span>
       </div>
       <div id="fb-preview">${_fbPreviewHTML()}</div>
     </div>
@@ -1141,18 +1171,23 @@ function _fbPreviewHTML() {
       const depTag = meta.predecessors?.length
         ? '<span style="font-size:8px;color:#059669;background:#ECFDF5;padding:1px 5px;border-radius:3px;margin-left:2px">⚡</span>'
         : "";
-      return `<div draggable="true"
-      ondragstart="_fbDragStart(${i},event)" ondragover="_fbDragOver(${i},event)" ondrop="_fbDrop(${i},event)" ondragend="_fbDragEnd()"
-      style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:#fff;border-radius:10px;margin-bottom:6px;border:1.5px solid #E5E7EB;cursor:grab;transition:all .15s;user-select:none"
-      onmouseover="this.style.borderColor='#93C5FD'" onmouseout="this.style.borderColor='#E5E7EB'">
-      <span style="color:#9CA3AF;font-size:14px;cursor:grab;line-height:1" title="드래그하여 순서 변경">⠿</span>
-      <span style="color:#9CA3AF;font-weight:700;font-size:11px;min-width:18px">${i + 1}</span>
-      <span style="font-size:13px;font-weight:700;flex:1;color:#111827">${meta.icon} ${key}${typeTag}${layerTag}${depTag}</span>
-      <span onclick="event.stopPropagation();fbToggleRequired(${i})" style="font-size:9px;font-weight:800;color:${reqColor};background:${reqBg};padding:2px 8px;border-radius:5px;cursor:pointer;white-space:nowrap;border:1px solid ${reqColor}30" title="클릭하여 필수/선택 전환">${reqLabel}</span>
-      <span style="font-size:9px;font-weight:700;color:${scopeColor};background:${scopeColor}15;padding:2px 8px;border-radius:5px;cursor:pointer;white-space:nowrap"
-        onclick="event.stopPropagation();fbCycleScope(${i})" title="클릭하여 입력 주체 변경">${scopeLabel}</span>
-      <span onclick="event.stopPropagation();fbRemoveField('${key}')" style="cursor:pointer;color:#EF4444;font-size:16px;line-height:1;font-weight:700" title="삭제">×</span>
-    </div>`;
+      // locked 필드: 잠금 배지 + 삭제 불가, dependsOn 필드: 종속 표시
+      const metaLocked = meta.locked === true;
+      const metaDep = meta.dependsOn || null;
+      return `<div style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:#fff;border-radius:10px;margin-bottom:6px;border:1.5px solid ${metaLocked ? "#6EE7B7" : "#E5E7EB"};transition:border-color .15s"
+              onmouseover="this.style.borderColor='#93C5FD'" onmouseout="this.style.borderColor='${metaLocked ? "#6EE7B7" : "#E5E7EB"}'">
+        <span style="color:#9CA3AF;font-weight:700;font-size:11px;min-width:22px;text-align:center">${meta.order || (i + 1)}</span>
+        <span style="font-size:13px;font-weight:700;flex:1;color:#111827">${meta.icon} ${key}${typeTag}${layerTag}${depTag}
+          ${metaDep ? `<span style="font-size:9px;color:#9CA3AF;margin-left:4px">← ${metaDep}</span>` : ""}
+        </span>
+        <span onclick="event.stopPropagation();${metaLocked ? "" : `fbToggleRequired(${i})`}"
+          style="font-size:9px;font-weight:800;color:${metaLocked ? "#6B7280" : reqColor};background:${metaLocked ? "#F3F4F6" : reqBg};padding:2px 8px;border-radius:5px;cursor:${metaLocked ? "default" : "pointer"};white-space:nowrap;border:1px solid ${metaLocked ? "#E5E7EB" : reqColor + "30"}"
+          title="${metaLocked ? "잠금 필드 — 항상 필수" : "클릭하여 필수/선택 전환"}">${metaLocked ? "🔒 필수" : reqLabel}</span>
+        <span style="font-size:9px;font-weight:700;color:${scopeColor};background:${scopeColor}15;padding:2px 8px;border-radius:5px;cursor:pointer;white-space:nowrap"
+          onclick="event.stopPropagation();fbCycleScope(${i})" title="클릭하여 입력 주체 변경">${scopeLabel}</span>
+        ${metaLocked ? `<span style="color:#D1D5DB;font-size:14px;cursor:not-allowed" title="잠금 필드는 제거할 수 없습니다">🔒</span>`
+          : `<span onclick="event.stopPropagation();fbRemoveField('${key}')" style="cursor:pointer;color:#EF4444;font-size:16px;line-height:1;font-weight:700" title="삭제">×</span>`}
+      </div>`;
     })
     .join("");
 }
@@ -1197,29 +1232,39 @@ function _fbDragEnd() {
 }
 
 function fbToggleField(key) {
+  const allFields = _fbAllFields();
+  const meta = allFields.find((a) => a.key === key);
+  // 잠금 필드: ON/OFF 불가
+  if (meta?.locked) return;
+  // 종속 필드: 부모가 OFF면 ON 불가
+  if (meta?.dependsOn) {
+    const parentOn = _fbTempFields.some(
+      (tf) => (typeof tf === "object" ? tf.key : tf) === meta.dependsOn
+    );
+    if (!parentOn) {
+      _fbShowToast(`"${key}" 필드는 "${meta.dependsOn}"이 켜져 있어야 사용할 수 있습니다.`);
+      return;
+    }
+  }
   const idx = _fbTempFields.findIndex(
     (f) => (typeof f === "object" ? f.key : f) === key,
   );
   if (idx > -1) {
-    // 삭제 시: 이 필드를 선행 조건으로 가지는 후행 필드가 남아 있으면 차단
+    // OFF: 이 필드를 선행 조건으로 가지는 후행 필드가 남아 있으면 차단
     const blocked = _fbCheckDeleteBlocked(key);
     if (blocked) {
       alert(
-        `[의존성 규칙] "${key}" 필드는 삭제할 수 없습니다.\n다음 필드가 선행 조건으로 의존하고 있습니다:\n${blocked.join(", ")}\n\n먼저 해당 필드를 제거해 주세요.`,
+        `[의존성 규칙] "${key}" 필드를 끌 수 없습니다.\n다음 필드가 의존하고 있습니다:\n${blocked.join(", ")}\n\n먼저 해당 필드를 OFF로 설정해 주세요.`,
       );
       return;
     }
     _fbTempFields.splice(idx, 1);
   } else {
-    const allFields = _fbAllFields();
-    const meta = allFields.find((a) => a.key === key);
     _fbTempFields.push({
       key,
       scope: meta?.scope || "front",
       required: meta?.required || false,
     });
-    // 의존성 규칙: 선행 필드 자동 추가
-    _fbAutoAddPredecessors(key);
   }
   _fbRefreshPreview();
 }
@@ -1294,11 +1339,18 @@ function _fbShowToast(msg) {
 }
 
 function fbRemoveField(key) {
-  // 삭제 차단 검사
+  // 잠금 필드 보호
+  const allFields = _fbAllFields();
+  const meta = allFields.find((a) => a.key === key);
+  if (meta?.locked) {
+    _fbShowToast(`"${key}"은 잠금 필드입니다 — 제거할 수 없습니다.`);
+    return;
+  }
+  // 의존성 차단 검사
   const blocked = _fbCheckDeleteBlocked(key);
   if (blocked) {
     alert(
-      `[의존성 규칙] "${key}" 필드는 삭제할 수 없습니다.\n다음 필드가 선행 조건으로 의존하고 있습니다:\n${blocked.join(", ")}\n\n먼저 해당 필드를 제거해 주세요.`,
+      `[의존성 규칙] "${key}" 필드를 끌 수 없습니다.\n다음 필드가 의존하고 있습니다:\n${blocked.join(", ")}\n\n먼저 해당 필드를 OFF로 설정해 주세요.`,
     );
     return;
   }

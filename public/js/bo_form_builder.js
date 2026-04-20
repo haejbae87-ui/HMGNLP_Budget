@@ -525,11 +525,14 @@ function _fbRenderPage() {
   <div style="display:flex;gap:0;border-bottom:2px solid #E5E7EB;margin-bottom:24px">
     ${_fbTabBtn("library", "📚 양식 라이브러리")}
     ${_fbTabBtn("field_catalog", "📌 입력 필드 관리")}
+    ${_fbTabBtn("venues", "🏢 교육장소 관리")}
   </div>
 
   <!-- 탭 콘텐츠 -->
   <div id="fb-tab-content">
-    ${_fbCurrentTab === "field_catalog" ? _fbRenderFieldCatalog() : _fbRenderLibrary()}
+    ${_fbCurrentTab === "field_catalog" ? _fbRenderFieldCatalog()
+      : _fbCurrentTab === "venues" ? _fbRenderVenueManager()
+      : _fbRenderLibrary()}
   </div>
 </div>`;
 }
@@ -545,14 +548,13 @@ function _fbTabBtn(id, label) {
 function _fbSwitchTab(tab) {
   _fbCurrentTab = tab;
   if (tab === "field_catalog") {
-    // 필드 카탈로그 탭은 DB 로드 필요
     _fbLoadFieldCatalog()
-      .then(() => {
-        document.getElementById("bo-content").innerHTML = _fbRenderPage();
-      })
-      .catch(() => {
-        document.getElementById("bo-content").innerHTML = _fbRenderPage();
-      });
+      .then(() => { document.getElementById("bo-content").innerHTML = _fbRenderPage(); })
+      .catch(() => { document.getElementById("bo-content").innerHTML = _fbRenderPage(); });
+  } else if (tab === "venues") {
+    _fbLoadVenues()
+      .then(() => { document.getElementById("bo-content").innerHTML = _fbRenderPage(); })
+      .catch(() => { document.getElementById("bo-content").innerHTML = _fbRenderPage(); });
   } else {
     document.getElementById("bo-content").innerHTML = _fbRenderPage();
   }

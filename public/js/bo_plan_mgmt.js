@@ -667,8 +667,14 @@ function _renderBoPlanDetail(el, plan) {
           : ""
       }
 
+      <!-- [P2] 배정액 직접 수정 (approved 상태) -->
+      <div id="bo-alloc-edit-panel" style="padding:0 28px 8px"></div>
+
       <!-- 🔧 관리자 입력 필드 (back + provide) -->
       <div id="bo-admin-fields-panel" style="padding:0 28px 24px"></div>
+
+      <!-- [P3] 결재 이력 -->
+      <div id="bo-approval-history-panel" style="padding:0 28px 24px"></div>
 
       <!-- 액션 -->
       <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6;flex-wrap:wrap">
@@ -701,8 +707,12 @@ function _renderBoPlanDetail(el, plan) {
     </div>
   </div>`;
 
-  // 관리자 필드 패널 비동기 렌더링
-  setTimeout(() => _renderBoAdminFieldsPanel(plan, "plans"), 100);
+  // 비동기 패널 렌더링
+  setTimeout(() => {
+    _renderBoAdminFieldsPanel(plan, "plans");
+    _renderBoAllocEditPanel(plan);           // [P2] 배정액 수정
+    _renderBoApprovalHistoryPanel(plan.id);  // [P3] 결재 이력
+  }, 100);
 }
 
 // ━━━ 관리자 입력 필드 패널 (back + provide) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -873,6 +883,247 @@ async function _saveBoAdminFields(recordId, tableName) {
     alert("❌ 저장 실패: " + err.message);
   }
 }
+
+// ━━━ [P2] 배정액 직접 수정 패널 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function _renderBoAllocEditPanel(plan) {
+  const panel = document.getElementById("bo-alloc-edit-panel");
+  if (!panel) return;
+
+  const status = plan.status || "";
+  const canEdit = (boIsGlobalAdmin() || boIsOpManager()) && status === "approved";
+  if (!canEdit) { panel.innerHTML = ""; return; }
+
+  const curAlloc = Number(plan.allocated_amount || 0);
+  const planId = plan.id;
+
+  panel.innerHTML = `
+    <div style="border:2px solid #D1FAE5;border-radius:14px;overflow:hidden;margin-bottom:8px">
+      <div style="padding:12px 20px;background:linear-gradient(135deg,#ECFDF5,#F0FDF4);border-bottom:1.5px solid #A7F3D0;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <h3 style="margin:0;font-size:13px;font-weight:900;color:#065F46">💰 배정액 직접 수정</h3>
+          <p style="margin:2px 0 0;font-size:11px;color:#6B7280">현재 배정액을 BO에서 직접 조정합니다 (bankbooks 자동 반영)</p>
+        </div>
+      </div>
+      <div style="padding:16px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px">현재 배정액</div>
+          <div style="font-size:20px;font-weight:900;color:#065F46">${curAlloc.toLocaleString()}<span style="font-size:12px;margin-left:2px">원</span></div>
+        </div>
+        <div style="font-size:18px;color:#9CA3AF">→</div>
+        <div style="flex:1;min-width:160px">
+          <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:4px">새 배정액</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input id="bo-alloc-new-input" type="text" value="${curAlloc.toLocaleString()}"
+              oninput="boAllocEditPreview(${curAlloc})"
+              style="width:140px;padding:8px 12px;border:2px solid #D1FAE5;border-radius:8px;font-size:16px;font-weight:900;color:#065F46;text-align:right;outline:none"
+              onfocus="this.style.borderColor='#059669'" onblur="this.style.borderColor='#D1FAE5'">
+            <span style="font-weight:700;color:#6B7280">원</span>
+          </div>
+        </div>
+        <div id="bo-alloc-diff-preview" style="font-size:12px;min-height:18px;align-self:flex-end;padding-bottom:4px"></div>
+        <button onclick="_boSaveAllocAmount('${planId}', ${curAlloc})"
+          style="padding:8px 20px;border-radius:8px;border:none;background:#059669;color:white;font-size:12px;font-weight:900;cursor:pointer;white-space:nowrap;align-self:flex-end">
+          💾 배정액 저장
+        </button>
+      </div>
+    </div>`;
+}
+window._renderBoAllocEditPanel = _renderBoAllocEditPanel;
+
+// 배정액 변경 미리보기
+function boAllocEditPreview(curAlloc) {
+  const input = document.getElementById("bo-alloc-new-input");
+  const preview = document.getElementById("bo-alloc-diff-preview");
+  if (!input || !preview) return;
+  const newAmt = Number(input.value.replace(/[^0-9]/g, ""));
+  const diff = newAmt - curAlloc;
+  if (!input.value || isNaN(newAmt)) { preview.innerHTML = ""; return; }
+  if (diff === 0) { preview.innerHTML = `<span style="color:#9CA3AF">변경 없음</span>`; return; }
+  const color = diff > 0 ? "#059669" : "#DC2626";
+  const sign = diff > 0 ? "+" : "";
+  preview.innerHTML = `<span style="font-weight:700;color:${color}">${sign}${diff.toLocaleString()}원</span>`;
+}
+window.boAllocEditPreview = boAllocEditPreview;
+
+// 배정액 저장 처리
+async function _boSaveAllocAmount(planId, curAlloc) {
+  const sb = typeof getSB === "function" ? getSB() : null;
+  if (!sb) { alert("DB 연결 필요"); return; }
+  const input = document.getElementById("bo-alloc-new-input");
+  const newAmt = Number((input?.value || "").replace(/[^0-9]/g, ""));
+  if (isNaN(newAmt) || newAmt < 0) { alert("유효한 금액을 입력하세요."); return; }
+  if (newAmt === curAlloc) { alert("변경된 금액이 없습니다."); return; }
+
+  const diff = newAmt - curAlloc;
+  const action = diff > 0 ? "증액" : "감액";
+  if (!confirm(`배정액을 ${curAlloc.toLocaleString()}원 → ${newAmt.toLocaleString()}원으로 ${action}합니다.\n\n차액: ${diff > 0 ? '+' : ''}${diff.toLocaleString()}원\n계속하시겠습니까?`)) return;
+
+  try {
+    const now = new Date().toISOString();
+    // 1) plans 업데이트
+    const { data: planRow, error: planErr } = await sb.from("plans")
+      .select("account_code, tenant_id").eq("id", planId).single();
+    if (planErr) throw planErr;
+
+    await sb.from("plans").update({ allocated_amount: newAmt, updated_at: now }).eq("id", planId);
+
+    // 2) bankbooks 처리 (비치명적)
+    try {
+      const { data: bk } = await sb.from("bankbooks")
+        .select("id, used_amount")
+        .eq("tenant_id", planRow.tenant_id)
+        .eq("account_code", planRow.account_code)
+        .eq("status", "active")
+        .order("current_balance", { ascending: false })
+        .limit(1).single();
+      if (bk) {
+        const newUsed = Math.max(0, Number(bk.used_amount || 0) + diff);
+        await sb.from("bankbooks").update({ used_amount: newUsed, updated_at: now }).eq("id", bk.id);
+      }
+    } catch(bkErr) { console.warn("[P2] bankbooks 처리 skip:", bkErr.message); }
+
+    // 3) 이력 저장
+    try {
+      await sb.from("budget_adjust_logs").insert({
+        tenant_id: planRow.tenant_id,
+        plan_id: planId,
+        before_amount: curAlloc,
+        after_amount: newAmt,
+        adjusted_by: boCurrentPersona?.id || "bo_admin",
+        adjusted_at: now,
+        reason: `BO 관리자 배정액 ${action}`,
+      });
+    } catch(logErr) { console.warn("[P2] 이력 저장 skip:", logErr.message); }
+
+    // 캐시 갱신
+    const cached = (_boPlanMgmtData || []).find(p => p.id === planId);
+    if (cached) cached.allocated_amount = newAmt;
+    if (_boPlanDetailView?.id === planId) _boPlanDetailView.allocated_amount = newAmt;
+
+    alert(`✅ 배정액이 ${newAmt.toLocaleString()}원으로 수정되었습니다.`);
+    // 패널 갱신
+    _renderBoAllocEditPanel(_boPlanDetailView);
+    // 헤더 배정액 셀 즉시 갱신
+    const allocCell = document.querySelector("[data-plan-alloc]");
+    if (allocCell) allocCell.textContent = newAmt.toLocaleString() + "원";
+
+  } catch(err) {
+    alert("❌ 저장 실패: " + err.message);
+  }
+}
+window._boSaveAllocAmount = _boSaveAllocAmount;
+
+// ━━━ [P3] 결재 이력 패널 (submission_documents + approval_history) ━━━━━━━━━
+async function _renderBoApprovalHistoryPanel(planId) {
+  const panel = document.getElementById("bo-approval-history-panel");
+  if (!panel) return;
+  panel.innerHTML = `<div style="color:#9CA3AF;font-size:12px;padding:8px 0">결재 이력 조회 중...</div>`;
+
+  const sb = typeof getSB === "function" ? getSB() : null;
+  if (!sb) { panel.innerHTML = ""; return; }
+
+  try {
+    // submission_items → submission_documents 연결
+    const { data: items } = await sb.from("submission_items")
+      .select("submission_id").eq("item_id", String(planId));
+
+    if (!items || items.length === 0) {
+      panel.innerHTML = `
+        <div style="border:1.5px solid #F3F4F6;border-radius:12px;padding:16px 20px;color:#9CA3AF;font-size:12px;text-align:center">
+          📭 상신 이력 없음 (직접 결재 처리된 계획)
+        </div>`;
+      return;
+    }
+
+    const subId = items[0].submission_id;
+    const [{ data: doc }, { data: hist }] = await Promise.all([
+      sb.from("submission_documents")
+        .select("id, title, status, approval_nodes, current_node_order, submitted_at, approved_at, rejected_at, reject_reason")
+        .eq("id", subId).single(),
+      sb.from("approval_history")
+        .select("node_order, node_label, action, approver_name, comment, action_at")
+        .eq("submission_id", subId)
+        .order("action_at"),
+    ]);
+
+    if (!doc) { panel.innerHTML = ""; return; }
+
+    const DOC_STATUS = {
+      submitted: { label: "결재대기", color: "#D97706", bg: "#FFFBEB" },
+      in_review: { label: "1차검토중", color: "#7C3AED", bg: "#F5F3FF" },
+      approved:  { label: "승인완료",  color: "#059669", bg: "#F0FDF4" },
+      rejected:  { label: "반려",     color: "#DC2626", bg: "#FEF2F2" },
+      recalled:  { label: "회수됨",   color: "#6B7280", bg: "#F9FAFB" },
+    };
+    const ds = DOC_STATUS[doc.status] || { label: doc.status, color: "#6B7280", bg: "#F9FAFB" };
+    const ACTION_LABEL = { approved: "승인", rejected: "반려", in_review: "1차검토완료", recalled: "회수" };
+
+    const nodes = doc.approval_nodes || [];
+    const curIdx = doc.current_node_order || 0;
+
+    const nodesHtml = nodes.length > 0 ? `
+      <div style="display:flex;align-items:center;gap:0;margin-bottom:16px;flex-wrap:wrap">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0">
+          <div style="width:28px;height:28px;border-radius:50%;background:#059669;display:flex;align-items:center;justify-content:center;font-size:11px;color:white">✔</div>
+          <span style="font-size:9px;font-weight:800;color:#059669">상신</span>
+        </div>
+        ${nodes.map((n, i) => {
+          const matchH = (hist || []).filter(h => h.node_order === i);
+          const lastH = matchH[matchH.length - 1];
+          const isDone = i < curIdx || (i === curIdx && ['approved','rejected'].includes(doc.status));
+          const isCur  = i === curIdx && ['submitted','in_review'].includes(doc.status);
+          const isRej  = lastH?.action === 'rejected';
+          const nodeBg = isRej ? '#FEE2E2' : isDone ? '#059669' : isCur ? '#7C3AED' : '#E5E7EB';
+          const nodeColor = isRej ? '#DC2626' : isDone ? '#059669' : isCur ? '#7C3AED' : '#9CA3AF';
+          const nodeIcon = isRej ? '❌' : isDone ? '✔' : isCur ? '🔄' : '⏳';
+          const lineColor = isDone && !isRej ? '#059669' : '#E5E7EB';
+          return `<div style="display:flex;align-items:center;flex-shrink:0">
+            <div style="width:24px;height:2px;background:${lineColor}"></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+              <div style="width:28px;height:28px;border-radius:50%;background:${nodeBg};display:flex;align-items:center;justify-content:center;font-size:11px;color:${isDone||isCur?'white':'#9CA3AF'}">${nodeIcon}</div>
+              <span style="font-size:9px;font-weight:800;color:${nodeColor};max-width:56px;text-align:center;line-height:1.2">${n.label||n.approverKey||'결재'}</span>
+              ${lastH?.approver_name ? `<span style="font-size:8px;color:#9CA3AF">${lastH.approver_name}</span>` : ''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>` : "";
+
+    const histHtml = (hist || []).length > 0
+      ? (hist || []).map(h => `
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #F3F4F6">
+          <div style="width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0;background:${h.action==='approved'?'#059669':h.action==='rejected'?'#EF4444':'#9CA3AF'}"></div>
+          <div style="font-size:12px;flex:1">
+            <span style="font-weight:800;color:#374151">${h.node_label||''} ${h.approver_name||''}</span>
+            <span style="color:#9CA3AF;margin-left:6px;font-size:11px">${ACTION_LABEL[h.action]||h.action}</span>
+            ${h.comment ? `<div style="color:#6B7280;margin-top:2px;font-size:11px">"${h.comment}"</div>` : ''}
+            <div style="color:#D1D5DB;font-size:10px;margin-top:2px">${new Date(h.action_at||h.created_at).toLocaleString('ko-KR')}</div>
+          </div>
+        </div>`).join("")
+      : `<div style="color:#9CA3AF;font-size:12px;text-align:center;padding:8px 0">결재 처리 이력 없음</div>`;
+
+    panel.innerHTML = `
+      <div style="border:1.5px solid #E5E7EB;border-radius:14px;overflow:hidden">
+        <div style="padding:12px 20px;background:#F9FAFB;border-bottom:1.5px solid #E5E7EB;display:flex;justify-content:space-between;align-items:center">
+          <h3 style="margin:0;font-size:13px;font-weight:900;color:#374151">📋 상신 & 결재 이력</h3>
+          <span style="font-size:11px;font-weight:800;padding:3px 10px;border-radius:6px;background:${ds.bg};color:${ds.color}">${ds.label}</span>
+        </div>
+        <div style="padding:16px 20px">
+          <div style="font-size:11px;color:#6B7280;margin-bottom:12px">
+            📄 <strong>${doc.title||'상신 문서'}</strong>
+            ${doc.submitted_at ? ` · 상신일: ${new Date(doc.submitted_at).toLocaleDateString('ko-KR')}` : ''}
+            ${doc.approved_at ? ` · 승인일: ${new Date(doc.approved_at).toLocaleDateString('ko-KR')}` : ''}
+          </div>
+          ${nodesHtml}
+          <div style="display:flex;flex-direction:column;gap:0">${histHtml}</div>
+        </div>
+      </div>`;
+
+  } catch(err) {
+    console.warn("[P3] 결재 이력 조회 실패:", err.message);
+    panel.innerHTML = "";
+  }
+}
+window._renderBoApprovalHistoryPanel = _renderBoApprovalHistoryPanel;
 
 // ━━━ 키 매핑 헬퍼 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function _toBoAdminKey(key) {

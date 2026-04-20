@@ -83,6 +83,13 @@ function renderMyOperations() {
       : arr.filter(d => d.doc_type === _boApprovalDocFilter && d.submission_type !== 'team_forecast' && d.submission_type !== 'org_forecast');
     const currentDocs = _filterByType(_boApprovalTab === "pending" ? pendingDocs : doneDocs);
 
+    // [P13-B] 취합현황 탭 선택 시 대시보드로 전환
+    if (_boApprovalTab === "consolidation") {
+      el.innerHTML = '<div id="bo-consolidation-container" class="bo-fade"></div>';
+      boRenderConsolidationDashboard(document.getElementById("bo-consolidation-container"));
+      return;
+    }
+
     // 문서 타입 필터 탭
     const docTypeTabs = [
       { id:"all",         label:"전체",       color:"#374151" },
@@ -119,8 +126,9 @@ function renderMyOperations() {
     }).join("");
 
     const tabHtml = [
-      { id:"pending", label:"📥 승인 대기", count: pendingDocs.length, color:"#1D4ED8" },
-      { id:"done",    label:"✅ 처리 완료",  count: doneDocs.length,   color:"#059669" }
+      { id:"pending",       label:"📥 승인 대기",  count: pendingDocs.length, color:"#1D4ED8" },
+      { id:"done",          label:"✅ 처리 완료",   count: doneDocs.length,   color:"#059669" },
+      { id:"consolidation", label:"📊 취합현황",   count: null,              color:"#D97706" }
     ].map(t => {
       const active = _boApprovalTab === t.id;
       return `<div onclick="_boApprovalTab='${t.id}';renderMyOperations()"
@@ -128,8 +136,8 @@ function renderMyOperations() {
         background:${active?t.color:"white"};color:${active?"white":"#6B7280"};
         font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px">
         ${t.label}
-        <span style="background:${active?"rgba(255,255,255,.25)":"#F3F4F6"};color:${active?"white":"#374151"};
-          padding:2px 8px;border-radius:99px;font-size:11px;font-weight:900">${t.count}</span>
+        ${t.count !== null ? `<span style="background:${active?"rgba(255,255,255,.25)":"#F3F4F6"};color:${active?"white":"#374151"};
+          padding:2px 8px;border-radius:99px;font-size:11px;font-weight:900">${t.count}</span>` : ""}
       </div>`;
     }).join("");
 
@@ -956,3 +964,233 @@ window.boApproveOrgForecast = async function(docId) {
     alert("❌ 최종 확정 중 오류가 발생했습니다: " + err.message);
   }
 };
+
+// ─── [P13-B] 취합 대시보드 ────────────────────────────────────────────────────
+// PRD: bo_budget_consolidation.md §F-010~F-013
+// 계정별/팀별 수요예측 집계 + bankbooks 잔액 현황 표시
+async function boRenderConsolidationDashboard(container) {
+  if (!container) return;
+  container.innerHTML = `
+    <div style="margin-bottom:24px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        <h1 class="bo-page-title" style="margin:0">📊 예산 취합 현황</h1>
+        ${typeof boRoleModeBadge==="function" ? boRoleModeBadge() : ""}
+      </div>
+      <p class="bo-page-sub">계정별 신청액·배정액 집계 및 팀별 수요예측 상신 현황</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:40px;color:#9CA3AF;justify-content:center">
+      <div style="font-size:32px">⏳</div>
+      <div style="font-size:13px;font-weight:700">취합 현황 집계 중...</div>
+    </div>`;
+
+  const sb = typeof getSB === "function" ? getSB() : null;
+  const tenantId = boCurrentPersona?.tenantId || "HMC";
+  if (!sb) { container.innerHTML = '<div style="padding:40px;text-align:center;color:#9CA3AF">DB 연결 필요</div>'; return; }
+
+  try {
+    // 1) bankbooks 조회 (계정별 예산 현황)
+    const { data: books } = await sb.from("bankbooks")
+      .select("id, account_code, org_name, initial_amount, current_balance, used_amount, frozen_amount, status")
+      .eq("tenant_id", tenantId)
+      .eq("status", "active")
+      .order("account_code");
+
+    // 2) 수요예측 문서 집계 (team_forecast + org_forecast)
+    const { data: forecasts } = await sb.from("submission_documents")
+      .select("id, title, status, submission_type, submitter_org_name, account_code, total_amount, total_adjusted, submitted_at, parent_submission_id")
+      .eq("tenant_id", tenantId)
+      .in("submission_type", ["team_forecast", "org_forecast"])
+      .order("submitted_at", { ascending: false });
+
+    const teamForecasts = (forecasts || []).filter(d => d.submission_type === "team_forecast");
+    const orgForecasts  = (forecasts || []).filter(d => d.submission_type === "org_forecast");
+
+    // KPI 집계
+    const kpiTotalRequested = teamForecasts.reduce((s, d) => s + Number(d.total_amount || 0), 0);
+    const kpiTotalAdjusted  = teamForecasts.reduce((s, d) => s + Number(d.total_adjusted || d.total_amount || 0), 0);
+    const kpiApproved       = teamForecasts.filter(d => d.status === "approved").length;
+    const kpiPending        = teamForecasts.filter(d => ["submitted","in_review"].includes(d.status)).length;
+    const kpiRejected       = teamForecasts.filter(d => d.status === "rejected").length;
+
+    // 계정별 집계
+    const accountMap = {};
+    teamForecasts.forEach(d => {
+      const code = d.account_code || "(계정없음)";
+      if (!accountMap[code]) accountMap[code] = { code, requested: 0, adjusted: 0, approved: 0, pending: 0, rejected: 0, total: 0 };
+      accountMap[code].requested += Number(d.total_amount || 0);
+      accountMap[code].adjusted  += Number(d.total_adjusted || d.total_amount || 0);
+      accountMap[code].total++;
+      if (d.status === "approved") accountMap[code].approved++;
+      else if (["submitted","in_review"].includes(d.status)) accountMap[code].pending++;
+      else if (d.status === "rejected") accountMap[code].rejected++;
+    });
+
+    // 계정별 bankbook 매핑
+    const bkMap = {};
+    (books || []).forEach(b => { bkMap[b.account_code] = b; });
+
+    // 상태 배지
+    const ST = {
+      submitted: { label: "결재대기", bg: "#DBEAFE", c: "#1E40AF" },
+      in_review: { label: "1차검토중", bg: "#FEF3C7", c: "#92400E" },
+      approved:  { label: "승인완료",  bg: "#D1FAE5", c: "#065F46" },
+      rejected:  { label: "반려됨",    bg: "#FEE2E2", c: "#991B1B" },
+      recalled:  { label: "회수됨",    bg: "#F3F4F6", c: "#6B7280" },
+    };
+
+    // ── KPI 카드 ──────────────────────────────────────────────────────────
+    const kpiHtml = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px">
+        ${[[
+          { label:"총 신청액",   value: kpiTotalRequested.toLocaleString()+"원", color:"#1D4ED8",  bg:"#EFF6FF" },
+          { label:"1차 조정액",  value: kpiTotalAdjusted.toLocaleString()+"원",  color:"#D97706",  bg:"#FFFBEB" },
+          { label:"✅ 승인 건수", value: kpiApproved+"건",                        color:"#059669",  bg:"#ECFDF5" },
+          { label:"🔄 대기 건수", value: kpiPending+"건",                         color:"#7C3AED",  bg:"#F5F3FF" },
+          { label:"❌ 반려 건수", value: kpiRejected+"건",                         color:"#DC2626",  bg:"#FEF2F2" },
+        ]].flat().map(k => `
+          <div style="background:${k.bg};border-radius:12px;padding:14px 18px">
+            <div style="font-size:10px;font-weight:700;color:#6B7280;margin-bottom:6px">${k.label}</div>
+            <div style="font-size:20px;font-weight:900;color:${k.color}">${k.value}</div>
+          </div>`).join("")}
+      </div>`;
+
+    // ── 계정별 집계 테이블 ────────────────────────────────────────────────
+    const accountRows = Object.values(accountMap).map(ac => {
+      const bk = bkMap[ac.code];
+      const initial   = bk ? Number(bk.initial_amount || 0) : 0;
+      const balance   = bk ? Number(bk.current_balance || 0) : 0;
+      const usedAmt   = bk ? Number(bk.used_amount || 0) : 0;
+      const usePct    = initial > 0 ? Math.min(100, Math.round(usedAmt / initial * 100)) : 0;
+      const barColor  = usePct >= 90 ? "#EF4444" : usePct >= 70 ? "#D97706" : "#059669";
+      return `
+        <tr style="border-bottom:1px solid #F3F4F6">
+          <td style="padding:12px 14px;font-weight:900;color:#111827;font-size:13px">${ac.code}</td>
+          <td style="padding:12px 14px;font-size:12px;color:#374151;text-align:right">${ac.requested.toLocaleString()}원</td>
+          <td style="padding:12px 14px;font-size:12px;font-weight:700;color:#D97706;text-align:right">${ac.adjusted.toLocaleString()}원</td>
+          <td style="padding:12px 14px;font-size:12px;color:#374151;text-align:center">
+            ${initial > 0 ? `
+              <div style="font-size:11px;color:#6B7280;margin-bottom:3px">${usePct}% 사용</div>
+              <div style="height:6px;background:#E5E7EB;border-radius:3px;overflow:hidden">
+                <div style="height:100%;width:${usePct}%;background:${barColor};border-radius:3px"></div>
+              </div>` : '<span style="color:#9CA3AF;font-size:11px">통장 없음</span>'}
+          </td>
+          <td style="padding:12px 14px;font-size:12px;text-align:center">
+            <span style="color:#059669;font-weight:700">${ac.approved}승인</span> /
+            <span style="color:#7C3AED">${ac.pending}대기</span> /
+            <span style="color:#DC2626">${ac.rejected}반려</span>
+          </td>
+          <td style="padding:12px 14px;font-size:12px;color:#374151;text-align:right">${balance.toLocaleString()}원</td>
+        </tr>`;
+    }).join("");
+
+    const accountTableHtml = `
+      <div class="bo-card" style="margin-bottom:20px;overflow:hidden">
+        <div style="padding:16px 20px;border-bottom:1.5px solid #F3F4F6;display:flex;justify-content:space-between;align-items:center">
+          <h3 style="margin:0;font-size:14px;font-weight:900;color:#374151">📋 계정별 집계</h3>
+          <span style="font-size:11px;color:#9CA3AF">${Object.keys(accountMap).length}개 계정</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead>
+              <tr style="background:#F9FAFB">
+                <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">계정코드</th>
+                <th style="padding:10px 14px;text-align:right;font-size:11px;font-weight:800;color:#6B7280">신청액</th>
+                <th style="padding:10px 14px;text-align:right;font-size:11px;font-weight:800;color:#6B7280">1차 조정액</th>
+                <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#6B7280">예산 소진율</th>
+                <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#6B7280">건수</th>
+                <th style="padding:10px 14px;text-align:right;font-size:11px;font-weight:800;color:#6B7280">잔액</th>
+              </tr>
+            </thead>
+            <tbody>${accountRows || '<tr><td colspan="6" style="padding:20px;text-align:center;color:#9CA3AF">수요예측 데이터 없음</td></tr>'}</tbody>
+          </table>
+        </div>
+      </div>`;
+
+    // ── 팀별 수요예측 현황 테이블 ─────────────────────────────────────────
+    const teamRows = teamForecasts.map(d => {
+      const st = ST[d.status] || { label: d.status, bg:"#F3F4F6", c:"#6B7280" };
+      const reqAmt  = Number(d.total_amount || 0);
+      const adjAmt  = Number(d.total_adjusted || reqAmt);
+      const diff    = adjAmt - reqAmt;
+      const diffStr = diff === 0 ? '' : `<span style="font-size:10px;color:${diff>0?'#059669':'#DC2626'};margin-left:4px">${diff>0?'+':''}${diff.toLocaleString()}원</span>`;
+      const hasParent = !!d.parent_submission_id;
+      const subDate = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : '-';
+      return `
+        <tr style="border-bottom:1px solid #F3F4F6">
+          <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#374151">${d.submitter_org_name || '-'}</td>
+          <td style="padding:10px 14px;font-size:11px;color:#9CA3AF">${d.account_code || '-'}</td>
+          <td style="padding:10px 14px;font-size:12px;text-align:right;color:#374151">${reqAmt.toLocaleString()}원</td>
+          <td style="padding:10px 14px;font-size:12px;text-align:right;font-weight:700;color:#D97706">${adjAmt.toLocaleString()}원${diffStr}</td>
+          <td style="padding:10px 14px;text-align:center">
+            <span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:4px;background:${st.bg};color:${st.c}">${st.label}</span>
+            ${hasParent ? '<span style="font-size:9px;color:#7C3AED;margin-left:4px">📦묶음</span>' : ''}
+          </td>
+          <td style="padding:10px 14px;font-size:11px;color:#9CA3AF;text-align:center">${subDate}</td>
+        </tr>`;
+    }).join("");
+
+    const teamTableHtml = `
+      <div class="bo-card" style="overflow:hidden">
+        <div style="padding:16px 20px;border-bottom:1.5px solid #F3F4F6;display:flex;justify-content:space-between;align-items:center">
+          <h3 style="margin:0;font-size:14px;font-weight:900;color:#374151">🏢 팀별 수요예측 상신 현황</h3>
+          <span style="font-size:11px;color:#9CA3AF">${teamForecasts.length}팀</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr style="background:#F9FAFB">
+                <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">팀명</th>
+                <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">계정</th>
+                <th style="padding:10px 14px;text-align:right;font-size:11px;font-weight:800;color:#6B7280">신청액</th>
+                <th style="padding:10px 14px;text-align:right;font-size:11px;font-weight:800;color:#6B7280">1차 조정액</th>
+                <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#6B7280">상태</th>
+                <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#6B7280">상신일</th>
+              </tr>
+            </thead>
+            <tbody>${teamRows || '<tr><td colspan="6" style="padding:20px;text-align:center;color:#9CA3AF">수요예측 상신 데이터 없음</td></tr>'}</tbody>
+          </table>
+        </div>
+      </div>`;
+
+    // org_forecast 묶음 현황
+    const orgRows = orgForecasts.map(d => {
+      const st = ST[d.status] || { label: d.status, bg:"#F3F4F6", c:"#6B7280" };
+      return `
+        <div style="background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:12px;font-weight:900;color:#92400E">📦 ${d.title || '교육조직 묶음'}</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:2px">${d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : ''} 상신</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:14px;font-weight:900;color:#92400E">${Number(d.total_adjusted||d.total_amount||0).toLocaleString()}원</div>
+            <span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:4px;background:${st.bg};color:${st.c}">${st.label}</span>
+          </div>
+        </div>`;
+    }).join("");
+
+    const orgSection = orgForecasts.length > 0 ? `
+      <div class="bo-card" style="padding:20px;margin-bottom:20px">
+        <h3 style="margin:0 0 12px;font-size:14px;font-weight:900;color:#374151">📦 교육조직 묶음 상신 현황</h3>
+        <div style="display:flex;flex-direction:column;gap:8px">${orgRows}</div>
+      </div>` : "";
+
+    container.innerHTML = `
+      <div style="margin-bottom:24px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+          <h1 class="bo-page-title" style="margin:0">📊 예산 취합 현황</h1>
+          ${typeof boRoleModeBadge==="function" ? boRoleModeBadge() : ""}
+        </div>
+        <p class="bo-page-sub">계정별 신청액·배정액 집계 및 팀별 수요예측 상신 현황</p>
+      </div>
+      <button onclick="boRenderConsolidationDashboard(document.getElementById('bo-consolidation-container'))" style="margin-bottom:16px;padding:6px 16px;border-radius:8px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;cursor:pointer;color:#6B7280">🔄 새로고침</button>
+      ${kpiHtml}
+      ${orgSection}
+      ${accountTableHtml}
+      ${teamTableHtml}`;
+
+  } catch(err) {
+    console.error("[boRenderConsolidationDashboard]", err);
+    container.innerHTML = `<div style="padding:40px;text-align:center;color:#EF4444">집계 로드 실패: ${err.message}</div>`;
+  }
+}
+window.boRenderConsolidationDashboard = boRenderConsolidationDashboard;

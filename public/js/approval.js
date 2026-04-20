@@ -61,6 +61,8 @@ let _aprMemberData = []; // plans + applications (내가 신청한 것)
 let _aprLeaderLoaded = false;
 let _aprLeaderData = []; // plans + applications (결재대기, 남이 신청한 것) — 레거시
 let _aprSubDocData = []; // submission_documents (S-5: 상신 문서 기반 쯸사)
+let _aprSavedData = [];  // [A-1] saved 상태 항목 (상신 대기 — 저장완료 섹션 표시용)
+let _aprSelectedItems = new Map(); // [A-1] 다건 상신 선택 항목
 
 // ─── 팀원용 결재함 ────────────────────────────────────────────────────────────
 // 내가 신청한 교육의 결재 상태 확인 (DB 실시간)
@@ -170,6 +172,9 @@ async function renderApprovalMember() {
           approvalHistory: myHistoryMap[mySubDocMap[String(a.id)]?.id] || [],
         })),
       ];
+
+      // [A-1] saved 항목 분리: 상신대기(저장완료)는 별도 섹션에서 표시
+      _aprSavedData = _aprMemberData.filter(d => d.status === 'saved');
 
       // [S-9] 예산 잔액 조회 (frozen 포함 실가용 잔액)
       try {

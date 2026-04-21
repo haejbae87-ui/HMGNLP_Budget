@@ -1,4 +1,4 @@
-﻿// ─── fo_plans_wizard.js — 계획 수립 마법사 Step 렌더 (REFACTOR-2: plans.js 분리) ───
+// ─── fo_plans_wizard.js — 계획 수립 마법사 Step 렌더 (REFACTOR-2: plans.js 분리) ───
 // ─── PLAN WIZARD ─────────────────────────────────────────────────────────────
 
 function startPlanWizard() {
@@ -755,7 +755,11 @@ ${
         if (s.formTemplateLoading) {
           return `<div style="padding:32px;text-align:center;color:#6B7280;font-size:14px;font-weight:600"><div style="font-size:28px;margin-bottom:8px">⌛</div>양식 로딩 중...</div>`;
         }
-        // ── Fallback: 양식 미설정 ──
+        // ── Phase B: 표준 렌더러 (정규화 컬럼 기반) ──
+        if (typeof window.foRenderStandardPlanForm === 'function') {
+          return window.foRenderStandardPlanForm(s, curBudget);
+        }
+        // ── 최후 Fallback: Phase B 렌더러 미로드 시 ──
         return `
         <div class="inline-flex bg-gray-100 rounded-xl p-1">
           <button onclick="planState.region='domestic';renderPlanWizard()" class="px-5 py-2 rounded-lg text-sm font-bold transition ${s.region === "domestic" ? "bg-white text-accent shadow" : "text-gray-500"}">🗺 국내</button>

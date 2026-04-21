@@ -1042,3 +1042,301 @@ window.refreshCalcGroundsByContext = function(foContext, prefix) {
   // 페이지 재렌더링
   _reRenderForm(prefix);
 };
+
+// ─── Phase B: FO 표준 렌더러 ─────────────────────────────────────────────────
+// BO form_templates 의존 없이 정규화 컬럼 기반으로 직접 입력 UI를 렌더링합니다.
+// PRD form_simplification.md Phase B 기준 구현
+
+/**
+ * 교육계획 표준 입력 폼 렌더러 (Phase B)
+ * @param {Object} s - planState
+ * @param {Object} curBudget - 선택된 예산 객체
+ * @returns {string} HTML string
+ */
+window.foRenderStandardPlanForm = function(s, curBudget) {
+  const isOverseas = s.is_overseas === true || s.region === 'overseas';
+  const venueType  = s.venue_type || 'internal';
+  const eduType    = s.eduType || '';
+  const subType    = s.subType || '';
+
+  // 교육유형 기반 템플릿 분류
+  const isSelfLearning = ['external_personal', 'elearning_personal'].includes(s.purpose?.id) ||
+    ['이러닝', 'elearning', 'external'].includes(eduType) || subType.includes('elearning');
+  const isElearning    = ['이러닝', 'elearning'].includes(eduType) || subType.includes('elearning');
+  const isConsignment  = ['위탁', 'consignment'].includes(subType) || subType.includes('consignment');
+
+  // 국내/해외 토글
+  const regionToggle = `
+    <div>
+      <label style="display:block;font-size:11px;font-weight:800;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🌐 교육 지역 <span style="color:#EF4444">*</span></label>
+      <div style="display:inline-flex;background:#F3F4F6;border-radius:12px;padding:4px;gap:4px">
+        <button onclick="planState.is_overseas=false;planState.region='domestic';renderPlanWizard()"
+          style="padding:8px 20px;border-radius:9px;font-size:13px;font-weight:800;border:none;cursor:pointer;transition:all .15s;
+                 background:${!isOverseas ? '#fff' : 'transparent'};color:${!isOverseas ? '#002C5F' : '#9CA3AF'};
+                 box-shadow:${!isOverseas ? '0 1px 4px rgba(0,0,0,.12)' : 'none'}">🗺 국내</button>
+        <button onclick="planState.is_overseas=true;planState.region='overseas';renderPlanWizard()"
+          style="padding:8px 20px;border-radius:9px;font-size:13px;font-weight:800;border:none;cursor:pointer;transition:all .15s;
+                 background:${isOverseas ? '#002C5F' : 'transparent'};color:${isOverseas ? '#fff' : '#9CA3AF'};
+                 box-shadow:${isOverseas ? '0 2px 8px rgba(0,44,95,.25)' : 'none'}">🌏 해외</button>
+      </div>
+    </div>`;
+
+  // 해외 국가 입력 (is_overseas=true일 때만)
+  const countryField = isOverseas ? `
+    <div>
+      <label style="display:block;font-size:11px;font-weight:800;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🌐 교육 국가 <span style="color:#EF4444">*</span></label>
+      <input type="text" value="${s.overseas_country || ''}" oninput="planState.overseas_country=this.value"
+        placeholder="예) 미국, 일본, 독일" class="w-full bg-gray-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
+    </div>` : '';
+
+  // 계획명
+  const titleField = `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">계획명 <span class="text-red-500">*</span></label>
+      <input type="text" value="${s.title || ''}" oninput="planState.title=this.value"
+        placeholder="예) 26년 AI 탐구형 학습 계획"
+        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
+    </div>`;
+
+  // 교육 기간
+  const datesField = `
+    <div class="grid grid-cols-2 gap-5">
+      <div>
+        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">시작일</label>
+        <input type="date" value="${s.startDate || ''}" oninput="planState.startDate=this.value"
+          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
+      </div>
+      <div>
+        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">종료일</label>
+        <input type="date" value="${s.endDate || ''}" oninput="planState.endDate=this.value"
+          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
+      </div>
+    </div>`;
+
+  // 장소유형 (교육운영 목적만)
+  const venueField = !isSelfLearning ? `
+    <div>
+      <label style="display:block;font-size:11px;font-weight:800;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🏢 장소 유형</label>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+        ${[
+          {v:'internal', icon:'🏭', label:'사내'},
+          {v:'external', icon:'🏨', label:'외부 임차'},
+          {v:'online',   icon:'💻', label:'온라인'},
+        ].map(({v, icon, label}) => `
+        <button onclick="planState.venue_type='${v}';renderPlanWizard()"
+          style="padding:10px 12px;border-radius:10px;font-size:12px;font-weight:800;border:2px solid ${venueType===v ? '#002C5F' : '#E5E7EB'};
+                 background:${venueType===v ? '#EFF6FF' : '#fff'};color:${venueType===v ? '#002C5F' : '#6B7280'};cursor:pointer;transition:all .15s">
+          ${icon} ${label}
+        </button>`).join('')}
+      </div>
+    </div>` : '';
+
+  // 예상 인원 / 차수 (교육운영 목적)
+  const headcountField = !isSelfLearning ? `
+    <div class="grid grid-cols-2 gap-5">
+      <div>
+        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">👥 예상 인원 (명)</label>
+        <input type="number" value="${s.planned_headcount || ''}" oninput="planState.planned_headcount=Number(this.value)"
+          placeholder="0" min="1" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition"/>
+      </div>
+      <div>
+        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🔄 예상 차수</label>
+        <input type="number" value="${s.planned_rounds || 1}" oninput="planState.planned_rounds=Number(this.value)"
+          placeholder="1" min="1" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition"/>
+      </div>
+    </div>` : '';
+
+  // 위탁기관명 (위탁 교육유형)
+  const consignField = isConsignment ? `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🏫 위탁기관명 <span class="text-red-500">*</span></label>
+      <input type="text" value="${(s.extra_fields||{}).consignment_org || ''}"
+        oninput="planState.extra_fields=Object.assign(planState.extra_fields||{},{consignment_org:this.value})"
+        placeholder="교육을 위탁받는 기관명"
+        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
+    </div>` : '';
+
+  // 이러닝 플랫폼/URL
+  const elearningFields = isElearning ? `
+    <div class="grid grid-cols-2 gap-5">
+      <div>
+        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">💻 이러닝 플랫폼</label>
+        <input type="text" value="${(s.extra_fields||{}).elearning_platform || ''}"
+          oninput="planState.extra_fields=Object.assign(planState.extra_fields||{},{elearning_platform:this.value})"
+          placeholder="예) 클래스101, 유데미"
+          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
+      </div>
+      <div>
+        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🔗 URL</label>
+        <input type="text" value="${(s.extra_fields||{}).elearning_url || ''}"
+          oninput="planState.extra_fields=Object.assign(planState.extra_fields||{},{elearning_url:this.value})"
+          placeholder="https://"
+          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
+      </div>
+    </div>` : '';
+
+  // 세부산출근거
+  const calcSection = typeof _renderCalcGroundsSection === 'function'
+    ? _renderCalcGroundsSection(s, curBudget)
+    : '';
+
+  // 교육장소 태그 입력
+  const locationSection = typeof _renderLocationTagInput === 'function'
+    ? _renderLocationTagInput(s)
+    : '';
+
+  // 예산 계획액
+  const amountField = `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">💰 예산 계획액
+        ${s.calcGrounds && s.calcGrounds.length > 0 ? '<span class="text-xs font-medium text-blue-500 ml-2">(세부 산출 근거 합계 자동 반영)</span>' : ''}
+      </label>
+      <div class="relative max-w-xs">
+        <input type="number" value="${s.amount || 0}" oninput="planState.amount=this.value;_syncCalcToAmount()" placeholder="0"
+          class="w-full bg-gray-50 border-2 ${s.hardLimitViolated ? 'border-red-400 bg-red-50' : 'border-gray-100'} rounded-xl px-5 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition pr-12"/>
+        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-gray-400">원</span>
+      </div>
+      ${s.hardLimitViolated ? '<div class="mt-1.5 text-xs font-black text-red-600">🚫 Hard Limit 초과 항목이 있어 계획을 저장할 수 없습니다.</div>' : ''}
+      ${typeof _renderApprovalRouteInfo === 'function' ? _renderApprovalRouteInfo(s, curBudget) : ''}
+    </div>`;
+
+  // 상세 내용
+  const contentField = `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">계획 상세 내용</label>
+      <textarea oninput="planState.content=this.value" rows="3"
+        placeholder="업무 활용 방안, 학습 목표 등을 입력하세요."
+        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-medium text-gray-700 focus:border-accent focus:bg-white transition resize-none">${s.content || ''}</textarea>
+    </div>`;
+
+  // Phase B 배지
+  const phaseBBadge = `
+    <div style="margin-bottom:16px;padding:8px 14px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;font-size:11px;font-weight:700;color:#15803D;display:flex;align-items:center;gap:6px">
+      ✅ <span>표준 입력 양식 (Phase B) — 정규화 컬럼 기반</span>
+    </div>`;
+
+  return [
+    phaseBBadge,
+    regionToggle,
+    countryField,
+    titleField,
+    datesField,
+    venueField,
+    headcountField,
+    consignField,
+    elearningFields,
+    calcSection,
+    locationSection,
+    amountField,
+    contentField,
+  ].filter(Boolean).join('\n');
+};
+window.foRenderStandardPlanForm = window.foRenderStandardPlanForm;
+
+/**
+ * 교육신청 표준 입력 폼 렌더러 (Phase B)
+ * @param {Object} s - applyState
+ * @param {Object} curBudget - 선택된 예산 객체
+ * @returns {string} HTML string
+ */
+window.foRenderStandardApplyForm = function(s, curBudget) {
+  const isOverseas   = s.is_overseas === true || s.region === 'overseas';
+  const eduType      = s.eduType || '';
+  const subType      = s.subType || '';
+  const isElearning  = ['이러닝', 'elearning'].includes(eduType) || subType.includes('elearning');
+
+  // 국내/해외 토글
+  const regionToggle = `
+    <div>
+      <label style="display:block;font-size:11px;font-weight:800;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🌐 교육 지역</label>
+      <div style="display:inline-flex;background:#F3F4F6;border-radius:12px;padding:4px;gap:4px">
+        <button onclick="applyState.is_overseas=false;applyState.region='domestic';renderApply()"
+          style="padding:8px 20px;border-radius:9px;font-size:13px;font-weight:800;border:none;cursor:pointer;transition:all .15s;
+                 background:${!isOverseas ? '#fff' : 'transparent'};color:${!isOverseas ? '#002C5F' : '#9CA3AF'};
+                 box-shadow:${!isOverseas ? '0 1px 4px rgba(0,0,0,.12)' : 'none'}">🗺 국내</button>
+        <button onclick="applyState.is_overseas=true;applyState.region='overseas';renderApply()"
+          style="padding:8px 20px;border-radius:9px;font-size:13px;font-weight:800;border:none;cursor:pointer;transition:all .15s;
+                 background:${isOverseas ? '#002C5F' : 'transparent'};color:${isOverseas ? '#fff' : '#9CA3AF'};
+                 box-shadow:${isOverseas ? '0 2px 8px rgba(0,44,95,.25)' : 'none'}">🌏 해외</button>
+      </div>
+    </div>`;
+
+  // 과정명
+  const titleField = `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">과정명 <span class="text-red-500">*</span></label>
+      <input type="text" value="${s.title || ''}" oninput="applyState.title=this.value"
+        placeholder="교육/세미나/자격증 등 공식 명칭"
+        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
+    </div>`;
+
+  // 교육 기간
+  const datesField = `
+    <div class="grid grid-cols-2 gap-5">
+      <div>
+        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">시작일</label>
+        <input type="date" value="${s.startDate || ''}" oninput="applyState.startDate=this.value;renderApply()"
+          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
+      </div>
+      <div>
+        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">종료일</label>
+        <input type="date" value="${s.endDate || ''}" oninput="applyState.endDate=this.value;renderApply()"
+          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
+      </div>
+    </div>`;
+
+  // 총 학습시간
+  const hoursField = `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">총 학습시간 (H)</label>
+      <input type="number" value="${s.hours || ''}" oninput="applyState.hours=this.value"
+        placeholder="0" class="w-40 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition"/>
+    </div>`;
+
+  // 이러닝 플랫폼/URL
+  const elearningFields = isElearning ? `
+    <div class="grid grid-cols-2 gap-5">
+      <div>
+        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">💻 이러닝 플랫폼</label>
+        <input type="text" value="${(s.extra_fields||{}).elearning_platform || ''}"
+          oninput="applyState.extra_fields=Object.assign(applyState.extra_fields||{},{elearning_platform:this.value})"
+          placeholder="예) 클래스101, 유데미"
+          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
+      </div>
+      <div>
+        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🔗 URL</label>
+        <input type="text" value="${(s.extra_fields||{}).elearning_url || ''}"
+          oninput="applyState.extra_fields=Object.assign(applyState.extra_fields||{},{elearning_url:this.value})"
+          placeholder="https://"
+          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
+      </div>
+    </div>` : '';
+
+  // 학습 내용
+  const contentField = `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">학습 내용 <span class="text-red-500">*</span></label>
+      <textarea oninput="applyState.content=this.value" rows="3"
+        placeholder="학습 목표, 주요 커리큘럼 및 활용 방안을 입력하세요."
+        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-medium text-gray-700 focus:border-accent focus:bg-white transition resize-none">${s.content || ''}</textarea>
+    </div>`;
+
+  // Phase B 배지
+  const phaseBBadge = `
+    <div style="margin-bottom:16px;padding:8px 14px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;font-size:11px;font-weight:700;color:#15803D;display:flex;align-items:center;gap:6px">
+      ✅ <span>표준 입력 양식 (Phase B) — 정규화 컬럼 기반</span>
+    </div>`;
+
+  return [
+    phaseBBadge,
+    regionToggle,
+    titleField,
+    datesField,
+    hoursField,
+    elearningFields,
+    contentField,
+  ].filter(Boolean).join('\n');
+};
+
+console.log('[fo_form_loader] Phase B 표준 렌더러 로드됨 (foRenderStandardPlanForm, foRenderStandardApplyForm)');
+

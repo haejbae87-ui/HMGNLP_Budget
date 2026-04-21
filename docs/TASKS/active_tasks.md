@@ -1,6 +1,6 @@
 # 📋 HMGNLP_Budget — 작업 현황 (active_tasks.md)
 
-> 최종 갱신: 2026-04-21 (교육양식 간소화 BO 에디터 토글 v2 구현 완료 + 뱃지 3개 항목 홀딩 처리)
+> 최종 갱신: 2026-04-21 (Form Simplification Phase B 완료 — FO 표준 렌더러 구현)
 
 ---
 
@@ -28,6 +28,7 @@
 - [x] **P11 plan_type 자동분류** — `trg_auto_classify_plan_type` DB 트리거: 수요예측 기간 내 INSERT 시 `forecast`, 외 시 `ongoing` 자동 설정 (Q-10)
 - [x] **P12 FO 묶음 상신 UI** — `fo_plans_list.js`: HMC/KIA 테넌트 전용 `bundled_forecast_enabled` 체크, `forecast` + `saved` 계획 선택형 묶음 상신(팀장 결재) UI 구현
 - [x] **Form Simplification Phase A** — DB 정규화: `plans` 테이블 `venue_type`, `planned_rounds`, `planned_days`, `locations`, `extra_fields` 컬럼 추가; `applications` 테이블 `venue_type`, `extra_fields` 추가; 기존 데이터 backfill (detail JSON → 정규화 컬럼). `fo_plans_actions.js` 세 저장 함수에 dual-write 이중 기록 추가.
+- [x] **Form Simplification Phase B** — FO 표준 렌더러 구현: `fo_form_loader.js`에 `foRenderStandardPlanForm()`, `foRenderStandardApplyForm()` 추가 (정규화 컬럼 기반 입력 UI). `fo_plans_wizard.js`, `fo_apply_form.js` Step 4 폴백을 표준 렌더러 호출로 교체. 렌더러는 is_overseas, venue_type, planned_rounds, overseas_country 등 정규화 컬럼 직접 입력 지원. BO 양식 미설정 시 자동 적용됨.
 - [x] **Form Simplification Phase C** — `apply_conditions` JSONB 컬럼 추가 (calc_grounds); 기존 항목 자동 태깅(항공료→해외, 숙박비→숙박); `bo_calc_grounds.js` 상세 편집 UI에 적용조건 섹션(🏷️) 추가; `fo_form_loader.js`에 `foGetApplicableCalcGrounds`, `getApplicableCalcGrounds`, `getApplicableCalcGroundsForType` 공용 필터 함수 추가.
 
 ---

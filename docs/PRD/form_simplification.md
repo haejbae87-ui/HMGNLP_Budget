@@ -1,10 +1,10 @@
 # 교육양식 간소화 및 조건부 산출근거 연동 PRD
 
 > **도메인**: 교육양식 아키텍처 재설계 (Form Simplification)
-> **관련 파일**: `bo_form_builder.js`, `fo_form_loader.js`, `plans.js`, `apply.js`, `bo_calc_grounds.js`
+> **관련 파일**: `bo_fb_library.js`, `bo_fb_core.js`, `bo_fb_editor.js`, `fo_form_loader.js`, `plans.js`, `apply.js`, `bo_calc_grounds.js`
 > **최초 작성**: 2026-04-17
-> **최종 갱신**: 2026-04-17
-> **상태**: 🔴 기획 확정 / 미구현
+> **최종 갱신**: 2026-04-21
+> **상태**: 🟡 구현 중 (BO 에디터 토글 UI 완료 / FO 연동 미완)
 > **선행 PRD**: `form_builder.md`, `form_field_governance.md`, `form_deploy_workflow.md`, `calc_grounds_ux_redesign.md`
 
 ---
@@ -376,3 +376,5 @@ Phase D: 폼빌더 비활성화
 | 날짜 | 내용 | 작성자 |
 |------|------|--------|
 | 2026-04-17 | 최초 작성 — 폼 간소화 B안(하이브리드) 확정. 관심사 분리(폼/비즈니스), 정규화 필드 정의, apply_conditions 태깅 설계, 갭 분석 5건, 엣지케이스 15건, 사이드이펙트 4건, 전환 전략 4단계, 기존 PRD 4건 영향 분석 | AI |
+| 2026-04-21 | BO 에디터 UI 전환 — DnD 필드빌더를 카테고리별 토글 on/off로 교체, 개별 비용 필드 제거 후 세부산출근거 통합 연동 안내 섹션 추가, _fbPreviewHTML 간소화 | AI |
+

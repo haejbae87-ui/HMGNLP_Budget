@@ -22,7 +22,7 @@
 | 14 | 세부산출근거 입력 UX 개선 + 장소별 단가 연동 | [calc_grounds_ux_redesign.md](calc_grounds_ux_redesign.md) | 🔴 미구현 (설계 확정) | v1.0 |
 | 15 | **교육예산 전체 라이프사이클 고도화** | [budget_lifecycle.md](budget_lifecycle.md) | 🟡 구현 중 (P1,P4,P6 완료 / P2,P11~16 미구현) | v2.2 |
 | 16 | **🔴 예산 배정↔신청 연동 갭 분석** | [budget_allocation_linkage.md](budget_allocation_linkage.md) | 🔴 핵심 연동 미구현 | v1.0 |
-| 17 | **🆕 교육양식 간소화 및 조건부 산출근거 연동** | [form_simplification.md](form_simplification.md) | 🔴 기획 확정 / 미구현 | v1.0 |
+| 17 | **🆕 교육양식 간소화 및 조건부 산출근거 연동** | [form_simplification.md](form_simplification.md) | 🟡 구현 중 (BO 에디터 토글 UI 완료) | v1.1 |
 | 18 | **🆕 교육양식 필드 표준화 정의서** | [field_standardization.md](field_standardization.md) | ✅ 1차 통합 완료 (HMC R&D + HMC/Kia 일반직 반영) | v1.1 |
 | 19 | **🆕 교육계획 N:1 교육신청 복수 계획 연동** | [multi_plan_application.md](multi_plan_application.md) | 🟡 기획 확정 / 개발 대기 | v1.4 |
 | 20 | **🆕 교육지원제도 운영관리 역할별 업무 설계** | [edu_support_operations_role_design.md](edu_support_operations_role_design.md) | 🟡 기획 확정 / 역할 2개 유지 | v1.0 |

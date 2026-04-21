@@ -189,6 +189,16 @@ async function _loadFormTemplateByContext(
 // stage: 'plan' | 'apply' | 'result', eduType: 선택된 교육유형 (optional)
 async function getFoFormTemplate(policy, stage, eduType) {
   if (!policy) return null;
+
+  // 1순위: Phase F - 인라인 폼 (stageFormFields)
+  if (policy.stageFormFields && policy.stageFormFields[stage]) {
+    return {
+      isInline: true,
+      inlineFields: policy.stageFormFields[stage],
+      name: policy.name + ' 양식'
+    };
+  }
+
   await _loadFieldDefs(); // field_defs 사전 로드
 
   // 1순위: stage_form_ids에서 eduType 매칭
@@ -1053,7 +1063,8 @@ window.refreshCalcGroundsByContext = function(foContext, prefix) {
  * @param {Object} curBudget - 선택된 예산 객체
  * @returns {string} HTML string
  */
-window.foRenderStandardPlanForm = function(s, curBudget) {
+window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
+  const inline = inlineFields || {};
   const isOverseas = s.is_overseas === true || s.region === 'overseas';
   const venueType  = s.venue_type || 'internal';
   const eduType    = s.eduType || '';
@@ -1065,8 +1076,21 @@ window.foRenderStandardPlanForm = function(s, curBudget) {
   const isElearning    = ['이러닝', 'elearning'].includes(eduType) || subType.includes('elearning');
   const isConsignment  = ['위탁', 'consignment'].includes(subType) || subType.includes('consignment');
 
+  // 무예산 계정 판별 (비용 필드 강제 비활성화)
+  const isNoBudget = curBudget?.account === '참가' || curBudget?.usesBudget === false || curBudget?.uses_budget === false;
+
+  // 인라인 필드 설정 확인 (기본값 true)
+  const showRegion = inline.venue !== false;
+  const showTitle = inline.edu_name !== false;
+  const showDates = inline.edu_period !== false;
+  const showVenue = !isSelfLearning && inline.venue !== false;
+  const showHeadcount = !isSelfLearning && inline.participants !== false;
+  const showAmount = inline.amount !== false && !isNoBudget;
+  const showCalc = inline.calc_grounds !== false && !isNoBudget;
+  const showContent = inline.content !== false;
+
   // 국내/해외 토글
-  const regionToggle = `
+  const regionToggle = showRegion ? `
     <div>
       <label style="display:block;font-size:11px;font-weight:800;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🌐 교육 지역 <span style="color:#EF4444">*</span></label>
       <div style="display:inline-flex;background:#F3F4F6;border-radius:12px;padding:4px;gap:4px">
@@ -1079,10 +1103,10 @@ window.foRenderStandardPlanForm = function(s, curBudget) {
                  background:${isOverseas ? '#002C5F' : 'transparent'};color:${isOverseas ? '#fff' : '#9CA3AF'};
                  box-shadow:${isOverseas ? '0 2px 8px rgba(0,44,95,.25)' : 'none'}">🌏 해외</button>
       </div>
-    </div>`;
+    </div>` : '';
 
   // 해외 국가 입력 (is_overseas=true일 때만)
-  const countryField = isOverseas ? `
+  const countryField = (showRegion && isOverseas) ? `
     <div>
       <label style="display:block;font-size:11px;font-weight:800;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🌐 교육 국가 <span style="color:#EF4444">*</span></label>
       <input type="text" value="${s.overseas_country || ''}" oninput="planState.overseas_country=this.value"
@@ -1090,16 +1114,16 @@ window.foRenderStandardPlanForm = function(s, curBudget) {
     </div>` : '';
 
   // 계획명
-  const titleField = `
+  const titleField = showTitle ? `
     <div>
       <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">계획명 <span class="text-red-500">*</span></label>
       <input type="text" value="${s.title || ''}" oninput="planState.title=this.value"
         placeholder="예) 26년 AI 탐구형 학습 계획"
         class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
-    </div>`;
+    </div>` : '';
 
   // 교육 기간
-  const datesField = `
+  const datesField = showDates ? `
     <div class="grid grid-cols-2 gap-5">
       <div>
         <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">시작일</label>
@@ -1111,10 +1135,10 @@ window.foRenderStandardPlanForm = function(s, curBudget) {
         <input type="date" value="${s.endDate || ''}" oninput="planState.endDate=this.value"
           class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
       </div>
-    </div>`;
+    </div>` : '';
 
   // 장소유형 (교육운영 목적만)
-  const venueField = !isSelfLearning ? `
+  const venueField = showVenue ? `
     <div>
       <label style="display:block;font-size:11px;font-weight:800;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🏢 장소 유형</label>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
@@ -1132,7 +1156,7 @@ window.foRenderStandardPlanForm = function(s, curBudget) {
     </div>` : '';
 
   // 예상 인원 / 차수 (교육운영 목적)
-  const headcountField = !isSelfLearning ? `
+  const headcountField = showHeadcount ? `
     <div class="grid grid-cols-2 gap-5">
       <div>
         <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">👥 예상 인원 (명)</label>
@@ -1176,17 +1200,17 @@ window.foRenderStandardPlanForm = function(s, curBudget) {
     </div>` : '';
 
   // 세부산출근거
-  const calcSection = typeof _renderCalcGroundsSection === 'function'
+  const calcSection = showCalc && typeof _renderCalcGroundsSection === 'function'
     ? _renderCalcGroundsSection(s, curBudget)
     : '';
 
   // 교육장소 태그 입력
-  const locationSection = typeof _renderLocationTagInput === 'function'
+  const locationSection = showVenue && typeof _renderLocationTagInput === 'function'
     ? _renderLocationTagInput(s)
     : '';
 
   // 예산 계획액
-  const amountField = `
+  const amountField = showAmount ? `
     <div>
       <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">💰 예산 계획액
         ${s.calcGrounds && s.calcGrounds.length > 0 ? '<span class="text-xs font-medium text-blue-500 ml-2">(세부 산출 근거 합계 자동 반영)</span>' : ''}
@@ -1198,16 +1222,16 @@ window.foRenderStandardPlanForm = function(s, curBudget) {
       </div>
       ${s.hardLimitViolated ? '<div class="mt-1.5 text-xs font-black text-red-600">🚫 Hard Limit 초과 항목이 있어 계획을 저장할 수 없습니다.</div>' : ''}
       ${typeof _renderApprovalRouteInfo === 'function' ? _renderApprovalRouteInfo(s, curBudget) : ''}
-    </div>`;
+    </div>` : '';
 
   // 상세 내용
-  const contentField = `
+  const contentField = showContent ? `
     <div>
       <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">계획 상세 내용</label>
       <textarea oninput="planState.content=this.value" rows="3"
         placeholder="업무 활용 방안, 학습 목표 등을 입력하세요."
         class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-medium text-gray-700 focus:border-accent focus:bg-white transition resize-none">${s.content || ''}</textarea>
-    </div>`;
+    </div>` : '';
 
   // Phase B 배지
   const phaseBBadge = `
@@ -1239,14 +1263,25 @@ window.foRenderStandardPlanForm = window.foRenderStandardPlanForm;
  * @param {Object} curBudget - 선택된 예산 객체
  * @returns {string} HTML string
  */
-window.foRenderStandardApplyForm = function(s, curBudget) {
+window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
+  const inline = inlineFields || {};
   const isOverseas   = s.is_overseas === true || s.region === 'overseas';
   const eduType      = s.eduType || '';
   const subType      = s.subType || '';
   const isElearning  = ['이러닝', 'elearning'].includes(eduType) || subType.includes('elearning');
 
+  // 무예산 계정 판별 (비용 필드 강제 비활성화)
+  const isNoBudget = curBudget?.account === '참가' || curBudget?.usesBudget === false || curBudget?.uses_budget === false;
+
+  const showRegion = inline.venue !== false;
+  const showTitle = inline.edu_name !== false;
+  const showDates = inline.edu_period !== false;
+  const showAmount = inline.amount !== false && !isNoBudget;
+  const showCalc = inline.calc_grounds !== false && !isNoBudget;
+  const showContent = inline.content !== false;
+
   // 국내/해외 토글
-  const regionToggle = `
+  const regionToggle = showRegion ? `
     <div>
       <label style="display:block;font-size:11px;font-weight:800;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🌐 교육 지역</label>
       <div style="display:inline-flex;background:#F3F4F6;border-radius:12px;padding:4px;gap:4px">
@@ -1259,19 +1294,19 @@ window.foRenderStandardApplyForm = function(s, curBudget) {
                  background:${isOverseas ? '#002C5F' : 'transparent'};color:${isOverseas ? '#fff' : '#9CA3AF'};
                  box-shadow:${isOverseas ? '0 2px 8px rgba(0,44,95,.25)' : 'none'}">🌏 해외</button>
       </div>
-    </div>`;
+    </div>` : '';
 
   // 과정명
-  const titleField = `
+  const titleField = showTitle ? `
     <div>
       <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">과정명 <span class="text-red-500">*</span></label>
       <input type="text" value="${s.title || ''}" oninput="applyState.title=this.value"
         placeholder="교육/세미나/자격증 등 공식 명칭"
         class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
-    </div>`;
+    </div>` : '';
 
   // 교육 기간
-  const datesField = `
+  const datesField = showDates ? `
     <div class="grid grid-cols-2 gap-5">
       <div>
         <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">시작일</label>
@@ -1283,15 +1318,15 @@ window.foRenderStandardApplyForm = function(s, curBudget) {
         <input type="date" value="${s.endDate || ''}" oninput="applyState.endDate=this.value;renderApply()"
           class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
       </div>
-    </div>`;
+    </div>` : '';
 
-  // 총 학습시간
-  const hoursField = `
+  // 총 학습시간 (participants 플래그가 false면 숨김, 원래는 hours지만 대체재로 판단)
+  const hoursField = (inline.participants !== false) ? `
     <div>
       <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">총 학습시간 (H)</label>
       <input type="number" value="${s.hours || ''}" oninput="applyState.hours=this.value"
         placeholder="0" class="w-40 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition"/>
-    </div>`;
+    </div>` : '';
 
   // 이러닝 플랫폼/URL
   const elearningFields = isElearning ? `
@@ -1313,13 +1348,13 @@ window.foRenderStandardApplyForm = function(s, curBudget) {
     </div>` : '';
 
   // 학습 내용
-  const contentField = `
+  const contentField = showContent ? `
     <div>
       <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">학습 내용 <span class="text-red-500">*</span></label>
       <textarea oninput="applyState.content=this.value" rows="3"
         placeholder="학습 목표, 주요 커리큘럼 및 활용 방안을 입력하세요."
         class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-medium text-gray-700 focus:border-accent focus:bg-white transition resize-none">${s.content || ''}</textarea>
-    </div>`;
+    </div>` : '';
 
   // Phase B 배지
   const phaseBBadge = `

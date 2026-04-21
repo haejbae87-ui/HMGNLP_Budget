@@ -757,7 +757,7 @@ ${
         }
         // ── Phase B: 표준 렌더러 (정규화 컬럼 기반) ──
         if (typeof window.foRenderStandardPlanForm === 'function') {
-          return window.foRenderStandardPlanForm(s, curBudget);
+          return window.foRenderStandardPlanForm(s, curBudget, s.formTemplate?.isInline ? s.formTemplate.inlineFields : null);
         }
         // ── 최후 Fallback: Phase B 렌더러 미로드 시 ──
         return `

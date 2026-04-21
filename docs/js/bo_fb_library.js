@@ -519,6 +519,7 @@ function fbCloseEditor() {
   renderFormBuilderMenu();
 }
 
+// ─── 새 에디터 (PRD 간소화 v2) — 토글 on/off, 세부산출근거 통합 ───
 function _fbEditorPage(form) {
   const nameVal = form?.name || "";
   const typeVal = form?.type || "apply";
@@ -526,27 +527,34 @@ function _fbEditorPage(form) {
   const purposeVal = form?.purpose || "";
   const eduTypeVal = form?.eduType || "";
   const eduSubVal = form?.eduSubType || "";
-
-  // 목적 연동 교육유형 목록
   const eduTypesMap = purposeVal ? FORM_EDU_TYPES[purposeVal] || [] : [];
   const selEduType = eduTypesMap.find((t) => t.type === eduTypeVal) || null;
-  // 사용대상: 기존 form.purpose에서 유추하거나 form.targetUser에서 읽음
-  const targetUser =
-    form?.targetUser ||
-    (purposeVal ? FORM_PURPOSE_TYPES[purposeVal]?.targetUser || "" : "");
-
-  // 카테고리별 필드 그룹 (L1 + L2 통합)
+  const targetUser = form?.targetUser || (purposeVal ? FORM_PURPOSE_TYPES[purposeVal]?.targetUser || "" : "");
   const allFields = _fbAllFields();
-  const categories = [...new Set(allFields.map((f) => f.category))];
-
   const titleText = form ? `'${form.name}' 편집` : "새 양식 만들기";
+  const COST_KEYS = ["예상비용","교육비","참가비","강사료","대관비","식대/용차"];
+  const GROUPS = [
+    {label:"📋 기본정보",color:"#1D4ED8",fields:allFields.filter(f=>f.category==="기본정보"&&!COST_KEYS.includes(f.key))},
+    {label:"💰 비용/산출근거",color:"#D97706",fields:allFields.filter(f=>f.category==="비용정보"&&!COST_KEYS.includes(f.key))},
+    {label:"👥 인원정보",color:"#059669",fields:allFields.filter(f=>f.category==="인원정보")},
+    {label:"📎 첨부서류",color:"#9D174D",fields:allFields.filter(f=>f.category==="첨부서류")},
+    {label:"🏫 교육운영정보",color:"#7C3AED",fields:allFields.filter(f=>f.category==="교육운영정보")},
+  ].filter(g=>g.fields.length>0);
+
+  function _tog(f){
+    const isOn=_fbTempFields.some(tf=>(typeof tf==="object"?tf.key:tf)===f.key);
+    const isReq=isOn&&_fbTempFields.find(tf=>(typeof tf==="object"?tf.key:tf)===f.key)?.required;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${isOn?"#F0FDF4":"#fff"};border:1.5px solid ${isOn?"#86EFAC":"#E5E7EB"};border-radius:10px;transition:all .15s" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,.06)'" onmouseout="this.style.boxShadow='none'"><div style="display:flex;align-items:center;gap:8px;flex:1"><span style="font-size:15px">${f.icon}</span><div><div style="font-size:12px;font-weight:800;color:#111827">${f.key}${f.required?'<sup style="color:#EF4444">*</sup>':''}</div>${f.hint?`<div style="font-size:10px;color:#9CA3AF">${f.hint}</div>`:''}</div></div><div style="display:flex;align-items:center;gap:8px">${isOn?`<span onclick="event.stopPropagation();fbToggleRequired(_fbTempFields.findIndex(tf=>(typeof tf==='object'?tf.key:tf)==='${f.key}'))" style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:5px;cursor:pointer;color:${isReq?'#DC2626':'#9CA3AF'};background:${isReq?'#FEF2F2':'#F9FAFB'};border:1px solid ${isReq?'#FECACA':'#E5E7EB'}" title="클릭하여 필수/선택 전환">${isReq?'필수':'선택'}</span>`:''}<div onclick="fbToggleField('${f.key}')" style="width:38px;height:20px;border-radius:10px;background:${isOn?'#059669':'#D1D5DB'};cursor:pointer;position:relative;transition:background .2s"><div style="width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:2px;transform:${isOn?'translateX(18px)':'translateX(2px)'};transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div></div></div></div>`;
+  }
+
+  const sc=_fbTempFields.length;
   return `
 <div class="bo-fade">
-<!-- 상단 헤더 -->
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
   <div style="display:flex;align-items:center;gap:10px">
     <button onclick="fbCloseEditor()" style="border:none;background:none;font-size:20px;cursor:pointer;color:#6B7280" title="목록으로">←</button>
     <h2 style="margin:0;font-size:18px;font-weight:900;color:#111827">${titleText}</h2>
+    <span style="font-size:9px;padding:3px 8px;background:#ECFDF5;color:#065F46;border-radius:6px;font-weight:800">간소화 v2</span>
   </div>
   <div style="display:flex;gap:8px">
     <button class="bo-btn-secondary" onclick="fbCloseEditor()" style="padding:8px 18px;font-size:13px">취소</button>
@@ -554,249 +562,55 @@ function _fbEditorPage(form) {
     <button onclick="fbSaveAndDeploy()" style="padding:8px 22px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#047857);color:white;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">🚀 배포하기</button>
   </div>
 </div>
-<!-- 범위 배지 -->
-${
-  _fbGroupId || _fbAccountCode
-    ? `
-<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;background:#F5F3FF;border:1.5px solid #DDD6FE;border-radius:10px;margin-bottom:14px">
-  <span style="font-size:10px;font-weight:900;color:#5B21B6">📌 분류 범위</span>
-  ${
-    _fbGroupId
-      ? (() => {
-          const g = _fbTplList.find((x) => x.id === _fbGroupId);
-          return `<span style="font-size:11px;font-weight:700;background:#EDE9FE;color:#5B21B6;padding:2px 8px;border-radius:6px">🏢 ${g?.name || _fbGroupId}</span>`;
-        })()
-      : ""
-  }
-  ${
-    _fbAccountCode
-      ? (() => {
-          const a = _fbAccountList.find((x) => x.code === _fbAccountCode);
-          return `<span style="font-size:11px;font-weight:700;background:#DBEAFE;color:#1E40AF;padding:2px 8px;border-radius:6px">💳 ${a?.name || _fbAccountCode}</span>`;
-        })()
-      : ""
-  }
-</div>`
-    : ""
-}
-<!-- 서비스 유형 선택 (직접학습 / 교육운영) -->
+${_fbGroupId||_fbAccountCode?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;background:#F5F3FF;border:1.5px solid #DDD6FE;border-radius:10px;margin-bottom:14px"><span style="font-size:10px;font-weight:900;color:#5B21B6">📌 분류 범위</span>${_fbGroupId?(()=>{const g=_fbTplList.find(x=>x.id===_fbGroupId);return '<span style="font-size:11px;font-weight:700;background:#EDE9FE;color:#5B21B6;padding:2px 8px;border-radius:6px">🏢 '+(g?.name||_fbGroupId)+'</span>';})():''}${_fbAccountCode?(()=>{const a=_fbAccountList.find(x=>x.code===_fbAccountCode);return '<span style="font-size:11px;font-weight:700;background:#DBEAFE;color:#1E40AF;padding:2px 8px;border-radius:6px">💳 '+(a?.name||_fbAccountCode)+'</span>';})():''}</div>`:''}
 <div style="margin-bottom:12px">
   <label style="font-size:11px;font-weight:800;display:block;margin-bottom:6px;color:#374151">서비스 유형 *</label>
   <div style="display:flex;gap:8px">
-    <label id="fb-target-learner-lbl" onclick="_fbOnTargetUserChange('learner')"
-      style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;cursor:pointer;
-             border:2px solid ${targetUser === "learner" ? "#059669" : "#E5E7EB"};
-             background:${targetUser === "learner" ? "#F0FDF4" : "#F9FAFB"}">
-      <input type="radio" name="fb-target-user" value="learner" ${targetUser === "learner" ? "checked" : ""}
-             style="accent-color:#059669;width:14px;height:14px">
-      <span style="font-size:12px;font-weight:800;color:${targetUser === "learner" ? "#059669" : "#6B7280"}">📚 직접학습</span>
-      <span style="font-size:10px;color:#9CA3AF">(개인 신청)</span>
-    </label>
-    <label id="fb-target-admin-lbl" onclick="_fbOnTargetUserChange('admin')"
-      style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;cursor:pointer;
-             border:2px solid ${targetUser === "admin" ? "#7C3AED" : "#E5E7EB"};
-             background:${targetUser === "admin" ? "#F5F3FF" : "#F9FAFB"}">
-      <input type="radio" name="fb-target-user" value="admin" ${targetUser === "admin" ? "checked" : ""}
-             style="accent-color:#7C3AED;width:14px;height:14px">
-      <span style="font-size:12px;font-weight:800;color:${targetUser === "admin" ? "#7C3AED" : "#6B7280"}">🎯 교육운영</span>
-      <span style="font-size:10px;color:#9CA3AF">(운영 관리)</span>
-    </label>
+    <label id="fb-target-learner-lbl" onclick="_fbOnTargetUserChange('learner')" style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;cursor:pointer;border:2px solid ${targetUser==='learner'?'#059669':'#E5E7EB'};background:${targetUser==='learner'?'#F0FDF4':'#F9FAFB'}"><input type="radio" name="fb-target-user" value="learner" ${targetUser==='learner'?'checked':''} style="accent-color:#059669;width:14px;height:14px"><span style="font-size:12px;font-weight:800;color:${targetUser==='learner'?'#059669':'#6B7280'}">📚 직접학습</span><span style="font-size:10px;color:#9CA3AF">(개인 신청)</span></label>
+    <label id="fb-target-admin-lbl" onclick="_fbOnTargetUserChange('admin')" style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;cursor:pointer;border:2px solid ${targetUser==='admin'?'#7C3AED':'#E5E7EB'};background:${targetUser==='admin'?'#F5F3FF':'#F9FAFB'}"><input type="radio" name="fb-target-user" value="admin" ${targetUser==='admin'?'checked':''} style="accent-color:#7C3AED;width:14px;height:14px"><span style="font-size:12px;font-weight:800;color:${targetUser==='admin'?'#7C3AED':'#6B7280'}">🎯 교육운영</span><span style="font-size:10px;color:#9CA3AF">(운영 관리)</span></label>
   </div>
 </div>
-<!-- 행 1: 단계 + 목적 -->
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-  <div>
-    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">단계 *</label>
-    <select id="fb-type" style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-      ${Object.entries(FORM_STAGE_TYPES)
-        .map(
-          ([k, v]) =>
-            `<option value="${k}" ${typeVal === k ? "selected" : ""}>${v.icon} ${v.label.split(" ")[0]}</option>`,
-        )
-        .join("")}
-    </select>
+  <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">단계 *</label><select id="fb-type" style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">${Object.entries(FORM_STAGE_TYPES).map(([k,v])=>`<option value="${k}" ${typeVal===k?'selected':''}>${v.icon} ${v.label.split(' ')[0]}</option>`).join('')}</select></div>
+  <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">목적</label><select id="fb-purpose" onchange="_fbOnPurposeChange(this.value)" style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px"><option value="">— 선택 —</option>${Object.entries(FORM_PURPOSE_TYPES).filter(([k,v])=>!targetUser||v.targetUser===targetUser).map(([k,v])=>`<option value="${k}" ${purposeVal===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select></div>
+</div>
+<div id="fb-edutypes-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;${purposeVal&&eduTypesMap.length>0?'':'display:none'}">
+  <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">교육유형</label><select id="fb-edu-type" onchange="_fbOnEduTypeChange(this.value)" style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px"><option value="">— 선택 —</option>${eduTypesMap.map(t=>`<option value="${t.type}" ${eduTypeVal===t.type?'selected':''}>${t.type}</option>`).join('')}</select></div>
+  <div id="fb-sub-col">${selEduType&&selEduType.sub.length>0?`<label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">세부유형</label><select id="fb-edu-sub" style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px"><option value="">— 선택 —</option>${selEduType.sub.map(s=>`<option value="${s}" ${eduSubVal===s?'selected':''}>${s}</option>`).join('')}</select>`:'<div></div>'}</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+  <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">양식명 *</label><input id="fb-name" value="${nameVal}" type="text" placeholder="예) R&D 사외교육 신청서" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px"></div>
+  <div><label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">설명</label><input id="fb-desc" value="${descVal}" type="text" placeholder="이 양식의 용도" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px"></div>
+</div>
+<div style="border:1.5px solid #E5E7EB;border-radius:14px;overflow:hidden">
+  <div style="background:linear-gradient(135deg,#F9FAFB,#F3F4F6);padding:12px 18px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">🔧</span><span style="font-size:14px;font-weight:900;color:#111827">입력 필드 구성</span><span style="font-size:10px;color:#9CA3AF;font-weight:500">토글 스위치로 필드를 on/off 하세요</span></div>
+    <span style="font-size:11px;font-weight:800;color:#1D4ED8;background:#EFF6FF;padding:3px 10px;border-radius:8px">${sc}개 선택됨</span>
   </div>
-  <div>
-    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">목적</label>
-    <select id="fb-purpose" onchange="_fbOnPurposeChange(this.value)"
-      style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-      <option value="">— 선택 —</option>
-      ${Object.entries(FORM_PURPOSE_TYPES)
-        .filter(([k, v]) => !targetUser || v.targetUser === targetUser)
-        .map(
-          ([k, v]) =>
-            `<option value="${k}" ${purposeVal === k ? "selected" : ""}>${v.icon} ${v.label}</option>`,
-        )
-        .join("")}
-    </select>
+  <div style="padding:16px 18px;display:flex;flex-direction:column;gap:20px">
+    ${GROUPS.map(g=>`<div><div style="font-size:12px;font-weight:900;color:${g.color};margin-bottom:8px;display:flex;align-items:center;gap:6px">${g.label} <span style="font-size:9px;color:#9CA3AF;font-weight:500">(${g.fields.filter(f=>_fbTempFields.some(tf=>(typeof tf==='object'?tf.key:tf)===f.key)).length}/${g.fields.length})</span></div><div style="display:flex;flex-direction:column;gap:6px">${g.fields.map(f=>_tog(f)).join('')}</div></div>`).join('')}
   </div>
 </div>
-<!-- 행 2: 교육유형 + 세부유형 (목적 선택 시 표시) -->
-<div id="fb-edutypes-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;${purposeVal && eduTypesMap.length > 0 ? "" : "display:none"}"
-  class="${purposeVal && eduTypesMap.length > 0 ? "" : "d-none"}">
-  <div>
-    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">교육유형</label>
-    <select id="fb-edu-type" onchange="_fbOnEduTypeChange(this.value)"
-      style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-      <option value="">— 선택 —</option>
-      ${eduTypesMap.map((t) => `<option value="${t.type}" ${eduTypeVal === t.type ? "selected" : ""}>${t.type}</option>`).join("")}
-    </select>
-  </div>
-  <div id="fb-sub-col">
-    ${
-      selEduType && selEduType.sub.length > 0
-        ? `
-    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">세부유형</label>
-    <select id="fb-edu-sub"
-      style="width:100%;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-      <option value="">— 선택 —</option>
-      ${selEduType.sub.map((s) => `<option value="${s}" ${eduSubVal === s ? "selected" : ""}>${s}</option>`).join("")}
-    </select>`
-        : "<div></div>"
-    }
-  </div>
+<div style="margin-top:24px;padding:16px 20px;background:linear-gradient(135deg,#FFFBEB,#FEF3C7);border:1.5px solid #FDE68A;border-radius:14px">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="font-size:18px">📐</span><h3 style="margin:0;font-size:14px;font-weight:900;color:#92400E">세부산출근거 연동 (통합 비용 관리)</h3></div>
+  <div style="font-size:12px;color:#78350F;line-height:1.7;margin-bottom:12px">기존의 개별 비용 필드(예상비용, 교육비, 참가비, 강사료 등)는 <b>세부산출근거 관리</b>로 통합되었습니다.<br>FO 사용자가 교육 조건(국내/해외, 장소유형 등)을 선택하면, <b>apply_conditions</b> 태그에 따라 적용 가능한 산출근거 항목이 자동으로 필터링되어 표시됩니다.</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap"><span style="font-size:10px;padding:4px 10px;background:#fff;border:1px solid #FDE68A;border-radius:6px;color:#92400E;font-weight:700">✅ 과정비(외부위탁)</span><span style="font-size:10px;padding:4px 10px;background:#fff;border:1px solid #FDE68A;border-radius:6px;color:#92400E;font-weight:700">✅ 강사료(외부)</span><span style="font-size:10px;padding:4px 10px;background:#fff;border:1px solid #FDE68A;border-radius:6px;color:#92400E;font-weight:700">✅ 교재비</span><span style="font-size:10px;padding:4px 10px;background:#F3F4F6;border:1px solid #D1D5DB;border-radius:6px;color:#6B7280;font-weight:700">… 조건부 자동 표시</span></div>
+  <div style="margin-top:10px;font-size:10px;color:#92400E;font-style:italic">💡 산출근거 항목 관리: 사이드바 → 세부산출근거 관리 메뉴에서 조건(apply_conditions)을 설정하세요.</div>
 </div>
-<!-- 행 3: 양식명 + 설명 -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
-  <div>
-    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">양식명 *</label>
-    <input id="fb-name" value="${nameVal}" type="text" placeholder="예) R&D 사외교육 신청서"
-      style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-  </div>
-  <div>
-    <label style="font-size:11px;font-weight:800;display:block;margin-bottom:5px;color:#374151">설명</label>
-    <input id="fb-desc" value="${descVal}" type="text" placeholder="이 양식의 용도"
-      style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px">
-  </div>
-</div>
-
-<!-- 입력 주체 범례 -->
-<div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap">
-  <span style="font-size:10px;font-weight:700;color:#374151">📌 필드 입력 주체:</span>
-  <span style="font-size:10px;background:#F3F4F6;color:#374151;padding:2px 8px;border-radius:6px;border:1px solid #E5E7EB">🔓 프론트 공개 (학습자/담당자 입력)</span>
-  <span style="font-size:10px;background:#FDF2F8;color:#9D174D;padding:2px 8px;border-radius:6px;border:1px solid #FBB6CE">🔒 백오피스 전용 (승인자만 입력)</span>
-  <span style="font-size:10px;background:#EFF6FF;color:#0369A1;padding:2px 8px;border-radius:6px;border:1px solid #BFDBFE">⚙️ 시스템 자동</span>
-</div>
-
-<!-- 필드 빌더 영역 (2패널: 팔레트 40% / 선택 60%) -->
-<div style="border:1.5px solid #E5E7EB;border-radius:12px;overflow:hidden">
-  <div style="background:#F9FAFB;padding:10px 16px;border-bottom:1px solid #E5E7EB;font-size:13px;font-weight:800;color:#374151;display:flex;align-items:center;gap:6px">
-    📋 입력 필드 구성 <span style="font-size:10px;color:#9CA3AF;font-weight:500">(클릭으로 추가, 드래그로 순서 변경)</span>
-  </div>
-  <div style="display:grid;grid-template-columns:2fr 3fr;min-height:320px">
-    <!-- 좌: 필드 팔레트 -->
-    <div style="padding:16px;border-right:1px solid #E5E7EB;overflow-y:auto;max-height:520px">
-      <div style="font-size:10px;color:#6B7280;font-weight:800;margin-bottom:8px">사용 가능 필드 (카테고리별)</div>
-      ${categories
-        .map((cat) => {
-          const catFields = allFields.filter((f) => f.category === cat);
-          const catColor = cat.includes("승인")
-            ? "#9D174D"
-            : cat === "시스템"
-              ? "#0369A1"
-              : "#374151";
-          return `<div style="margin-bottom:12px">
-          <div style="font-size:9px;font-weight:900;color:${catColor};text-transform:uppercase;margin-bottom:6px;letter-spacing:.05em">${cat}</div>
-          <div style="display:flex;flex-wrap:wrap;gap:5px">
-            ${catFields
-              .map((f) => {
-                const isSelected = _fbTempFields.some(
-                  (tf) => (typeof tf === "object" ? tf.key : tf) === f.key,
-                );
-                const scopeStyle =
-                  f.scope === "provide"
-                    ? "border:1.5px dashed #93C5FD;color:#1D4ED8;background:#EFF6FF"
-                    : f.scope === "back"
-                      ? "border:1.5px dashed #FBB6CE;color:#9D174D;background:#FDF2F8"
-                      : f.scope === "system"
-                        ? "border:1.5px dashed #BFDBFE;color:#0369A1;background:#EFF6FF"
-                        : "border:1.5px solid #E5E7EB;color:#374151;background:white";
-                const layerBadge =
-                  f.layer === "L2"
-                    ? '<span style="font-size:7px;vertical-align:super;color:#D97706;font-weight:900">L2</span>'
-                    : "";
-                const selectBadge =
-                  f.fieldType === "select" || f.fieldType === "multi_select"
-                    ? '<span style="font-size:7px;vertical-align:super;color:#7C3AED">▼</span>'
-                    : "";
-                return `<span onclick="fbToggleField('${f.key}')" id="fbf-${f.key}"
-                title="${f.hint || ""} ${f.budget ? "💰예산연동" : ""} ${f.fieldType === "select" ? "(셀렉트)" : ""} ${f.predecessors?.length ? "⚡선행:" + f.predecessors.join(",") : ""}"
-                class="fb-field-chip ${isSelected ? "selected" : ""}"
-                style="${scopeStyle};${isSelected ? "opacity:.45;text-decoration:line-through;" : ""}">
-                ${f.icon} ${f.key}${f.required ? "<sup style=color:#EF4444>*</sup>" : ""}${layerBadge}${selectBadge}
-                ${f.budget ? '<span style="font-size:7px;vertical-align:super;color:#D97706">💰</span>' : ""}
-              </span>`;
-              })
-              .join("")}
-          </div>
-        </div>`;
-        })
-        .join("")}
-    </div>
-    <!-- 우: 선택된 필드 목록 -->
-    <div style="padding:16px;overflow-y:auto;max-height:520px;background:#FAFAFA">
-      <div style="font-size:11px;color:#6B7280;font-weight:800;margin-bottom:10px">
-        선택된 필드 (${_fbTempFields.length}개) <span style="font-size:9px;font-weight:400;color:#9CA3AF">⠿ 드래그하여 순서 변경 | 필수/선택 토글</span>
-      </div>
-      <div id="fb-preview">${_fbPreviewHTML()}</div>
-    </div>
-  </div>
+<div style="margin-top:20px;padding:14px 18px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:12px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:13px;font-weight:900;color:#1D4ED8">📋 선택된 필드 (${sc}개)</span><span style="font-size:10px;color:#6B7280">토글로 필드를 on/off 하세요</span></div>
+  <div style="display:flex;flex-wrap:wrap;gap:5px">${_fbTempFields.length===0?'<span style="font-size:11px;color:#9CA3AF">아직 선택된 필드가 없습니다</span>':_fbTempFields.map(tf=>{const k=typeof tf==="object"?tf.key:tf;const meta=allFields.find(a=>a.key===k)||{icon:"📝"};const req=typeof tf==="object"&&tf.required;return `<span style="font-size:10px;padding:3px 8px;border-radius:6px;font-weight:700;background:${req?'#FEF2F2':'#F0FDF4'};color:${req?'#DC2626':'#065F46'};border:1px solid ${req?'#FECACA':'#BBF7D0'}">${meta.icon} ${k}${req?'*':''}</span>`;}).join('')}</div>
 </div>
 </div>`;
 }
 
 function _fbPreviewHTML() {
-  if (!_fbTempFields.length)
-    return '<div style="text-align:center;color:#D1D5DB;padding:40px;font-size:13px">← 왼쪽에서 필드를 클릭하여 추가</div>';
+  if (!_fbTempFields.length) return '<div style="text-align:center;color:#D1D5DB;padding:40px;font-size:13px">선택된 필드가 없습니다</div>';
   const allFields = _fbAllFields();
-  return _fbTempFields
-    .map((f, i) => {
-      const key = typeof f === "object" ? f.key : f;
-      const scope = typeof f === "object" ? f.scope : "front";
-      const isReq = typeof f === "object" ? f.required === true : false;
-      const meta = allFields.find((a) => a.key === key) || { icon: "📝" };
-      const scopeLabel =
-        scope === "provide"
-          ? "📢 BO제공"
-          : scope === "back"
-            ? "🔒 백오피스"
-            : scope === "system"
-              ? "⚙️ 시스템"
-              : "🔓 프론트";
-      const scopeColor =
-        scope === "provide"
-          ? "#1D4ED8"
-          : scope === "back"
-            ? "#9D174D"
-            : scope === "system"
-              ? "#0369A1"
-              : "#374151";
-      const reqColor = isReq ? "#DC2626" : "#9CA3AF";
-      const reqLabel = isReq ? "필수" : "선택";
-      const reqBg = isReq ? "#FEF2F2" : "#F9FAFB";
-      const typeTag =
-        meta.fieldType === "select" || meta.fieldType === "multi_select"
-          ? `<span style="font-size:8px;color:#7C3AED;background:#F5F3FF;padding:1px 5px;border-radius:3px;margin-left:2px">▼${(meta.options || []).length}개</span>`
-          : "";
-      const layerTag =
-        meta.layer === "L2"
-          ? '<span style="font-size:8px;color:#D97706;background:#FFFBEB;padding:1px 5px;border-radius:3px;margin-left:2px">L2</span>'
-          : "";
-      const depTag = meta.predecessors?.length
-        ? '<span style="font-size:8px;color:#059669;background:#ECFDF5;padding:1px 5px;border-radius:3px;margin-left:2px">⚡</span>'
-        : "";
-      return `<div draggable="true"
-      ondragstart="_fbDragStart(${i},event)" ondragover="_fbDragOver(${i},event)" ondrop="_fbDrop(${i},event)" ondragend="_fbDragEnd()"
-      style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:#fff;border-radius:10px;margin-bottom:6px;border:1.5px solid #E5E7EB;cursor:grab;transition:all .15s;user-select:none"
-      onmouseover="this.style.borderColor='#93C5FD'" onmouseout="this.style.borderColor='#E5E7EB'">
-      <span style="color:#9CA3AF;font-size:14px;cursor:grab;line-height:1" title="드래그하여 순서 변경">⠿</span>
-      <span style="color:#9CA3AF;font-weight:700;font-size:11px;min-width:18px">${i + 1}</span>
-      <span style="font-size:13px;font-weight:700;flex:1;color:#111827">${meta.icon} ${key}${typeTag}${layerTag}${depTag}</span>
-      <span onclick="event.stopPropagation();fbToggleRequired(${i})" style="font-size:9px;font-weight:800;color:${reqColor};background:${reqBg};padding:2px 8px;border-radius:5px;cursor:pointer;white-space:nowrap;border:1px solid ${reqColor}30" title="클릭하여 필수/선택 전환">${reqLabel}</span>
-      <span style="font-size:9px;font-weight:700;color:${scopeColor};background:${scopeColor}15;padding:2px 8px;border-radius:5px;cursor:pointer;white-space:nowrap"
-        onclick="event.stopPropagation();fbCycleScope(${i})" title="클릭하여 입력 주체 변경">${scopeLabel}</span>
-      <span onclick="event.stopPropagation();fbRemoveField('${key}')" style="cursor:pointer;color:#EF4444;font-size:16px;line-height:1;font-weight:700" title="삭제">×</span>
-    </div>`;
-    })
-    .join("");
+  return _fbTempFields.map((f,i) => {
+    const key = typeof f === "object" ? f.key : f;
+    const isReq = typeof f === "object" ? f.required === true : false;
+    const meta = allFields.find((a) => a.key === key) || { icon: "📝" };
+    return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:4px 10px;border-radius:8px;font-weight:700;background:${isReq?'#FEF2F2':'#F0FDF4'};color:${isReq?'#DC2626':'#065F46'};border:1px solid ${isReq?'#FECACA':'#BBF7D0'};margin:2px">${meta.icon} ${key}${isReq?'*':''}</span>`;
+  }).join('');
 }

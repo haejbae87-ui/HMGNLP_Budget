@@ -30,6 +30,7 @@
 - [x] **Form Simplification Phase A** — DB 정규화: `plans` 테이블 `venue_type`, `planned_rounds`, `planned_days`, `locations`, `extra_fields` 컬럼 추가; `applications` 테이블 `venue_type`, `extra_fields` 추가; 기존 데이터 backfill (detail JSON → 정규화 컬럼). `fo_plans_actions.js` 세 저장 함수에 dual-write 이중 기록 추가.
 - [x] **Form Simplification Phase B** — FO 표준 렌더러 구현: `fo_form_loader.js`에 `foRenderStandardPlanForm()`, `foRenderStandardApplyForm()` 추가 (정규화 컬럼 기반 입력 UI). `fo_plans_wizard.js`, `fo_apply_form.js` Step 4 폴백을 표준 렌더러 호출로 교체. 렌더러는 is_overseas, venue_type, planned_rounds, overseas_country 등 정규화 컬럼 직접 입력 지원. BO 양식 미설정 시 자동 적용됨.
 - [x] **Form Simplification Phase C** — `apply_conditions` JSONB 컬럼 추가 (calc_grounds); 기존 항목 자동 태깅(항공료→해외, 숙박비→숙박); `bo_calc_grounds.js` 상세 편집 UI에 적용조건 섹션(🏷️) 추가; `fo_form_loader.js`에 `foGetApplicableCalcGrounds`, `getApplicableCalcGrounds`, `getApplicableCalcGroundsForType` 공용 필터 함수 추가.
+- [x] **Form Simplification Phase D** — BO 결재·상세뷰 정규화 컬럼 기반 전환: 신규 `bo_plan_detail_renderer.js` 작성 (`boRenderPlanDetailInfo`, `boRenderAppDetailRows`). `bo_plan_mgmt.js` 상세뷰(`_renderBoPlanDetail`)에서 detail JSON 직접 읽기 → 정규화 컬럼(`is_overseas`, `venue_type`, `planned_rounds` 등) 우선 읽기로 교체. 레거시 detail은 폴백으로만 사용. `backoffice.html` 스크립트 태그 추가.
 
 ---
 

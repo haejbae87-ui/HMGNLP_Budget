@@ -580,118 +580,14 @@ function _renderBoPlanDetail(el, plan) {
         <p style="margin:6px 0 0;font-size:12px;opacity:.8">${plan.applicant_name || plan.submitter || ""} · ${plan.team || plan.dept || ""}</p>
       </div>
 
-      <!-- 상세 정보 -->
-      <div style="padding:24px 28px">
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280;width:140px">계획명</td>
-            <td style="padding:12px 0;font-weight:900;color:#111827">${plan.title || plan.edu_name || "-"}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">상신자</td>
-            <td style="padding:12px 0;color:#374151">${plan.applicant_name || plan.submitter || "-"}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">소속</td>
-            <td style="padding:12px 0;color:#374151">${plan.team || plan.dept || "-"} / ${plan.hq || plan.center || "-"}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">교육목적</td>
-            <td style="padding:12px 0;color:#374151">${_planPurposeKr(d.purpose || plan.purpose)}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">교육유형</td>
-            <td style="padding:12px 0;color:#374151">${_planEduTypeKr(plan.edu_type || d.eduType)} ${d.eduSubType ? "› " + _planEduTypeKr(d.eduSubType) : ""}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">예산계정</td>
-            <td style="padding:12px 0;color:#374151">${plan.account_code || plan.account || "-"}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">과정명</td>
-            <td style="padding:12px 0;color:#374151">${plan.course_name || d.courseName || "-"}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">참석인원</td>
-            <td style="padding:12px 0;color:#374151">${plan.participant_count || d.participantCount || "-"}명</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">계획액</td>
-            <td style="padding:12px 0;font-weight:900;color:#002C5F;font-size:16px">${amt.toLocaleString()}원</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#059669">배정액</td>
-            <td style="padding:12px 0;font-weight:900;color:#059669;font-size:16px">${Number(plan.allocated_amount || 0).toLocaleString()}원</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">실사용액</td>
-            <td style="padding:12px 0;font-weight:900;color:#6B7280;font-size:16px">${Number(plan.actual_amount || 0).toLocaleString()}원</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">기간</td>
-            <td style="padding:12px 0;color:#374151">${d.startDate || "-"} ~ ${d.endDate || "-"}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">제출일</td>
-            <td style="padding:12px 0;color:#374151">${(plan.created_at || plan.submittedAt || "").slice(0, 10) || "-"}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">상태</td>
-            <td style="padding:12px 0">
-              <span style="font-size:11px;font-weight:900;padding:3px 10px;border-radius:6px;background:${stColor}15;color:${stColor}">${stLabel}</span>
-            </td>
-          </tr>
-          ${
-            plan.reject_reason
-              ? `
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#DC2626">반려 사유</td>
-            <td style="padding:12px 0;color:#DC2626;font-weight:700">${plan.reject_reason}</td>
-          </tr>`
-              : ""
-          }
-          <tr>
-            <td style="padding:12px 0;font-weight:800;color:#6B7280;vertical-align:top">상세 내용</td>
-            <td style="padding:12px 0;color:#374151;white-space:pre-wrap">${d.content || plan.content || "-"}</td>
-          </tr>
-        </table>
-      </div>
+      <!-- Phase D: 정규화 컬럼 기반 상세 정보 (bo_plan_detail_renderer.js) -->
+      ${typeof window.boRenderPlanDetailInfo === 'function'
+        ? window.boRenderPlanDetailInfo(plan)
+        : `<div style="padding:24px 28px"><p style="color:#9CA3AF;font-size:12px">상세 렌더러 로딩 중...</p></div>`}
 
       <!-- 결재/검토 진행현황 -->
       ${typeof renderApprovalStepper === "function" ? renderApprovalStepper(status, "plan") : ""}
-
-      <!-- 산출근거 -->
-      ${
-        d.calcGrounds && d.calcGrounds.length > 0
-          ? `
-      <div style="padding:0 28px 24px">
-        <h3 style="font-size:13px;font-weight:900;color:#374151;margin-bottom:10px">📐 세부산출근거</h3>
-        <table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #E5E7EB;border-radius:8px;overflow:hidden">
-          <thead>
-            <tr style="background:#F9FAFB">
-              <th style="padding:8px 12px;text-align:left;font-weight:800;color:#6B7280">항목</th>
-              <th style="padding:8px 12px;text-align:right;font-weight:800;color:#6B7280">단가</th>
-              <th style="padding:8px 12px;text-align:right;font-weight:800;color:#6B7280">수량</th>
-              <th style="padding:8px 12px;text-align:right;font-weight:800;color:#6B7280">소계</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${d.calcGrounds
-              .map(
-                (cg) => `
-            <tr style="border-top:1px solid #F3F4F6">
-              <td style="padding:8px 12px;font-weight:700">${cg.type || cg.label || "-"}</td>
-              <td style="padding:8px 12px;text-align:right">${Number(cg.price || 0).toLocaleString()}원</td>
-              <td style="padding:8px 12px;text-align:right">${cg.qty || 1}</td>
-              <td style="padding:8px 12px;text-align:right;font-weight:900">${(Number(cg.price || 0) * Number(cg.qty || 1)).toLocaleString()}원</td>
-            </tr>`,
-              )
-              .join("")}
-          </tbody>
-        </table>
-      </div>`
-          : ""
-      }
+      <!-- 산출근거는 boRenderPlanDetailInfo 내 포함됨 (Phase D) -->
 
       <!-- [P2] 배정액 직접 수정 (approved 상태) -->
       <div id="bo-alloc-edit-panel" style="padding:0 28px 8px"></div>
@@ -1004,8 +900,13 @@ async function _renderBoPlanApplicationsPanel(planId) {
     </div>`;
 }
 
-// 신청서 상세 행 렌더 (아코디언)
+// 신청서 상세 행 렌더 (아코디언) — Phase D: 정규화 컬럼 우선
 function _buildAppDetailRows(app) {
+  // Phase D: boRenderAppDetailRows (bo_plan_detail_renderer.js) 위임
+  if (typeof window.boRenderAppDetailRows === 'function') {
+    return window.boRenderAppDetailRows(app);
+  }
+  // fallback (레거시 detail JSON 기반)
   const d = app.detail || {};
   const fields = [
     ['교육명', app.edu_name || d.edu_name || '-'],
@@ -1018,16 +919,15 @@ function _buildAppDetailRows(app) {
   if (d.institution) fields.push(['교육기관', d.institution]);
   if (d.purpose) fields.push(['목적', d.purpose]);
   if (app.status === 'rejected' && d.reject_reason) fields.push(['반려사유', d.reject_reason]);
-
   const rows = fields.map(([label, val]) =>
     `<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #F3F4F6;font-size:12px">
       <span style="width:90px;flex-shrink:0;font-weight:700;color:#6B7280">${label}</span>
       <span style="color:#111827">${val}</span>
     </div>`
   ).join('');
-
   return `<div>${rows}</div>`;
 }
+
 window._renderBoPlanApplicationsPanel = _renderBoPlanApplicationsPanel;
 
 // ━━━ [P2] 배정액 직접 수정 패널 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

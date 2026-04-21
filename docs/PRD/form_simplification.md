@@ -4,7 +4,7 @@
 > **관련 파일**: `bo_fb_library.js`, `bo_fb_core.js`, `bo_fb_editor.js`, `fo_form_loader.js`, `plans.js`, `apply.js`, `bo_calc_grounds.js`
 > **최초 작성**: 2026-04-17
 > **최종 갱신**: 2026-04-21
-> **상태**: 🟡 구현 중 (BO 에디터 토글 UI 완료 / FO 연동 미완)
+> **상태**: 🟡 구현 중 (Phase A/B/C/D 완료 / Phase E 미완)
 > **선행 PRD**: `form_builder.md`, `form_field_governance.md`, `form_deploy_workflow.md`, `calc_grounds_ux_redesign.md`
 
 ---
@@ -377,4 +377,5 @@ Phase D: 폼빌더 비활성화
 |------|------|--------|
 | 2026-04-17 | 최초 작성 — 폼 간소화 B안(하이브리드) 확정. 관심사 분리(폼/비즈니스), 정규화 필드 정의, apply_conditions 태깅 설계, 갭 분석 5건, 엣지케이스 15건, 사이드이펙트 4건, 전환 전략 4단계, 기존 PRD 4건 영향 분석 | AI |
 | 2026-04-21 | BO 에디터 UI 전환 — DnD 필드빌더를 카테고리별 토글 on/off로 교체, 개별 비용 필드 제거 후 세부산출근거 통합 연동 안내 섹션 추가, _fbPreviewHTML 간소화 | AI |
+| 2026-04-21 | **Phase D 완료** — `bo_plan_detail_renderer.js` 신규 파일 작성: `boRenderPlanDetailInfo()`, `boRenderAppDetailRows()` 구현. BO 교육계획 상세뷰(`_renderBoPlanDetail`)의 detail JSON 직접 읽기 → 정규화 컬럼(`is_overseas`, `venue_type`, `planned_rounds`, `overseas_country`, `extra_fields` 등) 우선 읽기로 전환. `_buildAppDetailRows()` 동일하게 정규화 컬럼 우선 적용. `backoffice.html`에 스크립트 태그 추가(v=1). | AI |
 

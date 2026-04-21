@@ -1079,15 +1079,15 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
   // 무예산 계정 판별 (비용 필드 강제 비활성화)
   const isNoBudget = curBudget?.account === '참가' || curBudget?.usesBudget === false || curBudget?.uses_budget === false;
 
-  // 인라인 필드 설정 확인 (기본값 true)
-  const showRegion = inline.venue !== false;
+  // 인라인 필드 설정 확인 (기본값 true) - BO policy_builder의 stageFormFields 속성명 일치
+  const showRegion = inline.is_overseas !== false;
   const showTitle = inline.edu_name !== false;
-  const showDates = inline.edu_period !== false;
-  const showVenue = !isSelfLearning && inline.venue !== false;
-  const showHeadcount = !isSelfLearning && inline.participants !== false;
-  const showAmount = inline.amount !== false && !isNoBudget;
+  const showDates = inline.start_end_date !== false;
+  const showVenue = !isSelfLearning && inline.venue_type !== false;
+  const showHeadcount = !isSelfLearning && inline.headcount !== false;
+  const showAmount = inline.requested_budget !== false && !isNoBudget;
   const showCalc = inline.calc_grounds !== false && !isNoBudget;
-  const showContent = inline.content !== false;
+  const showContent = true; // 계획 상세 내용은 고정 노출 또는 별도 정책 없음
 
   // 국내/해외 토글
   const regionToggle = showRegion ? `
@@ -1156,22 +1156,26 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
     </div>` : '';
 
   // 예상 인원 / 차수 (교육운영 목적)
-  const headcountField = showHeadcount ? `
+  const showRounds = !isSelfLearning && inline.planned_rounds !== false;
+  const headcountField = (showHeadcount || showRounds) ? `
     <div class="grid grid-cols-2 gap-5">
+      ${showHeadcount ? `
       <div>
         <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">👥 예상 인원 (명)</label>
         <input type="number" value="${s.planned_headcount || ''}" oninput="planState.planned_headcount=Number(this.value)"
           placeholder="0" min="1" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition"/>
-      </div>
+      </div>` : '<div></div>'}
+      ${showRounds ? `
       <div>
         <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🔄 예상 차수</label>
         <input type="number" value="${s.planned_rounds || 1}" oninput="planState.planned_rounds=Number(this.value)"
           placeholder="1" min="1" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition"/>
-      </div>
+      </div>` : '<div></div>'}
     </div>` : '';
 
-  // 위탁기관명 (위탁 교육유형)
-  const consignField = isConsignment ? `
+  // 위탁기관명 (위탁 교육유형, BO edu_org 설정 연동)
+  const showConsign = isConsignment && inline.edu_org !== false;
+  const consignField = showConsign ? `
     <div>
       <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🏫 위탁기관명 <span class="text-red-500">*</span></label>
       <input type="text" value="${(s.extra_fields||{}).consignment_org || ''}"
@@ -1273,12 +1277,12 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
   // 무예산 계정 판별 (비용 필드 강제 비활성화)
   const isNoBudget = curBudget?.account === '참가' || curBudget?.usesBudget === false || curBudget?.uses_budget === false;
 
-  const showRegion = inline.venue !== false;
+  const showRegion = inline.is_overseas !== false;
   const showTitle = inline.edu_name !== false;
-  const showDates = inline.edu_period !== false;
-  const showAmount = inline.amount !== false && !isNoBudget;
+  const showDates = inline.start_end_date !== false;
+  const showAmount = inline.requested_budget !== false && !isNoBudget;
   const showCalc = inline.calc_grounds !== false && !isNoBudget;
-  const showContent = inline.content !== false;
+  const showContent = inline.apply_reason !== false;
 
   // 국내/해외 토글
   const regionToggle = showRegion ? `
@@ -1320,8 +1324,8 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
       </div>
     </div>` : '';
 
-  // 총 학습시간 (participants 플래그가 false면 숨김, 원래는 hours지만 대체재로 판단)
-  const hoursField = (inline.participants !== false) ? `
+  // 총 학습시간 (headcount 플래그가 false면 숨김, 원래는 hours지만 대체재로 판단)
+  const hoursField = (inline.headcount !== false) ? `
     <div>
       <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">총 학습시간 (H)</label>
       <input type="number" value="${s.hours || ''}" oninput="applyState.hours=this.value"

@@ -34,6 +34,7 @@
 - [x] **Phase F-4 교육양식마법사 메뉴 숨김** — `bo_layout.js` 4곳 `form-builder` 메뉴에 `hidden: true` 추가. `renderBoSidebar` 및 GNB 필터에 `!m.hidden` 조건 추가. 기존 코드 보존하여 rollback 가능.
 - [x] **Phase F-2 정책 위저드 Step3 인라인 편집기** — `bo_policy_builder.js` Step3를 기존 외부 양식 선택 UI에서 인라인 필드 토글 편집기로 교체. 무예산 시 비용 비활성화.
 - [x] **Phase F-3 FO 양식 렌더러 인라인 데이터 연동** — `fo_form_loader.js` (getFoFormTemplate, foRenderStandardPlanForm, foRenderStandardApplyForm)가 `stageFormFields`의 인라인 양식 설정을 1순위로 로드하고, 비용/필수 필드 조건에 맞게 동적으로 숨김/활성화 처리. `fo_plans_wizard.js` 및 `fo_apply_form.js`에서 인라인 설정 전달 확인.
+- [x] **Phase F-3 FO/BO 렌더러 매핑 픽스** — `bo_policy_builder.js`의 `stageFormFields` 키 스펙(is_overseas, venue_type 등)과 `fo_form_loader.js`가 검사하는 키(venue, edu_period 등) 불일치로 인한 양식 미적용 버그 해결 완료.
 - [x] **Form Simplification Phase E** — DB 마이그레이션 및 이중 기록 종료: `plans` 및 `applications` 테이블의 `detail` JSON 내 정규화 필드(is_overseas, venue_type 등)를 추출하여 빈 컬럼들을 채우는 마이그레이션 SQL 실행. `fo_plans_actions.js`, `fo_apply_actions.js`에서 dual-write 주석 변경 및 `bo_plan_detail_renderer.js`에서 `detail` 폴백 제거(`_boReadField` 삭제 후 정규화 컬럼 직접 참조).
 
 ---

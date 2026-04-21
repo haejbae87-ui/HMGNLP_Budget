@@ -16,10 +16,7 @@
  * 국내/해외 뱃지
  */
 function _boRenderOverseasBadge(plan) {
-  const isOverseas =
-    plan.is_overseas === true ||
-    plan.is_overseas === 'true' ||
-    (plan.detail && (plan.detail.isOverseas === true || plan.detail.region === 'overseas'));
+  const isOverseas = plan.is_overseas === true || plan.is_overseas === 'true';
   return isOverseas
     ? `<span style="font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;background:#EFF6FF;color:#1D4ED8">🌏 해외</span>`
     : `<span style="font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;background:#F0FDF4;color:#166534">🗺 국내</span>`;
@@ -37,17 +34,7 @@ function _boVenueTypeKr(val) {
   return val ? (map[val] || val) : '-';
 }
 
-/**
- * 정규화 컬럼 우선, detail JSON 폴백으로 값 읽기
- */
-function _boReadField(plan, normKey, detailKey, defaultVal = '-') {
-  const normVal = plan[normKey];
-  if (normVal !== undefined && normVal !== null && normVal !== '') return normVal;
-  const d = plan.detail || {};
-  const detailVal = d[detailKey];
-  if (detailVal !== undefined && detailVal !== null && detailVal !== '') return detailVal;
-  return defaultVal;
-}
+
 
 // ─── 메인: 상세 정보 섹션 렌더러 ────────────────────────────────────────────
 
@@ -63,19 +50,17 @@ window.boRenderPlanDetailInfo = function(plan) {
   const amt = Number(plan.amount || plan.planAmount || 0);
   const status = plan.status || 'pending';
 
-  // 정규화 컬럼 우선 읽기 (Phase A dual-write 데이터)
-  const isOverseas =
-    plan.is_overseas === true || plan.is_overseas === 'true' ||
-    d.isOverseas === true || d.region === 'overseas';
-  const overseasCountry = _boReadField(plan, 'overseas_country', 'overseasCountry');
-  const venueType = _boReadField(plan, 'venue_type', 'venueType');
-  const plannedRounds = _boReadField(plan, 'planned_rounds', 'rounds');
-  const plannedDays = _boReadField(plan, 'planned_days', 'days');
-  const plannedHeadcount = _boReadField(plan, 'planned_headcount', 'participantCount');
-  const startDate = _boReadField(plan, 'start_date', 'startDate');
-  const endDate = _boReadField(plan, 'end_date', 'endDate');
-  const eduFormat = _boReadField(plan, 'education_format', 'educationFormat');
-  const expectedBenefit = _boReadField(plan, 'expected_benefit', 'expectedBenefit');
+  // 정규화 컬럼 직접 읽기 (Phase E: detail 폴백 제거)
+  const isOverseas = plan.is_overseas === true || plan.is_overseas === 'true';
+  const overseasCountry = plan.overseas_country || '-';
+  const venueType = plan.venue_type || '-';
+  const plannedRounds = plan.planned_rounds !== undefined && plan.planned_rounds !== null ? plan.planned_rounds : '-';
+  const plannedDays = plan.planned_days !== undefined && plan.planned_days !== null ? plan.planned_days : '-';
+  const plannedHeadcount = plan.participant_count !== undefined && plan.participant_count !== null ? plan.participant_count : (d.participantCount || '-');
+  const startDate = d.startDate || '-';
+  const endDate = d.endDate || '-';
+  const eduFormat = plan.education_format || '-';
+  const expectedBenefit = plan.expected_benefit || '-';
 
   // extra_fields (JSON)에서 읽기
   const ef = plan.extra_fields || d.extra_fields || {};
@@ -227,9 +212,9 @@ window.boRenderAppDetailRows = function(app) {
   const d = app.detail || {};
   const ef = app.extra_fields || {};
 
-  // 정규화 컬럼 우선
-  const isOverseas = app.is_overseas === true || d.isOverseas === true;
-  const venueType = app.venue_type || d.venueType || null;
+  // 정규화 컬럼 직접 읽기
+  const isOverseas = app.is_overseas === true || app.is_overseas === 'true';
+  const venueType = app.venue_type || null;
   const startDate = d.startDate || d.start_date || '-';
   const endDate = d.endDate || d.end_date || '-';
   const institution = ef.institution || d.institution || d.courseInfo || null;

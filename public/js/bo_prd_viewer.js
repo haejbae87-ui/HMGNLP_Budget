@@ -2,19 +2,51 @@
 // prd_data.js (빌드 생성) → PRD_DATA 배열에서 직접 렌더링
 
 let _prdSelectedId = null;
+let _prdStatusFilter = "전체"; // 상태 필터 (전체 / 구현 완료 / 구현 중 / 미구현 / 기획 확정 등)
+
+// ── 상태 분류 매핑 ─────────────────────────────────────────────────────────
+const _PRD_STATUS_GROUPS = [
+  { label: "전체", icon: "📋", match: () => true },
+  { label: "구현 완료", icon: "✅", match: (s) => /완료|완전 구현/i.test(s) },
+  { label: "구현 중", icon: "🟡", match: (s) => /구현 중|작성 중|축소 적용|설계 검토/i.test(s) },
+  { label: "미구현", icon: "🔴", match: (s) => /미구현|핵심 연동/i.test(s) },
+  { label: "기획 확정", icon: "📐", match: (s) => /확정|정책 확정/i.test(s) },
+];
+
+function _prdGetStatusColor(status) {
+  if (/완료|완전 구현/i.test(status)) return { bg: "#D1FAE5", text: "#065F46", border: "#A7F3D0" };
+  if (/미구현|핵심 연동/i.test(status)) return { bg: "#FEE2E2", text: "#991B1B", border: "#FECACA" };
+  if (/정책 확정|기획 확정/i.test(status)) return { bg: "#DBEAFE", text: "#1E40AF", border: "#BFDBFE" };
+  return { bg: "#FEF3C7", text: "#92400E", border: "#FDE68A" }; // 구현 중 / 작성 중 등 기본
+}
 
 function renderPrdCollection() {
   const el = document.getElementById("bo-content");
-  const prdList = typeof PRD_DATA !== "undefined" ? PRD_DATA : [];
+  const rawList = typeof PRD_DATA !== "undefined" ? PRD_DATA : [];
+
+  // 날짜 최신순 정렬
+  const sorted = [...rawList].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+
+  // 상태 필터 적용
+  const group = _PRD_STATUS_GROUPS.find((g) => g.label === _prdStatusFilter) || _PRD_STATUS_GROUPS[0];
+  const prdList = sorted.filter((prd) => group.match(prd.status || ""));
+
+  // 필터 버튼 HTML
+  const filterBtns = _PRD_STATUS_GROUPS.map((g) => {
+    const count = sorted.filter((p) => g.match(p.status || "")).length;
+    const isActive = _prdStatusFilter === g.label;
+    return `<button onclick="_prdSetFilter('${g.label}')"
+      style="display:inline-flex;align-items:center;gap:4px;padding:6px 14px;border-radius:8px;font-size:11px;font-weight:${isActive ? "800" : "600"};
+             cursor:pointer;border:1.5px solid ${isActive ? "#3B82F6" : "#E5E7EB"};
+             background:${isActive ? "#EFF6FF" : "#fff"};color:${isActive ? "#1D4ED8" : "#6B7280"};
+             transition:all .15s"
+      onmouseover="if(!${isActive})this.style.background='#F8FAFC'"
+      onmouseout="if(!${isActive})this.style.background='#fff'">${g.icon} ${g.label} <span style="font-size:10px;padding:1px 6px;border-radius:4px;background:${isActive ? "#BFDBFE" : "#F3F4F6"};color:${isActive ? "#1E40AF" : "#9CA3AF"}">${count}</span></button>`;
+  }).join("");
 
   const cardsHtml = prdList
     .map((prd) => {
-      const statusColor =
-        prd.status === "구현 완료"
-          ? { bg: "#D1FAE5", text: "#065F46", border: "#A7F3D0" }
-          : prd.status === "정책 확정"
-            ? { bg: "#DBEAFE", text: "#1E40AF", border: "#BFDBFE" }
-            : { bg: "#FEF3C7", text: "#92400E", border: "#FDE68A" };
+      const sc = _prdGetStatusColor(prd.status);
       const tagsHtml = (prd.tags || [])
         .map(
           (t) =>
@@ -23,28 +55,30 @@ function renderPrdCollection() {
         .join(" ");
       return `
     <div onclick="_prdSelectDoc('${prd.id}')" class="bo-card"
-         style="padding:18px 22px;margin-bottom:12px;cursor:pointer;border-left:4px solid ${statusColor.border};
+         style="padding:16px 20px;margin-bottom:10px;cursor:pointer;border-left:4px solid ${sc.border};
                 transition:all .15s;${_prdSelectedId === prd.id ? "background:#F0F9FF;border-color:#3B82F6" : ""}"
          onmouseover="if(_prdSelectedId!=='${prd.id}')this.style.background='#F8FAFC'"
          onmouseout="if(_prdSelectedId!=='${prd.id}')this.style.background='#fff'">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span style="font-size:15px;font-weight:900;color:#111827">${prd.title}</span>
-          <span style="font-size:10px;padding:2px 8px;border-radius:6px;font-weight:700;
-                       background:${statusColor.bg};color:${statusColor.text};border:1px solid ${statusColor.border}">${prd.status}</span>
-          <code style="font-size:10px;background:#F3F4F6;padding:2px 7px;border-radius:5px;color:#6B7280;font-weight:700">${prd.version}</code>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:1;min-width:0">
+          <span style="font-size:13px;font-weight:900;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px" title="${prd.title}">${prd.title}</span>
         </div>
-        <span style="font-size:11px;color:#9CA3AF">${prd.date}</span>
+        <span style="font-size:10px;color:#9CA3AF;white-space:nowrap;margin-left:8px">${prd.date}</span>
       </div>
-      <div style="font-size:12px;color:#6B7280;margin-bottom:6px">${prd.summary}</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">
+        <span style="font-size:9px;padding:2px 8px;border-radius:6px;font-weight:700;
+                     background:${sc.bg};color:${sc.text};border:1px solid ${sc.border}">${prd.status}</span>
+        <code style="font-size:9px;background:#F3F4F6;padding:2px 6px;border-radius:5px;color:#6B7280;font-weight:700">${prd.version}</code>
+      </div>
+      ${prd.summary ? `<div style="font-size:11px;color:#6B7280;margin-bottom:4px;line-height:1.4">${prd.summary}</div>` : ""}
       <div style="display:flex;gap:4px;flex-wrap:wrap">${tagsHtml}</div>
     </div>`;
     })
     .join("");
 
   el.innerHTML = `
-<div class="bo-fade" style="padding:24px;max-width:1200px">
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+<div class="bo-fade" style="padding:24px;max-width:1400px">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
     <div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
         <span style="background:#7C3AED;color:#fff;font-size:9px;font-weight:900;padding:3px 8px;border-radius:6px">기타</span>
@@ -54,15 +88,24 @@ function renderPrdCollection() {
     </div>
     <div style="display:flex;align-items:center;gap:8px">
       <span style="font-size:11px;padding:4px 10px;border-radius:6px;background:#F5F3FF;color:#7C3AED;font-weight:700;border:1px solid #DDD6FE">
-        총 ${prdList.length}건
+        총 ${rawList.length}건
       </span>
     </div>
   </div>
 
+  <!-- 상태별 필터 버튼 -->
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;padding:10px 14px;background:#F9FAFB;border-radius:10px;border:1px solid #E5E7EB">
+    ${filterBtns}
+  </div>
+
   <div style="display:flex;gap:20px">
-    <div style="width:340px;flex-shrink:0">
-      ${cardsHtml}
-      ${prdList.length === 0 ? '<div style="padding:40px;text-align:center;color:#9CA3AF;font-size:12px">등록된 요구사항정의서가 없습니다.</div>' : ""}
+    <div style="width:380px;flex-shrink:0;overflow-y:auto;max-height:calc(100vh - 260px)">
+      ${prdList.length === 0
+        ? '<div style="padding:40px;text-align:center;color:#9CA3AF;font-size:12px">해당 상태의 요구사항정의서가 없습니다.</div>'
+        : cardsHtml}
+      <div style="padding:8px;text-align:center;font-size:10px;color:#9CA3AF">
+        ${_prdStatusFilter === "전체" ? "" : `필터: ${_prdStatusFilter} · `}${prdList.length}건 표시 (날짜순 ↓)
+      </div>
     </div>
     <div id="prd-viewer" style="flex:1;min-width:0">
       ${
@@ -80,6 +123,11 @@ function renderPrdCollection() {
 </div>`;
 
   if (_prdSelectedId) _prdLoadDoc(_prdSelectedId);
+}
+
+function _prdSetFilter(label) {
+  _prdStatusFilter = label;
+  renderPrdCollection();
 }
 
 function _prdSelectDoc(id) {
@@ -102,13 +150,18 @@ function _prdLoadDoc(id) {
   }
 
   const html = _prdMd2Html(prd.content);
+  const sc = _prdGetStatusColor(prd.status);
 
   viewer.innerHTML = `
-  <div class="bo-card" style="padding:24px 28px;overflow-y:auto;max-height:calc(100vh - 200px)">
+  <div class="bo-card" style="padding:24px 28px;overflow-y:auto;max-height:calc(100vh - 260px)">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #E5E7EB">
       <div>
         <h2 style="font-size:18px;font-weight:900;margin:0;color:#111827">${prd.title}</h2>
-        <div style="font-size:11px;color:#9CA3AF;margin-top:4px">${prd.file} · ${prd.version} · ${prd.date}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+          <span style="font-size:10px;padding:2px 8px;border-radius:6px;font-weight:700;background:${sc.bg};color:${sc.text};border:1px solid ${sc.border}">${prd.status}</span>
+          <code style="font-size:10px;background:#F3F4F6;padding:2px 6px;border-radius:5px;color:#6B7280;font-weight:700">${prd.version}</code>
+          <span style="font-size:11px;color:#9CA3AF">${prd.file} · ${prd.date}</span>
+        </div>
       </div>
     </div>
     <div class="prd-content" style="font-size:13px;line-height:1.8;color:#374151">${html}</div>
@@ -341,4 +394,4 @@ function _prdMd2Html(md) {
   return `<div>${html}</div>`;
 }
 
-console.log("[bo_prd_viewer] 요구사항정의서 뷰어 로드됨 (PRD_DATA 기반)");
+console.log("[bo_prd_viewer] 요구사항정의서 뷰어 로드됨 (PRD_DATA 기반, v3 — 날짜정렬+상태필터)");

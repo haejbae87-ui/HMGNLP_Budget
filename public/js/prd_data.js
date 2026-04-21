@@ -1,5 +1,5 @@
 // ─── PRD 데이터 (자동 생성 — scripts/build_prd_data.js) ───
-// 최종 빌드: 2026-04-21T00:28:57.802Z
+// 최종 빌드: 2026-04-21T03:28:24.642Z
 // 수동 편집하지 마세요. docs/PRD/*.md 수정 후 node scripts/build_prd_data.js 실행
 const PRD_DATA = [
   {

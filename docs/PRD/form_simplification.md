@@ -4,7 +4,7 @@
 > **관련 파일**: `bo_fb_library.js`, `bo_fb_core.js`, `bo_fb_editor.js`, `fo_form_loader.js`, `plans.js`, `apply.js`, `bo_calc_grounds.js`, `bo_policy_builder.js`, `bo_plan_detail_renderer.js`
 > **최초 작성**: 2026-04-17
 > **최종 갱신**: 2026-04-21
-> **상태**: 🟡 구현 중 (Phase A/B/C/D 완료 / Phase E 미완 / **Phase F 확정 — 양식 인라인 통합 완료 (F-2, F-3, F-4)**)
+> **상태**: 🟡 구현 중 (Phase A/B/C/D/E 완료 / **Phase F 확정 — 양식 인라인 통합 완료 (F-2, F-3, F-4)**)
 > **선행 PRD**: `form_builder.md`, `form_field_governance.md`, `form_deploy_workflow.md`, `calc_grounds_ux_redesign.md`, `service_policy.md`
 
 ---

@@ -132,7 +132,7 @@ async function savePlanDraft() {
       education_format: planState.educationFormat || planState.education_format || null,
       is_overseas: planState.isOverseas === true || planState.is_overseas === true || false,
       overseas_country: planState.overseasCountry || planState.overseas_country || null,
-      // Phase A 정규화 콜럼 이중 기록 (dual-write)
+      // Phase E 정규화 컬럼 기반 저장 (이중 기록 종료)
       venue_type: planState.venueType || planState.venue_type || 'internal',
       planned_rounds: planState.plannedRounds || planState.planned_rounds || 1,
       planned_days: planState.plannedDays || planState.planned_days || null,
@@ -226,7 +226,7 @@ async function savePlanSaved() {
       education_format: planState.educationFormat || planState.education_format || null,
       is_overseas: planState.isOverseas === true || planState.is_overseas === true || false,
       overseas_country: planState.overseasCountry || planState.overseas_country || null,
-      // Phase A 정규화 콜럼 이중 기록 (dual-write)
+      // Phase E 정규화 컬럼 기반 저장 (이중 기록 종료)
       venue_type: planState.venueType || planState.venue_type || 'internal',
       planned_rounds: planState.plannedRounds || planState.planned_rounds || 1,
       planned_days: planState.plannedDays || planState.planned_days || null,
@@ -403,7 +403,7 @@ async function confirmPlan() {
         fiscal_year: planState.fiscal_year || new Date().getFullYear(),
         form_template_id: planState.formTemplate?.id || null,
         form_version: planState.formTemplate?.version || null,
-        // Phase A 정규화 콜럼 이중 기록
+        // Phase E 정규화 컬럼 기반 저장 (이중 기록 종료)
         is_overseas: planState.isOverseas === true || planState.is_overseas === true || false,
         overseas_country: planState.overseasCountry || planState.overseas_country || null,
         education_format: planState.educationFormat || planState.education_format || null,

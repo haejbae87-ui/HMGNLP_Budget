@@ -327,6 +327,7 @@ const PLATFORM_MENUS = [
     label: "교육양식 마법사",
     section: null,
     gnb: GNB_CATE.PROGRAM,
+    hidden: true, // [Phase F-4] 서비스 정책 위저드 인라인 편집기로 대체 (2026-04-21)
   },
   {
     id: "calc-grounds",
@@ -555,6 +556,7 @@ const TENANT_ADMIN_MENUS = [
     label: "교육양식 마법사",
     section: null,
     gnb: GNB_CATE.PROGRAM,
+    hidden: true, // [Phase F-4] 서비스 정책 위저드 인라인 편집기로 대체 (2026-04-21)
   },
   {
     id: "calc-grounds",
@@ -744,6 +746,7 @@ const BUDGET_ADMIN_MENUS = [
     label: "교육양식 마법사",
     section: null,
     gnb: GNB_CATE.PROGRAM,
+    hidden: true, // [Phase F-4] 서비스 정책 위저드 인라인 편집기로 대체 (2026-04-21)
   },
   {
     id: "calc-grounds",
@@ -1051,6 +1054,7 @@ const TENANT_DUAL_MENUS = [
     label: "교육양식 마법사",
     section: null,
     gnb: GNB_CATE.PROGRAM,
+    hidden: true, // [Phase F-4] 서비스 정책 위저드 인라인 편집기로 대체 (2026-04-21)
   },
 
   {
@@ -1301,8 +1305,8 @@ function renderBoSidebar() {
   const persona = boCurrentPersona;
   let menus = _getMenus(persona);
 
-  // 현재 선택된 GNB 탭의 하위 메뉴들만 필터링
-  menus = menus.filter((m) => m.gnb === boCurrentGnb);
+  // 현재 선택된 GNB 탭의 하위 메뉴들만 필터링 + hidden:true 제외
+  menus = menus.filter((m) => m.gnb === boCurrentGnb && !m.hidden);
 
   const isPlatform = persona.role === "platform_admin";
   const collapsed = _boGetCollapsedSections();
@@ -1368,6 +1372,7 @@ function renderBoSidebar() {
     }
 
     g.items.forEach(({ m, hasAccess }) => {
+      if (m.hidden) return; // [Phase F-4] hidden 메뉴 항목 건너뜀
       const badge = _pending[m.id]
         ? `<span class="bo-nav-badge">${_pending[m.id]}</span>`
         : "";

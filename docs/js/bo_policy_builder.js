@@ -1156,282 +1156,197 @@ function renderPolicyWizard() {
 
     // ── Step 3: 단계별 양식 선택 ──────────────────────────────────────────────
   } else if (_policyWizardStep === 3) {
-    // DB에서 form_templates 로드하여 FORM_MASTER와 병합 (최초 1회 또는 비어있을 때)
-    const _scopeGrpForLoad = d.scopeTenantId || persona.tenantId;
-    if (
-      typeof _sb === "function" &&
-      _sb() &&
-      typeof FORM_MASTER !== "undefined"
-    ) {
-      (async () => {
-        try {
-          const { data: dbForms } = await _sb()
-            .from("form_templates")
-            .select("*")
-            .eq("active", true);
-          if (dbForms && dbForms.length > 0) {
-            let changed = false;
-            dbForms.forEach((row) => {
-              const mapped = {
-                id: row.id,
-                tenantId: row.tenant_id,
-                domainId:
-                  row.virtual_org_template_id ||
-                  row.domain_id ||
-                  row.vorg_template_id,
-                accountCode: row.account_code,
-                type: row.type,
-                name: row.name,
-                desc: row.description || row.desc || "",
-                purpose: row.purpose,
-                eduType: row.edu_type,
-                active: row.active !== false,
-                fields: row.fields || [],
-              };
-              const idx = FORM_MASTER.findIndex((f) => f.id === mapped.id);
-              if (idx >= 0) {
-                FORM_MASTER[idx] = mapped;
-              } else {
-                FORM_MASTER.push(mapped);
-                changed = true;
-              }
-            });
-            if (changed) renderPolicyWizard(); // DB 로드 후 양식 목록 갱신
-          }
-        } catch (e) {
-          console.warn(
-            "[PolicyWizard:Step5] form_templates 로드 실패:",
-            e.message,
-          );
-        }
-      })();
-    }
-
-    const _scopeTenantId = d.scopeTenantId || persona.tenantId;
-    const _scopeVorgId = d.vorgTemplateId || "";
-    const _scopeAcctCode = (d.accountCodes || [])[0] || "";
-
-    // 정책에서 선택된 교육유형 집합 (필터에 사용)
-    const _policyEduTypes =
-      d.purpose === "external_personal"
-        ? d.selectedEduItem?.typeId
-          ? [d.selectedEduItem.typeId]
-          : []
-        : d.eduTypes || [];
-    // 정책에서 선택된 세부유형
-    const _policyEduSubId =
-      d.purpose === "external_personal" ? d.selectedEduItem?.subId || "" : "";
-
-    // 기준 양식 풀 (텐넌트+가상교육조직+계정)
-    const _allForms = (
-      typeof FORM_MASTER !== "undefined" ? FORM_MASTER : []
-    ).filter((f) => {
-      if (!f.active) return false;
-      // tenantId 매칭: scopeTenantId 없으면 통과, 있으면 정확 매칭 (단 DB UUID와 코드가 다를 수 있어 양쪽 허용)
-      if (_scopeTenantId && f.tenantId && f.tenantId !== _scopeTenantId)
-        return false;
-      // f.domainId에 신규로 vorg_template_id 저장됨
-      if (_scopeVorgId && f.domainId && f.domainId !== _scopeVorgId)
-        return false;
-      if (_scopeAcctCode && f.accountCode && f.accountCode !== _scopeAcctCode)
-        return false;
-      return true;
-    });
-
-    // 교육유형으로 추가 필터 (목적·유형 정보가 없는 구형 양식은 숨기지 않음)
-    // BO key('seminar') ↔ 한글라벨('세미나') 양방향 매칭
-    const _eduKeyToLabel = {};
-    const _eduLabelToKey = {};
-    Object.values(_EDU_TYPE_MAP)
-      .flat()
-      .forEach((t) => {
-        _eduKeyToLabel[t.id] = t.label;
-        _eduLabelToKey[t.label] = t.id;
-        (t.subs || []).forEach((s) => {
-          _eduKeyToLabel[s.id] = s.label;
-          _eduLabelToKey[s.label] = s.id;
-        });
-      });
-    const _expandedEduTypes = new Set(_policyEduTypes);
-    _policyEduTypes.forEach((k) => {
-      if (_eduKeyToLabel[k]) _expandedEduTypes.add(_eduKeyToLabel[k]);
-    });
-    _policyEduTypes.forEach((k) => {
-      if (_eduLabelToKey[k]) _expandedEduTypes.add(_eduLabelToKey[k]);
-    });
-
-    const _eduFiltered =
-      _expandedEduTypes.size === 0
-        ? _allForms
-        : _allForms.filter((f) => {
-            if (!f.eduType && !f.purpose) return true; // 구형 양식 허용
-            if (_expandedEduTypes.has(f.eduType)) return true;
-            return false;
-          });
-
-    // stage별 폼 목록 함수 (해당 탭의 type에 맞는 것만)
-    // ★ 이미 연결된 양식은 필터와 무관하게 항상 포함 (기존 매핑 보존)
-    const _allFormMaster =
-      typeof FORM_MASTER !== "undefined" ? FORM_MASTER : [];
-    const _formsForStage = (stage) => {
-      const filtered = _eduFiltered.filter((f) => f.type === stage);
-      const connectedIds = (d.stageFormIds && d.stageFormIds[stage]) || [];
-      // 이미 연결됐지만 필터에서 빠진 양식 추가
-      connectedIds.forEach((cid) => {
-        if (!filtered.find((f) => f.id === cid)) {
-          const connected = _allFormMaster.find((f) => f.id === cid);
-          if (connected) filtered.push(connected);
-        }
-      });
-      return filtered;
-    };
-
+    // ── [Phase F-2] 인라인 양식 편집기 ───────────────────────────────────────
+    // 기존 외부 양식 선택 방식 대신, 정책 위저드 내에서 직접 필드를 정의
     const stages = _PATTERN_STAGES[d.processPattern] || ["apply"];
     const stageLabel = { plan: "📊 계획", apply: "📝 신청", result: "📄 결과" };
     const stageColor = { plan: "#7C3AED", apply: "#1D4ED8", result: "#059669" };
-    if (!d.stageFormIds) d.stageFormIds = { plan: [], apply: [], result: [] };
-    const activeStageTab = _policyWizardData._formTab || stages[0];
 
-    // 교육유형 안내 칩 — 영문 key → 한글 라벨 변환
-    const _allEduEntries = Object.values(_EDU_TYPE_MAP).flat();
-    const _eduLabel = _policyEduTypes.length
-      ? _policyEduTypes
-          .map((t) => {
-            const typeEntry = _allEduEntries.find((e) => e.id === t);
-            const typeLabel = typeEntry ? typeEntry.label : t;
-            let subLabel = "";
-            if (_policyEduSubId) {
-              const subEntry = (typeEntry?.subs || []).find(
-                (s) => s.id === _policyEduSubId,
-              );
-              subLabel = ` › ${subEntry ? subEntry.label : _policyEduSubId}`;
-            }
-            return `<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:#FEF3C7;color:#92400E">${typeLabel}${subLabel}</span>`;
-          })
-          .join(" ")
-      : `<span style="font-size:11px;color:#9CA3AF">교육유형 미지정 (전체 표시)</span>`;
+    // 무예산 판별 (uses_budget=false 계정 → 비용 필드 전체 disable)
+    const _acctCode = (d.accountCodes || [])[0] || "";
+    const _acctInDb = (_pbAccountList || []).find((a) => a.code === _acctCode);
+    const _isNoBudget =
+      d.budgetLinked === false ||
+      (_acctInDb && _acctInDb.uses_budget === false) ||
+      ["D", "E"].includes(d.processPattern);
 
-    // 탭 완성도 배지 (선택 수 + 미연결 경고)
-    const _tabBadge = (stage) => {
-      const cnt = (d.stageFormIds[stage] || []).length;
-      const avail = _formsForStage(stage).length;
-      if (cnt > 0)
-        return `<span style="font-size:10px;font-weight:900;padding:1px 7px;border-radius:10px;background:${stageColor[stage]};color:white;margin-left:4px">${cnt}</span>`;
-      if (avail > 0)
-        return `<span style="font-size:10px;font-weight:900;padding:1px 7px;border-radius:10px;background:#FEF3C7;color:#92400E;margin-left:4px">미선택</span>`;
-      return `<span style="font-size:10px;padding:1px 7px;border-radius:10px;background:#F3F4F6;color:#9CA3AF;margin-left:4px">없음</span>`;
+    // 인라인 필드 정의 저장소 초기화 (stageFormFields: { plan: {}, apply: {}, result: {} })
+    if (!d.stageFormFields) d.stageFormFields = {};
+    stages.forEach((s) => {
+      if (!d.stageFormFields[s]) {
+        // 기본 필드 활성화 상태 초기화
+        d.stageFormFields[s] = {
+          // 기본정보 (필수 — 항상 on, disable 불가)
+          edu_type: true,
+          is_overseas: true,
+          edu_name: true,
+          headcount: true,
+          // 교육상세 (토글)
+          venue_type: true,
+          edu_days: true,
+          planned_rounds: s === "plan",
+          start_end_date: true,
+          edu_org: s !== "result",
+          apply_reason: s === "apply",
+          // 비용항목 (무예산 시 전체 disable)
+          requested_budget: s !== "result" && !_isNoBudget,
+          calc_grounds: s !== "result" && !_isNoBudget,
+          reimbursement: s === "result" && !_isNoBudget,
+          // 결과항목 (result 전용)
+          completion_rate: s === "result",
+          satisfaction: s === "result",
+          actual_cost: s === "result" && !_isNoBudget,
+        };
+      }
+    });
+
+    // ── 단계별 탭 ─────────────────────────────────────────────────────────
+    const activeTab = d._formTab || stages[0];
+
+    const tabHtml = stages
+      .map(
+        (s) =>
+          `<button onclick="_policyWizardData._formTab='${s}';renderPolicyWizard()"
+            style="padding:8px 18px;border-radius:8px;border:2px solid ${s === activeTab ? stageColor[s] : "#E5E7EB"};
+                   background:${s === activeTab ? stageColor[s] + "12" : "white"};
+                   color:${s === activeTab ? stageColor[s] : "#6B7280"};font-weight:${s === activeTab ? "900" : "600"};
+                   font-size:12px;cursor:pointer;transition:all .15s">${stageLabel[s]}</button>`,
+      )
+      .join("");
+
+    // ── 현재 탭의 필드 정의 ────────────────────────────────────────────────
+    const _flds = d.stageFormFields[activeTab] || {};
+    const sc = stageColor[activeTab];
+
+    // 필드 토글 렌더러
+    const _fieldRow = (key, label, icon, required = false, disabled = false, disabledReason = "") => {
+      const isOn = required ? true : !!_flds[key];
+      const isDisabled = required || disabled;
+      return `
+<div style="display:flex;align-items:center;justify-content:space-between;
+            padding:10px 14px;border-radius:10px;border:1.5px solid ${isOn ? sc + "40" : "#F3F4F6"};
+            background:${isDisabled && !required ? "#F9FAFB" : isOn ? sc + "08" : "white"};
+            opacity:${isDisabled && !required ? "0.55" : "1"};transition:all .15s">
+  <div style="display:flex;align-items:center;gap:8px">
+    <span style="font-size:15px">${icon}</span>
+    <div>
+      <div style="font-size:12px;font-weight:${required ? "900" : "700"};color:${isOn ? sc : "#374151"}">
+        ${label}${required ? ' <span style="font-size:9px;padding:1px 6px;border-radius:4px;background:#EFF6FF;color:#1D4ED8;font-weight:700">필수</span>' : ""}
+      </div>
+      ${disabledReason ? `<div style="font-size:10px;color:#9CA3AF;margin-top:1px">${disabledReason}</div>` : ""}
+    </div>
+  </div>
+  <div style="position:relative;width:40px;height:22px;cursor:${isDisabled ? "not-allowed" : "pointer"}"
+       ${isDisabled ? "" : `onclick="_toggleInlineField('${activeTab}','${key}');renderPolicyWizard()"`}>
+    <div style="position:absolute;inset:0;border-radius:11px;background:${isOn ? sc : "#D1D5DB"};transition:background .2s"></div>
+    <div style="position:absolute;top:2px;left:${isOn ? "20px" : "2px"};width:18px;height:18px;border-radius:50%;background:white;
+                box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .2s"></div>
+  </div>
+</div>`;
     };
 
-    // 활성 탭의 양식 목록
-    const _activeForms = _formsForStage(activeStageTab);
-    const _selectedIds = d.stageFormIds[activeStageTab] || [];
+    // 섹션 헤더
+    const _sectionHeader = (title, color = "#374151") =>
+      `<div style="font-size:10px;font-weight:900;color:${color};letter-spacing:.06em;margin-top:4px;margin-bottom:6px;padding-left:2px">${title}</div>`;
 
-    // 연결 요약 패널 (단계별 선택 현황)
-    const _summaryPanels = stages
+    // 비용 섹션 비활성 안내
+    const noBudgetBanner = _isNoBudget
+      ? `<div style="padding:10px 14px;background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:10px;display:flex;align-items:center;gap:8px">
+           <span style="font-size:16px">🚫</span>
+           <div>
+             <div style="font-size:11px;font-weight:800;color:#DC2626">비용 필드 비활성화</div>
+             <div style="font-size:10px;color:#9CA3AF;margin-top:1px">무예산 계정 또는 이력 패턴(D/E) — 비용 관련 필드는 사용되지 않습니다</div>
+           </div>
+         </div>`
+      : "";
+
+    // 단계별 필드 구성
+    const planFields = `
+${_sectionHeader("📋 기본정보 (필수 고정)", sc)}
+${_fieldRow("edu_type", "교육유형", "🎓", true)}
+${_fieldRow("is_overseas", "국내/해외 구분", "🌐", true)}
+${_fieldRow("edu_name", "교육명", "📌", true)}
+${_fieldRow("headcount", "참가인원", "👥", true)}
+${_sectionHeader("📐 교육상세", "#374151")}
+${_fieldRow("venue_type", "장소유형", "🏛️")}
+${_fieldRow("start_end_date", "교육기간", "📅")}
+${_fieldRow("edu_days", "교육일수", "📆")}
+${activeTab === "plan" ? _fieldRow("planned_rounds", "예상 차수", "🔄") : ""}
+${activeTab !== "result" ? _fieldRow("edu_org", "교육기관/과정명", "🏫") : ""}
+${activeTab === "apply" ? _fieldRow("apply_reason", "신청사유", "💬") : ""}
+${noBudgetBanner}
+${_sectionHeader("💰 비용항목", _isNoBudget ? "#9CA3AF" : "#059669")}
+${activeTab !== "result" ? _fieldRow("requested_budget", "계획/신청 금액", "💵", false, _isNoBudget, _isNoBudget ? "무예산 계정" : "") : ""}
+${activeTab !== "result" ? _fieldRow("calc_grounds", "세부산출근거", "📐", false, _isNoBudget, _isNoBudget ? "무예산 계정" : "") : ""}
+${activeTab === "result" ? _fieldRow("actual_cost", "실제 집행비용", "💳", false, _isNoBudget, _isNoBudget ? "무예산 계정" : "") : ""}
+${activeTab === "result" ? _fieldRow("reimbursement", "환급/정산 처리", "🔁", false, _isNoBudget, _isNoBudget ? "무예산 계정" : "") : ""}`;
+
+    const resultOnlyFields = `
+${_sectionHeader("📋 기본정보 (필수 고정)", sc)}
+${_fieldRow("edu_type", "교육유형", "🎓", true)}
+${_fieldRow("edu_name", "교육명", "📌", true)}
+${_fieldRow("headcount", "실제 참가인원", "👥", true)}
+${_sectionHeader("📊 결과정보", "#374151")}
+${_fieldRow("completion_rate", "수료율", "✅")}
+${_fieldRow("satisfaction", "만족도", "⭐")}
+${_fieldRow("start_end_date", "교육기간", "📅")}
+${noBudgetBanner}
+${_sectionHeader("💰 비용항목", _isNoBudget ? "#9CA3AF" : "#059669")}
+${_fieldRow("actual_cost", "실제 집행비용", "💳", false, _isNoBudget, _isNoBudget ? "무예산 계정" : "")}
+${_fieldRow("reimbursement", "환급/정산 처리", "🔁", false, _isNoBudget, _isNoBudget ? "무예산 계정" : "")}`;
+
+    const currentFields = activeTab === "result" ? resultOnlyFields : planFields;
+
+    // 완성도 요약 (단계별 on 필드 수)
+    const _summaryCnt = (s) => {
+      const f = d.stageFormFields[s] || {};
+      return Object.values(f).filter(Boolean).length;
+    };
+    const summaryPanels = stages
       .map((s) => {
-        const sel = (d.stageFormIds[s] || []).length;
-        const avail = _formsForStage(s).length;
-        const ok = sel > 0;
-        return `<div style="flex:1;padding:10px 12px;border-radius:10px;border:1.5px solid ${ok ? stageColor[s] + "50" : "#E5E7EB"};background:${ok ? stageColor[s] + "08" : "#F9FAFB"};text-align:center">
-        <div style="font-size:10px;font-weight:700;color:${ok ? stageColor[s] : "#9CA3AF"}">${stageLabel[s]}</div>
-        <div style="font-size:16px;font-weight:900;color:${ok ? stageColor[s] : "#D1D5DB"};margin-top:2px">${ok ? "✓" : "—"}</div>
-        <div style="font-size:10px;color:${ok ? stageColor[s] : "#9CA3AF"}">${sel > 0 ? sel + "개 연결" : `${avail}개 중 미선택`}</div>
-      </div>`;
+        const cnt = _summaryCnt(s);
+        const isActive = s === activeTab;
+        return `<div onclick="_policyWizardData._formTab='${s}';renderPolicyWizard()"
+                     style="flex:1;padding:10px 12px;border-radius:10px;border:2px solid ${isActive ? stageColor[s] : "#E5E7EB"};
+                            background:${isActive ? stageColor[s] + "08" : "white"};text-align:center;cursor:pointer">
+          <div style="font-size:10px;font-weight:700;color:${stageColor[s]}">${stageLabel[s]}</div>
+          <div style="font-size:18px;font-weight:900;color:${stageColor[s]};margin-top:2px">${cnt}</div>
+          <div style="font-size:9px;color:#9CA3AF">필드 활성</div>
+        </div>`;
       })
       .join("");
 
     stepContent = `
-<div style="display:grid;gap:16px">
-  <!-- 교육유형 안내 -->
-  <div style="padding:10px 16px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-    <span style="font-size:11px;font-weight:900;color:#92400E">🎯 교육유형 필터</span>
-    ${_eduLabel}
-    <span style="font-size:10px;color:#9CA3AF">| 해당 유형 + 단계별 양식만 표시됩니다</span>
+<div style="display:grid;gap:14px">
+  <!-- 안내 배너 -->
+  <div style="padding:10px 16px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;font-size:11px;color:#1E40AF;display:flex;align-items:center;gap:8px">
+    <span style="font-size:16px">📋</span>
+    <span><strong>인라인 양식 편집기</strong> — 각 단계에서 사용할 필드를 직접 켜고 끕니다. 필수 필드는 항상 활성화됩니다.</span>
   </div>
-  <!-- 완성도 경고 배너 -->
-  ${
-    stages.some(
-      (s) =>
-        (d.stageFormIds[s] || []).length === 0 && _formsForStage(s).length > 0,
-    )
-      ? `
-  <div style="padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;display:flex;align-items:center;gap:8px">
-    <span style="font-size:16px">⚠️</span>
-    <span style="font-size:12px;font-weight:700;color:#B91C1C">양식이 연결되지 않은 단계가 있습니다. 아래에서 모든 단계에 양식을 연결해 주세요.</span>
-  </div>`
-      : stages.length > 0 &&
-          stages.every((s) => (d.stageFormIds[s] || []).length > 0)
-        ? `
-  <div style="padding:10px 14px;background:#F0FDF4;border:1px solid #86EFAC;border-radius:10px;display:flex;align-items:center;gap:8px">
-    <span style="font-size:16px">✅</span>
-    <span style="font-size:12px;font-weight:700;color:#065F46">모든 단계에 양식이 연결되었습니다.</span>
-  </div>`
-        : ""
-  }
-  <!-- 단계별 양식 카드 (한페이지 수직 배치) -->
-  ${stages
-    .map((s) => {
-      const forms = _formsForStage(s);
-      const selected = d.stageFormIds[s] || [];
-      const ok = selected.length > 0;
-      return `
-  <div style="border:2px solid ${ok ? stageColor[s] + "60" : forms.length > 0 ? "#FECACA" : "#E5E7EB"};border-radius:14px;overflow:hidden">
-    <!-- 단계 헤더 -->
-    <div style="padding:12px 16px;background:${ok ? stageColor[s] + "10" : forms.length > 0 ? "#FEF2F2" : "#F9FAFB"};
-                display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid ${ok ? stageColor[s] + "30" : "#E5E7EB"}">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:13px;font-weight:900;color:${stageColor[s]}">${stageLabel[s]} 단계 양식</span>
-        ${
-          ok
-            ? `<span style="padding:2px 9px;border-radius:20px;background:${stageColor[s]};color:white;font-size:10px;font-weight:900">${selected.length}개 연결</span>`
-            : forms.length > 0
-              ? `<span style="padding:2px 9px;border-radius:20px;background:#FEE2E2;color:#B91C1C;font-size:10px;font-weight:900">⚠ 미연결</span>`
-              : `<span style="padding:2px 9px;border-radius:20px;background:#F3F4F6;color:#9CA3AF;font-size:10px;font-weight:700">양식 없음</span>`
-        }
-      </div>
-      <span style="font-size:10px;color:#9CA3AF">${forms.length}개 선택 가능</span>
-    </div>
-    <!-- 양식 목록 -->
-    <div style="padding:12px;background:white">
-    ${
-      forms.length === 0
-        ? `
-      <div style="padding:20px;text-align:center;background:#F9FAFB;border-radius:8px;border:1px dashed #D1D5DB">
-        <div style="font-size:20px;margin-bottom:4px">📭</div>
-        <div style="font-size:12px;font-weight:700;color:#374151">사용 가능한 ${stageLabel[s].split(" ")[1]} 양식이 없습니다</div>
-        <div style="font-size:11px;color:#9CA3AF;margin-top:3px">교육양식마법사에서 [${stageLabel[s].split(" ")[1]}] 타입 양식을 먼저 만들어 주세요</div>
-      </div>`
-        : `
-    <div style="display:grid;gap:6px">
-      ${forms
-        .map((f) => {
-          const isSel = selected.includes(f.id);
-          return `
-      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;
-                    border:1.5px solid ${isSel ? stageColor[s] : "#E5E7EB"};
-                    background:${isSel ? stageColor[s] + "10" : "white"};cursor:pointer;transition:all .13s"
-             onclick="toggleStageForm('${s}','${f.id}')">
-        <input type="checkbox" ${isSel ? "checked" : ""} style="margin:0;flex-shrink:0;width:16px;height:16px;accent-color:${stageColor[s]}">
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:12px;color:${isSel ? stageColor[s] : "#111827"}">${f.name}</div>
-          <div style="font-size:10px;color:#9CA3AF;margin-top:1px">
-            ${f.purpose ? `🎯 ${f.purpose}` : ""}
-            ${f.eduType ? ` · ${f.eduType}` : ""}
-            ${f.eduSubType ? ` › ${f.eduSubType}` : ""}
-            ${f.desc ? ` · ${f.desc}` : ""}
-          </div>
-        </div>
-        ${isSel ? `<span style="flex-shrink:0;font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;background:${stageColor[s]};color:white">✓ 선택</span>` : ""}
-      </label>`;
-        })
-        .join("")}
-    </div>`
-    }
-    </div>
-  </div>`;
-    })
-    .join("")}
+
+  <!-- 무예산 / 이력 패턴 안내 -->
+  ${_isNoBudget ? `<div style="padding:8px 14px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;font-size:11px;color:#92400E;display:flex;align-items:center;gap:6px">
+    ⚠️ <strong>무예산 정책(QF-08)</strong> — 비용 필드는 모두 비활성화됩니다.
+  </div>` : ""}
+
+  <!-- 완성도 요약 -->
+  <div style="display:flex;gap:8px">${summaryPanels}</div>
+
+  <!-- 단계 탭 -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap">${tabHtml}</div>
+
+  <!-- 현재 탭 필드 편집기 -->
+  <div style="background:white;border:1.5px solid ${sc}30;border-radius:14px;padding:16px;display:grid;gap:8px">
+    <div style="font-size:13px;font-weight:900;color:${sc};margin-bottom:4px">${stageLabel[activeTab]} 양식 필드</div>
+    ${currentFields}
+  </div>
+
+  <!-- 안내 -->
+  <div style="padding:8px 14px;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;font-size:10px;color:#9CA3AF">
+    💡 토글 설정은 FO 사용자 화면에 즉시 반영됩니다. 정책 저장 시 <code>stageFormFields</code>에 기록됩니다.
+  </div>
 </div>`;
+
 
     // ── Step 4: 결재라인 ──────────────────────────────────────────────────────
   } else if (_policyWizardStep === 4) {
@@ -1947,6 +1862,14 @@ function toggleStageForm(stage, id) {
   else arr.push(id);
   _policyWizardData._formTab = stage;
   renderPolicyWizard();
+}
+// [Phase F-2] 인라인 필드 토글 헬퍼
+function _toggleInlineField(stage, fieldKey) {
+  if (!_policyWizardData.stageFormFields) _policyWizardData.stageFormFields = {};
+  if (!_policyWizardData.stageFormFields[stage]) _policyWizardData.stageFormFields[stage] = {};
+  const current = !!_policyWizardData.stageFormFields[stage][fieldKey];
+  _policyWizardData.stageFormFields[stage][fieldKey] = !current;
+  _policyWizardData._formTab = stage;
 }
 function togglePolicyForm(id) {
   const arr = _policyWizardData.formIds || [];

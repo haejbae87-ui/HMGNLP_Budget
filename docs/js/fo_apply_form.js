@@ -1,4 +1,4 @@
-﻿// ─── fo_apply_form.js — 신청 마법사 Step 렌더 (REFACTOR-2: apply.js 분리) ───
+// ─── fo_apply_form.js — 신청 마법사 Step 렌더 (REFACTOR-2: apply.js 분리) ───
 function _renderApplyForm() {
   // ── SERVICE_POLICIES 로딩 게이트 (근본 수정) ──────────────────────────────
   // SERVICE_POLICIES가 비어있으면 정책 필터링이 무력화되어 기타운영 등 누수 발생
@@ -774,7 +774,11 @@ ${(() => {
           if (s.formTemplateLoading) {
             return `<div style="padding:32px;text-align:center;color:#6B7280;font-size:14px;font-weight:600"><div style="font-size:28px;margin-bottom:8px">⌛</div>양식 로딩 중...</div>`;
           }
-          // ── Fallback: 양식 미설정 ──
+          // ── Phase B: 표준 렌더러 (정규화 컬럼 기반) ──
+          if (typeof window.foRenderStandardApplyForm === 'function') {
+            return window.foRenderStandardApplyForm(s, curBudget);
+          }
+          // ── 최후 Fallback: Phase B 렌더러 미로드 시 ──
           return `
         <!-- Region toggle -->
         <div class="inline-flex bg-gray-100 rounded-xl p-1">

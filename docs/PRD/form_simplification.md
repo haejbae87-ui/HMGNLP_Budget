@@ -1,11 +1,11 @@
 # 교육양식 간소화 및 조건부 산출근거 연동 PRD
 
 > **도메인**: 교육양식 아키텍처 재설계 (Form Simplification)
-> **관련 파일**: `bo_fb_library.js`, `bo_fb_core.js`, `bo_fb_editor.js`, `fo_form_loader.js`, `plans.js`, `apply.js`, `bo_calc_grounds.js`
+> **관련 파일**: `bo_fb_library.js`, `bo_fb_core.js`, `bo_fb_editor.js`, `fo_form_loader.js`, `plans.js`, `apply.js`, `bo_calc_grounds.js`, `bo_policy_builder.js`, `bo_plan_detail_renderer.js`
 > **최초 작성**: 2026-04-17
 > **최종 갱신**: 2026-04-21
-> **상태**: 🟡 구현 중 (Phase A/B/C/D 완료 / Phase E 미완)
-> **선행 PRD**: `form_builder.md`, `form_field_governance.md`, `form_deploy_workflow.md`, `calc_grounds_ux_redesign.md`
+> **상태**: 🟡 구현 중 (Phase A/B/C/D 완료 / Phase E 미완 / **Phase F 확정 — 양식 인라인 통합**)
+> **선행 PRD**: `form_builder.md`, `form_field_governance.md`, `form_deploy_workflow.md`, `calc_grounds_ux_redesign.md`, `service_policy.md`
 
 ---
 
@@ -312,39 +312,58 @@ WHERE is_overseas IS NULL;
 ### 7.2 안전한 전환 전략 (점진적 마이그레이션)
 
 ```
-Phase A: 정규화 컬럼 추가 (기존 폼빌더 병행)
+Phase A: 정규화 컬럼 추가 (기존 폼빌더 병행)               ✅ 완료
   └── plans/applications에 신규 컬럼 추가
   └── 저장 시 detail JSON + 정규화 컬럼 이중 기록
   └── 읽기는 여전히 detail JSON 기반
 
-Phase B: 표준 렌더러 도입
+Phase B: FO 표준 렌더러 도입                              ✅ 완료
   └── 신규 작성분부터 표준 렌더러 적용
   └── 기존 데이터는 fo_form_loader 폴백
 
-Phase C: 산출근거 조건 태깅
+Phase C: 산출근거 조건 태깅                               ✅ 완료
   └── calc_grounds.apply_conditions 추가
   └── BO 관리 화면에 조건 편집 UI
   └── FO에서 조건 매칭 필터링 적용
 
-Phase D: 폼빌더 비활성화
-  └── 모든 데이터가 정규화 컬럼 기반으로 전환 확인 후
-  └── 폼빌더 메뉴를 표준 템플릿 관리로 전환
+Phase D: BO 상세뷰 정규화 컬럼 전환                        ✅ 완료
+  └── bo_plan_detail_renderer.js 신규 작성
+  └── 정규화 컬럼 우선 읽기 + detail JSON 폴백
+
+Phase E: 데이터 마이그레이션 + dual-write 종료              ⏳ 미착수
+  └── 기존 레거시 JSON 데이터를 정규화 컬럼으로 backfill
+  └── dual-write 코드 제거 (detail JSON 쓰기 중단)
+
+Phase F: 양식 인라인 통합 (서비스 정책 위저드)              ⏳ 신규 확정
+  └── F-1: form_templates에 policy_id FK 추가
+  └── F-2: 정책 위저드 Step3에 인라인 양식 편집기 구현
+         ├── 패턴에 따라 계획/신청/결과 편집기 자동 표시
+         ├── 무예산 계정 → 비용 필드 전체 disable
+         └── 필수 정규화 필드(is_overseas, venue_type 등) disable 불가
+  └── F-3: FO 양식 로드 로직 변경
+         ├── 1순위: 정책 인라인 양식 → form_templates 조회
+         ├── 2순위: stage_form_ids 폴백 (레거시 호환)
+         └── 3순위: 표준 렌더러 (Phase B)
+  └── F-4: 교육양식마법사 메뉴 숨김 → 코드 제거
 ```
 
 ---
 
 ## 8. 기획자 검토 필요 항목
 
-### 정책 결정 필요
+### 정책 결정 (2026-04-21 확정)
 
-| # | 질문 | 제안 | 상태 |
+| # | 질문 | 결정 | 상태 |
 |---|------|------|:---:|
-| QF-01 | **기존 폼빌더 데이터 처리 방침** — 이중 기록 기간은 얼마? | Phase A~C 동안(약 2~3 스프린트) | ⏳ |
-| QF-02 | **extra_fields 스키마 관리** — 테넌트별 추가 필드를 어떻게 정의? | 서비스 정책에 extra_fields_schema 속성 추가 | ⏳ |
-| QF-03 | **apply_conditions 매칭 방식** — 조건 키가 없으면 표시? 숨김? | 관대한 매칭 (키 없으면 표시) 제안 | ⏳ |
-| QF-04 | **표준 템플릿 6개로 충분한지** — 실무에서 더 필요한 유형 있는지 | 팀 확인 필요 | ⏳ |
-| QF-05 | **폼빌더 완전 제거 시점** — 프로토타입에서만 간소화? 운영에서도? | 프로토타입: 즉시 간소화. 운영: 검증 후 결정 | ⏳ |
-| QF-06 | **L2 필드(테넌트 확장)의 처리** — extra_fields로 충분? 별도 관리? | extra_fields + 스키마 정의로 충분 | ⏳ |
+| QF-01 | **dual-write 이중 기록 종료 시점** | Phase D 완료 시 종료 (= 현재). Phase F에서 양식 인라인화 후 form_template_id 의존성 완전 제거 | ✅ 확정 |
+| QF-02 | **extra_fields 스키마 관리** | 서비스 정책의 인라인 양식 정의에 포함. 별도 테이블 불필요 | ✅ 확정 |
+| QF-03 | **apply_conditions 매칭 방식** | **관대한 매칭** — 조건 키 없으면 항상 표시. 이미 코드에 반영됨 | ✅ 확정 |
+| QF-04 | **표준 템플릿 충분성** | Phase F에서 정책 위저드 내 인라인 토글로 교체 → 템플릿 수 자체가 무의미해짐 | ✅ 해소 |
+| QF-05 | **폼빌더 제거 시점** | **즉시 숨김 처리** — BO 메뉴에서 교육양식마법사 숨김. Phase F 구현 시 완전 제거 | ✅ 확정 |
+| QF-06 | **L2 필드 처리** | extra_fields + 정책 인라인 양식으로 충분 | ✅ 확정 |
+| QF-07 | **양식 DB 저장 방식** | **B안** — `form_templates` 유지 + `policy_id` FK 추가. UI에서는 정책 위저드 내 편집, 내부적으로 form_templates 저장 | ✅ 확정 |
+| QF-08 | **무예산 비용 필드 정책** | **전체 disable** — 무예산 계정(`uses_budget=false`) 선택 시 비용 관련 필드(계획액, 산출근거, 배정액 등) 모두 비활성화 | ✅ 확정 |
+| QF-09 | **자비학습 환급 계정 분류** | 예산 사용 계정(A/B/C 패턴)으로 분류. 무예산 계정에서는 실비 입력 차단 | ✅ 확정 |
 
 ---
 
@@ -361,13 +380,76 @@ Phase D: 폼빌더 비활성화
 
 ## 10. 개발 계획 (Phase별)
 
-| Phase | 범위 | 의존성 | 예상 공수 |
-|-------|------|--------|:---:|
-| **A** | plans/applications 정규화 컬럼 추가 + 이중 기록 | 없음 | 1일 |
-| **B** | 표준 렌더러 작성 (FO 계획/신청 화면) | A | 3일 |
-| **C** | calc_grounds apply_conditions 추가 + BO 관리 UI + FO 필터링 | A | 2일 |
-| **D** | BO 결재/상세뷰 정규화 컬럼 기반 전환 | A, B | 2일 |
-| **E** | 데이터 마이그레이션 + 폼빌더 비활성화 | A~D 완료 | 1일 |
+| Phase | 범위 | 의존성 | 예상 공수 | 상태 |
+|-------|------|--------|:---:|:---:|
+| **A** | plans/applications 정규화 컬럼 추가 + 이중 기록 | 없음 | 1일 | ✅ 완료 |
+| **B** | FO 표준 렌더러 작성 (계획/신청 화면) | A | 3일 | ✅ 완료 |
+| **C** | calc_grounds apply_conditions + BO 관리 UI + FO 필터링 | A | 2일 | ✅ 완료 |
+| **D** | BO 상세뷰/결재화면 정규화 컬럼 기반 전환 | A, B | 2일 | ✅ 완료 |
+| **E** | 데이터 마이그레이션 + dual-write 종료 | A~D | 1일 | ⏳ 미착수 |
+| **F-1** | `form_templates`에 `policy_id` FK 추가 (DB 마이그레이션) | E | 0.5일 | ⏳ 신규 |
+| **F-2** | 정책 위저드 Step3 인라인 양식 편집기 (토글 UI 이식) | F-1 | 3일 | ⏳ 신규 |
+| **F-3** | FO 양식 로드 로직 변경 (인라인 우선 → stage_form_ids 폴백) | F-2 | 1일 | ⏳ 신규 |
+| **F-4** | 교육양식마법사 메뉴 숨김 + 코드 정리 | F-2 | 0.5일 | ⏳ 신규 |
+
+### Phase F 상세: 양식 인라인 통합
+
+> **배경**: 교육양식마법사(form builder)에서 양식을 별도로 만든 뒤 서비스 정책에 매핑하는 2-hop 구조가 추적 불가 문제를 야기. 정책 = 양식의 Single Source of Truth가 되도록 통합.
+
+#### F 핵심 설계 원칙
+
+| 원칙 | 설명 |
+|------|------|
+| **패턴이 양식을 결정** | 프로세스 패턴(A~E) 선택 → 해당 단계(계획/신청/결과)의 양식 편집기 자동 표시 |
+| **무예산 → 비용 필드 전체 disable** | `uses_budget=false` 계정이면 계획액, 산출근거, 배정액 등 비용 필드 일괄 비활성화 |
+| **필수 필드 고정** | `is_overseas`, `venue_type`, `edu_type` 등 정규화 필수 필드는 disable 불가 |
+| **자비학습 = 예산 사용** | 자비학습 환급은 A/B/C 패턴(예산 연동)에 해당. 무예산(D/E)에서는 실비 입력 차단 |
+| **양식 재사용 대체** | 토글 기반이므로 "정책 복사" 시 양식 설정도 복제 → 별도 재사용 불필요 |
+
+#### F DB 변경: `form_templates` 테이블
+
+```sql
+-- Phase F-1: 정책 소유 관계 명확화
+ALTER TABLE form_templates
+  ADD COLUMN IF NOT EXISTS policy_id TEXT REFERENCES service_policies(id);
+
+-- 기존 stage_form_ids 기반 레코드에 policy_id 역매핑
+-- (마이그레이션 스크립트로 처리)
+```
+
+#### F 인라인 양식 편집기 UI 구조
+
+```
+정책 위저드 Step 3 (양식) — 패턴에 따라 자동 구성
+├── [패턴A: 계획→신청→결과]
+│   ├── 📊 계획 양식 편집기
+│   │   ├── 📋 기본정보 (필수 — disable 불가)
+│   │   │   ├── ✅ 교육목적 · 교육유형 · 국내/해외
+│   │   │   └── ✅ 교육명 · 참석인원
+│   │   ├── 📐 교육상세 (토글 on/off)
+│   │   │   ├── 🔘 장소유형 · 예상차수 · 교육일수
+│   │   │   └── 🔘 교육기간 · 교육기관
+│   │   ├── 💰 비용항목 ← 무예산 시 전체 disable
+│   │   │   ├── 🔘 계획액 · 세부산출근거
+│   │   │   └── 🔘 기대효과
+│   │   └── 🔧 관리자 필드 (back/provide/bo_only)
+│   ├── 📝 신청 양식 편집기 (동일 구조)
+│   └── 📄 결과 양식 편집기 (동일 구조)
+├── [패턴B: 신청→결과] → 신청 + 결과만
+├── [패턴C: 결과 단독] → 결과만
+├── [패턴D: 신청 단독] → 신청만 + 비용 전체 disable
+└── [패턴E: 신청→결과] → 신청 + 결과 + 비용 전체 disable
+```
+
+#### F 엣지 케이스 (추가)
+
+| # | 시나리오 | 위험 | 대응 |
+|---|---------|:----:|------|
+| EC-F1 | 정책 삭제 시 인라인 양식(form_templates) 고아화 | 🟡 | CASCADE DELETE 또는 soft-delete |
+| EC-F2 | 정책 복제 시 양식 deep copy 필요 | 🟢 | 토글 기반 → 복제 비용 최소 |
+| EC-F3 | 운영 중 양식 수정 → 이미 제출된 건 영향 | 🟡 | 정규화 컬럼 기반이므로 영향 최소 (제출 시점 데이터는 컬럼에 저장됨) |
+| EC-F4 | 무예산이지만 실비용 입력 시도 | 🟢 | UI 레벨에서 비용 필드 전체 disable + 서버 검증 |
+| EC-F5 | 하나의 정책에 교육유형 3개 → 유형별 다른 필드 | 🟠 | 표준 렌더러(Phase B)가 교육유형별 분기 처리. 양식은 on/off만 |
 
 ---
 
@@ -376,6 +458,7 @@ Phase D: 폼빌더 비활성화
 | 날짜 | 내용 | 작성자 |
 |------|------|--------|
 | 2026-04-17 | 최초 작성 — 폼 간소화 B안(하이브리드) 확정. 관심사 분리(폼/비즈니스), 정규화 필드 정의, apply_conditions 태깅 설계, 갭 분석 5건, 엣지케이스 15건, 사이드이펙트 4건, 전환 전략 4단계, 기존 PRD 4건 영향 분석 | AI |
-| 2026-04-21 | BO 에디터 UI 전환 — DnD 필드빌더를 카테고리별 토글 on/off로 교체, 개별 비용 필드 제거 후 세부산출근거 통합 연동 안내 섹션 추가, _fbPreviewHTML 간소화 | AI |
-| 2026-04-21 | **Phase D 완료** — `bo_plan_detail_renderer.js` 신규 파일 작성: `boRenderPlanDetailInfo()`, `boRenderAppDetailRows()` 구현. BO 교육계획 상세뷰(`_renderBoPlanDetail`)의 detail JSON 직접 읽기 → 정규화 컬럼(`is_overseas`, `venue_type`, `planned_rounds`, `overseas_country`, `extra_fields` 등) 우선 읽기로 전환. `_buildAppDetailRows()` 동일하게 정규화 컬럼 우선 적용. `backoffice.html`에 스크립트 태그 추가(v=1). | AI |
+| 2026-04-21 | BO 에디터 UI 전환 — DnD 필드빌더를 카테고리별 토글 on/off로 교체 | AI |
+| 2026-04-21 | **Phase D 완료** — `bo_plan_detail_renderer.js` 신규 작성. BO 상세뷰 정규화 컬럼 전환 | AI |
+| 2026-04-21 | **Phase F 확정 (양식 인라인 통합)** — 정책 결정 9건 확정(QF-01~09). 교육양식마법사를 서비스 정책 위저드 내 인라인 편집기로 대체하는 Phase F(4단계) 추가. DB 방식: B안(form_templates + policy_id FK). 무예산 비용 필드 전체 disable. 자비학습 환급 = 예산 사용(A/B/C 패턴). 양식마법사 즉시 숨김. 엣지케이스 5건(EC-F1~F5) 추가. service_policy.md §6 재작성 필요 표기 | AI |
 

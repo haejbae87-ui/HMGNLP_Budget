@@ -183,9 +183,22 @@ function fbCycleScope(idx) {
 }
 
 function _fbRefreshPreview() {
+  // ── 신규 토글 UI: 패널 부분 갱신 ──────────────────────────────────────────
+  const fieldsPanel = document.getElementById("fb-fields-panel");
+  const selectedSummary = document.getElementById("fb-selected-summary");
+  const selectedCount = document.getElementById("fb-selected-count");
+
+  if (fieldsPanel) {
+    // 토글 스위치 영역 전체 재렌더링
+    fieldsPanel.innerHTML = _fbFieldsPanelHTML();
+    if (selectedCount) selectedCount.textContent = `${_fbTempFields.length}개 선택됨`;
+    if (selectedSummary) selectedSummary.innerHTML = _fbSelectedSummaryHTML();
+    return; // 신규 UI면 여기서 종료
+  }
+
+  // ── 레거시 DnD UI 갱신 (fallback) ────────────────────────────────────────
   const el = document.getElementById("fb-preview");
   if (el) el.innerHTML = _fbPreviewHTML();
-  // 팔레트 selected 상태 갱신 (L1 + L2 통합)
   _fbAllFields().forEach((f) => {
     const chip = document.getElementById(`fbf-${f.key}`);
     if (chip) {
@@ -197,6 +210,40 @@ function _fbRefreshPreview() {
       chip.style.textDecoration = isSelected ? "line-through" : "none";
     }
   });
+}
+
+// ── 토글 UI용 필드 패널 HTML 생성 ─────────────────────────────────────────────
+function _fbFieldsPanelHTML() {
+  const allFields = _fbAllFields();
+  const COST_KEYS = ["예상비용","교육비","참가비","강사료","대관비","식대/용차"];
+  const GROUPS = [
+    {label:"📋 기본정보",color:"#1D4ED8",fields:allFields.filter(f=>f.category==="기본정보"&&!COST_KEYS.includes(f.key))},
+    {label:"💰 비용/산출근거",color:"#D97706",fields:allFields.filter(f=>f.category==="비용정보"&&!COST_KEYS.includes(f.key))},
+    {label:"👥 인원정보",color:"#059669",fields:allFields.filter(f=>f.category==="인원정보")},
+    {label:"📎 첨부서류",color:"#9D174D",fields:allFields.filter(f=>f.category==="첨부서류")},
+    {label:"🏫 교육운영정보",color:"#7C3AED",fields:allFields.filter(f=>f.category==="교육운영정보")},
+  ].filter(g=>g.fields.length>0);
+
+  function _tog(f) {
+    const isOn = _fbTempFields.some(tf=>(typeof tf==="object"?tf.key:tf)===f.key);
+    const isReq = isOn && _fbTempFields.find(tf=>(typeof tf==="object"?tf.key:tf)===f.key)?.required;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${isOn?"#F0FDF4":"#fff"};border:1.5px solid ${isOn?"#86EFAC":"#E5E7EB"};border-radius:10px;transition:all .15s" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,.06)'" onmouseout="this.style.boxShadow='none'"><div style="display:flex;align-items:center;gap:8px;flex:1"><span style="font-size:15px">${f.icon}</span><div><div style="font-size:12px;font-weight:800;color:#111827">${f.key}${f.required?'<sup style="color:#EF4444">*</sup>':''}</div>${f.hint?`<div style="font-size:10px;color:#9CA3AF">${f.hint}</div>`:''}</div></div><div style="display:flex;align-items:center;gap:8px">${isOn?`<span onclick="event.stopPropagation();fbToggleRequired(_fbTempFields.findIndex(tf=>(typeof tf==='object'?tf.key:tf)==='${f.key}'))" style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:5px;cursor:pointer;color:${isReq?'#DC2626':'#9CA3AF'};background:${isReq?'#FEF2F2':'#F9FAFB'};border:1px solid ${isReq?'#FECACA':'#E5E7EB'}" title="클릭하여 필수/선택 전환">${isReq?'필수':'선택'}</span>`:''}<div onclick="fbToggleField('${f.key}')" style="width:38px;height:20px;border-radius:10px;background:${isOn?'#059669':'#D1D5DB'};cursor:pointer;position:relative;transition:background .2s"><div style="width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:2px;transform:${isOn?'translateX(18px)':'translateX(2px)'};transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div></div></div></div>`;
+  }
+
+  return GROUPS.map(g=>`<div><div style="font-size:12px;font-weight:900;color:${g.color};margin-bottom:8px;display:flex;align-items:center;gap:6px">${g.label} <span style="font-size:9px;color:#9CA3AF;font-weight:500">(${g.fields.filter(f=>_fbTempFields.some(tf=>(typeof tf==='object'?tf.key:tf)===f.key)).length}/${g.fields.length})</span></div><div style="display:flex;flex-direction:column;gap:6px">${g.fields.map(f=>_tog(f)).join('')}</div></div>`).join('');
+}
+
+// ── 선택된 필드 요약 HTML 생성 ────────────────────────────────────────────────
+function _fbSelectedSummaryHTML() {
+  const allFields = _fbAllFields();
+  if (_fbTempFields.length === 0)
+    return '<span style="font-size:11px;color:#9CA3AF">아직 선택된 필드가 없습니다</span>';
+  return _fbTempFields.map(tf=>{
+    const k = typeof tf==="object"?tf.key:tf;
+    const meta = allFields.find(a=>a.key===k)||{icon:"📝"};
+    const req = typeof tf==="object"&&tf.required;
+    return `<span style="font-size:10px;padding:3px 8px;border-radius:6px;font-weight:700;background:${req?'#FEF2F2':'#F0FDF4'};color:${req?'#DC2626':'#065F46'};border:1px solid ${req?'#FECACA':'#BBF7D0'}">${meta.icon} ${k}${req?'*':''}</span>`;
+  }).join('');
 }
 
 // 목적 변경 시 교육유형 행 토글

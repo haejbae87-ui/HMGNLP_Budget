@@ -585,9 +585,9 @@ ${_fbGroupId||_fbAccountCode?`<div style="display:flex;align-items:center;gap:8p
 <div style="border:1.5px solid #E5E7EB;border-radius:14px;overflow:hidden">
   <div style="background:linear-gradient(135deg,#F9FAFB,#F3F4F6);padding:12px 18px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;justify-content:space-between">
     <div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">🔧</span><span style="font-size:14px;font-weight:900;color:#111827">입력 필드 구성</span><span style="font-size:10px;color:#9CA3AF;font-weight:500">토글 스위치로 필드를 on/off 하세요</span></div>
-    <span style="font-size:11px;font-weight:800;color:#1D4ED8;background:#EFF6FF;padding:3px 10px;border-radius:8px">${sc}개 선택됨</span>
+    <span id="fb-selected-count" style="font-size:11px;font-weight:800;color:#1D4ED8;background:#EFF6FF;padding:3px 10px;border-radius:8px">${sc}개 선택됨</span>
   </div>
-  <div style="padding:16px 18px;display:flex;flex-direction:column;gap:20px">
+  <div id="fb-fields-panel" style="padding:16px 18px;display:flex;flex-direction:column;gap:20px">
     ${GROUPS.map(g=>`<div><div style="font-size:12px;font-weight:900;color:${g.color};margin-bottom:8px;display:flex;align-items:center;gap:6px">${g.label} <span style="font-size:9px;color:#9CA3AF;font-weight:500">(${g.fields.filter(f=>_fbTempFields.some(tf=>(typeof tf==='object'?tf.key:tf)===f.key)).length}/${g.fields.length})</span></div><div style="display:flex;flex-direction:column;gap:6px">${g.fields.map(f=>_tog(f)).join('')}</div></div>`).join('')}
   </div>
 </div>
@@ -599,7 +599,7 @@ ${_fbGroupId||_fbAccountCode?`<div style="display:flex;align-items:center;gap:8p
 </div>
 <div style="margin-top:20px;padding:14px 18px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:12px">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:13px;font-weight:900;color:#1D4ED8">📋 선택된 필드 (${sc}개)</span><span style="font-size:10px;color:#6B7280">토글로 필드를 on/off 하세요</span></div>
-  <div style="display:flex;flex-wrap:wrap;gap:5px">${_fbTempFields.length===0?'<span style="font-size:11px;color:#9CA3AF">아직 선택된 필드가 없습니다</span>':_fbTempFields.map(tf=>{const k=typeof tf==="object"?tf.key:tf;const meta=allFields.find(a=>a.key===k)||{icon:"📝"};const req=typeof tf==="object"&&tf.required;return `<span style="font-size:10px;padding:3px 8px;border-radius:6px;font-weight:700;background:${req?'#FEF2F2':'#F0FDF4'};color:${req?'#DC2626':'#065F46'};border:1px solid ${req?'#FECACA':'#BBF7D0'}">${meta.icon} ${k}${req?'*':''}</span>`;}).join('')}</div>
+  <div id="fb-selected-summary" style="display:flex;flex-wrap:wrap;gap:5px">${_fbTempFields.length===0?'<span style="font-size:11px;color:#9CA3AF">아직 선택된 필드가 없습니다</span>':_fbTempFields.map(tf=>{const k=typeof tf==="object"?tf.key:tf;const meta=allFields.find(a=>a.key===k)||{icon:"📝"};const req=typeof tf==="object"&&tf.required;return `<span style="font-size:10px;padding:3px 8px;border-radius:6px;font-weight:700;background:${req?'#FEF2F2':'#F0FDF4'};color:${req?'#DC2626':'#065F46'};border:1px solid ${req?'#FECACA':'#BBF7D0'}">${meta.icon} ${k}${req?'*':''}</span>`;}).join('')}</div>
 </div>
 </div>`;
 }

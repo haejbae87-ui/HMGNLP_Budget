@@ -1,6 +1,6 @@
 # 📋 HMGNLP_Budget — 작업 현황 (active_tasks.md)
 
-> 최종 갱신: 2026-04-21 (Form Simplification Phase B 완료 — FO 표준 렌더러 구현)
+> 최종 갱신: 2026-04-21 (Phase F-2/F-4 완료 — 정책 위저드 인라인 양식 편집기 + 교육양식마법사 메뉴 숨김)
 
 ---
 
@@ -31,6 +31,8 @@
 - [x] **Form Simplification Phase B** — FO 표준 렌더러 구현: `fo_form_loader.js`에 `foRenderStandardPlanForm()`, `foRenderStandardApplyForm()` 추가 (정규화 컬럼 기반 입력 UI). `fo_plans_wizard.js`, `fo_apply_form.js` Step 4 폴백을 표준 렌더러 호출로 교체. 렌더러는 is_overseas, venue_type, planned_rounds, overseas_country 등 정규화 컬럼 직접 입력 지원. BO 양식 미설정 시 자동 적용됨.
 - [x] **Form Simplification Phase C** — `apply_conditions` JSONB 컬럼 추가 (calc_grounds); 기존 항목 자동 태깅(항공료→해외, 숙박비→숙박); `bo_calc_grounds.js` 상세 편집 UI에 적용조건 섹션(🏷️) 추가; `fo_form_loader.js`에 `foGetApplicableCalcGrounds`, `getApplicableCalcGrounds`, `getApplicableCalcGroundsForType` 공용 필터 함수 추가.
 - [x] **Form Simplification Phase D** — BO 결재·상세뷰 정규화 컬럼 기반 전환: 신규 `bo_plan_detail_renderer.js` 작성 (`boRenderPlanDetailInfo`, `boRenderAppDetailRows`). `bo_plan_mgmt.js` 상세뷰(`_renderBoPlanDetail`)에서 detail JSON 직접 읽기 → 정규화 컬럼(`is_overseas`, `venue_type`, `planned_rounds` 등) 우선 읽기로 교체. 레거시 detail은 폴백으로만 사용. `backoffice.html` 스크립트 태그 추가.
+- [x] **Phase F-4 교육양식마법사 메뉴 숨김** — `bo_layout.js` 4곳 `form-builder` 메뉴에 `hidden: true` 추가. `renderBoSidebar` 및 GNB 필터에 `!m.hidden` 조건 추가. 기존 코드 보존하여 rollback 가능.
+- [x] **Phase F-2 정책 위저드 Step3 인라인 편집기** — `bo_policy_builder.js` Step3를 기존 외부 양식 선택 UI에서 인라인 필드 토글 편집기로 교체. 패턴별 단계(계획/신청/결과)별 필드 on/off 토글 UI 구현. 무예산 계정(`uses_budget=false`) 또는 D/E 패턴 시 비용 필드 전체 비활성화(QF-08). `_toggleInlineField` 헬퍼 추가. 레거시 양식 선택 블록 제거. `bo_policy_builder.js?v=32`로 버전 업.
 
 ---
 

@@ -191,9 +191,20 @@ async function getFoFormTemplate(policy, stage, eduType) {
   if (!policy) return null;
 
   // 1순위: Phase F - 인라인 폼 (stageFormFields)
-  const inlineFields = (policy.stageFormFields && policy.stageFormFields[stage]) 
+  const inlineFieldsRaw = (policy.stage_form_fields && policy.stage_form_fields[stage])
+                       || (policy.stageFormFields && policy.stageFormFields[stage]) 
                        || (policy.stage_form_ids && policy.stage_form_ids._fields && policy.stage_form_ids._fields[stage]);
-  if (inlineFields) {
+  
+  if (inlineFieldsRaw) {
+    const inlineFields = JSON.parse(JSON.stringify(inlineFieldsRaw)); // 불변성 유지
+    // 무예산 정책(budgetLinked === false)일 경우 비용 필드 강제 Trim (보안 및 사이드이펙트 방지)
+    if (policy.budgetLinked === false) {
+      delete inlineFields['requested_budget'];
+      delete inlineFields['calc_grounds'];
+      delete inlineFields['reimbursement'];
+      delete inlineFields['actual_cost'];
+    }
+
     return {
       isInline: true,
       inlineFields: inlineFields,

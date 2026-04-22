@@ -142,6 +142,8 @@ async function _loadFoPolicies() {
             approvalConfig: row.approval_config,
             approverPersonaKey:
               row.approval_config?.apply?.finalApproverKey || "",
+            stage_form_fields: row.stage_form_fields || null,
+            stage_form_ids: row.stage_form_ids || null,
             status: row.status || "active",
           };
           const idx = SERVICE_POLICIES.findIndex((p) => p.id === mapped.id);

@@ -1343,7 +1343,7 @@ function _cgRefreshTotals() {
 // ★ Phase C: 교육계획 → 교육신청 연동
 // plan_id를 sessionStorage에 저장하고 교육신청 화면으로 이동
 function _startApplyFromPlan(planId) {
-  const plan = _foDbPlans.find(p => String(p.id) === String(planId));
+  const plan = _plansDbCache.find(p => String(p.id) === String(planId));
   if (!plan) { alert('교육계획을 찾을 수 없습니다.'); return; }
   if (Number(plan.allocated_amount || 0) <= 0) {
     alert('배정이 완료된 교육계획만 교육 신청이 가능합니다.');
@@ -1383,8 +1383,8 @@ async function _foRenderReallocUI() {
   const area = document.getElementById('fo-realloc-area');
   if (!area) return;
   
-  const approvedPlans = (_foDbPlans || []).filter(p =>
-    (p.status === '승인' || p.status === 'approved') && Number(p.allocated_amount || 0) >= 0
+  const approvedPlans = (_plansDbCache || []).filter(p =>
+    (p.status === '승인완료' || p.status === 'approved') && Number(p.allocated_amount || 0) >= 0
   );
   
   if (!_foReallocMode || approvedPlans.length === 0) {

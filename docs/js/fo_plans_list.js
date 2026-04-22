@@ -272,6 +272,83 @@ function _mapDbStatus(s) {
   return m[s] || s || "신청중";
 }
 
+let _isFetchingForecasts = false;
+let _forecastDeadlinesCache = null;
+
+async function _renderForecastDashboard() {
+  const container = document.getElementById("page-plans");
+  if (_isFetchingForecasts) return;
+
+  if (!_forecastDeadlinesCache) {
+    _isFetchingForecasts = true;
+    container.innerHTML = `<div style="padding:100px;text-align:center;color:#6B7280;font-weight:bold;font-size:14px;">수요예측 캠페인 조회 중...</div>`;
+    const sb = typeof getSB === "function" ? getSB() : null;
+    if (sb) {
+      try {
+        const { data } = await sb.from("forecast_deadlines")
+          .select("*")
+          .eq("tenant_id", currentPersona.tenantId)
+          .eq("is_closed", false);
+        
+        const now = new Date();
+        now.setHours(0,0,0,0);
+        
+        _forecastDeadlinesCache = (data || []).filter(dl => {
+            if (dl.recruit_start && now < new Date(dl.recruit_start)) return false;
+            if (dl.recruit_end && now > new Date(dl.recruit_end)) return false;
+            return true;
+        });
+      } catch (e) {
+        _forecastDeadlinesCache = [];
+      }
+    } else {
+        _forecastDeadlinesCache = [];
+    }
+    _isFetchingForecasts = false;
+  }
+
+  const campaigns = _forecastDeadlinesCache;
+  let listHtml = "";
+  if (campaigns.length === 0) {
+    listHtml = `<div style="padding:60px 20px;text-align:center;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB">
+        <div style="font-size:48px;margin-bottom:16px">📢</div>
+        <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">현재 진행 중인 전사 수요예측 캠페인이 없습니다.</div>
+        <div style="font-size:12px;color:#9CA3AF">당해 연도 계획은 [교육계획(상시)] 메뉴를 이용해 상시계획으로 수립해 주세요.</div>
+      </div>`;
+  } else {
+    listHtml = `<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));gap:16px">
+      ${campaigns.map(c => `
+        <div onclick="startPlanWizard('forecast', ${c.fiscal_year})" style="padding:24px 20px;border-radius:16px;background:white;border:1.5px solid #BFDBFE;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.04);transition:all 0.15s"
+             onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(37,99,235,0.1)'"
+             onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.04)'">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+            <div style="font-size:12px;font-weight:900;color:#1D4ED8;background:#EFF6FF;padding:4px 10px;border-radius:8px;">🎯 ${c.fiscal_year}년도 예산 확정</div>
+            <div style="font-size:11px;font-weight:800;color:#DC2626;background:#FEF2F2;padding:4px 8px;border-radius:6px;">⏳ 마감: ${c.recruit_end ? c.recruit_end.substring(0,10) : '상시'}</div>
+          </div>
+          <div style="font-size:18px;font-weight:900;color:#111827;margin-bottom:8px;line-height:1.4">${c.title || c.fiscal_year + '년도 전사 수요예측 (정기)'}</div>
+          <div style="font-size:13px;color:#6B7280;line-height:1.5">${c.description || '차년도(또는 당해) 필요한 교육 예산을 사전에 확보하기 위한 기안입니다.'}</div>
+          <div style="margin-top:20px;padding-top:16px;border-top:1px dashed #E5E7EB;font-size:13px;font-weight:800;color:#2563EB;display:flex;align-items:center;justify-content:space-between">
+            <span>참여하여 계획 수립하기</span>
+            <span style="font-size:16px">→</span>
+          </div>
+        </div>
+      `).join('')}
+    </div>`;
+  }
+
+  container.innerHTML = `
+<div class="max-w-4xl mx-auto space-y-4">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px">
+    <div>
+      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 수요예측</div>
+      <h1 class="text-3xl font-black text-brand tracking-tight">전사 수요예측 캠페인</h1>
+      <p class="text-gray-500 text-sm mt-1">사전에 대규모로 예산을 확보하기 위한 정기 기안 캠페인입니다.</p>
+    </div>
+  </div>
+  ${listHtml}
+</div>`;
+}
+
 function renderPlans() {
   // FO 정책 DB 로드 (최초 1회, 완료 후 목록 자동 갱신)
   if (!_foServicePoliciesLoaded) {
@@ -293,6 +370,12 @@ function renderPlans() {
   // 위저드 뷰
   if (planState) {
     renderPlanWizard();
+    return;
+  }
+
+  // 수요예측 캠페인 대시보드 라우팅
+  if (window.plansMode === "forecast") {
+    _renderForecastDashboard();
     return;
   }
 

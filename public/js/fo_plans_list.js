@@ -299,13 +299,15 @@ async function _renderForecastDashboard() {
             // 접수 시작 전인 캠페인은 노출하지 않음
             if (dl.recruit_start && now < new Date(dl.recruit_start)) return false;
             
-            // 권한 필터링
-            if (dl.target_accounts && Array.isArray(dl.target_accounts) && dl.target_accounts.length > 0) {
-              const allowed = currentPersona.allowedAccounts || [];
-              if (!allowed.includes("*")) {
-                const intersection = dl.target_accounts.filter(acc => allowed.includes(acc));
-                if (intersection.length === 0) return false;
-              }
+            // 권한 필터링 (대상 계정이 지정되지 않은 과거 가비지 데이터 노출 방지)
+            if (!dl.target_accounts || !Array.isArray(dl.target_accounts) || dl.target_accounts.length === 0) {
+              return false;
+            }
+            
+            const allowed = currentPersona.allowedAccounts || [];
+            if (!allowed.includes("*")) {
+              const intersection = dl.target_accounts.filter(acc => allowed.includes(acc));
+              if (intersection.length === 0) return false;
             }
 
             return true;

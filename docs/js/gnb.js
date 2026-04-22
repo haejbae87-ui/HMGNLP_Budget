@@ -24,7 +24,16 @@ function renderGNB() {
       label: "성장",
       dropdown: [
         {
+          id: "forecast",
+          action: "window.plansMode='forecast'; navigate('plans')",
+          label: "수요예측",
+          icon: "📢",
+          navigate: true,
+          desc: "전사 수요예측 캠페인 참여",
+        },
+        {
           id: "plans",
+          action: "window.plansMode='ongoing'; navigate('plans')",
           label: "교육계획",
           icon: "📊",
           navigate: true,
@@ -257,7 +266,8 @@ function renderGNB() {
           </div>
         </div>`;
           }
-          return `<div onclick="navigate('${d.id}');_gnbDropdownOpen=null;renderGNB()"
+          const clickAction = d.action || `navigate('${d.id}')`;
+          return `<div onclick="${clickAction};_gnbDropdownOpen=null;renderGNB()"
         style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-radius:8px;cursor:pointer;
                background:${isCurrent ? "#EFF6FF" : "transparent"};transition:all .12s"
         onmouseover="this.style.background='${isCurrent ? "#DBEAFE" : "#F9FAFB"}'"

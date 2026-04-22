@@ -295,6 +295,12 @@ function renderPlans() {
     return;
   }
 
+  // 수요예측 캠페인 대시보드 뷰
+  if (window.plansMode === "forecast") {
+    _renderForecastDashboard();
+    return;
+  }
+
   // 팀 뷰 허용 여부 (persona의 teamViewEnabled 또는 team_view_enabled)
   const teamViewEnabled =
     currentPersona.teamViewEnabled ?? currentPersona.team_view_enabled ?? false;
@@ -745,48 +751,101 @@ function _applyBudgetBadges(plans) {
 
 // ─── PLAN WIZARD ─────────────────────────────────────────────────────────────
 
-function startPlanWizard() {
+function startPlanWizard(mode = 'ongoing', forcedYear = null) {
   planState = resetPlanState();
-  // 자동 태그: 연도 기반 plan_type 결정
   const curYear = new Date().getFullYear();
-  planState.fiscal_year = _planYear;
-  planState.plan_type = _planYear > curYear ? "forecast" : "ongoing";
-  // 수요예측 마감 체크 (비동기) — 제도그룹 기반으로 전환
-  if (planState.plan_type === "forecast") {
-    // currentPersona의 제도그룹 ID 추출 (vorgId는 domain code, domainId는 UUID)
-    const vorgTplId = currentPersona.domainId || currentPersona.vorgTemplateId || null;
-    _checkForecastDeadline(currentPersona.tenantId || "HMC", _planYear, vorgTplId).then(
-      (dl) => {
-        if (dl && (dl.is_closed || dl.status === "closed" || dl.status === "expired")) {
-          const goOngoing = confirm(
-            `⚠ ${_planYear}년도 수요예측 접수가 마감되었습니다.\n\n${curYear}년을 선택하여 상시 교육계획으로 수립하시겠습니까?\n\n[확인] ${curYear}년 상시 계획으로 전환\n[취소] 마감된 ${_planYear}년 수요예측으로 계속`,
-          );
-          if (goOngoing) {
-            _planYear = curYear;
-            planState.fiscal_year = curYear;
-            planState.plan_type = "ongoing";
-          }
-        } else if (!dl) {
-          // 기간 미설정 안내 → 상시 계획으로 자동 전환
-          alert(`ℹ ${_planYear}년도 수요예측 접수 기간이 아직 설정되지 않았습니다.\n상시 교육계획으로 전환됩니다.`);
-          _planYear = curYear;
-          planState.fiscal_year = curYear;
-          planState.plan_type = "ongoing";
-        } else if (dl.status === "not_started") {
-          const d = dl.recruit_start
-            ? Math.ceil((new Date(dl.recruit_start) - new Date()) / 86400000)
-            : null;
-          alert(`⏳ ${_planYear}년도 수요예측 접수 기간이 아직 시작되지 않았습니다.${d !== null ? ` (D-${d})` : ""}\n상시 교육계획으로 전환됩니다.`);
-          _planYear = curYear;
-          planState.fiscal_year = curYear;
-          planState.plan_type = "ongoing";
-        }
-        // status === 'open': 정상 수요예측 수립 가능
-      },
-    );
+  
+  if (mode === 'forecast') {
+    planState.plan_type = 'forecast';
+    planState.fiscal_year = forcedYear || curYear;
+    _planYear = planState.fiscal_year;
+  } else {
+    // ongoing (상시계획)
+    planState.plan_type = 'ongoing';
+    planState.fiscal_year = curYear;
+    _planYear = curYear;
   }
+  
   _viewingPlanDetail = null;
-  renderPlans(); // planState가 있으면 위저드 뷰 렌더
+  renderPlans();
+}
+
+let _forecastDeadlinesCache = null;
+let _isFetchingForecasts = false;
+
+async function _renderForecastDashboard() {
+  const container = document.getElementById("page-plans");
+  if (_isFetchingForecasts) return;
+
+  if (!_forecastDeadlinesCache) {
+    _isFetchingForecasts = true;
+    container.innerHTML = `<div style="padding:100px;text-align:center;color:#6B7280;font-weight:bold;font-size:14px;">수요예측 캠페인 조회 중...</div>`;
+    const sb = typeof getSB === "function" ? getSB() : null;
+    if (sb) {
+      try {
+        const { data } = await sb.from("forecast_deadlines")
+          .select("*")
+          .eq("tenant_id", currentPersona.tenantId)
+          .eq("is_closed", false);
+        
+        const now = new Date();
+        now.setHours(0,0,0,0);
+        
+        _forecastDeadlinesCache = (data || []).filter(dl => {
+            if (dl.recruit_start && now < new Date(dl.recruit_start)) return false;
+            if (dl.recruit_end && now > new Date(dl.recruit_end)) return false;
+            return true;
+        });
+      } catch (e) {
+        _forecastDeadlinesCache = [];
+      }
+    } else {
+        _forecastDeadlinesCache = [];
+    }
+    _isFetchingForecasts = false;
+  }
+
+  const campaigns = _forecastDeadlinesCache;
+  let listHtml = "";
+  if (campaigns.length === 0) {
+    listHtml = `<div style="padding:60px 20px;text-align:center;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB">
+        <div style="font-size:48px;margin-bottom:16px">📢</div>
+        <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">현재 진행 중인 전사 수요예측 캠페인이 없습니다.</div>
+        <div style="font-size:12px;color:#9CA3AF">예산 기안은 [교육계획] 메뉴를 이용해 상시계획으로 수립해 주세요.</div>
+      </div>`;
+  } else {
+    listHtml = `<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));gap:16px">
+      ${campaigns.map(c => `
+        <div onclick="startPlanWizard('forecast', ${c.fiscal_year})" style="padding:24px 20px;border-radius:16px;background:white;border:1.5px solid #BFDBFE;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.04);transition:all 0.15s"
+             onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(37,99,235,0.1)'"
+             onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.04)'">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+            <div style="font-size:12px;font-weight:900;color:#1D4ED8;background:#EFF6FF;padding:4px 10px;border-radius:8px;">🎯 ${c.fiscal_year}년도 예산 대상</div>
+            <div style="font-size:11px;font-weight:800;color:#DC2626;background:#FEF2F2;padding:4px 8px;border-radius:6px;">⏰ 마감: ${c.recruit_end ? c.recruit_end.substring(0,10) : '상시'}</div>
+          </div>
+          <div style="font-size:18px;font-weight:900;color:#111827;margin-bottom:8px;line-height:1.4">${c.title || c.fiscal_year + '년도 전사 수요예측 (정기)'}</div>
+          <div style="font-size:13px;color:#6B7280;line-height:1.5">${c.description || '차년도(또는 당해) 필요한 교육 예산을 사전에 확보하기 위한 기안입니다.'}</div>
+          <div style="margin-top:20px;padding-top:16px;border-top:1px dashed #E5E7EB;font-size:13px;font-weight:800;color:#2563EB;display:flex;align-items:center;justify-content:space-between">
+            <span>참여하여 계획 수립하기</span>
+            <span style="font-size:16px">→</span>
+          </div>
+        </div>
+      `).join('')}
+    </div>`;
+  }
+
+  container.innerHTML = `
+<div class="max-w-4xl mx-auto space-y-4">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px">
+    <div>
+      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 수요예측</div>
+      <h1 class="text-3xl font-black text-brand tracking-tight">전사 수요예측 캠페인</h1>
+      <p class="text-gray-500 text-sm mt-1">사전에 큰 규모의 예산을 확보하기 위한 정기 기안 캠페인입니다.</p>
+    </div>
+  </div>
+  ${listHtml}
+</div>
+  `;
 }
 
 // ─── 계획 상세 보기 ──────────────────────────────────────────────

@@ -209,7 +209,9 @@ async function getFoFormTemplate(policy, stage, eduType) {
       isInline: true,
       inlineFields: inlineFields,
       name: policy.name + ' 양식',
-      fields: Object.keys(inlineFields).filter(k => inlineFields[k]).map(k => ({ key: k, required: false }))
+      // Legacy 렌더러(renderDynamicFormFields) 간섭 방지
+      // Phase B 표준 렌더러는 inlineFields를 참조하므로 fields 배열은 비워둠
+      fields: []
     };
   }
 

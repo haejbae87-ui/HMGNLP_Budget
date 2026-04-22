@@ -239,6 +239,7 @@ async function renderServicePolicy() {
               apply: [],
               result: [],
             },
+            stageFormFields: row.stage_form_fields || null,
             formSets: row.stage_form_ids,
             approvalConfig: row.approval_config || {
               plan: { thresholds: [], finalApproverKey: "" },
@@ -597,11 +598,11 @@ function startPolicyWizard(policyId) {
     const existing = SERVICE_POLICIES.find((p) => p.id === policyId);
     _policyWizardData = existing ? JSON.parse(JSON.stringify(existing)) : {};
 
-    // [DB MAPPING] DB에서 불러온 snake_case 맵핑 및 _fields 복구
-    if (_policyWizardData.stage_form_ids) {
-      _policyWizardData.stageFormIds = _policyWizardData.stageFormIds || _policyWizardData.stage_form_ids;
-      if (_policyWizardData.stage_form_ids._fields) {
-        _policyWizardData.stageFormFields = _policyWizardData.stageFormFields || _policyWizardData.stage_form_ids._fields;
+    // [DB MAPPING] 신규 stage_form_fields 맵핑 및 기존 _fields 복구 (하위 호환)
+    if (!_policyWizardData.stageFormFields) {
+      const sourceForms = _policyWizardData.stageFormIds || _policyWizardData.formSets || _policyWizardData.stage_form_ids;
+      if (sourceForms && sourceForms._fields) {
+        _policyWizardData.stageFormFields = sourceForms._fields;
       }
     }
 
@@ -1864,11 +1865,8 @@ async function savePolicy() {
       budget_linked: d.budgetLinked !== false,
       apply_mode: d.applyMode || null,
       account_codes: d.accountCodes || [],
-      stage_form_ids: (() => {
-        const mergedForms = Object.assign({}, d.stageFormIds || d.stage_form_ids || d.formSets || {});
-        if (d.stageFormFields) mergedForms._fields = d.stageFormFields;
-        return mergedForms;
-      })(),
+      stage_form_ids: d.stageFormIds || d.stage_form_ids || d.formSets || null,
+      stage_form_fields: d.stageFormFields || null,
       approval_config: d.approvalConfig || null,
       manager_persona_key: d.managerPersonaKey || null,
       status: d.status || "active",

@@ -1953,8 +1953,8 @@ function _saveInlineForm(stage) {
 
 // [Phase F-2] FO 미리보기 모달 렌더링
 function _previewFoForm(stage) {
-  // fo_form_loader.js 의 renderDynamicFoForm 를 사용하여 모달에 렌더링 시뮬레이션
-  if (typeof renderDynamicFoForm !== "function") {
+  // fo_form_loader.js 의 renderDynamicFormFields 를 사용하여 모달에 렌더링 시뮬레이션
+  if (typeof renderDynamicFormFields !== "function") {
     alert("FO 폼 렌더러(fo_form_loader.js)가 로드되지 않았습니다.");
     return;
   }
@@ -1980,9 +1980,10 @@ function _previewFoForm(stage) {
   `;
   document.body.appendChild(modal);
   
-  // fo_form_loader.js 실행. 컨테이너 ID 주입
+  // fo_form_loader.js 실행
   // 기본 모드 (학습자 신청 화면 가정)
-  renderDynamicFoForm(mockTemplate, "fo-preview-content", "front");
+  const html = renderDynamicFormFields(mockTemplate.fields, {}, "mockState");
+  document.getElementById('fo-preview-content').innerHTML = html || '<div style="color:#9CA3AF">선택된 폼 항목이 없습니다.</div>';
 }
 function togglePolicyForm(id) {
   const arr = _policyWizardData.formIds || [];

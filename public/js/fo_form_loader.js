@@ -191,11 +191,14 @@ async function getFoFormTemplate(policy, stage, eduType) {
   if (!policy) return null;
 
   // 1순위: Phase F - 인라인 폼 (stageFormFields)
-  if (policy.stageFormFields && policy.stageFormFields[stage]) {
+  const inlineFields = (policy.stageFormFields && policy.stageFormFields[stage]) 
+                       || (policy.stage_form_ids && policy.stage_form_ids._fields && policy.stage_form_ids._fields[stage]);
+  if (inlineFields) {
     return {
       isInline: true,
-      inlineFields: policy.stageFormFields[stage],
-      name: policy.name + ' 양식'
+      inlineFields: inlineFields,
+      name: policy.name + ' 양식',
+      fields: Object.keys(inlineFields).filter(k => inlineFields[k]).map(k => ({ key: k, required: false }))
     };
   }
 

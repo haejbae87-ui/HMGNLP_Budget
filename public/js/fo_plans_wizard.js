@@ -1,12 +1,19 @@
 // ─── fo_plans_wizard.js — 계획 수립 마법사 Step 렌더 (REFACTOR-2: plans.js 분리) ───
 // ─── PLAN WIZARD ─────────────────────────────────────────────────────────────
 
-function startPlanWizard() {
+function startPlanWizard(mode = 'ongoing', forcedYear = null) {
   planState = resetPlanState();
-  // 자동 태그: 연도 기반 plan_type 결정
   const curYear = new Date().getFullYear();
-  planState.fiscal_year = _planYear;
-  planState.plan_type = _planYear > curYear ? "forecast" : "ongoing";
+  
+  if (mode === 'forecast') {
+    planState.plan_type = 'forecast';
+    planState.fiscal_year = forcedYear || _planYear;
+    _planYear = planState.fiscal_year; // update global filter
+  } else {
+    // 자동 태그: 연도 기반 plan_type 결정 (하위호환)
+    planState.fiscal_year = forcedYear || _planYear;
+    planState.plan_type = planState.fiscal_year > curYear ? "forecast" : "ongoing";
+  }
   // 수요예측 마감 체크 (비동기) — 제도그룹 기반으로 전환
   if (planState.plan_type === "forecast") {
     // currentPersona의 제도그룹 ID 추출 (vorgId는 domain code, domainId는 UUID)

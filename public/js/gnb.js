@@ -25,7 +25,7 @@ function renderGNB() {
       dropdown: [
         {
           id: "forecast",
-          action: "window.plansMode='forecast'; navigate('plans')",
+          action: "window.plansMode='forecast';navigate('plans')",
           label: "수요예측",
           icon: "📢",
           navigate: true,
@@ -33,7 +33,7 @@ function renderGNB() {
         },
         {
           id: "plans",
-          action: "window.plansMode='ongoing'; navigate('plans')",
+          action: "window.plansMode='ongoing';navigate('plans')",
           label: "교육계획",
           icon: "📊",
           navigate: true,

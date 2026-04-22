@@ -272,6 +272,8 @@ function _mapDbStatus(s) {
 }
 
 function renderPlans() {
+  console.log([DEBUG] renderPlans called. plansMode: \);
+
   // FO 정책 DB 로드 (최초 1회, 완료 후 목록 자동 갱신)
   if (!_foServicePoliciesLoaded) {
     _loadFoPolicies().then(() => renderPlans());

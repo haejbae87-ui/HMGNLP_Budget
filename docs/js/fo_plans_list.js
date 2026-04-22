@@ -460,6 +460,7 @@ function renderPlans() {
           budgetId: d.detail?.budgetId || null,
           purpose: d.detail?.purpose || null,
           tenantId: d.tenant_id, // 크로스 테넌트 뱃지용
+          fiscalYear: d.fiscal_year, // 연도 필터링을 위한 속성 추가
         }));
         _plansDbCache = data;
       }
@@ -514,6 +515,7 @@ function renderPlans() {
             author: d.applicant_name || "-",
             authorDept: d.dept || "-",
             tenantId: d.tenant_id,
+            fiscalYear: d.fiscal_year, // 연도 필터링을 위한 속성 추가
           }));
           renderPlans();
         })();
@@ -524,25 +526,33 @@ function renderPlans() {
   }
   const plans = _planViewTab === "mine" ? myPlans : teamPlans;
 
-  // #7: 상태/계정 필터 적용
+  // #7: 상태/계정/연도 필터 적용
   const uniqueAccounts = [...new Set(plans.map(p => p.account || '').filter(Boolean))];
   const filteredPlans = plans.filter(p => {
     const rawSt = p.status || '';
-    // 상태 필터 매칬
+    
+    // 연도 필터 (필수)
+    const yearMatch = p.fiscalYear === _planYear;
+    
+    // 상태 필터 매치
     const statusMatch = _planStatusFilter === 'all' ||
       ((_planStatusFilter === 'saved') && (rawSt === 'saved' || rawSt === '저장완료')) ||
       ((_planStatusFilter === 'pending') && (rawSt === 'pending' || rawSt === 'submitted' || rawSt === 'in_review' || rawSt === '신청중' || rawSt === '결재진행중')) ||
       ((_planStatusFilter === 'approved') && (rawSt === 'approved' || rawSt === '승인완료')) ||
       ((_planStatusFilter === 'rejected') && (rawSt === 'rejected' || rawSt === '반려'));
+    
+    // 계정 필터 매치
     const accountMatch = !_planAccountFilter || p.account === _planAccountFilter;
-    return statusMatch && accountMatch;
+    
+    return yearMatch && statusMatch && accountMatch;
   });
 
-  // 통계
+  // 통계 (현재 선택된 연도의 데이터로만 계산)
+  const currentYearPlans = plans.filter(p => p.fiscalYear === _planYear);
   const stats = {
-    total: plans.length,
-    saved: plans.filter(p => p.status === 'saved' || p.status === '저장완료').length,
-    active: plans.filter(
+    total: currentYearPlans.length,
+    saved: currentYearPlans.filter(p => p.status === 'saved' || p.status === '저장완료').length,
+    active: currentYearPlans.filter(
       (p) =>
         p.status === "승인완료" ||
         p.status === "approved" ||
@@ -550,9 +560,9 @@ function renderPlans() {
         p.status === "진행중" ||
         p.status === "결재진행중",
     ).length,
-    done: plans.filter((p) => p.status === "완료").length,
-    rejected: plans.filter((p) => p.status === "반려" || p.status === "rejected").length,
-    draft: plans.filter((p) => p.status === "작성중" || p.status === "draft").length,
+    done: currentYearPlans.filter((p) => p.status === "완료").length,
+    rejected: currentYearPlans.filter((p) => p.status === "반려" || p.status === "rejected").length,
+    draft: currentYearPlans.filter((p) => p.status === "작성중" || p.status === "draft").length,
   };
 
   // 연도 선택

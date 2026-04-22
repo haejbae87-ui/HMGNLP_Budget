@@ -615,6 +615,34 @@ function startPolicyWizard(policyId) {
     if (!_policyWizardData.processPattern) {
       _policyWizardData.processPattern = _patternFromPolicy(_policyWizardData);
     }
+    
+    // [옵션 B 마이그레이션] 기존 '계획(plan)' 데이터를 '상시계획(ongoing)'으로 맵핑하고 '수요예측(forecast)'은 빈 값으로 유도
+    if (_policyWizardData.stageFormFields && _policyWizardData.stageFormFields.plan) {
+      if (!_policyWizardData.stageFormFields.ongoing) {
+        _policyWizardData.stageFormFields.ongoing = JSON.parse(JSON.stringify(_policyWizardData.stageFormFields.plan));
+      }
+      if (!_policyWizardData.stageFormFields.forecast) {
+        _policyWizardData.stageFormFields.forecast = [];
+      }
+    }
+    
+    if (_policyWizardData.approvalConfig && _policyWizardData.approvalConfig.plan) {
+      if (!_policyWizardData.approvalConfig.ongoing) {
+        _policyWizardData.approvalConfig.ongoing = JSON.parse(JSON.stringify(_policyWizardData.approvalConfig.plan));
+      }
+      if (!_policyWizardData.approvalConfig.forecast) {
+        _policyWizardData.approvalConfig.forecast = { thresholds: [], finalApproverKey: "" };
+      }
+    }
+    
+    if (_policyWizardData.stageFormIds && _policyWizardData.stageFormIds.plan) {
+      if (!_policyWizardData.stageFormIds.ongoing) {
+        _policyWizardData.stageFormIds.ongoing = JSON.parse(JSON.stringify(_policyWizardData.stageFormIds.plan));
+      }
+      if (!_policyWizardData.stageFormIds.forecast) {
+        _policyWizardData.stageFormIds.forecast = [];
+      }
+    }
   } else {
     _policyWizardData = {
       id: "POL-" + Date.now(),
@@ -634,9 +662,10 @@ function startPolicyWizard(policyId) {
       applyMode: "holding",
       accountCodes: [],
       virtualEduOrgId: "",
-      stageFormIds: { plan: [], apply: [], result: [] },
+      stageFormIds: { forecast: [], ongoing: [], apply: [], result: [] },
       approvalConfig: {
-        plan: { thresholds: [], finalApproverKey: "" },
+        forecast: { thresholds: [], finalApproverKey: "" },
+        ongoing: { thresholds: [], finalApproverKey: "" },
         apply: { thresholds: [], finalApproverKey: "" },
         result: { thresholds: [], finalApproverKey: "" },
       },
@@ -1880,7 +1909,7 @@ function _selectPolicyAcct(code) {
 }
 function toggleStageForm(stage, id) {
   if (!_policyWizardData.stageFormIds)
-    _policyWizardData.stageFormIds = { plan: [], apply: [], result: [] };
+    _policyWizardData.stageFormIds = { forecast: [], ongoing: [], apply: [], result: [] };
   if (!_policyWizardData.stageFormIds[stage])
     _policyWizardData.stageFormIds[stage] = [];
   const arr = _policyWizardData.stageFormIds[stage];

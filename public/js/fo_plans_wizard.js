@@ -24,9 +24,9 @@ function startPlanWizard(mode = 'ongoing', forcedYear = null, targetAccountsJson
   }
   // 수요예측 마감 체크 (비동기) — 제도그룹 기반으로 전환
   if (planState.plan_type === "forecast") {
-    // currentPersona의 제도그룹 ID 추출 (vorgId는 domain code, domainId는 UUID)
-    const vorgTplId = currentPersona.domainId || currentPersona.vorgTemplateId || null;
-    _checkForecastDeadline(currentPersona.tenantId || "HMC", _planYear, vorgTplId).then(
+    // currentPersona의 제도그룹 ID 배열 추출 (다중 소속 지원)
+    const vorgTplIds = currentPersona.vorgIds || (currentPersona.domainId ? [currentPersona.domainId] : []) || null;
+    _checkForecastDeadline(currentPersona.tenantId || "HMC", _planYear, vorgTplIds).then(
       (dl) => {
         if (dl && (dl.is_closed || dl.status === "closed" || dl.status === "expired")) {
           const goOngoing = confirm(

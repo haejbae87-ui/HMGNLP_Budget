@@ -162,7 +162,7 @@ async function _loadFoPolicies() {
 
 // ─── 수요예측 마감 조회 헬퍼 (제도그룹 기반) ─────────────────────────────
 // vorgTemplateId: virtual_org_templates.id (text 타입)
-async function _checkForecastDeadline(tenantId, fiscalYear, vorgTemplateId) {
+async function _checkForecastDeadline(tenantId, fiscalYear, vorgTemplateIds) {
   const sb = typeof getSB === "function" ? getSB() : null;
   if (!sb) return null;
   try {
@@ -172,11 +172,27 @@ async function _checkForecastDeadline(tenantId, fiscalYear, vorgTemplateId) {
       .eq("tenant_id", tenantId)
       .eq("fiscal_year", fiscalYear);
     if (!rows || rows.length === 0) return null;
-    // 제도그룹 기반 조회 우선, 없으면 __ALL__ 폴백 (하위호환)
-    let dl = vorgTemplateId
-      ? rows.find((r) => r.vorg_template_id === vorgTemplateId)
-      : null;
+
+    let dl = null;
+    const vIds = Array.isArray(vorgTemplateIds) ? vorgTemplateIds : (vorgTemplateIds ? [vorgTemplateIds] : []);
+    
+    // 1. vorg_template_id 가 일치하는 것
+    if (vIds.length > 0) {
+      dl = rows.find((r) => vIds.includes(r.vorg_template_id));
+    }
+    
+    // 2. target_accounts 와 currentPersona.allowedAccounts 가 교집합이 있는 것 (최우선 순위 권한 기반)
+    if (!dl && typeof currentPersona !== "undefined" && currentPersona.allowedAccounts) {
+      dl = rows.find(r => {
+        if (!r.target_accounts || !Array.isArray(r.target_accounts) || r.target_accounts.length === 0) return false;
+        if (currentPersona.allowedAccounts.includes("*")) return true;
+        return r.target_accounts.some(acc => currentPersona.allowedAccounts.includes(acc));
+      });
+    }
+
+    // 3. __ALL__ 폴백
     if (!dl) dl = rows.find((r) => r.account_code === "__ALL__");
+    
     if (!dl) return null;
     // 수동 마감 체크
     if (dl.is_closed) return { ...dl, status: "closed" };

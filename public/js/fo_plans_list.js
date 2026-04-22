@@ -289,24 +289,8 @@ async function _renderForecastDashboard() {
           .select("*")
           .eq("tenant_id", currentPersona.tenantId);
           
-        if (currentPersona && currentPersona.vorgId) {
-          query = query.eq("vorg_template_id", currentPersona.vorgId);
-        }
-        
         const { data } = await query;
         
-        // 권한 필터링: c.target_accounts 배열과 currentPersona.allowedAccounts의 교집합 검사
-        let hasAccess = true;
-        let accessibleAccounts = [];
-        if (c.target_accounts && Array.isArray(c.target_accounts) && c.target_accounts.length > 0) {
-          const allowed = currentPersona.allowedAccounts || [];
-          if (!allowed.includes("*")) {
-             accessibleAccounts = c.target_accounts.filter(acc => allowed.includes(acc));
-             if (accessibleAccounts.length === 0) return false; // 접근 가능한 계정이 없으면 노출 안함
-          } else {
-             accessibleAccounts = c.target_accounts;
-          }
-        }
 
         const now = new Date();
         now.setHours(0,0,0,0);

@@ -1,4 +1,4 @@
-﻿// ─── 🔧 교육지원 운영 규칙 ─────────────────────────────────────────────────────
+// ─── 🔧 교육지원 운영 규칙 ─────────────────────────────────────────────────────
 // 8단계 위저드: 범위설정(회사·그룹·계정) → 정책명+대상자 → 목적 → 교육유형 → 패턴 → 대상조직 → 양식 → 결재라인
 
 let _policyWizardStep = 0;
@@ -53,10 +53,10 @@ const _PATTERN_META = {
 
 // 패턴별 활성 단계
 const _PATTERN_STAGES = {
-  A: ["plan", "apply", "result"],
-  B: ["apply", "result"],
-  C: ["apply"],
-  D: ["apply"],
+  A: ["forecast", "ongoing", "apply", "result"],
+  B: ["ongoing", "apply", "result"],
+  C: ["apply", "result"],
+  D: ["result"],
   E: ["apply", "result"],
 };
 
@@ -1159,8 +1159,8 @@ function renderPolicyWizard() {
     // ── [Phase F-2] 인라인 양식 편집기 ───────────────────────────────────────
     // 기존 외부 양식 선택 방식 대신, 정책 위저드 내에서 직접 필드를 정의
     const stages = _PATTERN_STAGES[d.processPattern] || ["apply"];
-    const stageLabel = { plan: "📊 계획", apply: "📝 신청", result: "📄 결과" };
-    const stageColor = { plan: "#7C3AED", apply: "#1D4ED8", result: "#059669" };
+    const stageLabel = { forecast: "📈 수요예측", ongoing: "📊 상시계획", apply: "📝 신청", result: "📄 결과" };
+    const stageColor = { forecast: "#8B5CF6", ongoing: "#7C3AED", apply: "#1D4ED8", result: "#059669" };
 
     // 무예산 판별 (uses_budget=false 계정 → 비용 필드 전체 disable)
     const _acctCode = (d.accountCodes || [])[0] || "";
@@ -1170,7 +1170,7 @@ function renderPolicyWizard() {
       (_acctInDb && _acctInDb.uses_budget === false) ||
       ["D", "E"].includes(d.processPattern);
 
-    // 인라인 필드 정의 저장소 초기화 (stageFormFields: { plan: {}, apply: {}, result: {} })
+    // 인라인 필드 정의 저장소 초기화 (stageFormFields: { forecast: {}, ongoing: {}, apply: {}, result: {} })
     if (!d.stageFormFields) d.stageFormFields = {};
     stages.forEach((s) => {
       if (!d.stageFormFields[s]) {
@@ -1181,13 +1181,22 @@ function renderPolicyWizard() {
           is_overseas: true,
           edu_name: true,
           headcount: true,
+          // L1 거버넌스 필드
+          edu_category: true,
           // 교육상세 (토글)
           venue_type: true,
           edu_days: true,
-          planned_rounds: s === "plan",
+          planned_rounds: s === "forecast" || s === "ongoing" || s === "plan",
           start_end_date: true,
           edu_org: s !== "result",
           apply_reason: s === "apply",
+          // Provide 필드 (BO작성 → FO읽기전용)
+          prov_guide: s !== "result",
+          prov_materials: s !== "result",
+          prov_venue: s !== "result",
+          prov_instructor: s !== "result",
+          prov_pass: s === "result",
+          prov_feedback: s === "result",
           // 비용항목 (무예산 시 전체 disable)
           requested_budget: s !== "result" && !_isNoBudget,
           calc_grounds: s !== "result" && !_isNoBudget,
@@ -1268,18 +1277,22 @@ ${_fieldRow("is_overseas", "국내/해외 구분", "🌐", true)}
 ${_fieldRow("edu_name", "교육명", "📌", true)}
 ${_fieldRow("headcount", "참가인원", "👥", true)}
 ${_sectionHeader("📐 교육상세", "#374151")}
+${_fieldRow("edu_category", "필수구분 (법정/핵심 등)", "📑")}
 ${_fieldRow("venue_type", "장소유형", "🏛️")}
 ${_fieldRow("start_end_date", "교육기간", "📅")}
 ${_fieldRow("edu_days", "교육일수", "📆")}
-${activeTab === "plan" ? _fieldRow("planned_rounds", "예상 차수", "🔄") : ""}
+${activeTab === "forecast" || activeTab === "ongoing" || activeTab === "plan" ? _fieldRow("planned_rounds", "예상 차수", "🔄") : ""}
 ${activeTab !== "result" ? _fieldRow("edu_org", "교육기관/과정명", "🏫") : ""}
 ${activeTab === "apply" ? _fieldRow("apply_reason", "신청사유", "💬") : ""}
+${_sectionHeader("📢 제공항목 (FO 읽기전용)", "#2563EB")}
+${_fieldRow("prov_guide", "안내사항", "💡")}
+${_fieldRow("prov_materials", "준비물", "🎒")}
+${_fieldRow("prov_venue", "확정 교육장소", "🏢")}
+${_fieldRow("prov_instructor", "확정 강사", "👨‍🏫")}
 ${noBudgetBanner}
 ${_sectionHeader("💰 비용항목", _isNoBudget ? "#9CA3AF" : "#059669")}
 ${activeTab !== "result" ? _fieldRow("requested_budget", "계획/신청 금액", "💵", false, _isNoBudget, _isNoBudget ? "무예산 계정" : "") : ""}
-${activeTab !== "result" ? _fieldRow("calc_grounds", "세부산출근거", "📐", false, _isNoBudget, _isNoBudget ? "무예산 계정" : "") : ""}
-${activeTab === "result" ? _fieldRow("actual_cost", "실제 집행비용", "💳", false, _isNoBudget, _isNoBudget ? "무예산 계정" : "") : ""}
-${activeTab === "result" ? _fieldRow("reimbursement", "환급/정산 처리", "🔁", false, _isNoBudget, _isNoBudget ? "무예산 계정" : "") : ""}`;
+${activeTab !== "result" ? _fieldRow("calc_grounds", "세부산출근거", "📐", false, _isNoBudget, _isNoBudget ? "무예산 계정" : "") : ""}`;
 
     const resultOnlyFields = `
 ${_sectionHeader("📋 기본정보 (필수 고정)", sc)}
@@ -1287,9 +1300,13 @@ ${_fieldRow("edu_type", "교육유형", "🎓", true)}
 ${_fieldRow("edu_name", "교육명", "📌", true)}
 ${_fieldRow("headcount", "실제 참가인원", "👥", true)}
 ${_sectionHeader("📊 결과정보", "#374151")}
+${_fieldRow("edu_category", "필수구분 (법정/핵심 등)", "📑")}
 ${_fieldRow("completion_rate", "수료율", "✅")}
 ${_fieldRow("satisfaction", "만족도", "⭐")}
 ${_fieldRow("start_end_date", "교육기간", "📅")}
+${_sectionHeader("📢 제공항목 (FO 읽기전용)", "#2563EB")}
+${_fieldRow("prov_pass", "합격/수료 여부", "🏅")}
+${_fieldRow("prov_feedback", "관리자 피드백", "💬")}
 ${noBudgetBanner}
 ${_sectionHeader("💰 비용항목", _isNoBudget ? "#9CA3AF" : "#059669")}
 ${_fieldRow("actual_cost", "실제 집행비용", "💳", false, _isNoBudget, _isNoBudget ? "무예산 계정" : "")}
@@ -1339,6 +1356,16 @@ ${_fieldRow("reimbursement", "환급/정산 처리", "🔁", false, _isNoBudget,
   <div style="background:white;border:1.5px solid ${sc}30;border-radius:14px;padding:16px;display:grid;gap:8px">
     <div style="font-size:13px;font-weight:900;color:${sc};margin-bottom:4px">${stageLabel[activeTab]} 양식 필드</div>
     ${currentFields}
+    
+    <!-- 저장 및 미리보기 컨트롤 -->
+    <div style="margin-top:12px;padding-top:12px;border-top:1px dashed #E5E7EB;display:flex;justify-content:flex-end;gap:8px">
+      <button onclick="_previewFoForm('${activeTab}')" style="padding:8px 14px;border-radius:8px;border:1.5px solid #E5E7EB;background:white;color:#374151;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px">
+        <span>🔍</span> 폼 미리보기
+      </button>
+      <button onclick="_saveInlineForm('${activeTab}')" style="padding:8px 14px;border-radius:8px;border:none;background:${sc};color:white;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 4px ${sc}40">
+        <span>💾</span> 양식 임시저장
+      </button>
+    </div>
   </div>
 
   <!-- 안내 -->
@@ -1351,8 +1378,8 @@ ${_fieldRow("reimbursement", "환급/정산 처리", "🔁", false, _isNoBudget,
     // ── Step 4: 결재라인 ──────────────────────────────────────────────────────
   } else if (_policyWizardStep === 4) {
     const stages = _PATTERN_STAGES[d.processPattern] || ["apply"];
-    const stageLabel = { plan: "📊 계획", apply: "📝 신청", result: "📄 결과" };
-    const stageColor = { plan: "#7C3AED", apply: "#1D4ED8", result: "#059669" };
+    const stageLabel = { forecast: "📈 수요예측", ongoing: "📊 상시계획", apply: "📝 신청", result: "📄 결과" };
+    const stageColor = { forecast: "#8B5CF6", ongoing: "#7C3AED", apply: "#1D4ED8", result: "#059669" };
     if (!d.approvalConfig) d.approvalConfig = {};
     const _LEVELS = [
       { key: "team_leader", label: "팀장" },
@@ -1870,6 +1897,50 @@ function _toggleInlineField(stage, fieldKey) {
   const current = !!_policyWizardData.stageFormFields[stage][fieldKey];
   _policyWizardData.stageFormFields[stage][fieldKey] = !current;
   _policyWizardData._formTab = stage;
+}
+
+// [Phase F-2] 인라인 필드 임시저장 헬퍼
+function _saveInlineForm(stage) {
+  const stageLabel = { forecast: "수요예측", ongoing: "상시계획", apply: "신청", result: "결과" };
+  const toast = document.createElement("div");
+  toast.style.cssText = "position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#10B981;color:white;padding:12px 24px;border-radius:8px;font-size:13px;font-weight:700;box-shadow:0 4px 12px rgba(16,185,129,0.3);z-index:9999;animation:fadeInUp .3s ease";
+  toast.innerHTML = `✅ [${stageLabel[stage] || stage}] 양식이 임시저장되었습니다.`;
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity="0"; toast.style.transition="all .3s"; setTimeout(()=>toast.remove(), 300); }, 3000);
+}
+
+// [Phase F-2] FO 미리보기 모달 렌더링
+function _previewFoForm(stage) {
+  // fo_form_loader.js 의 renderDynamicFoForm 를 사용하여 모달에 렌더링 시뮬레이션
+  if (typeof renderDynamicFoForm !== "function") {
+    alert("FO 폼 렌더러(fo_form_loader.js)가 로드되지 않았습니다.");
+    return;
+  }
+  const flds = _policyWizardData.stageFormFields[stage] || {};
+  // 가상 양식 메타데이터 생성
+  const mockTemplate = { fields: Object.keys(flds).filter(k => flds[k]).map(k => ({ key: k, required: false })) };
+  
+  const modal = document.createElement("div");
+  modal.id = "fo-preview-modal";
+  modal.style.cssText = "position:fixed;inset:0;background:rgba(17,24,39,0.8);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px";
+  
+  const stageLabel = { forecast: "수요예측", ongoing: "상시계획", apply: "신청", result: "결과" };
+  const title = `[미리보기] ${stageLabel[stage] || stage} 양식`;
+  
+  modal.innerHTML = `
+    <div style="background:#F9FAFB;width:100%;max-width:800px;max-height:90vh;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.5)">
+      <div style="padding:16px 20px;background:white;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:16px;font-weight:800;color:#111827">🔍 ${title}</div>
+        <button onclick="document.getElementById('fo-preview-modal').remove()" style="border:none;background:none;font-size:24px;color:#9CA3AF;cursor:pointer;line-height:1">&times;</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:24px" id="fo-preview-content"></div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  
+  // fo_form_loader.js 실행. 컨테이너 ID 주입
+  // 기본 모드 (학습자 신청 화면 가정)
+  renderDynamicFoForm(mockTemplate, "fo-preview-content", "front");
 }
 function togglePolicyForm(id) {
   const arr = _policyWizardData.formIds || [];

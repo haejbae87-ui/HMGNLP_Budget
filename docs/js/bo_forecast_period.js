@@ -139,6 +139,10 @@ function _fpGetStatus(dl) {
 }
 
 // ── 본문 렌더링 (기간 카드) ─────────────────────────────────────────────────
+// ── 본문 렌더링 (다중 캠페인 목록) ─────────────────────────────────────────────────
+let _fpAccounts = []; // 현재 VOrg에 매핑된 계정들
+let _fpDeadlines = []; // 조회된 캠페인 목록
+
 async function _fpRenderContent() {
   const mainEl = document.getElementById('fp-main-area');
   if (!mainEl) return;
@@ -153,162 +157,175 @@ async function _fpRenderContent() {
 
   mainEl.innerHTML = `<div style="padding:20px;text-align:center;color:#9CA3AF">⏳ 기간 정보 조회 중...</div>`;
 
-  // DB 조회
   try {
     const sb = typeof _sb === 'function' ? _sb() : null;
     if (sb) {
-      const { data } = await sb.from('forecast_deadlines')
+      // 1. 해당 제도그룹의 예산 계정 조회
+      const { data: accounts } = await sb.from('budget_accounts')
+        .select('id,name,code')
+        .eq('virtual_org_template_id', _fpVorgId);
+      _fpAccounts = accounts || [];
+
+      // 2. 해당 연도, 제도그룹의 캠페인(수요예측 기간) 다건 조회
+      const { data: campaigns } = await sb.from('forecast_deadlines')
         .select('*')
         .eq('tenant_id', _fpTenantId)
         .eq('fiscal_year', _fpFiscalYear)
         .eq('vorg_template_id', _fpVorgId)
-        .maybeSingle();
-      _fpDeadline = data || null;
+        .order('created_at', { ascending: false });
+      _fpDeadlines = campaigns || [];
     }
   } catch (e) {
     console.warn('[FP] 기간 조회 실패:', e.message);
-    _fpDeadline = null;
+    _fpDeadlines = [];
+    _fpAccounts = [];
   }
 
-  const dl = _fpDeadline;
   const vorg = _fpVorgList.find(v => v.id === _fpVorgId);
-  const { status, badge } = _fpGetStatus(dl);
-
   const canAdmin = (() => {
     const r = boCurrentPersona?.role || '';
     return ['platform_admin', 'tenant_global_admin', 'total_general', 'total_rnd'].includes(r)
       || /admin|total|ops/i.test(r);
   })();
 
+  // 캠페인 카드 HTML 생성
+  const campaignsHtml = _fpDeadlines.length === 0
+    ? `<div style="text-align:center;padding:40px 20px;color:#9CA3AF;font-size:13px;border:1px dashed #E5E7EB;border-radius:12px;background:#F9FAFB">
+         등록된 수요예측 캠페인이 없습니다.<br>상단의 [캠페인 추가] 버튼을 눌러 신규 캠페인을 등록해주세요.
+       </div>`
+    : _fpDeadlines.map(c => {
+        const { status, badge } = _fpGetStatus(c);
+        const targetCodes = Array.isArray(c.target_accounts) ? c.target_accounts : [];
+        const accountBadges = targetCodes.length > 0
+          ? targetCodes.map(code => {
+              const acc = _fpAccounts.find(a => a.code === code);
+              return `<span style="display:inline-block;padding:3px 8px;border-radius:6px;background:#E0E7FF;color:#4338CA;font-size:11px;font-weight:700;margin-right:4px;margin-bottom:4px">💳 ${acc?.name || code}</span>`;
+            }).join('')
+          : `<span style="display:inline-block;padding:3px 8px;border-radius:6px;background:#F1F5F9;color:#64748B;font-size:11px;font-weight:700">전체 적용 (하위 호환)</span>`;
+
+        return `
+        <div style="background:white;border:1.5px solid #E5E7EB;border-radius:12px;padding:20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,0.02)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+            <div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                ${badge}
+                <h4 style="margin:0;font-size:15px;font-weight:900;color:#111827">${c.title || '제목 없음'}</h4>
+              </div>
+              <div style="font-size:12px;color:#6B7280;margin-top:8px;line-height:1.4">
+                <strong>접수 기간:</strong> ${c.recruit_start || '미지정'} ~ ${c.recruit_end || '미지정'}
+              </div>
+            </div>
+            ${canAdmin ? `
+            <div style="display:flex;gap:6px">
+              <button onclick="_fpOpenCampaignModal('${c.id}')" style="padding:6px 12px;border:1px solid #D1D5DB;background:white;border-radius:6px;font-size:12px;font-weight:700;color:#374151;cursor:pointer">수정</button>
+              ${!c.is_closed ? `<button onclick="_fpToggleClose('${c.id}', true)" style="padding:6px 12px;border:1px solid #FECACA;background:#FEF2F2;border-radius:6px;font-size:12px;font-weight:700;color:#DC2626;cursor:pointer">즉시 마감</button>` 
+                             : `<button onclick="_fpToggleClose('${c.id}', false)" style="padding:6px 12px;border:1px solid #BBF7D0;background:#F0FDF4;border-radius:6px;font-size:12px;font-weight:700;color:#059669;cursor:pointer">마감 해제</button>`}
+              <button onclick="_fpDeleteCampaign('${c.id}')" style="padding:6px 12px;border:none;background:#F3F4F6;border-radius:6px;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">삭제</button>
+            </div>` : ''}
+          </div>
+          <div style="border-top:1px dashed #E5E7EB;padding-top:12px;margin-top:12px">
+            <div style="font-size:11px;font-weight:700;color:#9CA3AF;margin-bottom:6px">대상 예산 계정</div>
+            <div>${accountBadges}</div>
+          </div>
+        </div>`;
+      }).join('');
+
   mainEl.innerHTML = `
-  <div class="bo-card" style="padding:28px">
+  <div class="bo-card" style="padding:28px;background:#F9FAFB">
     <!-- 헤더 -->
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;padding-bottom:16px;border-bottom:1.5px solid #F1F5F9">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding-bottom:16px;border-bottom:1.5px solid #E5E7EB">
       <div>
-        <h3 style="font-size:16px;font-weight:900;color:#111827;margin:0 0 4px">${vorg?.name || ''}의 수요예측 접수기간</h3>
-        <p style="font-size:12px;color:#64748B;margin:0">${_fpFiscalYear}년도 수요예측 기간 현황</p>
+        <h3 style="font-size:16px;font-weight:900;color:#111827;margin:0 0 4px">${vorg?.name || ''} 수요예측 캠페인</h3>
+        <p style="font-size:12px;color:#64748B;margin:0">${_fpFiscalYear}년도 등록된 다중 캠페인 현황</p>
       </div>
-      <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
-        ${badge}
-      </div>
+      ${canAdmin ? `
+      <button onclick="_fpOpenCampaignModal(null)" style="padding:8px 16px;background:#1D4ED8;color:white;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 4px 10px rgba(29,78,216,0.2)">
+        ➕ 캠페인 추가
+      </button>` : ''}
     </div>
 
-    <!-- 기간 설정 카드 -->
-    <div style="background:linear-gradient(135deg,#EFF6FF,#F0F9FF);border:1.5px solid #BFDBFE;border-radius:14px;padding:24px;margin-bottom:20px">
-      <div style="font-size:13px;font-weight:900;color:#1D4ED8;margin-bottom:16px">📌 ${_fpFiscalYear}년 수요예측 접수기간</div>
-      <div style="display:flex;gap:20px;align-items:flex-end;flex-wrap:wrap">
-        <div>
-          <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">접수 시작일</label>
-          <input type="date" id="fp-start-input" value="${dl?.recruit_start || ''}"
-            ${!canAdmin ? 'disabled' : ''}
-            style="padding:9px 14px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:13px;font-weight:700;background:${canAdmin ? '#fff' : '#F9FAFB'};color:#111827">
-        </div>
-        <div>
-          <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">접수 마감일</label>
-          <input type="date" id="fp-end-input" value="${dl?.recruit_end || ''}"
-            ${!canAdmin ? 'disabled' : ''}
-            style="padding:9px 14px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:13px;font-weight:700;background:${canAdmin ? '#fff' : '#F9FAFB'};color:#111827">
-        </div>
-        ${canAdmin ? `
-        <div style="display:flex;gap:8px;padding-bottom:1px">
-          <button onclick="_fpSavePeriod()"
-            style="padding:9px 20px;border-radius:10px;border:none;background:#1D4ED8;color:white;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(29,78,216,.25)">
-            💾 저장
-          </button>
-          ${dl && !dl.is_closed ? `
-          <button onclick="_fpClosePeriod()"
-            style="padding:9px 14px;border-radius:10px;border:1.5px solid #FECACA;background:white;color:#DC2626;font-size:12px;font-weight:800;cursor:pointer">
-            🔒 즉시 마감
-          </button>` : ''}
-          ${dl?.is_closed ? `
-          <button onclick="_fpReopenPeriod()"
-            style="padding:9px 14px;border-radius:10px;border:1.5px solid #BBF7D0;background:white;color:#059669;font-size:12px;font-weight:800;cursor:pointer">
-            🔓 마감 해제
-          </button>` : ''}
-        </div>` : ''}
-      </div>
-    </div>
-
-    <!-- 현재 수요예측 계획 건수 요약 -->
-    <div id="fp-stats-area">
-      <div style="font-size:12px;color:#9CA3AF">📊 해당 기간의 수요예측 계획 건수 조회 중...</div>
+    <!-- 캠페인 목록 -->
+    <div>
+      ${campaignsHtml}
     </div>
   </div>
 
   <!-- 안내 배너 -->
   <div style="margin-top:16px;padding:14px 18px;background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:10px;font-size:12px;color:#92400E;font-weight:600">
-    💡 수요예측 기간이 설정된 제도그룹의 예산 계정에서만 FO 사용자가 수요예측 교육계획을 수립할 수 있습니다.
+    💡 하나의 제도그룹 안에서 여러 예산 계정에 대해 동시에 캠페인을 운영할 수 있습니다. 대상 계정들을 다중 선택하여 저장하세요.
   </div>`;
-
-  // 관련 계획 건수 비동기 로드
-  _fpLoadPlanStats();
 }
 
-// ── 계획 건수 통계 ──────────────────────────────────────────────────────────
-async function _fpLoadPlanStats() {
-  const el = document.getElementById('fp-stats-area');
-  if (!el) return;
-  try {
-    const sb = typeof _sb === 'function' ? _sb() : null;
-    if (!sb) { el.innerHTML = ''; return; }
+// ── 캠페인 모달 UI ──────────────────────────────────────────────────────────────
+let _fpEditId = null;
 
-    // 해당 제도그룹의 계정 코드 조회
-    const { data: accounts } = await sb.from('budget_accounts')
-      .select('id,name,code')
-      .eq('virtual_org_template_id', _fpVorgId);
+function _fpOpenCampaignModal(id) {
+  _fpEditId = id;
+  const target = id ? _fpDeadlines.find(c => c.id === id) : null;
+  const targetAccounts = target && Array.isArray(target.target_accounts) ? target.target_accounts : [];
 
-    const accountIds = (accounts || []).map(a => a.id);
-    if (!accountIds.length) { el.innerHTML = ''; return; }
+  // 계정 체크박스 HTML 생성
+  const accountsCheckboxes = _fpAccounts.length > 0 
+    ? _fpAccounts.map(a => `
+        <label style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #E5E7EB;border-radius:8px;background:white;cursor:pointer">
+          <input type="checkbox" name="fp_account_cb" value="${a.code}" ${targetAccounts.includes(a.code) ? 'checked' : ''} style="width:16px;height:16px;accent-color:#1D4ED8">
+          <span style="font-size:13px;font-weight:600;color:#374151">${a.name}</span>
+        </label>
+      `).join('')
+    : `<div style="font-size:12px;color:#EF4444">이 제도그룹에 맵핑된 계정이 없습니다.</div>`;
 
-    // 해당 계정 + 연도의 수요예측 계획 조회
-    const { data: plans } = await sb.from('plans')
-      .select('id,status,account_code')
-      .eq('tenant_id', _fpTenantId)
-      .eq('fiscal_year', _fpFiscalYear)
-      .eq('plan_type', 'forecast')
-      .is('deleted_at', null)
-      .in('account_code', accountIds);
-
-    const total = (plans || []).length;
-    const pending = (plans || []).filter(p => p.status === 'pending' || p.status === 'pending_approval').length;
-    const approved = (plans || []).filter(p => p.status === 'approved').length;
-
-    el.innerHTML = `
-    <div style="display:flex;gap:12px;flex-wrap:wrap">
-      <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:12px 18px">
-        <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px">📋 전체 수요예측</div>
-        <div style="font-size:22px;font-weight:900;color:#111827">${total}건</div>
+  const modalHtml = `
+  <div id="fp-campaign-modal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999">
+    <div style="background:white;width:500px;border-radius:16px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);overflow:hidden">
+      <div style="padding:20px 24px;background:#F8FAFC;border-bottom:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center">
+        <h3 style="margin:0;font-size:16px;font-weight:900;color:#1E293B">${id ? '캠페인 수정' : '신규 캠페인 등록'}</h3>
+        <button onclick="document.getElementById('fp-campaign-modal').remove()" style="background:none;border:none;font-size:20px;color:#94A3B8;cursor:pointer">&times;</button>
       </div>
-      <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:12px 18px">
-        <div style="font-size:11px;font-weight:700;color:#B45309;margin-bottom:4px">⏳ 검토 대기</div>
-        <div style="font-size:22px;font-weight:900;color:#D97706">${pending}건</div>
+      <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
+        <div>
+          <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px">캠페인 제목 <span style="color:#EF4444">*</span></label>
+          <input type="text" id="fp-modal-title" value="${target?.title || ''}" placeholder="예: 2026년 상반기 수요예측 (일반/사외)" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #CBD5E1;border-radius:8px;font-size:14px">
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px">대상 예산 계정 (복수 선택) <span style="color:#EF4444">*</span></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#F8FAFC;padding:12px;border-radius:8px;border:1px solid #E2E8F0">
+            ${accountsCheckboxes}
+          </div>
+        </div>
+        <div style="display:flex;gap:16px">
+          <div style="flex:1">
+            <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px">접수 시작일 <span style="color:#EF4444">*</span></label>
+            <input type="date" id="fp-modal-start" value="${target?.recruit_start || ''}" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #CBD5E1;border-radius:8px;font-size:14px">
+          </div>
+          <div style="flex:1">
+            <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px">접수 마감일 <span style="color:#EF4444">*</span></label>
+            <input type="date" id="fp-modal-end" value="${target?.recruit_end || ''}" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #CBD5E1;border-radius:8px;font-size:14px">
+          </div>
+        </div>
       </div>
-      <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:12px 18px">
-        <div style="font-size:11px;font-weight:700;color:#059669;margin-bottom:4px">✅ 승인 완료</div>
-        <div style="font-size:22px;font-weight:900;color:#059669">${approved}건</div>
+      <div style="padding:16px 24px;border-top:1px solid #E2E8F0;background:#F8FAFC;display:flex;justify-content:flex-end;gap:8px">
+        <button onclick="document.getElementById('fp-campaign-modal').remove()" style="padding:8px 16px;border:1px solid #CBD5E1;background:white;border-radius:8px;font-size:13px;font-weight:700;color:#475569;cursor:pointer">취소</button>
+        <button onclick="_fpSaveCampaign()" style="padding:8px 16px;border:none;background:#1D4ED8;color:white;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">저장</button>
       </div>
-      ${accounts?.length ? `<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:12px 18px">
-        <div style="font-size:11px;font-weight:700;color:#1D4ED8;margin-bottom:4px">💳 연결 계정</div>
-        <div style="font-size:22px;font-weight:900;color:#1D4ED8">${accounts.length}개</div>
-      </div>` : ''}
-    </div>`;
-  } catch (e) {
-    el.innerHTML = '';
-  }
+    </div>
+  </div>`;
+  
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-// ── 기간 저장 ───────────────────────────────────────────────────────────────
-async function _fpSavePeriod() {
-  const startVal = document.getElementById('fp-start-input')?.value || null;
-  const endVal = document.getElementById('fp-end-input')?.value || null;
+// ── 캠페인 저장 ───────────────────────────────────────────────────────────────
+async function _fpSaveCampaign() {
+  const title = document.getElementById('fp-modal-title').value.trim();
+  const start = document.getElementById('fp-modal-start').value;
+  const end = document.getElementById('fp-modal-end').value;
+  
+  const checkboxes = document.querySelectorAll('input[name="fp_account_cb"]:checked');
+  const targetAccounts = Array.from(checkboxes).map(cb => cb.value);
 
-  if (startVal && endVal && startVal > endVal) {
-    alert('⚠ 종료일은 시작일 이후여야 합니다.');
-    return;
-  }
-  if (!startVal && !endVal) {
-    if (!confirm('시작일과 종료일이 모두 비어있습니다.\n기간을 삭제(초기화)하시겠습니까?')) return;
-  }
+  if (!title) { alert('캠페인 제목을 입력하세요.'); return; }
+  if (targetAccounts.length === 0) { alert('최소 1개의 대상 예산 계정을 선택하세요.'); return; }
+  if (!start || !end) { alert('시작일과 종료일을 입력하세요.'); return; }
+  if (start > end) { alert('종료일은 시작일 이후여야 합니다.'); return; }
 
   const sb = typeof _sb === 'function' ? _sb() : null;
   if (!sb) { alert('DB 연결 필요'); return; }
@@ -318,101 +335,63 @@ async function _fpSavePeriod() {
       tenant_id: _fpTenantId,
       fiscal_year: _fpFiscalYear,
       vorg_template_id: _fpVorgId,
-      account_code: '__VORG__', // 제도그룹 단위 식별자
-      recruit_start: startVal,
-      recruit_end: endVal,
-      is_closed: false,
-      closed_at: null,
-      closed_by: null,
+      account_code: '__MULTI__', // 구 버전 NOT NULL 제약조건 우회용
+      title: title,
+      target_accounts: targetAccounts,
+      recruit_start: start,
+      recruit_end: end
     };
 
-    // 기존 레코드 삭제 후 삽입 (upsert 대안)
-    await sb.from('forecast_deadlines')
-      .delete()
-      .eq('tenant_id', _fpTenantId)
-      .eq('fiscal_year', _fpFiscalYear)
-      .eq('vorg_template_id', _fpVorgId);
-
-    if (startVal || endVal) {
+    if (_fpEditId) {
+      const { error } = await sb.from('forecast_deadlines').update(payload).eq('id', _fpEditId);
+      if (error) throw error;
+      alert('✅ 캠페인이 수정되었습니다.');
+    } else {
+      payload.is_closed = false;
       const { error } = await sb.from('forecast_deadlines').insert(payload);
       if (error) throw error;
+      alert('✅ 신규 캠페인이 등록되었습니다.');
     }
 
-    alert(`✅ ${_fpFiscalYear}년도 수요예측 접수기간이 저장되었습니다.`);
-    _fpDeadline = null;
+    document.getElementById('fp-campaign-modal').remove();
     _fpRenderContent();
   } catch (e) {
     alert('❌ 저장 실패: ' + e.message);
   }
 }
 
-// ── 즉시 마감 ───────────────────────────────────────────────────────────────
-async function _fpClosePeriod() {
+// ── 마감/마감해제 ───────────────────────────────────────────────────────────
+async function _fpToggleClose(id, closeFlag) {
+  if (!confirm(closeFlag ? '이 캠페인을 즉시 마감하시겠습니까?' : '마감을 해제하시겠습니까?')) return;
   const sb = typeof _sb === 'function' ? _sb() : null;
-  if (!sb) { alert('DB 연결 필요'); return; }
+  if (!sb) return;
 
-  // 진행 중인 계획 확인
   try {
-    const { data: accounts } = await sb.from('budget_accounts')
-      .select('id').eq('virtual_org_template_id', _fpVorgId);
-    const accountIds = (accounts || []).map(a => a.id);
+    const { error } = await sb.from('forecast_deadlines').update({
+      is_closed: closeFlag,
+      closed_at: closeFlag ? new Date().toISOString() : null,
+      closed_by: closeFlag ? (boCurrentPersona?.name || 'admin') : null
+    }).eq('id', id);
 
-    let pendingCount = 0;
-    if (accountIds.length) {
-      const { count } = await sb.from('plans')
-        .select('id', { count: 'exact', head: true })
-        .eq('tenant_id', _fpTenantId)
-        .eq('fiscal_year', _fpFiscalYear)
-        .eq('plan_type', 'forecast')
-        .in('status', ['pending', 'pending_approval'])
-        .is('deleted_at', null)
-        .in('account_code', accountIds);
-      pendingCount = count || 0;
-    }
-
-    const msg = pendingCount > 0
-      ? `⚠ 현재 ${pendingCount}건의 수요예측 계획이 검토 대기 중입니다.\n마감 시 추가 접수가 불가해집니다.\n\n즉시 마감하시겠습니까?`
-      : `${_fpFiscalYear}년도 수요예측 기간을 즉시 마감하시겠습니까?\n마감 후 FO 사용자의 수요예측 계획 수립이 불가합니다.`;
-
-    if (!confirm(msg)) return;
-
-    if (_fpDeadline?.id) {
-      await sb.from('forecast_deadlines')
-        .update({ is_closed: true, closed_at: new Date().toISOString(), closed_by: boCurrentPersona?.name || 'admin' })
-        .eq('id', _fpDeadline.id);
-    } else {
-      await sb.from('forecast_deadlines').insert({
-        tenant_id: _fpTenantId,
-        fiscal_year: _fpFiscalYear,
-        vorg_template_id: _fpVorgId,
-        account_code: '__VORG__',
-        is_closed: true,
-        closed_at: new Date().toISOString(),
-        closed_by: boCurrentPersona?.name || 'admin',
-      });
-    }
-
-    alert('✅ 수요예측 기간이 즉시 마감되었습니다.');
-    _fpDeadline = null;
+    if (error) throw error;
     _fpRenderContent();
-  } catch (e) {
-    alert('❌ 마감 실패: ' + e.message);
+  } catch(e) {
+    alert('❌ 상태 변경 실패: ' + e.message);
   }
 }
 
-// ── 마감 해제 ───────────────────────────────────────────────────────────────
-async function _fpReopenPeriod() {
-  if (!confirm(`${_fpFiscalYear}년도 수요예측 마감을 해제하시겠습니까?\n해제 후 FO에서 다시 수요예측 계획 수립이 가능합니다.`)) return;
+// ── 삭제 ───────────────────────────────────────────────────────────
+async function _fpDeleteCampaign(id) {
+  if (!confirm('정말로 이 캠페인을 삭제하시겠습니까?\n복구할 수 없습니다.')) return;
   const sb = typeof _sb === 'function' ? _sb() : null;
-  if (!sb || !_fpDeadline?.id) { alert('오류: 기간 레코드를 찾을 수 없습니다.'); return; }
+  if (!sb) return;
+
   try {
-    await sb.from('forecast_deadlines')
-      .update({ is_closed: false, closed_at: null, closed_by: null })
-      .eq('id', _fpDeadline.id);
-    alert('✅ 마감이 해제되었습니다.');
-    _fpDeadline = null;
+    const { error } = await sb.from('forecast_deadlines').delete().eq('id', id);
+    if (error) throw error;
     _fpRenderContent();
-  } catch (e) {
-    alert('❌ 마감 해제 실패: ' + e.message);
+  } catch(e) {
+    alert('❌ 삭제 실패: ' + e.message);
   }
 }
+

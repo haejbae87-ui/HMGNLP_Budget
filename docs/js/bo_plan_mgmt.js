@@ -10,6 +10,9 @@ let _boTenantAccounts = []; // 테넌트 예산계정 목록
 let _boPlanTab = "plans"; // 현재 탭
 let _boForecastBundles = null; // submission_documents (team_forecast / org_forecast)
 let _boForecastBundleDetail = null; // 번들 상세 뷰 대상
+let _boBundleEdits = {}; // 번들 내 인라인 수정 상태
+let _boBundleOriginals = {};
+let _boBundlePlans = [];
 
 // ★ 인라인 편집 상태
 let _boPlanEditMode = false;
@@ -1903,7 +1906,7 @@ function _boShowToast(msg, type = 'info') {
 async function renderBoPlanForecastBundles(el, tenantId, sb) {
   // 1) 번들 상세 뷰 라우팅
   if (_boForecastBundleDetail) {
-    _renderForecastBundleDetail(el, _boForecastBundleDetail);
+    await _renderForecastBundleDetail(el, _boForecastBundleDetail, sb);
     return;
   }
 
@@ -2083,6 +2086,7 @@ async function renderBoPlanForecastBundles(el, tenantId, sb) {
                   <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
                     <span style="font-size:12px;font-weight:900;color:#1F2937">${Number(t.total_amount||0).toLocaleString()}원</span>
                     <span style="font-size:10px;font-weight:900;padding:3px 10px;border-radius:8px;background:${stC2}20;color:${stC2}">${stL2}</span>
+                    <button onclick="_boForecastBundleDetail=${JSON.stringify(t).replace(/"/g,'&quot;')};renderBoPlanForecastBundles(document.getElementById('bo-content'),'${tenantId}',${sb?'getSB()':'null'})" style="padding:6px 12px;border-radius:8px;background:#EFF6FF;color:#1D4ED8;font-size:11px;font-weight:800;border:1.5px solid #BFDBFE;cursor:pointer">📄 상세</button>
                   </div>
                 </div>`;
               }).join('')}
@@ -2095,7 +2099,7 @@ async function renderBoPlanForecastBundles(el, tenantId, sb) {
 }
 
 // 번들 상세 뷰
-function _renderForecastBundleDetail(el, bundle) {
+async function _renderForecastBundleDetail(el, bundle, sb) {
   const status = bundle.status || 'draft';
   const stColors = { submitted:'#D97706', approved:'#059669', rejected:'#DC2626', draft:'#6B7280', in_review:'#7C3AED' };
   const stLabels = { submitted:'검토 대기', approved:'승인 완료', rejected:'반려', draft:'임시저장', in_review:'1차 검토 완료' };
@@ -2104,11 +2108,41 @@ function _renderForecastBundleDetail(el, bundle) {
   const sid = String(bundle.id).replace(/'/g,'');
   const isGlobalBO = typeof boIsGlobalAdmin === 'function' ? boIsGlobalAdmin() : false;
   const isOpBO = typeof boIsOpManager === 'function' ? boIsOpManager() : false;
+  const canApprove = isGlobalBO;
+  const canReview = isOpBO && !isGlobalBO;
+
+  // DB에서 submission_items 및 연결된 plans 데이터 조회
+  if (sb && _boBundlePlans.length === 0) {
+    try {
+      const { data: items } = await sb.from('submission_items').select('*').eq('submission_id', sid).order('sort_order', {ascending: true});
+      if (items && items.length > 0) {
+        const planIds = items.map(i => i.item_id);
+        const { data: plans } = await sb.from('plans').select('*').in('id', planIds);
+        _boBundlePlans = items.map(item => {
+          const plan = plans?.find(p => p.id === item.item_id) || {};
+          _boBundleOriginals[plan.id] = Number(plan.allocated_amount || 0);
+          return { ...item, plan };
+        });
+      }
+    } catch(e) {
+      console.warn("Bundle detail fetch error:", e);
+    }
+  }
+
+  // 1차 예산 조정 버튼 표시 여부
+  const canEdit = bundle.submission_type === 'team_forecast' && status === 'submitted' && canReview;
+  const hasEdits = Object.keys(_boBundleEdits).length > 0;
+
+  let totalAllocatedSum = 0;
+  _boBundlePlans.forEach(item => {
+    const editAmt = _boBundleEdits[item.plan.id];
+    totalAllocatedSum += (editAmt !== undefined ? editAmt : Number(item.plan.allocated_amount || 0));
+  });
 
   el.innerHTML = `
   <div class="bo-fade">
     <div style="margin-bottom:16px">
-      <button onclick="_boForecastBundleDetail=null;renderBoPlanMgmt()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">
+      <button onclick="_boForecastBundleDetail=null;_boBundleEdits={};_boBundleOriginals={};_boBundlePlans=[];renderBoPlanMgmt()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">
         ← 번들 목록으로
       </button>
     </div>
@@ -2129,9 +2163,57 @@ function _renderForecastBundleDetail(el, bundle) {
           </div>
           <div style="padding:14px;border-radius:10px;background:#F0FDF4;border:1px solid #BBF7D0">
             <div style="font-size:11px;color:#6B7280;font-weight:700;margin-bottom:4px">배정 금액</div>
-            <div style="font-size:18px;font-weight:900;color:#059669">${Number(bundle.total_allocated||0).toLocaleString()}원</div>
+            <div style="font-size:18px;font-weight:900;color:#059669">${totalAllocatedSum.toLocaleString()}원</div>
           </div>
         </div>
+        
+        <div style="margin-bottom:20px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div style="font-size:14px;font-weight:900;color:#1F2937">📋 포함된 교육계획 목록</div>
+            ${canEdit ? `
+              <button onclick="boSaveBundleAdjustments('${sid}')" ${hasEdits?'':'disabled'} style="padding:8px 16px;border-radius:8px;border:none;background:${hasEdits?'#1D4ED8':'#9CA3AF'};color:white;font-size:12px;font-weight:900;cursor:${hasEdits?'pointer':'default'}">
+                💾 배정액 일괄 저장 (${Object.keys(_boBundleEdits).length}건 변경)
+              </button>
+            ` : ''}
+          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:#F9FAFB;border-top:1.5px solid #111827;border-bottom:1px solid #E5E7EB;color:#374151;font-weight:700">
+                <th style="padding:12px 10px;text-align:left">교육계획명</th>
+                <th style="padding:12px 10px;text-align:center">요청액</th>
+                <th style="padding:12px 10px;text-align:center">배정액 (조정)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${_boBundlePlans.length === 0 ? `<tr><td colspan="3" style="padding:20px;text-align:center;color:#6B7280">계획 내역이 없습니다.</td></tr>` : _boBundlePlans.map((item, idx) => {
+                const plan = item.plan;
+                const reqAmt = Number(plan.amount || 0);
+                const editedAmt = _boBundleEdits[plan.id];
+                const allocAmt = editedAmt !== undefined ? editedAmt : Number(plan.allocated_amount || 0);
+                const isEdited = editedAmt !== undefined;
+                
+                return `
+                <tr style="border-bottom:1px solid #F3F4F6">
+                  <td style="padding:12px 10px;color:#111827;font-weight:700">${plan.edu_name || plan.title || '-'}</td>
+                  <td style="padding:12px 10px;text-align:center;color:#4B5563">${reqAmt.toLocaleString()}원</td>
+                  <td style="padding:8px 10px;text-align:center">
+                    ${canEdit ? `
+                      <input type="number" id="bo-bundle-alloc-${idx}" value="${allocAmt}" 
+                        onchange="_boBundleInlineChange('${plan.id}', this.value)"
+                        onkeydown="if(event.key==='Enter'||event.key==='Tab'){event.preventDefault();const n=document.getElementById('bo-bundle-alloc-${event.shiftKey?idx-1:idx+1}');if(n){n.focus();n.select();}else{this.blur();}}"
+                        style="width:100px;padding:6px;border-radius:6px;border:1.5px solid ${isEdited?'#F59E0B':'#E5E7EB'};background:${isEdited?'#FFFBEB':'white'};text-align:right;font-size:12px;font-weight:700;color:#111827">
+                      ${isEdited ? `<button onclick="delete _boBundleEdits['${plan.id}'];renderBoPlanForecastBundles(document.getElementById('bo-content'), boCurrentPersona.tenantId, typeof getSB==='function'?getSB():null)" style="background:none;border:none;cursor:pointer;font-size:12px;margin-left:4px" title="초기화">↩</button>` : ''}
+                    ` : `
+                      <span style="font-weight:900;color:#059669">${allocAmt.toLocaleString()}원</span>
+                    `}
+                  </td>
+                </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           ${(status === 'submitted' || status === 'in_review') && isGlobalBO ? `
             <button onclick="boApproveOrgForecast('${sid}')" style="padding:10px 24px;border-radius:10px;border:none;background:#059669;color:white;font-size:13px;font-weight:900;cursor:pointer">✅ 최종 승인</button>
@@ -2146,6 +2228,71 @@ function _renderForecastBundleDetail(el, bundle) {
   </div>`;
 }
 
+window._boBundleInlineChange = function(planId, value) {
+  const val = Math.max(0, parseInt(value) || 0);
+  const orig = _boBundleOriginals[planId] || 0;
+  if (val === orig) {
+    delete _boBundleEdits[planId];
+  } else {
+    _boBundleEdits[planId] = val;
+  }
+  renderBoPlanForecastBundles(document.getElementById('bo-content'), boCurrentPersona?.tenantId || 'HMC', typeof getSB === 'function' ? getSB() : null);
+};
+
+window.boSaveBundleAdjustments = async function(bundleId) {
+  const edits = _boBundleEdits;
+  const planIds = Object.keys(edits);
+  if (planIds.length === 0) return;
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert("DB 연결 필요"); return; }
+  
+  if (!confirm(`${planIds.length}건의 예산 조정을 저장하시겠습니까?`)) return;
+  
+  try {
+    for (const pid of planIds) {
+      const origAmt = _boBundleOriginals[pid] || 0;
+      const newAmt = edits[pid];
+      
+      // 1. plans 테이블 업데이트
+      await sb.from('plans').update({ allocated_amount: newAmt }).eq('id', pid);
+      
+      // 2. bundle_adjust_log 기록
+      await sb.from('bundle_adjust_log').insert({
+        submission_id: bundleId,
+        plan_id: pid,
+        adjust_stage: 'ops_1st',
+        original_amount: origAmt,
+        adjusted_amount: newAmt,
+        reason: '운영담당자 1차 예산 조정',
+        adjusted_by: boCurrentPersona?.name || boCurrentPersona?.userId || 'system'
+      });
+      
+      // 3. submission_items 업데이트 (안전장치)
+      await sb.from('submission_items').update({ item_amount: newAmt }).eq('item_id', pid).eq('submission_id', bundleId);
+    }
+    
+    // 4. submission_documents의 total_allocated 재계산
+    let newTotal = 0;
+    _boBundlePlans.forEach(item => {
+      newTotal += (edits[item.plan.id] !== undefined ? edits[item.plan.id] : Number(item.plan.allocated_amount || 0));
+    });
+    
+    await sb.from('submission_documents').update({ total_allocated: newTotal }).eq('id', bundleId);
+    
+    alert("✅ 1차 예산 조정 내역이 저장되었습니다.");
+    _boBundleEdits = {};
+    _boBundlePlans = []; // 다시 페치하도록 비움
+    _boForecastBundles = null; // 번들 목록 캐시 무효화
+    
+    // 상세 정보도 업데이트
+    _boForecastBundleDetail.total_allocated = newTotal;
+    
+    renderBoPlanForecastBundles(document.getElementById('bo-content'), boCurrentPersona?.tenantId || 'HMC', sb);
+  } catch (err) {
+    alert("❌ 조정 저장 실패: " + err.message);
+  }
+};
+
 // org_forecast 취합본 생성
 async function boCreateOrgForecastBundle() {
   const sb = typeof getSB === 'function' ? getSB() : null;
@@ -2154,22 +2301,57 @@ async function boCreateOrgForecastBundle() {
   if (!title) return;
   const accountCode = prompt('예산계정 코드를 입력하세요 (예: ACC-001):') || '';
   if (!sb) { alert('DB 연결이 필요합니다.'); return; }
+  
   try {
-    const { error } = await sb.from('submission_documents').insert({
+    // 1. 해당 계정코드의 1차 검토 완료된 team_forecast 중 아직 상위가 없는 건 조회
+    const { data: teamDocs, error: fetchErr } = await sb.from('submission_documents')
+      .select('id, total_requested, total_allocated')
+      .eq('tenant_id', tenantId)
+      .eq('fiscal_year', _boPlanFiscalYear)
+      .eq('submission_type', 'team_forecast')
+      .eq('status', 'in_review')
+      .eq('account_code', accountCode)
+      .is('parent_submission_id', null);
+      
+    if (fetchErr) throw fetchErr;
+    if (!teamDocs || teamDocs.length === 0) {
+      alert(`해당 계정(${accountCode})으로 1차 검토가 완료된 팀 수요예측이 없습니다.`);
+      return;
+    }
+    
+    // 금액 집계
+    const totalRequested = teamDocs.reduce((sum, d) => sum + Number(d.total_requested || 0), 0);
+    const totalAllocated = teamDocs.reduce((sum, d) => sum + Number(d.total_allocated || 0), 0);
+    
+    if (!confirm(`총 ${teamDocs.length}건의 팀 수요예측 묶음을 취합하여 생성하시겠습니까?\n요청 합계: ${totalRequested.toLocaleString()}원\n배정 합계: ${totalAllocated.toLocaleString()}원`)) return;
+
+    // 2. org_forecast 생성
+    const { data: newOrgDoc, error: insertErr } = await sb.from('submission_documents').insert({
       tenant_id: tenantId,
       submission_type: 'org_forecast',
       title,
       account_code: accountCode,
       fiscal_year: _boPlanFiscalYear,
-      status: 'submitted',
+      status: 'submitted', // 상신 상태
       submitter_id: boCurrentPersona?.userId || '',
       submitter_name: boCurrentPersona?.name || '',
       submitter_org_name: boCurrentPersona?.orgName || '',
-      total_amount: 0,
-      total_requested: 0,
-      total_allocated: 0,
-    });
-    if (error) throw error;
+      total_amount: totalRequested,
+      total_requested: totalRequested,
+      total_allocated: totalAllocated,
+    }).select('id').single();
+    
+    if (insertErr) throw insertErr;
+    
+    // 3. team_forecast 들의 parent_submission_id 업데이트
+    const teamIds = teamDocs.map(d => d.id);
+    const { error: updateErr } = await sb.from('submission_documents')
+      .update({ parent_submission_id: newOrgDoc.id })
+      .in('id', teamIds);
+      
+    if (updateErr) throw updateErr;
+
+    alert(`✅ 취합본 생성이 완료되었습니다. (${teamDocs.length}건 연결)`);
     _boForecastBundles = null;
     renderBoPlanMgmt();
   } catch(e) {

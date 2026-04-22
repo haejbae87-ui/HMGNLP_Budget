@@ -1,10 +1,18 @@
 // ─── fo_plans_wizard.js — 계획 수립 마법사 Step 렌더 (REFACTOR-2: plans.js 분리) ───
 // ─── PLAN WIZARD ─────────────────────────────────────────────────────────────
 
-function startPlanWizard(mode = 'ongoing', forcedYear = null) {
+function startPlanWizard(mode = 'ongoing', forcedYear = null, targetAccountsJson = null) {
   planState = resetPlanState();
   const curYear = new Date().getFullYear();
   
+  if (targetAccountsJson) {
+    try {
+      planState.targetAccounts = JSON.parse(decodeURIComponent(targetAccountsJson));
+    } catch (e) {
+      console.error('Failed to parse targetAccounts', e);
+    }
+  }
+
   if (mode === 'forecast') {
     planState.plan_type = 'forecast';
     planState.fiscal_year = forcedYear || _planYear;
@@ -269,9 +277,17 @@ function renderPlanWizard() {
   });
 
   // 패턴 A 정책이 있는 목적만 필터 (패턴 A 정책이 없으면 계획 수립 자체 불필요 → 빈 목록)
-  const allPurposes = _allPurposes.filter((p) =>
+  let allPurposes = _allPurposes.filter((p) =>
     planRequiredPurposes.has(p.id),
   );
+
+  // 수요예측 캠페인: 타겟 계정이 주어졌다면 해당 계정에 연동되는 목적만 노출
+  if (s.plan_type === 'forecast' && s.targetAccounts && s.targetAccounts.length > 0) {
+    allPurposes = allPurposes.filter((p) => {
+      const rawBudgets = getPersonaBudgets(currentPersona, p.id) || [];
+      return rawBudgets.some(b => s.targetAccounts.includes(b.accountCode));
+    });
+  }
 
   const _catColors = {
     "self-learning": {
@@ -345,7 +361,7 @@ function renderPlanWizard() {
     ? getPersonaBudgets(currentPersona, s.purpose.id)
     : [];
   // 패턴 A 계정 코드가 있으면 해당 코드만 필터, 없으면 전체 (폴백)
-  const availBudgets =
+  let availBudgets =
     _planPatternACodes.size > 0
       ? _rawBudgets.filter((b) => {
           return [..._planPatternACodes].some((code) => {
@@ -356,6 +372,11 @@ function renderPlanWizard() {
           });
         })
       : _rawBudgets;
+      
+  // 수요예측 캠페인의 타겟 계정이 주어졌다면 추가로 필터링
+  if (s.plan_type === 'forecast' && s.targetAccounts && s.targetAccounts.length > 0) {
+    availBudgets = availBudgets.filter(b => s.targetAccounts.includes(b.accountCode));
+  }
   const curBudget = availBudgets.find((b) => b.id === s.budgetId) || null;
 
   // 프로세스 패턴 안내 (apply.js 동일)

@@ -295,13 +295,35 @@ async function _renderForecastDashboard() {
         
         const { data } = await query;
         
+        // 권한 필터링: c.target_accounts 배열과 currentPersona.allowedAccounts의 교집합 검사
+        let hasAccess = true;
+        let accessibleAccounts = [];
+        if (c.target_accounts && Array.isArray(c.target_accounts) && c.target_accounts.length > 0) {
+          const allowed = currentPersona.allowedAccounts || [];
+          if (!allowed.includes("*")) {
+             accessibleAccounts = c.target_accounts.filter(acc => allowed.includes(acc));
+             if (accessibleAccounts.length === 0) return false; // 접근 가능한 계정이 없으면 노출 안함
+          } else {
+             accessibleAccounts = c.target_accounts;
+          }
+        }
+
         const now = new Date();
         now.setHours(0,0,0,0);
         
         _forecastDeadlinesCache = (data || []).filter(dl => {
             // 접수 시작 전인 캠페인은 노출하지 않음
             if (dl.recruit_start && now < new Date(dl.recruit_start)) return false;
-            // 진행중이거나 마감된 캠페인은 모두 노출
+            
+            // 권한 필터링
+            if (dl.target_accounts && Array.isArray(dl.target_accounts) && dl.target_accounts.length > 0) {
+              const allowed = currentPersona.allowedAccounts || [];
+              if (!allowed.includes("*")) {
+                const intersection = dl.target_accounts.filter(acc => allowed.includes(acc));
+                if (intersection.length === 0) return false;
+              }
+            }
+
             return true;
         });
       } catch (e) {
@@ -328,14 +350,24 @@ async function _renderForecastDashboard() {
         now.setHours(0,0,0,0);
         const isClosed = c.is_closed || (c.recruit_end && now > new Date(c.recruit_end));
         
+        // 배지 렌더링
+        const targetIds = Array.isArray(c.target_accounts) ? c.target_accounts : [];
+        const accountBadges = targetIds.length > 0
+          ? targetIds.map(code => `<span style="display:inline-block;padding:2px 6px;border-radius:4px;background:#E0E7FF;color:#4338CA;font-size:10px;font-weight:800;margin-right:4px">💳 ${code}</span>`).join('')
+          : '';
+
+        // 시작 버튼 이벤트: target_accounts 정보를 배열로 묶어서 JSON 문자열로 전달
+        const encodedTargets = encodeURIComponent(JSON.stringify(targetIds));
+
         return `
-        <div ${isClosed ? '' : `onclick="startPlanWizard('forecast', ${c.fiscal_year})"`} 
+        <div ${isClosed ? '' : `onclick="startPlanWizard('forecast', ${c.fiscal_year}, '${encodedTargets}')"`} 
              style="padding:24px 20px;border-radius:16px;background:${isClosed ? '#F9FAFB' : 'white'};border:1.5px solid ${isClosed ? '#E5E7EB' : '#BFDBFE'};cursor:${isClosed ? 'not-allowed' : 'pointer'};box-shadow:0 4px 12px rgba(0,0,0,0.04);transition:all 0.15s;opacity:${isClosed ? '0.7' : '1'}"
              ${isClosed ? '' : `onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(37,99,235,0.1)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.04)'"`}>
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
             <div style="font-size:12px;font-weight:900;color:${isClosed ? '#6B7280' : '#1D4ED8'};background:${isClosed ? '#E5E7EB' : '#EFF6FF'};padding:4px 10px;border-radius:8px;">🎯 ${c.fiscal_year}년도 예산 확정</div>
             <div style="font-size:11px;font-weight:800;color:${isClosed ? '#4B5563' : '#DC2626'};background:${isClosed ? '#E5E7EB' : '#FEF2F2'};padding:4px 8px;border-radius:6px;">${isClosed ? '🔒 마감됨' : '⏳ 마감: ' + (c.recruit_end ? c.recruit_end.substring(0,10) : '상시')}</div>
           </div>
+          <div style="margin-bottom:8px">${accountBadges}</div>
           <div style="font-size:18px;font-weight:900;color:#111827;margin-bottom:8px;line-height:1.4">${c.title || c.fiscal_year + '년도 전사 수요예측 (정기)'}</div>
           <div style="font-size:13px;color:#6B7280;line-height:1.5">${c.description || '차년도(또는 당해) 필요한 교육 예산을 사전에 확보하기 위한 기안입니다.'}</div>
           <div style="margin-top:20px;padding-top:16px;border-top:1px dashed #E5E7EB;font-size:13px;font-weight:800;color:${isClosed ? '#9CA3AF' : '#2563EB'};display:flex;align-items:center;justify-content:${isClosed ? 'center' : 'space-between'}">

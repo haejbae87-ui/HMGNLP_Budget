@@ -289,8 +289,8 @@ async function _renderForecastDashboard() {
           .select("*")
           .eq("tenant_id", currentPersona.tenantId);
           
-        if (currentPersona && currentPersona.vorgTemplateId) {
-          query = query.eq("vorg_template_id", currentPersona.vorgTemplateId);
+        if (currentPersona && currentPersona.vorgId) {
+          query = query.eq("vorg_template_id", currentPersona.vorgId);
         }
         
         const { data } = await query;

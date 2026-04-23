@@ -1601,7 +1601,40 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
       ✅ <span>표준 입력 양식 (Phase B) — 7단계 카테고리 적용</span>
     </div>`;
 
+  const multiPlanSection = (inline.multi_plan_link === true) ? `
+    <div class="mb-6 bg-blue-50 border-2 border-blue-200 rounded-2xl overflow-hidden shadow-sm">
+      <div class="px-5 py-3 bg-blue-100 border-b border-blue-200 font-bold text-blue-800 flex items-center justify-between">
+        <div class="flex items-center gap-2"><span>🔗</span> 승인된 교육계획 선택 및 구성</div>
+        <button type="button" class="px-3 py-1 bg-white text-blue-600 text-xs font-bold rounded-lg shadow-sm border border-blue-200 hover:bg-blue-50 transition">+ 교육계획 추가</button>
+      </div>
+      <div class="p-5 grid gap-3">
+        <div class="p-4 bg-white border border-gray-200 rounded-xl flex justify-between items-center shadow-sm">
+          <div>
+            <div class="text-xs font-bold text-gray-500 mb-1">계획번호: PLN-2026-001</div>
+            <div class="font-bold text-gray-800">파이썬 데이터 분석 기초</div>
+            <div class="text-xs text-gray-500 mt-1">1차수 (20명) | H-교육 / 해당없음</div>
+          </div>
+          <div class="text-right">
+            <div class="font-black text-blue-600">1,200,000 원</div>
+            <button type="button" class="text-xs text-red-500 mt-2 font-bold hover:underline">삭제</button>
+          </div>
+        </div>
+        <div class="p-4 bg-white border border-gray-200 rounded-xl flex justify-between items-center shadow-sm">
+          <div>
+            <div class="text-xs font-bold text-gray-500 mb-1">계획번호: PLN-2026-002</div>
+            <div class="font-bold text-gray-800">사내 챗봇 활용 워크숍</div>
+            <div class="text-xs text-gray-500 mt-1">1차수 (10명) | H-교육 / 해당없음</div>
+          </div>
+          <div class="text-right">
+            <div class="font-black text-blue-600">500,000 원</div>
+            <button type="button" class="text-xs text-red-500 mt-2 font-bold hover:underline">삭제</button>
+          </div>
+        </div>
+      </div>
+    </div>` : '';
+
   return phaseBBadge + '\n' +
+    multiPlanSection + '\n' +
     wrapSection('기본정보', '📋', basicFields) +
     wrapSection('일정정보', '📅', scheduleFields) +
     wrapSection('대상자정보', '👥', targetFields) +

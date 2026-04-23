@@ -1,4 +1,4 @@
-﻿// ─── Tenant Admin: 예산 기초 관리 (7탭) ──────────────────────────────────────
+// ─── Tenant Admin: 예산 기초 관리 (7탭) ──────────────────────────────────────
 // Step1:계정마스터CRUD  Step2:조직-계정매핑  Step3:양식빌더(FORM_MASTER)
 // Step4:양식접근권한    Step5:양식-예산-계획룰  Step6:공지관리  +교육조직+권한
 
@@ -1030,11 +1030,14 @@ async function s1SaveAccount() {
     }
     s1CloseModal();
     // 독립 메뉴(bo_budget_account.js)에서 호출된 경우
-    if (
+    if (typeof window._baLoadBudgetAccounts === "function") {
+      window._baLoadBudgetAccounts();
+    } else if (
       typeof _bamLoadBudgetAccountsList === "function" &&
-      window._bamSelectedTplId
+      typeof _bamSelectedTplId !== "undefined" &&
+      _bamSelectedTplId
     ) {
-      _bamLoadBudgetAccountsList(window._bamSelectedTplId);
+      _bamLoadBudgetAccountsList(_bamSelectedTplId);
     } else {
       await renderBudgetAccount();
     }

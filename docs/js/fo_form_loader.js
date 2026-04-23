@@ -1147,11 +1147,24 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
       </div>`;
   };
 
-  const eduTypeField = (inline.edu_type !== false) ? `
+  const managerInfoField = (inline.manager_info !== false) ? `
     <div>
-      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🎓 교육유형 <span class="text-xs font-medium text-blue-500 ml-2">(읽기전용)</span></label>
-      <div class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-3 font-bold text-gray-500">
-        ${eduType || '선택된 교육유형 표시'}
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">👤 담당자 정보</label>
+      <div class="flex gap-2">
+        <input type="text" value="${s.manager_info || ''}" readonly placeholder="[검색] 버튼을 클릭하세요"
+          class="flex-1 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition cursor-not-allowed"/>
+        <button type="button" onclick="_foOpenUserSearch('planState', 'manager_info')" class="bg-blue-100 text-blue-700 font-bold px-4 rounded-xl border border-blue-200">검색</button>
+      </div>
+    </div>` : '';
+
+  const educationFormatField = (inline.education_format !== false) ? `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">💻 교육형태 <span class="text-red-500">*</span></label>
+      <div class="inline-flex bg-gray-100 rounded-xl p-1 gap-1">
+        <button onclick="planState.education_format='오프라인';renderPlanWizard()"
+          class="px-5 py-2 rounded-lg text-sm font-bold border-none cursor-pointer transition-all ${s.education_format!=='온라인' ? 'bg-white text-accent shadow-sm' : 'bg-transparent text-gray-400'}">🏫 오프라인</button>
+        <button onclick="planState.education_format='온라인';renderPlanWizard()"
+          class="px-5 py-2 rounded-lg text-sm font-bold border-none cursor-pointer transition-all ${s.education_format==='온라인' ? 'bg-accent text-white shadow-md' : 'bg-transparent text-gray-400'}">💻 온라인</button>
       </div>
     </div>` : '';
 
@@ -1253,32 +1266,44 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
       </div>
     </div>` : '';
 
+  const eiRefundAmountField = (inline.ei_refund_amount !== false && s.is_ei_eligible) ? `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">💵 고용보험 환급 예상액</label>
+      <div class="relative max-w-xs">
+        <input type="number" value="${s.ei_refund_amount || 0}" oninput="planState.ei_refund_amount=Number(this.value)" placeholder="0"
+          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 pr-12 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition"/>
+        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-gray-400">원</span>
+      </div>
+    </div>` : '';
+
   const basicFields = [
-    eduTypeField,
-    _field('education_format', '교육형태 (온/오프라인)', 'text', '예: 오프라인 집합교육'),
-    regionToggle,
-    countryField,
-    titleField
+    _field('is_continuing', '전년도 계속 여부', 'boolean', ''),
+    titleField,
+    _field('learning_objective', '교육목표/내용/대상', 'textarea', '[교육목표]\\n\\n[교육내용]\\n\\n[교육대상]\\n\\n(내용을 작성해주세요)'),
+    _field('edu_category', '📑 필수구분 (법정/핵심 등)', 'text', '예: 법정의무교육'),
+    managerInfoField
   ];
 
-  const detailFields = [
-    _field('learning_objective', '교육목표', 'textarea', '교육 목표를 입력하세요.'),
-    _field('expected_benefit', '기대효과', 'textarea', '예상되는 효과를 입력하세요.'),
-    _field('target_audience', '교육대상', 'text', '예: 3년차 이상 사원'),
-    _field('edu_category', '📑 필수구분 (법정/핵심 등)', 'text', '예: 법정의무교육'),
-    headcountField,
+  const scheduleFields = [
     datesField,
     _field('edu_days', '📆 교육일수', 'number', '0'),
-    _field('hours_per_round', '차수별 시간', 'number', '0'),
-    _field('is_continuing', '전년도 계속 여부', 'boolean', ''),
-    _field('edu_org', '🏫 교육기관/과정명', 'text', '교육기관명 입력'),
-    _field('consignment_org', '위탁기관명', 'text', '위탁기관명 입력'),
-    _field('instructor_name', '강사명', 'text', '강사 이름 입력'),
-    venueField,
-    locationSection,
-    _field('education_region', '교육지역', 'text', '예: 서울, 제주'),
     _field('has_accommodation', '숙박여부', 'boolean', ''),
     _field('lunch_provided', '중식제공여부', 'boolean', ''),
+    _field('planned_rounds', '🔄 예상 차수', 'number', '1', 'planState'),
+    _field('hours_per_round', '⏳ 차수별 학습시간', 'number', '0', 'planState')
+  ];
+
+  const targetFields = [
+    _field('target_audience', '교육대상', 'text', '예: 3년차 이상 사원'),
+    headcountField
+  ];
+
+  const venueFields = [
+    regionToggle,
+    countryField,
+    venueField,
+    locationSection,
+    _field('edu_org', '🏫 교육기관', 'text', '교육기관명 입력'),
     inline.elearning_fields === true ? `
       <div class="grid grid-cols-2 gap-5">
         <div>
@@ -1290,40 +1315,39 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
           <input type="text" value="${(s.extra_fields||{}).elearning_url || ''}" oninput="planState.extra_fields=Object.assign(planState.extra_fields||{},{elearning_url:this.value})" placeholder="https://" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
         </div>
       </div>` : '',
-    _field('plan_content', '계획 상세 내용', 'textarea', '계획 내용 입력'),
-    _field('course_description', '교육 내용', 'textarea', '교육 내용 입력')
+    educationFormatField
   ];
 
-  const provideFields = [
-    _readonly('prov_guide', '💡 안내사항', '관리자가 등록한 안내사항이 표시됩니다.'),
-    _readonly('prov_materials', '🎒 준비물', '관리자가 등록한 준비물이 표시됩니다.'),
-    _readonly('prov_venue', '🏢 확정 교육장소', '관리자가 확정한 교육장소가 표시됩니다.'),
-    _readonly('prov_instructor', '👨‍🏫 확정 강사', '관리자가 확정한 강사 정보가 표시됩니다.')
+  const etcFields = [
+    _field('instructor_name', '👨‍🏫 강사명', 'text', '강사 이름 입력'),
+    _readonly('prov_instructor', '👨‍🏫 강사정보', '관리자가 확정한 강사 정보가 표시됩니다.')
   ];
 
-  const docFields = [
-    _field('supporting_docs', '증빙자료', 'text', '증빙자료 첨부(URL 등)'),
-    _field('course_brochure', '과정소개 자료', 'text', '과정소개 자료 첨부(URL 등)')
+  const attachFields = [
+    _field('supporting_docs', '📎 첨부파일', 'text', '첨부파일(URL 등)')
   ];
 
   const costFields = [
     _field('is_paid_education', '유료교육여부', 'boolean', ''),
     _field('is_ei_eligible', '고용보험 환급 여부', 'boolean', ''),
+    eiRefundAmountField,
     amountField,
     calcSection
   ];
 
   const phaseBBadge = `
     <div class="mb-4 px-4 py-2 bg-green-50 border border-green-200 rounded-xl text-xs font-bold text-green-700 flex items-center gap-2">
-      ✅ <span>표준 입력 양식 (Phase B) — 카테고리 그룹화 적용</span>
+      ✅ <span>표준 입력 양식 (Phase B) — 7단계 카테고리 적용</span>
     </div>`;
 
   return phaseBBadge + '\n' +
     wrapSection('기본정보', '📋', basicFields) +
-    wrapSection('교육상세', '📐', detailFields) +
-    wrapSection('제공항목', '📢', provideFields) +
-    wrapSection('증빙/첨부항목', '📎', docFields) +
-    wrapSection('비용항목', '💰', costFields);
+    wrapSection('일정정보', '📅', scheduleFields) +
+    wrapSection('대상자정보', '👥', targetFields) +
+    wrapSection('장소정보', '🏛️', venueFields) +
+    wrapSection('기타정보', '📝', etcFields) +
+    wrapSection('첨부파일', '📎', attachFields) +
+    wrapSection('비용정보', '💰', costFields);
 };
 window.foRenderStandardPlanForm = window.foRenderStandardPlanForm;
 
@@ -1395,11 +1419,24 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
       </div>`;
   };
 
-  const eduTypeField = (inline.edu_type !== false) ? `
+  const managerInfoField = (inline.manager_info !== false) ? `
     <div>
-      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🎓 교육유형 <span class="text-xs font-medium text-blue-500 ml-2">(읽기전용)</span></label>
-      <div class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-3 font-bold text-gray-500">
-        ${eduType || '선택된 교육유형 표시'}
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">👤 담당자 정보</label>
+      <div class="flex gap-2">
+        <input type="text" value="${s.manager_info || ''}" readonly placeholder="[검색] 버튼을 클릭하세요"
+          class="flex-1 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition cursor-not-allowed"/>
+        <button type="button" onclick="_foOpenUserSearch('applyState', 'manager_info')" class="bg-blue-100 text-blue-700 font-bold px-4 rounded-xl border border-blue-200">검색</button>
+      </div>
+    </div>` : '';
+
+  const educationFormatField = (inline.education_format !== false) ? `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">💻 교육형태 <span class="text-red-500">*</span></label>
+      <div class="inline-flex bg-gray-100 rounded-xl p-1 gap-1">
+        <button onclick="applyState.education_format='오프라인';renderApply()"
+          class="px-5 py-2 rounded-lg text-sm font-bold border-none cursor-pointer transition-all ${s.education_format!=='온라인' ? 'bg-white text-accent shadow-sm' : 'bg-transparent text-gray-400'}">🏫 오프라인</button>
+        <button onclick="applyState.education_format='온라인';renderApply()"
+          class="px-5 py-2 rounded-lg text-sm font-bold border-none cursor-pointer transition-all ${s.education_format==='온라인' ? 'bg-accent text-white shadow-md' : 'bg-transparent text-gray-400'}">💻 온라인</button>
       </div>
     </div>` : '';
 
@@ -1412,6 +1449,13 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
         <button onclick="applyState.is_overseas=true;applyState.region='overseas';renderApply()"
           class="px-5 py-2 rounded-lg text-sm font-bold border-none cursor-pointer transition-all ${isOverseas ? 'bg-accent text-white shadow-md' : 'bg-transparent text-gray-400'}">🌏 해외</button>
       </div>
+    </div>` : '';
+
+  const countryField = (showRegion && isOverseas) ? `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🌐 교육 국가 <span class="text-red-500">*</span></label>
+      <input type="text" value="${s.overseas_country || ''}" oninput="applyState.overseas_country=this.value"
+        placeholder="예) 미국, 일본, 독일" class="w-full bg-gray-50 border-2 border-blue-200 rounded-xl px-4 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
     </div>` : '';
 
   const titleField = showTitle ? `
@@ -1475,27 +1519,51 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
       </div>
     </div>` : '';
 
+  const eiRefundAmountField = (inline.ei_refund_amount !== false && s.is_ei_eligible) ? `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">💵 고용보험 환급 예상액</label>
+      <div class="relative max-w-xs">
+        <input type="number" value="${s.ei_refund_amount || 0}" oninput="applyState.ei_refund_amount=Number(this.value)" placeholder="0"
+          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 pr-12 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition"/>
+        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-gray-400">원</span>
+      </div>
+    </div>` : '';
+
+  const applyReasonField = (inline.apply_reason !== false) ? `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">신청사유 (학습 내용) <span class="text-red-500">*</span></label>
+      <textarea oninput="applyState.content=this.value" rows="3" placeholder="학습 목표, 주요 커리큘럼 등을 입력하세요."
+        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-medium text-gray-700 focus:border-accent focus:bg-white transition resize-none">${s.content || ''}</textarea>
+    </div>` : '';
+
   const basicFields = [
-    eduTypeField,
-    _field('education_format', '교육형태 (온/오프라인)', 'text', '예: 오프라인 집합교육'),
-    regionToggle,
-    titleField
+    _field('is_continuing', '전년도 계속 여부', 'boolean', ''),
+    titleField,
+    _field('learning_objective', '교육목표/내용/대상', 'textarea', '[교육목표]\\n\\n[교육내용]\\n\\n[교육대상]\\n\\n(내용을 작성해주세요)'),
+    _field('edu_category', '📑 필수구분 (법정/핵심 등)', 'text', '예: 법정의무교육'),
+    managerInfoField
   ];
 
-  const detailFields = [
-    _field('learning_objective', '교육목표', 'textarea', '교육 목표를 입력하세요.'),
-    _field('expected_benefit', '기대효과', 'textarea', '예상되는 효과를 입력하세요.'),
-    _field('target_audience', '교육대상', 'text', '예: 3년차 이상 사원'),
-    _field('edu_category', '📑 필수구분 (법정/핵심 등)', 'text', '예: 법정의무교육'),
-    (inline.headcount !== false) ? _field('hours', '총 학습시간 (H)', 'number', '0') : '',
+  const scheduleFields = [
     datesField,
     _field('edu_days', '📆 교육일수', 'number', '0'),
-    _field('edu_org', '🏫 교육기관/과정명', 'text', '교육기관명 입력'),
-    _field('consignment_org', '위탁기관명', 'text', '위탁기관명 입력'),
-    venueField,
-    _field('education_region', '교육지역', 'text', '예: 서울, 제주'),
     _field('has_accommodation', '숙박여부', 'boolean', ''),
     _field('lunch_provided', '중식제공여부', 'boolean', ''),
+    _field('planned_rounds', '🔄 예상 차수', 'number', '1', 'applyState'),
+    _field('hours_per_round', '⏳ 차수별 학습시간', 'number', '0', 'applyState')
+  ];
+
+  const targetFields = [
+    _field('target_audience', '교육대상', 'text', '예: 3년차 이상 사원'),
+    (inline.headcount !== false) ? _field('hours', '총 학습시간 (H)', 'number', '0') : ''
+  ];
+
+  const venueFields = [
+    regionToggle,
+    countryField,
+    venueField,
+    _field('education_region', '교육지역', 'text', '예: 서울, 제주'),
+    _field('edu_org', '🏫 교육기관', 'text', '교육기관명 입력'),
     isElearning ? `
       <div class="grid grid-cols-2 gap-5">
         <div>
@@ -1507,45 +1575,56 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
           <input type="text" value="${(s.extra_fields||{}).elearning_url || ''}" oninput="applyState.extra_fields=Object.assign(applyState.extra_fields||{},{elearning_url:this.value})" placeholder="https://" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
         </div>
       </div>` : '',
-    (inline.apply_reason !== false) ? `
-      <div>
-        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">신청사유 (학습 내용) <span class="text-red-500">*</span></label>
-        <textarea oninput="applyState.content=this.value" rows="3" placeholder="학습 목표, 주요 커리큘럼 등을 입력하세요."
-          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-medium text-gray-700 focus:border-accent focus:bg-white transition resize-none">${s.content || ''}</textarea>
-      </div>` : '',
-    _field('course_description', '교육 내용', 'textarea', '교육 내용 입력')
+    educationFormatField
   ];
 
-  const provideFields = [
-    _readonly('prov_guide', '💡 안내사항', '관리자가 등록한 안내사항이 표시됩니다.'),
-    _readonly('prov_materials', '🎒 준비물', '관리자가 등록한 준비물이 표시됩니다.'),
-    _readonly('prov_venue', '🏢 확정 교육장소', '관리자가 확정한 교육장소가 표시됩니다.'),
-    _readonly('prov_instructor', '👨‍🏫 확정 강사', '관리자가 확정한 강사 정보가 표시됩니다.')
+  const etcFields = [
+    _field('instructor_name', '👨‍🏫 강사명', 'text', '강사 이름 입력'),
+    _readonly('prov_instructor', '👨‍🏫 강사정보', '관리자가 확정한 강사 정보가 표시됩니다.'),
+    applyReasonField
   ];
 
-  const docFields = [
-    _field('supporting_docs', '증빙자료', 'text', '증빙자료 첨부(URL 등)'),
-    _field('course_brochure', '과정소개 자료', 'text', '과정소개 자료 첨부(URL 등)')
+  const attachFields = [
+    _field('supporting_docs', '📎 첨부파일', 'text', '첨부파일(URL 등)')
   ];
 
   const costFields = [
     _field('is_paid_education', '유료교육여부', 'boolean', ''),
     _field('is_ei_eligible', '고용보험 환급 여부', 'boolean', ''),
+    eiRefundAmountField,
     amountField,
     calcSection
   ];
 
   const phaseBBadge = `
     <div class="mb-4 px-4 py-2 bg-green-50 border border-green-200 rounded-xl text-xs font-bold text-green-700 flex items-center gap-2">
-      ✅ <span>표준 입력 양식 (Phase B) — 카테고리 그룹화 적용</span>
+      ✅ <span>표준 입력 양식 (Phase B) — 7단계 카테고리 적용</span>
     </div>`;
 
   return phaseBBadge + '\n' +
     wrapSection('기본정보', '📋', basicFields) +
-    wrapSection('교육상세', '📐', detailFields) +
-    wrapSection('제공항목', '📢', provideFields) +
-    wrapSection('증빙/첨부항목', '📎', docFields) +
-    wrapSection('비용항목', '💰', costFields);
+    wrapSection('일정정보', '📅', scheduleFields) +
+    wrapSection('대상자정보', '👥', targetFields) +
+    wrapSection('장소정보', '🏛️', venueFields) +
+    wrapSection('기타정보', '📝', etcFields) +
+    wrapSection('첨부파일', '📎', attachFields) +
+    wrapSection('비용정보', '💰', costFields);
+};
+window.foRenderStandardApplyForm = window.foRenderStandardApplyForm;
+
+// 유저 검색 팝업 (모의 구현)
+window._foOpenUserSearch = function(stateObjName, key) {
+  // 간단한 prompt 기반 임시 검색 UI
+  const result = prompt("직원 이름 또는 사번을 입력하세요 (예: 홍길동, 123456):");
+  if (result) {
+    if (stateObjName === 'planState' && typeof planState !== 'undefined') {
+      planState[key] = result;
+      if (typeof renderPlanWizard === 'function') renderPlanWizard();
+    } else if (stateObjName === 'applyState' && typeof applyState !== 'undefined') {
+      applyState[key] = result;
+      if (typeof renderApply === 'function') renderApply();
+    }
+  }
 };
 
 console.log('[fo_form_loader] Phase B 표준 렌더러 로드됨 (foRenderStandardPlanForm, foRenderStandardApplyForm)');

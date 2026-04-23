@@ -203,3 +203,6 @@
 
 - [x] **Remove FO Hardcoding**: Removed FO dynamic overrides, added elearning/consignment/content toggles to BO, strictly bound FO to BO settings.
 - [x] **FO/BO Field Standardization Phase B**: fo_form_loader.js와 bo_policy_builder.js의 렌더링을 카테고리(기본정보, 교육상세, 제공항목, 증빙/첨부항목, 비용항목) 기반으로 정규화하고 신규 필드(learning_objective, expected_benefit 등)를 적용함.
+
+- [x] P16 bo_plan_mgmt.js 인라인 편집 (Phase 2): 운영담당자의 재배분(Δ=0) 가능하도록 권한 및 저장 로직 개선
+

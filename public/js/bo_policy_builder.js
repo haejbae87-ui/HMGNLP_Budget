@@ -1229,20 +1229,23 @@ function renderPolicyWizard() {
         // 기본 필드 활성화 상태 초기화 (비어있는 경우에만)
         if (Object.keys(d.stageFormFields[s]).length === 0) {
           d.stageFormFields[s] = {
-            // 기본정보 (필수 — 항상 on, disable 불가)
+          // 기본정보 (필수 — 항상 on, disable 불가)
           edu_type: true,
           is_overseas: true,
           edu_name: true,
-          headcount: true,
           // L1 거버넌스 필드
           edu_category: true,
           // 교육상세 (토글)
+          headcount: false,
           venue_type: true,
           edu_days: true,
           planned_rounds: s === "plan",
           start_end_date: true,
           edu_org: s !== "result",
           apply_reason: s === "apply",
+          elearning_fields: false,
+          consignment_org: false,
+          plan_content: false,
           // Provide 필드 (BO작성 → FO읽기전용)
           prov_guide: s !== "result",
           prov_materials: s !== "result",
@@ -1328,15 +1331,18 @@ function renderPolicyWizard() {
 ${_sectionHeader("📋 기본정보 (필수 고정)", sc)}
 ${_fieldRow("edu_type", "교육유형", "🎓", true)}
 ${_fieldRow("is_overseas", "국내/해외 구분", "🌐", true)}
-${_fieldRow("edu_name", "교육명", "📌", true)}
-${_fieldRow("headcount", "참가인원", "👥", true)}
+${_fieldRow("edu_name", "교육(계획)명", "📌", true)}
 ${_sectionHeader("📐 교육상세", "#374151")}
 ${_fieldRow("edu_category", "필수구분 (법정/핵심 등)", "📑")}
+${_fieldRow("headcount", "참가인원", "👥")}
 ${_fieldRow("venue_type", "장소유형", "🏛️")}
 ${_fieldRow("start_end_date", "교육기간", "📅")}
 ${_fieldRow("edu_days", "교육일수", "📆")}
 ${activeTab === "plan" ? _fieldRow("planned_rounds", "예상 차수", "🔄") : ""}
 ${activeTab !== "result" ? _fieldRow("edu_org", "교육기관/과정명", "🏫") : ""}
+${activeTab !== "result" ? _fieldRow("consignment_org", "위탁기관명", "🏫") : ""}
+${activeTab !== "result" ? _fieldRow("elearning_fields", "이러닝 플랫폼 및 URL", "💻") : ""}
+${activeTab !== "result" ? _fieldRow("plan_content", "계획 상세 내용", "📝") : ""}
 ${activeTab === "apply" ? _fieldRow("apply_reason", "신청사유", "💬") : ""}
 ${_sectionHeader("📢 제공항목 (FO 읽기전용)", "#2563EB")}
 ${_fieldRow("prov_guide", "안내사항", "💡")}
@@ -1351,9 +1357,9 @@ ${activeTab !== "result" ? _fieldRow("calc_grounds", "세부산출근거", "📐
     const resultOnlyFields = `
 ${_sectionHeader("📋 기본정보 (필수 고정)", sc)}
 ${_fieldRow("edu_type", "교육유형", "🎓", true)}
-${_fieldRow("edu_name", "교육명", "📌", true)}
-${_fieldRow("headcount", "실제 참가인원", "👥", true)}
+${_fieldRow("edu_name", "교육(계획)명", "📌", true)}
 ${_sectionHeader("📊 결과정보", "#374151")}
+${_fieldRow("headcount", "실제 참가인원", "👥")}
 ${_fieldRow("edu_category", "필수구분 (법정/핵심 등)", "📑")}
 ${_fieldRow("completion_rate", "수료율", "✅")}
 ${_fieldRow("satisfaction", "만족도", "⭐")}

@@ -1,4 +1,4 @@
-﻿// ─── fo_apply_actions.js — 헬퍼/제출/저장/취소/플랜피커 (REFACTOR-2: apply.js 분리) ───
+// ─── fo_apply_actions.js — 헬퍼/제출/저장/취소/플랜피커 (REFACTOR-2: apply.js 분리) ───
 
 function selectPurpose(id) {
   // 정책 기반 목적 목록에서 우선 탐색 → PURPOSES 폴백
@@ -1034,9 +1034,13 @@ function applyNext() {
       policies.find((p) => {
         const acc = p.account_codes || p.accountCodes || [];
         const pTypes = p.edu_types || p.eduTypes || [];
+        const sei = p.selected_edu_item || p.selectedEduItem;
+        const allTypes = [...pTypes];
+        if (sei?.subId) allTypes.push(sei.subId);
+        if (sei?.typeId) allTypes.push(sei.typeId);
         const accountOk = !accCode || acc.includes(accCode);
         const eduTypeOk =
-          !eduType || pTypes.length === 0 || pTypes.includes(eduType);
+          !eduType || allTypes.length === 0 || allTypes.includes(eduType);
         return _purposeMatch(p.purpose) && accountOk && eduTypeOk;
       }) ||
       policies.find((p) => {

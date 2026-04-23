@@ -1336,6 +1336,7 @@ ${_fieldRow("edu_name", "교육과정명", "📌", true)}
 ${_fieldRow("learning_objective", "교육목표/내용/대상", "🎯")}
 ${_fieldRow("edu_category", "필수구분 (법정/핵심 등)", "📑")}
 ${_fieldRow("manager_info", "담당자 정보 (유저 검색)", "👤")}
+${(activeTab === "apply" && _policyWizardData.process_pattern === "A") ? _sectionHeader("🔗 연동정보", "#374151") + "\n" + _fieldRow("multi_plan_link", "교육계획 불러오기 (복수 연동)", "🔗") : ""}
 ${_sectionHeader("📅 일정정보", "#374151")}
 ${_fieldRow("start_end_date", "교육기간", "📅")}
 ${_fieldRow("edu_days", "교육일수", "📆")}

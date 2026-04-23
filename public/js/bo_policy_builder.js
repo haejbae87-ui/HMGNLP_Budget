@@ -896,7 +896,7 @@ function renderPolicyWizard() {
 
     let block0 = `
 <div style="display:grid;gap:18px">
-  <div style="padding:12px 16px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;font-size:12px;color:#92400E">
+  <div style="padding:12px 16px;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;font-size:12px;color:#4B5563">
     💡 정책의 <strong>이름, 서비스 유형, 교육 목적, 교육유형</strong>을 정의합니다.
   </div>
   ${nameBlock}
@@ -936,7 +936,7 @@ function renderPolicyWizard() {
     let block1 = `
 <div style="display:grid;gap:18px">
   <div style="padding:12px 16px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;font-size:12px;color:#92400E">
-    💡 정책이 적용될 <strong>회사 · 가상교육조직 · 예산계정</strong>을 설정합니다. 이 설정이 정책의 데이터 범위를 결정합니다.
+    💡 정책이 적용될 <strong>회사 · 가상교육조직 · 예산계정</strong>을 가장 먼저 설정합니다. 이 설정이 정책의 데이터 범위를 결정합니다.
   </div>
   ${
     isPlatform
@@ -971,56 +971,36 @@ function renderPolicyWizard() {
       <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#DDD6FE;color:#5B21B6">자동 고정</span>
     </div>`
         : `
-    <div style="display:grid;gap:6px">
+    <select onchange="_policyWizardData.vorgTemplateId=this.value;_policyWizardData.accountCodes=[];_policyWizardData.budgetLinked=true;renderPolicyWizard()"
+      style="width:100%;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700">
+      <option value="">— 가상교육조직을 선택하세요 —</option>
       ${
         scopeVorgs.length > 0
-          ? scopeVorgs
-              .map(
-                (g) => `
-      <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:10px;
-                    border:2px solid ${scopeVorgId === g.id ? "#7C3AED" : "#E5E7EB"};
-                    background:${scopeVorgId === g.id ? "#F5F3FF" : "white"};cursor:pointer"
-             onclick="_policyWizardData.vorgTemplateId='${g.id}';_policyWizardData.accountCodes=[];_policyWizardData.budgetLinked=true;renderPolicyWizard()">
-        <input type="radio" name="wiz-group" ${scopeVorgId === g.id ? "checked" : ""} style="margin:0;flex-shrink:0">
-        <div>
-          <div style="font-weight:800;font-size:13px;color:${scopeVorgId === g.id ? "#7C3AED" : "#374151"}">${g.name}</div>
-        </div>
-      </label>`,
-              )
-              .join("")
-          : '<div style="font-size:12px;padding:10px;color:#9CA3AF">해당 회사의 가상교육조직이 없습니다. 먼저 조직을 생성하세요.</div>'
+          ? scopeVorgs.map((g) => `<option value="${g.id}" ${scopeVorgId === g.id ? "selected" : ""}>${g.name}</option>`).join("")
+          : ""
       }
-    </div>`
+    </select>
+    ${scopeVorgs.length === 0 ? '<div style="font-size:12px;padding-top:6px;color:#EF4444">해당 회사의 가상교육조직이 없습니다. 먼저 조직을 생성하세요.</div>' : ""}`
     }
   </div>`
       : ""
   }
   
   ${
-    scopeVorgId && scopeAccts.length
+    scopeVorgId
       ? `
   <div>
     <label class="bo-label">예산 계정 선택 <span style="color:#EF4444">*</span></label>
-    <div style="display:grid;gap:6px">
-      ${scopeAccts
-        .map(
-          (a) => `
-      <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;
-                    border:2px solid ${(d.accountCodes || [])[0] === a.code ? "#1D4ED8" : "#E5E7EB"};
-                    background:${(d.accountCodes || [])[0] === a.code ? "#EFF6FF" : "white"};cursor:pointer"
-             onclick="_selectPolicyAcct('${a.code}')">
-        <input type="radio" name="wiz-acct" ${(d.accountCodes || [])[0] === a.code ? "checked" : ""} style="margin:0;flex-shrink:0">
-        <div>
-          <div style="font-weight:800;font-size:13px;color:${(d.accountCodes || [])[0] === a.code ? "#1E40AF" : "#374151"}">
-            ${a.code === "COMMON-FREE" ? "📝 " : a.budgetLinked === false ? "" : "💳 "}${a.name}
-          </div>
-          <div style="font-size:11px;color:#9CA3AF">${a.desc || ""}</div>
-        </div>
-        ${(d.accountCodes || [])[0] === a.code ? `<span style="margin-left:auto;font-size:10px;font-weight:900;padding:2px 8px;border-radius:5px;background:#1D4ED8;color:white">선택됨</span>` : ""}
-      </label>`,
-        )
-        .join("")}
-    </div>
+    ${scopeAccts.length > 0 ? `
+    <select onchange="_selectPolicyAcct(this.value)"
+      style="width:100%;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700">
+      <option value="">— 예산 계정을 선택하세요 —</option>
+      ${scopeAccts.map((a) => {
+        const prefix = a.code === "COMMON-FREE" ? "📝 " : a.budgetLinked === false ? "" : "💳 ";
+        return `<option value="${a.code}" ${(d.accountCodes || [])[0] === a.code ? "selected" : ""}>${prefix}${a.name}</option>`;
+      }).join("")}
+    </select>` : '<div style="font-size:12px;color:#EF4444;padding-top:6px">선택한 조직에 연결된 계정이 없습니다.</div>'}
+    
     ${
       (d.accountCodes || [])[0]
         ? `
@@ -1030,12 +1010,7 @@ function renderPolicyWizard() {
         : ""
     }
   </div>`
-      : scopeVorgId
-        ? `
-  <div style="padding:20px;text-align:center;background:#F9FAFB;border-radius:10px;color:#9CA3AF;font-size:12px">
-    선택한 가상교육조직에 연결된 예산 계정이 없습니다.
-  </div>`
-        : ""
+      : ""
   }
 </div>`;
 
@@ -1110,9 +1085,9 @@ function renderPolicyWizard() {
 
     stepContent = `
 <div style="display:grid;gap:32px;padding-bottom:20px">
-  ${block0}
-  <hr style="border-top:1.5px dashed #E5E7EB;margin:0"/>
   ${block1}
+  <hr style="border-top:1.5px dashed #E5E7EB;margin:0"/>
+  ${block0}
   <hr style="border-top:1.5px dashed #E5E7EB;margin:0"/>
   ${block2}
 </div>`;

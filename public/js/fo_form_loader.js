@@ -1111,6 +1111,54 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
   const showElearning = inline.elearning_fields === true;
   const showContent = inline.plan_content === true;
 
+  // 교육유형 (읽기 전용 표시용)
+  const showEduType = inline.edu_type !== false;
+  const eduTypeField = showEduType ? `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🎓 교육유형 <span class="text-xs font-medium text-blue-500 ml-2">(읽기전용)</span></label>
+      <div class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-3 font-bold text-gray-500">
+        ${eduType || '선택된 교육유형 표시'}
+      </div>
+    </div>` : '';
+
+  // 제공항목 (FO 읽기전용)
+  const showProvGuide = inline.prov_guide === true;
+  const showProvMaterials = inline.prov_materials === true;
+  const showProvVenue = inline.prov_venue === true;
+  const showProvInstructor = inline.prov_instructor === true;
+
+  const provGuideField = showProvGuide ? `
+    <div>
+      <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">💡 안내사항 <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
+      <div class="w-full bg-blue-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-medium text-blue-800 whitespace-pre-wrap">
+        ${(s.extra_fields||{}).prov_guide || '관리자가 등록한 안내사항이 표시됩니다.'}
+      </div>
+    </div>` : '';
+
+  const provMaterialsField = showProvMaterials ? `
+    <div>
+      <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">🎒 준비물 <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
+      <div class="w-full bg-blue-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-medium text-blue-800 whitespace-pre-wrap">
+        ${(s.extra_fields||{}).prov_materials || '관리자가 등록한 준비물이 표시됩니다.'}
+      </div>
+    </div>` : '';
+
+  const provVenueField = showProvVenue ? `
+    <div>
+      <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">🏢 확정 교육장소 <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
+      <div class="w-full bg-blue-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-medium text-blue-800">
+        ${(s.extra_fields||{}).prov_venue || '관리자가 확정한 교육장소가 표시됩니다.'}
+      </div>
+    </div>` : '';
+
+  const provInstructorField = showProvInstructor ? `
+    <div>
+      <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">👨‍🏫 확정 강사 <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
+      <div class="w-full bg-blue-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-medium text-blue-800">
+        ${(s.extra_fields||{}).prov_instructor || '관리자가 확정한 강사 정보가 표시됩니다.'}
+      </div>
+    </div>` : '';
+
   // 국내/해외 토글
   const regionToggle = showRegion ? `
     <div>
@@ -1266,6 +1314,7 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
 
   return [
     phaseBBadge,
+    eduTypeField,
     regionToggle,
     countryField,
     titleField,
@@ -1278,6 +1327,10 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
     locationSection,
     amountField,
     contentField,
+    provGuideField,
+    provMaterialsField,
+    provVenueField,
+    provInstructorField,
   ].filter(Boolean).join('\n');
 };
 window.foRenderStandardPlanForm = window.foRenderStandardPlanForm;
@@ -1304,6 +1357,54 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
   const showAmount = inline.requested_budget !== false && !isNoBudget;
   const showCalc = inline.calc_grounds !== false && !isNoBudget;
   const showContent = inline.apply_reason !== false;
+
+  // 교육유형 (읽기 전용 표시용)
+  const showEduType = inline.edu_type !== false;
+  const eduTypeField = showEduType ? `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🎓 교육유형 <span class="text-xs font-medium text-blue-500 ml-2">(읽기전용)</span></label>
+      <div class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-3 font-bold text-gray-500">
+        ${eduType || '선택된 교육유형 표시'}
+      </div>
+    </div>` : '';
+
+  // 제공항목 (FO 읽기전용)
+  const showProvGuide = inline.prov_guide === true;
+  const showProvMaterials = inline.prov_materials === true;
+  const showProvVenue = inline.prov_venue === true;
+  const showProvInstructor = inline.prov_instructor === true;
+
+  const provGuideField = showProvGuide ? `
+    <div>
+      <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">💡 안내사항 <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
+      <div class="w-full bg-blue-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-medium text-blue-800 whitespace-pre-wrap">
+        ${(s.extra_fields||{}).prov_guide || '관리자가 등록한 안내사항이 표시됩니다.'}
+      </div>
+    </div>` : '';
+
+  const provMaterialsField = showProvMaterials ? `
+    <div>
+      <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">🎒 준비물 <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
+      <div class="w-full bg-blue-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-medium text-blue-800 whitespace-pre-wrap">
+        ${(s.extra_fields||{}).prov_materials || '관리자가 등록한 준비물이 표시됩니다.'}
+      </div>
+    </div>` : '';
+
+  const provVenueField = showProvVenue ? `
+    <div>
+      <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">🏢 확정 교육장소 <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
+      <div class="w-full bg-blue-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-medium text-blue-800">
+        ${(s.extra_fields||{}).prov_venue || '관리자가 확정한 교육장소가 표시됩니다.'}
+      </div>
+    </div>` : '';
+
+  const provInstructorField = showProvInstructor ? `
+    <div>
+      <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">👨‍🏫 확정 강사 <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
+      <div class="w-full bg-blue-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-medium text-blue-800">
+        ${(s.extra_fields||{}).prov_instructor || '관리자가 확정한 강사 정보가 표시됩니다.'}
+      </div>
+    </div>` : '';
 
   // 국내/해외 토글
   const regionToggle = showRegion ? `
@@ -1389,12 +1490,17 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
 
   return [
     phaseBBadge,
+    eduTypeField,
     regionToggle,
     titleField,
     datesField,
     hoursField,
     elearningFields,
     contentField,
+    provGuideField,
+    provMaterialsField,
+    provVenueField,
+    provInstructorField,
   ].filter(Boolean).join('\n');
 };
 

@@ -1972,20 +1972,18 @@ function _saveInlineForm(stage) {
 
 // [Phase F-2] FO 미리보기 모달 렌더링
 function _previewFoForm(stage) {
-  // fo_form_loader.js 의 renderDynamicFormFields 를 사용하여 모달에 렌더링 시뮬레이션
-  if (typeof renderDynamicFormFields !== "function") {
+  // fo_form_loader.js 의 foRenderStandardPlanForm / foRenderStandardApplyForm 을 사용하여 모달에 렌더링 시뮬레이션
+  if (typeof foRenderStandardPlanForm !== "function" || typeof foRenderStandardApplyForm !== "function") {
     alert("FO 폼 렌더러(fo_form_loader.js)가 로드되지 않았습니다.");
     return;
   }
   const flds = _policyWizardData.stageFormFields[stage] || {};
-  // 가상 양식 메타데이터 생성
-  const mockTemplate = { fields: Object.keys(flds).filter(k => flds[k]).map(k => ({ key: k, required: false })) };
   
   const modal = document.createElement("div");
   modal.id = "fo-preview-modal";
   modal.style.cssText = "position:fixed;inset:0;background:rgba(17,24,39,0.8);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px";
   
-  const stageLabel = { forecast: "수요예측", ongoing: "상시계획", apply: "신청", result: "결과" };
+  const stageLabel = { plan: "계획", forecast: "수요예측", ongoing: "상시계획", apply: "신청", result: "결과" };
   const title = `[미리보기] ${stageLabel[stage] || stage} 양식`;
   
   modal.innerHTML = `
@@ -1999,10 +1997,28 @@ function _previewFoForm(stage) {
   `;
   document.body.appendChild(modal);
   
-  // fo_form_loader.js 실행
-  // 기본 모드 (학습자 신청 화면 가정)
-  const html = renderDynamicFormFields(mockTemplate.fields, {}, "mockState");
-  document.getElementById('fo-preview-content').innerHTML = html || '<div style="color:#9CA3AF">선택된 폼 항목이 없습니다.</div>';
+  // 가상 상태 (미리보기용)
+  const dummyState = { 
+    title: "", 
+    is_overseas: false, 
+    region: "domestic",
+    venue_type: "internal",
+    startDate: "",
+    endDate: "",
+    calcGrounds: []
+  };
+  const dummyBudget = { usesBudget: true }; // 예산 입력 필드 활성화를 위한 가상 예산
+
+  let html = '';
+  if (stage === 'plan' || stage === 'forecast' || stage === 'ongoing') {
+    html = foRenderStandardPlanForm(dummyState, dummyBudget, flds);
+  } else if (stage === 'apply') {
+    html = foRenderStandardApplyForm(dummyState, dummyBudget, flds);
+  } else {
+    html = '<div style="color:#9CA3AF;text-align:center;padding:40px;">해당 단계의 미리보기 렌더러가 준비되지 않았습니다.</div>';
+  }
+
+  document.getElementById('fo-preview-content').innerHTML = html || '<div style="color:#9CA3AF;text-align:center;padding:40px;">선택된 폼 항목이 없거나 렌더링할 수 없습니다.</div>';
 }
 function togglePolicyForm(id) {
   const arr = _policyWizardData.formIds || [];

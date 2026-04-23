@@ -1331,13 +1331,11 @@ function renderPolicyWizard() {
     // 단계별 필드 구성
     const planFields = `
 ${_sectionHeader("📋 기본정보 (필수 고정)", sc)}
-${_fieldRow("edu_type", "교육유형", "🎓", true)}
+${_fieldRow("edu_name", "교육과정명", "📌", true)}
 ${_fieldRow("education_format", "교육형태 (온/오프라인)", "💻")}
 ${_fieldRow("is_overseas", "국내/해외 구분", "🌐", true)}
-${_fieldRow("edu_name", "교육과정명", "📌", true)}
+${_fieldRow("learning_objective", "교육목표/기대효과", "🎯")}
 ${_sectionHeader("📐 교육상세", "#374151")}
-${_fieldRow("learning_objective", "교육목표", "🎯")}
-${_fieldRow("expected_benefit", "기대효과", "💡")}
 ${_fieldRow("target_audience", "교육대상", "🎯")}
 ${_fieldRow("edu_category", "필수구분 (법정/핵심 등)", "📑")}
 ${_fieldRow("headcount", "참가인원", "👥")}
@@ -1374,7 +1372,6 @@ ${activeTab !== "result" ? _fieldRow("calc_grounds", "세부산출근거", "📐
 
     const resultOnlyFields = `
 ${_sectionHeader("📋 기본정보 (필수 고정)", sc)}
-${_fieldRow("edu_type", "교육유형", "🎓", true)}
 ${_fieldRow("edu_name", "교육과정명", "📌", true)}
 ${_sectionHeader("📊 결과정보", "#374151")}
 ${_fieldRow("headcount", "실제 참가인원", "👥")}

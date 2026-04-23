@@ -479,7 +479,6 @@ ${policyBudgets
         <span style="font-size:14px;font-weight:900;color:${active ? "#002C5F" : "#111827"}">${b.name}</span>
         ${vorgLabel}
       </div>
-      <div style="font-size:11px;color:#9CA3AF;margin-top:3px">${acctTypeLabel}</div>
     </div>
     ${active ? '<span style="font-size:11px;font-weight:900;padding:3px 10px;border-radius:6px;background:#DBEAFE;color:#1D4ED8">선택됨</span>' : ""}
   </div>
@@ -513,7 +512,7 @@ ${
   </div>
   <div style="font-size:11px;color:#15803D;display:flex;align-items:flex-start;gap:5px">
     <span style="font-size:12px;flex-shrink:0">ⓘ</span>
-    <span>${_processInfo.hint}${_processInfo.policyName ? ` <span style="color:#6B7280">(${_processInfo.policyName})</span>` : ""}</span>
+    <span>${_processInfo.hint}</span>
   </div>
 </div>`
     : ""

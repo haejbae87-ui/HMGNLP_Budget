@@ -1224,6 +1224,8 @@ function renderPolicyWizard() {
         // 기존에 forecast나 ongoing으로 저장된 데이터가 있다면 plan으로 마이그레이션
         if (s === "plan") {
            d.stageFormFields.plan = d.stageFormFields.ongoing || d.stageFormFields.forecast || {};
+        } else {
+           d.stageFormFields[s] = {};
         }
 
         // 기본 필드 활성화 상태 초기화 (비어있는 경우에만)

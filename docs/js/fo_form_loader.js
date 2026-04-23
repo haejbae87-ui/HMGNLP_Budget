@@ -1093,24 +1093,23 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
   const eduType    = s.eduType || '';
   const subType    = s.subType || '';
 
-  // 교육유형 기반 템플릿 분류
-  const isSelfLearning = ['external_personal', 'elearning_personal'].includes(s.purpose?.id) ||
-    ['이러닝', 'elearning', 'external'].includes(eduType) || subType.includes('elearning');
-  const isElearning    = ['이러닝', 'elearning'].includes(eduType) || subType.includes('elearning');
-  const isConsignment  = ['위탁', 'consignment'].includes(subType) || subType.includes('consignment');
-
   // 무예산 계정 판별 (비용 필드 강제 비활성화)
   const isNoBudget = curBudget?.account === '참가' || curBudget?.usesBudget === false || curBudget?.uses_budget === false;
 
-  // 인라인 필드 설정 확인 (기본값 true) - BO policy_builder의 stageFormFields 속성명 일치
+  // 인라인 필드 설정 확인 (BO policy_builder의 stageFormFields 속성명 일치)
+  // 기본 필드들은 명시적 false가 아니면 노출 (하위 호환성)
   const showRegion = inline.is_overseas !== false;
   const showTitle = inline.edu_name !== false;
   const showDates = inline.start_end_date !== false;
-  const showVenue = !isSelfLearning && inline.venue_type !== false;
-  const showHeadcount = !isSelfLearning && inline.headcount !== false;
+  const showVenue = inline.venue_type !== false;
+  const showHeadcount = inline.headcount !== false;
   const showAmount = inline.requested_budget !== false && !isNoBudget;
   const showCalc = inline.calc_grounds !== false && !isNoBudget;
-  const showContent = true; // 계획 상세 내용은 고정 노출 또는 별도 정책 없음
+  
+  // 신규 추가된 특화 필드들은 명시적 true일 때만 노출 (하드코딩 제거, BO 제어권 100%)
+  const showConsign = inline.consignment_org === true;
+  const showElearning = inline.elearning_fields === true;
+  const showContent = inline.plan_content === true;
 
   // 국내/해외 토글
   const regionToggle = showRegion ? `
@@ -1139,7 +1138,7 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
   // 계획명
   const titleField = showTitle ? `
     <div>
-      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">계획명 <span class="text-red-500">*</span></label>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">교육(계획)명 <span class="text-red-500">*</span></label>
       <input type="text" value="${s.title || ''}" oninput="planState.title=this.value"
         placeholder="예) 26년 AI 탐구형 학습 계획"
         class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
@@ -1179,7 +1178,7 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
     </div>` : '';
 
   // 예상 인원 / 차수 (교육운영 목적)
-  const showRounds = !isSelfLearning && inline.planned_rounds !== false;
+  const showRounds = inline.planned_rounds !== false;
   const headcountField = (showHeadcount || showRounds) ? `
     <div class="grid grid-cols-2 gap-5">
       ${showHeadcount ? `
@@ -1197,7 +1196,6 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
     </div>` : '';
 
   // 위탁기관명 (위탁 교육유형, BO edu_org 설정 연동)
-  const showConsign = isConsignment && inline.edu_org !== false;
   const consignField = showConsign ? `
     <div>
       <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🏫 위탁기관명 <span class="text-red-500">*</span></label>
@@ -1208,7 +1206,7 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
     </div>` : '';
 
   // 이러닝 플랫폼/URL
-  const elearningFields = isElearning ? `
+  const elearningFields = showElearning ? `
     <div class="grid grid-cols-2 gap-5">
       <div>
         <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">💻 이러닝 플랫폼</label>

@@ -540,7 +540,6 @@ function renderPlanWizard() {
               <span style="font-size:14px;font-weight:900;color:${active ? "#002C5F" : "#111827"}">${b.name}</span>
               ${vorgLabel}
             </div>
-            <div style="font-size:11px;color:#9CA3AF;margin-top:3px">${acctTypeLabel}</div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
             ${(() => {
@@ -550,9 +549,10 @@ function renderPlanWizard() {
               const remain = (personaBudget.balance || 0) - (personaBudget.used || 0);
               const total  = personaBudget.balance || 0;
               const pct    = total > 0 ? Math.round(remain / total * 100) : 0;
-              const [col, bg, icon] = remain <= 0
-                ? ['#DC2626', '#FEE2E2', '🔴']
-                : pct < 20
+              
+              if (remain <= 0) return ''; // 잔액 0원인 경우 계획 수립 단계에서는 뱃지 미노출
+
+              const [col, bg, icon] = pct < 20
                   ? ['#D97706', '#FFFBEB', '🟡']
                   : ['#059669', '#F0FDF4', '🟢'];
               return `<span style="font-size:10px;padding:2px 10px;border-radius:6px;background:${bg};color:${col};font-weight:900">${icon} 잔액 ${remain.toLocaleString()}원</span>`;
@@ -596,7 +596,7 @@ ${
       </div>
       <div style="font-size:11px;color:#15803D;display:flex;align-items:flex-start;gap:5px">
         <span style="font-size:12px;flex-shrink:0">ⓘ</span>
-        <span>${_processInfo.hint}${_processInfo.policyName ? ` <span style="color:#6B7280">(${_processInfo.policyName})</span>` : ""}</span>
+        <span>${_processInfo.hint}</span>
       </div>
     </div>`
     : ""

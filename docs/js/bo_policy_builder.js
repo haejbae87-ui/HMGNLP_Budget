@@ -33,22 +33,6 @@ const _PATTERN_META = {
     applyMode: "reimbursement",
     budgetLinked: true,
   },
-  D: {
-    label: "패턴D: 신청 단독(이력)",
-    color: "#6B7280",
-    icon: "📋",
-    flow: "result-only",
-    applyMode: null,
-    budgetLinked: false,
-  },
-  E: {
-    label: "패턴E: 신청→결과(이력+결과)",
-    color: "#059669",
-    icon: "✅",
-    flow: "apply-result",
-    applyMode: null,
-    budgetLinked: false,
-  },
 };
 
 // 패턴별 활성 단계
@@ -56,12 +40,10 @@ const _PATTERN_STAGES = {
   A: ["forecast", "ongoing", "apply", "result"],
   B: ["ongoing", "apply", "result"],
   C: ["apply", "result"],
-  D: ["result"],
-  E: ["apply", "result"],
 };
 
 function _patternFromPolicy(p) {
-  return (
+  let pat = (
     p.processPattern ||
     (p.flow === "plan-apply-result"
       ? "A"
@@ -69,6 +51,9 @@ function _patternFromPolicy(p) {
         ? "B"
         : "C")
   );
+  if (pat === "D") pat = "B";
+  if (pat === "E") pat = "C";
+  return pat;
 }
 
 // ── 목적·유형 정의 ────────────────────────────────────────────────────────────
@@ -697,7 +682,7 @@ function startPolicyWizard(policyId) {
 // ── 위저드 렌더링 ─────────────────────────────────────────────────────────────
 function renderPolicyWizard() {
   const el = document.getElementById("bo-content");
-  const steps = ["정책 정의", "정책 범위", "패턴", "양식", "결재라인"];
+  const steps = ["기본 설정", "양식", "결재라인"];
   const TOTAL = steps.length - 1;
   const d = _policyWizardData;
   const persona = boCurrentPersona;
@@ -909,7 +894,7 @@ function renderPolicyWizard() {
       }
     }
 
-    stepContent = `
+    let block0 = `
 <div style="display:grid;gap:18px">
   <div style="padding:12px 16px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;font-size:12px;color:#92400E">
     💡 정책의 <strong>이름, 서비스 유형, 교육 목적, 교육유형</strong>을 정의합니다.
@@ -921,7 +906,7 @@ function renderPolicyWizard() {
 </div>`;
 
     // ── Step 1: 정책 범위 (회사 → 가상교육조직 → 예산계정) ────────────────────
-  } else if (_policyWizardStep === 1) {
+  // } else if (_policyWizardStep === 1) {
     const isPlatform = persona.role === "platform_admin";
     const isTenant = ["tenant_global_admin"].includes(persona.role);
     const isBudgetOp = [
@@ -948,7 +933,7 @@ function renderPolicyWizard() {
       ? _pbAccountList.filter((a) => a.virtual_org_template_id === scopeVorgId)
       : [];
 
-    stepContent = `
+    let block1 = `
 <div style="display:grid;gap:18px">
   <div style="padding:12px 16px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;font-size:12px;color:#92400E">
     💡 정책이 적용될 <strong>회사 · 가상교육조직 · 예산계정</strong>을 설정합니다. 이 설정이 정책의 데이터 범위를 결정합니다.
@@ -1055,7 +1040,7 @@ function renderPolicyWizard() {
 </div>`;
 
     // ── Step 2: 패턴 ─────────────────────────────────────────────────────────────
-  } else if (_policyWizardStep === 2) {
+  // } else if (_policyWizardStep === 2) {
     const isNoBudget = !d.budgetLinked;
     const selAcctName =
       (d.accountCodes || [])
@@ -1069,132 +1054,71 @@ function renderPolicyWizard() {
         icon: "📊",
         l: "패턴A: 계획→신청→결과",
         color: "#7C3AED",
-        d: "고통제형. R&D·대규모 집합교육. 사전계획 필수, 예산 가점유 후 실차감.",
-        budgetOnly: true,
+        d: isNoBudget ? "무예산. 사전계획 후 신청 및 결과보고 진행." : "고통제형. 사전계획 필수, 예산 가점유 후 실차감.",
       },
       {
         v: "B",
         icon: "📝",
         l: "패턴B: 신청→결과",
         color: "#1D4ED8",
-        d: "자율신청형. 일반 사외교육 참가. 신청 승인 시 가점유, 결과 후 실차감.",
-        budgetOnly: true,
+        d: isNoBudget ? "무예산. 사전 신청 승인 후 이력 적재 및 결과보고." : "자율신청형. 신청 승인 시 가점유, 결과 후 실차감.",
       },
       {
         v: "C",
         icon: "🧾",
-        l: "패턴C: 결과 단독(후정산)",
+        l: "패턴C: 결과 단독(후정산/결과보고)",
         color: "#D97706",
-        d: "선지불 후정산. 개인 카드 결제 후 영수증 첨부. 승인 즉시 예산 차감.",
-        budgetOnly: true,
-      },
-      {
-        v: "D",
-        icon: "📋",
-        l: "패턴D: 신청 단독(이력)",
-        color: "#6B7280",
-        d: "무예산 이력관리. 무료 웨비나·자체세미나. 승인 시 즉시 이력 DB 적재.",
-        budgetOnly: false,
-      },
-      {
-        v: "E",
-        icon: "✅",
-        l: "패턴E: 신청→결과(이력+결과)",
-        color: "#059669",
-        d: "무예산이지만 결과보고까지 진행. 자비학습 후 결과 제출 필요한 경우.",
-        budgetOnly: false,
+        d: isNoBudget ? "무예산. 자비학습 후 결과 증빙 제출 전용." : "선지불 후정산. 개인 카드 결제 후 영수증 첨부. 승인 즉시 예산 차감.",
       },
     ];
 
-    // 현재 선택값이 허용 범위 밖이면 자동 초기화
-    const allowedSet = isNoBudget ? ["D", "E"] : ["A", "B", "C"];
-    if (d.processPattern && !allowedSet.includes(d.processPattern)) {
-      d.processPattern = "";
-      _policyWizardData.processPattern = "";
-    }
-
     const renderPatternItem = (o) => {
-      const isAllowed = isNoBudget ? !o.budgetOnly : o.budgetOnly;
       const isSelected = d.processPattern === o.v;
-      const borderColor = isSelected
-        ? o.color
-        : isAllowed
-          ? "#E5E7EB"
-          : "#F3F4F6";
-      const bgColor = isSelected
-        ? o.color + "15"
-        : isAllowed
-          ? "white"
-          : "#FAFAFA";
-      const textColor = isSelected
-        ? o.color
-        : isAllowed
-          ? "#374151"
-          : "#9CA3AF";
-      const cursor = isAllowed ? "pointer" : "not-allowed";
-      const onclick = isAllowed
-        ? `onclick="_policyWizardData.processPattern='${o.v}';_setPatternDefaults('${o.v}');renderPolicyWizard()"`
-        : "";
-      const disabledTag = !isAllowed
-        ? `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:${isNoBudget ? "#EFF6FF" : "#F0FDF4"};color:${isNoBudget ? "#1E40AF" : "#065F46"};margin-left:6px">${isNoBudget ? "💳 예산연동 전용" : "📝 무예산 전용"}</span>`
-        : "";
+      const borderColor = isSelected ? o.color : "#E5E7EB";
+      const bgColor = isSelected ? o.color + "15" : "white";
+      const textColor = isSelected ? o.color : "#374151";
+      const onclick = `onclick="_policyWizardData.processPattern='${o.v}';_setPatternDefaults('${o.v}');renderPolicyWizard()"`;
 
       return `
       <label style="display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border-radius:10px;
-                    border:2px solid ${borderColor};background:${bgColor};cursor:${cursor};opacity:${isAllowed ? "1" : "0.55"}"
+                    border:2px solid ${borderColor};background:${bgColor};cursor:pointer"
              ${onclick}>
-        <input type="radio" name="wiz-pattern" value="${o.v}" ${isSelected ? "checked" : ""} ${!isAllowed ? "disabled" : ""}
-               style="margin-top:2px;flex-shrink:0">
+        <input type="radio" name="wiz-pattern" value="${o.v}" ${isSelected ? "checked" : ""} style="margin-top:2px;flex-shrink:0">
         <div>
           <div style="font-weight:800;font-size:13px;color:${textColor};display:flex;align-items:center;flex-wrap:wrap;gap:4px">
-            ${o.icon} ${o.l}${disabledTag}
+            ${o.icon} ${o.l}
           </div>
-          <div style="font-size:11px;color:${isAllowed ? "#6B7280" : "#B0B8C4"};margin-top:2px">${o.d}</div>
+          <div style="font-size:11px;color:#6B7280;margin-top:2px">${o.d}</div>
         </div>
       </label>`;
     };
 
-    const budgetGroup = allPatterns.filter((p) => p.budgetOnly);
-    const noBudgetGroup = allPatterns.filter((p) => !p.budgetOnly);
-
-    stepContent = `
+    let block2 = `
 <div style="display:grid;gap:16px">
   <div style="padding:12px 16px;background:${isNoBudget ? "#F0FDF4" : "#EFF6FF"};border:1px solid ${isNoBudget ? "#A7F3D0" : "#BFDBFE"};border-radius:10px;display:flex;align-items:center;gap:10px;font-size:12px">
     ${isNoBudget ? '📝 <strong style="color:#065F46">무예산</strong>' : '💳 <strong style="color:#1E40AF">예산 연동</strong>'}
     <span style="color:#6B7280">|</span>
     <span style="color:#374151;font-weight:700">${selAcctName}</span>
-    <span style="font-size:10px;color:#9CA3AF;margin-left:4px">(Step 2에서 설정됨)</span>
   </div>
   <div>
     <label class="bo-label">프로세스 패턴 <span style="color:#EF4444">*</span></label>
-
-    <!-- 예산 사용 그룹 -->
-    <div style="font-size:11px;font-weight:800;color:${isNoBudget ? "#9CA3AF" : "#1E40AF"};margin-bottom:6px;margin-top:4px;display:flex;align-items:center;gap:6px">
-      💳 예산 사용 계정 전용 ${isNoBudget ? '<span style="font-weight:400">(이 계정에서는 선택 불가)</span>' : ""}
-    </div>
     <div style="display:grid;gap:8px;margin-bottom:14px">
-      ${budgetGroup.map(renderPatternItem).join("")}
-    </div>
-
-    <!-- 구분선 -->
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-      <div style="flex:1;height:1px;background:#E5E7EB"></div>
-      <span style="font-size:10px;color:#9CA3AF;font-weight:700">OR</span>
-      <div style="flex:1;height:1px;background:#E5E7EB"></div>
-    </div>
-
-    <!-- 무예산 그룹 -->
-    <div style="font-size:11px;font-weight:800;color:${!isNoBudget ? "#9CA3AF" : "#065F46"};margin-bottom:6px;display:flex;align-items:center;gap:6px">
-      📝 무예산 계정 전용 ${!isNoBudget ? '<span style="font-weight:400">(이 계정에서는 선택 불가)</span>' : ""}
-    </div>
-    <div style="display:grid;gap:8px">
-      ${noBudgetGroup.map(renderPatternItem).join("")}
+      ${allPatterns.map(renderPatternItem).join("")}
     </div>
   </div>
 </div>`;
 
-    // ── Step 3: 단계별 양식 선택 ──────────────────────────────────────────────
-  } else if (_policyWizardStep === 3) {
+    stepContent = `
+<div style="display:grid;gap:32px;padding-bottom:20px">
+  ${block0}
+  <hr style="border-top:1.5px dashed #E5E7EB;margin:0"/>
+  ${block1}
+  <hr style="border-top:1.5px dashed #E5E7EB;margin:0"/>
+  ${block2}
+</div>`;
+
+    // ── Step 1: 단계별 양식 선택 ──────────────────────────────────────────────
+  } else if (_policyWizardStep === 1) {
     // ── [Phase F-2] 인라인 양식 편집기 ───────────────────────────────────────
     // 기존 외부 양식 선택 방식 대신, 정책 위저드 내에서 직접 필드를 정의
     const rawStages = _PATTERN_STAGES[d.processPattern] || ["apply"];
@@ -1456,8 +1380,8 @@ ${_fieldRow("reimbursement", "환급/정산 처리", "🔁", false, _isNoBudget,
 </div>`;
 
 
-    // ── Step 4: 결재라인 ──────────────────────────────────────────────────────
-  } else if (_policyWizardStep === 4) {
+    // ── Step 2: 결재라인 ──────────────────────────────────────────────────────
+  } else if (_policyWizardStep === 2) {
     const stages = _PATTERN_STAGES[d.processPattern] || ["apply"];
     const stageLabel = { forecast: "📈 수요예측", ongoing: "📊 상시계획", apply: "📝 신청", result: "📄 결과" };
     const stageColor = { forecast: "#8B5CF6", ongoing: "#7C3AED", apply: "#1D4ED8", result: "#059669" };
@@ -1952,12 +1876,7 @@ function _selectPolicyAcct(code) {
     isNoBudgetCode || (acctInDb && acctInDb.uses_budget === false);
   _policyWizardData.accountCodes = isNoBudgetCode ? [] : [code];
   _policyWizardData.budgetLinked = !isNoBudget;
-  // 패턴 자동 보정: 예산↔무예산 전환 시 패턴 리셋
-  const pat = _policyWizardData.processPattern || "";
-  const isBudgetedPat = ["A", "B", "C"].includes(pat);
-  const isNoBudgetPat = ["D", "E"].includes(pat);
-  if (isNoBudget && isBudgetedPat) _policyWizardData.processPattern = "D";
-  if (!isNoBudget && isNoBudgetPat) _policyWizardData.processPattern = "B";
+  // A, B, C 패턴은 예산/무예산 모두 공용이므로 패턴 강제 변경을 수행하지 않음.
   renderPolicyWizard();
 }
 function toggleStageForm(stage, id) {

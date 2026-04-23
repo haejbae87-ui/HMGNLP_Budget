@@ -1330,40 +1330,63 @@ function renderPolicyWizard() {
     const planFields = `
 ${_sectionHeader("📋 기본정보 (필수 고정)", sc)}
 ${_fieldRow("edu_type", "교육유형", "🎓", true)}
+${_fieldRow("education_format", "교육형태 (온/오프라인)", "💻")}
 ${_fieldRow("is_overseas", "국내/해외 구분", "🌐", true)}
-${_fieldRow("edu_name", "교육(계획)명", "📌", true)}
+${_fieldRow("edu_name", "교육과정명", "📌", true)}
 ${_sectionHeader("📐 교육상세", "#374151")}
+${_fieldRow("learning_objective", "교육목표", "🎯")}
+${_fieldRow("expected_benefit", "기대효과", "💡")}
+${_fieldRow("target_audience", "교육대상", "🎯")}
 ${_fieldRow("edu_category", "필수구분 (법정/핵심 등)", "📑")}
 ${_fieldRow("headcount", "참가인원", "👥")}
-${_fieldRow("venue_type", "장소유형", "🏛️")}
 ${_fieldRow("start_end_date", "교육기간", "📅")}
 ${_fieldRow("edu_days", "교육일수", "📆")}
 ${activeTab === "plan" ? _fieldRow("planned_rounds", "예상 차수", "🔄") : ""}
+${activeTab === "plan" ? _fieldRow("hours_per_round", "차수별 시간", "⏳") : ""}
+${activeTab === "plan" ? _fieldRow("is_continuing", "전년도 계속 여부", "🔁") : ""}
 ${activeTab !== "result" ? _fieldRow("edu_org", "교육기관/과정명", "🏫") : ""}
 ${activeTab !== "result" ? _fieldRow("consignment_org", "위탁기관명", "🏫") : ""}
+${activeTab !== "result" ? _fieldRow("instructor_name", "강사명", "👨‍🏫") : ""}
+${activeTab !== "result" ? _fieldRow("venue_type", "장소유형", "🏛️") : ""}
+${activeTab !== "result" ? _fieldRow("education_region", "교육지역", "📍") : ""}
+${activeTab !== "result" ? _fieldRow("has_accommodation", "숙박여부", "🛏️") : ""}
+${activeTab !== "result" ? _fieldRow("lunch_provided", "중식제공여부", "🍱") : ""}
 ${activeTab !== "result" ? _fieldRow("elearning_fields", "이러닝 플랫폼 및 URL", "💻") : ""}
 ${activeTab !== "result" ? _fieldRow("plan_content", "계획 상세 내용", "📝") : ""}
+${activeTab !== "result" ? _fieldRow("course_description", "교육 내용", "📝") : ""}
 ${activeTab === "apply" ? _fieldRow("apply_reason", "신청사유", "💬") : ""}
 ${_sectionHeader("📢 제공항목 (FO 읽기전용)", "#2563EB")}
 ${_fieldRow("prov_guide", "안내사항", "💡")}
 ${_fieldRow("prov_materials", "준비물", "🎒")}
 ${_fieldRow("prov_venue", "확정 교육장소", "🏢")}
 ${_fieldRow("prov_instructor", "확정 강사", "👨‍🏫")}
+${_sectionHeader("📎 증빙/첨부항목", "#4B5563")}
+${_fieldRow("supporting_docs", "증빙자료", "📎")}
+${_fieldRow("course_brochure", "과정소개 자료", "📄")}
 ${noBudgetBanner}
 ${_sectionHeader("💰 비용항목", _isNoBudget ? "#9CA3AF" : "#059669")}
+${activeTab !== "result" ? _fieldRow("is_paid_education", "유료교육여부", "💳", false, _isNoBudget, _isNoBudget ? "무예산 계정" : "") : ""}
+${activeTab !== "result" ? _fieldRow("is_ei_eligible", "고용보험 환급 여부", "💼", false, _isNoBudget, _isNoBudget ? "무예산 계정" : "") : ""}
 ${activeTab !== "result" ? _fieldRow("requested_budget", "계획/신청 금액", "💵", false, _isNoBudget, _isNoBudget ? "무예산 계정" : "") : ""}
 ${activeTab !== "result" ? _fieldRow("calc_grounds", "세부산출근거", "📐", false, _isNoBudget, _isNoBudget ? "무예산 계정" : "") : ""}`;
 
     const resultOnlyFields = `
 ${_sectionHeader("📋 기본정보 (필수 고정)", sc)}
 ${_fieldRow("edu_type", "교육유형", "🎓", true)}
-${_fieldRow("edu_name", "교육(계획)명", "📌", true)}
+${_fieldRow("edu_name", "교육과정명", "📌", true)}
 ${_sectionHeader("📊 결과정보", "#374151")}
 ${_fieldRow("headcount", "실제 참가인원", "👥")}
 ${_fieldRow("edu_category", "필수구분 (법정/핵심 등)", "📑")}
+${_fieldRow("start_end_date", "교육기간", "📅")}
+${_fieldRow("actual_hours", "실제 학습시간", "⏳")}
+${_fieldRow("attendance_rate", "출석률 (%)", "📈")}
 ${_fieldRow("completion_rate", "수료율", "✅")}
 ${_fieldRow("satisfaction", "만족도", "⭐")}
-${_fieldRow("start_end_date", "교육기간", "📅")}
+${_fieldRow("review_comment", "교육소감", "📝")}
+${_fieldRow("work_application_plan", "업무적용계획", "🚀")}
+${_sectionHeader("📎 증빙/첨부항목", "#4B5563")}
+${_fieldRow("completion_cert", "수료증 파일", "🎓")}
+${_fieldRow("expense_receipt", "증빙서류 파일", "🧾")}
 ${_sectionHeader("📢 제공항목 (FO 읽기전용)", "#2563EB")}
 ${_fieldRow("prov_pass", "합격/수료 여부", "🏅")}
 ${_fieldRow("prov_feedback", "관리자 피드백", "💬")}

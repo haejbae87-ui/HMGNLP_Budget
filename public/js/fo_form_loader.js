@@ -1088,16 +1088,13 @@ window.refreshCalcGroundsByContext = function(foContext, prefix) {
  */
 window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
   const inline = inlineFields || {};
-  const isOverseas = s.is_overseas === true || s.region === 'overseas';
-  const venueType  = s.venue_type || 'internal';
-  const eduType    = s.eduType || '';
-  const subType    = s.subType || '';
+  const isOverseas   = s.is_overseas === true || s.region === 'overseas';
+  const eduType      = s.eduType || '';
+  const subType      = s.subType || '';
+  const venueType    = s.venue_type || '';
 
-  // 무예산 계정 판별 (비용 필드 강제 비활성화)
   const isNoBudget = curBudget?.account === '참가' || curBudget?.usesBudget === false || curBudget?.uses_budget === false;
 
-  // 인라인 필드 설정 확인 (BO policy_builder의 stageFormFields 속성명 일치)
-  // 기본 필드들은 명시적 false가 아니면 노출 (하위 호환성)
   const showRegion = inline.is_overseas !== false;
   const showTitle = inline.edu_name !== false;
   const showDates = inline.start_end_date !== false;
@@ -1105,44 +1102,52 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
   const showHeadcount = inline.headcount !== false;
   const showAmount = inline.requested_budget !== false && !isNoBudget;
   const showCalc = inline.calc_grounds !== false && !isNoBudget;
+  const showRounds = inline.planned_rounds !== false;
   
-  // 신규 추가된 특화 필드들은 명시적 true일 때만 노출 (하드코딩 제거, BO 제어권 100%)
-  const showConsign = inline.consignment_org === true;
-  const showElearning = inline.elearning_fields === true;
-  const showContent = inline.plan_content === true;
+  const wrapSection = (title, icon, fieldsArray) => {
+    const content = fieldsArray.filter(Boolean).join('\n');
+    if (!content.trim()) return '';
+    return `
+      <div class="mb-6 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+        <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 font-bold text-gray-700 flex items-center gap-2">
+          <span>${icon}</span> ${title}
+        </div>
+        <div class="p-5 grid gap-5">
+          ${content}
+        </div>
+      </div>
+    `;
+  };
 
-  // 필수구분 (법정/핵심 등)
-  const showEduCategory = inline.edu_category === true;
-  const eduCategoryField = showEduCategory ? `
-    <div>
-      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">📑 필수구분 (법정/핵심 등)</label>
-      <input type="text" value="${s.edu_category || ''}" oninput="planState.edu_category=this.value"
-        placeholder="예) 법정의무, 핵심직무 등"
-        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
-    </div>` : '';
+  const _field = (key, label, type, placeholder, stateObj = 'planState') => {
+    if (inline[key] !== true) return '';
+    if (type === 'textarea') {
+      return `
+        <div>
+          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}</label>
+          <textarea oninput="${stateObj}.${key}=this.value" rows="3" placeholder="${placeholder}"
+            class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-medium text-gray-700 focus:border-accent focus:bg-white transition resize-none">${s[key] || ''}</textarea>
+        </div>`;
+    }
+    if (type === 'boolean') {
+      return `
+        <div>
+          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}</label>
+          <label class="flex items-center cursor-pointer gap-2">
+            <input type="checkbox" onchange="${stateObj}.${key}=this.checked" ${s[key] ? 'checked' : ''} class="w-5 h-5 accent-accent">
+            <span class="text-sm font-bold text-gray-700">선택 (Yes)</span>
+          </label>
+        </div>`;
+    }
+    return `
+      <div>
+        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}</label>
+        <input type="${type}" value="${s[key] || ''}" oninput="${stateObj}.${key}=this.value" placeholder="${placeholder}"
+          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
+      </div>`;
+  };
 
-  // 교육일수
-  const showEduDays = inline.edu_days === true;
-  const eduDaysField = showEduDays ? `
-    <div>
-      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">📆 교육일수</label>
-      <input type="number" value="${s.edu_days || ''}" oninput="planState.edu_days=this.value"
-        placeholder="0" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition"/>
-    </div>` : '';
-
-  // 교육기관/과정명
-  const showEduOrg = inline.edu_org === true;
-  const eduOrgField = showEduOrg ? `
-    <div>
-      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🏫 교육기관/과정명</label>
-      <input type="text" value="${s.edu_org || ''}" oninput="planState.edu_org=this.value"
-        placeholder="교육기관 및 과정명 입력"
-        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
-    </div>` : '';
-
-  // 교육유형 (읽기 전용 표시용)
-  const showEduType = inline.edu_type !== false;
-  const eduTypeField = showEduType ? `
+  const eduTypeField = (inline.edu_type !== false) ? `
     <div>
       <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🎓 교육유형 <span class="text-xs font-medium text-blue-500 ml-2">(읽기전용)</span></label>
       <div class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-3 font-bold text-gray-500">
@@ -1150,78 +1155,32 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
       </div>
     </div>` : '';
 
-  // 제공항목 (FO 읽기전용)
-  const showProvGuide = inline.prov_guide === true;
-  const showProvMaterials = inline.prov_materials === true;
-  const showProvVenue = inline.prov_venue === true;
-  const showProvInstructor = inline.prov_instructor === true;
-
-  const provGuideField = showProvGuide ? `
-    <div>
-      <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">💡 안내사항 <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
-      <div class="w-full bg-blue-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-medium text-blue-800 whitespace-pre-wrap">
-        ${(s.extra_fields||{}).prov_guide || '관리자가 등록한 안내사항이 표시됩니다.'}
-      </div>
-    </div>` : '';
-
-  const provMaterialsField = showProvMaterials ? `
-    <div>
-      <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">🎒 준비물 <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
-      <div class="w-full bg-blue-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-medium text-blue-800 whitespace-pre-wrap">
-        ${(s.extra_fields||{}).prov_materials || '관리자가 등록한 준비물이 표시됩니다.'}
-      </div>
-    </div>` : '';
-
-  const provVenueField = showProvVenue ? `
-    <div>
-      <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">🏢 확정 교육장소 <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
-      <div class="w-full bg-blue-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-medium text-blue-800">
-        ${(s.extra_fields||{}).prov_venue || '관리자가 확정한 교육장소가 표시됩니다.'}
-      </div>
-    </div>` : '';
-
-  const provInstructorField = showProvInstructor ? `
-    <div>
-      <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">👨‍🏫 확정 강사 <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
-      <div class="w-full bg-blue-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-medium text-blue-800">
-        ${(s.extra_fields||{}).prov_instructor || '관리자가 확정한 강사 정보가 표시됩니다.'}
-      </div>
-    </div>` : '';
-
-  // 국내/해외 토글
   const regionToggle = showRegion ? `
     <div>
-      <label style="display:block;font-size:11px;font-weight:800;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🌐 교육 지역 <span style="color:#EF4444">*</span></label>
-      <div style="display:inline-flex;background:#F3F4F6;border-radius:12px;padding:4px;gap:4px">
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🌐 교육 지역 <span class="text-red-500">*</span></label>
+      <div class="inline-flex bg-gray-100 rounded-xl p-1 gap-1">
         <button onclick="planState.is_overseas=false;planState.region='domestic';renderPlanWizard()"
-          style="padding:8px 20px;border-radius:9px;font-size:13px;font-weight:800;border:none;cursor:pointer;transition:all .15s;
-                 background:${!isOverseas ? '#fff' : 'transparent'};color:${!isOverseas ? '#002C5F' : '#9CA3AF'};
-                 box-shadow:${!isOverseas ? '0 1px 4px rgba(0,0,0,.12)' : 'none'}">🗺 국내</button>
+          class="px-5 py-2 rounded-lg text-sm font-bold border-none cursor-pointer transition-all ${!isOverseas ? 'bg-white text-accent shadow-sm' : 'bg-transparent text-gray-400'}">🗺 국내</button>
         <button onclick="planState.is_overseas=true;planState.region='overseas';renderPlanWizard()"
-          style="padding:8px 20px;border-radius:9px;font-size:13px;font-weight:800;border:none;cursor:pointer;transition:all .15s;
-                 background:${isOverseas ? '#002C5F' : 'transparent'};color:${isOverseas ? '#fff' : '#9CA3AF'};
-                 box-shadow:${isOverseas ? '0 2px 8px rgba(0,44,95,.25)' : 'none'}">🌏 해외</button>
+          class="px-5 py-2 rounded-lg text-sm font-bold border-none cursor-pointer transition-all ${isOverseas ? 'bg-accent text-white shadow-md' : 'bg-transparent text-gray-400'}">🌏 해외</button>
       </div>
     </div>` : '';
 
-  // 해외 국가 입력 (is_overseas=true일 때만)
   const countryField = (showRegion && isOverseas) ? `
     <div>
-      <label style="display:block;font-size:11px;font-weight:800;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🌐 교육 국가 <span style="color:#EF4444">*</span></label>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🌐 교육 국가 <span class="text-red-500">*</span></label>
       <input type="text" value="${s.overseas_country || ''}" oninput="planState.overseas_country=this.value"
-        placeholder="예) 미국, 일본, 독일" class="w-full bg-gray-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
+        placeholder="예) 미국, 일본, 독일" class="w-full bg-gray-50 border-2 border-blue-200 rounded-xl px-4 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
     </div>` : '';
 
-  // 계획명
   const titleField = showTitle ? `
     <div>
-      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">교육(계획)명 <span class="text-red-500">*</span></label>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">교육과정명 <span class="text-red-500">*</span></label>
       <input type="text" value="${s.title || ''}" oninput="planState.title=this.value"
         placeholder="예) 26년 AI 탐구형 학습 계획"
-        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
+        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-4 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
     </div>` : '';
 
-  // 교육 기간
   const datesField = showDates ? `
     <div class="grid grid-cols-2 gap-5">
       <div>
@@ -1236,141 +1195,139 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
       </div>
     </div>` : '';
 
-  // 장소유형 (교육운영 목적만)
   const venueField = showVenue ? `
     <div>
-      <label style="display:block;font-size:11px;font-weight:800;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🏢 장소 유형</label>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-        ${[
-          {v:'internal', icon:'🏭', label:'사내'},
-          {v:'external', icon:'🏨', label:'외부 임차'},
-          {v:'online',   icon:'💻', label:'온라인'},
-        ].map(({v, icon, label}) => `
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🏢 장소 유형</label>
+      <div class="grid grid-cols-3 gap-2">
+        ${[ {v:'internal', icon:'🏭', label:'사내'}, {v:'external', icon:'🏨', label:'외부 임차'}, {v:'online', icon:'💻', label:'온라인'} ].map(({v, icon, label}) => `
         <button onclick="planState.venue_type='${v}';renderPlanWizard()"
-          style="padding:10px 12px;border-radius:10px;font-size:12px;font-weight:800;border:2px solid ${venueType===v ? '#002C5F' : '#E5E7EB'};
-                 background:${venueType===v ? '#EFF6FF' : '#fff'};color:${venueType===v ? '#002C5F' : '#6B7280'};cursor:pointer;transition:all .15s">
+          class="py-2.5 px-3 rounded-lg text-xs font-bold border-2 cursor-pointer transition-all ${venueType===v ? 'border-accent bg-blue-50 text-accent' : 'border-gray-200 bg-white text-gray-500'}">
           ${icon} ${label}
         </button>`).join('')}
       </div>
     </div>` : '';
 
-  // 예상 인원 / 차수 (교육운영 목적)
-  const showRounds = inline.planned_rounds !== false;
   const headcountField = (showHeadcount || showRounds) ? `
     <div class="grid grid-cols-2 gap-5">
       ${showHeadcount ? `
       <div>
-        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">👥 예상 인원 (명)</label>
-        <input type="number" value="${s.planned_headcount || ''}" oninput="planState.planned_headcount=Number(this.value)"
-          placeholder="0" min="1" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition"/>
+        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">👥 참가인원 (명)</label>
+        <input type="number" value="${s.planned_headcount || ''}" oninput="planState.planned_headcount=Number(this.value)" placeholder="0" min="1"
+          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition"/>
       </div>` : '<div></div>'}
       ${showRounds ? `
       <div>
         <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🔄 예상 차수</label>
-        <input type="number" value="${s.planned_rounds || 1}" oninput="planState.planned_rounds=Number(this.value)"
-          placeholder="1" min="1" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition"/>
+        <input type="number" value="${s.planned_rounds || 1}" oninput="planState.planned_rounds=Number(this.value)" placeholder="1" min="1"
+          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition"/>
       </div>` : '<div></div>'}
     </div>` : '';
 
-  // 위탁기관명 (위탁 교육유형, BO edu_org 설정 연동)
-  const consignField = showConsign ? `
-    <div>
-      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🏫 위탁기관명 <span class="text-red-500">*</span></label>
-      <input type="text" value="${(s.extra_fields||{}).consignment_org || ''}"
-        oninput="planState.extra_fields=Object.assign(planState.extra_fields||{},{consignment_org:this.value})"
-        placeholder="교육을 위탁받는 기관명"
-        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
-    </div>` : '';
-
-  // 이러닝 플랫폼/URL
-  const elearningFields = showElearning ? `
-    <div class="grid grid-cols-2 gap-5">
-      <div>
-        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">💻 이러닝 플랫폼</label>
-        <input type="text" value="${(s.extra_fields||{}).elearning_platform || ''}"
-          oninput="planState.extra_fields=Object.assign(planState.extra_fields||{},{elearning_platform:this.value})"
-          placeholder="예) 클래스101, 유데미"
-          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
-      </div>
-      <div>
-        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🔗 URL</label>
-        <input type="text" value="${(s.extra_fields||{}).elearning_url || ''}"
-          oninput="planState.extra_fields=Object.assign(planState.extra_fields||{},{elearning_url:this.value})"
-          placeholder="https://"
-          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
-      </div>
-    </div>` : '';
-
-  // 세부산출근거
   const calcSection = showCalc ? (typeof window._renderCalcGroundsSection === 'function' ? window._renderCalcGroundsSection(s, curBudget) : `
-    <div style="margin-top:20px;">
-      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">📐 세부산출근거 <span class="text-xs font-medium text-blue-500 ml-2">(미리보기 전용)</span></label>
+    <div class="mt-5">
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">📐 세부산출근거</label>
       <div class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-bold text-gray-400 text-center border-dashed">
         [세부산출근거 시스템 자동 렌더링 영역]
       </div>
-    </div>
-  `) : '';
+    </div>`) : '';
 
-  // 교육장소 태그 입력
-  const locationSection = showVenue && typeof _renderLocationTagInput === 'function'
-    ? _renderLocationTagInput(s)
-    : '';
+  const locationSection = showVenue && typeof _renderLocationTagInput === 'function' ? _renderLocationTagInput(s) : '';
 
-  // 예산 계획액
   const amountField = showAmount ? `
     <div>
-      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">💰 예산 계획액
-        ${s.calcGrounds && s.calcGrounds.length > 0 ? '<span class="text-xs font-medium text-blue-500 ml-2">(세부 산출 근거 합계 자동 반영)</span>' : ''}
-      </label>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">💰 예산 계획액</label>
       <div class="relative max-w-xs">
         <input type="number" value="${s.amount || 0}" oninput="planState.amount=this.value;_syncCalcToAmount()" placeholder="0"
-          class="w-full bg-gray-50 border-2 ${s.hardLimitViolated ? 'border-red-400 bg-red-50' : 'border-gray-100'} rounded-xl px-5 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition pr-12"/>
+          class="w-full bg-gray-50 border-2 ${s.hardLimitViolated ? 'border-red-400' : 'border-gray-100'} rounded-xl px-4 py-3 pr-12 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition"/>
         <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-gray-400">원</span>
       </div>
       ${s.hardLimitViolated ? '<div class="mt-1.5 text-xs font-black text-red-600">🚫 Hard Limit 초과 항목이 있어 계획을 저장할 수 없습니다.</div>' : ''}
       ${typeof _renderApprovalRouteInfo === 'function' ? _renderApprovalRouteInfo(s, curBudget) : ''}
     </div>` : '';
 
-  // 상세 내용
-  const contentField = showContent ? `
+  const _readonly = (key, label, defaultText) => inline[key] === true ? `
     <div>
-      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">계획 상세 내용</label>
-      <textarea oninput="planState.content=this.value" rows="3"
-        placeholder="업무 활용 방안, 학습 목표 등을 입력하세요."
-        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-medium text-gray-700 focus:border-accent focus:bg-white transition resize-none">${s.content || ''}</textarea>
+      <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">${label} <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
+      <div class="w-full bg-blue-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-medium text-blue-800 whitespace-pre-wrap">
+        ${(s.extra_fields||{})[key] || defaultText}
+      </div>
     </div>` : '';
 
-  // Phase B 배지
-  const phaseBBadge = `
-    <div style="margin-bottom:16px;padding:8px 14px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;font-size:11px;font-weight:700;color:#15803D;display:flex;align-items:center;gap:6px">
-      ✅ <span>표준 입력 양식 (Phase B) — 정규화 컬럼 기반</span>
-    </div>`;
-
-  return [
-    phaseBBadge,
+  const basicFields = [
     eduTypeField,
-    eduCategoryField,
-    eduDaysField,
-    eduOrgField,
+    _field('education_format', '교육형태 (온/오프라인)', 'text', '예: 오프라인 집합교육'),
     regionToggle,
     countryField,
-    titleField,
-    datesField,
-    venueField,
+    titleField
+  ];
+
+  const detailFields = [
+    _field('learning_objective', '교육목표', 'textarea', '교육 목표를 입력하세요.'),
+    _field('expected_benefit', '기대효과', 'textarea', '예상되는 효과를 입력하세요.'),
+    _field('target_audience', '교육대상', 'text', '예: 3년차 이상 사원'),
+    _field('edu_category', '📑 필수구분 (법정/핵심 등)', 'text', '예: 법정의무교육'),
     headcountField,
-    consignField,
-    elearningFields,
-    calcSection,
+    datesField,
+    _field('edu_days', '📆 교육일수', 'number', '0'),
+    _field('hours_per_round', '차수별 시간', 'number', '0'),
+    _field('is_continuing', '전년도 계속 여부', 'boolean', ''),
+    _field('edu_org', '🏫 교육기관/과정명', 'text', '교육기관명 입력'),
+    _field('consignment_org', '위탁기관명', 'text', '위탁기관명 입력'),
+    _field('instructor_name', '강사명', 'text', '강사 이름 입력'),
+    venueField,
     locationSection,
+    _field('education_region', '교육지역', 'text', '예: 서울, 제주'),
+    _field('has_accommodation', '숙박여부', 'boolean', ''),
+    _field('lunch_provided', '중식제공여부', 'boolean', ''),
+    inline.elearning_fields === true ? `
+      <div class="grid grid-cols-2 gap-5">
+        <div>
+          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">💻 이러닝 플랫폼</label>
+          <input type="text" value="${(s.extra_fields||{}).elearning_platform || ''}" oninput="planState.extra_fields=Object.assign(planState.extra_fields||{},{elearning_platform:this.value})" placeholder="예) 클래스101" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
+        </div>
+        <div>
+          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🔗 URL</label>
+          <input type="text" value="${(s.extra_fields||{}).elearning_url || ''}" oninput="planState.extra_fields=Object.assign(planState.extra_fields||{},{elearning_url:this.value})" placeholder="https://" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
+        </div>
+      </div>` : '',
+    _field('plan_content', '계획 상세 내용', 'textarea', '계획 내용 입력'),
+    _field('course_description', '교육 내용', 'textarea', '교육 내용 입력')
+  ];
+
+  const provideFields = [
+    _readonly('prov_guide', '💡 안내사항', '관리자가 등록한 안내사항이 표시됩니다.'),
+    _readonly('prov_materials', '🎒 준비물', '관리자가 등록한 준비물이 표시됩니다.'),
+    _readonly('prov_venue', '🏢 확정 교육장소', '관리자가 확정한 교육장소가 표시됩니다.'),
+    _readonly('prov_instructor', '👨‍🏫 확정 강사', '관리자가 확정한 강사 정보가 표시됩니다.')
+  ];
+
+  const docFields = [
+    _field('supporting_docs', '증빙자료', 'text', '증빙자료 첨부(URL 등)'),
+    _field('course_brochure', '과정소개 자료', 'text', '과정소개 자료 첨부(URL 등)')
+  ];
+
+  const costFields = [
+    _field('is_paid_education', '유료교육여부', 'boolean', ''),
+    _field('is_ei_eligible', '고용보험 환급 여부', 'boolean', ''),
     amountField,
-    contentField,
-    provGuideField,
-    provMaterialsField,
-    provVenueField,
-    provInstructorField,
-  ].filter(Boolean).join('\n');
+    calcSection
+  ];
+
+  const phaseBBadge = `
+    <div class="mb-4 px-4 py-2 bg-green-50 border border-green-200 rounded-xl text-xs font-bold text-green-700 flex items-center gap-2">
+      ✅ <span>표준 입력 양식 (Phase B) — 카테고리 그룹화 적용</span>
+    </div>`;
+
+  return phaseBBadge + '\n' +
+    wrapSection('기본정보', '📋', basicFields) +
+    wrapSection('교육상세', '📐', detailFields) +
+    wrapSection('제공항목', '📢', provideFields) +
+    wrapSection('증빙/첨부항목', '📎', docFields) +
+    wrapSection('비용항목', '💰', costFields);
 };
 window.foRenderStandardPlanForm = window.foRenderStandardPlanForm;
+
+
 
 /**
  * 교육신청 표준 입력 폼 렌더러 (Phase B)
@@ -1383,50 +1340,62 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
   const isOverseas   = s.is_overseas === true || s.region === 'overseas';
   const eduType      = s.eduType || '';
   const subType      = s.subType || '';
+  const venueType    = s.venue_type || '';
   const isElearning  = ['이러닝', 'elearning'].includes(eduType) || subType.includes('elearning');
 
-  // 무예산 계정 판별 (비용 필드 강제 비활성화)
   const isNoBudget = curBudget?.account === '참가' || curBudget?.usesBudget === false || curBudget?.uses_budget === false;
 
   const showRegion = inline.is_overseas !== false;
   const showTitle = inline.edu_name !== false;
   const showDates = inline.start_end_date !== false;
+  const showVenue = inline.venue_type !== false;
   const showAmount = inline.requested_budget !== false && !isNoBudget;
   const showCalc = inline.calc_grounds !== false && !isNoBudget;
-  const showContent = inline.apply_reason !== false;
 
-  // 필수구분 (법정/핵심 등)
-  const showEduCategory = inline.edu_category === true;
-  const eduCategoryField = showEduCategory ? `
-    <div>
-      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">📑 필수구분 (법정/핵심 등)</label>
-      <input type="text" value="${s.edu_category || ''}" oninput="applyState.edu_category=this.value"
-        placeholder="예) 법정의무, 핵심직무 등"
-        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
-    </div>` : '';
+  const wrapSection = (title, icon, fieldsArray) => {
+    const content = fieldsArray.filter(Boolean).join('\n');
+    if (!content.trim()) return '';
+    return `
+      <div class="mb-6 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+        <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 font-bold text-gray-700 flex items-center gap-2">
+          <span>${icon}</span> ${title}
+        </div>
+        <div class="p-5 grid gap-5">
+          ${content}
+        </div>
+      </div>
+    `;
+  };
 
-  // 교육일수
-  const showEduDays = inline.edu_days === true;
-  const eduDaysField = showEduDays ? `
-    <div>
-      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">📆 교육일수</label>
-      <input type="number" value="${s.edu_days || ''}" oninput="applyState.edu_days=this.value"
-        placeholder="0" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition"/>
-    </div>` : '';
+  const _field = (key, label, type, placeholder, stateObj = 'applyState') => {
+    if (inline[key] !== true) return '';
+    if (type === 'textarea') {
+      return `
+        <div>
+          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}</label>
+          <textarea oninput="${stateObj}.${key}=this.value" rows="3" placeholder="${placeholder}"
+            class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-medium text-gray-700 focus:border-accent focus:bg-white transition resize-none">${s[key] || ''}</textarea>
+        </div>`;
+    }
+    if (type === 'boolean') {
+      return `
+        <div>
+          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}</label>
+          <label class="flex items-center cursor-pointer gap-2">
+            <input type="checkbox" onchange="${stateObj}.${key}=this.checked" ${s[key] ? 'checked' : ''} class="w-5 h-5 accent-accent">
+            <span class="text-sm font-bold text-gray-700">선택 (Yes)</span>
+          </label>
+        </div>`;
+    }
+    return `
+      <div>
+        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}</label>
+        <input type="${type}" value="${s[key] || ''}" oninput="${stateObj}.${key}=this.value" placeholder="${placeholder}"
+          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
+      </div>`;
+  };
 
-  // 교육기관/과정명
-  const showEduOrg = inline.edu_org === true;
-  const eduOrgField = showEduOrg ? `
-    <div>
-      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🏫 교육기관/과정명</label>
-      <input type="text" value="${s.edu_org || ''}" oninput="applyState.edu_org=this.value"
-        placeholder="교육기관 및 과정명 입력"
-        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
-    </div>` : '';
-
-  // 교육유형 (읽기 전용 표시용)
-  const showEduType = inline.edu_type !== false;
-  const eduTypeField = showEduType ? `
+  const eduTypeField = (inline.edu_type !== false) ? `
     <div>
       <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🎓 교육유형 <span class="text-xs font-medium text-blue-500 ml-2">(읽기전용)</span></label>
       <div class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-3 font-bold text-gray-500">
@@ -1434,70 +1403,25 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
       </div>
     </div>` : '';
 
-  // 제공항목 (FO 읽기전용)
-  const showProvGuide = inline.prov_guide === true;
-  const showProvMaterials = inline.prov_materials === true;
-  const showProvVenue = inline.prov_venue === true;
-  const showProvInstructor = inline.prov_instructor === true;
-
-  const provGuideField = showProvGuide ? `
-    <div>
-      <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">💡 안내사항 <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
-      <div class="w-full bg-blue-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-medium text-blue-800 whitespace-pre-wrap">
-        ${(s.extra_fields||{}).prov_guide || '관리자가 등록한 안내사항이 표시됩니다.'}
-      </div>
-    </div>` : '';
-
-  const provMaterialsField = showProvMaterials ? `
-    <div>
-      <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">🎒 준비물 <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
-      <div class="w-full bg-blue-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-medium text-blue-800 whitespace-pre-wrap">
-        ${(s.extra_fields||{}).prov_materials || '관리자가 등록한 준비물이 표시됩니다.'}
-      </div>
-    </div>` : '';
-
-  const provVenueField = showProvVenue ? `
-    <div>
-      <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">🏢 확정 교육장소 <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
-      <div class="w-full bg-blue-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-medium text-blue-800">
-        ${(s.extra_fields||{}).prov_venue || '관리자가 확정한 교육장소가 표시됩니다.'}
-      </div>
-    </div>` : '';
-
-  const provInstructorField = showProvInstructor ? `
-    <div>
-      <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">👨‍🏫 확정 강사 <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
-      <div class="w-full bg-blue-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-medium text-blue-800">
-        ${(s.extra_fields||{}).prov_instructor || '관리자가 확정한 강사 정보가 표시됩니다.'}
-      </div>
-    </div>` : '';
-
-  // 국내/해외 토글
   const regionToggle = showRegion ? `
     <div>
-      <label style="display:block;font-size:11px;font-weight:800;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🌐 교육 지역</label>
-      <div style="display:inline-flex;background:#F3F4F6;border-radius:12px;padding:4px;gap:4px">
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🌐 교육 지역 <span class="text-red-500">*</span></label>
+      <div class="inline-flex bg-gray-100 rounded-xl p-1 gap-1">
         <button onclick="applyState.is_overseas=false;applyState.region='domestic';renderApply()"
-          style="padding:8px 20px;border-radius:9px;font-size:13px;font-weight:800;border:none;cursor:pointer;transition:all .15s;
-                 background:${!isOverseas ? '#fff' : 'transparent'};color:${!isOverseas ? '#002C5F' : '#9CA3AF'};
-                 box-shadow:${!isOverseas ? '0 1px 4px rgba(0,0,0,.12)' : 'none'}">🗺 국내</button>
+          class="px-5 py-2 rounded-lg text-sm font-bold border-none cursor-pointer transition-all ${!isOverseas ? 'bg-white text-accent shadow-sm' : 'bg-transparent text-gray-400'}">🗺 국내</button>
         <button onclick="applyState.is_overseas=true;applyState.region='overseas';renderApply()"
-          style="padding:8px 20px;border-radius:9px;font-size:13px;font-weight:800;border:none;cursor:pointer;transition:all .15s;
-                 background:${isOverseas ? '#002C5F' : 'transparent'};color:${isOverseas ? '#fff' : '#9CA3AF'};
-                 box-shadow:${isOverseas ? '0 2px 8px rgba(0,44,95,.25)' : 'none'}">🌏 해외</button>
+          class="px-5 py-2 rounded-lg text-sm font-bold border-none cursor-pointer transition-all ${isOverseas ? 'bg-accent text-white shadow-md' : 'bg-transparent text-gray-400'}">🌏 해외</button>
       </div>
     </div>` : '';
 
-  // 과정명
   const titleField = showTitle ? `
     <div>
-      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">과정명 <span class="text-red-500">*</span></label>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">교육과정명 <span class="text-red-500">*</span></label>
       <input type="text" value="${s.title || ''}" oninput="applyState.title=this.value"
         placeholder="교육/세미나/자격증 등 공식 명칭"
-        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
+        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-4 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
     </div>` : '';
 
-  // 교육 기간
   const datesField = showDates ? `
     <div class="grid grid-cols-2 gap-5">
       <div>
@@ -1512,123 +1436,116 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
       </div>
     </div>` : '';
 
-  // 총 학습시간 (headcount 플래그가 false면 숨김, 원래는 hours지만 대체재로 판단)
-  const hoursField = (inline.headcount !== false) ? `
-    <div>
-      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">총 학습시간 (H)</label>
-      <input type="number" value="${s.hours || ''}" oninput="applyState.hours=this.value"
-        placeholder="0" class="w-40 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition"/>
-    </div>` : '';
-
-  // 이러닝 플랫폼/URL
-  const elearningFields = isElearning ? `
-    <div class="grid grid-cols-2 gap-5">
-      <div>
-        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">💻 이러닝 플랫폼</label>
-        <input type="text" value="${(s.extra_fields||{}).elearning_platform || ''}"
-          oninput="applyState.extra_fields=Object.assign(applyState.extra_fields||{},{elearning_platform:this.value})"
-          placeholder="예) 클래스101, 유데미"
-          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
-      </div>
-      <div>
-        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🔗 URL</label>
-        <input type="text" value="${(s.extra_fields||{}).elearning_url || ''}"
-          oninput="applyState.extra_fields=Object.assign(applyState.extra_fields||{},{elearning_url:this.value})"
-          placeholder="https://"
-          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
-      </div>
-    </div>` : '';
-
-  // 장소유형
-  const showVenue = inline.venue_type !== false;
   const venueField = showVenue ? `
     <div>
-      <label style="display:block;font-size:11px;font-weight:800;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🏢 장소 유형</label>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-        ${[
-          {v:'internal', icon:'🏭', label:'사내'},
-          {v:'external', icon:'🏨', label:'외부 임차'},
-          {v:'online',   icon:'💻', label:'온라인'},
-        ].map(({v, icon, label}) => `
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🏢 장소 유형</label>
+      <div class="grid grid-cols-3 gap-2">
+        ${[ {v:'internal', icon:'🏭', label:'사내'}, {v:'external', icon:'🏨', label:'외부 임차'}, {v:'online', icon:'💻', label:'온라인'} ].map(({v, icon, label}) => `
         <button onclick="applyState.venue_type='${v}';renderApply()"
-          style="padding:10px 12px;border-radius:10px;font-size:12px;font-weight:800;border:2px solid ${s.venue_type===v ? '#002C5F' : '#E5E7EB'};
-                 background:${s.venue_type===v ? '#EFF6FF' : '#fff'};color:${s.venue_type===v ? '#002C5F' : '#6B7280'};cursor:pointer;transition:all .15s">
+          class="py-2.5 px-3 rounded-lg text-xs font-bold border-2 cursor-pointer transition-all ${s.venue_type===v ? 'border-accent bg-blue-50 text-accent' : 'border-gray-200 bg-white text-gray-500'}">
           ${icon} ${label}
         </button>`).join('')}
       </div>
     </div>` : '';
 
-  // 위탁기관명
-  const showConsign = inline.consignment_org === true;
-  const consignField = showConsign ? `
-    <div>
-      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🏫 위탁기관명 <span class="text-red-500">*</span></label>
-      <input type="text" value="${(s.extra_fields||{}).consignment_org || ''}"
-        oninput="applyState.extra_fields=Object.assign(applyState.extra_fields||{},{consignment_org:this.value})"
-        placeholder="교육을 위탁받는 기관명"
-        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
-    </div>` : '';
+  const calcSection = showCalc ? (typeof window._renderCalcGroundsSection === 'function' ? window._renderCalcGroundsSection(s, curBudget) : `
+    <div class="mt-5">
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">📐 세부산출근거</label>
+      <div class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-bold text-gray-400 text-center border-dashed">
+        [세부산출근거 시스템 자동 렌더링 영역]
+      </div>
+    </div>`) : '';
 
-  // 예산 신청액
   const amountField = showAmount ? `
     <div>
-      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">💰 예산 신청액
-        ${s.calcGrounds && s.calcGrounds.length > 0 ? '<span class="text-xs font-medium text-blue-500 ml-2">(세부 산출 근거 합계 자동 반영)</span>' : ''}
-      </label>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">💰 예산 신청액</label>
       <div class="relative max-w-xs">
         <input type="number" value="${s.amount || 0}" oninput="applyState.amount=this.value;_syncCalcToAmount()" placeholder="0"
-          class="w-full bg-gray-50 border-2 ${s.hardLimitViolated ? 'border-red-400 bg-red-50' : 'border-gray-100'} rounded-xl px-5 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition pr-12"/>
+          class="w-full bg-gray-50 border-2 ${s.hardLimitViolated ? 'border-red-400' : 'border-gray-100'} rounded-xl px-4 py-3 pr-12 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition"/>
         <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-gray-400">원</span>
       </div>
       ${s.hardLimitViolated ? '<div class="mt-1.5 text-xs font-black text-red-600">🚫 Hard Limit 초과 항목이 있어 신청할 수 없습니다.</div>' : ''}
     </div>` : '';
 
-  // 세부산출근거
-  const calcSection = showCalc ? (typeof window._renderCalcGroundsSection === 'function' ? window._renderCalcGroundsSection(s, curBudget) : `
-    <div style="margin-top:20px;">
-      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">📐 세부산출근거 <span class="text-xs font-medium text-blue-500 ml-2">(미리보기 전용)</span></label>
-      <div class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-bold text-gray-400 text-center border-dashed">
-        [세부산출근거 시스템 자동 렌더링 영역]
-      </div>
-    </div>
-  `) : '';
-
-  // 학습 내용
-  const contentField = showContent ? `
+  const _readonly = (key, label, defaultText) => inline[key] === true ? `
     <div>
-      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">학습 내용 <span class="text-red-500">*</span></label>
-      <textarea oninput="applyState.content=this.value" rows="3"
-        placeholder="학습 목표, 주요 커리큘럼 및 활용 방안을 입력하세요."
-        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-medium text-gray-700 focus:border-accent focus:bg-white transition resize-none">${s.content || ''}</textarea>
+      <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">${label} <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
+      <div class="w-full bg-blue-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-medium text-blue-800 whitespace-pre-wrap">
+        ${(s.extra_fields||{})[key] || defaultText}
+      </div>
     </div>` : '';
 
-  // Phase B 배지
+  const basicFields = [
+    eduTypeField,
+    _field('education_format', '교육형태 (온/오프라인)', 'text', '예: 오프라인 집합교육'),
+    regionToggle,
+    titleField
+  ];
+
+  const detailFields = [
+    _field('learning_objective', '교육목표', 'textarea', '교육 목표를 입력하세요.'),
+    _field('expected_benefit', '기대효과', 'textarea', '예상되는 효과를 입력하세요.'),
+    _field('target_audience', '교육대상', 'text', '예: 3년차 이상 사원'),
+    _field('edu_category', '📑 필수구분 (법정/핵심 등)', 'text', '예: 법정의무교육'),
+    (inline.headcount !== false) ? _field('hours', '총 학습시간 (H)', 'number', '0') : '',
+    datesField,
+    _field('edu_days', '📆 교육일수', 'number', '0'),
+    _field('edu_org', '🏫 교육기관/과정명', 'text', '교육기관명 입력'),
+    _field('consignment_org', '위탁기관명', 'text', '위탁기관명 입력'),
+    venueField,
+    _field('education_region', '교육지역', 'text', '예: 서울, 제주'),
+    _field('has_accommodation', '숙박여부', 'boolean', ''),
+    _field('lunch_provided', '중식제공여부', 'boolean', ''),
+    isElearning ? `
+      <div class="grid grid-cols-2 gap-5">
+        <div>
+          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">💻 이러닝 플랫폼</label>
+          <input type="text" value="${(s.extra_fields||{}).elearning_platform || ''}" oninput="applyState.extra_fields=Object.assign(applyState.extra_fields||{},{elearning_platform:this.value})" placeholder="예) 클래스101" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
+        </div>
+        <div>
+          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🔗 URL</label>
+          <input type="text" value="${(s.extra_fields||{}).elearning_url || ''}" oninput="applyState.extra_fields=Object.assign(applyState.extra_fields||{},{elearning_url:this.value})" placeholder="https://" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
+        </div>
+      </div>` : '',
+    (inline.apply_reason !== false) ? `
+      <div>
+        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">신청사유 (학습 내용) <span class="text-red-500">*</span></label>
+        <textarea oninput="applyState.content=this.value" rows="3" placeholder="학습 목표, 주요 커리큘럼 등을 입력하세요."
+          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-medium text-gray-700 focus:border-accent focus:bg-white transition resize-none">${s.content || ''}</textarea>
+      </div>` : '',
+    _field('course_description', '교육 내용', 'textarea', '교육 내용 입력')
+  ];
+
+  const provideFields = [
+    _readonly('prov_guide', '💡 안내사항', '관리자가 등록한 안내사항이 표시됩니다.'),
+    _readonly('prov_materials', '🎒 준비물', '관리자가 등록한 준비물이 표시됩니다.'),
+    _readonly('prov_venue', '🏢 확정 교육장소', '관리자가 확정한 교육장소가 표시됩니다.'),
+    _readonly('prov_instructor', '👨‍🏫 확정 강사', '관리자가 확정한 강사 정보가 표시됩니다.')
+  ];
+
+  const docFields = [
+    _field('supporting_docs', '증빙자료', 'text', '증빙자료 첨부(URL 등)'),
+    _field('course_brochure', '과정소개 자료', 'text', '과정소개 자료 첨부(URL 등)')
+  ];
+
+  const costFields = [
+    _field('is_paid_education', '유료교육여부', 'boolean', ''),
+    _field('is_ei_eligible', '고용보험 환급 여부', 'boolean', ''),
+    amountField,
+    calcSection
+  ];
+
   const phaseBBadge = `
-    <div style="margin-bottom:16px;padding:8px 14px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;font-size:11px;font-weight:700;color:#15803D;display:flex;align-items:center;gap:6px">
-      ✅ <span>표준 입력 양식 (Phase B) — 정규화 컬럼 기반</span>
+    <div class="mb-4 px-4 py-2 bg-green-50 border border-green-200 rounded-xl text-xs font-bold text-green-700 flex items-center gap-2">
+      ✅ <span>표준 입력 양식 (Phase B) — 카테고리 그룹화 적용</span>
     </div>`;
 
-  return [
-    phaseBBadge,
-    eduTypeField,
-    eduCategoryField,
-    eduDaysField,
-    eduOrgField,
-    regionToggle,
-    titleField,
-    datesField,
-    venueField,
-    hoursField,
-    consignField,
-    elearningFields,
-    amountField,
-    calcSection,
-    contentField,
-    provGuideField,
-    provMaterialsField,
-    provVenueField,
-    provInstructorField,
-  ].filter(Boolean).join('\n');
+  return phaseBBadge + '\n' +
+    wrapSection('기본정보', '📋', basicFields) +
+    wrapSection('교육상세', '📐', detailFields) +
+    wrapSection('제공항목', '📢', provideFields) +
+    wrapSection('증빙/첨부항목', '📎', docFields) +
+    wrapSection('비용항목', '💰', costFields);
 };
 
 console.log('[fo_form_loader] Phase B 표준 렌더러 로드됨 (foRenderStandardPlanForm, foRenderStandardApplyForm)');

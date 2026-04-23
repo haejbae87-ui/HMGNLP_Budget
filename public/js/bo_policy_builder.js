@@ -1197,9 +1197,17 @@ function renderPolicyWizard() {
   } else if (_policyWizardStep === 3) {
     // ── [Phase F-2] 인라인 양식 편집기 ───────────────────────────────────────
     // 기존 외부 양식 선택 방식 대신, 정책 위저드 내에서 직접 필드를 정의
-    const stages = _PATTERN_STAGES[d.processPattern] || ["apply"];
-    const stageLabel = { forecast: "📈 수요예측", ongoing: "📊 상시계획", apply: "📝 신청", result: "📄 결과" };
-    const stageColor = { forecast: "#8B5CF6", ongoing: "#7C3AED", apply: "#1D4ED8", result: "#059669" };
+    const rawStages = _PATTERN_STAGES[d.processPattern] || ["apply"];
+    // forecast와 ongoing을 plan 하나로 합침
+    const stages = [];
+    if (rawStages.includes("forecast") || rawStages.includes("ongoing")) {
+      stages.push("plan");
+    }
+    if (rawStages.includes("apply")) stages.push("apply");
+    if (rawStages.includes("result")) stages.push("result");
+
+    const stageLabel = { plan: "📑 계획", apply: "📝 신청", result: "📄 결과" };
+    const stageColor = { plan: "#7C3AED", apply: "#1D4ED8", result: "#059669" };
 
     // 무예산 판별 (uses_budget=false 계정 → 비용 필드 전체 disable)
     const _acctCode = (d.accountCodes || [])[0] || "";
@@ -1209,13 +1217,19 @@ function renderPolicyWizard() {
       (_acctInDb && _acctInDb.uses_budget === false) ||
       ["D", "E"].includes(d.processPattern);
 
-    // 인라인 필드 정의 저장소 초기화 (stageFormFields: { forecast: {}, ongoing: {}, apply: {}, result: {} })
+    // 인라인 필드 정의 저장소 초기화 (stageFormFields: { plan: {}, apply: {}, result: {} })
     if (!d.stageFormFields) d.stageFormFields = {};
     stages.forEach((s) => {
       if (!d.stageFormFields[s]) {
-        // 기본 필드 활성화 상태 초기화
-        d.stageFormFields[s] = {
-          // 기본정보 (필수 — 항상 on, disable 불가)
+        // 기존에 forecast나 ongoing으로 저장된 데이터가 있다면 plan으로 마이그레이션
+        if (s === "plan") {
+           d.stageFormFields.plan = d.stageFormFields.ongoing || d.stageFormFields.forecast || {};
+        }
+
+        // 기본 필드 활성화 상태 초기화 (비어있는 경우에만)
+        if (Object.keys(d.stageFormFields[s]).length === 0) {
+          d.stageFormFields[s] = {
+            // 기본정보 (필수 — 항상 on, disable 불가)
           edu_type: true,
           is_overseas: true,
           edu_name: true,
@@ -1225,7 +1239,7 @@ function renderPolicyWizard() {
           // 교육상세 (토글)
           venue_type: true,
           edu_days: true,
-          planned_rounds: s === "forecast" || s === "ongoing" || s === "plan",
+          planned_rounds: s === "plan",
           start_end_date: true,
           edu_org: s !== "result",
           apply_reason: s === "apply",
@@ -1245,6 +1259,7 @@ function renderPolicyWizard() {
           satisfaction: s === "result",
           actual_cost: s === "result" && !_isNoBudget,
         };
+        }
       }
     });
 
@@ -1320,7 +1335,7 @@ ${_fieldRow("edu_category", "필수구분 (법정/핵심 등)", "📑")}
 ${_fieldRow("venue_type", "장소유형", "🏛️")}
 ${_fieldRow("start_end_date", "교육기간", "📅")}
 ${_fieldRow("edu_days", "교육일수", "📆")}
-${activeTab === "forecast" || activeTab === "ongoing" || activeTab === "plan" ? _fieldRow("planned_rounds", "예상 차수", "🔄") : ""}
+${activeTab === "plan" ? _fieldRow("planned_rounds", "예상 차수", "🔄") : ""}
 ${activeTab !== "result" ? _fieldRow("edu_org", "교육기관/과정명", "🏫") : ""}
 ${activeTab === "apply" ? _fieldRow("apply_reason", "신청사유", "💬") : ""}
 ${_sectionHeader("📢 제공항목 (FO 읽기전용)", "#2563EB")}

@@ -191,9 +191,16 @@ async function getFoFormTemplate(policy, stage, eduType) {
   if (!policy) return null;
 
   // 1순위: Phase F - 인라인 폼 (stageFormFields)
-  const inlineFieldsRaw = (policy.stage_form_fields && policy.stage_form_fields[stage])
+  let inlineFieldsRaw = (policy.stage_form_fields && policy.stage_form_fields[stage])
                        || (policy.stageFormFields && policy.stageFormFields[stage]) 
                        || (policy.stage_form_ids && policy.stage_form_ids._fields && policy.stage_form_ids._fields[stage]);
+                       
+  // 하위 호환성 (Fallback): FO에서 'plan'을 요청했으나 BO에 'plan' 설정이 없고 레거시인 'ongoing'이나 'forecast'만 존재할 경우
+  if (!inlineFieldsRaw && stage === 'plan') {
+    inlineFieldsRaw = (policy.stage_form_fields && (policy.stage_form_fields['ongoing'] || policy.stage_form_fields['forecast']))
+                   || (policy.stageFormFields && (policy.stageFormFields['ongoing'] || policy.stageFormFields['forecast']))
+                   || (policy.stage_form_ids && policy.stage_form_ids._fields && (policy.stage_form_ids._fields['ongoing'] || policy.stage_form_ids._fields['forecast']));
+  }
   
   if (inlineFieldsRaw) {
     const inlineFields = JSON.parse(JSON.stringify(inlineFieldsRaw)); // 불변성 유지

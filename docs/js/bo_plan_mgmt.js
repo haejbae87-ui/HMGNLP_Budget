@@ -307,7 +307,10 @@ async function renderBoPlanMgmt() {
       </tr>` : '';
 
     // ★ 편집 모드 바
-    const editBar = canApprove ? `
+    const canRebalance = typeof boCanRebalanceInScope === 'function' ? boCanRebalanceInScope() : canReview;
+    const canEdit = canApprove || canRebalance;
+
+    const editBar = canEdit ? `
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         ${_boPlanEditMode ? `
           <button onclick="_boPlanBatchSave()" style="padding:8px 20px;border-radius:10px;border:none;background:${editCount > 0 ? '#1D4ED8' : '#9CA3AF'};color:white;font-size:12px;font-weight:900;cursor:${editCount > 0 ? 'pointer' : 'default'};box-shadow:${editCount > 0 ? '0 4px 12px rgba(29,78,216,.3)' : 'none'};transition:all .15s" ${editCount === 0 ? 'disabled' : ''}>
@@ -317,18 +320,15 @@ async function renderBoPlanMgmt() {
             ↩ 취소
           </button>
           <span style="font-size:11px;color:#D97706;font-weight:700">⚡ 배정액 셀을 클릭하여 수정 · Tab으로 이동</span>
+          ${!canApprove && canRebalance ? `<span style="font-size:11px;color:#EF4444;font-weight:900;margin-left:8px">※ 총 배정액(${sumAlloc.toLocaleString()}원)을 변경할 수 없습니다 (Δ=0)</span>` : ''}
         ` : `
           <button onclick="_boPlanToggleEdit()" style="padding:8px 16px;border-radius:10px;border:1.5px solid #1D4ED8;background:#EFF6FF;font-size:12px;font-weight:800;color:#1D4ED8;cursor:pointer;transition:all .15s"
             onmouseover="this.style.background='#1D4ED8';this.style.color='white'" onmouseout="this.style.background='#EFF6FF';this.style.color='#1D4ED8'">
             ✏️ 배정액 편집 모드
           </button>
+          ${!canApprove && canRebalance ? `<span style="padding:4px 14px;border-radius:8px;background:#FEF3C7;color:#92400E;font-size:11px;font-weight:900;margin-left:8px">🔍 운영담당자 — 1차 조정 모드 (재배분만 가능)</span>` : ''}
         `}
         <button onclick="_boPlanMgmtData=null;_boPlanEditMode=false;_boPlanEdits={};renderBoPlanMgmt()" class="bo-btn-primary" style="margin-left:auto">🔄 새로고침</button>
-      </div>
-    ` : canReview ? `
-      <div style="display:flex;gap:8px;align-items:center">
-        <span style="padding:4px 14px;border-radius:8px;background:#FEF3C7;color:#92400E;font-size:11px;font-weight:900">🔍 운영담당자 — 1차 검토 모드</span>
-        <button onclick="_boPlanMgmtData=null;renderBoPlanMgmt()" class="bo-btn-primary" style="margin-left:auto">🔄 새로고침</button>
       </div>
     ` : `<div style="display:flex;gap:8px;align-items:center"><button onclick="_boPlanMgmtData=null;renderBoPlanMgmt()" class="bo-btn-primary">🔄 새로고침</button></div>`;
 
@@ -1642,8 +1642,27 @@ async function _boPlanBatchSave() {
   const sb = typeof getSB === 'function' ? getSB() : null;
   if (!sb) { alert('DB 연결 필요'); return; }
 
-  // 배정액 > 계획액 경고 체크
   const plans = _boPlanMgmtData || [];
+
+  // ★ P16 F-151: 운영담당자는 총액 변경 불가 (재배분만 가능)
+  const isGlobalBO = typeof boIsGlobalAdmin === 'function' ? boIsGlobalAdmin() : isGlobalAdmin(boCurrentPersona);
+  const isOpBO = typeof boIsOpManager === 'function' ? boIsOpManager() : isOpManager(boCurrentPersona);
+  const canRebalance = isOpBO && !isGlobalBO;
+
+  if (canRebalance) {
+    let originalSum = 0;
+    let newSum = 0;
+    ids.forEach(id => {
+      originalSum += _boPlanOriginals[id] || 0;
+      newSum += edits[id];
+    });
+    if (originalSum !== newSum) {
+      alert(`⚠️ 운영담당자는 총 배정액을 변경할 수 없습니다.\n\n변경 합계: ${newSum.toLocaleString()}원\n기존 합계: ${originalSum.toLocaleString()}원\n차액: ${(newSum - originalSum).toLocaleString()}원\n\n다른 계획의 배정액을 가감하여 총액 차이를 0원으로 맞춰주세요.`);
+      return;
+    }
+  }
+
+  // 배정액 > 계획액 경고 체크
   const overBudget = ids.filter(id => {
     const plan = plans.find(p => p.id === id);
     return plan && edits[id] > Number(plan.amount || 0);

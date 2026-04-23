@@ -1111,6 +1111,35 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
   const showElearning = inline.elearning_fields === true;
   const showContent = inline.plan_content === true;
 
+  // 필수구분 (법정/핵심 등)
+  const showEduCategory = inline.edu_category === true;
+  const eduCategoryField = showEduCategory ? `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">📑 필수구분 (법정/핵심 등)</label>
+      <input type="text" value="${s.edu_category || ''}" oninput="planState.edu_category=this.value"
+        placeholder="예) 법정의무, 핵심직무 등"
+        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
+    </div>` : '';
+
+  // 교육일수
+  const showEduDays = inline.edu_days === true;
+  const eduDaysField = showEduDays ? `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">📆 교육일수</label>
+      <input type="number" value="${s.edu_days || ''}" oninput="planState.edu_days=this.value"
+        placeholder="0" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition"/>
+    </div>` : '';
+
+  // 교육기관/과정명
+  const showEduOrg = inline.edu_org === true;
+  const eduOrgField = showEduOrg ? `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🏫 교육기관/과정명</label>
+      <input type="text" value="${s.edu_org || ''}" oninput="planState.edu_org=this.value"
+        placeholder="교육기관 및 과정명 입력"
+        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
+    </div>` : '';
+
   // 교육유형 (읽기 전용 표시용)
   const showEduType = inline.edu_type !== false;
   const eduTypeField = showEduType ? `
@@ -1273,9 +1302,14 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
     </div>` : '';
 
   // 세부산출근거
-  const calcSection = showCalc && typeof _renderCalcGroundsSection === 'function'
-    ? _renderCalcGroundsSection(s, curBudget)
-    : '';
+  const calcSection = showCalc ? (typeof window._renderCalcGroundsSection === 'function' ? window._renderCalcGroundsSection(s, curBudget) : `
+    <div style="margin-top:20px;">
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">📐 세부산출근거 <span class="text-xs font-medium text-blue-500 ml-2">(미리보기 전용)</span></label>
+      <div class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-bold text-gray-400 text-center border-dashed">
+        [세부산출근거 시스템 자동 렌더링 영역]
+      </div>
+    </div>
+  `) : '';
 
   // 교육장소 태그 입력
   const locationSection = showVenue && typeof _renderLocationTagInput === 'function'
@@ -1315,6 +1349,9 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
   return [
     phaseBBadge,
     eduTypeField,
+    eduCategoryField,
+    eduDaysField,
+    eduOrgField,
     regionToggle,
     countryField,
     titleField,
@@ -1357,6 +1394,35 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
   const showAmount = inline.requested_budget !== false && !isNoBudget;
   const showCalc = inline.calc_grounds !== false && !isNoBudget;
   const showContent = inline.apply_reason !== false;
+
+  // 필수구분 (법정/핵심 등)
+  const showEduCategory = inline.edu_category === true;
+  const eduCategoryField = showEduCategory ? `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">📑 필수구분 (법정/핵심 등)</label>
+      <input type="text" value="${s.edu_category || ''}" oninput="applyState.edu_category=this.value"
+        placeholder="예) 법정의무, 핵심직무 등"
+        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
+    </div>` : '';
+
+  // 교육일수
+  const showEduDays = inline.edu_days === true;
+  const eduDaysField = showEduDays ? `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">📆 교육일수</label>
+      <input type="number" value="${s.edu_days || ''}" oninput="applyState.edu_days=this.value"
+        placeholder="0" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition"/>
+    </div>` : '';
+
+  // 교육기관/과정명
+  const showEduOrg = inline.edu_org === true;
+  const eduOrgField = showEduOrg ? `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🏫 교육기관/과정명</label>
+      <input type="text" value="${s.edu_org || ''}" oninput="applyState.edu_org=this.value"
+        placeholder="교육기관 및 과정명 입력"
+        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
+    </div>` : '';
 
   // 교육유형 (읽기 전용 표시용)
   const showEduType = inline.edu_type !== false;
@@ -1473,6 +1539,60 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
       </div>
     </div>` : '';
 
+  // 장소유형
+  const showVenue = inline.venue_type !== false;
+  const venueField = showVenue ? `
+    <div>
+      <label style="display:block;font-size:11px;font-weight:800;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🏢 장소 유형</label>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+        ${[
+          {v:'internal', icon:'🏭', label:'사내'},
+          {v:'external', icon:'🏨', label:'외부 임차'},
+          {v:'online',   icon:'💻', label:'온라인'},
+        ].map(({v, icon, label}) => `
+        <button onclick="applyState.venue_type='${v}';renderApply()"
+          style="padding:10px 12px;border-radius:10px;font-size:12px;font-weight:800;border:2px solid ${s.venue_type===v ? '#002C5F' : '#E5E7EB'};
+                 background:${s.venue_type===v ? '#EFF6FF' : '#fff'};color:${s.venue_type===v ? '#002C5F' : '#6B7280'};cursor:pointer;transition:all .15s">
+          ${icon} ${label}
+        </button>`).join('')}
+      </div>
+    </div>` : '';
+
+  // 위탁기관명
+  const showConsign = inline.consignment_org === true;
+  const consignField = showConsign ? `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">🏫 위탁기관명 <span class="text-red-500">*</span></label>
+      <input type="text" value="${(s.extra_fields||{}).consignment_org || ''}"
+        oninput="applyState.extra_fields=Object.assign(applyState.extra_fields||{},{consignment_org:this.value})"
+        placeholder="교육을 위탁받는 기관명"
+        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
+    </div>` : '';
+
+  // 예산 신청액
+  const amountField = showAmount ? `
+    <div>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">💰 예산 신청액
+        ${s.calcGrounds && s.calcGrounds.length > 0 ? '<span class="text-xs font-medium text-blue-500 ml-2">(세부 산출 근거 합계 자동 반영)</span>' : ''}
+      </label>
+      <div class="relative max-w-xs">
+        <input type="number" value="${s.amount || 0}" oninput="applyState.amount=this.value;_syncCalcToAmount()" placeholder="0"
+          class="w-full bg-gray-50 border-2 ${s.hardLimitViolated ? 'border-red-400 bg-red-50' : 'border-gray-100'} rounded-xl px-5 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition pr-12"/>
+        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-gray-400">원</span>
+      </div>
+      ${s.hardLimitViolated ? '<div class="mt-1.5 text-xs font-black text-red-600">🚫 Hard Limit 초과 항목이 있어 신청할 수 없습니다.</div>' : ''}
+    </div>` : '';
+
+  // 세부산출근거
+  const calcSection = showCalc ? (typeof window._renderCalcGroundsSection === 'function' ? window._renderCalcGroundsSection(s, curBudget) : `
+    <div style="margin-top:20px;">
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">📐 세부산출근거 <span class="text-xs font-medium text-blue-500 ml-2">(미리보기 전용)</span></label>
+      <div class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-bold text-gray-400 text-center border-dashed">
+        [세부산출근거 시스템 자동 렌더링 영역]
+      </div>
+    </div>
+  `) : '';
+
   // 학습 내용
   const contentField = showContent ? `
     <div>
@@ -1491,11 +1611,18 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
   return [
     phaseBBadge,
     eduTypeField,
+    eduCategoryField,
+    eduDaysField,
+    eduOrgField,
     regionToggle,
     titleField,
     datesField,
+    venueField,
     hoursField,
+    consignField,
     elearningFields,
+    amountField,
+    calcSection,
     contentField,
     provGuideField,
     provMaterialsField,

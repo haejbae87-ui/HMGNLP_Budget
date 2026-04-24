@@ -526,6 +526,14 @@ function _renderOneField(def, s, prefix) {
   </div>`;
 }
 
+function _resolveStateRef(prefix) {
+  if (!prefix) return null;
+  if (prefix === "planState") return typeof planState !== "undefined" ? planState : null;
+  if (prefix === "applyState") return typeof applyState !== "undefined" ? applyState : null;
+  if (prefix === "_resultState") return typeof _resultState !== "undefined" ? _resultState : null;
+  try { return eval(prefix); } catch(e) { return null; }
+}
+
 // ─── 키 매핑 (한글 → camelCase 상태 키) ───────────────────────────────────────
 const _KEY_MAP = {
   교육목적: "purpose_text",
@@ -597,12 +605,7 @@ function _resolveCurrentBudget(s, prefix) {
 function _handleFileAttach(event, stateKey, prefix) {
   const file = event.target?.files?.[0];
   if (!file) return;
-  const stateRef =
-    prefix === "planState"
-      ? planState
-      : prefix === "applyState"
-        ? applyState
-        : null;
+  const stateRef = _resolveStateRef(prefix);
   if (stateRef) {
     stateRef[stateKey] = file.name;
   }
@@ -870,18 +873,7 @@ async function _csLoadSessions(courseId, courseTitle, channelId) {
   }
 
   // 이미 선택된 차수 표시를 위해 현재 상태 참조
-  const stateRef =
-    _csPrefix === "planState"
-      ? typeof planState !== "undefined"
-        ? planState
-        : {}
-      : _csPrefix === "applyState"
-        ? typeof applyState !== "undefined"
-          ? applyState
-          : {}
-        : typeof _resultState !== "undefined"
-          ? _resultState
-          : {};
+  const stateRef = _resolveStateRef(_csPrefix);
   const existing = (stateRef[_csStateKey] || []).find(
     (l) => l.courseId === courseId,
   );
@@ -938,18 +930,7 @@ function _csConfirmSessions(courseId, courseTitle, channelId) {
     return;
   }
 
-  const stateRef =
-    _csPrefix === "planState"
-      ? typeof planState !== "undefined"
-        ? planState
-        : null
-      : _csPrefix === "applyState"
-        ? typeof applyState !== "undefined"
-          ? applyState
-          : null
-        : typeof _resultState !== "undefined"
-          ? _resultState
-          : null;
+  const stateRef = _resolveStateRef(_csPrefix);
   if (!stateRef) return;
   if (!Array.isArray(stateRef[_csStateKey])) stateRef[_csStateKey] = [];
 
@@ -988,18 +969,7 @@ function _csConfirmSessions(courseId, courseTitle, channelId) {
 window._csConfirmSessions = _csConfirmSessions;
 
 function _csRemoveCourse(prefix, stateKey, idx) {
-  const stateRef =
-    prefix === "planState"
-      ? typeof planState !== "undefined"
-        ? planState
-        : null
-      : prefix === "applyState"
-        ? typeof applyState !== "undefined"
-          ? applyState
-          : null
-        : typeof _resultState !== "undefined"
-          ? _resultState
-          : null;
+  const stateRef = _resolveStateRef(prefix);
   if (!stateRef || !Array.isArray(stateRef[stateKey])) return;
   stateRef[stateKey].splice(idx, 1);
   _reRenderForm(prefix);
@@ -1007,18 +977,7 @@ function _csRemoveCourse(prefix, stateKey, idx) {
 window._csRemoveCourse = _csRemoveCourse;
 
 function _csRemoveSession(prefix, stateKey, courseIdx, sessionId) {
-  const stateRef =
-    prefix === "planState"
-      ? typeof planState !== "undefined"
-        ? planState
-        : null
-      : prefix === "applyState"
-        ? typeof applyState !== "undefined"
-          ? applyState
-          : null
-        : typeof _resultState !== "undefined"
-          ? _resultState
-          : null;
+  const stateRef = _resolveStateRef(prefix);
   if (!stateRef || !Array.isArray(stateRef[stateKey])) return;
   const course = stateRef[stateKey][courseIdx];
   if (!course) return;
@@ -1662,3 +1621,15 @@ window._foOpenUserSearch = function(stateObjName, key) {
 
 console.log('[fo_form_loader] Phase B 표준 렌더러 로드됨 (foRenderStandardPlanForm, foRenderStandardApplyForm)');
 
+
+// ─── Line Item 필드 설정 (Pattern A/D) ───────────────────────────
+function getLineItemFieldConfig(eduType) {
+  const fields = [];
+  const etStr = eduType || "";
+  if (etStr.includes("집합") || etStr.includes("이러닝") || ["group", "elearning"].includes(etStr)) {
+    fields.push({ key: "과정-차수연결", field_type: "course-session", scope: "front" });
+  }
+  fields.push({ key: "세부산출근거", field_type: "calc-grounds", scope: "front" });
+  return fields;
+}
+window.getLineItemFieldConfig = getLineItemFieldConfig;

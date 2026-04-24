@@ -837,6 +837,47 @@ function _applySelectionBanner(s, currentStep) {
 }
 
 // ─── 교육신청 폼 뷰 (기존 renderApply 로직) ──────────────────────────────────
+
+function _isPatternA(s) {
+  if (!s) return false;
+  if (s.budgetChoice === "rnd") return true;
+  if (s.purpose?.id !== "external_personal" && s.budgetId) {
+    const avail = typeof getPersonaBudgets !== "undefined" ? getPersonaBudgets(currentPersona, s.purpose?.id) : [];
+    const cb = avail.find(b => b.id === s.budgetId);
+    const pi = cb && typeof getProcessPatternInfo !== "undefined" ? getProcessPatternInfo(currentPersona, s.purpose?.id, cb.accountCode) : null;
+    return pi?.pattern === "A";
+  }
+  return false;
+}
+
+function _renderLineItemsStep(s) {
+  if (!s.lineItems || s.lineItems.length === 0) return `<div class="text-gray-500 text-sm font-bold">선택된 교육계획이 없습니다.</div>`;
+  
+  return s.lineItems.map((li, index) => {
+    const fields = typeof getLineItemFieldConfig === 'function' ? getLineItemFieldConfig(li.eduType) : [];
+    const dynamicHtml = typeof renderDynamicFormFields === 'function' 
+      ? renderDynamicFormFields(fields, li, `applyState.lineItems[${index}]`)
+      : '';
+      
+    return `
+      <div class="mb-6 p-6 rounded-2xl border-2 border-violet-200 bg-white shadow-sm">
+        <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
+          <div>
+            <div class="text-[10px] font-black text-violet-500 uppercase tracking-wider mb-1">연동된 교육계획</div>
+            <div class="font-black text-gray-900 text-base">${li.title}</div>
+            <div class="text-xs text-gray-500 mt-1">교육유형: ${li.eduType || '-'}</div>
+          </div>
+          <div class="text-right">
+            <div class="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1">계획 예산</div>
+            <div class="font-black text-violet-600 text-lg">${(li.subtotal||0).toLocaleString()}원</div>
+          </div>
+        </div>
+        ${dynamicHtml}
+      </div>
+    `;
+  }).join('');
+}
+
 function _renderApplyForm() {
   // ── SERVICE_POLICIES 로딩 게이트 (근본 수정) ──────────────────────────────
   // SERVICE_POLICIES가 비어있으면 정책 필터링이 무력화되어 기타운영 등 누수 발생
@@ -1034,7 +1075,7 @@ function _renderApplyForm() {
           (n) => `
       <div class="step-item flex items-center gap-2 ${s.step > n ? "done" : s.step === n ? "active" : ""}">
         <div class="step-circle w-8 h-8 rounded-full flex items-center justify-center text-sm font-black transition-all">${s.step > n ? "✓" : n}</div>
-        <span class="text-xs font-bold ${s.step === n ? "text-brand" : "text-gray-400"} hidden sm:block">${["목적 선택", "예산 선택", "교육유형 선택", "세부 정보"][n - 1]}</span>
+        <span class="text-xs font-bold ${s.step === n ? "text-brand" : "text-gray-400"} hidden sm:block">${["목적 선택", "예산 선택", _isPatternA(s) ? "세부산출근거" : "교육유형 선택", "신청 정보"][n - 1]}</span>
         ${n < 4 ? '<div class="h-px flex-1 bg-gray-200 mx-2 w-8"></div>' : ""}
       </div>`,
         )
@@ -1398,26 +1439,24 @@ ${(() => {
   </div>
 
 
-  <!--Step 3: 교육유형 선택-->
+  <!--Step 3: 교육유형 선택 OR Line Items-->
   <div class="card p-8 ${s.step === 3 ? "" : "hidden"}">
-    ${_applySelectionBanner(s, 3)}
-    <h2 class="text-lg font-black text-gray-800 mb-6">03. 교육유형 선택</h2>
-    ${(() => {
-      // 정책 기반 교육유형 트리 우선 사용
-      // ★ curBudget이 null이어도 purpose만으로 시도 (budgetAccountType=null → accountCode 필터 스킵)
-      const tree =
-        typeof getPolicyEduTree !== "undefined"
-          ? getPolicyEduTree(
-              currentPersona,
-              s.purpose?.id,
-              curBudget ? curBudget.account : null,
-            )
-          : [];
-
-      if (tree.length > 0) {
-        // ── 정책 기반 트리 렌더링 ──
-        return tree
-          .map((node) => {
+    ${_isPatternA(s) ? `
+      ${_applySelectionBanner(s, 3)}
+      <h2 class="text-lg font-black text-gray-800 mb-6">03. 교육계획 구성 (세부산출근거)</h2>
+      <div class="mb-4 text-sm text-gray-500 font-bold">과정을 운영할 상세 내역을 입력해주세요. 집합/이러닝의 경우 차수를 지정해야 합니다.</div>
+      ${_renderLineItemsStep(s)}
+      <div class="flex justify-between mt-6">
+        <button onclick="applyPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
+        <button onclick="applyNext()" class="px-8 py-3 rounded-xl font-black text-sm transition bg-brand text-white hover:bg-blue-900 shadow-lg">다음 →</button>
+      </div>
+    ` : `
+      ${_applySelectionBanner(s, 3)}
+      <h2 class="text-lg font-black text-gray-800 mb-6">03. 교육유형 선택</h2>
+      ${(() => {
+        const tree = typeof getPolicyEduTree !== "undefined" ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget ? curBudget.account : null) : [];
+        if (tree.length > 0) {
+          return tree.map((node) => {
             const isLeaf = !node.subs || node.subs.length === 0;
             const isSelected = s.eduType === node.id;
             if (isLeaf) {
@@ -1437,92 +1476,62 @@ ${(() => {
             <span>${node.label}</span>
             <span class="text-xs ${isSelected ? "text-gray-300" : "text-gray-400"}">${isSelected ? "▼" : "▶"} ${node.subs.length}개 세부유형</span>
           </button>
-          ${
-            isSelected
-              ? `
+          ${isSelected ? `
           <div class="p-4 bg-gray-50 border-t border-gray-200">
             <div class="text-xs font-black text-blue-500 mb-3 flex items-center gap-2">
               <span class="w-1.5 h-1.5 bg-blue-500 rounded-full inline-block"></span>
               세부 교육유형을 선택하세요
             </div>
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              ${node.subs
-                .map(
-                  (st) => `
+              ${node.subs.map(st => `
               <button onclick="applyState.subType='${st.key}';renderApply()"
                 class="p-3 rounded-xl border-2 text-sm font-bold text-left transition
                        ${s.subType === st.key ? "bg-blue-600 border-blue-600 text-white shadow-lg" : "border-blue-200 text-blue-700 hover:border-blue-400 hover:bg-blue-50"}">${st.label}</button>
-              `,
-                )
-                .join("")}
+              `).join("")}
             </div>
-          </div>`
-              : ""
-          }
+          </div>` : ""}
         </div>`;
             }
-          })
-          .join("");
-      }
-
-      // Fallback: SERVICE_POLICIES 로드 여부 확인
-      const hasPolicies =
-        typeof SERVICE_POLICIES !== "undefined" && SERVICE_POLICIES.length > 0;
-      if (hasPolicies) {
-        // 정책이 로드됐는데 tree가 비어있으면 → 이 계정/VOrg에 설정된 정책 없음
-        return `<div class="p-5 bg-yellow-50 border-2 border-yellow-200 rounded-2xl">
-          <div class="font-black text-yellow-700 text-sm">⚠️ 허용된 교육유형 정보가 없습니다</div>
-          <div class="text-xs text-yellow-600 mt-1">관리자에게 교육지원 운영 규칙 설정을 요청해 주세요.</div>
-        </div>`;
-      }
-      // SERVICE_POLICIES 미로드: PURPOSES subtypes 기반 폴백
-      const subtypes = s.purpose?.subtypes || null;
-      if (!subtypes)
-        return '<div class="p-5 bg-gray-50 rounded-2xl text-sm font-bold text-gray-500 flex items-center gap-3"><span class="text-accent text-xl">✓</span> 표준 프로세스가 자동 적용됩니다.</div>';
-      return subtypes
-        .map(
-          (g) => `
+          }).join("");
+        }
+        const hasPolicies = typeof SERVICE_POLICIES !== "undefined" && SERVICE_POLICIES.length > 0;
+        if (hasPolicies) {
+          return `<div class="p-5 bg-yellow-50 border-2 border-yellow-200 rounded-2xl">
+            <div class="font-black text-yellow-700 text-sm">⚠️ 허용된 교육유형 정보가 없습니다</div>
+            <div class="text-xs text-yellow-600 mt-1">관리자에게 교육지원 운영 규칙 설정을 요청해 주세요.</div>
+          </div>`;
+        }
+        const subtypes = s.purpose?.subtypes || null;
+        if (!subtypes) return '<div class="p-5 bg-gray-50 rounded-2xl text-sm font-bold text-gray-500 flex items-center gap-3"><span class="text-accent text-xl">✓</span> 표준 프로세스가 자동 적용됩니다.</div>';
+        return subtypes.map(g => `
     <div class="mb-7">
       <div class="mb-3">
         <div class="text-xs font-black text-gray-700 flex items-center gap-2 mb-0.5"><span class="w-1.5 h-1.5 bg-accent rounded-full inline-block"></span>${g.group}</div>
         ${g.desc ? `<div class="text-[11px] text-gray-400 pl-3.5">${g.desc}</div>` : ""}
       </div>
       <div class="grid ${g.items.length >= 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"} gap-3">
-        ${g.items
-          .map(
-            (i) => `
-        <button onclick="applyState.subType='${i.id}';renderApply()" class="p-4 rounded-xl border-2 text-sm font-bold text-left leading-snug transition ${s.subType === i.id ? "bg-gray-900 border-gray-900 text-white shadow-xl" : "border-gray-200 text-gray-700 hover:border-accent hover:text-accent"}">${i.label}</button>`,
-          )
-          .join("")}
+        ${g.items.map(i => `
+        <button onclick="applyState.subType='${i.id}';renderApply()" class="p-4 rounded-xl border-2 text-sm font-bold text-left leading-snug transition ${s.subType === i.id ? "bg-gray-900 border-gray-900 text-white shadow-xl" : "border-gray-200 text-gray-700 hover:border-accent hover:text-accent"}">${i.label}</button>`).join("")}
       </div>
-    </div>`,
-        )
-        .join("");
-    })()}
-    <div class="flex justify-between mt-6">
-      <button onclick="applyPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
-      ${(() => {
-        const tree2 =
-          typeof getPolicyEduTree !== "undefined"
-            ? getPolicyEduTree(
-                currentPersona,
-                s.purpose?.id,
-                curBudget ? curBudget.account : null,
-              )
-            : [];
-        if (tree2.length > 0) {
-          const selNode = tree2.find((n) => n.id === s.eduType);
-          const isLeaf =
-            selNode && (!selNode.subs || selNode.subs.length === 0);
-          const canNext = s.eduType && (isLeaf || s.subType);
-          return `<button onclick="applyNext()" ${!canNext ? "disabled" : ""}
-            class="px-8 py-3 rounded-xl font-black text-sm transition ${!canNext ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-brand text-white hover:bg-blue-900 shadow-lg"}">다음 →</button>`;
-        }
-        const dis = s.purpose?.subtypes && !s.subType;
-        return `<button onclick="applyNext()" ${dis ? "disabled" : ""}
-          class="px-8 py-3 rounded-xl font-black text-sm transition ${dis ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-brand text-white hover:bg-blue-900 shadow-lg"}">다음 →</button>`;
+    </div>`).join("");
       })()}
-    </div>
+      <div class="flex justify-between mt-6">
+        <button onclick="applyPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
+        ${(() => {
+          const tree2 = typeof getPolicyEduTree !== "undefined" ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget ? curBudget.account : null) : [];
+          if (tree2.length > 0) {
+            const selNode = tree2.find((n) => n.id === s.eduType);
+            const isLeaf = selNode && (!selNode.subs || selNode.subs.length === 0);
+            const canNext = s.eduType && (isLeaf || s.subType);
+            return `<button onclick="applyNext()" ${!canNext ? "disabled" : ""}
+              class="px-8 py-3 rounded-xl font-black text-sm transition ${!canNext ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-brand text-white hover:bg-blue-900 shadow-lg"}">다음 →</button>`;
+          }
+          const dis = s.purpose?.subtypes && !s.subType;
+          return `<button onclick="applyNext()" ${dis ? "disabled" : ""}
+            class="px-8 py-3 rounded-xl font-black text-sm transition ${dis ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-brand text-white hover:bg-blue-900 shadow-lg"}">다음 →</button>`;
+        })()}
+      </div>
+    `}
   </div>
 
   <!--Step 4: Detail-->

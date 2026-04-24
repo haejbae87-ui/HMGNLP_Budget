@@ -3175,7 +3175,7 @@ function _appSingleSubmit(appId, appTitle) {
   if (document.getElementById('apr-submit-modal')) {
     _aprSingleSubmit(appId, 'applications', appTitle || '교육신청 상신');
   } else {
-    if (typeof navigateTo === 'function') navigateTo('approval-member');
+    if (typeof navigate === 'function') navigate('approval-member');
     setTimeout(() => {
       if (typeof _aprSingleSubmit === 'function') {
         _aprSingleSubmit(appId, 'applications', appTitle || '교육신청 상신');

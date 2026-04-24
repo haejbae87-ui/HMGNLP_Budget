@@ -1313,7 +1313,7 @@ async function saveApplyAsReady() {
 // ─── A-1: 신청 카드에서 단건 상신 브릿지 ─────────────────────────────────────
 // apply.js 신청 내역 카드의 saved 항목에 "상신하기" 버튼이 이 함수를 호출
 function _appSingleSubmit(appId, appTitle) {
-  if (typeof _aprSingleSubmit === 'function') {
+  if (document.getElementById('apr-submit-modal')) {
     _aprSingleSubmit(appId, 'applications', appTitle || '교육신청 상신');
   } else {
     if (typeof navigateTo === 'function') navigateTo('approval-member');

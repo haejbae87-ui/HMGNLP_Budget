@@ -208,3 +208,4 @@
 
 - [x] FO 폼 매칭 로직 오류 (edu_type과 selected_edu_item.subId 불일치) 해결 및 반영
 - [x] P17 Multi-Plan to Single Application (N:1) FO/BO workflow integration (apply.js, fo_form_loader.js, bo_approval.js) and removed legacy selected_rounds logic.
+- [x] P17 Fix FO Submit Button (modal rendering issue) and remove 'saved' draft state from BO Approval queues (bo_plan_mgmt.js, approval.js, fo_apply_actions.js, apply.js).

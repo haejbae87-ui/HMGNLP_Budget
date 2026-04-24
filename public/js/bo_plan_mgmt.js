@@ -269,7 +269,7 @@ async function renderBoPlanMgmt() {
             ? `
         <td style="text-align:center" onclick="event.stopPropagation()">
           ${
-            status === "pending" || status === "pending_approval" || status === "saved" || status === "in_review"
+            status === "pending" || status === "pending_approval" || status === "in_review" || status === "submitted"
               ? `
           <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
             <button onclick="boPlanApprove('${safeId}')" class="bo-btn-accent bo-btn-sm">승인</button>
@@ -334,7 +334,7 @@ async function renderBoPlanMgmt() {
 
     // ★ 운영담당자 전용: 1차 검토 대기 목록
     const reviewPending = canReview
-      ? plans.filter(p => ["pending","pending_approval","saved","submitted"].includes(p.status))
+      ? plans.filter(p => ["pending","pending_approval","submitted"].includes(p.status))
       : [];
 
     el.innerHTML = `
@@ -849,7 +849,7 @@ async function _renderBoPlanApplicationsPanel(planId) {
   // 집계
   const totalAmt   = apps.reduce((s, a) => s + Number(a.amount || 0), 0);
   const approvedAmt = apps.filter(a => a.status === 'approved').reduce((s, a) => s + Number(a.amount || 0), 0);
-  const pendingCnt  = apps.filter(a => ['pending','pending_approval','saved','submitted'].includes(a.status)).length;
+  const pendingCnt  = apps.filter(a => ['pending','pending_approval','submitted'].includes(a.status)).length;
   const approvedCnt = apps.filter(a => a.status === 'approved').length;
   const rejectedCnt = apps.filter(a => a.status === 'rejected').length;
 
@@ -1812,8 +1812,8 @@ async function boPlanReview(planId) {
 
   try {
     const { data: cur } = await sb.from('plans').select('status,tenant_id').eq('id', planId).single();
-    if (!['saved','pending','pending_approval'].includes(cur?.status)) {
-      alert('⚠️ 1차검토는 저장완료(saved) 또는 결재대기(pending) 상태에서만 가능합니다.');
+    if (!['pending','pending_approval','submitted'].includes(cur?.status)) {
+      alert('⚠️ 1차검토는 결재대기(pending, submitted) 상태에서만 가능합니다.');
       return;
     }
 

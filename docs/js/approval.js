@@ -1384,12 +1384,11 @@ async function _aprRecallSubmit(id, table) {
 // ─── S-5: plans.js 카드 상신 버튼 → 결재함 상신 모달 연결 ────────────────────
 // plans.js의 _renderPlanCard()에서 saved 상태 카드의 "상신하기" 버튼이 이 함수를 호출
 function _aprSingleSubmitFromPlan(planId, planTitle) {
-  // 결재함 페이지가 로드되어 있으면 바로 모달 표시
-  // 그렇지 않으면 approval.js의 _aprSingleSubmit 직접 호출
-  if (typeof _aprSingleSubmit === 'function') {
+  // 결재함 페이지 모달이 DOM에 렌더링되어 있으면 바로 띄움
+  if (document.getElementById('apr-submit-modal')) {
     _aprSingleSubmit(planId, 'plans', planTitle || '교육계획 상신');
   } else {
-    // approval.js가 아직 초기화되지 않은 경우 — 결재함 탭으로 이동
+    // 모달 DOM이 없으면 결재함 탭으로 이동하여 렌더링을 유도한 뒤 모달을 띄움
     if (typeof navigateTo === 'function') {
       navigateTo('approval-member');
     }

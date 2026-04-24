@@ -1,73 +1,98 @@
-# 정책 설정 위저드 1~3 스텝 통합 및 패턴 간소화 (A/B/C) 개선 계획
+# 복수 교육계획 통합 신청 (N:1 연동) 구현 계획
 
-사용자님의 훌륭한 제안(스텝 1~3 단일 페이지화 및 패턴 D/E 통폐합)에 대해 Domain Council을 소집하여 상충 관계와 엣지 케이스를 분석한 결과 및 최종 구현 계획입니다.
-
----
-
-## 🏛️ Domain Council (비즈니스 도메인 전문가 교차 검증)
-
-### 🕵️ 전문가 난상 토론 및 분석
-
-1. 📝 **폼/결재 거버넌스 전문가 (Form & Approval Expert)**
-   - **분석**: "기존의 5단계 위저드(정의→범위→패턴→양식→결재)는 사용자가 잦은 '다음' 버튼 클릭으로 피로감을 느꼈습니다. 스텝 1, 2, 3을 하나의 '기본 설정' 페이지로 합치면 한눈에 정책의 성격을 파악하고 세팅할 수 있어 UX 관점에서 압도적으로 좋습니다."
-   - **우려점**: "다만, 한 화면에 입력 필드가 많아지면 폼 검증(Validation) 로직이 한 번에 몰리게 됩니다. 계정을 선택하지 않고 패턴을 선택하는 등, 순서가 꼬일 수 있으므로 동적 UI 업데이트가 꼼꼼히 설계되어야 합니다."
-
-2. 🎓 **교육계획/수요예측 전문가 (Edu Plan Expert)**
-   - **분석**: "D(이력 전용), E(무예산 신청-결과) 패턴은 사실 B, C 패턴과 흐름(Flow)이 동일합니다. 단순히 '예산이 안 들어간다'는 차이 때문에 관리자가 패턴을 5개나 외워야 했던 것은 불필요한 인지 부하였습니다. A(계획-신청-결과), B(신청-결과), C(결과 단독) 3개로만 줄이는 것에 대찬성합니다."
-
-3. 💰 **예산/정산 전문가 (Budget & Ledger Expert)**
-   - **분석**: "아주 정확한 지적입니다. 정책이 예산을 쓸지 말지는 **패턴(A~E)이 결정하는 게 아니라, 연결된 예산 계정(Account)의 속성(`uses_budget`)이 결정**해야 합니다.
-   - **우려점(Edge Case)**: "기존에 이미 'D'나 'E' 패턴으로 저장된 DB 데이터들이 있을 텐데, 화면에서는 A,B,C로만 렌더링되게 하려면 런타임 호환성 보장 로직(Fallback)이 필요합니다."
-
-4. 🏢 **제도그룹/권한 전문가 (VOrg & Policy Expert)**
-   - **분석**: "계정을 먼저 선택하면 그 계정이 '유예산'인지 '무예산'인지가 결정됩니다. 1페이지 내에서 '계정' 항목과 '패턴' 항목이 연동되어야 하므로, 계정을 바꾸면 자동으로 '예산/무예산 안내' 배너가 바뀌도록 UI 반응성을 높여야 합니다."
+사용자님의 요청에 따라, **[교육계획 N:1 교육신청 (복수 계획 연동 신청)]** 기능에 대한 도메인 전문가 위원회의 검증 결과를 반영한 최종 구현 계획서입니다. 
 
 ---
 
-### ⚠️ 발견된 리스크 및 엣지 케이스 (Edge Cases)
+## 🏛️ Domain Council (도메인 전문가 교차 검증) 요약
 
-1. **기존 데이터 하위 호환성 (Legacy Data Compatibility)**
-   - DB에 이미 `process_pattern: 'D'` 또는 `'E'`로 저장된 기존 정책 객체들이 런타임에 에러를 뱉을 수 있습니다. 코드에서 `D → C`(결과 단독) 또는 `D → B`(신청 단독), `E → B`(신청-결과)로 매핑하여 읽어들이는 브릿지 함수가 필요합니다.
-   
-2. **동적 렌더링 의존성**
-   - 1페이지 안에서 [가상조직 선택] -> [계정 선택] -> [패턴 선택]이 동시에 이뤄집니다. 계정을 선택하기도 전에 패턴이 먼저 선택되어 오작동하지 않도록 렌더링 체인을 잘 묶어주어야 합니다.
+### 🚨 기존 PRD와의 핵심 상충(Conflict) 및 분석
 
----
+사용자님의 추가 요구사항을 분석한 결과, **기존 v1.4 PRD 설계와 정면으로 상충되는 핵심 개념**을 발견했습니다.
 
-## 💡 최종 통합 아키텍처 및 구현 계획
+1. **차수(Round/Session) 개념의 주체 불일치**
+   - **기존 설계**: 교육계획(Plan)을 수립할 때부터 "몇 차수 할 거냐"를 정하고, 신청 시에는 **계획의 차수**를 선택한다고 보았습니다. 그래서 '개인직무'나 '워크숍' 등 모든 유형에 차수 선택 UI가 있었습니다.
+   - **사용자 요구사항**: 차수는 철저히 **백오피스(LMS)에 개설된 교육과정의 차수(Session)**를 의미합니다.
+   - **조치**: "차수"라는 개념을 계획에서 분리하여 LMS 연동 전용으로 격상시킵니다. LMS 연동이 없는 개인직무/워크숍은 차수 선택 없이 '산출근거'만 입력하도록 폼을 대대적으로 분리합니다.
 
-사용자님의 제안이 시스템 아키텍처적으로 훨씬 우수하므로 다음과 같이 코드를 리팩토링합니다.
+2. **차수 중복 방지(Disable)의 기준**
+   - **기존 설계**: 동일 신청서 내에서 같은 계획 차수를 중복 선택하는 것을 막았습니다.
+   - **사용자 요구사항**: **이미 예산 집행이 상신된 LMS 차수**라면, 다른 교육신청서에서도 중복해서 사용할 수 없도록 전역적으로 Disable 처리해야 합니다 (예산 이중 집행 방지).
 
-### 1. `bo_policy_builder.js` - 패턴 메타데이터(A,B,C) 축소
-- `_PATTERN_META`와 `_PATTERN_STAGES`에서 D, E를 완전히 삭제하고 A, B, C만 남깁니다.
-- 기존 데이터 로드 시 브릿지 매핑을 추가합니다.
-  - `D`(신청 단독이력) → `B`(신청-결과, 무예산 속성)로 자동 해석
-  - `E`(무예산 신청결과) → `B`(신청-결과, 무예산 속성)로 자동 해석
-
-### 2. 위저드 스텝(1,2,3)을 단일 스텝 1로 통합
-- `_policyWizardStep`의 인덱스를 조정합니다.
-  - **Step 0**: 정책 기본 정보 + 범위(조직/계정) + 프로세스 패턴 통합 페이지 (`기본 설정`)
-  - **Step 1**: 양식 편집기 (`양식`)
-  - **Step 2**: 결재 라인 (`결재라인`)
-- 기존 5단계 상단 프로그레스 바(Progress Bar)를 3단계로 간소화합니다.
-
-### 3. 예산 연동 여부 자동화 (`budgetLinked` 분리)
-- 기존에는 패턴에 하드코딩 되어있던 예산 로직을, `계정(Account)`의 `uses_budget` 필드 값으로만 100% 판단하도록 수정합니다. 계정을 선택하는 즉시 폼 하단에 "💳 유예산 적용" 또는 "📝 무예산 적용" 배너가 명시되게 합니다.
+3. **1 Line Item = N LMS Sessions (과정 단위 통합 매핑)**
+   - **사용자 피드백 수용**: "차수별로 세부산출근거를 쪼개지 말고, 한 과정에 대해 여러 차수를 선택한 뒤 통합된 산출근거를 작성하는 것이 편리하다"는 의견을 반영했습니다.
+   - **조치**: 1개의 Line Item(과정 항목) 안에서 **복수의 LMS 차수(Session)**를 다중 선택(체크박스)할 수 있도록 구조를 확정합니다. DB 구조는 `linked_sessions JSONB` 배열을 사용하며, 예산 사용 추적은 "이 과정 전체에 얼마를 썼다"는 과정 단위로 이루어집니다.
 
 ---
 
 ## User Review Required
 
 > [!IMPORTANT]
-> **기존 D 패턴의 마이그레이션 방향 확인**
-> 기존 D 패턴(신청 단독 이력)과 C 패턴(결과 단독)의 매핑에 관해 확인하고 싶습니다.
-> 사용자님이 "계획-신청-결과면 A, 신청-결과면 B, 결과면 C" 라고 정리해주셨는데, 이 기준대로면 기존에 "신청 단계만으로 이력을 쌓던 무예산 패턴(D)"은 **B(신청-결과)** 로 편입시키되, '결과' 단계를 FO에서 생략하게 하는 것이 맞을까요, 아니면 **C(결과 단독)** 로 편입시켜 결과 보고서 하나로 이력을 남기게 하는 것이 맞을까요?
+> **예산 사용 추적의 기준 (과정 단위 통합 및 계획 대비 추적)**
+> 다중 차수를 선택하고 과정 단위로 통합 산출근거를 적게 되면, 차수별 세부 비용 추적은 불가능하지만 **"이 과정 운영에 비용이 얼마 들었다"**는 파악할 수 있습니다. 
 > 
-> **(추천안)**: 모든 이력형/무예산 정책은 **B(신청→결과)** 로 통일하고, 양식 단계에서 '결과' 양식의 필수 필드를 최소화하는 것이 확장성 면에서 좋습니다. 추천안으로 진행할까요?
+> **특히, 사용자님께서 짚어주신 핵심 기대효과가 완벽히 지원됩니다:**
+> - 계획 시 작성한 산출근거(Planned)와 신청 시 작성한 산출근거(Applied)가 DB상 분리되어 저장됩니다 (`application_plan_items` 테이블).
+> - 한 교육계획을 여러 번 나누어 신청(여러 차수로 분할 신청)하더라도, 각 신청서의 Line Item(과정)들이 동일한 `plan_id`를 바라보므로, **나중에 해당 `plan_id`로 신청된 모든 세부산출근거와 총액을 합산하여 원본 계획 예산과 완벽히 비교/추적**할 수 있습니다.
 
-## Open Questions
+> [!WARNING]
+> **LMS 차수 Disable 시점**
+> "이미 다른 교육신청에서 사용한 차수"의 기준을 `결재진행중` 및 `승인완료` 상태인 신청서로 정의하겠습니다. (반려되거나 작성 중인 경우는 선택 가능)
 
 > [!NOTE]
-> 3단계로 확 줄어드는 UI 특성 상, 1단계 "기본 설정" 화면이 세로로 꽤 길어질 수 있습니다. 영역별로 `<hr>` 같은 시각적 분리선을 두껍게 넣어서 스크롤 시 혼동이 없도록 디자인하겠습니다. 동의하시나요?
+> **반려/임시저장 시 이어쓰기 (Draft) 재편집 정책 확정**
+> 결재가 반려되거나 임시저장(작성 중)인 신청서를 이어쓰기 할 경우, **특정 교육계획, 특정 교육과정(Line Item), 특정 교육과정의 차수까지 모두 자유롭게 추가/수정/삭제**가 가능합니다. 문제가 된 부분만 유연하게 수정하여 바로 다시 상신할 수 있도록 지원합니다.
 
-확인 및 피드백 주시면 즉시 3단계 위저드로 대폭 개편하는 리팩토링 및 배포를 진행하겠습니다!
+---
+
+## Proposed Changes
+
+### 1. Database Schema
+#### [NEW] `application_plan_items` 테이블 신설
+- 신청서(Header)에 속하는 개별 과정(Line Item) 관리.
+- **필드**: `application_id`, `plan_id`, `budget_usage_type`, `settlement_method`, `calc_grounds_snapshot`, `subtotal`
+- **추가**: `result_status` (개별 수료/결과 상태 트리)
+- **[LMS 매핑용 신설]**: `channel_id`, `course_id`, `linked_sessions` (JSONB: 다중 차수 정보 배열)
+  - 집합/이러닝이 아닐 경우(개인직무, 워크숍 등)는 NULL 저장.
+- **[삭제됨]**: `selected_rounds` (계획의 차수 개념 삭제에 따라 제거)
+
+### 2. UI Simplification for Budget Inputs (Back Office Policy Builder)
+- In `bo_policy_builder.js`, move the "Company", "Institutional Group" (Virtual Org), and "Budget Account" selections to the very top of Step 0.
+- Simplify the Institutional Group and Budget Account selectors into basic dropdown menus, mirroring the Company selector.
+
+### 3. Process-Level Calc Grounds & Budget Tracking
+- Budget breakdown (`calc_grounds`) is managed at the **Course (Line Item)** level (`application_plan_items` table), not the round (session) level.
+- When users select multiple rounds, they write a single `calc_grounds` table representing the total budget for the course in that specific application.
+- **Aggregation Tracking**: Since each `application_plan_items` row contains `plan_id`, the system can aggregate all applied budgets across multiple applications/rounds and compare them against the original `edu_plans` budget.
+
+### 4. Re-edit Policy for Drafts & Rejections
+- The application allows full flexibility when in "Draft" or "Saved" (rejected) status.
+- Users can freely add or delete specific **Education Plans**, add or delete **Courses (Line Items)**, and add or delete **Rounds (Sessions)** without constraint, up until the point of final submission.
+
+### 5. Front Office (`apply.js`)
+#### [MODIFY] 폼 구조 (Header + Line Items) 분기 처리 (핵심)
+- 교육유형이 **[집합/이러닝]** 인 경우:
+  - 접속자의 채널 담당자 권한(`_ch_mgr_`)을 조회하여 운영 중인 **LMS 과정-차수 피커(Picker)** 필수 노출.
+  - 선택된 차수가 기 결재진행/승인 건이면 **Disable** 처리.
+  - 해당 차수 운영에 필요한 **세부산출근거** 재입력 폼 노출.
+- 교육유형이 **[워크숍/개인직무/기타 등]** 인 경우:
+  - LMS 과정-차수 선택 UI 아예 없음.
+  - **세부산출근거** 재입력 폼만 단독 노출 ("이번에 이 계획으로 얼마 쓸 것인지").
+
+### 3. Back Office (`bo_approval.js` 등)
+#### [MODIFY] 결재 문서 뷰
+- 결재 문서 로딩 시 `application_plan_items` 데이터를 함께 조인하여 불러옴.
+- 신청 합계 금액 아래에 묶여 있는 각 교육과정(Line Item) 리스트 및 소계를 반복 렌더링.
+
+---
+
+## Verification Plan
+
+### Automated/Manual Tests
+- **제약 조건 검증**: 서로 다른 목적이나 예산 계정의 계획을 묶으려 시도할 때 정확히 차단되는지 브라우저에서 테스트.
+- **이어쓰기 검증**: 결재 반려 후 이어쓰기 시 과정 삭제/추가가 자유롭게 가능하며, 금액 소계가 자동 재계산되는지 확인.
+- **결재문서 검증**: 결재 상신 후, 관리자(BO) 및 결재권자 화면에서 묶음 내역 전체가 정확히 렌더링되는지 확인.
+
+---
+
+구현 계획이 괜찮으시다면 승인 부탁드립니다. 승인 직후 바로 코딩 작업에 착수하겠습니다!

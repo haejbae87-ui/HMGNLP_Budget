@@ -934,84 +934,39 @@ function renderPolicyWizard() {
       : [];
 
     let block1 = `
-<div style="display:grid;gap:18px">
-  <div style="padding:12px 16px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;font-size:12px;color:#92400E">
-    💡 정책이 적용될 <strong>회사 · 가상교육조직 · 예산계정</strong>을 가장 먼저 설정합니다. 이 설정이 정책의 데이터 범위를 결정합니다.
-  </div>
-  ${
-    isPlatform
-      ? `
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;padding:16px;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;">
+  <!-- 1. 회사 -->
   <div>
-    <label class="bo-label">회사 선택 <span style="color:#EF4444">*</span></label>
-    <select onchange="_policyWizardData.scopeTenantId=this.value;_policyWizardData.vorgTemplateId='';_policyWizardData.accountCodes=[];renderPolicyWizard()"
-      style="width:100%;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700">
-      <option value="">— 회사를 선택하세요 —</option>
+    <label class="bo-label" style="font-size:12px;margin-bottom:6px">회사 선택 <span style="color:#EF4444">*</span></label>
+    <select ${isPlatform ? 'onchange="_policyWizardData.scopeTenantId=this.value;_policyWizardData.vorgTemplateId=\'\';_policyWizardData.accountCodes=[];renderPolicyWizard()"' : "disabled"}
+      style="width:100%;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;font-weight:700;background:${isPlatform ? 'white' : '#F3F4F6'};color:${isPlatform ? '#111827' : '#6B7280'}">
+      <option value="">— 회사 선택 —</option>
       ${_TENANTS_LIST.map((t) => `<option value="${t.id}" ${scopeTenantId === t.id ? "selected" : ""}>${t.name || t.id}</option>`).join("")}
     </select>
-  </div>`
-      : `
-  <div style="padding:10px 16px;background:#F3F4F6;border-radius:10px;display:flex;align-items:center;gap:8px">
-    <span style="font-size:12px;font-weight:700;color:#6B7280">회사</span>
-    <span style="font-size:14px;font-weight:900;color:#111827">🏢 ${_TENANTS_LIST.find((t) => t.id === scopeTenantId)?.name || scopeTenantId}</span>
-    <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#E5E7EB;color:#6B7280">자동 설정</span>
-  </div>`
-  }
+  </div>
   
-  ${
-    scopeTenantId
-      ? `
+  <!-- 2. 제도그룹 (가상교육조직) -->
   <div>
-    <label class="bo-label">${isBudgetOp ? "담당 가상교육조직" : "가상교육조직 선택"} <span style="color:#EF4444">*</span></label>
-    ${
-      isBudgetOp
-        ? `
-    <div style="padding:10px 16px;background:#EDE9FE;border:1.5px solid #C4B5FD;border-radius:10px;display:flex;align-items:center;gap:8px">
-      <span style="font-size:16px">🔒</span>
-      <span style="font-size:14px;font-weight:900;color:#7C3AED">${scopeVorgs.find((g) => g.id === scopeVorgId)?.name || scopeVorgId}</span>
-      <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:#DDD6FE;color:#5B21B6">자동 고정</span>
-    </div>`
-        : `
-    <select onchange="_policyWizardData.vorgTemplateId=this.value;_policyWizardData.accountCodes=[];_policyWizardData.budgetLinked=true;renderPolicyWizard()"
-      style="width:100%;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700">
-      <option value="">— 가상교육조직을 선택하세요 —</option>
-      ${
-        scopeVorgs.length > 0
-          ? scopeVorgs.map((g) => `<option value="${g.id}" ${scopeVorgId === g.id ? "selected" : ""}>${g.name}</option>`).join("")
-          : ""
-      }
+    <label class="bo-label" style="font-size:12px;margin-bottom:6px">제도그룹 선택 <span style="color:#EF4444">*</span></label>
+    <select ${isBudgetOp ? "disabled" : 'onchange="_policyWizardData.vorgTemplateId=this.value;_policyWizardData.accountCodes=[];_policyWizardData.budgetLinked=true;renderPolicyWizard()"'}
+      style="width:100%;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;font-weight:700;background:${isBudgetOp ? '#F3F4F6' : 'white'};color:${isBudgetOp ? '#6B7280' : '#111827'}">
+      <option value="">— 제도그룹 선택 —</option>
+      ${scopeVorgs.map((g) => `<option value="${g.id}" ${scopeVorgId === g.id ? "selected" : ""}>${g.name}</option>`).join("")}
     </select>
-    ${scopeVorgs.length === 0 ? '<div style="font-size:12px;padding-top:6px;color:#EF4444">해당 회사의 가상교육조직이 없습니다. 먼저 조직을 생성하세요.</div>' : ""}`
-    }
-  </div>`
-      : ""
-  }
-  
-  ${
-    scopeVorgId
-      ? `
+  </div>
+
+  <!-- 3. 예산계정 -->
   <div>
-    <label class="bo-label">예산 계정 선택 <span style="color:#EF4444">*</span></label>
-    ${scopeAccts.length > 0 ? `
+    <label class="bo-label" style="font-size:12px;margin-bottom:6px">예산계정 선택 <span style="color:#EF4444">*</span></label>
     <select onchange="_selectPolicyAcct(this.value)"
-      style="width:100%;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:700">
-      <option value="">— 예산 계정을 선택하세요 —</option>
+      style="width:100%;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;font-weight:700;background:white">
+      <option value="">— 예산계정 선택 —</option>
       ${scopeAccts.map((a) => {
         const prefix = a.code === "COMMON-FREE" ? "📝 " : a.budgetLinked === false ? "" : "💳 ";
         return `<option value="${a.code}" ${(d.accountCodes || [])[0] === a.code ? "selected" : ""}>${prefix}${a.name}</option>`;
       }).join("")}
-    </select>` : '<div style="font-size:12px;color:#EF4444;padding-top:6px">선택한 조직에 연결된 계정이 없습니다.</div>'}
-    
-    ${
-      (d.accountCodes || [])[0]
-        ? `
-    <div style="margin-top:8px;padding:10px 16px;background:${d.budgetLinked ? "#EFF6FF" : "#F0FDF4"};border-radius:10px;font-size:12px;color:${d.budgetLinked ? "#1E40AF" : "#065F46"}">
-      ${d.budgetLinked ? "💳 <strong>예산 연동</strong> — 선택한 계정에서 예산을 집행합니다." : "📝 <strong>무예산</strong> — 예산 차감 없이 이력 관리합니다."}
-    </div>`
-        : ""
-    }
-  </div>`
-      : ""
-  }
+    </select>
+  </div>
 </div>`;
 
     // ── Step 2: 패턴 ─────────────────────────────────────────────────────────────

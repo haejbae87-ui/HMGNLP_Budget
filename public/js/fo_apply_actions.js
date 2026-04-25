@@ -117,6 +117,8 @@ function _renderApplyConfirm() {
     ? (currentPersona.budgets || []).find((b) => b.id === s.budgetId)
     : null;
   const accountCode = curBudget?.accountCode || "";
+  const accountName = curBudget?.name || accountCode || "-";
+  const purposeLabel = s.purpose?.label || s.purpose?.id || "-";
 
   document.getElementById("page-apply").innerHTML = `
   <div class="max-w-3xl mx-auto">
@@ -133,8 +135,18 @@ function _renderApplyConfirm() {
             <td style="padding:12px 0;font-weight:900;color:#111827">${s.eduName || s.title || "-"}</td>
           </tr>
           <tr style="border-bottom:1px solid #F3F4F6">
+            <td style="padding:12px 0;font-weight:800;color:#6B7280">교육목적 그룹</td>
+            <td style="padding:12px 0;color:#374151">${purposeLabel}</td>
+          </tr>
+          ${s.purpose_text ? `
+          <tr style="border-bottom:1px solid #F3F4F6">
+            <td style="padding:12px 0;font-weight:800;color:#6B7280">상세 교육목적</td>
+            <td style="padding:12px 0;color:#374151">${s.purpose_text}</td>
+          </tr>
+          ` : ''}
+          <tr style="border-bottom:1px solid #F3F4F6">
             <td style="padding:12px 0;font-weight:800;color:#6B7280">예산계정</td>
-            <td style="padding:12px 0;color:#374151">${accountCode || "-"}</td>
+            <td style="padding:12px 0;color:#374151">${accountName}</td>
           </tr>
           <tr style="border-bottom:1px solid #F3F4F6">
             <td style="padding:12px 0;font-weight:800;color:#6B7280">신청 금액</td>
@@ -240,6 +252,9 @@ async function confirmApply() {
           overseas_country: applyState.overseasCountry || applyState.overseas_country || null,
           detail: {
             purpose: applyState.purpose?.id || null,
+            purpose_text: applyState.purpose_text || "",
+            expectedEffect: applyState.expectedEffect || "",
+            eduPeriod: applyState.eduPeriod || "",
             budgetId: applyState.budgetId || null,
             expenses: applyState.expenses,
             serviceId: applyState.serviceId || null,
@@ -407,6 +422,9 @@ async function saveApplyDraft() {
       form_version: applyState.formTemplate?.version || null,
       detail: {
         purpose: applyState.purpose?.id || null,
+        purpose_text: applyState.purpose_text || "",
+        expectedEffect: applyState.expectedEffect || "",
+        eduPeriod: applyState.eduPeriod || "",
         budgetId: applyState.budgetId || null,
         expenses: applyState.expenses,
         courseSessionLinks: applyState.courseSessionLinks || [],
@@ -503,6 +521,9 @@ async function resumeApplyDraft(appId) {
     applyState.title = data.edu_name || "";
     applyState.eduType = data.edu_type || "";
     applyState.budgetId = data.detail?.budgetId || "";
+    applyState.purpose_text = data.detail?.purpose_text || "";
+    applyState.expectedEffect = data.detail?.expectedEffect || "";
+    applyState.eduPeriod = data.detail?.eduPeriod || "";
     applyState.expenses = data.detail?.expenses || [
       { id: 1, type: "교육비/등록비", price: 0, qty: 1 },
     ];

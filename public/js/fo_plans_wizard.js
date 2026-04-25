@@ -134,6 +134,9 @@ function _renderPlanDetailView(plan) {
   ).filter((h) => h.planId === plan.id);
   const canApply = isApproved && !isExpired;
 
+  const curBudget = d.budgetId ? (currentPersona.budgets || []).find((b) => b.id === d.budgetId) : (currentPersona.budgets || []).find((b) => b.accountCode === plan.account_code);
+  const accountName = curBudget ? curBudget.name : (plan.account_code || plan.account || "-");
+
   return `
   <div class="max-w-4xl mx-auto">
     <div style="margin-bottom:16px">
@@ -158,16 +161,22 @@ function _renderPlanDetailView(plan) {
             <td style="padding:12px 0;font-weight:900;color:#111827">${plan.title || plan.edu_name || "-"}</td>
           </tr>
           <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">교육목적</td>
+            <td style="padding:12px 0;font-weight:800;color:#6B7280">교육목적 그룹</td>
             <td style="padding:12px 0;color:#374151">${_foPurposeLabel(d.purpose || plan.purpose)}</td>
           </tr>
+          ${d.purpose_text ? `
+          <tr style="border-bottom:1px solid #F3F4F6">
+            <td style="padding:12px 0;font-weight:800;color:#6B7280">상세 교육목적</td>
+            <td style="padding:12px 0;color:#374151">${d.purpose_text}</td>
+          </tr>
+          ` : ''}
           <tr style="border-bottom:1px solid #F3F4F6">
             <td style="padding:12px 0;font-weight:800;color:#6B7280">교육유형</td>
             <td style="padding:12px 0;color:#374151">${_foEduTypeLabel(plan.edu_type || d.eduType)} ${d.eduSubType ? "› " + _foEduTypeLabel(d.eduSubType) : ""}</td>
           </tr>
           <tr style="border-bottom:1px solid #F3F4F6">
             <td style="padding:12px 0;font-weight:800;color:#6B7280">예산계정</td>
-            <td style="padding:12px 0;color:#374151">${plan.account_code || plan.account || "-"}</td>
+            <td style="padding:12px 0;color:#374151">${accountName}</td>
           </tr>
           <tr style="border-bottom:1px solid #F3F4F6">
             <td style="padding:12px 0;font-weight:800;color:#6B7280">계획액</td>

@@ -258,9 +258,15 @@ function renderDynamicFormFields(formFields, formState, prefix) {
   const fieldDefs = _FIELD_DEF_CACHE || [];
 
   // FO 표시 대상 필드: front + provide + is_bo_only (미입력 provide/bo_only는 숨김)
-  const foFields = formFields.filter(
+  let foFields = formFields.filter(
     (f) => !f.scope || f.scope === "front" || f.scope === "provide" || f.is_bo_only,
   );
+
+  // [E-Learning 오버라이드] 이러닝, 실시간 화상 등 비대면/온라인 교육인 경우 오프라인 전용 필드 강제 숨김
+  if (formState && (formState.eduType === '이러닝' || formState.eduType === '동영상' || formState.eduType === '실시간 화상')) {
+    foFields = foFields.filter(f => !['장소', '강사정보', '대관비', '강사료'].includes(f.key));
+  }
+
   if (!foFields.length) return "";
 
   const html = foFields
@@ -622,9 +628,14 @@ function validateRequiredFields(formTemplate, state) {
   }
 
   const fieldDefs = _FIELD_DEF_CACHE || [];
-  const foFields = formTemplate.fields.filter(
+  let foFields = formTemplate.fields.filter(
     (f) => !f.scope || f.scope === "front",
   );
+
+  // [E-Learning 오버라이드] 렌더링 시 숨긴 필드들은 필수값 검증에서도 제외
+  if (state && (state.eduType === '이러닝' || state.eduType === '동영상' || state.eduType === '실시간 화상')) {
+    foFields = foFields.filter(f => !['장소', '강사정보', '대관비', '강사료'].includes(f.key));
+  }
 
   for (const fieldRef of foFields) {
     const key = fieldRef.key;

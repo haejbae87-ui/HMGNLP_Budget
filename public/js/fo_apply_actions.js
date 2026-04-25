@@ -167,12 +167,6 @@ function _renderApplyConfirm() {
           style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">
           ← 수정하기
         </button>
-        <!-- UI-1: 저장완료(saved) 버튼 —  팀장 대표 상신 또는 결재함 상신 전 보관 -->
-        <button onclick="saveApplyAsReady()"
-          style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #059669;background:white;color:#059669;cursor:pointer;transition:all .15s"
-          onmouseover="this.style.background='#F0FDF4'" onmouseout="this.style.background='white'">
-          📤 저장완료로 보관
-        </button>
         <button onclick="confirmApply()"
           style="padding:10px 28px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#002C5F;color:white;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">
           ✅ 확정 제출
@@ -1319,11 +1313,10 @@ async function saveApplyAsReady() {
     const { error } = await sb.from('applications').upsert(row, { onConflict: 'id' });
     if (error) throw error;
     applyState.editId = appId;
-    alert('📤 저장완료 상태로 저장되었습니다.\n\n결재함(내 결재)에서 상신하거나,\n팀장이 대표로 상신할 수 있습니다.');
-    applyState = resetApplyState();
-    applyViewMode = 'list';
-    _appsDbLoaded = false;
-    _dbMyApps = [];
+    alert('✅ 작성이 완료되었습니다.\n\n저장된 내용을 확인한 후 [상신하기]를 진행해주세요.');
+    
+    // 상태 전환: 확인 화면(Confirm Mode)으로 바로 이동
+    applyState.confirmMode = true;
     renderApply();
   } catch (err) {
     alert('저장완료 실패: ' + err.message);

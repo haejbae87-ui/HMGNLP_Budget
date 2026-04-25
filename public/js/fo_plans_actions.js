@@ -271,10 +271,11 @@ async function savePlanSaved() {
     const { error } = await sb.from("plans").upsert(row, { onConflict: "id" });
     if (error) throw error;
     planState.editId = planId;
-    alert(`✅ 저장되었습니다!\n\n계획: ${planState.title}\n계획액: ${amount.toLocaleString()}원\n\n[결재함] 목록에서 단건 또는 다건 선택 후 상신할 수 있습니다.`);
+    alert(`✅ 작성이 완료되었습니다.\n\n저장된 내용을 확인한 후 [상신하기]를 진행해주세요.`);
     console.log(`[savePlanSaved] 저장 성공 (saved): ${planId}`);
-    closePlanWizard();
-    _plansDbLoaded = false;
+    
+    // 상태 전환: 확인 화면(Confirm Mode)으로 바로 이동
+    planState.confirmMode = true;
     renderPlans();
   } catch (err) {
     alert("저장 실패: " + err.message);
@@ -283,22 +284,8 @@ async function savePlanSaved() {
 }
 
 // ─── 제출 → 작성확인 화면 ─────────────────────────────────────────────────
-function savePlan() {
-  if (!planState.title) {
-    alert("계획명을 입력해주세요.");
-    return;
-  }
-  // ── 동적 양식 필수 필드 검증 ──
-  if (planState.formTemplate && typeof validateRequiredFields === "function") {
-    const result = validateRequiredFields(planState.formTemplate, planState);
-    if (!result.valid) {
-      alert("⚠️ 필수 항목을 입력해주세요:\n\n• " + result.errors.join("\n• "));
-      return;
-    }
-  }
-  planState.confirmMode = true;
-  renderPlans();
-}
+// (기존 savePlan 은 삭제하고 savePlanSaved 에서 병합 처리함)
+
 
 // ─── 작성확인 화면 렌더링 ──────────────────────────────────────────────────
 function renderPlanConfirm() {

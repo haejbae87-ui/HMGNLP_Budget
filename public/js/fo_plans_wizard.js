@@ -860,10 +860,6 @@ ${
           class="px-7 py-3 rounded-xl font-black text-sm transition ${s.hardLimitViolated ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-md"}">
           ✅ 저장
         </button>
-        <button onclick="savePlan()" ${s.hardLimitViolated ? "disabled" : ""}
-          class="px-10 py-3 rounded-xl font-black text-sm transition shadow-lg ${s.hardLimitViolated ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-brand text-white hover:bg-blue-900"}">
-          📤 상신 →
-        </button>
       </div>
   </div>
 

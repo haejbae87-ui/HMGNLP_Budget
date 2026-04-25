@@ -890,9 +890,9 @@ ${(() => {
         <button onclick="applyPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
         <div class="flex gap-3">
           <button onclick="saveApplyDraft()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-blue-200 text-blue-700 hover:bg-blue-50 transition">💾 임시저장</button>
-          <button onclick="submitApply()" ${over ? "disabled" : ""}
-            class="px-10 py-3 rounded-xl font-black text-sm transition shadow-lg ${over ? "bg-gray-300 text-gray-400 cursor-not-allowed" : "bg-brand text-white hover:bg-blue-900"}">
-            신청서 제출 →
+          <button onclick="saveApplyAsReady()" ${over ? "disabled" : ""}
+            class="px-7 py-3 rounded-xl font-black text-sm transition ${over ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-md"}">
+            ✅ 저장
           </button>
         </div>
       </div>

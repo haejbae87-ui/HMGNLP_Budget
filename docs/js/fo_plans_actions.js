@@ -142,6 +142,9 @@ async function savePlanDraft() {
       planned_days: planState.plannedDays || planState.planned_days || null,
       detail: {
         purpose: planState.purpose?.id || null,
+        purpose_text: planState.purpose_text || "",
+        expectedEffect: planState.expectedEffect || "",
+        eduPeriod: planState.eduPeriod || "",
         budgetId: planState.budgetId || null,
         eduType: planState.eduType,
         eduSubType: planState.eduSubType,
@@ -236,6 +239,9 @@ async function savePlanSaved() {
       planned_days: planState.plannedDays || planState.planned_days || null,
       detail: {
         purpose: planState.purpose?.id || null,
+        purpose_text: planState.purpose_text || "",
+        expectedEffect: planState.expectedEffect || "",
+        eduPeriod: planState.eduPeriod || "",
         budgetId: planState.budgetId || null,
         eduType: planState.eduType,
         eduSubType: planState.eduSubType,
@@ -309,6 +315,7 @@ function renderPlanConfirm() {
       ? _getPlanAccountCode(curBudget)
       : "") ||
     "";
+  const accountName = curBudget?.accountName || "";
   const purposeLabel = s.purpose?.label || s.purpose?.id || "-";
 
   document.getElementById("page-plans").innerHTML = `
@@ -417,6 +424,9 @@ async function confirmPlan() {
         planned_days: planState.plannedDays || planState.planned_days || null,
         detail: {
           purpose: planState.purpose?.id || null,
+          purpose_text: planState.purpose_text || "",
+          expectedEffect: planState.expectedEffect || "",
+          eduPeriod: planState.eduPeriod || "",
           budgetId: planState.budgetId || null,
           eduType: planState.eduType,
           eduSubType: planState.eduSubType,
@@ -521,6 +531,9 @@ async function resumePlanDraft(planId) {
     planState.content = data.detail?.content || "";
     planState.startDate = data.detail?.startDate || "";
     planState.endDate = data.detail?.endDate || "";
+    planState.purpose_text = data.detail?.purpose_text || "";
+    planState.expectedEffect = data.detail?.expectedEffect || "";
+    planState.eduPeriod = data.detail?.eduPeriod || "";
     planState.budgetId = data.detail?.budgetId || "";
     planState.calcGrounds = data.detail?.calcGrounds || [];
     planState.locations = Array.isArray(data.detail?.locations) ? data.detail.locations : [];

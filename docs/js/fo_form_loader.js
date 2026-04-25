@@ -1058,6 +1058,10 @@ window.refreshCalcGroundsByContext = function(foContext, prefix) {
  */
 window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
   const inline = inlineFields || {};
+  // BO에서 명시적으로 필드를 설정한 경우(hasExplicitFields), 설정된 필드만 표시
+  const inlineKeys = Object.keys(inline);
+  const hasExplicitFields = inlineKeys.length > 0;
+
   const isOverseas   = s.is_overseas === true || s.region === 'overseas';
   const eduType      = s.eduType || '';
   const subType      = s.subType || '';
@@ -1066,14 +1070,22 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
 
   const isNoBudget = curBudget?.account === '참가' || curBudget?.usesBudget === false || curBudget?.uses_budget === false;
 
-  const showRegion = inline.is_overseas !== false && !isElearning;
-  const showTitle = inline.edu_name !== false;
+  // BO 양식에 키가 있으면 표시, 명시적 false면 숨김, BO 양식이 없으면 기본 표시
+  const _shouldShow = (key, defaultShow = true) => {
+    if (inline[key] === false) return false;
+    if (hasExplicitFields) return inline[key] !== undefined && inline[key] !== false;
+    return defaultShow;
+  };
+
+  // 핵심 필드(계획명, 일정, 금액)는 BO에서 명시적 false가 아닌 한 항상 표시
+  const showRegion = (inline.is_overseas !== false) && !isElearning && (!hasExplicitFields || inline.is_overseas !== undefined);
+  const showTitle = inline.edu_name !== false && inline.course_name !== false;
   const showDates = inline.start_end_date !== false;
-  const showVenue = inline.venue_type !== false && !isElearning;
-  const showHeadcount = inline.headcount !== false;
+  const showVenue = inline.venue_type !== false && !isElearning && (!hasExplicitFields || inline.venue_type !== undefined);
+  const showHeadcount = _shouldShow('headcount') || _shouldShow('planned_headcount');
   const showAmount = inline.requested_budget !== false && !isNoBudget;
   const showCalc = inline.calc_grounds !== false && !isNoBudget;
-  const showRounds = inline.planned_rounds !== false;
+  const showRounds = _shouldShow('planned_rounds') || _shouldShow('expected_count');
   
   const wrapSection = (title, icon, fieldsArray) => {
     const content = fieldsArray.filter(Boolean).join('\n');
@@ -1091,11 +1103,22 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
   };
 
   const _field = (key, label, type, placeholder, stateObj = 'planState') => {
-    if (inline[key] !== true) return '';
+    // BO 인라인 필드 메타데이터 적용: label, placeholder, required 등 오버라이드
+    const inlineMeta = (typeof inline[key] === 'object' && inline[key] !== null) ? inline[key] : null;
+    if (inline[key] === false) return '';
+    // BO에서 명시적으로 필드를 설정한 경우, 설정된 필드만 표시
+    if (hasExplicitFields && inline[key] === undefined) return '';
+    // BO 메타데이터로 label/placeholder 오버라이드
+    if (inlineMeta) {
+      label = inlineMeta.label || label;
+      placeholder = inlineMeta.placeholder || placeholder;
+      if (inlineMeta.type) type = inlineMeta.type;
+    }
+    const reqMark = (inlineMeta?.required) ? ' <span class="text-red-500">*</span>' : '';
     if (type === 'textarea') {
       return `
         <div>
-          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}</label>
+          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}${reqMark}</label>
           <textarea oninput="${stateObj}.${key}=this.value" rows="3" placeholder="${placeholder}"
             class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-medium text-gray-700 focus:border-accent focus:bg-white transition resize-none">${s[key] || ''}</textarea>
         </div>`;
@@ -1103,7 +1126,7 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
     if (type === 'boolean') {
       return `
         <div>
-          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}</label>
+          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}${reqMark}</label>
           <label class="flex items-center cursor-pointer gap-2">
             <input type="checkbox" onchange="${stateObj}.${key}=this.checked" ${s[key] ? 'checked' : ''} class="w-5 h-5 accent-accent">
             <span class="text-sm font-bold text-gray-700">선택 (Yes)</span>
@@ -1112,7 +1135,7 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
     }
     return `
       <div>
-        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}</label>
+        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}${reqMark}</label>
         <input type="${type}" value="${s[key] || ''}" oninput="${stateObj}.${key}=this.value" placeholder="${placeholder}"
           class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
       </div>`;
@@ -1332,6 +1355,10 @@ window.foRenderStandardPlanForm = window.foRenderStandardPlanForm;
  */
 window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
   const inline = inlineFields || {};
+  // BO에서 명시적으로 필드를 설정한 경우(hasExplicitFields), 설정된 필드만 표시
+  const inlineKeys = Object.keys(inline);
+  const hasExplicitFields = inlineKeys.length > 0;
+
   const isOverseas   = s.is_overseas === true || s.region === 'overseas';
   const eduType      = s.eduType || '';
   const subType      = s.subType || '';
@@ -1340,10 +1367,17 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
 
   const isNoBudget = curBudget?.account === '참가' || curBudget?.usesBudget === false || curBudget?.uses_budget === false;
 
-  const showRegion = inline.is_overseas !== false && !isElearning;
-  const showTitle = inline.edu_name !== false;
+  // BO 양식에 키가 있으면 표시, 명시적 false면 숨김, BO 양식이 없으면 기본 표시
+  const _shouldShow = (key, defaultShow = true) => {
+    if (inline[key] === false) return false;
+    if (hasExplicitFields) return inline[key] !== undefined && inline[key] !== false;
+    return defaultShow;
+  };
+
+  const showRegion = (inline.is_overseas !== false) && !isElearning && (!hasExplicitFields || inline.is_overseas !== undefined);
+  const showTitle = inline.edu_name !== false && inline.course_name !== false;
   const showDates = inline.start_end_date !== false;
-  const showVenue = inline.venue_type !== false && !isElearning;
+  const showVenue = inline.venue_type !== false && !isElearning && (!hasExplicitFields || inline.venue_type !== undefined);
   const showAmount = inline.requested_budget !== false && !isNoBudget;
   const showCalc = inline.calc_grounds !== false && !isNoBudget;
 
@@ -1363,11 +1397,22 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
   };
 
   const _field = (key, label, type, placeholder, stateObj = 'applyState') => {
-    if (inline[key] !== true) return '';
+    // BO 인라인 필드 메타데이터 적용: label, placeholder, required 등 오버라이드
+    const inlineMeta = (typeof inline[key] === 'object' && inline[key] !== null) ? inline[key] : null;
+    if (inline[key] === false) return '';
+    // BO에서 명시적으로 필드를 설정한 경우, 설정된 필드만 표시
+    if (hasExplicitFields && inline[key] === undefined) return '';
+    // BO 메타데이터로 label/placeholder 오버라이드
+    if (inlineMeta) {
+      label = inlineMeta.label || label;
+      placeholder = inlineMeta.placeholder || placeholder;
+      if (inlineMeta.type) type = inlineMeta.type;
+    }
+    const reqMark = (inlineMeta?.required) ? ' <span class="text-red-500">*</span>' : '';
     if (type === 'textarea') {
       return `
         <div>
-          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}</label>
+          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}${reqMark}</label>
           <textarea oninput="${stateObj}.${key}=this.value" rows="3" placeholder="${placeholder}"
             class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-medium text-gray-700 focus:border-accent focus:bg-white transition resize-none">${s[key] || ''}</textarea>
         </div>`;
@@ -1375,7 +1420,7 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
     if (type === 'boolean') {
       return `
         <div>
-          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}</label>
+          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}${reqMark}</label>
           <label class="flex items-center cursor-pointer gap-2">
             <input type="checkbox" onchange="${stateObj}.${key}=this.checked" ${s[key] ? 'checked' : ''} class="w-5 h-5 accent-accent">
             <span class="text-sm font-bold text-gray-700">선택 (Yes)</span>
@@ -1384,7 +1429,7 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
     }
     return `
       <div>
-        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}</label>
+        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}${reqMark}</label>
         <input type="${type}" value="${s[key] || ''}" oninput="${stateObj}.${key}=this.value" placeholder="${placeholder}"
           class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
       </div>`;

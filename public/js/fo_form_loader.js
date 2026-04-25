@@ -1051,13 +1051,14 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
   const eduType      = s.eduType || '';
   const subType      = s.subType || '';
   const venueType    = s.venue_type || '';
+  const isElearning  = ['이러닝', 'elearning'].includes(eduType) || subType.includes('elearning');
 
   const isNoBudget = curBudget?.account === '참가' || curBudget?.usesBudget === false || curBudget?.uses_budget === false;
 
-  const showRegion = inline.is_overseas !== false;
+  const showRegion = inline.is_overseas !== false && !isElearning;
   const showTitle = inline.edu_name !== false;
   const showDates = inline.start_end_date !== false;
-  const showVenue = inline.venue_type !== false;
+  const showVenue = inline.venue_type !== false && !isElearning;
   const showHeadcount = inline.headcount !== false;
   const showAmount = inline.requested_budget !== false && !isNoBudget;
   const showCalc = inline.calc_grounds !== false && !isNoBudget;
@@ -1278,8 +1279,8 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
   ];
 
   const etcFields = [
-    _field('instructor_name', '👨‍🏫 강사명', 'text', '강사 이름 입력'),
-    _readonly('prov_instructor', '👨‍🏫 강사정보', '관리자가 확정한 강사 정보가 표시됩니다.')
+    (!isElearning) ? _field('instructor_name', '👨‍🏫 강사명', 'text', '강사 이름 입력') : '',
+    (!isElearning) ? _readonly('prov_instructor', '👨‍🏫 강사정보', '관리자가 확정한 강사 정보가 표시됩니다.') : ''
   ];
 
   const attachFields = [
@@ -1328,10 +1329,10 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
 
   const isNoBudget = curBudget?.account === '참가' || curBudget?.usesBudget === false || curBudget?.uses_budget === false;
 
-  const showRegion = inline.is_overseas !== false;
+  const showRegion = inline.is_overseas !== false && !isElearning;
   const showTitle = inline.edu_name !== false;
   const showDates = inline.start_end_date !== false;
-  const showVenue = inline.venue_type !== false;
+  const showVenue = inline.venue_type !== false && !isElearning;
   const showAmount = inline.requested_budget !== false && !isNoBudget;
   const showCalc = inline.calc_grounds !== false && !isNoBudget;
 
@@ -1538,8 +1539,8 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
   ];
 
   const etcFields = [
-    _field('instructor_name', '👨‍🏫 강사명', 'text', '강사 이름 입력'),
-    _readonly('prov_instructor', '👨‍🏫 강사정보', '관리자가 확정한 강사 정보가 표시됩니다.'),
+    (!isElearning) ? _field('instructor_name', '👨‍🏫 강사명', 'text', '강사 이름 입력') : '',
+    (!isElearning) ? _readonly('prov_instructor', '👨‍🏫 강사정보', '관리자가 확정한 강사 정보가 표시됩니다.') : '',
     applyReasonField
   ];
 

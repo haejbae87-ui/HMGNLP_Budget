@@ -95,6 +95,14 @@ function _getApprovalSteps(status, type) {
         { label: "검토", state: "pending", person: "", date: "" },
         { label: finalLabel, state: "pending", person: "", date: "" },
       ];
+    case "saved":
+      return [
+        { label: "작성완료", state: "done", person: "", date: "" },
+        { label: "상신대기", state: "active", person: "상신 전", date: "" },
+        { label: "결재", state: "pending", person: "", date: "" },
+        { label: "검토", state: "pending", person: "", date: "" },
+        { label: finalLabel, state: "pending", person: "", date: "" },
+      ];
     case "pending":
       return [
         { label: "작성완료", state: "done", person: "", date: "" },
@@ -148,6 +156,8 @@ function _normalizeStepperStatus(st) {
     draft: "draft",
     작성중: "draft",
     임시저장: "draft",
+    saved: "saved",
+    저장완료: "saved",
     pending: "pending",
     신청중: "pending",
     결재진행중: "pending",

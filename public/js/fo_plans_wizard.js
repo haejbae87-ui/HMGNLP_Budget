@@ -84,21 +84,25 @@ function viewPlanDetail(planId) {
 function _renderPlanDetailView(plan) {
   const STATUS_LABEL = {
     draft: "작성중",
-    pending: "신청중",
+    saved: "작성완료",
+    pending: "결재대기",
+    submitted: "결재대기",
     approved: "승인완료",
     rejected: "반려",
     cancelled: "취소",
     승인완료: "승인완료",
     진행중: "진행중",
     반려: "반려",
-    결재진행중: "결재진행중",
-    신청중: "신청중",
+    결재진행중: "결재대기",
+    신청중: "결재대기",
     작성중: "작성중",
     취소: "취소",
   };
   const STATUS_COLOR = {
     draft: "#0369A1",
+    saved: "#059669",
     pending: "#D97706",
+    submitted: "#D97706",
     approved: "#059669",
     rejected: "#DC2626",
     cancelled: "#9CA3AF",
@@ -116,8 +120,10 @@ function _renderPlanDetailView(plan) {
   const d = plan.detail || {};
   const amount = Number(plan.amount || plan.planAmount || 0);
   const safeId = String(plan.id || "").replace(/'/g, "\\'");
-  const isPending = st === "pending" || st === "신청중" || st === "결재진행중";
+  const safeTitle = String(plan.title || plan.edu_name || "").replace(/'/g, "");
+  const isPending = st === "pending" || st === "submitted" || st === "신청중" || st === "결재진행중";
   const isDraft = st === "draft" || st === "작성중";
+  const isSaved = st === "saved" || st === "저장완료";
   const isApproved = st === "approved" || st === "승인완료";
   // 만료 검증
   const endDate = d.endDate || plan.end_date || null;
@@ -219,7 +225,11 @@ function _renderPlanDetailView(plan) {
       <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6">
         <button onclick="_viewingPlanDetail=null;renderPlans()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">← 목록으로</button>
         ${isDraft ? `<button onclick="_viewingPlanDetail=null;resumePlanDraft('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#0369A1;color:white;cursor:pointer">✏️ 이어쓰기</button>` : ""}
-        ${isPending ? `<button onclick="_viewingPlanDetail=null;cancelPlan('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FECACA;background:white;color:#DC2626;cursor:pointer">취소 요청</button>` : ""}
+        ${isSaved ? `
+          <button onclick="_viewingPlanDetail=null;_aprSingleSubmitFromPlan('${safeId}','${safeTitle}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#059669;color:white;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">📤 상신하기</button>
+          <button onclick="_viewingPlanDetail=null;resumePlanDraft('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #BFDBFE;background:white;color:#0369A1;cursor:pointer">✏️ 수정</button>
+        ` : ""}
+        ${isPending ? `<button onclick="foRecallPlanFromDetail('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FECACA;background:white;color:#DC2626;cursor:pointer">회수하기</button>` : ""}
         ${canApply ? `<button onclick="_viewingPlanDetail=null;startApplyFromPlan('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:linear-gradient(135deg,#059669,#10B981);color:white;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">▶ 이 계획으로 교육신청</button>` : ""}
         ${isApproved ? `<button onclick="foOpenReduceAllocation('${safeId}')" style="padding:10px 20px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FDE68A;background:#FFFBEB;color:#B45309;cursor:pointer" title="배정액 하향 조정 (내용 변경 불가)">📉 배정액 축소</button>` : ""}
         ${isApproved && isExpired ? `<button disabled style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #E5E7EB;background:#F9FAFB;color:#9CA3AF;cursor:not-allowed" title="계획 기간이 만료되어 신청할 수 없습니다">⚠ 기간 만료</button>` : ""}

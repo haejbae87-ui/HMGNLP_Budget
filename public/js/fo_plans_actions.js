@@ -689,6 +689,18 @@ async function cancelPlan(planId) {
   renderPlans();
 }
 
+// ─── 상신 후 회수하기 (Detail 뷰) ──────────────────────────────────────────
+async function foRecallPlanFromDetail(planId) {
+  if (typeof _aprRecallSubmit === 'function') {
+    await _aprRecallSubmit(planId, 'plans');
+    _viewingPlanDetail = null;
+    _plansDbLoaded = false;
+    renderPlans();
+  } else {
+    alert("결재 모듈을 찾을 수 없습니다.");
+  }
+}
+
 // ─── 교육계획 기반 교육신청 연동 ─────────────────────────────────────────────
 async function startApplyFromPlan(planId) {
   // 1. DB에서 계획 조회

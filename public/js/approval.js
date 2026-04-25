@@ -567,6 +567,17 @@ async function renderApprovalMember() {
   // 모달 초기 숨김 (값 설정 후 display none)
   const modal = document.getElementById('apr-submit-modal');
   if (modal) modal.style.display = 'none';
+
+  // 상신 브릿지를 통해 넘어온 건이 있으면 모달 오픈
+  if (window._pendingAprSubmit) {
+    const p = window._pendingAprSubmit;
+    window._pendingAprSubmit = null;
+    if (typeof _aprSingleSubmit === 'function') {
+      setTimeout(() => {
+        _aprSingleSubmit(p.id, p.table, p.title);
+      }, 50); // DOM 초기화 후 약간의 지연
+    }
+  }
 }
 
 // --- 리더용 결재함 (S-5: submission_documents 기반) ---
@@ -1384,19 +1395,10 @@ async function _aprRecallSubmit(id, table) {
 // ─── S-5: plans.js 카드 상신 버튼 → 결재함 상신 모달 연결 ────────────────────
 // plans.js의 _renderPlanCard()에서 saved 상태 카드의 "상신하기" 버튼이 이 함수를 호출
 function _aprSingleSubmitFromPlan(planId, planTitle) {
-  // 결재함 페이지 모달이 DOM에 렌더링되어 있으면 바로 띄움
-  if (document.getElementById('apr-submit-modal')) {
-    _aprSingleSubmit(planId, 'plans', planTitle || '교육계획 상신');
-  } else {
-    // 모달 DOM이 없으면 결재함 탭으로 이동하여 렌더링을 유도한 뒤 모달을 띄움
-    if (typeof navigateTo === 'function') {
-      navigateTo('approval-member');
-    }
-    setTimeout(() => {
-      if (typeof _aprSingleSubmit === 'function') {
-        _aprSingleSubmit(planId, 'plans', planTitle || '교육계획 상신');
-      }
-    }, 600);
+  // 모달을 띄우기 위해 항상 결재함 페이지로 이동 (렌더링 완료 후 모달 오픈)
+  window._pendingAprSubmit = { id: planId, table: 'plans', title: planTitle || '교육계획 상신' };
+  if (typeof navigate === 'function') {
+    navigate('approval-member');
   }
 }
 

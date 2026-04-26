@@ -974,7 +974,85 @@ function _aprBulkSubmit() {
 }
 
 // 상신 모달 열기 (S-3 고도화: 예산 요약 + 계정 정보)
+// 상신 모달 동적 주입
+function _injectAprSubmitModal() {
+  if (document.getElementById('apr-submit-modal')) return;
+  const modalDiv = document.createElement('div');
+  modalDiv.id = 'apr-submit-modal';
+  modalDiv.style.cssText = 'display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.48);align-items:center;justify-content:center';
+  modalDiv.innerHTML = `
+  <div style="background:white;border-radius:20px;width:540px;max-width:95vw;max-height:85vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div>
+        <div style="font-size:13px;font-weight:900;color:#059669;margin-bottom:2px">📤 상신 문서 작성</div>
+        <div style="font-size:11px;color:#6B7280">상신 제목과 간단한 메시지를 입력하면 승인자에게 전달됩니다.</div>
+      </div>
+      <button onclick="_aprCloseModal()" style="border:none;background:none;font-size:20px;cursor:pointer;color:#9CA3AF">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:6px">상신 제목 <span style="color:#EF4444">*</span></label>
+        <input id="apr-doc-title" type="text" placeholder="예) 2026년 2분기 교육계획 상신"
+          style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:600">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:6px">간단한 메시지</label>
+        <textarea id="apr-doc-content" rows="3" placeholder="예) AI 역량 교육 3건 일괄 상신합니다."
+          style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;resize:none"></textarea>
+      </div>
+      <div id="apr-modal-items" style="background:#F9FAFB;border-radius:10px;padding:12px 14px;font-size:12px;color:#374151">
+        <div style="font-weight:800;margin-bottom:8px">📋 첨부 항목</div>
+        <div id="apr-modal-items-list"></div>
+      </div>
+      <div id="apr-modal-approval-line"></div>
+      <div id="apr-integrated-wrapper"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:10px;border-top:1px solid #F3F4F6">
+        <button onclick="_aprCloseModal()" style="padding:10px 20px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:13px;font-weight:700;cursor:pointer;color:#6B7280">취소</button>
+        <button onclick="_aprConfirmSubmit()" style="padding:10px 28px;border-radius:10px;border:none;background:#059669;color:white;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 4px 16px rgba(5,150,105,.3)">✅ 상신 확정</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(modalDiv);
+}
+
+// [S-8] approval_nodes 자동 구성 헬퍼 (결재선 렌더링 용)
+function _calculateApprovalLine(accountCode, totalAmount) {
+  let nodes = [];
+  try {
+    const routing = typeof APPROVAL_ROUTING !== 'undefined'
+      ? APPROVAL_ROUTING.find(r =>
+          r.tenantId === currentPersona.tenantId &&
+          (r.accountCodes || []).some(c => accountCode && accountCode.includes(c))
+        )
+      : null;
+    if (routing && routing.ranges && routing.ranges.length > 0) {
+      const matchedRange = routing.ranges
+        .filter(rng => rng.max === null || totalAmount <= rng.max)
+        .sort((a, b) => (a.max ?? Infinity) - (b.max ?? Infinity))[0];
+      if (matchedRange) {
+        nodes = (matchedRange.nodes || [])
+          .filter(n => n.type !== 'draft')
+          .map((n, i) => ({
+            order: i,
+            type: n.type,
+            label: n.label || n.role || '결재자',
+            approverKey: n.role || n.coopType || n.label || '',
+            activation: n.activation || 'always',
+            conditionRuleId: n.conditionRuleId || null,
+          }));
+      }
+    }
+  } catch(e) {}
+  
+  if (nodes.length === 0) {
+    nodes.push({ order: 0, type: 'approval', label: '결재자', approverKey: 'leader', activation: 'always' });
+  }
+  return nodes;
+}
+
+// 상신 모달 열기 (S-3 고도화: 예산 요약 + 계정 정보 + 결재선)
 function _aprOpenModal(items) {
+  _injectAprSubmitModal();
   const modal = document.getElementById('apr-submit-modal');
   if (!modal) return;
 
@@ -987,28 +1065,26 @@ function _aprOpenModal(items) {
       : `교육 ${items.length}건 일괄 상신 (${today})`;
   }
 
-  // 첨부 항목 목록 + 예산 요약
+  // 첨부 항목 목록 + 예산 요약 계산 (_aprSelectedItems 참조)
+  const totalAmt = items.reduce((sum, item) => {
+    const sel = _aprSelectedItems.get(item.id);
+    return sum + (sel?.amount || 0);
+  }, 0);
+  const acctCodes = [...new Set(items.map(item => _aprSelectedItems.get(item.id)?.account || '').filter(Boolean))];
+  const accountCode = acctCodes[0] || '';
+  const multiAcct = acctCodes.length > 1;
+
   const listEl = document.getElementById('apr-modal-items-list');
   if (listEl) {
-    const totalAmt = items.reduce((sum, item) => {
-      const d = _aprSavedData.find(x => String(x.id) === String(item.id));
-      return sum + (d?.amount || 0);
-    }, 0);
-    const acctCodes = [...new Set(items.map(item => {
-      const d = _aprSavedData.find(x => String(x.id) === String(item.id));
-      return d?.accountCode || d?.account_code || '';
-    }).filter(Boolean))];
-    const multiAcct = acctCodes.length > 1;
-
     listEl.innerHTML = `
       <div style="margin-bottom:10px">
         ${items.map((item, i) => {
-          const d = _aprSavedData.find(x => String(x.id) === String(item.id));
-          const amt = d?.amount || 0;
-          return `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #F3F4F6;font-size:12px">
-            <span style="color:#374151;font-weight:700">${i + 1}. ${item.title}</span>
-            <span style="color:#002C5F;font-weight:900">${amt.toLocaleString()}원</span>
-          </div>`;
+          const sel = _aprSelectedItems.get(item.id);
+          const amt = sel?.amount || 0;
+          return \`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #F3F4F6;font-size:12px">
+            <span style="color:#374151;font-weight:700">\${i + 1}. \${item.title}</span>
+            <span style="color:#002C5F;font-weight:900">\${amt.toLocaleString()}원</span>
+          </div>\`;
         }).join('')}
         <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;font-weight:900;color:#002C5F">
           <span>합계</span><span>${totalAmt.toLocaleString()}원</span>
@@ -1017,23 +1093,37 @@ function _aprOpenModal(items) {
       ${multiAcct ? `<div style="font-size:11px;color:#EF4444;padding:6px 8px;background:#FEF2F2;border-radius:6px;margin-top:6px">⚠️ 서로 다른 예산계정의 건이 포함되어 있습니다. 같은 계정의 건만 모아 상신하는 것을 권장합니다.</div>` : acctCodes.length ? `<div style="font-size:11px;color:#6B7280">예산계정: <strong>${acctCodes[0]}</strong></div>` : ''}`;
   }
 
+  // 결재선 시각화
+  const approvalNodes = _calculateApprovalLine(accountCode, totalAmt);
+  const lineEl = document.getElementById('apr-modal-approval-line');
+  if (lineEl) {
+    lineEl.innerHTML = `
+      <div style="margin-top:14px;background:#F9FAFB;padding:12px;border-radius:10px;border:1px solid #E5E7EB">
+        <div style="font-size:11px;font-weight:800;color:#374151;margin-bottom:8px">결재선 정보</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:11px;font-weight:700;color:#059669;background:#ECFDF5;padding:4px 8px;border-radius:6px;border:1px solid #A7F3D0">기안자</span>
+          ${approvalNodes.map(n => `
+            <span style="color:#9CA3AF;font-size:10px">▶</span>
+            <span style="font-size:11px;font-weight:700;color:#1D4ED8;background:#EFF6FF;padding:4px 8px;border-radius:6px;border:1px solid #BFDBFE">${n.label}</span>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
   // [S-7] 통합결재 여부 감지 → 협조처/참조처 섹션 동적 삽입
-  const acct = (selectedArr?.length > 0 ? selectedArr[0]?.account : '') ||
-    ([..._aprSelectedItems.values()][0]?.account || '');
   let isIntegrated = false;
-  if (acct && typeof SERVICE_POLICIES !== 'undefined' && SERVICE_POLICIES.length > 0) {
+  if (accountCode && typeof SERVICE_POLICIES !== 'undefined' && SERVICE_POLICIES.length > 0) {
     const matchedPol = SERVICE_POLICIES.find(pol =>
-      (pol.accountCodes || []).some(c => acct.includes(c))
+      (pol.accountCodes || []).some(c => accountCode.includes(c))
     );
     if (matchedPol?.approvalConfig?.approvalSystem === 'integrated') isIntegrated = true;
   }
-  // 협조처/참조처 섹션을 모달에 삽입/제거
-  const existCoopSec = document.getElementById('apr-integrated-section');
-  if (existCoopSec) existCoopSec.remove();
-  if (isIntegrated) {
-    const coopSection = document.createElement('div');
-    coopSection.id = 'apr-integrated-section';
-    coopSection.innerHTML = `
+  const intgWrapper = document.getElementById('apr-integrated-wrapper');
+  if (intgWrapper) {
+    intgWrapper.innerHTML = '';
+    if (isIntegrated) {
+      intgWrapper.innerHTML = `
       <div style="background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:12px;padding:14px 16px;margin-top:14px">
         <div style="font-size:11px;font-weight:900;color:#1D4ED8;margin-bottom:10px">🔗 통합결재 — 협조처/참조처</div>
         <div style="margin-bottom:10px">
@@ -1048,10 +1138,8 @@ function _aprOpenModal(items) {
             style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:12px;font-weight:600;color:#374151"
             onfocus="this.style.borderColor='#1D4ED8'" onblur="this.style.borderColor='#BFDBFE'">
         </div>
-        <div style="font-size:10px;color:#6B7280;margin-top:8px">📌 통합결재 계정 — 협조처·참조처 정보가 결재문서에 포함됩니다.</div>
       </div>`;
-    const modalItems = document.getElementById('apr-modal-items');
-    if (modalItems) modalItems.parentNode.insertBefore(coopSection, modalItems.nextSibling);
+    }
   }
 
   modal.style.display = 'flex';
@@ -1079,6 +1167,8 @@ async function _aprConfirmSubmit() {
     alert('상신할 항목이 없습니다.');
     return;
   }
+  
+  if (!confirm('상신하시겠습니까?')) return;
 
   const sb = typeof getSB === 'function' ? getSB() : null;
   if (!sb) { alert('DB 연결 실패'); return; }
@@ -1087,15 +1177,9 @@ async function _aprConfirmSubmit() {
     const selectedArr = [..._aprSelectedItems.values()];
     const now = new Date().toISOString();
 
-    // ── 계정코드·총액 집계
-    const totalAmount = selectedArr.reduce((sum, sel) => {
-      const item = _aprSavedData.find(d => String(d.id) === String(sel.id));
-      return sum + (item?.amount || 0);
-    }, 0);
-    const acctCodes = [...new Set(selectedArr.map(sel => {
-      const item = _aprSavedData.find(d => String(d.id) === String(sel.id));
-      return item?.accountCode || item?.account_code || '';
-    }).filter(Boolean))];
+    // ── 계정코드·총액 집계 (_aprSelectedItems 기준)
+    const totalAmount = selectedArr.reduce((sum, sel) => sum + (sel.amount || 0), 0);
+    const acctCodes = [...new Set(selectedArr.map(sel => sel.account || '').filter(Boolean))];
     const accountCode = acctCodes[0] || null;
 
     // [S-7] 통합결재 여부 + 협조처/참조처 수집
@@ -1120,41 +1204,8 @@ async function _aprConfirmSubmit() {
       }
     }
 
-    // [S-8] approval_nodes 자동 구성: APPROVAL_ROUTING에서 계정+금액 기반 노드 생성
-    let approvalNodes = [];
-    try {
-      const routing = typeof APPROVAL_ROUTING !== 'undefined'
-        ? APPROVAL_ROUTING.find(r =>
-            r.tenantId === currentPersona.tenantId &&
-            (r.accountCodes || []).some(c => accountCode && accountCode.includes(c))
-          )
-        : null;
-      if (routing && routing.ranges && routing.ranges.length > 0) {
-        // 금액 구간 매칭 (max가 null이면 상한 없음)
-        const matchedRange = routing.ranges
-          .filter(rng => rng.max === null || totalAmount <= rng.max)
-          .sort((a, b) => (a.max ?? Infinity) - (b.max ?? Infinity))[0];
-        if (matchedRange) {
-          approvalNodes = (matchedRange.nodes || [])
-            .filter(n => n.type !== 'draft') // 기안 노드 제외
-            .map((n, i) => ({
-              order: i,
-              type: n.type,
-              label: n.label || n.role || '결재자',
-              approverKey: n.role || n.coopType || n.label || '',
-              activation: n.activation || 'always',
-              conditionRuleId: n.conditionRuleId || null,
-            }));
-        }
-      }
-      // 라우팅 없으면 기본 1단계 노드
-      if (approvalNodes.length === 0) {
-        approvalNodes = [{ order: 0, type: 'approval', label: '결재자', approverKey: 'leader', activation: 'always' }];
-      }
-    } catch (nodeErr) {
-      console.warn('[S-8] approval_nodes 구성 실패:', nodeErr.message);
-      approvalNodes = [{ order: 0, type: 'approval', label: '결재자', approverKey: 'leader', activation: 'always' }];
-    }
+    // [S-8] approval_nodes 자동 구성
+    let approvalNodes = _calculateApprovalLine(accountCode, totalAmount);
 
     // doc_type 파생: item 유형에서 자동 결정
     const itemTypes = [...new Set(selectedArr.map(sel =>
@@ -1247,11 +1298,21 @@ async function _aprConfirmSubmit() {
     _aprCloseModal();
     _aprSelectedItems.clear();
 
-    // 목록 새로고침
+        // 4. 상신 완료 후 UI 처리 (현재 화면 유지)
     _aprMemberLoaded = false;
     _aprMemberData = [];
     _aprSavedData = [];
-    renderApprovalMember();
+    
+    alert('성공적으로 상신되었습니다.');
+    
+    // 현재 화면이 교육계획 목록이면 목록 리로드, 아니면 페이지 리로드 또는 결재함 이동
+    if (window.location.pathname.includes('plans') || window.location.hash.includes('plans')) {
+      if (typeof _foLoadPlans === 'function') _foLoadPlans();
+      else window.location.reload();
+    } else {
+      if (typeof navigate === 'function') navigate('approval-member');
+      else window.location.reload();
+    }
   } catch (err) {
     alert('상신 처리 실패: ' + err.message);
     console.error('[_aprConfirmSubmit]', err.message);
@@ -1338,12 +1399,41 @@ async function _aprRecallSubmit(id, table) {
 }
 
 // ─── S-5: plans.js 카드 상신 버튼 → 결재함 상신 모달 연결 ────────────────────
-// plans.js의 _renderPlanCard()에서 saved 상태 카드의 "상신하기" 버튼이 이 함수를 호출
-function _aprSingleSubmitFromPlan(planId, planTitle) {
-  // 모달을 띄우기 위해 항상 결재함 페이지로 이동 (렌더링 완료 후 모달 오픈)
-  window._pendingAprSubmit = { id: planId, table: 'plans', title: planTitle || '교육계획 상신' };
-  if (typeof navigate === 'function') {
-    navigate('approval-member');
+async function _aprSingleSubmitFromPlan(planId, planTitle) {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 실패'); return; }
+
+  try {
+    const { data: p, error } = await sb.from('plans')
+      .select('id, edu_name, account_code, amount, status, applicant_name')
+      .eq('id', planId)
+      .single();
+    if (error) throw error;
+    if (!p) return;
+
+    if (typeof _aprSelectedItems !== 'undefined') _aprSelectedItems.clear();
+    const item = {
+      id: p.id,
+      title: planTitle || `${p.applicant_name || '팀원'} — ${p.edu_name || p.id}`,
+      account: p.account_code || '',
+      amount: p.amount || 0,
+    };
+
+    if (typeof _aprSelectedItems !== 'undefined') {
+      _aprSelectedItems.set(item.id, {
+        id: item.id,
+        table: 'plans',
+        type: 'plan',
+        account: item.account,
+        amount: item.amount,
+      });
+    }
+
+    if (typeof _aprOpenModal === 'function') {
+      _aprOpenModal([item]);
+    }
+  } catch (err) {
+    alert('계획 상세 조회 실패: ' + err.message);
   }
 }
 
@@ -1402,11 +1492,8 @@ async function _aprBulkSubmitFromTeam(planIds) {
     // 모달 오픈
     if (typeof _aprOpenModal === 'function') {
       _aprOpenModal(items);
-    } else {
-      // approval.js가 아직 로드되지 않은 경우 — 결재함으로 이동
-      if (typeof navigateTo === 'function') navigateTo('approval-member');
-      setTimeout(() => { if (typeof _aprOpenModal === 'function') _aprOpenModal(items); }, 600);
     }
+
   } catch (err) {
     alert('팀원 계획 조회 실패: ' + err.message);
     console.error('[_aprBulkSubmitFromTeam]', err.message);

@@ -1081,10 +1081,10 @@ function _aprOpenModal(items) {
         ${items.map((item, i) => {
           const sel = _aprSelectedItems.get(item.id);
           const amt = sel?.amount || 0;
-          return \`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #F3F4F6;font-size:12px">
-            <span style="color:#374151;font-weight:700">\${i + 1}. \${item.title}</span>
-            <span style="color:#002C5F;font-weight:900">\${amt.toLocaleString()}원</span>
-          </div>\`;
+          return `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #F3F4F6;font-size:12px">
+            <span style="color:#374151;font-weight:700">${i + 1}. ${item.title}</span>
+            <span style="color:#002C5F;font-weight:900">${amt.toLocaleString()}원</span>
+          </div>`;
         }).join('')}
         <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;font-weight:900;color:#002C5F">
           <span>합계</span><span>${totalAmt.toLocaleString()}원</span>
@@ -1298,20 +1298,19 @@ async function _aprConfirmSubmit() {
     _aprCloseModal();
     _aprSelectedItems.clear();
 
-        // 4. 상신 완료 후 UI 처리 (현재 화면 유지)
+    // 4. 상신 완료 후 UI 처리
     _aprMemberLoaded = false;
     _aprMemberData = [];
     _aprSavedData = [];
     
-    alert('성공적으로 상신되었습니다.');
-    
-    // 현재 화면이 교육계획 목록이면 목록 리로드, 아니면 페이지 리로드 또는 결재함 이동
-    if (window.location.pathname.includes('plans') || window.location.hash.includes('plans')) {
-      if (typeof _foLoadPlans === 'function') _foLoadPlans();
-      else window.location.reload();
+    // 결재함으로 이동 (사용자 요청)
+    if (typeof navigate === 'function') {
+      navigate('approval-member');
+    } else if (typeof navigateTo === 'function') {
+      navigateTo('approval-member');
     } else {
-      if (typeof navigate === 'function') navigate('approval-member');
-      else window.location.reload();
+      window.location.hash = 'approval-member';
+      window.location.reload();
     }
   } catch (err) {
     alert('상신 처리 실패: ' + err.message);

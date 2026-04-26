@@ -1311,13 +1311,13 @@ async function _aprConfirmSubmit() {
       console.warn('[_aprConfirmSubmit] submission 테이블 삽입 실패 (무시):', e.message);
     }
 
-    // 3. 각 항목 status → 'submitted' (saved → submitted, 낙관적 잠금)
+    // 3. 각 항목 status → 'pending' (saved → pending, 낙관적 잠금)
     const errors = [];
     for (const sel of selectedArr) {
       try {
         const { error } = await sb
           .from(sel.table)
-          .update({ status: 'submitted', updated_at: now })
+          .update({ status: 'pending', updated_at: now })
           .eq('id', sel.id)
           .in('status', ['saved', 'pending']); // pending 레거시도 허용
         if (error) errors.push(error.message);

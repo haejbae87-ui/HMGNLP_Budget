@@ -314,39 +314,10 @@ function renderPlanConfirm() {
         <h2 style="margin:0;font-size:20px;font-weight:900">교육계획 제출 전 확인</h2>
         <p style="margin:6px 0 0;font-size:12px;opacity:.8">아래 내용을 확인한 후 확정하면 결재라인으로 전달됩니다.</p>
       </div>
-      <!-- 요약 -->
-      <div style="padding:24px 28px">
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280;width:120px">계획명</td>
-            <td style="padding:12px 0;font-weight:900;color:#111827">${s.title || "-"}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">교육목적</td>
-            <td style="padding:12px 0;color:#374151">${purposeLabel}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">교육유형</td>
-            <td style="padding:12px 0;color:#374151">${s.eduType || "-"} ${s.eduSubType ? "> " + s.eduSubType : ""}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">예산계정</td>
-            <td style="padding:12px 0;color:#374151">${accountCode || "-"}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">계획액</td>
-            <td style="padding:12px 0;font-weight:900;color:#002C5F;font-size:16px">${amount.toLocaleString()}원</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">기간</td>
-            <td style="padding:12px 0;color:#374151">${s.startDate || "-"} ~ ${s.endDate || "-"}</td>
-          </tr>
-          <tr>
-            <td style="padding:12px 0;font-weight:800;color:#6B7280;vertical-align:top">상세 내용</td>
-            <td style="padding:12px 0;color:#374151;white-space:pre-wrap">${s.content || "-"}</td>
-          </tr>
-        </table>
-
+      <!-- 요약 (7단계 통합 뷰) -->
+      <div style="padding:24px 28px; background:#F9FAFB">
+        ${typeof window.foRenderStandardReadOnlyForm === 'function' ? window.foRenderStandardReadOnlyForm({...s, amount, accountCode}, 'FO') : '<p>렌더러 로딩 중...</p>'}
+        
         <div style="margin-top:20px;padding:12px 16px;background:#FEF3C7;border-radius:10px;border:1.5px solid #FDE68A;font-size:12px;color:#92400E">
           ⚠️ 제출 후에는 결재라인이 자동 구성되며, 상위 승인자가 취소하기 전까지 취소가 불가합니다.
         </div>

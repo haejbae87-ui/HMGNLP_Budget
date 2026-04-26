@@ -128,35 +128,10 @@ function _renderApplyConfirm() {
         <h2 style="margin:0;font-size:20px;font-weight:900">교육신청 제출 전 확인</h2>
         <p style="margin:6px 0 0;font-size:12px;opacity:.8">아래 내용을 확인한 후 확정 제출하면 상신 문서가 자동 생성됩니다.</p>
       </div>
-      <div style="padding:24px 28px">
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280;width:120px">교육명</td>
-            <td style="padding:12px 0;font-weight:900;color:#111827">${s.eduName || s.title || "-"}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">교육목적 그룹</td>
-            <td style="padding:12px 0;color:#374151">${purposeLabel}</td>
-          </tr>
-          ${s.purpose_text ? `
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">상세 교육목적</td>
-            <td style="padding:12px 0;color:#374151">${s.purpose_text}</td>
-          </tr>
-          ` : ''}
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">예산계정</td>
-            <td style="padding:12px 0;color:#374151">${accountName}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">신청 금액</td>
-            <td style="padding:12px 0;font-weight:900;color:#002C5F;font-size:16px">${totalExp.toLocaleString()}원</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">교육등록비 내역</td>
-            <td style="padding:12px 0;color:#374151">${s.expenses.map((e) => e.type + " " + Number(e.price).toLocaleString() + "원 x" + e.qty).join(", ") || "-"}</td>
-          </tr>
-        </table>
+      <!-- 요약 (7단계 통합 뷰) -->
+      <div style="padding:24px 28px; background:#F9FAFB">
+        ${typeof window.foRenderStandardReadOnlyForm === 'function' ? window.foRenderStandardReadOnlyForm({...s, amount: totalExp, accountCode}, 'FO') : '<p>렌더러 로딩 중...</p>'}
+        
         <div style="margin-top:20px;padding:12px 16px;background:#FEF3C7;border-radius:10px;border:1.5px solid #FDE68A;font-size:12px;color:#92400E">
           ⚠️ <strong>확정 제출</strong> 시 상신 문서가 자동 생성되어 팀장 결재함으로 전달됩니다.<br>
           결재 진행 중 취소가 필요하면 결재함 → <strong>상신 회수</strong> 버튼을 이용하세요.

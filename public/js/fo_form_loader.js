@@ -1758,3 +1758,173 @@ function getLineItemFieldConfig(eduType) {
   return fields;
 }
 window.getLineItemFieldConfig = getLineItemFieldConfig;
+
+// ─── 7단계 통합 읽기 전용 뷰 ─────────────────────────────────────────────
+window.foRenderStandardReadOnlyForm = function (data, context = 'FO') {
+  const isBO = context === 'BO';
+  // 데이터 정규화: FO(planState) vs BO(DB Record)
+  const d = data.detail || {};
+  const ef = data.extra_fields || d.extra_fields || {};
+
+  const title = data.title || data.edu_name || d.title || '-';
+  const purpose = data.purpose?.label || data.purpose || d.purpose || '-';
+  const eduType = data.eduType || data.edu_type || d.eduType || '';
+  const eduSubType = data.eduSubType || data.edu_sub_type || d.eduSubType || '';
+  const eduTypeStr = eduType + (eduSubType ? ' > ' + eduSubType : '');
+  const eduCategory = data.edu_category || d.edu_category || '-';
+  const learningObjective = data.learning_objective || d.learning_objective || '-';
+  
+  const isOverseas = String(data.is_overseas) === 'true';
+  const region = isOverseas ? '해외' : '국내';
+  const country = data.overseas_country || d.overseas_country || '';
+  const venueType = data.venue_type || d.venue_type || '';
+  const regionLabel = region + (isOverseas && country ? ` (${country})` : '');
+  const venueTypeMap = { internal: '사내', external: '외부임차', online: '온라인/원격' };
+  const venueLabel = venueTypeMap[venueType] || venueType || '-';
+  const eduOrg = data.edu_org || d.edu_org || '-';
+  const locations = data.locations || d.locations || [];
+
+  const startDate = data.startDate || data.start_date || d.startDate || '-';
+  const endDate = data.endDate || data.end_date || d.endDate || '-';
+  const plannedRounds = data.planned_rounds ?? d.planned_rounds ?? '-';
+  const plannedDays = data.planned_days ?? d.planned_days ?? '-';
+  const hours = data.hours ?? d.hours ?? '-';
+  const participantCount = data.participant_count ?? d.participantCount ?? '-';
+  
+  const institution = ef.institution || d.institution || '-';
+  const elearningPlatform = ef.elearning_platform || d.elearningPlatform || '-';
+  const elearningUrl = ef.elearning_url || d.elearningUrl || '';
+
+  const expectedBenefit = data.expected_benefit || d.expected_benefit || '-';
+  const content = data.content || d.content || '-';
+
+  const amount = Number(data.amount || data.planAmount || 0);
+  const accountCode = data.accountCode || data.account_code || '-';
+  const calcGrounds = data.calcGrounds || d.calcGrounds || data.expenses || d.expenses || [];
+
+  const customFields = ef._customFields || d._customFields || [];
+  const attachments = data.attachments || d.attachments || [];
+
+  // 카드 공통 스타일 래퍼
+  const wrapSection = (title, icon, rows) => {
+    if (!rows || rows.length === 0) return '';
+    return `
+      <div style="background:white;border-radius:12px;border:1px solid #E5E7EB;margin-bottom:16px;overflow:hidden">
+        <div style="padding:12px 20px;background:#F9FAFB;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:8px">
+          <span style="font-size:16px">${icon}</span>
+          <h3 style="margin:0;font-size:14px;font-weight:800;color:#111827">${title}</h3>
+        </div>
+        <div style="padding:16px 20px">
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <tbody>${rows.join('')}</tbody>
+          </table>
+        </div>
+      </div>`;
+  };
+
+  const row = (label, value) => {
+    if (!value || value === '-') return '';
+    return `
+      <tr style="border-bottom:1px solid #F3F4F6">
+        <td style="padding:10px 0;width:140px;font-weight:700;color:#6B7280;vertical-align:top">${label}</td>
+        <td style="padding:10px 0;color:#111827;font-weight:500;white-space:pre-wrap">${value}</td>
+      </tr>`;
+  };
+
+  // 1. 기본 정보
+  const basicRows = [
+    row('계획명/과정명', `<strong style="color:#002C5F;font-size:14px">${title}</strong>`),
+    row('교육목적', purpose),
+    row('교육유형', eduTypeStr),
+    row('필수구분', eduCategory),
+    row('학습목표/대상', learningObjective),
+  ].filter(Boolean);
+
+  // 2. 비용 정보 & 산출근거
+  let calcGroundsHtml = '';
+  if (calcGrounds.length > 0) {
+    calcGroundsHtml = `
+      <div style="margin-top:16px;border:1px solid #E5E7EB;border-radius:8px;overflow:hidden">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;text-align:right">
+          <thead style="background:#F3F4F6;color:#4B5563;font-weight:800">
+            <tr>
+              <th style="padding:8px 12px;text-align:left">항목</th>
+              <th style="padding:8px 12px">단가</th>
+              <th style="padding:8px 12px">수량</th>
+              <th style="padding:8px 12px">소계</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${calcGrounds.map(cg => `
+              <tr style="border-top:1px solid #E5E7EB">
+                <td style="padding:8px 12px;text-align:left;font-weight:700;color:#111827">${cg.type || cg.label || cg.name || '-'}</td>
+                <td style="padding:8px 12px">${Number(cg.price || cg.unit_price || 0).toLocaleString()}원</td>
+                <td style="padding:8px 12px">${cg.qty || cg.quantity || 1}</td>
+                <td style="padding:8px 12px;font-weight:800;color:#1D4ED8">${(Number(cg.price || cg.unit_price || 0) * Number(cg.qty || cg.quantity || 1)).toLocaleString()}원</td>
+              </tr>
+            `).join('')}
+            <tr style="background:#F9FAFB;border-top:2px solid #D1D5DB">
+              <td colspan="3" style="padding:10px 12px;text-align:right;font-weight:900;color:#111827">합계</td>
+              <td style="padding:10px 12px;font-weight:900;color:#002C5F;font-size:14px">
+                ${calcGrounds.reduce((sum, cg) => sum + (Number(cg.price || cg.unit_price || 0) * Number(cg.qty || cg.quantity || 1)), 0).toLocaleString()}원
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>`;
+  }
+  
+  const costRows = [
+    row('예산계정', accountCode),
+    row('신청/계획 금액', `<span style="font-size:16px;font-weight:900;color:#002C5F">${amount.toLocaleString()}원</span>`),
+    calcGroundsHtml ? `<tr><td colspan="2">${calcGroundsHtml}</td></tr>` : ''
+  ].filter(Boolean);
+
+  // 3. 일정 및 장소
+  const locHtml = locations.length > 0 
+    ? `<div style="display:flex;gap:4px;flex-wrap:wrap">` + locations.map(l => `<span style="padding:2px 8px;border-radius:12px;background:#EFF6FF;color:#1D4ED8;font-size:11px;font-weight:700">${typeof l==='string'?l:(l.name||l.label)}</span>`).join('') + `</div>` 
+    : '';
+
+  const scheduleRows = [
+    row('교육기간', `${startDate} ~ ${endDate}`),
+    row('총 학습시간', hours !== '-' ? `${hours}H` : null),
+    row('예상차수', plannedRounds !== '-' ? `${plannedRounds}회` : null),
+    row('교육일수', plannedDays !== '-' ? `${plannedDays}일` : null),
+    row('예상인원', participantCount !== '-' ? `${participantCount}명` : null),
+    row('국내/해외', regionLabel),
+    row('장소유형', venueLabel),
+    row('교육기관', eduOrg),
+    locHtml ? row('세부장소', locHtml) : ''
+  ].filter(Boolean);
+
+  // 4. 교육 기관
+  const instRows = [
+    row('위탁기관', institution),
+    row('이러닝 플랫폼', elearningPlatform),
+    elearningUrl ? row('URL', `<a href="${elearningUrl}" target="_blank" style="color:#2563EB;text-decoration:underline">${elearningUrl}</a>`) : ''
+  ].filter(Boolean);
+
+  // 5. 부가 정보
+  const addRows = [
+    row('기대효과', expectedBenefit),
+    row('상세내용', content)
+  ].filter(Boolean);
+
+  // 6. 증빙 파일
+  const attachRows = attachments.map(f => row(f.category || '첨부파일', `<a href="${f.url}" target="_blank" style="color:#2563EB;text-decoration:underline">${f.name || '파일 보기'}</a>`));
+
+  // 7. 기타 정보 (Custom Fields)
+  const customRows = customFields.map(f => row(f.label, f.value));
+
+  return `
+    <div class="fo-readonly-form" style="max-width:800px;margin:0 auto;text-align:left">
+      ${wrapSection('1. 기본 정보', '📋', basicRows)}
+      ${wrapSection('2. 비용 정보', '💰', costRows)}
+      ${wrapSection('3. 일정 및 장소', '📅', scheduleRows)}
+      ${instRows.length ? wrapSection('4. 교육 기관', '🏫', instRows) : ''}
+      ${addRows.length ? wrapSection('5. 부가 정보', '💡', addRows) : ''}
+      ${attachRows.length ? wrapSection('6. 증빙 파일', '📎', attachRows) : ''}
+      ${customRows.length ? wrapSection('7. 기타 정보', '📝', customRows) : ''}
+    </div>
+  `;
+};

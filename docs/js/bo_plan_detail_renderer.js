@@ -46,159 +46,23 @@ function _boVenueTypeKr(val) {
  * @returns {string} HTML 문자열
  */
 window.boRenderPlanDetailInfo = function(plan) {
-  const d = plan.detail || {};
-  const amt = Number(plan.amount || plan.planAmount || 0);
-  const status = plan.status || 'pending';
-
-  // 정규화 컬럼 직접 읽기 (Phase E: detail 폴백 제거)
-  const isOverseas = plan.is_overseas === true || plan.is_overseas === 'true';
-  const overseasCountry = plan.overseas_country || '-';
-  const venueType = plan.venue_type || '-';
-  const plannedRounds = plan.planned_rounds !== undefined && plan.planned_rounds !== null ? plan.planned_rounds : '-';
-  const plannedDays = plan.planned_days !== undefined && plan.planned_days !== null ? plan.planned_days : '-';
-  const plannedHeadcount = plan.participant_count !== undefined && plan.participant_count !== null ? plan.participant_count : (d.participantCount || '-');
-  const startDate = d.startDate || '-';
-  const endDate = d.endDate || '-';
-  const eduFormat = plan.education_format || '-';
-  const expectedBenefit = plan.expected_benefit || '-';
-
-  // extra_fields (JSON)에서 읽기
-  const ef = plan.extra_fields || d.extra_fields || {};
-  const institution = ef.institution || d.institution || plan.institution || null;
-  const elearningPlatform = ef.elearning_platform || d.elearningPlatform || null;
-  const elearningUrl = ef.elearning_url || d.elearningUrl || null;
-
-  const statusLabel = {
-    draft: '임시저장', pending: '결재대기', pending_approval: '결재대기',
-    saved: '상신대기', in_review: '1차검토', approved: '승인완료',
-    rejected: '반려', cancelled: '취소', completed: '완료',
-  };
-  const statusColor = {
-    draft: '#0369A1', pending: '#D97706', pending_approval: '#D97706',
-    saved: '#7C3AED', in_review: '#7C3AED', approved: '#059669',
-    rejected: '#DC2626', cancelled: '#9CA3AF', completed: '#059669',
-  };
-  const stLabel = statusLabel[status] || status;
-  const stColor = statusColor[status] || '#6B7280';
-
-  // 교육유형
-  const eduTypeKr = typeof _planEduTypeKr === 'function'
-    ? _planEduTypeKr(plan.edu_type || d.eduType)
-    : (plan.edu_type || d.eduType || '-');
-  const eduSubTypeKr = typeof _planEduTypeKr === 'function' && (plan.edu_sub_type || d.eduSubType)
-    ? ' › ' + _planEduTypeKr(plan.edu_sub_type || d.eduSubType)
-    : '';
-
-  // 교육목적
-  const purposeKr = typeof _planPurposeKr === 'function'
-    ? _planPurposeKr(d.purpose || plan.purpose)
-    : (d.purpose || plan.purpose || '-');
-
-  // 산출근거 (정규화 컬럼 calcGrounds는 detail 내에 유지)
-  const calcGrounds = d.calcGrounds || [];
-
-  // 위탁기관 표시 조건
-  const isConsignment = (plan.edu_sub_type || d.eduSubType || '').toLowerCase().includes('consignment')
-    || (plan.edu_sub_type || d.eduSubType || '') === '위탁'
-    || !!institution;
-
-  // 이러닝 조건
-  const isElearning = (plan.edu_type || d.eduType || '').toLowerCase().includes('elearning')
-    || (plan.edu_type || d.eduType || '') === '이러닝';
-
-  const row = (label, value, highlight = false) => `
-    <tr style="border-bottom:1px solid #F3F4F6">
-      <td style="padding:11px 0;font-weight:800;color:#6B7280;width:140px;font-size:13px">${label}</td>
-      <td style="padding:11px 0;color:${highlight ? '#002C5F' : '#374151'};font-weight:${highlight ? '900' : '500'};font-size:${highlight ? '15px' : '13px'}">${value}</td>
-    </tr>`;
-
-  const rows = [
-    row('계획명', `<strong style="color:#111827">${plan.title || plan.edu_name || '-'}</strong>`),
-    row('상신자', plan.applicant_name || plan.submitter || '-'),
-    row('소속', `${plan.team || plan.dept || '-'} / ${plan.hq || plan.center || '-'}`),
-    row('교육목적', purposeKr),
-    row('교육유형', `${eduTypeKr}${eduSubTypeKr}`),
-    row('국내/해외', `${_boRenderOverseasBadge(plan)}${isOverseas && overseasCountry !== '-' ? ` <span style="font-size:12px;color:#6B7280;margin-left:6px">(${overseasCountry})</span>` : ''}`),
-    row('장소유형', _boVenueTypeKr(venueType !== '-' ? venueType : null)),
-    row('예상인원', plannedHeadcount !== '-' ? `${plannedHeadcount}명` : '-'),
-    row('예상차수', plannedRounds !== '-' ? `${plannedRounds}회` : '-'),
-    plannedDays !== '-' ? row('교육일수', `${plannedDays}일`) : '',
-    row('예산계정', plan.account_code || plan.account || '-'),
-    row('계획액', `${amt.toLocaleString()}원`, true),
-    row('배정액', `${Number(plan.allocated_amount || 0).toLocaleString()}원`),
-    row('실사용액', `${Number(plan.actual_amount || 0).toLocaleString()}원`),
-    row('교육기간', startDate !== '-' ? `${startDate} ~ ${endDate !== '-' ? endDate : ''}` : '-'),
-    row('상태', `<span style="font-size:11px;font-weight:900;padding:3px 10px;border-radius:6px;background:${stColor}15;color:${stColor}">${stLabel}</span>`),
-    plan.reject_reason
-      ? `<tr style="border-bottom:1px solid #F3F4F6">
-           <td style="padding:11px 0;font-weight:800;color:#DC2626;font-size:13px">반려사유</td>
-           <td style="padding:11px 0;color:#DC2626;font-weight:700;font-size:13px">${plan.reject_reason}</td>
-         </tr>`
-      : '',
-    isConsignment && institution ? row('위탁기관', institution) : '',
-    isElearning && elearningPlatform ? row('이러닝 플랫폼', elearningPlatform) : '',
-    isElearning && elearningUrl
-      ? row('이러닝 URL', `<a href="${elearningUrl}" target="_blank" style="color:#1D4ED8;text-decoration:underline;font-size:12px">${elearningUrl}</a>`)
-      : '',
-    expectedBenefit !== '-' ? row('기대효과', `<span style="white-space:pre-wrap">${expectedBenefit}</span>`) : '',
-    row('상세내용', `<span style="white-space:pre-wrap">${d.content || plan.content || '-'}</span>`),
-  ].filter(Boolean).join('');
-
-  // 산출근거 테이블
-  const calcGroundsHtml = calcGrounds.length > 0 ? `
-    <div style="padding:0 28px 24px">
-      <h3 style="font-size:13px;font-weight:900;color:#374151;margin-bottom:10px">📐 세부산출근거</h3>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #E5E7EB;border-radius:8px;overflow:hidden">
-        <thead>
-          <tr style="background:#F9FAFB">
-            <th style="padding:8px 12px;text-align:left;font-weight:800;color:#6B7280">항목</th>
-            <th style="padding:8px 12px;text-align:right;font-weight:800;color:#6B7280">단가</th>
-            <th style="padding:8px 12px;text-align:right;font-weight:800;color:#6B7280">수량</th>
-            <th style="padding:8px 12px;text-align:right;font-weight:800;color:#6B7280">소계</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${calcGrounds.map(cg => `
-            <tr style="border-top:1px solid #F3F4F6">
-              <td style="padding:8px 12px;font-weight:700">${cg.type || cg.label || cg.name || '-'}</td>
-              <td style="padding:8px 12px;text-align:right">${Number(cg.price || cg.unit_price || 0).toLocaleString()}원</td>
-              <td style="padding:8px 12px;text-align:right">${cg.qty || cg.quantity || 1}</td>
-              <td style="padding:8px 12px;text-align:right;font-weight:900">${(Number(cg.price || cg.unit_price || 0) * Number(cg.qty || cg.quantity || 1)).toLocaleString()}원</td>
-            </tr>`).join('')}
-          <tr style="background:#F9FAFB;border-top:2px solid #E5E7EB">
-            <td colspan="3" style="padding:8px 12px;font-weight:900;color:#374151">합계</td>
-            <td style="padding:8px 12px;text-align:right;font-weight:900;color:#002C5F">
-              ${calcGrounds.reduce((s, cg) => s + Number(cg.price || cg.unit_price || 0) * Number(cg.qty || cg.quantity || 1), 0).toLocaleString()}원
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>` : '';
-
-  // 교육장소 태그
-  const locations = plan.locations || d.locations || [];
-  const locationsHtml = locations.length > 0 ? `
-    <tr style="border-bottom:1px solid #F3F4F6">
-      <td style="padding:11px 0;font-weight:800;color:#6B7280;font-size:13px">교육장소</td>
-      <td style="padding:11px 0">
-        <div style="display:flex;flex-wrap:wrap;gap:6px">
-          ${locations.map(loc => {
-            const name = typeof loc === 'string' ? loc : (loc.name || loc.label || JSON.stringify(loc));
-            return `<span style="font-size:11px;padding:3px 10px;border-radius:20px;background:#EFF6FF;color:#1D4ED8;font-weight:700">${name}</span>`;
-          }).join('')}
-        </div>
-      </td>
-    </tr>` : '';
-
-  return `
-    <!-- Phase D: 정규화 컬럼 기반 상세 정보 -->
-    <div style="padding:24px 28px">
-      <table style="width:100%;border-collapse:collapse;font-size:13px">
-        ${rows}
-        ${locationsHtml}
-      </table>
-    </div>
-    ${calcGroundsHtml}`;
+  if (typeof window.foRenderStandardReadOnlyForm === 'function') {
+    // 1. 공통 7단계 렌더러 호출
+    const html = window.foRenderStandardReadOnlyForm(plan, 'BO');
+    
+    // 2. BO 전용 추가 UI (반려 사유 등)
+    let extraHtml = '';
+    if (plan.status === 'rejected' && plan.reject_reason) {
+      extraHtml = `
+      <div style="margin:24px 28px 0;padding:16px;background:#FEF2F2;border:2px solid #FCA5A5;border-radius:12px;color:#991B1B">
+        <h4 style="margin:0 0 6px;font-size:14px;font-weight:900">❌ 반려 사유</h4>
+        <p style="margin:0;font-size:13px;font-weight:700">${plan.reject_reason}</p>
+      </div>`;
+    }
+    
+    return extraHtml + `<div style="padding:24px 28px;background:#F9FAFB">${html}</div>`;
+  }
+  return `<div style="padding:24px 28px"><p style="color:#9CA3AF;font-size:12px">상세 렌더러 로딩 중...</p></div>`;
 };
 
 /**

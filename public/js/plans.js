@@ -261,6 +261,27 @@ let _plansDbLoaded = false;
 let _planStatusFilter = 'all'; // all | saved | pending | approved | rejected
 let _planAccountFilter = ''; // '' = 전체
 
+let _selectedPlans = [];
+let _selectionAccount = null;
+
+window._togglePlanSelection = function(e, id, account) {
+  e.stopPropagation();
+  const idx = _selectedPlans.indexOf(id);
+  if (idx >= 0) {
+    _selectedPlans.splice(idx, 1);
+    if (_selectedPlans.length === 0) _selectionAccount = null;
+  } else {
+    if (_selectionAccount && _selectionAccount !== account) {
+      alert("⚠️ 같은 예산 통장만 선택 가능합니다");
+      e.preventDefault();
+      return;
+    }
+    _selectedPlans.push(id);
+    _selectionAccount = account;
+  }
+  renderPlans();
+};
+
 function _mapDbStatus(s) {
   const m = {
     draft: "작성중",
@@ -527,23 +548,6 @@ function renderPlans() {
     <span style="font-size:11px;color:#9CA3AF;margin-left:auto">필터된 결과: <b>${filteredPlans.length}</b>건</span>
   </div>`;
 
-  // #4: 팅의 saved 계획 일괄 상신 UI (팀장 + 팀뮤)
-  const teamSavedPlans = _planViewTab === 'team'
-    ? filteredPlans.filter(p => p.status === 'saved' || p.status === '저장완료')
-    : [];
-  const teamSavedBar = teamSavedPlans.length > 0
-    ? `<div style="margin-bottom:16px;padding:14px 18px;border-radius:14px;background:#ECFDF5;border:1.5px solid #6EE7B7;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-        <div>
-          <div style="font-size:13px;font-weight:900;color:#065F46">📤 저장완료 팀원 계획 ${teamSavedPlans.length}건</div>
-          <div style="font-size:11px;color:#059669;margin-top:2px">한번에 상신할 수 있습니다 (동일 계정 항목만)</div>
-        </div>
-        <button onclick="_aprBulkSubmitFromTeam([${teamSavedPlans.map(p=>`'${String(p.id).replace(/'/g,'')}'`).join(',')}])"
-          style="padding:8px 20px;border-radius:10px;background:#059669;color:white;font-size:12px;font-weight:900;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.25)">
-          📤 일괄 상신 (${teamSavedPlans.length}건)
-        </button>
-       </div>`
-    : '';
-
   // 계획 카드 목록
   const listHtml =
     filteredPlans.length > 0
@@ -560,8 +564,17 @@ function renderPlans() {
         <button onclick="startPlanWizard()" style="padding:12px 28px;border-radius:12px;background:#002C5F;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">+ 교육계획 수립하기</button>
       </div>`;
 
+  const floatingActionBar = _selectedPlans.length > 0 ? `
+    <div style="position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:#002C5F;padding:16px 24px;border-radius:16px;box-shadow:0 10px 25px rgba(0,44,95,.4);display:flex;align-items:center;gap:24px;z-index:9999;color:white;width:max-content;">
+      <div>
+        <div style="font-size:14px;font-weight:900;">📤 선택 건 일괄 상신</div>
+        <div style="font-size:12px;color:#93C5FD;margin-top:2px">${_selectedPlans.length}건 선택됨 / ${Number(filteredPlans.filter(p=>_selectedPlans.includes(p.id)).reduce((sum,p)=>sum+(p.amount||0),0)).toLocaleString()}원</div>
+      </div>
+      <button onclick="_aprBulkSubmitFromTeam([${_selectedPlans.map(id=>`'${id}'`).join(',')}])" style="padding:10px 24px;border-radius:10px;background:#10B981;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(16,185,129,.3);">상신 진행하기</button>
+    </div>` : '';
+
   document.getElementById("page-plans").innerHTML = `
-<div class="max-w-4xl mx-auto space-y-4">
+<div class="max-w-4xl mx-auto space-y-4 pb-20 relative">
   <div style="display:flex;align-items:flex-end;justify-content:space-between">
     <div>
       <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육계획</div>
@@ -578,10 +591,10 @@ function renderPlans() {
   ${tabBar}
   ${statsBar}
   ${filterBar}
-  ${teamSavedBar}
   <div id="fo-realloc-area"></div>
   <div id="plan-list">${listHtml}</div>
-</div>`;
+</div>
+${floatingActionBar}`;
   _foRenderReallocUI();
   // B-1: 카드 렌더링 후 잔여예산 뱃지 비동기 업데이트
   if (filteredPlans.length > 0) {
@@ -667,9 +680,18 @@ function _renderPlanCard(p) {
 
   return `
     <div onclick="viewPlanDetail('${safeId}')" style="display:flex;align-items:flex-start;gap:16px;padding:18px 20px;border-radius:14px;
-                border:1.5px solid ${cfg.border};background:${cfg.bg};transition:all .15s;margin-bottom:12px;cursor:pointer"
+                border:1.5px solid ${_selectedPlans.includes(p.id) ? '#002C5F' : cfg.border};background:${_selectedPlans.includes(p.id) ? '#F0F9FF' : cfg.bg};transition:all .15s;margin-bottom:12px;cursor:pointer"
          onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.08)';this.style.transform='translateY(-1px)'"
          onmouseout="this.style.boxShadow='none';this.style.transform='none'">
+      ${isSaved ? `
+        <div style="flex-shrink:0;padding-top:4px;" onclick="event.stopPropagation()">
+          <input type="checkbox" 
+                 ${_selectedPlans.includes(p.id) ? 'checked' : ''}
+                 ${_selectionAccount && _selectionAccount !== p.account ? 'disabled style="opacity:0.5"' : ''}
+                 onchange="_togglePlanSelection(event, '${safeId}', '${p.account || ""}')"
+                 style="width:20px;height:20px;cursor:pointer;accent-color:#002C5F;">
+        </div>
+      ` : ''}
       <div style="font-size:24px;flex-shrink:0;margin-top:2px">${cfg.icon}</div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">

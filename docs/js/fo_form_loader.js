@@ -253,7 +253,7 @@ window.getFoFormTemplate = getFoFormTemplate;
 // formFields: form_templates.fields (배열, [{key, scope}])
 // formState: planState | applyState | resultState
 // prefix: 상태 변수 접두사 ('planState' | 'applyState')
-function renderDynamicFormFields(formFields, formState, prefix) {
+function renderDynamicFormFields(formFields, formState, prefix, curBudget) {
   if (!formFields || !formFields.length) return "";
   const fieldDefs = _FIELD_DEF_CACHE || [];
 
@@ -269,28 +269,73 @@ function renderDynamicFormFields(formFields, formState, prefix) {
 
   if (!foFields.length) return "";
 
-  const html = foFields
-    .map((fieldRef) => {
-      const key = fieldRef.key;
-      const def = fieldDefs.find((d) => d.key === key);
-      if (!def) return "";
+  // 어댑터: Dynamic fields 배열을 Phase B inlineFields 객체로 변환
+  const inlineFields = {};
+  
+  // 키 매핑: BO 폼빌더의 한글 필드명 -> Phase B 표준 상태 키 매핑
+  const keyMap = {
+    "과정명": "course_name",
+    "교육과정명": "course_name",
+    "교육기간": "start_end_date",
+    "장소": "venue_type",
+    "예상비용": "requested_budget",
+    "교육비": "requested_budget",
+    "세부산출근거": "calc_grounds",
+    "수강인원": "headcount",
+    "정원": "headcount",
+    "교육일수": "edu_days",
+    "강사명": "instructor_name",
+    "참가비": "participationFee",
+    "강사료": "instructorFee",
+    "대관비": "venueFee",
+    "식대/용차": "mealTransportFee",
+    "참여자명단": "participantList",
+    "교육결과요약": "resultSummary",
+    "수료생명단": "completionList",
+    "학습만족도": "satisfaction",
+    "첨부파일": "attachments"
+  };
 
-      // is_bo_only: 값이 있을 때만 읽기전용 카드로 표시
-      if (fieldRef.is_bo_only || def.is_bo_only) {
-        return _renderBoOnlyField(def, formState, prefix);
-      }
+  const customFieldsToRender = [];
 
-      // provide scope: 미입력 시 숨김, 입력되어 있으면 읽기전용 카드
-      if (fieldRef.scope === "provide") {
-        return _renderProvideField(def, formState, prefix);
-      }
+  foFields.forEach((fieldRef) => {
+    const key = fieldRef.key;
+    const def = fieldDefs.find((d) => d.key === key) || {};
+    
+    // is_bo_only 및 provide(값이 없는 경우) 필드 처리
+    if (fieldRef.is_bo_only || def.is_bo_only) {
+      if (!formState[key]) return; // 값이 없으면 렌더링 안함
+    }
+    if (fieldRef.scope === "provide") {
+      if (!formState[key]) return;
+    }
 
-      return _renderOneField(def, formState, prefix);
-    })
-    .filter(Boolean)
-    .join("");
+    const inlineKey = keyMap[key] || _toStateKey(key);
+    
+    // 만약 keyMap에 정의된 핵심 표준 필드라면 inlineFields에 등록
+    if (keyMap[key] || ['course_name','start_end_date','venue_type','requested_budget','calc_grounds','headcount'].includes(inlineKey)) {
+      inlineFields[inlineKey] = {
+        label: fieldRef.label || def.key || key,
+        required: fieldRef.required || def.required || false,
+        type: fieldRef.fieldType || def.fieldType || 'text',
+        originalKey: key
+      };
+    } else {
+      // 그 외 커스텀 필드들은 기타 정보 등에 렌더링하기 위해 별도 수집
+      customFieldsToRender.push({
+        ref: fieldRef,
+        def: def
+      });
+    }
+  });
 
-  return html;
+  inlineFields._customFields = customFieldsToRender;
+
+  if (prefix === 'planState') {
+    return window.foRenderStandardPlanForm(formState, curBudget, inlineFields);
+  } else {
+    return window.foRenderStandardApplyForm(formState, curBudget, inlineFields);
+  }
 }
 window.renderDynamicFormFields = renderDynamicFormFields;
 
@@ -1078,13 +1123,13 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
   };
 
   // 핵심 필드(계획명, 일정, 금액)는 BO에서 명시적 false가 아닌 한 항상 표시
-  const showRegion = (inline.is_overseas !== false) && !isElearning && (!hasExplicitFields || inline.is_overseas !== undefined);
-  const showTitle = inline.edu_name !== false && inline.course_name !== false;
-  const showDates = inline.start_end_date !== false;
-  const showVenue = inline.venue_type !== false && !isElearning && (!hasExplicitFields || inline.venue_type !== undefined);
+  const showRegion = _shouldShow('is_overseas') && !isElearning;
+  const showTitle = _shouldShow('edu_name') || _shouldShow('course_name');
+  const showDates = _shouldShow('start_end_date');
+  const showVenue = _shouldShow('venue_type') && !isElearning;
   const showHeadcount = _shouldShow('headcount') || _shouldShow('planned_headcount');
-  const showAmount = inline.requested_budget !== false && !isNoBudget;
-  const showCalc = inline.calc_grounds !== false && !isNoBudget;
+  const showAmount = _shouldShow('requested_budget') && !isNoBudget;
+  const showCalc = _shouldShow('calc_grounds') && !isNoBudget;
   const showRounds = _shouldShow('planned_rounds') || _shouldShow('expected_count');
   
   const wrapSection = (title, icon, fieldsArray) => {
@@ -1312,9 +1357,22 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
     educationFormatField
   ];
 
+  // 커스텀 동적 필드 렌더링 (어댑터에서 넘겨준 필드들)
+  const customFieldsHtml = (inline._customFields || []).map(cf => {
+    // def, ref 합쳐서 단일 필드 렌더링 (기존 평면형 렌더러 로직 재활용)
+    const { ref, def } = cf;
+    if (ref.is_bo_only || def.is_bo_only) return _renderBoOnlyField(def, s, 'planState');
+    if (ref.scope === "provide") return _renderProvideField(def, s, 'planState');
+    
+    // 필수값 오버라이드 적용
+    const mergedDef = { ...def, required: ref.required !== undefined ? ref.required : def.required };
+    return _renderOneField(mergedDef, s, 'planState');
+  }).join('\n');
+
   const etcFields = [
     (!isElearning) ? _field('instructor_name', '👨‍🏫 강사명', 'text', '강사 이름 입력') : '',
-    (!isElearning) ? _readonly('prov_instructor', '👨‍🏫 강사정보', '관리자가 확정한 강사 정보가 표시됩니다.') : ''
+    (!isElearning) ? _readonly('prov_instructor', '👨‍🏫 강사정보', '관리자가 확정한 강사 정보가 표시됩니다.') : '',
+    customFieldsHtml
   ];
 
   const attachFields = [
@@ -1374,12 +1432,12 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
     return defaultShow;
   };
 
-  const showRegion = (inline.is_overseas !== false) && !isElearning && (!hasExplicitFields || inline.is_overseas !== undefined);
-  const showTitle = inline.edu_name !== false && inline.course_name !== false;
-  const showDates = inline.start_end_date !== false;
-  const showVenue = inline.venue_type !== false && !isElearning && (!hasExplicitFields || inline.venue_type !== undefined);
-  const showAmount = inline.requested_budget !== false && !isNoBudget;
-  const showCalc = inline.calc_grounds !== false && !isNoBudget;
+  const showRegion = _shouldShow('is_overseas') && !isElearning;
+  const showTitle = _shouldShow('edu_name') || _shouldShow('course_name');
+  const showDates = _shouldShow('start_end_date');
+  const showVenue = _shouldShow('venue_type') && !isElearning;
+  const showAmount = _shouldShow('requested_budget') && !isNoBudget;
+  const showCalc = _shouldShow('calc_grounds') && !isNoBudget;
 
   const wrapSection = (title, icon, fieldsArray) => {
     const content = fieldsArray.filter(Boolean).join('\n');
@@ -1594,10 +1652,20 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
     educationFormatField
   ];
 
+  // 커스텀 동적 필드 렌더링 (어댑터에서 넘겨준 필드들)
+  const customFieldsHtml = (inline._customFields || []).map(cf => {
+    const { ref, def } = cf;
+    if (ref.is_bo_only || def.is_bo_only) return _renderBoOnlyField(def, s, 'applyState');
+    if (ref.scope === "provide") return _renderProvideField(def, s, 'applyState');
+    const mergedDef = { ...def, required: ref.required !== undefined ? ref.required : def.required };
+    return _renderOneField(mergedDef, s, 'applyState');
+  }).join('\n');
+
   const etcFields = [
     (!isElearning) ? _field('instructor_name', '👨‍🏫 강사명', 'text', '강사 이름 입력') : '',
     (!isElearning) ? _readonly('prov_instructor', '👨‍🏫 강사정보', '관리자가 확정한 강사 정보가 표시됩니다.') : '',
-    applyReasonField
+    applyReasonField,
+    customFieldsHtml
   ];
 
   const attachFields = [

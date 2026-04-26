@@ -749,63 +749,29 @@ ${(() => {
 
       <div class="space-y-5">
         ${(() => {
-          // BO 양식이 로드된 경우 → 동적 렌더링
-          if (
-            s.formTemplate &&
-            s.formTemplate.fields &&
-            s.formTemplate.fields.length > 0
-          ) {
-            const dynamicHtml =
-              typeof renderDynamicFormFields === "function"
-                ? renderDynamicFormFields(
-                    s.formTemplate.fields,
-                    s,
-                    "applyState",
-                  )
-                : "";
-            if (dynamicHtml) {
-              const tplBadge = s.formTemplate.name
-                ? `<div style="margin-bottom:16px;padding:8px 14px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;font-size:11px;font-weight:700;color:#1D4ED8">📋 양식: ${s.formTemplate.name}</div>`
-                : "";
-              return tplBadge + dynamicHtml;
-            }
-          }
           if (s.formTemplateLoading) {
             return `<div style="padding:32px;text-align:center;color:#6B7280;font-size:14px;font-weight:600"><div style="font-size:28px;margin-bottom:8px">⌛</div>양식 로딩 중...</div>`;
           }
-          // ── Phase B: 표준 렌더러 (정규화 컬럼 기반) ──
+          
+          // BO 양식이 로드된 경우 (동적 양식 fields 배열)
+          if (s.formTemplate && s.formTemplate.fields && s.formTemplate.fields.length > 0) {
+            if (typeof renderDynamicFormFields === "function") {
+              const dynamicHtml = renderDynamicFormFields(s.formTemplate.fields, s, "applyState", curBudget);
+              if (dynamicHtml) {
+                const tplBadge = s.formTemplate.name
+                  ? `<div style="margin-bottom:16px;padding:8px 14px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;font-size:11px;font-weight:700;color:#1D4ED8">📋 양식: ${s.formTemplate.name}</div>`
+                  : "";
+                return tplBadge + dynamicHtml;
+              }
+            }
+          }
+          
+          // ── Phase B: 표준 렌더러 (정규화 컬럼 기반 또는 인라인 폼) ──
           if (typeof window.foRenderStandardApplyForm === 'function') {
             return window.foRenderStandardApplyForm(s, curBudget, s.formTemplate?.isInline ? s.formTemplate.inlineFields : null);
           }
-          // ── 최후 Fallback: Phase B 렌더러 미로드 시 ──
-          return `
-        <!-- Region toggle -->
-        <div class="inline-flex bg-gray-100 rounded-xl p-1">
-          <button onclick="applyState.region='domestic';renderApply()" class="px-5 py-2 rounded-lg text-sm font-bold transition ${s.region === "domestic" ? "bg-white text-accent shadow" : " text-gray-500"}">🗺 국내</button>
-          <button onclick="applyState.region='overseas';renderApply()" class="px-5 py-2 rounded-lg text-sm font-bold transition ${s.region === "overseas" ? "bg-white text-accent shadow" : "text-gray-500"}">🌏 해외</button>
-        </div>
-        <div>
-          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">과정명 <span class="text-red-500">*</span></label>
-          <input type="text" value="${s.title}" oninput="applyState.title=this.value" placeholder="교육/세미나/자격증 등 공식 명칭" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-bold text-gray-900 focus:border-accent focus:bg-white transition" />
-        </div>
-        <div class="grid grid-cols-2 gap-5">
-          <div>
-            <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">시작일</label>
-            <input type="date" value="${s.startDate}" oninput="applyState.startDate=this.value;renderApply()" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition" />
-          </div>
-          <div>
-            <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">종료일</label>
-            <input type="date" value="${s.endDate}" oninput="applyState.endDate=this.value;renderApply()" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition" />
-          </div>
-        </div>
-        <div>
-          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">총 학습시간 (H)</label>
-          <input type="number" value="${s.hours}" oninput="applyState.hours=this.value" placeholder="0" class="w-40 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition" />
-        </div>
-        <div>
-          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">학습 내용 <span class="text-red-500">*</span></label>
-          <textarea oninput="applyState.content=this.value" rows="3" placeholder="학습 목표, 주요 커리큘럼 및 활용 방안을 입력하세요." class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-5 py-4 font-medium text-gray-700 focus:border-accent focus:bg-white transition resize-none">${s.content}</textarea>
-        </div>`;
+          
+          return `<div class="p-4 text-center text-red-500 font-bold">폼 렌더러를 불러오지 못했습니다.</div>`;
         })()}
 
         <!-- Cost section -->

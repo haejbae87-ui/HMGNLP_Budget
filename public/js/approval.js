@@ -1016,37 +1016,65 @@ function _injectAprSubmitModal() {
 }
 
 // [S-8] approval_nodes 자동 구성 헬퍼 (결재선 렌더링 용)
-function _calculateApprovalLine(accountCode, totalAmount) {
+function _calculateApprovalLine(accountCode, totalAmount, stage = 'apply') {
   let nodes = [];
-  try {
-    const routing = typeof APPROVAL_ROUTING !== 'undefined'
-      ? APPROVAL_ROUTING.find(r =>
-          r.tenantId === currentPersona.tenantId &&
-          (r.accountCodes || []).some(c => accountCode && accountCode.includes(c))
-        )
-      : null;
-    if (routing && routing.ranges && routing.ranges.length > 0) {
-      const matchedRange = routing.ranges
-        .filter(rng => rng.max === null || totalAmount <= rng.max)
-        .sort((a, b) => (a.max ?? Infinity) - (b.max ?? Infinity))[0];
-      if (matchedRange) {
-        nodes = (matchedRange.nodes || [])
-          .filter(n => n.type !== 'draft')
-          .map((n, i) => ({
-            order: i,
-            type: n.type,
-            label: n.label || n.role || '결재자',
-            approverKey: n.role || n.coopType || n.label || '',
-            activation: n.activation || 'always',
-            conditionRuleId: n.conditionRuleId || null,
-          }));
-      }
-    }
-  } catch(e) {}
+  let matchedPol = null;
   
-  if (nodes.length === 0) {
-    nodes.push({ order: 0, type: 'approval', label: '결재자', approverKey: 'leader', activation: 'always' });
+  if (typeof SERVICE_POLICIES !== 'undefined' && accountCode) {
+    matchedPol = SERVICE_POLICIES.find(pol => 
+      (pol.accountCodes || []).some(c => accountCode.includes(c))
+    );
   }
+
+  if (matchedPol && matchedPol.approvalConfig && matchedPol.approvalConfig[stage]) {
+    const cfg = matchedPol.approvalConfig[stage];
+    
+    // 1. thresholds 에 따른 금액별 결재자 (승인자)
+    let finalApprover = null;
+    if (cfg.thresholds && cfg.thresholds.length > 0) {
+       const sorted = [...cfg.thresholds].sort((a,b) => (a.maxAmt ?? Infinity) - (b.maxAmt ?? Infinity));
+       for (const t of sorted) {
+          if (!t.maxAmt || totalAmount <= t.maxAmt) {
+             finalApprover = t;
+             break;
+          }
+       }
+       if (!finalApprover) finalApprover = sorted[sorted.length - 1];
+    }
+    
+    const LEVEL_LABELS = {
+      team_leader: "팀장", director: "실장", division_head: "사업부장", center_head: "센터장", hq_head: "본부장"
+    };
+
+    if (finalApprover && finalApprover.approverKey) {
+       // 화면표시용으로 구간의 최종 승인자만 단순 추가 (실제는 누적일 수 있음)
+       nodes.push({ order: 1, type: 'approval', label: LEVEL_LABELS[finalApprover.approverKey] || finalApprover.approverKey, approverKey: finalApprover.approverKey });
+    } else {
+       nodes.push({ order: 1, type: 'approval', label: '결재자', approverKey: 'leader' });
+    }
+
+    // 2. 통합결재(hmg) 인 경우, 협조처 표시
+    if (cfg.approvalType === 'hmg' || cfg.approvalType === 'integrated') {
+       nodes.push({ order: 2, type: 'coop', label: '교육협조처', approverKey: 'coop_edu' });
+       nodes.push({ order: 3, type: 'coop', label: '재경협조팀', approverKey: 'coop_fin' });
+    }
+
+    // 3. 결재 후 검토자 (reviewMode)
+    let order = nodes.length + 1;
+    if (cfg.reviewMode === 'admin_only') {
+       nodes.push({ order: order++, type: 'review', label: '총괄담당자', approverKey: 'admin' });
+    } else if (cfg.reviewMode === 'manager_only') {
+       nodes.push({ order: order++, type: 'review', label: '운영담당자', approverKey: 'manager' });
+    } else if (cfg.reviewMode === 'both') {
+       nodes.push({ order: order++, type: 'review', label: '운영담당자', approverKey: 'manager' });
+       nodes.push({ order: order++, type: 'review', label: '총괄담당자', approverKey: 'admin' });
+    }
+    
+  } else {
+    // Fallback: 백오피스 데이터가 없을 경우 기본값
+    nodes.push({ order: 1, type: 'approval', label: '결재자', approverKey: 'leader' });
+  }
+
   return nodes;
 }
 
@@ -1094,7 +1122,8 @@ function _aprOpenModal(items) {
   }
 
   // 결재선 시각화
-  const approvalNodes = _calculateApprovalLine(accountCode, totalAmt);
+  const stage = items.length > 0 && items[0]._type === 'plan' ? 'plan' : 'apply';
+  const approvalNodes = _calculateApprovalLine(accountCode, totalAmt, stage);
   const lineEl = document.getElementById('apr-modal-approval-line');
   if (lineEl) {
     lineEl.innerHTML = `
@@ -1117,7 +1146,10 @@ function _aprOpenModal(items) {
     const matchedPol = SERVICE_POLICIES.find(pol =>
       (pol.accountCodes || []).some(c => accountCode.includes(c))
     );
-    if (matchedPol?.approvalConfig?.approvalSystem === 'integrated') isIntegrated = true;
+    const cfg = matchedPol?.approvalConfig?.[stage];
+    if (cfg && (cfg.approvalType === 'hmg' || cfg.approvalType === 'integrated')) {
+      isIntegrated = true;
+    }
   }
   const intgWrapper = document.getElementById('apr-integrated-wrapper');
   if (intgWrapper) {
@@ -1187,11 +1219,16 @@ async function _aprConfirmSubmit() {
     let approvalSystem = 'platform';
     let coopTeams = [];
     let referenceTeams = [];
+    
+    const firstItem = Array.from(_aprSelectedItems.values())[0];
+    const stage = (firstItem && firstItem._type === 'plan') ? 'plan' : 'apply';
+    
     if (acct && typeof SERVICE_POLICIES !== 'undefined') {
       const matchedPol = SERVICE_POLICIES.find(pol =>
         (pol.accountCodes || []).some(c => acct.includes(c))
       );
-      if (matchedPol?.approvalConfig?.approvalSystem === 'integrated') {
+      const cfg = matchedPol?.approvalConfig?.[stage];
+      if (cfg && (cfg.approvalType === 'hmg' || cfg.approvalType === 'integrated')) {
         approvalSystem = 'integrated';
         const coopInput = document.getElementById('apr-coop-input');
         const refInput = document.getElementById('apr-ref-input');
@@ -1205,7 +1242,7 @@ async function _aprConfirmSubmit() {
     }
 
     // [S-8] approval_nodes 자동 구성
-    let approvalNodes = _calculateApprovalLine(accountCode, totalAmount);
+    let approvalNodes = _calculateApprovalLine(accountCode, totalAmount, stage);
 
     // doc_type 파생: item 유형에서 자동 결정
     const itemTypes = [...new Set(selectedArr.map(sel =>

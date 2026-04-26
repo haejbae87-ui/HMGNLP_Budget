@@ -274,7 +274,7 @@ function _mapDbStatus(s) {
 }
 
 function renderPlans() {
-  console.log([DEBUG] renderPlans called. plansMode: \);
+  console.log(`[DEBUG] renderPlans called. plansMode:`);
 
   // FO 정책 DB 로드 (최초 1회, 완료 후 목록 자동 갱신)
   if (!_foServicePoliciesLoaded) {
@@ -936,63 +936,9 @@ function _renderPlanDetailView(plan) {
         <h2 style="margin:0;font-size:20px;font-weight:900">${plan.title || plan.edu_name || "-"}</h2>
         <p style="margin:6px 0 0;font-size:12px;opacity:.8">${plan.applicant_name || currentPersona.name} · ${plan.dept || currentPersona.dept}</p>
       </div>
-      <!-- 상세 정보 -->
-      <div style="padding:24px 28px">
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280;width:120px">계획명</td>
-            <td style="padding:12px 0;font-weight:900;color:#111827">${plan.title || plan.edu_name || "-"}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">교육목적</td>
-            <td style="padding:12px 0;color:#374151">${_foPurposeLabel(d.purpose || plan.purpose)}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">교육유형</td>
-            <td style="padding:12px 0;color:#374151">${_foEduTypeLabel(plan.edu_type || d.eduType)} ${d.eduSubType ? "› " + _foEduTypeLabel(d.eduSubType) : ""}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">예산계정</td>
-            <td style="padding:12px 0;color:#374151">${plan.account_code || plan.account || "-"}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">계획액</td>
-            <td style="padding:12px 0;font-weight:900;color:#002C5F;font-size:16px">${amount.toLocaleString()}원</td>
-          </tr>
-          ${(() => {
-            const alloc = Number(plan.allocated_amount || 0);
-            if (!isApproved) return '';
-            return `<tr style="border-bottom:1px solid #F3F4F6">
-              <td style="padding:12px 0;font-weight:800;color:#6B7280">배정액</td>
-              <td style="padding:12px 0">
-                ${alloc > 0
-                  ? `<span style="font-weight:900;color:#059669;font-size:16px">${alloc.toLocaleString()}원</span>
-                     <span style="margin-left:8px;font-size:10px;font-weight:700;background:#D1FAE5;color:#065F46;padding:2px 8px;border-radius:5px">✅ 배정완료</span>`
-                  : `<span style="color:#D97706;font-weight:700;font-size:12px">⏳ 배정 대기 중</span>
-                     <span style="margin-left:6px;font-size:11px;color:#9CA3AF">운영담당자가 배정액을 입력하면 자동 표시됩니다</span>`
-                }
-              </td>
-            </tr>`;
-          })()}
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">기간</td>
-            <td style="padding:12px 0;color:#374151">${d.startDate || "-"} ~ ${d.endDate || "-"}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">상신자</td>
-            <td style="padding:12px 0;color:#374151">${plan.applicant_name || plan.submitter || currentPersona.name || "-"}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #F3F4F6">
-            <td style="padding:12px 0;font-weight:800;color:#6B7280">상태</td>
-            <td style="padding:12px 0">
-              <span style="font-size:11px;font-weight:900;padding:3px 10px;border-radius:6px;background:${stColor}15;color:${stColor}">${stLabel}</span>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:12px 0;font-weight:800;color:#6B7280;vertical-align:top">상세 내용</td>
-            <td style="padding:12px 0;color:#374151;white-space:pre-wrap">${d.content || plan.content || "-"}</td>
-          </tr>
-        </table>
+      <!-- 상세 정보 (7단계 통합 뷰) -->
+      <div style="padding:24px 28px; background:#F9FAFB">
+        ${typeof window.foRenderStandardReadOnlyForm === 'function' ? window.foRenderStandardReadOnlyForm({...plan, amount, accountCode: plan.account_code || plan.account || ''}, 'FO') : '<p>렌더러 로딩 중...</p>'}
       </div>
       <!-- 결재/검토 진행현황 -->
       ${typeof renderApprovalStepper === "function" ? renderApprovalStepper(st, "plan") : ""}

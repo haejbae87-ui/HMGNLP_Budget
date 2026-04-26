@@ -159,7 +159,26 @@ async function _loadFoPolicies() {
     }
   }
 
+  await _loadAccountNames();
   _foServicePoliciesLoaded = true;
+}
+
+let _accountNameCache = {};
+async function _loadAccountNames() {
+  const sb = typeof getSB === "function" ? getSB() : null;
+  if (!sb) return;
+  try {
+    const { data } = await sb.from("budget_accounts")
+      .select("code, name")
+      .eq("tenant_id", currentPersona?.tenantId || "HMC");
+    if (data) {
+      data.forEach(r => {
+        if (r.code) _accountNameCache[r.code] = r.name;
+      });
+    }
+  } catch (e) {
+    console.warn("[FO] 예산 계정명 로드 실패:", e.message);
+  }
 }
 
 // ─── 수요예측 마감 조회 헬퍼 (제도그룹 기반) ─────────────────────────────
@@ -679,7 +698,7 @@ function renderPlans() {
     ${uniqueAccounts.length > 1 ? `<select onchange="_planAccountFilter=this.value;renderPlans()"
       style="padding:6px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer">
       <option value="">계정 전체</option>
-      ${uniqueAccounts.map(a=>`<option value="${a}" ${_planAccountFilter===a?'selected':''}>${a}</option>`).join('')}
+      ${uniqueAccounts.map(a=>`<option value="${a}" ${_planAccountFilter===a?'selected':''}>${_accountNameCache[a] || a}</option>`).join('')}
     </select>` : ''}
     <span style="font-size:11px;color:#9CA3AF;margin-left:auto">필터된 결과: <b>${filteredPlans.length}</b>건</span>
   </div>`;
@@ -695,7 +714,7 @@ function renderPlans() {
             ${_selectedPlans.length}건 선택됨
           </div>
           <div style="font-size:13px;font-weight:800;color:#93C5FD">
-            예산 계정: <span style="color:white">${_selectionAccount || "-"}</span>
+            예산 계정: <span style="color:white">${_accountNameCache[_selectionAccount] || _selectionAccount || "-"}</span>
           </div>
           <div style="font-size:13px;font-weight:800;color:#93C5FD">
             총 금액: <span style="color:white">${totalSelectedAmount.toLocaleString()}원</span>
@@ -870,7 +889,7 @@ function _renderPlanCard(p) {
           ${authorBadge}
         </div>
         <div style="font-size:11px;color:#6B7280;display:flex;gap:12px;flex-wrap:wrap">
-          <span>💳 ${p.account || "-"} 예산</span>
+          <span>💳 ${_accountNameCache[p.account] || p.account || "-"} 예산</span>
           <span>💰 ${(p.amount || 0).toLocaleString()}원</span>
           ${Number(p.allocated_amount||0)>0?`<span style="font-weight:800;color:#059669">✅ 배정 ${Number(p.allocated_amount).toLocaleString()}원</span>`:`<span style="color:#D1D5DB">⏳ 미배정</span>`}
           <!-- B-1: 잔여예산 뱃지 (비동기 로드) -->

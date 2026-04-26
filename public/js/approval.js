@@ -173,8 +173,8 @@ async function renderApprovalMember() {
         })),
       ];
 
-      // [A-1] saved 항목 분리: 상신대기(저장완료)는 별도 섹션에서 표시
-      _aprSavedData = _aprMemberData.filter(d => d.status === 'saved');
+      // [A-1] saved 항목 제거: 상신대기(저장완료)는 이제 계획 목록(plans.js)에서 직접 상신하므로 결재함에서는 제거
+      _aprSavedData = [];
 
       // [S-9] 예산 잔액 조회 (frozen 포함 실가용 잔액)
       try {
@@ -210,10 +210,10 @@ async function renderApprovalMember() {
     }
   }
 
-  // 상태별 통계 (saved·recalled 제외 — recalled는 회수됐으므로 목록에서 숨김)
-  const data = _aprMemberData.filter(d => !['recalled', 'draft'].includes(d.status) && !_aprSavedData.find(s => String(s.id) === String(d.id)));
+  // 상태별 통계 (saved·recalled·draft 제외 — recalled는 회수됐으므로 목록에서 숨김. saved는 계획 목록으로 이관됨)
+  const data = _aprMemberData.filter(d => !['recalled', 'draft', 'saved'].includes(d.status));
   const stats = {
-    saved: _aprSavedData.length,
+    saved: 0, // 더 이상 결재함에서 카운트하지 않음
     total: data.length,
     approved: data.filter((d) => d.status === "approved").length,
     inProgress: data.filter(
@@ -237,57 +237,6 @@ async function renderApprovalMember() {
     // BO 담당자가 정산 결과를 검토 중인 상태 (result.js → result_pending 전환 후)
   };
 
-  // ── [S-4] 저장완료(상신대기) 섹션 ───────────────────────────────────────
-  const savedSection = _aprSavedData.length > 0 ? `
-  <div style="background:#F0FDF4;border:2px solid #6EE7B7;border-radius:16px;padding:20px 24px;margin-bottom:20px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-          <span style="font-size:18px">📤</span>
-          <span style="font-size:15px;font-weight:900;color:#065F46">상신 대기 목록</span>
-          <span style="background:#059669;color:white;font-size:11px;font-weight:800;padding:2px 8px;border-radius:8px">${_aprSavedData.length}건</span>
-        </div>
-        <div style="font-size:11px;color:#6B7280">작성이 완료된 항목들입니다. 단건 혹은 다건 선택 후 상신할 수 있습니다.</div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button onclick="_aprBulkSubmit()" id="btn-bulk-submit"
-          style="padding:10px 20px;border-radius:10px;background:#059669;color:white;font-size:12px;font-weight:900;border:none;cursor:pointer;opacity:.5;pointer-events:none"
-          >📤 다건 상신 (<span id="apr-bulk-count">0</span>건)
-        </button>
-      </div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      ${_aprSavedData.map(item => {
-        const typeBadge = item._type === 'plan'
-          ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#DBEAFE;color:#1D4ED8">📋 교육계획</span>'
-          : '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#FEF3C7;color:#B45309">📝 교육신청</span>';
-        const safeId = String(item.id).replace(/'/g,"\\'");
-        const safeTable = item._table || (item._type === 'plan' ? 'plans' : 'applications');
-        return `
-        <div style="background:white;border-radius:10px;border:1.5px solid #D1FAE5;padding:14px 16px;display:flex;align-items:center;gap:12px">
-          <input type="checkbox" id="apr-chk-${safeId}" data-id="${safeId}" data-type="${item._type}" data-table="${safeTable}" data-account="${item.account_code || ''}"
-            onchange="_aprToggleSelect(this)"
-            style="width:18px;height:18px;accent-color:#059669;cursor:pointer;flex-shrink:0">
-          <div style="flex:1">
-            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-              <span style="font-size:13px;font-weight:800;color:#111827">${item.title}</span>
-              ${typeBadge}
-            </div>
-            <div style="font-size:11px;color:#6B7280;display:flex;gap:10px;flex-wrap:wrap">
-              <span>📅 ${item.date}</span>
-              <span>📚 ${item.type}</span>
-              <span>💰 ${item.amount.toLocaleString()}원</span>
-              ${item.account_code ? `<span>🏷 ${item.account_code}</span>` : ''}
-            </div>
-          </div>
-          <button onclick="_aprSingleSubmit('${safeId}','${safeTable}','${item.title.replace(/'/g,"")}')"
-            style="padding:8px 16px;border-radius:8px;background:#059669;color:white;font-size:11px;font-weight:800;border:none;cursor:pointer;white-space:nowrap;flex-shrink:0">
-            📤 단건 상신
-          </button>
-        </div>`;
-      }).join('')}
-    </div>
-  </div>` : '';
 
   const cards = data
     .map((item) => {
@@ -474,13 +423,9 @@ async function renderApprovalMember() {
       style="padding:8px 16px;border-radius:10px;background:white;border:1.5px solid #E5E7EB;font-size:12px;font-weight:800;color:#374151;cursor:pointer">🔄 새로고침</button>
   </div>
 
-  <!-- [S-4] 저장완료(상신 대기) 섹션 -->
-  ${savedSection}
-
   <!-- 통계 카드 -->
-  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px">
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
     ${[
-      { label: "상신대기", val: stats.saved, color: "#059669", bg: "#F0FDF4", icon: "📤" },
       { label: "전체", val: stats.total, color: "#002C5F", bg: "#EFF6FF", icon: "📋" },
       { label: "승인완료", val: stats.approved, color: "#059669", bg: "#F0FDF4", icon: "✅" },
       { label: "결재대기", val: stats.inProgress, color: "#D97706", bg: "#FFFBEB", icon: "⏳" },

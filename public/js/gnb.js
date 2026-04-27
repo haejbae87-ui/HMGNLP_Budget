@@ -26,7 +26,7 @@ function renderGNB() {
         {
           id: "forecast",
           action: "window.plansMode='forecast';navigate('plans')",
-          label: "사업계획 (수요예측)",
+          label: "전사 캠페인 (수요예측)",
           icon: "📢",
           navigate: true,
           desc: "전사 사업계획 수립 캠페인 참여",
@@ -34,7 +34,7 @@ function renderGNB() {
         {
           id: "plans",
           action: "window.plansMode='ongoing';navigate('plans')",
-          label: "교육계획 관리",
+          label: "내 교육계획 관리 (통합)",
           icon: "📊",
           navigate: true,
           desc: "사업계획 및 운영계획 관리",

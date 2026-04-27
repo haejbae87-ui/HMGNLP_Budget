@@ -219,7 +219,7 @@ function resetPlanState() {
 }
 
 // 계획 목록 뷰 상태
-let _planTypeTab = "operation"; // 'business' | 'operation'
+// 계획 목록 뷰 상태
 let _planViewTab = "mine"; // 'mine' | 'team'
 let _planYear = new Date().getFullYear(); // 연도 필터
 
@@ -320,9 +320,10 @@ function renderPlans() {
     return;
   }
 
-  // 수요예측 캠페인 대시보드 뷰
-  if (window.plansMode === "forecast") {
-    _renderForecastDashboard();
+  // 캠페인 데이터 병렬 로드
+  const sb = typeof getSB === "function" ? getSB() : null;
+  if (window.plansMode === "forecast" && !_forecastCampaignHtmlStr && !_isFetchingForecasts) {
+    _fetchForecastCampaigns().then(() => renderPlans());
     return;
   }
 
@@ -429,7 +430,8 @@ function renderPlans() {
   const plans = _planViewTab === "mine" ? myPlans : teamPlans;
 
   // #7: 상태/계정 필터 및 plan_type 필터 적용
-  const typeFilteredPlans = plans.filter(p => p.plan_type === _planTypeTab);
+  const targetPlanType = window.plansMode === "forecast" ? "business" : "operation";
+  const typeFilteredPlans = plans.filter(p => p.plan_type === targetPlanType);
   const uniqueAccounts = [...new Set(typeFilteredPlans.map(p => p.account || '').filter(Boolean))];
   const filteredPlans = typeFilteredPlans.filter(p => {
     const rawSt = p.status || '';
@@ -469,23 +471,7 @@ function renderPlans() {
   </select>`;
 
   // 탭 UI
-  const typeTabBar = `
-  <div style="display:flex;gap:4px;background:#F3F4F6;padding:4px;border-radius:14px;margin-bottom:12px;width:fit-content">
-    <button onclick="_planTypeTab='business';renderPlans()" style="
-      padding:8px 20px;border-radius:10px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s;
-      background:${_planTypeTab === "business" ? "#fff" : "transparent"};
-      color:${_planTypeTab === "business" ? "#D97706" : "#6B7280"};
-      box-shadow:${_planTypeTab === "business" ? "0 1px 4px rgba(0,0,0,.12)" : "none"}">
-      📊 사업계획 (수요예측)
-    </button>
-    <button onclick="_planTypeTab='operation';renderPlans()" style="
-      padding:8px 20px;border-radius:10px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s;
-      background:${_planTypeTab === "operation" ? "#fff" : "transparent"};
-      color:${_planTypeTab === "operation" ? "#002C5F" : "#6B7280"};
-      box-shadow:${_planTypeTab === "operation" ? "0 1px 4px rgba(0,0,0,.12)" : "none"}">
-      🛠 운영계획 (실행)
-    </button>
-  </div>`;
+  const typeTabBar = ``;
 
   const viewTabBar = teamViewEnabled
     ? `
@@ -594,23 +580,29 @@ function renderPlans() {
       <button onclick="_aprBulkSubmitFromTeam([${_selectedPlans.map(id=>`'${id}'`).join(',')}])" style="padding:10px 24px;border-radius:10px;background:#10B981;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(16,185,129,.3);">상신 진행하기</button>
     </div>` : '';
 
+  const isBusiness = window.plansMode === "forecast";
+  const pageTitle = isBusiness ? "사업계획 (수요예측)" : "운영계획 관리 (실행)";
+  const planTypeStr = isBusiness ? "business" : "operation";
+  const planLabelStr = isBusiness ? "사업계획 수립" : "운영계획 수립";
+
   document.getElementById("page-plans").innerHTML = `
 <div class="max-w-4xl mx-auto space-y-4 pb-20 relative">
-  <div style="display:flex;align-items:flex-end;justify-content:space-between">
+  ${isBusiness && typeof _forecastCampaignHtmlStr !== "undefined" ? _forecastCampaignHtmlStr : ""}
+
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:${isBusiness ? '40px' : '0'}; border-top:${isBusiness ? '2px solid #E5E7EB' : 'none'}; padding-top:${isBusiness ? '24px' : '0'}">
     <div>
-      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육계획</div>
-      <h1 class="text-3xl font-black text-brand tracking-tight">교육계획 수립</h1>
+      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › ${pageTitle}</div>
+      <h1 class="text-3xl font-black text-brand tracking-tight">내 ${isBusiness ? "사업계획 목록" : "운영계획 목록"}</h1>
       <p class="text-gray-500 text-sm mt-1">${currentPersona.name} · ${currentPersona.dept}</p>
     </div>
     <div style="display:flex;gap:10px;align-items:center">
       ${yearSelector}
-      <button onclick="startPlanWizard('${_planTypeTab === 'business' ? 'business' : 'operation'}')" class="flex items-center gap-2 bg-brand text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-blue-900 transition shadow-lg">
-        + ${_planTypeTab === 'business' ? '사업계획 수립' : '운영계획 수립'}
+      <button onclick="startPlanWizard('${planTypeStr}')" class="flex items-center gap-2 bg-brand text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-blue-900 transition shadow-lg">
+        + ${planLabelStr}
       </button>
     </div>
   </div>
   <div style="display:flex;gap:12px">
-    ${typeTabBar}
     ${viewTabBar}
   </div>
   ${statsBar}
@@ -823,79 +815,54 @@ function startPlanWizard(mode = 'operation', forcedYear = null) {
 let _forecastDeadlinesCache = null;
 let _isFetchingForecasts = false;
 
-async function _renderForecastDashboard() {
-  const container = document.getElementById("page-plans");
+let _forecastCampaignHtmlStr = "";
+async function _fetchForecastCampaigns() {
   if (_isFetchingForecasts) return;
-
-  if (!_forecastDeadlinesCache) {
-    _isFetchingForecasts = true;
-    container.innerHTML = `<div style="padding:100px;text-align:center;color:#6B7280;font-weight:bold;font-size:14px;">사업계획(수요예측) 캠페인 조회 중...</div>`;
-    const sb = typeof getSB === "function" ? getSB() : null;
-    if (sb) {
-      try {
-        const { data } = await sb.from("forecast_deadlines")
-          .select("*")
-          .eq("tenant_id", currentPersona.tenantId)
-          .eq("is_closed", false);
-        
-        const now = new Date();
-        now.setHours(0,0,0,0);
-        
-        _forecastDeadlinesCache = (data || []).filter(dl => {
-            if (dl.recruit_start && now < new Date(dl.recruit_start)) return false;
-            if (dl.recruit_end && now > new Date(dl.recruit_end)) return false;
-            return true;
-        });
-      } catch (e) {
-        _forecastDeadlinesCache = [];
+  _isFetchingForecasts = true;
+  const sb = typeof getSB === "function" ? getSB() : null;
+  if (sb) {
+    try {
+      const { data } = await sb.from("forecast_deadlines").select("*").eq("tenant_id", currentPersona.tenantId).eq("is_closed", false);
+      const now = new Date(); now.setHours(0,0,0,0);
+      const campaigns = (data || []).filter(dl => {
+          if (dl.recruit_start && now < new Date(dl.recruit_start)) return false;
+          if (dl.recruit_end && now > new Date(dl.recruit_end)) return false;
+          return true;
+      });
+      if (campaigns.length === 0) {
+        _forecastCampaignHtmlStr = `<div style="padding:40px 20px;text-align:center;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB;margin-bottom:20px;">
+          <div style="font-size:32px;margin-bottom:12px">📢</div>
+          <div style="font-size:14px;font-weight:900;color:#374151">현재 진행 중인 전사 사업계획 캠페인이 없습니다.</div>
+        </div>`;
+      } else {
+        _forecastCampaignHtmlStr = `<div style="margin-bottom:20px;">
+          <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Campaign</div>
+          <h2 class="text-2xl font-black text-brand tracking-tight mb-4">전사 사업계획 수립 캠페인</h2>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));gap:16px">
+          ${campaigns.map(c => `
+            <div onclick="startPlanWizard('forecast', ${c.fiscal_year})" style="padding:24px 20px;border-radius:16px;background:white;border:1.5px solid #BFDBFE;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.04);transition:all 0.15s"
+                 onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(37,99,235,0.1)'"
+                 onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.04)'">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+                <div style="font-size:12px;font-weight:900;color:#1D4ED8;background:#EFF6FF;padding:4px 10px;border-radius:8px;">🎯 ${c.fiscal_year}년도 예산 확정</div>
+                <div style="font-size:11px;font-weight:800;color:#DC2626;background:#FEF2F2;padding:4px 8px;border-radius:6px;">⏳ 마감: ${c.recruit_end ? c.recruit_end.substring(0,10) : '상시'}</div>
+              </div>
+              <div style="font-size:18px;font-weight:900;color:#111827;margin-bottom:8px;line-height:1.4">${c.title || c.fiscal_year + '년도 전사 사업계획 (수요예측)'}</div>
+              <div style="font-size:13px;color:#6B7280;line-height:1.5">${c.description || '차년도(또는 당해) 필요한 교육 예산을 사전에 확보하기 위한 기안입니다.'}</div>
+              <div style="margin-top:20px;padding-top:16px;border-top:1px dashed #E5E7EB;font-size:13px;font-weight:800;color:#2563EB;display:flex;align-items:center;justify-content:space-between">
+                <span>참여하여 계획 수립하기</span>
+                <span style="font-size:16px">→</span>
+              </div>
+            </div>
+          `).join('')}
+          </div>
+        </div>`;
       }
-    } else {
-        _forecastDeadlinesCache = [];
+    } catch (e) {
+      _forecastCampaignHtmlStr = '';
     }
-    _isFetchingForecasts = false;
   }
-
-  const campaigns = _forecastDeadlinesCache;
-  let listHtml = "";
-  if (campaigns.length === 0) {
-    listHtml = `<div style="padding:60px 20px;text-align:center;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB">
-        <div style="font-size:48px;margin-bottom:16px">📢</div>
-        <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">현재 진행 중인 사업계획 캠페인이 없습니다.</div>
-        <div style="font-size:12px;color:#9CA3AF">예산 기안은 [교육계획] 메뉴를 이용해 상시계획으로 수립해 주세요.</div>
-      </div>`;
-  } else {
-    listHtml = `<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));gap:16px">
-      ${campaigns.map(c => `
-        <div onclick="startPlanWizard('forecast', ${c.fiscal_year})" style="padding:24px 20px;border-radius:16px;background:white;border:1.5px solid #BFDBFE;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.04);transition:all 0.15s"
-             onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(37,99,235,0.1)'"
-             onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.04)'">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
-            <div style="font-size:12px;font-weight:900;color:#1D4ED8;background:#EFF6FF;padding:4px 10px;border-radius:8px;">🎯 ${c.fiscal_year}년도 예산 대상</div>
-            <div style="font-size:11px;font-weight:800;color:#DC2626;background:#FEF2F2;padding:4px 8px;border-radius:6px;">⏰ 마감: ${c.recruit_end ? c.recruit_end.substring(0,10) : '상시'}</div>
-          </div>
-          <div style="font-size:18px;font-weight:900;color:#111827;margin-bottom:8px;line-height:1.4">${c.title || c.fiscal_year + '년도 전사 사업계획 (수요예측)'}</div>
-          <div style="font-size:13px;color:#6B7280;line-height:1.5">${c.description || '차년도(또는 당해) 필요한 교육 예산을 사전에 확보하기 위한 기안입니다.'}</div>
-          <div style="margin-top:20px;padding-top:16px;border-top:1px dashed #E5E7EB;font-size:13px;font-weight:800;color:#2563EB;display:flex;align-items:center;justify-content:space-between">
-            <span>참여하여 계획 수립하기</span>
-            <span style="font-size:16px">→</span>
-          </div>
-        </div>
-      `).join('')}
-    </div>`;
-  }
-
-  container.innerHTML = `
-<div class="max-w-4xl mx-auto space-y-4">
-  <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px">
-    <div>
-      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 사업계획</div>
-      <h1 class="text-3xl font-black text-brand tracking-tight">전사 사업계획 수립 캠페인</h1>
-      <p class="text-gray-500 text-sm mt-1">사전에 큰 규모의 예산을 확보하기 위한 정기 기안 캠페인입니다.</p>
-    </div>
-  </div>
-  ${listHtml}
-</div>
-  `;
+  _isFetchingForecasts = false;
 }
 
 // ─── 계획 상세 보기 ──────────────────────────────────────────────
@@ -1986,7 +1953,8 @@ function renderPlanConfirm() {
       </div>
       <!-- 버튼 -->
       <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6">
-        <button onclick="planState.confirmMode=false;renderPlans()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">← 수정하기</button>
+        <button onclick="closePlanWizard()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">← 목록으로</button>
+        <button onclick="planState.confirmMode=false;renderPlans()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">수정하기</button>
         <button onclick="confirmPlan()" style="padding:10px 28px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#002C5F;color:white;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">✅ 확정 제출</button>
       </div>
     </div>

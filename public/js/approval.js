@@ -960,7 +960,8 @@ function _aprToggleSelect(el) {
 function _aprSingleSubmit(id, table, title) {
   _aprSelectedItems.clear();
   _aprSelectedItems.set(id, { id, table, type: table === 'plans' ? 'plan' : 'app', account: '' });
-  _aprOpenModal([{ id, title }]);
+  const item = _aprSavedData.find(d => String(d.id) === String(id));
+  _aprOpenModal([{ id, title, _type: table === 'plans' ? 'plan' : 'app', item }]);
 }
 
 // 다건 상신 — 모달 열기
@@ -968,7 +969,7 @@ function _aprBulkSubmit() {
   if (_aprSelectedItems.size === 0) return;
   const items = [..._aprSelectedItems.values()].map(sel => {
     const item = _aprSavedData.find(d => String(d.id) === String(sel.id));
-    return { id: sel.id, title: item?.title || sel.id };
+    return { id: sel.id, title: item?.title || sel.id, _type: sel.type, item };
   });
   _aprOpenModal(items);
 }
@@ -1120,7 +1121,15 @@ function _aprOpenModal(items) {
   }
 
   // 결재선 시각화
-  const stage = items.length > 0 && items[0]._type === 'plan' ? 'plan' : 'apply';
+  let stage = 'apply';
+  if (items.length > 0 && items[0]._type === 'plan') {
+    const planType = items[0].item?.plan_type;
+    if (planType === 'forecast') {
+      stage = 'forecast';
+    } else {
+      stage = 'ongoing';
+    }
+  }
   const approvalNodes = _calculateApprovalLine(accountCode, totalAmt, stage);
   const lineEl = document.getElementById('apr-modal-approval-line');
   if (lineEl) {

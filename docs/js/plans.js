@@ -829,7 +829,7 @@ async function _renderForecastDashboard() {
 
   if (!_forecastDeadlinesCache) {
     _isFetchingForecasts = true;
-    container.innerHTML = `<div style="padding:100px;text-align:center;color:#6B7280;font-weight:bold;font-size:14px;">수요예측 캠페인 조회 중...</div>`;
+    container.innerHTML = `<div style="padding:100px;text-align:center;color:#6B7280;font-weight:bold;font-size:14px;">사업계획(수요예측) 캠페인 조회 중...</div>`;
     const sb = typeof getSB === "function" ? getSB() : null;
     if (sb) {
       try {
@@ -860,7 +860,7 @@ async function _renderForecastDashboard() {
   if (campaigns.length === 0) {
     listHtml = `<div style="padding:60px 20px;text-align:center;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB">
         <div style="font-size:48px;margin-bottom:16px">📢</div>
-        <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">현재 진행 중인 전사 수요예측 캠페인이 없습니다.</div>
+        <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">현재 진행 중인 사업계획 캠페인이 없습니다.</div>
         <div style="font-size:12px;color:#9CA3AF">예산 기안은 [교육계획] 메뉴를 이용해 상시계획으로 수립해 주세요.</div>
       </div>`;
   } else {
@@ -873,7 +873,7 @@ async function _renderForecastDashboard() {
             <div style="font-size:12px;font-weight:900;color:#1D4ED8;background:#EFF6FF;padding:4px 10px;border-radius:8px;">🎯 ${c.fiscal_year}년도 예산 대상</div>
             <div style="font-size:11px;font-weight:800;color:#DC2626;background:#FEF2F2;padding:4px 8px;border-radius:6px;">⏰ 마감: ${c.recruit_end ? c.recruit_end.substring(0,10) : '상시'}</div>
           </div>
-          <div style="font-size:18px;font-weight:900;color:#111827;margin-bottom:8px;line-height:1.4">${c.title || c.fiscal_year + '년도 전사 수요예측 (정기)'}</div>
+          <div style="font-size:18px;font-weight:900;color:#111827;margin-bottom:8px;line-height:1.4">${c.title || c.fiscal_year + '년도 전사 사업계획 (수요예측)'}</div>
           <div style="font-size:13px;color:#6B7280;line-height:1.5">${c.description || '차년도(또는 당해) 필요한 교육 예산을 사전에 확보하기 위한 기안입니다.'}</div>
           <div style="margin-top:20px;padding-top:16px;border-top:1px dashed #E5E7EB;font-size:13px;font-weight:800;color:#2563EB;display:flex;align-items:center;justify-content:space-between">
             <span>참여하여 계획 수립하기</span>
@@ -888,8 +888,8 @@ async function _renderForecastDashboard() {
 <div class="max-w-4xl mx-auto space-y-4">
   <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px">
     <div>
-      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 수요예측</div>
-      <h1 class="text-3xl font-black text-brand tracking-tight">전사 수요예측 캠페인</h1>
+      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 사업계획</div>
+      <h1 class="text-3xl font-black text-brand tracking-tight">전사 사업계획 수립 캠페인</h1>
       <p class="text-gray-500 text-sm mt-1">사전에 큰 규모의 예산을 확보하기 위한 정기 기안 캠페인입니다.</p>
     </div>
   </div>

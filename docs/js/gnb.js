@@ -26,18 +26,18 @@ function renderGNB() {
         {
           id: "forecast",
           action: "window.plansMode='forecast';navigate('plans')",
-          label: "수요예측",
+          label: "사업계획 (수요예측)",
           icon: "📢",
           navigate: true,
-          desc: "전사 수요예측 캠페인 참여",
+          desc: "전사 사업계획 수립 캠페인 참여",
         },
         {
           id: "plans",
           action: "window.plansMode='ongoing';navigate('plans')",
-          label: "교육계획",
+          label: "교육계획 관리",
           icon: "📊",
           navigate: true,
-          desc: "교육계획 수립 및 R&D 계획 관리",
+          desc: "사업계획 및 운영계획 관리",
         },
         {
           id: "apply",

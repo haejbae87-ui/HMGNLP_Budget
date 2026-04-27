@@ -1457,7 +1457,7 @@ async function _aprSingleSubmitFromPlan(planId, planTitle) {
 
   try {
     const { data: p, error } = await sb.from('plans')
-      .select('id, edu_name, account_code, amount, status, applicant_name')
+      .select('id, edu_name, account_code, amount, status, applicant_name, plan_type')
       .eq('id', planId)
       .single();
     if (error) throw error;
@@ -1469,6 +1469,8 @@ async function _aprSingleSubmitFromPlan(planId, planTitle) {
       title: planTitle || `${p.applicant_name || '팀원'} — ${p.edu_name || p.id}`,
       account: p.account_code || '',
       amount: p.amount || 0,
+      _type: 'plan',
+      item: p
     };
 
     if (typeof _aprSelectedItems !== 'undefined') {
@@ -1505,7 +1507,7 @@ async function _aprBulkSubmitFromTeam(planIds) {
   try {
     // DB에서 해당 계획 상세 조회 (계정 동일성 검증)
     const { data: plans, error } = await sb.from('plans')
-      .select('id, edu_name, account_code, status, applicant_name')
+      .select('id, edu_name, account_code, amount, status, applicant_name, plan_type')
       .in('id', planIds)
       .eq('status', 'saved');
     if (error) throw error;
@@ -1527,6 +1529,9 @@ async function _aprBulkSubmitFromTeam(planIds) {
       id: p.id,
       title: `${p.applicant_name || '팀원'} — ${p.edu_name || p.id}`,
       account: p.account_code || '',
+      amount: p.amount || 0,
+      _type: 'plan',
+      item: p
     }));
 
     // _aprSelectedItems에 추가

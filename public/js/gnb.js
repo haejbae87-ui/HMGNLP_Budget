@@ -25,7 +25,7 @@ function renderGNB() {
       dropdown: [
         {
           id: "forecast",
-          action: "window.plansMode='forecast';navigate('plans')",
+          action: "window.plansMode='forecast';if(typeof _resetPlansCacheForModeSwitch==='function')_resetPlansCacheForModeSwitch();navigate('plans')",
           label: "사업계획 (수요예측)",
           icon: "📢",
           navigate: true,
@@ -33,7 +33,7 @@ function renderGNB() {
         },
         {
           id: "plans",
-          action: "window.plansMode='operation';navigate('plans')",
+          action: "window.plansMode='operation';if(typeof _resetPlansCacheForModeSwitch==='function')_resetPlansCacheForModeSwitch();navigate('plans')",
           label: "운영계획 관리 (실행)",
           icon: "🛠",
           navigate: true,

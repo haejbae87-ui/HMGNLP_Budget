@@ -219,9 +219,24 @@ function resetPlanState() {
 }
 
 // 계획 목록 뷰 상태
-// 계획 목록 뷰 상태
 let _planViewTab = "mine"; // 'mine' | 'team'
 let _planYear = new Date().getFullYear(); // 연도 필터
+let _lastPlansMode = null; // 모드 전환 감지용
+
+// 모드 전환 시 캐시 완전 초기화
+function _resetPlansCacheForModeSwitch() {
+  _plansDbLoaded = false;
+  _dbMyPlans = [];
+  _plansDbCache = [];
+  _teamPlansLoaded = false;
+  _dbTeamPlans = [];
+  _forecastCampaignHtmlStr = "";
+  _forecastDeadlinesCache = null;
+  _selectedPlans = [];
+  _planStatusFilter = 'all';
+  _planAccountFilter = '';
+  console.log('[MODE SWITCH] 캐시 초기화 완료:', window.plansMode);
+}
 
 // ── 영문 KEY → 한글 라벨 변환 맵 ──
 const _FO_PURPOSE_LABEL = {
@@ -295,7 +310,14 @@ function _mapDbStatus(s) {
 }
 
 function renderPlans() {
-  console.log(`[DEBUG] renderPlans called. plansMode:`);
+  console.log(`[DEBUG] renderPlans called. plansMode: ${window.plansMode}`);
+
+  // ★ 모드 전환 감지 → 캐시 완전 초기화
+  const currentMode = window.plansMode || 'operation';
+  if (_lastPlansMode && _lastPlansMode !== currentMode) {
+    _resetPlansCacheForModeSwitch();
+  }
+  _lastPlansMode = currentMode;
 
   // FO 정책 DB 로드 (최초 1회, 완료 후 목록 자동 갱신)
   if (!_foServicePoliciesLoaded) {
@@ -320,9 +342,8 @@ function renderPlans() {
     return;
   }
 
-  // 캠페인 데이터 병렬 로드
-  const sb = typeof getSB === "function" ? getSB() : null;
-  if (window.plansMode === "forecast" && !_forecastCampaignHtmlStr && !_isFetchingForecasts) {
+  // 캠페인 데이터 로드 (사업계획 모드일 때만)
+  if (currentMode === "forecast" && !_forecastCampaignHtmlStr && !_isFetchingForecasts) {
     _fetchForecastCampaigns().then(() => renderPlans());
     return;
   }
@@ -555,20 +576,29 @@ function renderPlans() {
     <span style="font-size:11px;color:#9CA3AF;margin-left:auto">필터된 결과: <b>${filteredPlans.length}</b>건</span>
   </div>`;
 
-  // 계획 카드 목록
+  // 계획 카드 목록 — 모드별 빈 상태 메시지 분리
+  const isBizMode = window.plansMode === "forecast";
+  const emptyIcon = isBizMode ? "📢" : "🛠";
+  const emptyTitle = isBizMode
+    ? `${_planYear}년 사업계획이 아직 없습니다`
+    : `${_planYear}년 운영계획이 아직 없습니다`;
+  const emptyDesc = isBizMode
+    ? `상단의 전사 캠페인에 참여하여 사업계획을 수립하세요.<br>사업계획이 승인되면 예산이 배정됩니다.`
+    : `교육 예산이 배정된 후 운영계획을 수립하면<br>교육 신청 및 집행이 가능합니다.`;
+  const emptyBtnLabel = isBizMode ? "+ 사업계획 수립하기" : "+ 운영계획 수립하기";
+  const emptyBtnMode = isBizMode ? "business" : "operation";
   const listHtml =
     filteredPlans.length > 0
       ? filteredPlans.map((p) => _renderPlanCard(p)).join("")
       : `<div style="padding:60px 20px;text-align:center;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB">
-        <div style="font-size:48px;margin-bottom:16px">📋</div>
+        <div style="font-size:48px;margin-bottom:16px">${emptyIcon}</div>
         <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">
-          ${_planYear}년 교육계획이 아직 없습니다
+          ${emptyTitle}
         </div>
         <div style="font-size:12px;color:#9CA3AF;margin-bottom:20px;line-height:1.6">
-          교육계획을 수립하면 예산 연동 및 교육 신청이 가능합니다.<br>
-          아래 버튼으로 새 교육계획을 작성해 보세요.
+          ${emptyDesc}
         </div>
-        <button onclick="startPlanWizard()" style="padding:12px 28px;border-radius:12px;background:#002C5F;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">+ 교육계획 수립하기</button>
+        <button onclick="startPlanWizard('${emptyBtnMode}')" style="padding:12px 28px;border-radius:12px;background:#002C5F;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">${emptyBtnLabel}</button>
       </div>`;
 
   const floatingActionBar = _selectedPlans.length > 0 ? `

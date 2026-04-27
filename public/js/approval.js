@@ -1049,8 +1049,6 @@ function _calculateApprovalLine(accountCode, totalAmount, stage = 'apply') {
     if (finalApprover && finalApprover.approverKey) {
        // 화면표시용으로 구간의 최종 승인자만 단순 추가 (실제는 누적일 수 있음)
        nodes.push({ order: 1, type: 'approval', label: LEVEL_LABELS[finalApprover.approverKey] || finalApprover.approverKey, approverKey: finalApprover.approverKey });
-    } else {
-       nodes.push({ order: 1, type: 'approval', label: '결재자', approverKey: 'leader' });
     }
 
     // 2. 통합결재(hmg) 인 경우, 협조처 표시
@@ -1131,10 +1129,13 @@ function _aprOpenModal(items) {
         <div style="font-size:11px;font-weight:800;color:#374151;margin-bottom:8px">결재선 정보</div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span style="font-size:11px;font-weight:700;color:#059669;background:#ECFDF5;padding:4px 8px;border-radius:6px;border:1px solid #A7F3D0">기안자</span>
-          ${approvalNodes.map(n => `
+          ${approvalNodes.length > 0 ? approvalNodes.map(n => `
             <span style="color:#9CA3AF;font-size:10px">▶</span>
             <span style="font-size:11px;font-weight:700;color:#1D4ED8;background:#EFF6FF;padding:4px 8px;border-radius:6px;border:1px solid #BFDBFE">${n.label}</span>
-          `).join('')}
+          `).join('') : `
+            <span style="color:#9CA3AF;font-size:10px">▶</span>
+            <span style="font-size:11px;font-weight:700;color:#8B5CF6;background:#EDE9FE;padding:4px 8px;border-radius:6px;border:1px solid #C4B5FD">자동 승인 (전결)</span>
+          `}
         </div>
       </div>
     `;
@@ -1243,6 +1244,7 @@ async function _aprConfirmSubmit() {
 
     // [S-8] approval_nodes 자동 구성
     let approvalNodes = _calculateApprovalLine(accountCode, totalAmount, stage);
+    const isAutoApprove = approvalNodes.length === 0;
 
     // doc_type 파생: item 유형에서 자동 결정
     const itemTypes = [...new Set(selectedArr.map(sel =>
@@ -1264,11 +1266,11 @@ async function _aprConfirmSubmit() {
       total_amount: totalAmount,
       approval_system: approvalSystem,
       approval_nodes: approvalNodes,
-      current_node_order: 0,
+      current_node_order: isAutoApprove ? 99 : 0,
       doc_type: docType,
       coop_teams: coopTeams.length > 0 ? coopTeams : [],
       reference_teams: referenceTeams.length > 0 ? referenceTeams : [],
-      status: 'submitted',
+      status: isAutoApprove ? 'approved' : 'submitted',
       submitted_at: now,
     };
 
@@ -1289,7 +1291,7 @@ async function _aprConfirmSubmit() {
           item_title: item?.title || String(sel.id),
           item_amount: item?.amount || 0,
           item_status_at_submit: item?.status || 'saved',
-          final_status: 'pending',
+          final_status: isAutoApprove ? 'approved' : 'pending',
           sort_order: idx,
         };
       });
@@ -1311,13 +1313,14 @@ async function _aprConfirmSubmit() {
       console.warn('[_aprConfirmSubmit] submission 테이블 삽입 실패 (무시):', e.message);
     }
 
-    // 3. 각 항목 status → 'pending' (saved → pending, 낙관적 잠금)
+    // 3. 각 항목 status → 'pending' or 'approved' (saved → pending/approved, 낙관적 잠금)
+    const targetStatus = isAutoApprove ? 'approved' : 'pending';
     const errors = [];
     for (const sel of selectedArr) {
       try {
         const { error } = await sb
           .from(sel.table)
-          .update({ status: 'pending', updated_at: now })
+          .update({ status: targetStatus, updated_at: now })
           .eq('id', sel.id)
           .in('status', ['saved', 'pending']); // pending 레거시도 허용
         if (error) errors.push(error.message);
@@ -1329,7 +1332,11 @@ async function _aprConfirmSubmit() {
     if (errors.length > 0) {
       alert('⚠️ 일부 항목 상신 실패:\n' + errors.join('\n'));
     } else {
-      alert(`✅ 상신 완료!\n\n제목: ${docTitle}\n항목 수: ${selectedArr.length}건 │ 합계: ${totalAmount.toLocaleString()}원\n\n담당자 검토 후 결재선이 자동 구성됩니다.`);
+      if (isAutoApprove) {
+        alert(`✅ 전결(자동 승인) 처리되었습니다!\n\n제목: ${docTitle}\n항목 수: ${selectedArr.length}건 │ 합계: ${totalAmount.toLocaleString()}원`);
+      } else {
+        alert(`✅ 상신 완료!\n\n제목: ${docTitle}\n항목 수: ${selectedArr.length}건 │ 합계: ${totalAmount.toLocaleString()}원\n\n담당자 검토 후 결재선이 자동 구성됩니다.`);
+      }
     }
 
     _aprCloseModal();

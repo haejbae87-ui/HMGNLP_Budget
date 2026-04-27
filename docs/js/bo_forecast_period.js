@@ -275,8 +275,8 @@ function _fpOpenCampaignModal(id) {
     : `<div style="font-size:12px;color:#EF4444">이 제도그룹에 맵핑된 계정이 없습니다.</div>`;
 
   const modalHtml = `
-  <div id="fp-campaign-modal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999">
-    <div style="background:white;width:500px;border-radius:16px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);overflow:hidden">
+  <div id="fp-campaign-modal" onclick="if(event.target===this)this.remove()" style="position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:99999">
+    <div onclick="event.stopPropagation()" style="background:white;width:500px;border-radius:16px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);overflow:hidden">
       <div style="padding:20px 24px;background:#F8FAFC;border-bottom:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center">
         <h3 style="margin:0;font-size:16px;font-weight:900;color:#1E293B">${id ? '캠페인 수정' : '신규 캠페인 등록'}</h3>
         <button onclick="document.getElementById('fp-campaign-modal').remove()" style="background:none;border:none;font-size:20px;color:#94A3B8;cursor:pointer">&times;</button>
@@ -305,11 +305,14 @@ function _fpOpenCampaignModal(id) {
       </div>
       <div style="padding:16px 24px;border-top:1px solid #E2E8F0;background:#F8FAFC;display:flex;justify-content:flex-end;gap:8px">
         <button onclick="document.getElementById('fp-campaign-modal').remove()" style="padding:8px 16px;border:1px solid #CBD5E1;background:white;border-radius:8px;font-size:13px;font-weight:700;color:#475569;cursor:pointer">취소</button>
-        <button onclick="_fpSaveCampaign()" style="padding:8px 16px;border:none;background:#1D4ED8;color:white;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">저장</button>
+        <button onclick="_fpSaveCampaign()" style="padding:8px 16px;border:none;background:#1D4ED8;color:white;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(29,78,216,.2)">저장</button>
       </div>
     </div>
   </div>`;
   
+  // 기존 모달 제거 후 삽입 (중복 방지)
+  const existing = document.getElementById('fp-campaign-modal');
+  if (existing) existing.remove();
   document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 

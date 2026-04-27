@@ -255,9 +255,24 @@ function resetPlanState() {
 }
 
 // 계획 목록 뷰 상태
-// 계획 목록 뷰 상태
 let _planViewTab = "mine"; // 'mine' | 'team'
 let _planYear = new Date().getFullYear(); // 연도 필터
+let _lastPlansMode = null; // 모드 전환 감지용
+
+// 모드 전환 시 캐시 완전 초기화
+function _resetPlansCacheForModeSwitch() {
+  _plansDbLoaded = false;
+  _dbMyPlans = [];
+  _plansDbCache = [];
+  _teamPlansLoaded = false;
+  _dbTeamPlans = [];
+  _forecastDeadlinesCache = null;
+  _selectedPlans = [];
+  _selectionAccount = null;
+  _planStatusFilter = 'all';
+  _planAccountFilter = '';
+  console.log('[MODE SWITCH] 캐시 초기화 완료:', window.plansMode);
+}
 
 // --- Batch Submission State ---
 let _selectedPlans = [];
@@ -337,6 +352,76 @@ function _mapDbStatus(s) {
 
 let _isFetchingForecasts = false;
 let _forecastDeadlinesCache = null;
+
+// ── 캠페인 데이터 인라인 로드 (목록과 함께 표시) ──
+async function _fetchForecastCampaignsInline() {
+  if (_isFetchingForecasts) return;
+  _isFetchingForecasts = true;
+  const sb = typeof getSB === "function" ? getSB() : null;
+  if (sb) {
+    try {
+      const { data } = await sb.from("forecast_deadlines")
+        .select("*")
+        .eq("tenant_id", currentPersona.tenantId);
+      const now = new Date(); now.setHours(0,0,0,0);
+      _forecastDeadlinesCache = (data || []).filter(dl => {
+        if (dl.recruit_start && now < new Date(dl.recruit_start)) return false;
+        if (!dl.target_accounts || !Array.isArray(dl.target_accounts) || dl.target_accounts.length === 0) return false;
+        const allowed = currentPersona.allowedAccounts || [];
+        if (!allowed.includes("*")) {
+          if (!dl.target_accounts.some(acc => allowed.includes(acc))) return false;
+        }
+        return true;
+      });
+    } catch (e) {
+      _forecastDeadlinesCache = [];
+    }
+  } else {
+    _forecastDeadlinesCache = [];
+  }
+  _isFetchingForecasts = false;
+  renderPlans(); // 로드 완료 후 목록 재렌더링
+}
+
+// ── 캠페인 섹션 HTML 빌드 (목록 상단에 삽입) ──
+function _buildForecastCampaignHtml() {
+  const campaigns = _forecastDeadlinesCache || [];
+  if (campaigns.length === 0) {
+    return `<div style="padding:40px 20px;text-align:center;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB;margin-bottom:8px">
+      <div style="font-size:32px;margin-bottom:12px">📢</div>
+      <div style="font-size:14px;font-weight:900;color:#374151">현재 진행 중인 전사 사업계획 캠페인이 없습니다.</div>
+    </div>`;
+  }
+  return `<div style="margin-bottom:8px">
+    <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Campaign</div>
+    <h2 class="text-2xl font-black text-brand tracking-tight mb-4">전사 사업계획 수립 캠페인</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));gap:16px">
+    ${campaigns.map(c => {
+      const now = new Date(); now.setHours(0,0,0,0);
+      const isClosed = c.is_closed || (c.recruit_end && now > new Date(c.recruit_end));
+      const targetIds = Array.isArray(c.target_accounts) ? c.target_accounts : [];
+      const badges = targetIds.map(code => `<span style="display:inline-block;padding:2px 6px;border-radius:4px;background:#E0E7FF;color:#4338CA;font-size:10px;font-weight:800;margin-right:4px">💳 ${code}</span>`).join('');
+      const encodedTargets = encodeURIComponent(JSON.stringify(targetIds));
+      return `
+      <div ${isClosed ? '' : `onclick="startPlanWizard('forecast', ${c.fiscal_year}, '${encodedTargets}')"`}
+           style="padding:24px 20px;border-radius:16px;background:${isClosed ? '#F9FAFB' : 'white'};border:1.5px solid ${isClosed ? '#E5E7EB' : '#BFDBFE'};cursor:${isClosed ? 'not-allowed' : 'pointer'};box-shadow:0 4px 12px rgba(0,0,0,0.04);transition:all 0.15s;opacity:${isClosed ? '0.7' : '1'}"
+           ${isClosed ? '' : `onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(37,99,235,0.1)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.04)'"`}>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+          <div style="font-size:12px;font-weight:900;color:${isClosed ? '#6B7280' : '#1D4ED8'};background:${isClosed ? '#E5E7EB' : '#EFF6FF'};padding:4px 10px;border-radius:8px;">🎯 ${c.fiscal_year}년도 예산 확정</div>
+          <div style="font-size:11px;font-weight:800;color:${isClosed ? '#4B5563' : '#DC2626'};background:${isClosed ? '#E5E7EB' : '#FEF2F2'};padding:4px 8px;border-radius:6px;">${isClosed ? '🔒 마감됨' : '⏳ 마감: ' + (c.recruit_end ? c.recruit_end.substring(0,10) : '상시')}</div>
+        </div>
+        <div style="margin-bottom:8px">${badges}</div>
+        <div style="font-size:18px;font-weight:900;color:#111827;margin-bottom:8px;line-height:1.4">${c.title || c.fiscal_year + '년도 전사 사업계획 (수요예측)'}</div>
+        <div style="font-size:13px;color:#6B7280;line-height:1.5">${c.description || '차년도(또는 당해) 필요한 교육 예산을 사전에 확보하기 위한 기안입니다.'}</div>
+        <div style="margin-top:20px;padding-top:16px;border-top:1px dashed #E5E7EB;font-size:13px;font-weight:800;color:${isClosed ? '#9CA3AF' : '#2563EB'};display:flex;align-items:center;justify-content:${isClosed ? 'center' : 'space-between'}">
+          <span>${isClosed ? '마감된 캠페인입니다' : '참여하여 계획 수립하기'}</span>
+          ${isClosed ? '' : '<span style="font-size:16px">→</span>'}
+        </div>
+      </div>`;
+    }).join('')}
+    </div>
+  </div>`;
+}
 
 async function _renderForecastDashboard() {
   const container = document.getElementById("page-plans");
@@ -442,6 +527,17 @@ async function _renderForecastDashboard() {
 }
 
 function renderPlans() {
+  console.log('[renderPlans] plansMode:', window.plansMode);
+
+  // ★ 모드 전환 감지 → 캐시 완전 초기화
+  const currentMode = window.plansMode || 'operation';
+  if (_lastPlansMode && _lastPlansMode !== currentMode) {
+    _resetPlansCacheForModeSwitch();
+  }
+  _lastPlansMode = currentMode;
+
+  const isBusiness = currentMode === 'forecast';
+
   // FO 정책 DB 로드 (최초 1회, 완료 후 목록 자동 갱신)
   if (!_foServicePoliciesLoaded) {
     _loadFoPolicies().then(() => renderPlans());
@@ -465,10 +561,10 @@ function renderPlans() {
     return;
   }
 
-  // 수요예측 캠페인 대시보드 라우팅
-  if (window.plansMode === "forecast") {
-    _renderForecastDashboard();
-    return;
+  // 사업계획 모드: 캠페인 데이터 비동기 로드 (목록과 함께 표시)
+  if (isBusiness && !_forecastDeadlinesCache && !_isFetchingForecasts) {
+    _fetchForecastCampaignsInline();
+    // 목록 렌더링은 캠페인 로드 완료 후 자동 진행
   }
 
   // 팀 뷰 허용 여부 (persona의 teamViewEnabled 또는 team_view_enabled)
@@ -573,9 +669,19 @@ function renderPlans() {
   }
   const plans = _planViewTab === "mine" ? myPlans : teamPlans;
 
+  // ★ plan_type 필터 (사업계획/운영계획 분리 핵심)
+  const targetPlanType = isBusiness ? 'business' : 'operation';
+  // DB 원본에서 plan_type으로 선필터
+  const typePlans = plans.filter(p => {
+    // DB plan_type 매칭: _plansDbCache에서 plan_type 확인
+    const dbPlan = (_plansDbCache || []).find(d => d.id === p.id);
+    const pType = dbPlan?.plan_type || 'operation';
+    return pType === targetPlanType || (isBusiness && pType === 'forecast');
+  });
+
   // #7: 상태/계정/연도 필터 적용
-  const uniqueAccounts = [...new Set(plans.map(p => p.account || '').filter(Boolean))];
-  const filteredPlans = plans.filter(p => {
+  const uniqueAccounts = [...new Set(typePlans.map(p => p.account || '').filter(Boolean))];
+  const filteredPlans = typePlans.filter(p => {
     const rawSt = p.status || '';
     
     // 연도 필터 (필수)
@@ -594,8 +700,8 @@ function renderPlans() {
     return yearMatch && statusMatch && accountMatch;
   });
 
-  // 통계 (현재 선택된 연도의 데이터로만 계산)
-  const currentYearPlans = plans.filter(p => p.fiscalYear === _planYear);
+  // 통계 (현재 선택된 연도 + plan_type 기준)
+  const currentYearPlans = typePlans.filter(p => p.fiscalYear === _planYear);
   const stats = {
     total: currentYearPlans.length,
     saved: currentYearPlans.filter(p => p.status === 'saved' || p.status === '저장완료').length,
@@ -734,34 +840,49 @@ function renderPlans() {
     : [];
   const bundleBar = typeof _foRenderBundleBar === 'function' ? _foRenderBundleBar(forecastSaved) : '';
 
+  // ★ 모드별 페이지 타이틀 & 빈 상태 분리
+  const pageTitle = isBusiness ? '사업계획 (수요예측)' : '운영계획 관리 (실행)';
+  const planTypeStr = isBusiness ? 'business' : 'operation';
+  const planLabelStr = isBusiness ? '사업계획 수립' : '운영계획 수립';
+  const emptyIcon = isBusiness ? '📢' : '🛠';
+  const emptyTitle = isBusiness
+    ? `${_planYear}년 사업계획이 아직 없습니다`
+    : `${_planYear}년 운영계획이 아직 없습니다`;
+  const emptyDesc = isBusiness
+    ? '상단의 전사 캠페인에 참여하여 사업계획을 수립하세요.<br>사업계획이 승인되면 예산이 배정됩니다.'
+    : '교육 예산이 배정된 후 운영계획을 수립하면<br>교육 신청 및 집행이 가능합니다.';
+
+  // 캠페인 섹션 (사업계획 모드일 때만)
+  const campaignSection = isBusiness ? _buildForecastCampaignHtml() : '';
+
   // 계획 카드 목록
   const listHtml =
     filteredPlans.length > 0
       ? filteredPlans.map((p) => _renderPlanCard(p)).join("")
       : `<div style="padding:60px 20px;text-align:center;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB">
-        <div style="font-size:48px;margin-bottom:16px">📋</div>
+        <div style="font-size:48px;margin-bottom:16px">${emptyIcon}</div>
         <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">
-          ${_planYear}년 교육계획이 아직 없습니다
+          ${emptyTitle}
         </div>
         <div style="font-size:12px;color:#9CA3AF;margin-bottom:20px;line-height:1.6">
-          교육계획을 수립하면 예산 연동 및 교육 신청이 가능합니다.<br>
-          아래 버튼으로 새 교육계획을 작성해 보세요.
+          ${emptyDesc}
         </div>
-        <button onclick="startPlanWizard()" style="padding:12px 28px;border-radius:12px;background:#002C5F;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">+ 교육계획 수립하기</button>
+        <button onclick="startPlanWizard('${planTypeStr}')" style="padding:12px 28px;border-radius:12px;background:#002C5F;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">+ ${planLabelStr}하기</button>
       </div>`;
 
   document.getElementById("page-plans").innerHTML = `
-<div class="max-w-4xl mx-auto space-y-4">
-  <div style="display:flex;align-items:flex-end;justify-content:space-between">
+<div class="max-w-4xl mx-auto space-y-4 pb-20">
+  ${campaignSection}
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;${isBusiness && campaignSection ? 'margin-top:32px;padding-top:24px;border-top:2px solid #E5E7EB' : ''}">
     <div>
-      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육계획</div>
-      <h1 class="text-3xl font-black text-brand tracking-tight">교육계획 수립</h1>
+      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › ${pageTitle}</div>
+      <h1 class="text-3xl font-black text-brand tracking-tight">내 ${isBusiness ? '사업계획 목록' : '운영계획 목록'}</h1>
       <p class="text-gray-500 text-sm mt-1">${currentPersona.name} · ${currentPersona.dept}</p>
     </div>
     <div style="display:flex;gap:10px;align-items:center">
       ${yearSelector}
-      <button onclick="startPlanWizard()" class="flex items-center gap-2 bg-brand text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-blue-900 transition shadow-lg">
-        + 교육계획 수립
+      <button onclick="startPlanWizard('${planTypeStr}')" class="flex items-center gap-2 bg-brand text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-blue-900 transition shadow-lg">
+        + ${planLabelStr}
       </button>
     </div>
   </div>

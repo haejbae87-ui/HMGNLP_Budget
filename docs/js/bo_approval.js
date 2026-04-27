@@ -7,7 +7,7 @@ let _boApprovalTab       = "pending";   // pending | done
 let _boApprovalDocFilter = "all";       // all | plan | application | result
 let _boApprovalLoaded    = false;
 let _boSubDocs           = [];          // 내가 처리해야 할 상신 문서 목록
-let _boSelectedForecasts = new Set();   // P13: 선택된 수요예측 묶음 ID 집합
+let _boSelectedForecasts = new Set();   // P13: 선택된 사업계획 묶음 ID 집합
 
 // ── 데이터 로드 ──────────────────────────────────────────────────────────────
 async function _loadBoApprovalData() {
@@ -79,8 +79,8 @@ function renderMyOperations() {
 
     // P12/P13: 문서 타입 필터 적용
     const _filterByType = (arr) => _boApprovalDocFilter === "all" ? arr
-      : _boApprovalDocFilter === "forecast" ? arr.filter(d => d.submission_type === 'team_forecast' || d.submission_type === 'org_forecast')
-      : arr.filter(d => d.doc_type === _boApprovalDocFilter && d.submission_type !== 'team_forecast' && d.submission_type !== 'org_forecast');
+      : _boApprovalDocFilter === "forecast" ? arr.filter(d => d.submission_type === 'team_business' || d.submission_type === 'org_business')
+      : arr.filter(d => d.doc_type === _boApprovalDocFilter && d.submission_type !== 'team_business' && d.submission_type !== 'org_business');
     const currentDocs = _filterByType(_boApprovalTab === "pending" ? pendingDocs : doneDocs);
 
     // [P13-B] 취합현황 탭 선택 시 대시보드로 전환
@@ -93,7 +93,7 @@ function renderMyOperations() {
     // 문서 타입 필터 탭
     const docTypeTabs = [
       { id:"all",         label:"전체",       color:"#374151" },
-      { id:"forecast",    label:"📦 수요예측 묶음", color:"#D97706" },
+      { id:"forecast",    label:"📦 사업계획 묶음", color:"#D97706" },
       { id:"plan",        label:"교육계획",    color:"#1D4ED8" },
       { id:"application", label:"교육신청",    color:"#7C3AED" },
       { id:"result",      label:"결과보고",    color:"#059669" },
@@ -102,8 +102,8 @@ function renderMyOperations() {
     const docFilterCounts = { all: _boSubDocs.length };
     ["forecast","plan","application","result","cancel"].forEach(t => {
       docFilterCounts[t] = _boSubDocs.filter(d => 
-        t === "forecast" ? (d.submission_type === 'team_forecast' || d.submission_type === 'org_forecast')
-        : (d.doc_type === t && d.submission_type !== 'team_forecast' && d.submission_type !== 'org_forecast')
+        t === "forecast" ? (d.submission_type === 'team_business' || d.submission_type === 'org_business')
+        : (d.doc_type === t && d.submission_type !== 'team_business' && d.submission_type !== 'org_business')
       ).length;
     });
     // GAP-1: 취소요청 탭 선택 시 bo_cancel_handler 렌더링
@@ -223,9 +223,9 @@ function renderSubDocCard(doc) {
   ).join("");
   const moreHtml = items.length > 3 ? `<div style="font-size:11px;color:#9CA3AF;padding:4px 10px">... 외 ${items.length-3}건</div>` : "";
 
-  // P13: 체크박스 렌더링 (운영담당자 + team_forecast + pending)
+  // P13: 체크박스 렌더링 (운영담당자 + team_business + pending)
   const isOpManager = typeof boIsOpManager === "function" && boIsOpManager();
-  const showCheckbox = isOpManager && isPending && doc.submission_type === "team_forecast";
+  const showCheckbox = isOpManager && isPending && doc.submission_type === "team_business";
   const isChecked = typeof _boSelectedForecasts !== 'undefined' && _boSelectedForecasts.has(doc.id);
   const chkHtml = showCheckbox ? `
     <div style="margin-right:12px;display:flex;align-items:center">
@@ -271,8 +271,8 @@ function _boRenderApprovalBtns(safeId, doc) {
     return `<div style="border-top:1px solid #F3F4F6;padding-top:10px;text-align:right;font-size:11px;color:#7C3AED;font-weight:700">🔄 1차 검토 완료 — 총괄담당자 최종 승인 대기</div>`;
   }
   
-  // P14: org_forecast인 경우 총괄담당자에게는 최종 배정(시뮬레이션) 버튼 노출
-  if (doc.submission_type === "org_forecast" && typeof boIsGlobalAdmin === "function" && boIsGlobalAdmin() && doc.status === "in_review") {
+  // P14: org_business인 경우 총괄담당자에게는 최종 배정(시뮬레이션) 버튼 노출
+  if (doc.submission_type === "org_business" && typeof boIsGlobalAdmin === "function" && boIsGlobalAdmin() && doc.status === "in_review") {
     return `<div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;border-top:1px solid #F3F4F6;padding-top:12px">
       <button onclick="_boShowSubDocDetail('${safeId}')"
         style="padding:8px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#7C3AED,#4F46E5);color:white;font-size:12px;font-weight:900;cursor:pointer">
@@ -355,11 +355,27 @@ async function boApproveSubDoc(docId) {
           // submission_items.final_status → 'approved'
           await sb.from("submission_items").update({ final_status: "approved" }).eq("id", it.id);
 
-          // 교육계획: allocated_amount 자동 배정
+          // 교육계획: allocated_amount 자동 배정 및 운영계획 복사
           if (it.item_type === "plan") {
-            const { data: plan } = await sb.from("plans").select("amount,allocated_amount").eq("id", it.item_id).single();
-            if (plan && (!plan.allocated_amount || Number(plan.allocated_amount) === 0)) {
-              await sb.from("plans").update({ allocated_amount: plan.amount, updated_at: now }).eq("id", it.item_id);
+            const { data: plan } = await sb.from("plans").select("*").eq("id", it.item_id).single();
+            if (plan) {
+              const finalAmt = (plan.allocated_amount && Number(plan.allocated_amount) > 0) ? plan.allocated_amount : plan.amount;
+              await sb.from("plans").update({ allocated_amount: finalAmt, updated_at: now }).eq("id", it.item_id);
+              
+              // 운영계획으로 자동 복사 (사업계획인 경우)
+              if (plan.plan_type === "business") {
+                const newPlan = { ...plan };
+                delete newPlan.id; // supabase가 자동 생성하거나 수동 채번 로직이 있다면 여기서 처리 (uuid)
+                newPlan.plan_type = "operation";
+                newPlan.parent_id = plan.id;
+                newPlan.allocated_amount = finalAmt;
+                newPlan.status = "approved"; // 복사된 운영계획도 즉시 승인 상태
+                newPlan.created_at = now;
+                newPlan.updated_at = now;
+                try {
+                  await sb.from("plans").insert(newPlan);
+                } catch (copyErr) { console.error("운영계획 복사 실패:", copyErr); }
+              }
             }
           }
 
@@ -491,7 +507,7 @@ async function _boShowSubDocDetail(docId) {
   }
 
   let itemsHtml = "";
-  if (doc.submission_type === "org_forecast") {
+  if (doc.submission_type === "org_business") {
     const childDocs = _boSubDocs.filter(d => d.parent_submission_id === doc.id);
     itemsHtml = childDocs.map(cd => {
       const childItems = cd.submission_items || [];
@@ -514,7 +530,7 @@ async function _boShowSubDocDetail(docId) {
   } else {
     const items = doc.submission_items || [];
     const isOpManager = typeof boIsOpManager === "function" && boIsOpManager();
-    const canEditAmount = isOpManager && doc.submission_type === "team_forecast" && ["submitted", "in_review"].includes(doc.status);
+    const canEditAmount = isOpManager && doc.submission_type === "team_business" && ["submitted", "in_review"].includes(doc.status);
     
     itemsHtml = items.map(it => {
       const amtHtml = canEditAmount 
@@ -567,7 +583,7 @@ async function _boShowSubDocDetail(docId) {
       </div>
       ${doc.content ? `<div style="padding:12px 16px;background:#F9FAFB;border-radius:8px;font-size:13px;color:#374151;margin-bottom:16px">${doc.content}</div>` : ""}
       
-      ${doc.submission_type === "org_forecast" && typeof boIsGlobalAdmin === "function" && boIsGlobalAdmin() && doc.status === "in_review"
+      ${doc.submission_type === "org_business" && typeof boIsGlobalAdmin === "function" && boIsGlobalAdmin() && doc.status === "in_review"
         ? `<div style="margin-bottom:16px;text-align:right">
             <button onclick="boShowSimulationModal('${doc.id}')"
               style="padding:10px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#7C3AED,#4F46E5);color:white;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(124,58,237,.3)">
@@ -607,7 +623,7 @@ async function _boShowSubDocDetail(docId) {
 async function myOpsApprove(id) { console.warn("[Deprecated] myOpsApprove — boApproveSubDoc 사용"); }
 async function myOpsReject(id)  { console.warn("[Deprecated] myOpsReject — boRejectSubDoc 사용"); }
 async function myOpsCancel(id)  { console.warn("[Deprecated] myOpsCancel — 상신 문서 단위로 처리"); }
-// ── P13: 수요예측 묶음 상신(교육조직 묶음) 처리 로직 ──────────────────────────
+// ── P13: 사업계획 묶음 상신(교육조직 묶음) 처리 로직 ──────────────────────────
 function boToggleForecastBundle(docId, isChecked) {
   if (isChecked) {
     _boSelectedForecasts.add(docId);
@@ -640,7 +656,7 @@ async function boOrgForecastModal() {
           </div>
           <div style="margin-bottom:20px">
             <label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px">상신 제목 (자동생성)</label>
-            <input type="text" id="boOrgBundleTitle" value="2026년 교육조직 수요예측 묶음 상신 (${docs.length}개 팀)"
+            <input type="text" id="boOrgBundleTitle" value="2026년 교육조직 사업계획 묶음 상신 (${docs.length}개 팀)"
               style="width:100%;padding:10px;border-radius:8px;border:1px solid #D1D5DB;font-size:14px">
           </div>
         </div>
@@ -671,10 +687,10 @@ async function boSubmitOrgForecast() {
   try {
     const now = new Date().toISOString();
     
-    // 1) org_forecast 생성
+    // 1) org_business 생성
     const { data: newDoc, error: insertErr } = await sb.from("submission_documents").insert({
       tenant_id: tenantId,
-      submission_type: "org_forecast",
+      submission_type: "org_business",
       title: title,
       content: `운영담당자가 ${docs.length}개의 팀 묶음을 하나로 묶어 상신합니다.`,
       submitter_id: boCurrentPersona?.id || "sys",
@@ -689,7 +705,7 @@ async function boSubmitOrgForecast() {
     
     if (insertErr) throw insertErr;
     
-    // 2) 팀 묶음(team_forecast) 들의 parent_submission_id 업데이트 및 상태 in_review로 변경
+    // 2) 팀 묶음(team_business) 들의 parent_submission_id 업데이트 및 상태 in_review로 변경
     for (const d of docs) {
       await sb.from("submission_documents").update({
         parent_submission_id: newDoc.id,
@@ -900,6 +916,23 @@ window.boApproveOrgForecast = async function(docId) {
           const finalAmt = _boSimEdits.hasOwnProperty(it.item_id) ? _boSimEdits[it.item_id] : Number(it.item_amount||0);
           
           await sb.from("plans").update({ allocated_amount: finalAmt, status: "approved", updated_at: now }).eq("id", it.item_id);
+          
+          // 사업계획 원본 조회 및 운영계획으로 복사
+          const { data: origPlan } = await sb.from("plans").select("*").eq("id", it.item_id).single();
+          if (origPlan && origPlan.plan_type === "business") {
+            const newPlan = { ...origPlan };
+            delete newPlan.id;
+            newPlan.plan_type = "operation";
+            newPlan.parent_id = origPlan.id;
+            newPlan.allocated_amount = finalAmt;
+            newPlan.status = "approved";
+            newPlan.created_at = now;
+            newPlan.updated_at = now;
+            try {
+              await sb.from("plans").insert(newPlan);
+            } catch (copyErr) { console.error("운영계획 복사 실패:", copyErr); }
+          }
+
           await sb.from("submission_items").update({ final_status: "approved" }).eq("id", it.id);
           
           await sb.from("budget_adjust_logs").insert({
@@ -967,7 +1000,7 @@ window.boApproveOrgForecast = async function(docId) {
 
 // ─── [P13-B] 취합 대시보드 ────────────────────────────────────────────────────
 // PRD: bo_budget_consolidation.md §F-010~F-013
-// 계정별/팀별 수요예측 집계 + bankbooks 잔액 현황 표시
+// 계정별/팀별 사업계획 집계 + bankbooks 잔액 현황 표시
 async function boRenderConsolidationDashboard(container) {
   if (!container) return;
   container.innerHTML = `
@@ -976,7 +1009,7 @@ async function boRenderConsolidationDashboard(container) {
         <h1 class="bo-page-title" style="margin:0">📊 예산 취합 현황</h1>
         ${typeof boRoleModeBadge==="function" ? boRoleModeBadge() : ""}
       </div>
-      <p class="bo-page-sub">계정별 신청액·배정액 집계 및 팀별 수요예측 상신 현황</p>
+      <p class="bo-page-sub">계정별 신청액·배정액 집계 및 팀별 사업계획 상신 현황</p>
     </div>
     <div style="display:flex;align-items:center;gap:10px;padding:40px;color:#9CA3AF;justify-content:center">
       <div style="font-size:32px">⏳</div>
@@ -995,15 +1028,15 @@ async function boRenderConsolidationDashboard(container) {
       .eq("status", "active")
       .order("account_code");
 
-    // 2) 수요예측 문서 집계 (team_forecast + org_forecast)
+    // 2) 사업계획 문서 집계 (team_business + org_business)
     const { data: forecasts } = await sb.from("submission_documents")
       .select("id, title, status, submission_type, submitter_org_name, account_code, total_amount, total_adjusted, submitted_at, parent_submission_id")
       .eq("tenant_id", tenantId)
-      .in("submission_type", ["team_forecast", "org_forecast"])
+      .in("submission_type", ["team_business", "org_business"])
       .order("submitted_at", { ascending: false });
 
-    const teamForecasts = (forecasts || []).filter(d => d.submission_type === "team_forecast");
-    const orgForecasts  = (forecasts || []).filter(d => d.submission_type === "org_forecast");
+    const teamForecasts = (forecasts || []).filter(d => d.submission_type === "team_business");
+    const orgForecasts  = (forecasts || []).filter(d => d.submission_type === "org_business");
 
     // KPI 집계
     const kpiTotalRequested = teamForecasts.reduce((s, d) => s + Number(d.total_amount || 0), 0);
@@ -1101,12 +1134,12 @@ async function boRenderConsolidationDashboard(container) {
                 <th style="padding:10px 14px;text-align:right;font-size:11px;font-weight:800;color:#6B7280">잔액</th>
               </tr>
             </thead>
-            <tbody>${accountRows || '<tr><td colspan="6" style="padding:20px;text-align:center;color:#9CA3AF">수요예측 데이터 없음</td></tr>'}</tbody>
+            <tbody>${accountRows || '<tr><td colspan="6" style="padding:20px;text-align:center;color:#9CA3AF">사업계획 데이터 없음</td></tr>'}</tbody>
           </table>
         </div>
       </div>`;
 
-    // ── 팀별 수요예측 현황 테이블 ─────────────────────────────────────────
+    // ── 팀별 사업계획 현황 테이블 ─────────────────────────────────────────
     const teamRows = teamForecasts.map(d => {
       const st = ST[d.status] || { label: d.status, bg:"#F3F4F6", c:"#6B7280" };
       const reqAmt  = Number(d.total_amount || 0);
@@ -1132,7 +1165,7 @@ async function boRenderConsolidationDashboard(container) {
     const teamTableHtml = `
       <div class="bo-card" style="overflow:hidden">
         <div style="padding:16px 20px;border-bottom:1.5px solid #F3F4F6;display:flex;justify-content:space-between;align-items:center">
-          <h3 style="margin:0;font-size:14px;font-weight:900;color:#374151">🏢 팀별 수요예측 상신 현황</h3>
+          <h3 style="margin:0;font-size:14px;font-weight:900;color:#374151">🏢 팀별 사업계획 상신 현황</h3>
           <span style="font-size:11px;color:#9CA3AF">${teamForecasts.length}팀</span>
         </div>
         <div style="overflow-x:auto">
@@ -1147,12 +1180,12 @@ async function boRenderConsolidationDashboard(container) {
                 <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#6B7280">상신일</th>
               </tr>
             </thead>
-            <tbody>${teamRows || '<tr><td colspan="6" style="padding:20px;text-align:center;color:#9CA3AF">수요예측 상신 데이터 없음</td></tr>'}</tbody>
+            <tbody>${teamRows || '<tr><td colspan="6" style="padding:20px;text-align:center;color:#9CA3AF">사업계획 상신 데이터 없음</td></tr>'}</tbody>
           </table>
         </div>
       </div>`;
 
-    // org_forecast 묶음 현황
+    // org_business 묶음 현황
     const orgRows = orgForecasts.map(d => {
       const st = ST[d.status] || { label: d.status, bg:"#F3F4F6", c:"#6B7280" };
       return `

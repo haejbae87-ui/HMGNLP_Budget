@@ -959,8 +959,8 @@ function _aprToggleSelect(el) {
 // 단건 상신 — 모달 열기 (선택 항목 1건)
 function _aprSingleSubmit(id, table, title) {
   _aprSelectedItems.clear();
-  _aprSelectedItems.set(id, { id, table, type: table === 'plans' ? 'plan' : 'app', account: '' });
   const item = _aprSavedData.find(d => String(d.id) === String(id));
+  _aprSelectedItems.set(id, { id, table, type: table === 'plans' ? 'plan' : 'app', account: '', amount: item?.amount||0, plan_type: item?.plan_type });
   _aprOpenModal([{ id, title, _type: table === 'plans' ? 'plan' : 'app', item }]);
 }
 
@@ -969,6 +969,11 @@ function _aprBulkSubmit() {
   if (_aprSelectedItems.size === 0) return;
   const items = [..._aprSelectedItems.values()].map(sel => {
     const item = _aprSavedData.find(d => String(d.id) === String(sel.id));
+    // 선택 항목 정보 보강
+    if (item) {
+      sel.amount = item.amount || 0;
+      sel.plan_type = item.plan_type;
+    }
     return { id: sel.id, title: item?.title || sel.id, _type: sel.type, item };
   });
   _aprOpenModal(items);
@@ -1019,6 +1024,15 @@ function _injectAprSubmitModal() {
 // [S-8] approval_nodes 자동 구성 헬퍼 (결재선 렌더링 용)
 function _calculateApprovalLine(accountCode, totalAmount, stage = 'apply') {
   let nodes = [];
+
+  // [S-17] 사업계획일 경우 정책빌더 무시하고 고정 결재선 반환
+  if (stage === 'business') {
+    nodes.push({ order: 1, type: 'approval', label: '팀장', approverKey: 'team_leader' });
+    nodes.push({ order: 2, type: 'review', label: '운영담당자', approverKey: 'manager' });
+    nodes.push({ order: 3, type: 'review', label: '총괄담당자', approverKey: 'admin' });
+    return nodes;
+  }
+
   let matchedPol = null;
   
   if (typeof SERVICE_POLICIES !== 'undefined' && accountCode) {
@@ -1124,10 +1138,10 @@ function _aprOpenModal(items) {
   let stage = 'apply';
   if (items.length > 0 && items[0]._type === 'plan') {
     const planType = items[0].item?.plan_type;
-    if (planType === 'forecast') {
-      stage = 'forecast';
+    if (planType === 'business') {
+      stage = 'business';
     } else {
-      stage = 'ongoing';
+      stage = 'operation';
     }
   }
   const approvalNodes = _calculateApprovalLine(accountCode, totalAmt, stage);
@@ -1231,7 +1245,10 @@ async function _aprConfirmSubmit() {
     let referenceTeams = [];
     
     const firstItem = Array.from(_aprSelectedItems.values())[0];
-    const stage = (firstItem && firstItem._type === 'plan') ? 'plan' : 'apply';
+    let stage = 'apply';
+    if (firstItem && firstItem.type === 'plan') {
+      stage = firstItem.plan_type === 'business' ? 'business' : 'operation';
+    }
     
     if (acct && typeof SERVICE_POLICIES !== 'undefined') {
       const matchedPol = SERVICE_POLICIES.find(pol =>
@@ -1264,7 +1281,7 @@ async function _aprConfirmSubmit() {
     // 1. submission_documents 행 생성 (S-1 테이블 활용, id는 DB auto UUID)
     const docRow = {
       tenant_id: currentPersona.tenantId,
-      submission_type: 'fo_user',
+      submission_type: stage === 'business' ? 'team_business' : 'fo_user',
       submitter_id: currentPersona.id,
       submitter_name: currentPersona.name,
       submitter_org_id: currentPersona.orgId || null,
@@ -1480,6 +1497,7 @@ async function _aprSingleSubmitFromPlan(planId, planTitle) {
         type: 'plan',
         account: item.account,
         amount: item.amount,
+        plan_type: p.plan_type
       });
     }
 
@@ -1542,6 +1560,8 @@ async function _aprBulkSubmitFromTeam(planIds) {
           table: 'plans',
           type: 'plan',
           account: item.account,
+          amount: item.amount,
+          plan_type: item.item.plan_type
         });
       });
     }

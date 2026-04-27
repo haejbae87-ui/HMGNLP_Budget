@@ -219,7 +219,7 @@ function resetPlanState() {
 }
 
 // 계획 목록 뷰 상태
-// 계획 목록 뷰 상태
+let _planTypeTab = "operation"; // 'business' | 'operation'
 let _planViewTab = "mine"; // 'mine' | 'team'
 let _planYear = new Date().getFullYear(); // 연도 필터
 
@@ -362,6 +362,7 @@ function renderPlans() {
           budgetId: d.detail?.budgetId || null,
           purpose: d.detail?.purpose || null,
           tenantId: d.tenant_id, // 크로스 테넌트 뱃지용
+          plan_type: d.plan_type,
         }));
         _plansDbCache = data;
       }
@@ -416,6 +417,7 @@ function renderPlans() {
             author: d.applicant_name || "-",
             authorDept: d.dept || "-",
             tenantId: d.tenant_id,
+            plan_type: d.plan_type,
           }));
           renderPlans();
         })();
@@ -426,11 +428,12 @@ function renderPlans() {
   }
   const plans = _planViewTab === "mine" ? myPlans : teamPlans;
 
-  // #7: 상태/계정 필터 적용
-  const uniqueAccounts = [...new Set(plans.map(p => p.account || '').filter(Boolean))];
-  const filteredPlans = plans.filter(p => {
+  // #7: 상태/계정 필터 및 plan_type 필터 적용
+  const typeFilteredPlans = plans.filter(p => p.plan_type === _planTypeTab);
+  const uniqueAccounts = [...new Set(typeFilteredPlans.map(p => p.account || '').filter(Boolean))];
+  const filteredPlans = typeFilteredPlans.filter(p => {
     const rawSt = p.status || '';
-    // 상태 필터 매칬
+    // 상태 필터 매치
     const statusMatch = _planStatusFilter === 'all' ||
       ((_planStatusFilter === 'saved') && (rawSt === 'saved' || rawSt === '저장완료')) ||
       ((_planStatusFilter === 'pending') && (rawSt === 'pending' || rawSt === 'submitted' || rawSt === 'in_review' || rawSt === '신청중' || rawSt === '결재진행중')) ||
@@ -442,9 +445,9 @@ function renderPlans() {
 
   // 통계
   const stats = {
-    total: plans.length,
-    saved: plans.filter(p => p.status === 'saved' || p.status === '저장완료').length,
-    active: plans.filter(
+    total: typeFilteredPlans.length,
+    saved: typeFilteredPlans.filter(p => p.status === 'saved' || p.status === '저장완료').length,
+    active: typeFilteredPlans.filter(
       (p) =>
         p.status === "승인완료" ||
         p.status === "approved" ||
@@ -452,9 +455,9 @@ function renderPlans() {
         p.status === "진행중" ||
         p.status === "결재진행중",
     ).length,
-    done: plans.filter((p) => p.status === "완료").length,
-    rejected: plans.filter((p) => p.status === "반려" || p.status === "rejected").length,
-    draft: plans.filter((p) => p.status === "작성중" || p.status === "draft").length,
+    done: typeFilteredPlans.filter((p) => p.status === "완료").length,
+    rejected: typeFilteredPlans.filter((p) => p.status === "반려" || p.status === "rejected").length,
+    draft: typeFilteredPlans.filter((p) => p.status === "작성중" || p.status === "draft").length,
   };
 
   // 연도 선택
@@ -466,7 +469,25 @@ function renderPlans() {
   </select>`;
 
   // 탭 UI
-  const tabBar = teamViewEnabled
+  const typeTabBar = `
+  <div style="display:flex;gap:4px;background:#F3F4F6;padding:4px;border-radius:14px;margin-bottom:12px;width:fit-content">
+    <button onclick="_planTypeTab='business';renderPlans()" style="
+      padding:8px 20px;border-radius:10px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s;
+      background:${_planTypeTab === "business" ? "#fff" : "transparent"};
+      color:${_planTypeTab === "business" ? "#D97706" : "#6B7280"};
+      box-shadow:${_planTypeTab === "business" ? "0 1px 4px rgba(0,0,0,.12)" : "none"}">
+      📊 사업계획 (수요예측)
+    </button>
+    <button onclick="_planTypeTab='operation';renderPlans()" style="
+      padding:8px 20px;border-radius:10px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s;
+      background:${_planTypeTab === "operation" ? "#fff" : "transparent"};
+      color:${_planTypeTab === "operation" ? "#002C5F" : "#6B7280"};
+      box-shadow:${_planTypeTab === "operation" ? "0 1px 4px rgba(0,0,0,.12)" : "none"}">
+      🛠 운영계획 (실행)
+    </button>
+  </div>`;
+
+  const viewTabBar = teamViewEnabled
     ? `
   <div style="display:flex;gap:4px;background:#F3F4F6;padding:4px;border-radius:14px;margin-bottom:20px;width:fit-content">
     <button onclick="_planViewTab='mine';renderPlans()" style="
@@ -583,12 +604,15 @@ function renderPlans() {
     </div>
     <div style="display:flex;gap:10px;align-items:center">
       ${yearSelector}
-      <button onclick="startPlanWizard()" class="flex items-center gap-2 bg-brand text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-blue-900 transition shadow-lg">
-        + 교육계획 수립
+      <button onclick="startPlanWizard('${_planTypeTab === 'business' ? 'business' : 'operation'}')" class="flex items-center gap-2 bg-brand text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-blue-900 transition shadow-lg">
+        + ${_planTypeTab === 'business' ? '사업계획 수립' : '운영계획 수립'}
       </button>
     </div>
   </div>
-  ${tabBar}
+  <div style="display:flex;gap:12px">
+    ${typeTabBar}
+    ${viewTabBar}
+  </div>
   ${statsBar}
   ${filterBar}
   <div id="fo-realloc-area"></div>
@@ -777,17 +801,17 @@ function _applyBudgetBadges(plans) {
 
 // ─── PLAN WIZARD ─────────────────────────────────────────────────────────────
 
-function startPlanWizard(mode = 'ongoing', forcedYear = null) {
+function startPlanWizard(mode = 'operation', forcedYear = null) {
   planState = resetPlanState();
   const curYear = new Date().getFullYear();
   
-  if (mode === 'forecast') {
-    planState.plan_type = 'forecast';
+  if (mode === 'business' || mode === 'forecast') {
+    planState.plan_type = 'business';
     planState.fiscal_year = forcedYear || curYear;
     _planYear = planState.fiscal_year;
   } else {
-    // ongoing (상시계획)
-    planState.plan_type = 'ongoing';
+    // operation (상시계획/운영계획)
+    planState.plan_type = 'operation';
     planState.fiscal_year = curYear;
     _planYear = curYear;
   }
@@ -1738,7 +1762,7 @@ async function savePlanDraft() {
       amount: amount,
       status: "draft",
       policy_id: planState.policyId || null,
-      plan_type: planState.plan_type || "ongoing",
+      plan_type: planState.plan_type || "operation",
       fiscal_year: planState.fiscal_year || new Date().getFullYear(),
       form_template_id: planState.formTemplate?.id || null,
       form_version: planState.formTemplate?.version || null,
@@ -1828,7 +1852,7 @@ async function savePlanSaved() {
       amount: amount,
       status: "saved",           // ← 3단계 상태 중 2단계
       policy_id: planState.policyId || null,
-      plan_type: planState.plan_type || "ongoing",
+      plan_type: planState.plan_type || "operation",
       fiscal_year: planState.fiscal_year || new Date().getFullYear(),
       form_template_id: planState.formTemplate?.id || null,
       form_version: planState.formTemplate?.version || null,
@@ -1984,7 +2008,7 @@ async function confirmPlan() {
       : "") ||
     "";
   // ★ Phase F: 수시 교육계획 통장 잔액 경고
-  if (planState.plan_type === "ongoing" && amount > 0) {
+  if (planState.plan_type === "operation" && amount > 0) {
     const ok = await _foCheckBankBalanceWarning(amount);
     if (!ok) return;
   }
@@ -2006,7 +2030,7 @@ async function confirmPlan() {
         amount: amount,
         status: "submitted",  // [S-6] pending → submitted
         policy_id: planState.policyId || null,
-        plan_type: planState.plan_type || "ongoing",
+        plan_type: planState.plan_type || "operation",
         fiscal_year: planState.fiscal_year || new Date().getFullYear(),
         form_template_id: planState.formTemplate?.id || null,
         form_version: planState.formTemplate?.version || null,

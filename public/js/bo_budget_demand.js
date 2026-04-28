@@ -263,7 +263,7 @@ function _renderBdLevel1(el, isPlatform, tenants) {
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
       <div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-          <h1 class="bo-page-title" style="margin:0">📊 교육예산 수요분석</h1>
+          <h1 class="bo-page-title" style="margin:0">📊 사업계획 관리</h1>
           ${_bdRoleBadge}
         </div>
         <p class="bo-page-sub">${_bdIsOp ? '관할 교육조직 기반 수요·확정 현황' : '교육조직 기반 예산 수요·확정 현황'}</p>
@@ -392,7 +392,7 @@ function _renderBdLevel2(el, isPlatform, tenants) {
   <div class="bo-fade">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
       <div>
-        <h1 class="bo-page-title">📊 교육예산 수요분석</h1>
+        <h1 class="bo-page-title">📊 사업계획 관리</h1>
         <p class="bo-page-sub">교육조직 기반 예산 수요·확정 현황</p>
       </div>
     </div>
@@ -831,7 +831,7 @@ function _renderBdSimulation(el, isPlatform, tenants) {
   <div class="bo-fade">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
       <div>
-        <h1 class="bo-page-title">🧮 예산배분 시뮬레이션</h1>
+        <h1 class="bo-page-title">🧮 사업계획별 예산 배분 시뮬레이션</h1>
         <p class="bo-page-sub">${_bdYear}년 · ${acctName} · 교육계획별 배분액 편집</p>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -846,7 +846,7 @@ function _renderBdSimulation(el, isPlatform, tenants) {
           <span style="font-size:12px;font-weight:900;color:#059669;padding:8px 16px;background:#D1FAE5;border-radius:10px">✅ 확정 완료</span>
         `}
         <button onclick="_bdSimMode=false;_bdSimEdits={};renderBudgetDemand()" style="padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">
-          ← 수요분석으로
+          ← 사업계획 관리로
         </button>
       </div>
     </div>
@@ -898,7 +898,7 @@ function _renderBdSimulation(el, isPlatform, tenants) {
     <!-- 배분 그리드 -->
     <div class="bo-card" style="overflow:hidden">
       <div style="padding:14px 20px;background:linear-gradient(135deg,#7C3AED08,#4F46E508);border-bottom:1px solid #F3F4F6;display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:14px;font-weight:900;color:#5B21B6">🧮 교육계획별 배분 시뮬레이션</span>
+        <span style="font-size:14px;font-weight:900;color:#5B21B6">🧮 사업계획별 예산 배분 시뮬레이션</span>
         <span style="font-size:11px;color:#6B7280">${acctName} · ${plans.length}건</span>
       </div>
       ${plans.length > 0 ? `

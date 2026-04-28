@@ -19,20 +19,32 @@ async function _loadFoPolicies() {
     return;
   }
 
-  // ── VOrg 템플릿(edu_support_domains) 항상 로드 (코드 매핑에 필요) ──
+  // ── VOrg 템플릿(virtual_org_templates) 항상 로드 (코드 매핑에 필요) ──
   try {
     const { data: vorgRows } = await getSB()
-      .from("edu_support_domains")
-      .select("*");
+      .from("virtual_org_templates")
+      .select("id, name, isolation_group_id, tenant_id");
+    // isolation_groups에서 owned_accounts 가져오기
+    const igIds = (vorgRows || []).map(r => r.isolation_group_id).filter(Boolean);
+    let igMap = {};
+    if (igIds.length > 0) {
+      try {
+        const { data: igRows } = await getSB()
+          .from("isolation_groups")
+          .select("id, owned_accounts")
+          .in("id", igIds);
+        (igRows || []).forEach(ig => { igMap[ig.id] = ig.owned_accounts || []; });
+      } catch(e) { console.warn("[FO] isolation_groups 로드 실패:", e.message); }
+    }
     if (vorgRows) {
       vorgRows.forEach((row) => {
         const mapped = {
           id: row.id,
           tenantId: row.tenant_id,
           name: row.name,
-          code: row.code || row.id,
-          ownedAccounts: row.owned_accounts || [],
-          globalAdminKeys: row.global_admin_keys || [],
+          code: row.id, // virtual_org_templates has no code field, use id
+          ownedAccounts: igMap[row.isolation_group_id] || [],
+          globalAdminKeys: [],
         };
         const tpl = typeof VORG_TEMPLATES !== "undefined" ? VORG_TEMPLATES : [];
         const idx = tpl.findIndex((g) => g.id === mapped.id);
@@ -580,19 +592,29 @@ async function _renderVorgHub() {
   // 로딩 표시
   container.innerHTML = `<div style="padding:80px;text-align:center;color:#6B7280;font-weight:600;font-size:14px">⏳ 제도그룹 조회 중...</div>`;
 
-  // DB에서 직접 VOrg 명칭 + ownedAccounts 조회 (VORG_TEMPLATES name 신뢰 불가)
+  // DB에서 직접 VOrg 명칭 + ownedAccounts 조회
   const sb = typeof getSB === 'function' ? getSB() : null;
   let fetchedVorgs = [];
   if (sb && vorgIds.length > 0) {
     try {
-      const { data } = await sb.from('edu_support_domains')
-        .select('id, name, code, owned_accounts')
+      const { data } = await sb.from('virtual_org_templates')
+        .select('id, name, isolation_group_id')
         .in('id', vorgIds);
       if (data && data.length > 0) {
+        // isolation_groups에서 owned_accounts 가져오기
+        const igIds = data.map(r => r.isolation_group_id).filter(Boolean);
+        let igMap = {};
+        if (igIds.length > 0) {
+          try {
+            const { data: igRows } = await sb.from('isolation_groups')
+              .select('id, owned_accounts').in('id', igIds);
+            (igRows || []).forEach(ig => { igMap[ig.id] = ig.owned_accounts || []; });
+          } catch(e) {}
+        }
         fetchedVorgs = data.map(row => ({
           id: row.id,
-          name: row.name || row.code || row.id,
-          ownedAccounts: Array.isArray(row.owned_accounts) ? row.owned_accounts : [],
+          name: row.name || row.id,
+          ownedAccounts: igMap[row.isolation_group_id] || [],
         }));
       }
     } catch(e) { console.warn('[VorgHub] DB fetch failed:', e.message); }

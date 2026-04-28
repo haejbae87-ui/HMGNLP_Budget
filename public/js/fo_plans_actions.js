@@ -863,7 +863,7 @@ function _renderCalcGroundsSection(s, curBudget) {
     ? _getCalcGroundsForType(usageType, vorgId, false)
     : (typeof getCalcGroundsForVorg === "function" ? getCalcGroundsForVorg(vorgId, null) : []);
 
-  if (items.length === 0 && (!s.calcGrounds || s.calcGrounds.length === 0)) return "";
+  // items가 비어있어도(DB 로드 전 또는 항목 미설정) UI는 표시 — 빈 항목 추가 버튼 노출
 
   // 직접학습형 → 별도 심플 UI
   if (isSelfLearning) return _renderSLCalcGrounds(s, items);
@@ -1120,6 +1120,8 @@ function _renderSLCalcGrounds(s, items) {
   </div>`}
 </div>`;
 }
+// window 전역 노출 — fo_form_loader.js의 foRenderStandardPlanForm에서 typeof window._renderCalcGroundsSection 체크
+window._renderCalcGroundsSection = _renderCalcGroundsSection;
 
 // 직접학습형 행 추가
 function _cgAddRowSL() {

@@ -907,16 +907,18 @@ function _renderCalcGroundsSection(s, curBudget) {
       ? `
   <!-- 항목 행 테이블 -->
   <div class="bg-white rounded-xl overflow-hidden border border-blue-100 mb-3" style="overflow-x:auto">
-    <table class="w-full text-xs" style="min-width:680px">
+    <table class="w-full text-xs" style="min-width:820px">
       <thead class="bg-blue-50">
         <tr class="text-[10px] font-black text-blue-500 uppercase tracking-wider">
-          <th class="px-3 py-2 text-left">항목</th>
-          <th class="px-3 py-2 text-left" style="min-width:120px">장소+프리셋</th>
+          <th class="px-3 py-2 text-left" style="min-width:130px">항목</th>
+          <th class="px-3 py-2 text-left" style="min-width:100px">세부항목(장소+프리셋)</th>
           <th class="px-3 py-2 text-right w-24">단가 (원)</th>
-          <th class="px-3 py-2 text-right w-16">인원 (명)</th>
-          ${anyHasQty2 ? `<th class="px-3 py-2 text-right w-16">박/일/회</th>` : ""}
-          ${anyHasRounds ? `<th class="px-3 py-2 text-right w-14">차수</th>` : ""}
-          <th class="px-3 py-2 text-right w-28">소계 (원)</th>
+          <th class="px-3 py-2 text-right w-14">수량1</th>
+          <th class="px-3 py-2 text-center w-10">유형1</th>
+          ${anyHasQty2 ? `<th class="px-3 py-2 text-right w-14">수량2</th><th class="px-3 py-2 text-center w-14">유형2</th>` : ""}
+          ${anyHasRounds ? `<th class="px-3 py-2 text-right w-12">차수</th>` : ""}
+          <th class="px-3 py-2 text-right w-28">산출금액 (원)</th>
+          <th class="px-3 py-2 text-left w-20">비고</th>
           <th class="px-3 py-2 text-center w-8"></th>
         </tr>
       </thead>
@@ -970,12 +972,18 @@ function _renderCalcGroundsSection(s, curBudget) {
             <td class="px-3 py-2">
               <input type="number" value="${row.qty1 || row.qty || 1}" min="1"
                 oninput="_cgUpdateQty1(${idx}, this.value)"
-                style="width:52px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:4px 6px">
+                style="width:46px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:4px 6px">
             </td>
-            ${anyHasQty2 ? `<td class="px-3 py-2">${showQty2 ? `<input type="number" value="${row.qty2 || 1}" min="1" oninput="_cgUpdateQty2(${idx}, this.value)" style="width:48px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:4px 6px">` : `<span style="color:#ccc;font-size:10px">—</span>`}</td>` : ""}
-            ${anyHasRounds ? `<td class="px-3 py-2">${showRounds ? `<input type="number" value="${row.qty3 || 1}" min="1" oninput="_cgUpdateQty3(${idx}, this.value)" style="width:44px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:4px 6px">` : `<span style="color:#ccc;font-size:10px">—</span>`}</td>` : ""}
+            <td class="px-3 py-2 text-center" style="color:#6B7280;font-size:10px;font-weight:800">명</td>
+            ${anyHasQty2 ? `<td class="px-3 py-2">${showQty2 ? `<input type="number" value="${row.qty2 || 1}" min="1" oninput="_cgUpdateQty2(${idx}, this.value)" style="width:40px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:4px 6px">` : `<span style="color:#ccc;font-size:10px">—</span>`}</td><td class="px-3 py-2 text-center">${showQty2 ? `<select onchange="_cgUpdateQty2Type(${idx}, this.value)" style="font-size:10px;font-weight:800;border:1.5px solid #BFDBFE;border-radius:5px;padding:2px 5px;background:#EFF6FF;color:#1D4ED8;cursor:pointer">${(item?.qty2AllowedTypes||(item?.qty2Type?[item.qty2Type]:['일'])).map(u=>`<option value="${u}" ${(row.qty2Type||item?.qty2Type||'일')===u?'selected':''}>${u}</option>`).join('')}</select>` : `<span style="color:#ccc;font-size:10px">—</span>`}</td>` : ""}
+            ${anyHasRounds ? `<td class="px-3 py-2">${showRounds ? `<input type="number" value="${row.qty3 || 1}" min="1" oninput="_cgUpdateQty3(${idx}, this.value)" style="width:38px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:4px 6px">` : `<span style="color:#ccc;font-size:10px">—</span>`}</td>` : ""}
             <td class="px-3 py-2 text-right font-black" style="color:${isHardOver ? "#DC2626" : isSoftOver ? "#D97706" : "#111827"}">
               ${fmt(row.total)}
+            </td>
+            <td class="px-3 py-2">
+              <input type="text" value="${(row.note||'').replace(/"/g,'&quot;')}" placeholder="비고"
+                oninput="_cgUpdateRowNote(${idx}, this.value)"
+                style="width:68px;font-size:10px;border:1.5px solid #E5E7EB;border-radius:5px;padding:3px 5px;color:#6B7280">
             </td>
             <td class="px-3 py-2 text-center">
               <button onclick="_cgRemoveRow(${idx})" style="color:#D1D5DB;font-size:14px;border:none;background:none;cursor:pointer">✕</button>
@@ -1205,8 +1213,10 @@ async function _cgAddRow() {
     unitPrice: firstItem?.unitPrice || 0,
     qty1: 1,
     qty2: firstItem?.hasQty2 ? (presets[0]?.qty2_value || 1) : 1,
+    qty2Type: (firstItem?.qty2AllowedTypes?.[0]) || firstItem?.qty2Type || "일",
     qty3: firstItem?.hasRounds ? 1 : 1,
     total: firstItem?.unitPrice || 0,
+    note: "",
     presetKey: "",
     venueName: "",
     presetName: "",
@@ -1320,6 +1330,18 @@ function _cgUpdateUnitPrice(idx, val) {
 function _cgUpdateReason(idx, val) {
   const row = planState.calcGrounds[idx];
   if (row) row.limitOverrideReason = val;
+}
+
+// 비고 업데이트 (재렌더 없이 직접 저장)
+function _cgUpdateRowNote(idx, val) {
+  const row = planState.calcGrounds[idx];
+  if (row) row.note = val;
+}
+
+// qty2 단위(유형) 업데이트 — 재계산은 수량이 변경될 때만 (단위만 변경 시 합계 동일)
+function _cgUpdateQty2Type(idx, val) {
+  const row = planState.calcGrounds[idx];
+  if (row) row.qty2Type = val;
 }
 
 // 소계만 텍스트 업데이트 (전체 렌더 최소화)

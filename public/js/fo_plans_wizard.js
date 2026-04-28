@@ -272,6 +272,23 @@ function renderPlanWizard() {
     planRequiredPurposes.has(p.id),
   );
 
+  // ★ 계정 기반 목적 필터: L2에서 특정 계정을 선택한 경우 해당 계정에 등록된 정책의 목적만 노출
+  // (ex. HMC-OPS 선택 시 → elearning_class, conf_seminar 목적만 / HMC-RND 선택 시 → elearning_class, external_personal만)
+  if (s.contextAccountCode) {
+    allPurposes = allPurposes.filter((p) => {
+      const boPurposeKeys = _FO_TO_BO[p.id] || [p.id];
+      return matchedPolicies.some((pol) => {
+        const acc = pol.account_codes || pol.accountCodes || [];
+        const pt = pol.process_pattern || pol.processPattern || "";
+        return (
+          pt === "A" &&
+          acc.includes(s.contextAccountCode) &&
+          boPurposeKeys.includes(pol.purpose)
+        );
+      });
+    });
+  }
+
   // 수요예측 캠페인: 타겟 계정이 주어졌다면 해당 계정에 연동되는 목적만 노출
   if (s.plan_type === 'forecast' && s.targetAccounts && s.targetAccounts.length > 0) {
     allPurposes = allPurposes.filter((p) => {

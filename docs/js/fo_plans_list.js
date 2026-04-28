@@ -1334,7 +1334,14 @@ function _renderPlanCard(p) {
   const btnOutline = (label, onclick, color='#1D4ED8', borderColor='#BFDBFE') => `<button onclick="${onclick}" style="padding:6px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:${color};border:1.5px solid ${borderColor};cursor:pointer">${label}</button>`;
   const btnDanger  = (label, onclick) => `<button onclick="${onclick}" style="padding:6px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#DC2626;border:1.5px solid #FECACA;cursor:pointer">${label}</button>`;
 
-  const actionBtns = isDraft
+  // ★ 팀원 계획 여부 판별 (팀 탭에서 다른 사람 계획 → 보기 전용)
+  const isTeamMemberPlan = _planViewTab === 'team' && p.author && p.author !== currentPersona.name;
+
+  const actionBtns = isTeamMemberPlan
+    ? `<div style="display:flex;gap:6px;margin-top:10px">
+        ${btnOutline('🔍 보기', `event.stopPropagation();viewPlanDetail('${safeId}')`, '#1D4ED8', '#BFDBFE')}
+       </div>`
+    : isDraft
     ? `<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
         ${btnOutline('✏️ 이어쓰기', `resumePlanDraft('${safeId}')`, '#1D4ED8', '#BFDBFE')}
         ${btnOutline('📋 복제', `event.stopPropagation();clonePlan('${safeId}')`, '#7C3AED', '#DDD6FE')}
@@ -2074,12 +2081,13 @@ function _foRenderTeamForecastBundleBar(teamPlansArr, myDbCache) {
 </div>`;
   }
 
-  // account_code별 그룹핑
+  // account_code별 그룹핑 — 슬림 배너용 (계정 합계 + 확정 버튼만)
   const grouped = {};
   allSaved.forEach(p => {
     const acc = p.account || p.account_code || 'unknown';
-    if (!grouped[acc]) grouped[acc] = [];
-    grouped[acc].push(p);
+    if (!grouped[acc]) grouped[acc] = { plans: [], total: 0 };
+    grouped[acc].plans.push(p);
+    grouped[acc].total += Number(p.amount) || 0;
   });
 
   // draft 인원 계산 (팀원 중 미완료)
@@ -2090,53 +2098,23 @@ function _foRenderTeamForecastBundleBar(teamPlansArr, myDbCache) {
 
   const dept = currentPersona.dept || currentPersona.team || '';
 
-  const groupHtml = Object.entries(grouped).map(([accCode, plans]) => {
-    const total = plans.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  // ★ 슬림 배너: 계정별 합계 + 확정 버튼만 (개별 행 제거 → Section B 카드로 통합)
+  const groupHtml = Object.entries(grouped).map(([accCode, { plans, total }]) => {
     const safeAcc = accCode.replace(/'/g, "\\'");
     const accName = window._accountNameCache?.[accCode] || accCode;
-    const rows = plans.map(p => {
-      const isMyPlan = p.author === currentPersona.name || p.applicant_id === currentPersona.id;
-      const safeId = (p.id || '').replace(/'/g, "\\'");
-      return `
-      <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid #F3F4F6">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:700;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.title || p.edu_name || '-'}</div>
-          <div style="font-size:10px;color:#9CA3AF;margin-top:1px">${p.author || '-'} · ${p.authorDept || '-'}</div>
-        </div>
-        <div style="font-size:12px;font-weight:800;color:#1D4ED8;white-space:nowrap">${(Number(p.amount) || 0).toLocaleString()}원</div>
-        <div style="display:flex;gap:5px;flex-shrink:0">
-          <button onclick="_viewingPlanDetail='${safeId}';renderPlans()"
-            style="padding:4px 10px;border-radius:7px;border:1.5px solid #BFDBFE;background:white;color:#1D4ED8;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">
-            🔍 보기
-          </button>
-          ${isMyPlan
-            ? `<button onclick="resumePlanDraft('${safeId}')"
-                style="padding:4px 10px;border-radius:7px;border:1.5px solid #D1FAE5;background:white;color:#059669;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">
-                ✏️ 수정
-              </button>`
-            : `<span style="padding:4px 10px;border-radius:7px;background:#F9FAFB;color:#9CA3AF;font-size:10px;font-weight:600;white-space:nowrap">팀원 작성</span>`
-          }
-        </div>
-      </div>`;
-    }).join('');
-
-
     return `
-<div style="margin-bottom:14px;border-radius:14px;border:1.5px solid #BFDBFE;overflow:hidden;background:white">
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);border-bottom:1px solid #BFDBFE">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-radius:12px;border:1.5px solid #BFDBFE;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);margin-bottom:10px">
+  <div style="display:flex;align-items:center;gap:14px">
+    <span style="font-size:13px">💳</span>
     <div>
-      <div style="font-size:13px;font-weight:900;color:#1D4ED8">💳 ${accName} 계정 사업계획</div>
-      <div style="font-size:11px;color:#3B82F6;margin-top:2px">${plans.length}건 · 총 요청액 ${total.toLocaleString()}원${draftCount > 0 ? ` · ⚠️ ${draftCount}명 미완료(제외)` : ''}</div>
+      <div style="font-size:13px;font-weight:900;color:#1D4ED8">${accName} 계정</div>
+      <div style="font-size:11px;color:#3B82F6;margin-top:1px">${plans.length}건 · 총 ${total.toLocaleString()}원${draftCount > 0 ? ` · ⚠️ ${draftCount}명 미완료` : ''}</div>
     </div>
-    <button onclick="foTeamForecastConfirm('${safeAcc}','${dept.replace(/'/g,'')}',${_planYear})"
-      style="padding:10px 20px;border-radius:10px;background:#1D4ED8;color:white;font-size:12px;font-weight:900;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(29,78,216,.3);white-space:nowrap">
-      📤 팀 사업계획 확정
-    </button>
   </div>
-  <div>${rows}</div>
-  <div style="padding:10px 14px;background:#F9FAFB;display:flex;justify-content:flex-end">
-    <span style="font-size:11px;font-weight:900;color:#1D4ED8">합계: ${total.toLocaleString()}원</span>
-  </div>
+  <button onclick="foTeamForecastConfirm('${safeAcc}','${dept.replace(/'/g,'')}',${_planYear})"
+    style="padding:9px 20px;border-radius:10px;background:#1D4ED8;color:white;font-size:12px;font-weight:900;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(29,78,216,.3);white-space:nowrap">
+    📤 팀 사업계획 확정
+  </button>
 </div>`;
   }).join('');
 

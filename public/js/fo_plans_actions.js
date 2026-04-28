@@ -900,15 +900,14 @@ function _renderCalcGroundsSection(s, curBudget) {
       ? `
   <!-- 항목 행 테이블 -->
   <div class="bg-white rounded-xl overflow-hidden border border-blue-100 mb-3" style="overflow-x:auto">
-    <table class="w-full text-xs" style="min-width:700px">
+    <table class="w-full text-xs" style="min-width:600px">
       <thead class="bg-blue-50">
-        <tr class="text-[10px] font-black text-blue-500 uppercase tracking-wider">
-          <th class="px-3 py-2 text-left" style="min-width:130px">항목</th>
-          <th class="px-3 py-2 text-left" style="min-width:90px">세부항목</th>
+          <th class="px-3 py-2 text-left" style="min-width:110px">항목</th>
+          <th class="px-3 py-2 text-left" style="min-width:80px">세부항목</th>
           <th class="px-3 py-2 text-right" style="width:80px">단가(원)</th>
-          <th class="px-3 py-2 text-center" style="width:130px">수량 및 단위</th>
-          <th class="px-3 py-2 text-right" style="width:90px">예산금액(원)</th>
-          <th class="px-3 py-2 text-left" style="width:72px">비고</th>
+          <th class="px-3 py-2 text-center" style="width:150px">수량 및 단위</th>
+          <th class="px-3 py-2 text-right" style="width:80px">예산금액(원)</th>
+          <th class="px-3 py-2 text-left" style="width:80px">비고</th>
           <th class="px-3 py-2 text-center" style="width:32px"></th>
         </tr>
       </thead>
@@ -992,40 +991,54 @@ function _renderCalcGroundsSection(s, curBudget) {
                 oninput="_cgUpdateUnitPrice(${idx}, this.value)"
                 style="width:80px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:4px 6px">
             </td>
-            <td class="px-3 py-2 text-center">
-              <div class="flex flex-col gap-1.5 w-full max-w-[120px] mx-auto">
+            ${(() => {
+              let activeMults = row.activeMultipliers;
+              if (!activeMults) {
+                if (row.qty3 > 1) activeMults = 3;
+                else if (row.qty2 > 1) activeMults = 2;
+                else activeMults = 1;
+              }
+              return `
+            <td class="px-3 py-2 text-center" style="vertical-align: top; padding-top: 10px;">
+              <div class="flex flex-col gap-1.5 w-full max-w-[150px] mx-auto">
                 <div class="flex items-center justify-between gap-1">
                   <span class="text-[10px] text-gray-500 font-bold w-6 text-left">수량</span>
                   <input type="number" value="${row.qty1||row.qty||1}" min="1"
                     oninput="_cgUpdateQty1(${idx},this.value)"
                     style="width:40px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:3px 4px">
                   ${uSel(row.type1||'명','_cgUpdateType1')}
+                  ${activeMults < 3 ? `<button onclick="window._cgAddMultiplier(${idx})" style="width:20px;height:20px;border-radius:4px;background:#EFF6FF;color:#2563EB;border:1px solid #BFDBFE;font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>` : `<div style="width:20px"></div>`}
                 </div>
-                ${item && item.hasQty2 ? `
+                ${activeMults >= 2 ? `
                 <div class="flex items-center justify-between gap-1">
-                  <span class="text-[10px] text-gray-500 font-bold w-6 text-left">기간</span>
+                  <span class="text-[12px] text-gray-400 font-bold w-2 text-center">×</span>
+                  <span class="text-[10px] text-gray-500 font-bold w-4 text-left">기간</span>
                   <input type="number" value="${row.qty2||1}" min="1"
                     oninput="_cgUpdateQty2(${idx},this.value)"
                     style="width:40px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:3px 4px">
                   ${uSel(row.type2||'일','_cgUpdateType2')}
+                  ${activeMults === 2 ? `<button onclick="window._cgRemoveMultiplier(${idx})" style="width:20px;height:20px;border-radius:4px;background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">-</button>` : `<div style="width:20px"></div>`}
                 </div>` : ''}
-                ${item && item.hasRounds ? `
+                ${activeMults >= 3 ? `
                 <div class="flex items-center justify-between gap-1">
-                  <span class="text-[10px] text-gray-500 font-bold w-6 text-left">차수</span>
+                  <span class="text-[12px] text-gray-400 font-bold w-2 text-center">×</span>
+                  <span class="text-[10px] text-gray-500 font-bold w-4 text-left">차수</span>
                   <input type="number" value="${row.qty3||1}" min="1"
                     oninput="_cgUpdateQty3(${idx},this.value)"
                     style="width:40px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:3px 4px">
                   ${uSel(row.type3||'차수','_cgUpdateType3')}
+                  <button onclick="window._cgRemoveMultiplier(${idx})" style="width:20px;height:20px;border-radius:4px;background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">-</button>
                 </div>` : ''}
               </div>
-            </td>
-            <td class="px-3 py-2 text-right font-black" style="color:${isHardOver?'#DC2626':isSoftOver?'#D97706':'#111827'}">
+            </td>`;
+            })()}
+            <td class="px-3 py-2 text-right font-black" style="color:${isHardOver?'#DC2626':isSoftOver?'#D97706':'#111827'};vertical-align: top; padding-top: 14px;">
               ${fmt(row.total)}
             </td>
-            <td class="px-3 py-2">
+            <td class="px-3 py-2" style="vertical-align: top; padding-top: 10px;">
               <input type="text" value="${(row.note||'').replace(/"/g,'&quot;')}" placeholder="비고"
                 oninput="_cgUpdateRowNote(${idx},this.value)"
-                style="width:60px;font-size:10px;border:1.5px solid #E5E7EB;border-radius:5px;padding:2px 4px;color:#6B7280">
+                style="width:100%;font-size:10px;border:1.5px solid #E5E7EB;border-radius:5px;padding:2px 4px;color:#6B7280;box-sizing:border-box">
             </td>
             <td class="px-3 py-2 text-center">
               <button onclick="_cgRemoveRow(${idx})" style="color:#D1D5DB;font-size:14px;border:none;background:none;cursor:pointer">✕</button>
@@ -1399,6 +1412,31 @@ function _cgUpdateRowNote(idx, val) {
   const row = planState.calcGrounds[idx];
   if (row) row.note = val;
 }
+
+window._cgAddMultiplier = function(idx) {
+  const row = planState.calcGrounds[idx];
+  if (!row) return;
+  row.activeMultipliers = (row.activeMultipliers || 1) + 1;
+  if (row.activeMultipliers > 3) row.activeMultipliers = 3;
+  renderPlanWizard();
+};
+
+window._cgRemoveMultiplier = function(idx) {
+  const row = planState.calcGrounds[idx];
+  if (!row) return;
+  if (row.activeMultipliers === 3) {
+    row.qty3 = 1; // reset value
+  } else if (row.activeMultipliers === 2) {
+    row.qty2 = 1;
+  }
+  row.activeMultipliers = (row.activeMultipliers || 1) - 1;
+  if (row.activeMultipliers < 1) row.activeMultipliers = 1;
+  
+  const item = typeof CALC_GROUNDS_MASTER !== "undefined" ? CALC_GROUNDS_MASTER.find(g => g.id === row.itemId) : null;
+  _cgRecalcRow(row, item);
+  _syncCalcToAmount();
+  renderPlanWizard();
+};
 
 // qty2 단위(유형) 업데이트 — 재계산은 수량이 변경될 때만 (단위만 변경 시 합계 동일)
 function _cgUpdateQty2Type(idx, val) {

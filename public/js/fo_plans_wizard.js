@@ -20,6 +20,16 @@ function startPlanWizard(mode = 'ongoing', forcedYear = null, accountCode = null
     planState.contextAccountCode = _selectedAccountCode;
   }
 
+  // Phase2: contextAccountCode → budgetId 자동 매핑 (예산 선택 Step 스킵용)
+  if (planState.contextAccountCode) {
+    const matchedBudget = (currentPersona?.budgets || []).find(b =>
+      b.accountCode === planState.contextAccountCode || b.id === planState.contextAccountCode
+    );
+    if (matchedBudget) {
+      planState.budgetId = matchedBudget.id;
+    }
+  }
+
   if (mode === 'forecast') {
     planState.plan_type = 'forecast';
     planState.fiscal_year = forcedYear || _planYear;
@@ -372,15 +382,15 @@ function renderPlanWizard() {
         : null
       : null;
 
-  // ── 스탭 지시자 (apply.js 동일 구조) ──────────────────────────────────────
-  const stepLabels = ["목적 선택", "예산 선택", "교육유형", "세부 정보"];
-  const stepper = [1, 2, 3, 4]
+  // ── 스탭 지시자 (3단계: 목적→교육유형→세부정보) ──────────────────────────────────────
+  const stepLabels = ["목적 선택", "교육유형", "세부 정보"];
+  const stepper = [1, 2, 3]
     .map(
       (n) => `
   <div class="step-item flex items-center gap-2 ${s.step > n ? "done" : s.step === n ? "active" : ""}">
     <div class="step-circle w-8 h-8 rounded-full flex items-center justify-center text-sm font-black transition-all">${s.step > n ? "✓" : n}</div>
     <span class="text-xs font-bold ${s.step === n ? "text-brand" : "text-gray-400"} hidden sm:block">${stepLabels[n - 1]}</span>
-    ${n < 4 ? '<div class="h-px flex-1 bg-gray-200 mx-2 w-8"></div>' : ""}
+    ${n < 3 ? '<div class="h-px flex-1 bg-gray-200 mx-2 w-8"></div>' : ""}
   </div>`,
     )
     .join("");
@@ -482,118 +492,97 @@ function renderPlanWizard() {
     </div>
   </div>
 
-  <!-- ── Step 2: 예산 선택 ── -->
+  <!-- ── Step 2 (구 예산 선택): contextAccountCode로 자동 주입되어 표시 생략 ── -->
+  <!-- 계정은 L2 Account Hub에서 이미 선택됨 (_selectedAccountCode) -->
+  <div class="hidden">
+  </div>
+
+  <!-- ── Step 2: 교육유형 선택 ── -->
   <div class="${s.step === 2 ? "" : "hidden"}">
-    <h3 class="text-base font-black text-gray-800 mb-4">02. 예산 계정 선택</h3>
+    <h3 class="text-base font-black text-gray-800 mb-4">02. 교육유형 선택</h3>
     <!-- 이전 단계 선택 요약 -->
     ${
-      s.purpose
+      s.purpose || curBudget
         ? `
-    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl px-4 py-3 mb-5 flex items-center gap-4">
-      <div class="text-[10px] font-black text-blue-400 uppercase tracking-widest whitespace-nowrap">① 교육 목적</div>
-      <div class="flex items-center gap-2">
-        <span class="text-base">${s.purpose.icon}</span>
-        <span class="text-sm font-black text-gray-800">${s.purpose.label}</span>
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl px-4 py-3 mb-5">
+      <div class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">선택 내역</div>
+      <div class="flex flex-wrap gap-4">
+        ${s.purpose ? `<div class="flex items-center gap-2"><span class="text-[10px] font-black text-blue-300">① 목적</span><span class="text-xs font-black text-gray-800">${s.purpose.icon} ${s.purpose.label}</span></div>` : ""}
+        ${curBudget ? `<div class="flex items-center gap-2"><span class="text-[10px] font-black text-blue-300">② 예산</span><span class="text-xs font-black text-gray-800">${curBudget.name}</span></div>` : ""}
       </div>
     </div>`
         : ""
     }
-    <div class="space-y-4">
-      ${
-        availBudgets.length > 0
-          ? availBudgets
-              .map((b) => {
-                const active = s.budgetId === b.id;
-                const acctTypeLabel =
-                  b.account === "운영"
-                    ? "운영 계정"
-                    : b.account === "참가"
-                      ? "참가 계정"
-                      : b.account + " 계정";
-                const vorgLabel = b.vorgName
-                  ? `<span style="font-size:10px;font-weight:900;padding:2px 7px;border-radius:5px;background:#F0F9FF;color:#0369A1;margin-left:6px">${b.vorgName}</span>`
-                  : "";
-                return `
-      <button onclick="planSelectBudget('${b.id}')" class="w-full text-left transition-all" style="padding:18px 20px;border-radius:14px;border:2px solid ${active ? "#002C5F" : "#E5E7EB"};background:${active ? "#EFF6FF" : "white"};cursor:pointer">
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <div>
-            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">
-              <span style="font-size:14px;font-weight:900;color:${active ? "#002C5F" : "#111827"}">${b.name}</span>
-              ${vorgLabel}
-            </div>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-            ${(() => {
-              // currentPersona.budgets에서 잔액 즉시 조회
-              const personaBudget = (currentPersona.budgets || []).find(pb => pb.id === b.id || pb.name === b.name);
-              if (!personaBudget) return '<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:#F3F4F6;color:#9CA3AF;font-weight:800">⏳ 미배정</span>';
-              const remain = (personaBudget.balance || 0) - (personaBudget.used || 0);
-              const total  = personaBudget.balance || 0;
-              const pct    = total > 0 ? Math.round(remain / total * 100) : 0;
-              
-              if (remain <= 0) return ''; // 잔액 0원인 경우 계획 수립 단계에서는 뱃지 미노출
+    ${(() => {
+      // 교육유형 트리 가져오기
+      const tree =
+        typeof getPolicyEduTree !== "undefined" && curBudget
+          ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget.account)
+          : [];
 
-              const [col, bg, icon] = pct < 20
-                  ? ['#D97706', '#FFFBEB', '🟡']
-                  : ['#059669', '#F0FDF4', '🟢'];
-              return `<span style="font-size:10px;padding:2px 10px;border-radius:6px;background:${bg};color:${col};font-weight:900">${icon} 잔액 ${remain.toLocaleString()}원</span>`;
-            })()}
-            ${active ? '<span style="font-size:11px;font-weight:900;padding:3px 10px;border-radius:6px;background:#DBEAFE;color:#1D4ED8">선택됨</span>' : ""}
-          </div>
-        </div>
-      </button>`;
-
-              })
-              .join("")
-          : `
-      <div class="p-5 bg-yellow-50 border-2 border-yellow-200 rounded-2xl text-sm font-bold text-yellow-700">
-        ⚠️ 선택한 교육 목적에 사용 가능한 예산 계정이 없습니다.
-      </div>`
+      if (tree.length === 0) {
+        const hasPolicies =
+          typeof SERVICE_POLICIES !== "undefined" &&
+          SERVICE_POLICIES.length > 0;
+        return hasPolicies
+          ? `<div class="p-5 bg-yellow-50 border-2 border-yellow-200 rounded-2xl">
+              <div class="font-black text-yellow-700 text-sm">⚠️ 허용된 교육유형 정보가 없습니다</div>
+              <div class="text-xs text-yellow-600 mt-1">관리자에게 교육지원 운영 규칙 설정을 요청해 주세요.</div>
+            </div>`
+          : `<div class="p-5 bg-gray-50 rounded-2xl text-sm font-bold text-gray-500 flex items-center gap-3">
+              <span class="text-accent text-xl">✓</span> 이 예산 계정은 모든 교육유형에 사용 가능합니다.
+            </div>`;
       }
-    </div>
-${/* 프로세스 패턴 안내 (apply.js 동일) */ ""}
-${
-  _processInfo
-    ? `
-    <div style="margin-top:16px;background:#F0FDF4;border:1.5px solid #BBF7D0;border-radius:12px;padding:16px 18px">
-      <div style="font-size:10px;font-weight:900;color:#15803D;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:6px">
-        <span style="width:5px;height:5px;background:#22C55E;border-radius:50%;display:inline-block"></span>
-        이 교육은 다음 절차로 진행됩니다
-      </div>
-      <div style="display:flex;align-items:center;gap:4px;margin-bottom:10px;flex-wrap:wrap">
-        ${_processInfo.steps
-          .map(
-            (st, i) => `
-        <div style="display:flex;align-items:center;gap:4px">
-          <div style="text-align:center">
-            <div style="font-size:18px;margin-bottom:2px">${st.icon}</div>
-            <div style="font-size:11px;font-weight:900;color:#111827">${st.name}</div>
-            <div style="font-size:9px;color:#6B7280;font-weight:700">${st.hint}</div>
-          </div>
-          ${i < _processInfo.steps.length - 1 ? '<span style="color:#D1D5DB;font-size:16px;margin:0 6px;font-weight:bold">→</span>' : ""}
-        </div>`,
-          )
-          .join("")}
-      </div>
-      <div style="font-size:11px;color:#15803D;display:flex;align-items:flex-start;gap:5px">
-        <span style="font-size:12px;flex-shrink:0">ⓘ</span>
-        <span>${_processInfo.hint}</span>
-      </div>
-    </div>`
-    : ""
-}
+
+      return tree
+        .map((node) => {
+          const isLeaf = !node.subs || node.subs.length === 0;
+          const isSelected = s.eduType === node.id;
+          if (isLeaf) {
+            const leafSelected = isSelected && !s.subType;
+            return `
+      <div class="mb-3">
+        <button onclick="planState.eduType='${node.id}';planState.subType='';renderPlanWizard()"
+          class="w-full p-4 rounded-xl border-2 text-sm font-bold text-left transition
+                 ${leafSelected ? "bg-gray-900 border-gray-900 text-white shadow-xl" : "border-gray-200 text-gray-700 hover:border-accent hover:text-accent"}">${node.label}</button>
+      </div>`;
+          } else {
+            return `
+      <div class="mb-3">
+        <button onclick="planState.eduType='${node.id}';planState.subType='';renderPlanWizard()"
+          class="w-full p-4 rounded-xl border-2 text-sm font-bold text-left transition
+                 ${isSelected ? "bg-gray-900 border-gray-900 text-white shadow-xl" : "border-gray-200 text-gray-700 hover:border-accent hover:text-accent"}">${node.label}</button>
+        ${isSelected ? `<div class="mt-2 ml-4 grid grid-cols-2 gap-2">
+          ${(node.subs || []).map(sub => {
+            const subSel = s.subType === sub.id;
+            return `<button onclick="event.stopPropagation();planState.subType='${sub.id}';renderPlanWizard()"
+              class="p-3 rounded-xl border-2 text-xs font-bold text-left transition
+                     ${subSel ? "bg-brand border-brand text-white shadow-md" : "border-gray-200 text-gray-600 hover:border-brand hover:text-brand"}">${sub.label}</button>`;
+          }).join('')}
+        </div>` : ''}
+      </div>`;
+          }
+        })
+        .join("");
+    })()}
     <div class="flex justify-between mt-6 pt-4 border-t border-gray-100">
       <button onclick="planPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
-      <button onclick="planNext()" ${!s.budgetId ? "disabled" : ""}
-        class="px-8 py-3 rounded-xl font-black text-sm transition ${!s.budgetId ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-brand text-white hover:bg-blue-900 shadow-lg"}">
-        다음 →
-      </button>
+      ${(() => {
+        const tree2 =
+          typeof getPolicyEduTree !== "undefined" && curBudget
+            ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget.account)
+            : [];
+        const selNode = tree2.find((n) => n.id === s.eduType);
+        const isLeaf = selNode && (!selNode.subs || selNode.subs.length === 0);
+        const canNext = s.eduType && (isLeaf || s.subType);
+        return `<button onclick="planNext()" ${!canNext ? "disabled" : ""}
+          class="px-8 py-3 rounded-xl font-black text-sm transition ${!canNext ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-brand text-white hover:bg-blue-900 shadow-lg"}">
+          다음 →
+        </button>`;
+      })()}
     </div>
   </div>
 
-  <!-- ── Step 3: 교육유형 선택 ── -->
-  <div class="${s.step === 3 ? "" : "hidden"}">
-    <h3 class="text-base font-black text-gray-800 mb-4">03. 교육유형 선택</h3>
     <!-- 이전 단계 선택 요약 -->
     ${
       s.purpose || curBudget
@@ -696,9 +685,9 @@ ${
     </div>
   </div>
 
-  <!-- ── Step 4: 세부 정보 ── -->
-  <div class="${s.step === 4 ? "" : "hidden"}">
-    <h3 class="text-base font-black text-gray-800 mb-5">04. 세부 정보 입력</h3>
+  <!-- ── Step 3: 폼 세부정보 입력 ── -->
+  <div class="${s.step === 3 ? "" : "hidden"}">
+    <h3 class="text-base font-black text-gray-800 mb-5">03. 세부 정보 입력</h3>
 
     <!-- 선택 요약 배너 -->
     <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 mb-6">

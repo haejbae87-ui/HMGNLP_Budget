@@ -948,6 +948,7 @@ function renderPlans() {
           title: d.edu_name,
           type: d.edu_type || "",
           amount: Number(d.amount || 0),
+          allocated_amount: Number(d.allocated_amount || 0), // ★ 배정액
           status: _mapDbStatus(d.status),
           account: d.account_code,
           date: d.created_at?.slice(0, 10) || "",
@@ -1004,6 +1005,7 @@ function renderPlans() {
             title: d.edu_name,
             type: d.edu_type || "",
             amount: Number(d.amount || 0),
+            allocated_amount: Number(d.allocated_amount || 0), // ★ 배정액
             status: _mapDbStatus(d.status),
             account: d.account_code,
             account_code: d.account_code,
@@ -1119,29 +1121,91 @@ function renderPlans() {
   </div>`
     : "";
 
-  // 통계 카드 (개선: 그라디언트 + 큰 숫자 + 소계 정보)
-  const statItems = [
-    { label: '전체', val: stats.total, sub: `${_planYear}년`, icon: '📋',
-      grad: 'linear-gradient(135deg,#EFF6FF,#DBEAFE)', color: '#1D4ED8', border: '#BFDBFE' },
-    { label: isBusiness ? '결재대기' : '진행중', val: isBusiness ? currentYearPlans.filter(p => p.status==='submitted'||p.status==='결재진행중'||p.status==='신청중').length : stats.active,
-      sub: '처리 대기', icon: '⏳',
-      grad: 'linear-gradient(135deg,#FFFBEB,#FEF3C7)', color: '#D97706', border: '#FDE68A' },
-    { label: isBusiness ? '저장완료' : '완료', val: isBusiness ? stats.saved : stats.done,
-      sub: isBusiness ? '확정 대기' : '교육 이수', icon: isBusiness ? '📤' : '✅',
-      grad: 'linear-gradient(135deg,#ECFDF5,#D1FAE5)', color: '#059669', border: '#6EE7B7' },
-    { label: '반려', val: stats.rejected, sub: '검토 필요', icon: '❌',
-      grad: 'linear-gradient(135deg,#FEF2F2,#FECACA)', color: '#DC2626', border: '#FECACA' },
-  ];
-  const statsBar = `
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
-    ${statItems.map(s => `
-    <div style="background:${s.grad};border-radius:16px;padding:18px 16px;border:1.5px solid ${s.border};position:relative;overflow:hidden">
-      <div style="position:absolute;top:12px;right:14px;font-size:20px;opacity:.4">${s.icon}</div>
-      <div style="font-size:10px;font-weight:700;color:${s.color};text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${s.label}</div>
-      <div style="font-size:28px;font-weight:900;color:${s.color};line-height:1">${s.val}<span style="font-size:12px;font-weight:700;margin-left:2px">건</span></div>
-      <div style="font-size:10px;color:${s.color}99;margin-top:4px">${s.sub}</div>
-    </div>`).join('')}
-  </div>`;
+  // ★ 통계 카드: 사업계획(3박스) vs 운영계획(4박스) 분기
+  let statsBar;
+  if (isBusiness) {
+    // ── 사업계획 대시보드 ─────────────────────────────────────────
+    // 내 탭 → 내 계획만, 팀 탭 → 내 계획 + 팀원 계획 합산 (중복 제거)
+    const _myBizPlans = (_dbMyPlans || []).filter(p => {
+      const dbP = (_plansDbCache || []).find(d => d.id === p.id);
+      const pType = dbP?.plan_type || p.plan_type || 'operation';
+      return p.fiscalYear === _planYear && (pType === 'business' || pType === 'forecast');
+    });
+    const _teamBizPlans = (_dbTeamPlans || []).filter(p =>
+      p.fiscalYear === _planYear && (p.plan_type === 'business' || p.plan_type === 'forecast')
+    );
+    const _allBizPlans = [
+      ..._myBizPlans,
+      ..._teamBizPlans.filter(t => !_myBizPlans.some(m => String(m.id) === String(t.id)))
+    ];
+    const basisPlans = _planViewTab === 'team' ? _allBizPlans : _myBizPlans;
+    const bTotal     = basisPlans.length;
+    const bApproved  = basisPlans.filter(p => p.status === 'approved' || p.status === '승인완료').length;
+    const bRejected  = basisPlans.filter(p => p.status === 'rejected' || p.status === '반려').length;
+    const bPending   = basisPlans.filter(p => p.status === 'submitted' || p.status === '결재진행중' || p.status === '신청중').length;
+    const bAmount    = basisPlans.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    const bAllocated = basisPlans.reduce((s, p) => s + (Number(p.allocated_amount) || 0), 0);
+    const scopeLabel = _planViewTab === 'team' ? '팀 전체' : '나의';
+
+    // 억/만원 자동 단위 변환
+    const fmtAmt = v => v >= 100000000
+      ? `${(v / 100000000).toFixed(1)}억`
+      : v >= 10000 ? `${Math.floor(v / 10000).toLocaleString()}만` : `${v.toLocaleString()}`;
+
+    const bizItems = [
+      {
+        label: '전체 사업계획', val: bTotal, unit: '건',
+        sub: `✅ 승인 ${bApproved}건 &nbsp;·&nbsp; ❌ 반려 ${bRejected}건 &nbsp;·&nbsp; ⏳ 결재중 ${bPending}건`,
+        icon: '📋', grad: 'linear-gradient(135deg,#EFF6FF,#DBEAFE)', color: '#1D4ED8', border: '#BFDBFE',
+      },
+      {
+        label: `${scopeLabel} 계획 금액`, val: fmtAmt(bAmount), unit: '원',
+        sub: `${bTotal}건 합계 요청액 · ${bAmount.toLocaleString()}원`,
+        icon: '💰', grad: 'linear-gradient(135deg,#FFFBEB,#FEF3C7)', color: '#D97706', border: '#FDE68A',
+      },
+      {
+        label: '승인 배정액', val: fmtAmt(bAllocated), unit: '원',
+        sub: bAllocated > 0
+          ? `요청 대비 ${bAmount > 0 ? Math.round(bAllocated / bAmount * 100) : 0}% 배정 · ${bAllocated.toLocaleString()}원`
+          : '배정 대기 중',
+        icon: '✅', grad: 'linear-gradient(135deg,#ECFDF5,#D1FAE5)', color: '#059669', border: '#6EE7B7',
+      },
+    ];
+    statsBar = `
+    <div style="display:grid;grid-template-columns:repeat(${bizItems.length},1fr);gap:12px;margin-bottom:24px">
+      ${bizItems.map(s => `
+      <div style="background:${s.grad};border-radius:16px;padding:18px 16px;border:1.5px solid ${s.border};position:relative;overflow:hidden">
+        <div style="position:absolute;top:12px;right:14px;font-size:20px;opacity:.4">${s.icon}</div>
+        <div style="font-size:10px;font-weight:700;color:${s.color};text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${s.label}</div>
+        <div style="font-size:28px;font-weight:900;color:${s.color};line-height:1">${s.val}<span style="font-size:12px;font-weight:700;margin-left:2px">${s.unit}</span></div>
+        <div style="font-size:10px;color:${s.color}99;margin-top:4px">${s.sub}</div>
+      </div>`).join('')}
+    </div>`;
+  } else {
+    // ── 운영계획 대시보드 (기존 4박스) ───────────────────────────
+    const statItems = [
+      { label: '전체', val: stats.total, sub: `${_planYear}년`, icon: '📋',
+        grad: 'linear-gradient(135deg,#EFF6FF,#DBEAFE)', color: '#1D4ED8', border: '#BFDBFE' },
+      { label: '진행중', val: stats.active,
+        sub: '처리 대기', icon: '⏳',
+        grad: 'linear-gradient(135deg,#FFFBEB,#FEF3C7)', color: '#D97706', border: '#FDE68A' },
+      { label: '완료', val: stats.done,
+        sub: '교육 이수', icon: '✅',
+        grad: 'linear-gradient(135deg,#ECFDF5,#D1FAE5)', color: '#059669', border: '#6EE7B7' },
+      { label: '반려', val: stats.rejected, sub: '검토 필요', icon: '❌',
+        grad: 'linear-gradient(135deg,#FEF2F2,#FECACA)', color: '#DC2626', border: '#FECACA' },
+    ];
+    statsBar = `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+      ${statItems.map(s => `
+      <div style="background:${s.grad};border-radius:16px;padding:18px 16px;border:1.5px solid ${s.border};position:relative;overflow:hidden">
+        <div style="position:absolute;top:12px;right:14px;font-size:20px;opacity:.4">${s.icon}</div>
+        <div style="font-size:10px;font-weight:700;color:${s.color};text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${s.label}</div>
+        <div style="font-size:28px;font-weight:900;color:${s.color};line-height:1">${s.val}<span style="font-size:12px;font-weight:700;margin-left:2px">건</span></div>
+        <div style="font-size:10px;color:${s.color}99;margin-top:4px">${s.sub}</div>
+      </div>`).join('')}
+    </div>`;
+  }
 
   // 필터 UI (개선: pill 스타일 컬러 배지)
   const filterCfg = [
@@ -2040,11 +2104,6 @@ window._s9RefundBudget = _s9RefundBudget;
  * @param {Array} myDbCache   - _plansDbCache 배열 (내 계획 원본, DB 필드 포함)
  */
 function _foRenderTeamForecastBundleBar(teamPlansArr, myDbCache) {
-  const sb = typeof getSB === 'function' ? getSB() : null;
-  // ★ early return 제거: teamPlansArr가 비어 있어도 myForecasts(본인 계획)가 있으면 배너 표시
-  // (최O영처럼 타 팀원 계획이 없는 경우에도 자신의 계획으로 팀 확정 가능해야 함)
-
-
   // saved + forecast 계획만 필터
   const savedForecasts = teamPlansArr.filter(p => {
     const rawSt = p.status || '';
@@ -2061,16 +2120,22 @@ function _foRenderTeamForecastBundleBar(teamPlansArr, myDbCache) {
     title: d.edu_name || String(d.id),
     amount: Number(d.amount || 0),
     account: d.account_code,
+    account_code: d.account_code,
     author: d.applicant_name || currentPersona.name,
-    applicant_id: d.applicant_id || currentPersona.id,  // ★ 본인 여부 판별용
+    applicant_id: d.applicant_id || currentPersona.id,
     authorDept: d.dept || currentPersona.dept,
     fiscalYear: d.fiscal_year,
     status: 'saved',
-    account_code: d.account_code,
   }));
 
-
-  const allSaved = [...myForecasts, ...savedForecasts];
+  // ID 중복 제거
+  const seenIds = new Set();
+  const allSaved = [...myForecasts, ...savedForecasts].filter(p => {
+    const key = String(p.id);
+    if (seenIds.has(key)) return false;
+    seenIds.add(key);
+    return true;
+  });
 
   if (!allSaved.length) {
     return `
@@ -2080,16 +2145,14 @@ function _foRenderTeamForecastBundleBar(teamPlansArr, myDbCache) {
 </div>`;
   }
 
-  // account_code별 그룹핑 — 슬림 배너용 (계정 합계 + 확정 버튼만)
+  // account_code별 그룹핑
   const grouped = {};
   allSaved.forEach(p => {
     const acc = p.account || p.account_code || 'unknown';
-    if (!grouped[acc]) grouped[acc] = { plans: [], total: 0 };
+    if (!grouped[acc]) grouped[acc] = { plans: [] };
     grouped[acc].plans.push(p);
-    grouped[acc].total += Number(p.amount) || 0;
   });
 
-  // draft 인원 계산 (팀원 중 미완료)
   const draftCount = (teamPlansArr || []).filter(p => {
     const rawSt = p.status || '';
     return (rawSt === 'draft' || rawSt === '작성중') && p.fiscalYear === _planYear;
@@ -2097,35 +2160,136 @@ function _foRenderTeamForecastBundleBar(teamPlansArr, myDbCache) {
 
   const dept = currentPersona.dept || currentPersona.team || '';
 
-  // ★ 슬림 배너: 계정별 합계 + 확정 버튼만 (개별 행 제거 → Section B 카드로 통합)
-  const groupHtml = Object.entries(grouped).map(([accCode, { plans, total }]) => {
+  // 계정별 선택 상태 전역 저장소 초기화
+  if (!window._tfBundleSelections) window._tfBundleSelections = {};
+
+  const groupHtml = Object.entries(grouped).map(([accCode, { plans }]) => {
     const safeAcc = accCode.replace(/'/g, "\\'");
+    const safeDept = dept.replace(/'/g, '');
     const accName = window._accountNameCache?.[accCode] || accCode;
+    const groupKey = `${accCode}_${_planYear}`;
+
+    // 선택 상태 초기화 (처음엔 전체 선택)
+    if (!window._tfBundleSelections[groupKey]) {
+      window._tfBundleSelections[groupKey] = new Set(plans.map(p => String(p.id)));
+    }
+    const sel = window._tfBundleSelections[groupKey];
+    const selCount = sel.size;
+    const selTotal = plans.filter(p => sel.has(String(p.id))).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+
+    // 각 계획 체크박스 행
+    const planRows = plans.map(p => {
+      const pid = String(p.id).replace(/'/g, '');
+      const isChecked = sel.has(String(p.id));
+      const displayAmt = Number(p.amount || 0).toLocaleString();
+      const author = (p.author || '').slice(0, 4);
+      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;background:white;margin-bottom:5px;border:1px solid #E5E7EB">
+  <input type="checkbox" id="tfchk-${pid}" data-group="${groupKey}" data-pid="${pid}"
+    ${isChecked ? 'checked' : ''}
+    onchange="_tfTogglePlan('${groupKey}','${pid}','${safeAcc}','${safeDept}',${_planYear})"
+    style="width:16px;height:16px;cursor:pointer;accent-color:#1D4ED8;flex-shrink:0">
+  <label for="tfchk-${pid}" style="flex:1;cursor:pointer;font-size:12px;font-weight:700;color:#374151;overflow:hidden;white-space:nowrap;text-overflow:ellipsis" title="${p.title}">${p.title}</label>
+  <span style="font-size:11px;color:#6B7280;white-space:nowrap">${author}</span>
+  <span style="font-size:12px;font-weight:800;color:#1D4ED8;white-space:nowrap;min-width:70px;text-align:right">▲ ${displayAmt}원</span>
+</div>`;
+    }).join('');
+
     return `
-<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-radius:12px;border:1.5px solid #BFDBFE;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);margin-bottom:10px">
-  <div style="display:flex;align-items:center;gap:14px">
-    <span style="font-size:13px">💳</span>
-    <div>
-      <div style="font-size:13px;font-weight:900;color:#1D4ED8">${accName} 계정</div>
-      <div style="font-size:11px;color:#3B82F6;margin-top:1px">${plans.length}건 · 총 ${total.toLocaleString()}원${draftCount > 0 ? ` · ⚠️ ${draftCount}명 미완료` : ''}</div>
+<div id="tf-group-${groupKey}" style="border-radius:14px;border:1.5px solid #BFDBFE;background:linear-gradient(135deg,#EFF6FF 0%,#F5F3FF 100%);margin-bottom:12px;overflow:hidden">
+  <!-- 계정 헤더 -->
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #DBEAFE">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:14px">💳</span>
+      <div>
+        <div style="font-size:13px;font-weight:900;color:#1D4ED8">${accName} 계정</div>
+        <div id="tf-sel-info-${groupKey}" style="font-size:11px;color:#3B82F6;margin-top:1px">
+          ${selCount > 0 ? `선택 ${selCount}건 · ${selTotal.toLocaleString()}원` : `<span style="color:#9CA3AF">선택 없음</span>`}
+          ${draftCount > 0 ? ` · ⚠️ ${draftCount}명 미완료` : ''}
+        </div>
+      </div>
     </div>
+    <button onclick="foTeamForecastConfirm('${safeAcc}','${safeDept}',${_planYear})"
+      id="tf-confirm-btn-${groupKey}"
+      style="padding:9px 18px;border-radius:10px;background:${selCount > 0 ? '#1D4ED8' : '#9CA3AF'};color:white;font-size:12px;font-weight:900;border:none;cursor:${selCount > 0 ? 'pointer' : 'not-allowed'};box-shadow:${selCount > 0 ? '0 4px 14px rgba(29,78,216,.3)' : 'none'};white-space:nowrap;transition:all .2s"
+      ${selCount === 0 ? 'disabled' : ''}>
+      📤 팀 사업계획 확정
+    </button>
   </div>
-  <button onclick="foTeamForecastConfirm('${safeAcc}','${dept.replace(/'/g,'')}',${_planYear})"
-    style="padding:9px 20px;border-radius:10px;background:#1D4ED8;color:white;font-size:12px;font-weight:900;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(29,78,216,.3);white-space:nowrap">
-    📤 팀 사업계획 확정
-  </button>
+  <!-- 계획 목록 (체크박스) -->
+  <div style="padding:12px 14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:11px;font-weight:800;color:#6B7280">📋 확정 대상 선택</span>
+      <button onclick="_tfSelectAll('${groupKey}','${safeAcc}','${safeDept}',${_planYear})"
+        style="font-size:10px;color:#1D4ED8;background:none;border:none;cursor:pointer;font-weight:800;text-decoration:underline">전체선택</button>
+    </div>
+    ${planRows}
+  </div>
 </div>`;
   }).join('');
 
   return `
 <div style="margin-bottom:20px">
   <div style="font-size:12px;font-weight:900;color:#374151;margin-bottom:10px">
-    👥 팀 사업계획 현황 (${_planYear}년) — 계정별 일괄 확정
+    👥 팀 사업계획 현황 (${_planYear}년) — 계정별 선택 확정
   </div>
   ${groupHtml}
 </div>`;
 }
 window._foRenderTeamForecastBundleBar = _foRenderTeamForecastBundleBar;
+
+/** 체크박스 토글 핸들러 */
+function _tfTogglePlan(groupKey, pid, accCode, dept, fiscalYear) {
+  if (!window._tfBundleSelections) window._tfBundleSelections = {};
+  if (!window._tfBundleSelections[groupKey]) window._tfBundleSelections[groupKey] = new Set();
+  const sel = window._tfBundleSelections[groupKey];
+  if (sel.has(pid)) sel.delete(pid); else sel.add(pid);
+  _tfUpdateGroupUI(groupKey, accCode, dept, fiscalYear);
+}
+window._tfTogglePlan = _tfTogglePlan;
+
+/** 전체 선택 */
+function _tfSelectAll(groupKey, accCode, dept, fiscalYear) {
+  const allChks = document.querySelectorAll(`input[data-group="${groupKey}"]`);
+  if (!window._tfBundleSelections) window._tfBundleSelections = {};
+  if (!window._tfBundleSelections[groupKey]) window._tfBundleSelections[groupKey] = new Set();
+  const sel = window._tfBundleSelections[groupKey];
+  allChks.forEach(chk => { sel.add(chk.dataset.pid); chk.checked = true; });
+  _tfUpdateGroupUI(groupKey, accCode, dept, fiscalYear);
+}
+window._tfSelectAll = _tfSelectAll;
+
+/** 선택 집계 UI 업데이트 */
+function _tfUpdateGroupUI(groupKey, accCode, dept, fiscalYear) {
+  if (!window._tfBundleSelections || !window._tfBundleSelections[groupKey]) return;
+  const sel = window._tfBundleSelections[groupKey];
+  const selCount = sel.size;
+
+  // 선택된 계획 금액 합산 (DOM 기반)
+  let selTotal = 0;
+  document.querySelectorAll(`input[data-group="${groupKey}"]:checked`).forEach(chk => {
+    const row = chk.closest('div[style]');
+    const amtEl = row?.querySelector('span:last-child');
+    if (amtEl) {
+      const raw = amtEl.textContent.replace(/[^0-9]/g, '');
+      selTotal += Number(raw) || 0;
+    }
+  });
+
+  const infoEl = document.getElementById(`tf-sel-info-${groupKey}`);
+  if (infoEl) {
+    infoEl.innerHTML = selCount > 0
+      ? `선택 <strong style="color:#1D4ED8">${selCount}건</strong> · <strong style="color:#1D4ED8">${selTotal.toLocaleString()}원</strong>`
+      : `<span style="color:#9CA3AF">선택 없음</span>`;
+  }
+  const btn = document.getElementById(`tf-confirm-btn-${groupKey}`);
+  if (btn) {
+    btn.disabled = selCount === 0;
+    btn.style.background = selCount > 0 ? '#1D4ED8' : '#9CA3AF';
+    btn.style.cursor = selCount > 0 ? 'pointer' : 'not-allowed';
+    btn.style.boxShadow = selCount > 0 ? '0 4px 14px rgba(29,78,216,.3)' : 'none';
+  }
+}
+window._tfUpdateGroupUI = _tfUpdateGroupUI;
 
 /**
  * 팀 사업계획 계정별 일괄 확정 실행
@@ -2192,14 +2356,97 @@ async function foTeamForecastConfirm(accountCode, dept, fiscalYear) {
 
   const total = allPlans.reduce((s, p) => s + (Number(p.amount) || 0), 0);
   const accName = window._accountNameCache?.[accountCode] || accountCode;
+  // allPlans는 중복제거된 전체 목록, 실제 확정 대상은 체크박스 선택 기반으로 아래에서 결정
 
-  const ok = confirm(
-    `📤 [${accName}] 계정 팀 사업계획 확정\n\n` +
-    `포함: ${allPlans.length}건 / 총 요청액 ${total.toLocaleString()}원\n` +
-    `확정자: ${submitterName} (${dept})\n\n` +
-    `확정하면 포함된 계획이 팀장 검토 대기 상태로 전환됩니다.\n계속 진행하시겠습니까?`
-  );
-  if (!ok) return;
+  // ─── 선택된 계획만 필터 (체크박스 선택 기반)
+  const groupKey = `${accountCode}_${fiscalYear}`;
+  const sel = window._tfBundleSelections?.[groupKey];
+  const selectedPlans = sel && sel.size > 0
+    ? allPlans.filter(p => sel.has(String(p.id)))
+    : allPlans; // 선택 정보 없으면 전체
+
+  if (!selectedPlans.length) {
+    alert('선택된 사업계획이 없습니다. 체크박스로 확정할 계획을 선택해주세요.');
+    return;
+  }
+
+  const selectedTotal = selectedPlans.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+
+  // ─── 확정 팝업 모달 표시
+  await new Promise((resolve) => {
+    const modalId = 'tf-bundle-confirm-modal';
+    document.getElementById(modalId)?.remove();
+
+    const planListHtml = selectedPlans.map((p, i) => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:8px;background:#F8FAFF;border:1px solid #DBEAFE;margin-bottom:6px">
+        <div style="flex:1;overflow:hidden">
+          <span style="font-size:11px;font-weight:800;color:#374151">${i+1}. ${p.edu_name || p.title || String(p.id)}</span>
+          <span style="font-size:10px;color:#9CA3AF;margin-left:6px">${p.author || p.applicant_name || ''}</span>
+        </div>
+        <span style="font-size:12px;font-weight:900;color:#1D4ED8;white-space:nowrap;margin-left:8px">▲ ${Number(p.amount||0).toLocaleString()}원</span>
+      </div>`).join('');
+
+    const modal = document.createElement('div');
+    modal.id = modalId;
+    modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px';
+    modal.innerHTML = `
+<div style="background:white;border-radius:20px;width:520px;max-width:100%;max-height:85vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+    <div>
+      <div style="font-size:14px;font-weight:900;color:#1D4ED8;margin-bottom:2px">📤 팀 사업계획 확정</div>
+      <div style="font-size:11px;color:#6B7280">${accName} 계정 · ${submitterName} (${dept})</div>
+    </div>
+    <button id="tf-modal-close" style="border:none;background:none;font-size:20px;cursor:pointer;color:#9CA3AF">✕</button>
+  </div>
+
+  <div style="margin-bottom:16px">
+    <label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:6px">확정 메시지 <span style="color:#9CA3AF;font-weight:400">(선택사항)</span></label>
+    <textarea id="tf-bundle-msg" rows="2" placeholder="팀장에게 전달할 메시지를 입력하세요. 예) 2027년 역량강화 수요예측 계획을 제출합니다."
+      style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;resize:none;line-height:1.5"></textarea>
+  </div>
+
+  <div style="margin-bottom:16px">
+    <div style="font-size:11px;font-weight:800;color:#374151;margin-bottom:8px">📋 확정 대상 목록</div>
+    ${planListHtml}
+    <div style="display:flex;justify-content:space-between;padding:10px 12px;border-radius:8px;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);border:1.5px solid #BFDBFE;margin-top:6px">
+      <span style="font-size:12px;font-weight:900;color:#1D4ED8">총 ${selectedPlans.length}건</span>
+      <span style="font-size:14px;font-weight:900;color:#1D4ED8">▲ ${selectedTotal.toLocaleString()}원</span>
+    </div>
+  </div>
+
+  <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:11px;color:#92400E;margin-bottom:20px">
+    ⚠️ 확정하면 선택된 계획이 <strong>팀장 검토 대기</strong> 상태로 전환됩니다.
+  </div>
+
+  <div style="display:flex;gap:10px;justify-content:flex-end">
+    <button id="tf-modal-cancel" style="padding:10px 24px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:13px;font-weight:700;cursor:pointer;color:#6B7280">취소</button>
+    <button id="tf-modal-ok" style="padding:10px 32px;border-radius:10px;border:none;background:#1D4ED8;color:white;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 4px 16px rgba(29,78,216,.3)">📤 확정</button>
+  </div>
+</div>`;
+
+    document.body.appendChild(modal);
+
+    let confirmed = false;
+    const closeModal = () => { modal.remove(); resolve(confirmed); };
+
+    document.getElementById('tf-modal-close').onclick = closeModal;
+    document.getElementById('tf-modal-cancel').onclick = closeModal;
+    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+    document.getElementById('tf-modal-ok').onclick = () => {
+      const msgEl = document.getElementById('tf-bundle-msg');
+      window._tfBundleConfirmMsg = msgEl?.value?.trim() || '';
+      window._tfBundleSelectedPlans = selectedPlans;
+      confirmed = true;
+      closeModal();
+    };
+  });
+
+  // 취소 시 중단
+  if (!window._tfBundleSelectedPlans || !window._tfBundleSelectedPlans.length) return;
+
+  // 확정 대상을 모달에서 선택된 것으로 교체
+  const finalPlans = window._tfBundleSelectedPlans;
+  window._tfBundleSelectedPlans = null;
 
   const now = new Date().toISOString();
 
@@ -2219,7 +2466,8 @@ async function foTeamForecastConfirm(accountCode, dept, fiscalYear) {
       title: `${dept} ${fiscalYear}년 사업계획 (${accName})`,
       account_code: accountCode,
       fiscal_year: fiscalYear,
-      total_amount: total,
+      total_amount: selectedTotal,
+      content: window._tfBundleConfirmMsg || '',
       approval_system: 'platform',
       approval_nodes: [
         { order: 0, type: 'draft', label: '확정', approverKey: submitterId, activation: 'always' },
@@ -2237,7 +2485,7 @@ async function foTeamForecastConfirm(accountCode, dept, fiscalYear) {
 
     // 2) submission_items INSERT
     await sb.from('submission_items').insert(
-      allPlans.map((p, i) => ({
+      finalPlans.map((p, i) => ({
         submission_id: docId,
         item_type: 'plan',
         item_id: String(p.id),
@@ -2250,11 +2498,13 @@ async function foTeamForecastConfirm(accountCode, dept, fiscalYear) {
     );
 
     // 3) plans.status → submitted (번들 잠금)
-    for (const p of allPlans) {
+    for (const p of finalPlans) {
       await sb.from('plans').update({ status: 'submitted', updated_at: now }).eq('id', p.id);
     }
 
-    // 캐시 초기화 후 리렌더
+    // 선택 상태 및 캐시 초기화
+    if (window._tfBundleSelections) delete window._tfBundleSelections[groupKey];
+    window._tfBundleConfirmMsg = null;
     _plansDbLoaded = false; _dbMyPlans = []; _plansDbCache = [];
     _teamPlansLoaded = false; _dbTeamPlans = [];
 
@@ -2262,7 +2512,7 @@ async function foTeamForecastConfirm(accountCode, dept, fiscalYear) {
       ? '\n팀장으로 인식되어 BO 운영담당자에게 바로 전달되었습니다.'
       : '\n팀장 결재함에 검토 요청이 전송되었습니다.';
 
-    alert(`✅ 팀 사업계획 확정 완료!\n${allPlans.length}건 · ${total.toLocaleString()}원${msgExtra}`);
+    alert(`✅ 팀 사업계획 확정 완료!\n${finalPlans.length}건 · ${selectedTotal.toLocaleString()}원${msgExtra}`);
     renderPlans();
   } catch (err) {
     alert('❌ 확정 실패: ' + err.message);

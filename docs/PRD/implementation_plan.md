@@ -284,10 +284,42 @@ if (existingBundle) {
 
 ---
 
-## 12. 📌 추후 논의 필요 항목 (Deferred Decisions)
+## Phase 4: 사업계획 대시보드 지표 개선 및 재배분 UI 완전 차단
+
+**목표**: 
+사업계획 탭(Business Plan)과 운영계획 탭(Operation Plan)의 성격에 맞게 FO 대시보드의 지표를 이원화하고, 확정 전 상태인 사업계획 탭에서 "배정 재배분" 기능을 숨겨 워크플로우의 혼란을 방지합니다.
+
+### 도메인 전문가 위원회 (Domain Council) 피드백 요약
+- **교육계획/수요예측 전문가**: 사업계획 단계에서는 "승인건", "반려건", "계획금액" 등 전체 규모와 상태를 보여주는 것이 훨씬 직관적입니다. "배정 재배분"은 예산이 확정된 후 운영계획에서만 필요하므로 감추는 것에 전적으로 동의합니다.
+- **예산/정산 전문가**: 사업계획의 `amount` 합계(요청 총액)와 `allocated_amount` 합계(승인 배정액)를 직접 비교하게 하면, 삭감 규모 파악이 매우 쉽습니다. 재배분 UI를 차단하여 수요예측 금액과 충돌하는 예산 불일치 리스크를 없애는 것도 좋은 판단입니다.
+- **결재 거버넌스 전문가**: 대시보드의 렌더링 로직(`fo_plans_list.js`)에서 `isBusiness` 분기를 활용하여 지표를 교체하고, `fo_plans_actions.js`에서 재배분 UI 노출 조건을 명확히 제어하면 완벽합니다.
+
+### 제안 변경 사항
+
+#### [MODIFY] [fo_plans_list.js](file:///c:/Users/jbae/OneDrive/%EB%B0%94%ED%83%95%20%ED%99%94%EB%A9%B4/HMGNLP_Budget/public/js/fo_plans_list.js)
+1. **대시보드 지표 이원화 (`_renderPlansDashboard` 또는 `renderPlans`)**
+   - 기존 `statItems` 배열을 `isBusiness` 여부에 따라 분기합니다.
+   - **사업계획 탭**: 
+     1) **전체 사업계획**: 총 건수 (하단에 승인 X건, 반려 Y건 표시)
+     2) **사업계획 총액**: `amount` 합계 표시 (요청한 전체 금액)
+     3) **승인 배정액**: `allocated_amount` 합계 표시 (실제 승인된 사용 가능 금액)
+   - **운영계획 탭**: 
+     기존 4구간 유지 (전체, 진행중, 완료, 반려)
+
+#### [MODIFY] [fo_plans_actions.js](file:///c:/Users/jbae/OneDrive/%EB%B0%94%ED%83%95%20%ED%99%94%EB%A9%B4/HMGNLP_Budget/public/js/fo_plans_actions.js)
+1. **배정 재배분 UI 숨김 (`_foRenderReallocUI`)**
+   - `window.plansMode === 'forecast'` 인 경우(즉, 사업계획 탭인 경우) 함수 초입에서 `return;` 처리하여 재배분 UI 영역을 완전히 렌더링하지 않도록 수정합니다.
+
+### 오픈 퀘스천 (Open Questions)
+> [!IMPORTANT]
+> **Q1**: 사업계획 탭의 통계 박스가 기존 4개에서 3개(전체/총액/배정액)로 줄어듭니다. CSS 그리드를 `repeat(3, 1fr)`로 자동 조정하여 공간을 꽉 채우게 할까요, 아니면 기존 4등분 크기를 유지하고 1칸을 비워둘까요? (현재는 `grid-template-columns: repeat(auto-fit, minmax(...))` 또는 3분할로 디자인을 제안합니다.)
+
+---
+
+## 13. 📌 추후 논의 필요 항목 (Deferred Decisions)
 
 > [!IMPORTANT]
-> 아래 항목들은 현재 Phase 3 구현 범위에서 제외되었으나, 반드시 후속 논의 및 설계가 필요한 사항입니다.
+> 아래 항목들은 현재 구현 범위에서 제외되었으나, 반드시 후속 논의 및 설계가 필요한 사항입니다.
 
 ### Q-P3-01: 수요예측 결재라인 — 계정 단위 분리 설계 (🔴 HIGH)
 
@@ -309,9 +341,6 @@ if (existingBundle) {
 **참고 스크린샷**: BO 정책 빌더 Step 3 "결재라인" 화면에서 "수요예측 결재라인" 섹션이 이미 분리되어 있으나 미설정 상태 확인됨.
 
 **연관 PRD**: `fo_submission_approval.md`, `budget_lifecycle.md` Phase 12~14, `approval_line_design.md`
-
----
-
 ## 13. 변경 이력
 
 | 날짜 | 내용 | 작성자 |

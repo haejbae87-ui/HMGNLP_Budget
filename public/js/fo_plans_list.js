@@ -266,6 +266,7 @@ let _selectedAccountCode = null; // 현재 선택된 예산계정 코드
 let _selectedAccountName = null; // 계정 표시명
 let _userVorgList = [];          // 사용자 소속 VOrg 목록
 let _userAccountList = [];       // 선택된 VOrg의 계정 목록
+let _selectedVorgOwnedAccounts = []; // 선택된 VOrg의 owned 계정 코드 목록 (DB에서 로드)
 let _accountBudgetMap = {};      // 계정코드 → 예산정보 캐시
 let _activeCampaignForAccount = null; // 계정에 해당하는 활성 캠페인
 
@@ -288,6 +289,7 @@ function _resetPlansCacheForModeSwitch() {
   _selectedAccountName = null;
   _userVorgList = [];
   _userAccountList = [];
+  _selectedVorgOwnedAccounts = [];
   _accountBudgetMap = {};
   _activeCampaignForAccount = null;
   console.log('[MODE SWITCH] 캐시 초기화 완료:', window.plansMode);
@@ -556,7 +558,7 @@ async function _renderVorgHub() {
   const modeLabel = isBusiness ? '사업계획' : '운영계획';
   const modeIcon  = isBusiness ? '📋' : '🛠';
 
-  // VOrg 목록 수집 (currentPersona에서)
+  // VOrg ID 목록 수집 (currentPersona에서)
   let vorgIds = [];
   if (Array.isArray(currentPersona?.vorgIds) && currentPersona.vorgIds.length > 0) {
     vorgIds = currentPersona.vorgIds;
@@ -566,15 +568,45 @@ async function _renderVorgHub() {
     vorgIds = [currentPersona.domainId];
   }
 
-  // VORG_TEMPLATES 에서 메타데이터 매핑
+  if (vorgIds.length === 0) {
+    // VOrg 정보 없으면 계정 허브로 직행 (전체 계정 표시)
+    _selectedVorgId = 'default';
+    _selectedVorgName = '기본 제도그룹';
+    _selectedVorgOwnedAccounts = [];
+    renderPlans();
+    return;
+  }
+
+  // 로딩 표시
+  container.innerHTML = `<div style="padding:80px;text-align:center;color:#6B7280;font-weight:600;font-size:14px">⏳ 제도그룹 조회 중...</div>`;
+
+  // DB에서 직접 VOrg 명칭 + ownedAccounts 조회 (VORG_TEMPLATES name 신뢰 불가)
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  let fetchedVorgs = [];
+  if (sb && vorgIds.length > 0) {
+    try {
+      const { data } = await sb.from('edu_support_domains')
+        .select('id, name, code, owned_accounts')
+        .in('id', vorgIds);
+      if (data && data.length > 0) {
+        fetchedVorgs = data.map(row => ({
+          id: row.id,
+          name: row.name || row.code || row.id,
+          ownedAccounts: Array.isArray(row.owned_accounts) ? row.owned_accounts : [],
+        }));
+      }
+    } catch(e) { console.warn('[VorgHub] DB fetch failed:', e.message); }
+  }
+
+  // VORG_TEMPLATES 폴백 (DB 조회 실패 시)
   const templates = typeof VORG_TEMPLATES !== 'undefined' ? VORG_TEMPLATES : [];
   const vorgItems = vorgIds.map(vid => {
+    const fetched = fetchedVorgs.find(f => f.id === vid);
     const tpl = templates.find(t => t.id === vid || t.code === vid) || {};
     return {
       id: vid,
-      name: tpl.name || vid,
-      code: tpl.code || vid,
-      ownedAccounts: tpl.ownedAccounts || [],
+      name: fetched?.name || tpl.name || vid,
+      ownedAccounts: fetched?.ownedAccounts || tpl.ownedAccounts || [],
     };
   }).filter(v => v.id);
 
@@ -583,6 +615,7 @@ async function _renderVorgHub() {
     const v = vorgItems[0] || { id: vorgIds[0] || 'default', name: '기본 제도그룹', ownedAccounts: [] };
     _selectedVorgId = v.id;
     _selectedVorgName = v.name;
+    _selectedVorgOwnedAccounts = v.ownedAccounts;
     renderPlans();
     return;
   }
@@ -597,22 +630,18 @@ async function _renderVorgHub() {
     <p class="text-gray-500 text-sm mt-1">계획을 수립할 제도그룹을 선택해 주세요.</p>
   </div>
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px">
-    ${vorgItems.map(v => {
-      const accountCount = v.ownedAccounts.length;
-      return `
-    <button onclick="_selectVorg('${v.id}','${v.name.replace(/'/g,'')}')"
+    ${vorgItems.map(v => `
+    <button onclick="_selectVorg('${v.id}','${v.name.replace(/'/g, '')}')"
       style="text-align:left;padding:28px 24px;border-radius:20px;border:2px solid #E5E7EB;background:white;
              cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.05);transition:all 0.18s"
       onmouseover="this.style.borderColor='#002C5F';this.style.boxShadow='0 8px 28px rgba(0,44,95,0.12)';this.style.transform='translateY(-3px)'"
       onmouseout="this.style.borderColor='#E5E7EB';this.style.boxShadow='0 4px 16px rgba(0,0,0,0.05)';this.style.transform='none'">
       <div style="font-size:28px;margin-bottom:12px">🏛</div>
-      <div style="font-size:16px;font-weight:900;color:#111827;margin-bottom:6px">${v.name}</div>
-      <div style="font-size:12px;color:#6B7280;font-weight:600">예산계정 ${accountCount}개</div>
+      <div style="font-size:16px;font-weight:900;color:#111827;margin-bottom:4px">${v.name}</div>
       <div style="margin-top:16px;font-size:12px;font-weight:800;color:#002C5F;display:flex;align-items:center;gap:4px">
         선택하기 <span>→</span>
       </div>
-    </button>`;
-    }).join('')}
+    </button>`).join('')}
   </div>
 </div>`;
 }
@@ -620,6 +649,9 @@ async function _renderVorgHub() {
 function _selectVorg(vorgId, vorgName) {
   _selectedVorgId = vorgId;
   _selectedVorgName = vorgName;
+  // _userVorgList에서 ownedAccounts 가져오기 (L2 계정 필터링에 사용)
+  const vorgItem = _userVorgList.find(v => v.id === vorgId);
+  _selectedVorgOwnedAccounts = vorgItem?.ownedAccounts || [];
   _selectedAccountCode = null;
   _selectedAccountName = null;
   _userAccountList = [];
@@ -640,22 +672,26 @@ async function _renderAccountHub() {
   // 로딩 표시
   container.innerHTML = `<div style="padding:80px;text-align:center;color:#6B7280;font-weight:600;font-size:14px">⏳ 예산계정 조회 중...</div>`;
 
-  // 계정 목록: currentPersona.budgets에서 현재 VOrg에 속하는 계정 수집
-  const vorgTemplate = (typeof VORG_TEMPLATES !== 'undefined' ? VORG_TEMPLATES : [])
-    .find(t => t.id === _selectedVorgId || t.code === _selectedVorgId);
-  const ownedAccounts = vorgTemplate?.ownedAccounts || [];
+  // 계정 목록: _selectedVorgOwnedAccounts (DB에서 조회한 VOrg 소속 계정 코드 목록)로 필터
+  // _renderVorgHub 또는 단일VOrg 자동스킵 시 이미 set됨
+  const ownedAccounts = _selectedVorgOwnedAccounts || [];
 
-  // persona 예산에서 이 VOrg의 계정만 필터 (allowedAccounts 또는 budgets 배열)
+  // persona 예산에서 이 VOrg의 계정만 필터
   let accountItems = [];
   const budgets = currentPersona?.budgets || [];
   if (ownedAccounts.length > 0) {
-    // ownedAccounts 기반 필터
+    // ownedAccounts 기반 필터 (VOrg에 속한 계정만)
     accountItems = budgets.filter(b =>
       ownedAccounts.some(ac => ac === b.accountCode || ac === b.id)
     );
   } else {
-    // ownedAccounts 없으면 전체 budgets 사용 (폴백)
-    accountItems = budgets;
+    // ownedAccounts 비어있으면 allowedAccounts 기반 (단일VOrg 자동스킵 or 정보 없는 경우)
+    const allowed = currentPersona?.allowedAccounts || [];
+    if (allowed.includes('*')) {
+      accountItems = budgets;
+    } else {
+      accountItems = budgets.filter(b => allowed.includes(b.accountCode));
+    }
   }
 
   // 중복 제거 (accountCode 기준)

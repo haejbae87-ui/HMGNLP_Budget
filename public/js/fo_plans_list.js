@@ -1019,7 +1019,15 @@ function renderPlans() {
     }
     teamPlans = _dbTeamPlans;
   }
-  const plans = _planViewTab === "mine" ? myPlans : teamPlans;
+  const plans = _planViewTab === "mine"
+    ? myPlans
+    : [
+        // ★ 팀 탭: 내 계획 + 팀원 계획 병합 (내가 저장한 계획도 팀 탭에서 보이게)
+        ...myPlans,
+        // 중복 제거: 내 계획에 이미 있는 ID는 teamPlans에서 제외
+        ...teamPlans.filter(t => !myPlans.some(m => String(m.id) === String(t.id)))
+      ];
+
 
   // ★ plan_type 필터 (사업계획/운영계획 분리 핵심)
   const targetPlanType = isBusiness ? 'business' : 'operation';

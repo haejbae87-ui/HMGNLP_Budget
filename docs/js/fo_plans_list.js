@@ -436,11 +436,14 @@ function _buildForecastCampaignHtml() {
       const badges = targetIds.map(code => `<span style="display:inline-block;padding:2px 6px;border-radius:4px;background:#E0E7FF;color:#4338CA;font-size:10px;font-weight:800;margin-right:4px">💳 ${code}</span>`).join('');
       const encodedTargets = encodeURIComponent(JSON.stringify(targetIds));
       return `
-      <div ${isClosed ? '' : `onclick="startPlanWizard('forecast', ${c.fiscal_year}, '${encodedTargets}')"`}
+      <div ${isClosed ? '' : `onclick="_planYear=${c.fiscal_year};startPlanWizard('forecast', ${c.fiscal_year}, '${encodedTargets}')"`}
            style="padding:24px 20px;border-radius:16px;background:${isClosed ? '#F9FAFB' : 'white'};border:1.5px solid ${isClosed ? '#E5E7EB' : '#BFDBFE'};cursor:${isClosed ? 'not-allowed' : 'pointer'};box-shadow:0 4px 12px rgba(0,0,0,0.04);transition:all 0.15s;opacity:${isClosed ? '0.7' : '1'}"
            ${isClosed ? '' : `onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(37,99,235,0.1)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.04)'"`}>
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
-          <div style="font-size:12px;font-weight:900;color:${isClosed ? '#6B7280' : '#1D4ED8'};background:${isClosed ? '#E5E7EB' : '#EFF6FF'};padding:4px 10px;border-radius:8px;">🎯 ${c.fiscal_year}년도 예산 확정</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="font-size:13px;font-weight:900;color:white;background:${isClosed ? '#9CA3AF' : 'linear-gradient(135deg,#1D4ED8,#7C3AED)'};padding:5px 12px;border-radius:8px;letter-spacing:-.2px">${c.fiscal_year}년</div>
+            <div style="font-size:12px;font-weight:900;color:${isClosed ? '#6B7280' : '#1D4ED8'};background:${isClosed ? '#E5E7EB' : '#EFF6FF'};padding:4px 10px;border-radius:8px;">🎯 예산 수요예측</div>
+          </div>
           <div style="font-size:11px;font-weight:800;color:${isClosed ? '#4B5563' : '#DC2626'};background:${isClosed ? '#E5E7EB' : '#FEF2F2'};padding:4px 8px;border-radius:6px;">${isClosed ? '🔒 마감됨' : '⏳ 마감: ' + (c.recruit_end ? c.recruit_end.substring(0,10) : '상시')}</div>
         </div>
         <div style="margin-bottom:8px">${badges}</div>
@@ -527,11 +530,14 @@ async function _renderForecastDashboard() {
         const encodedTargets = encodeURIComponent(JSON.stringify(targetIds));
 
         return `
-        <div ${isClosed ? '' : `onclick="startPlanWizard('forecast', ${c.fiscal_year}, '${encodedTargets}')"`} 
+        <div ${isClosed ? '' : `onclick="_planYear=${c.fiscal_year};startPlanWizard('forecast', ${c.fiscal_year}, '${encodedTargets}')"`} 
              style="padding:24px 20px;border-radius:16px;background:${isClosed ? '#F9FAFB' : 'white'};border:1.5px solid ${isClosed ? '#E5E7EB' : '#BFDBFE'};cursor:${isClosed ? 'not-allowed' : 'pointer'};box-shadow:0 4px 12px rgba(0,0,0,0.04);transition:all 0.15s;opacity:${isClosed ? '0.7' : '1'}"
              ${isClosed ? '' : `onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(37,99,235,0.1)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.04)'"`}>
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
-            <div style="font-size:12px;font-weight:900;color:${isClosed ? '#6B7280' : '#1D4ED8'};background:${isClosed ? '#E5E7EB' : '#EFF6FF'};padding:4px 10px;border-radius:8px;">🎯 ${c.fiscal_year}년도 예산 확정</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="font-size:13px;font-weight:900;color:white;background:${isClosed ? '#9CA3AF' : 'linear-gradient(135deg,#1D4ED8,#7C3AED)'};padding:5px 12px;border-radius:8px;letter-spacing:-.2px">${c.fiscal_year}년</div>
+              <div style="font-size:12px;font-weight:900;color:${isClosed ? '#6B7280' : '#1D4ED8'};background:${isClosed ? '#E5E7EB' : '#EFF6FF'};padding:4px 10px;border-radius:8px;">🎯 예산 수요예측</div>
+            </div>
             <div style="font-size:11px;font-weight:800;color:${isClosed ? '#4B5563' : '#DC2626'};background:${isClosed ? '#E5E7EB' : '#FEF2F2'};padding:4px 8px;border-radius:6px;">${isClosed ? '🔒 마감됨' : '⏳ 마감: ' + (c.recruit_end ? c.recruit_end.substring(0,10) : '상시')}</div>
           </div>
           <div style="margin-bottom:8px">${accountBadges}</div>

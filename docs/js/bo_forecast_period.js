@@ -1,4 +1,4 @@
-// ─── 수요예측기간 관리 (독립 메뉴) ─────────────────────────────────────────
+﻿// ─── 수요예측기간 관리 (독립 메뉴) ─────────────────────────────────────────
 // 교육계획 관리에서 분리된 독립 메뉴
 // 제도그룹 단위로 수요예측 기간을 설정/관리한다
 
@@ -293,6 +293,22 @@ function _fpOpenCampaignModal(id) {
           </div>
         </div>
         <div style="display:flex;gap:16px">
+          <!-- 대상 사업연도 (추가된 필드) -->
+          <div style="flex:1">
+            <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px">대상 사업연도 <span style="color:#EF4444">*</span></label>
+            <select id="fp-modal-year" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #CBD5E1;border-radius:8px;font-size:14px;font-weight:700;color:#1E293B;background:white;cursor:pointer">
+              ${(() => {
+                const curY = new Date().getFullYear();
+                const selectedY = target?.fiscal_year || _fpFiscalYear || curY;
+                return [curY + 2, curY + 1, curY, curY - 1].map(y =>
+                  `<option value="${y}" ${selectedY === y ? 'selected' : ''}>${y}년도</option>`
+                ).join('');
+              })()}
+            </select>
+            <div style="font-size:10px;color:#94A3B8;margin-top:4px">프론트 오피스 사업계획 연도와 연동됩니다</div>
+          </div>
+        </div>
+        <div>
           <div style="flex:1">
             <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px">접수 시작일 <span style="color:#EF4444">*</span></label>
             <input type="date" id="fp-modal-start" value="${target?.recruit_start || ''}" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #CBD5E1;border-radius:8px;font-size:14px">
@@ -321,11 +337,14 @@ async function _fpSaveCampaign() {
   const title = document.getElementById('fp-modal-title').value.trim();
   const start = document.getElementById('fp-modal-start').value;
   const end = document.getElementById('fp-modal-end').value;
+  const modalYearEl = document.getElementById('fp-modal-year');
+  const campaignYear = modalYearEl ? Number(modalYearEl.value) : _fpFiscalYear;
   
   const checkboxes = document.querySelectorAll('input[name="fp_account_cb"]:checked');
   const targetAccounts = Array.from(checkboxes).map(cb => cb.value);
 
   if (!title) { alert('캠페인 제목을 입력하세요.'); return; }
+  if (!campaignYear) { alert('대상 사업연도를 선택하세요.'); return; }
   if (targetAccounts.length === 0) { alert('최소 1개의 대상 예산 계정을 선택하세요.'); return; }
   if (!start || !end) { alert('시작일과 종료일을 입력하세요.'); return; }
   if (start > end) { alert('종료일은 시작일 이후여야 합니다.'); return; }
@@ -336,7 +355,7 @@ async function _fpSaveCampaign() {
   try {
     const payload = {
       tenant_id: _fpTenantId,
-      fiscal_year: _fpFiscalYear,
+      fiscal_year: campaignYear,   // 모달에서 선택한 연도 사용
       vorg_template_id: _fpVorgId,
       title: title,
       target_accounts: targetAccounts,
@@ -355,6 +374,8 @@ async function _fpSaveCampaign() {
       alert('✅ 신규 캠페인이 등록되었습니다.');
     }
 
+    // 필터바 연도를 캠페인연도로 동기화
+    _fpFiscalYear = campaignYear;
     document.getElementById('fp-campaign-modal').remove();
     _fpRenderContent();
   } catch (e) {
@@ -396,4 +417,5 @@ async function _fpDeleteCampaign(id) {
     alert('❌ 삭제 실패: ' + e.message);
   }
 }
+
 

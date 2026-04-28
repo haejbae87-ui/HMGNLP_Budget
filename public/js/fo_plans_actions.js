@@ -900,18 +900,13 @@ function _renderCalcGroundsSection(s, curBudget) {
       ? `
   <!-- 항목 행 테이블 -->
   <div class="bg-white rounded-xl overflow-hidden border border-blue-100 mb-3" style="overflow-x:auto">
-    <table class="w-full text-xs" style="min-width:960px">
+    <table class="w-full text-xs" style="min-width:700px">
       <thead class="bg-blue-50">
         <tr class="text-[10px] font-black text-blue-500 uppercase tracking-wider">
           <th class="px-3 py-2 text-left" style="min-width:130px">항목</th>
           <th class="px-3 py-2 text-left" style="min-width:90px">세부항목</th>
           <th class="px-3 py-2 text-right" style="width:80px">단가(원)</th>
-          <th class="px-3 py-2 text-right" style="width:48px">수량1</th>
-          <th class="px-3 py-2 text-center" style="width:56px">유형1</th>
-          <th class="px-3 py-2 text-right" style="width:48px">수량2</th>
-          <th class="px-3 py-2 text-center" style="width:56px">유형2</th>
-          <th class="px-3 py-2 text-right" style="width:48px">수량3</th>
-          <th class="px-3 py-2 text-center" style="width:56px">유형3</th>
+          <th class="px-3 py-2 text-center" style="width:130px">수량 및 단위</th>
           <th class="px-3 py-2 text-right" style="width:90px">예산금액(원)</th>
           <th class="px-3 py-2 text-left" style="width:72px">비고</th>
           <th class="px-3 py-2 text-center" style="width:32px"></th>
@@ -997,24 +992,33 @@ function _renderCalcGroundsSection(s, curBudget) {
                 oninput="_cgUpdateUnitPrice(${idx}, this.value)"
                 style="width:80px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:4px 6px">
             </td>
-            <td class="px-3 py-2">
-              <input type="number" value="${row.qty1||row.qty||1}" min="1"
-                oninput="_cgUpdateQty1(${idx},this.value)"
-                style="width:38px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:3px 5px">
+            <td class="px-3 py-2 text-center">
+              <div class="flex flex-col gap-1.5 w-full max-w-[120px] mx-auto">
+                <div class="flex items-center justify-between gap-1">
+                  <span class="text-[10px] text-gray-500 font-bold w-6 text-left">수량</span>
+                  <input type="number" value="${row.qty1||row.qty||1}" min="1"
+                    oninput="_cgUpdateQty1(${idx},this.value)"
+                    style="width:40px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:3px 4px">
+                  ${uSel(row.type1||'명','_cgUpdateType1')}
+                </div>
+                ${item && item.hasQty2 ? `
+                <div class="flex items-center justify-between gap-1">
+                  <span class="text-[10px] text-gray-500 font-bold w-6 text-left">기간</span>
+                  <input type="number" value="${row.qty2||1}" min="1"
+                    oninput="_cgUpdateQty2(${idx},this.value)"
+                    style="width:40px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:3px 4px">
+                  ${uSel(row.type2||'일','_cgUpdateType2')}
+                </div>` : ''}
+                ${item && item.hasRounds ? `
+                <div class="flex items-center justify-between gap-1">
+                  <span class="text-[10px] text-gray-500 font-bold w-6 text-left">차수</span>
+                  <input type="number" value="${row.qty3||1}" min="1"
+                    oninput="_cgUpdateQty3(${idx},this.value)"
+                    style="width:40px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:3px 4px">
+                  ${uSel(row.type3||'차수','_cgUpdateType3')}
+                </div>` : ''}
+              </div>
             </td>
-            <td class="px-3 py-2">${uSel(row.type1||'명','_cgUpdateType1')}</td>
-            <td class="px-3 py-2">
-              <input type="number" value="${row.qty2||1}" min="1"
-                oninput="_cgUpdateQty2(${idx},this.value)"
-                style="width:38px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:3px 5px">
-            </td>
-            <td class="px-3 py-2">${uSel(row.type2||'일','_cgUpdateType2')}</td>
-            <td class="px-3 py-2">
-              <input type="number" value="${row.qty3||1}" min="1"
-                oninput="_cgUpdateQty3(${idx},this.value)"
-                style="width:38px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:3px 5px">
-            </td>
-            <td class="px-3 py-2">${uSel(row.type3||'차수','_cgUpdateType3')}</td>
             <td class="px-3 py-2 text-right font-black" style="color:${isHardOver?'#DC2626':isSoftOver?'#D97706':'#111827'}">
               ${fmt(row.total)}
             </td>

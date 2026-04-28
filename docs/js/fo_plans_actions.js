@@ -25,10 +25,10 @@ function planSelectBudget(id) {
 }
 
 function planNext() {
-  const nextStep = Math.min(planState.step + 1, 4);
+  const nextStep = Math.min(planState.step + 1, 3);
   planState.step = nextStep;
-  // Step4 진입 시 BO form_template 항상 최신 로드 (TTL 캐시는 fo_form_loader에서 관리)
-  if (nextStep === 4) {
+  // Step3 진입 시 BO form_template 항상 최신 로드 (TTL 캐시는 fo_form_loader에서 관리)
+  if (nextStep === 3) {
     planState.formTemplateLoading = true;
     planState.formTemplate = null; // 이전 캐시 무효화 → 항상 DB에서 재조회
     renderPlanWizard();
@@ -38,14 +38,13 @@ function planNext() {
         ? _getActivePolicies(currentPersona)?.policies || []
         : [];
     const purposeId = planState.purpose?.id;
-    const eduType = planState.subType || planState.eduType || ""; // Step3에서 선택한 교육유형
+    const eduType = planState.subType || planState.eduType || ""; // Step2에서 선택한 교육유형
     const accCode = (() => {
       const budgets = currentPersona?.budgets || [];
       const b = budgets.find((x) => x.id === planState.budgetId);
       return b?.accountCode || b?.account_code || null;
     })();
     // ★ purpose + account + eduType 기준 최적 정책 선택
-    // FO purpose(internal_edu) → BO purpose(elearning_class 등) 역매핑 적용
     const boPurposeKeys =
       typeof _FO_TO_BO_PURPOSE !== "undefined" && purposeId
         ? _FO_TO_BO_PURPOSE[purposeId] || [purposeId]

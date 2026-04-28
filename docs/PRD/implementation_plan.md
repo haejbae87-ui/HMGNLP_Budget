@@ -318,3 +318,265 @@ if (existingBundle) {
 |---|---|---|
 | 2026-04-28 | 최초 작성 — Phase 3 팀 사업계획 일괄 확정. Domain Council 3회 검증. 계정별 번들 분리, 누구나 확정, Hold 없음 확정 | AI |
 | 2026-04-28 | §12 추후 논의 항목 추가 — Q-P3-01 수요예측 결재라인 계정 단위 분리 설계 기록 | AI |
+| 2026-04-28 | Phase 4 추가 — 사업계획 최종 승인 시 운영계획 자동 복사 기능 Domain Council 검증 및 설계 | AI |
+
+---
+---
+
+# Phase 4: 사업계획 승인 시 운영계획 자동 복사 (Forecast → Operation Auto-Copy)
+
+> **도메인**: FO — 교육계획 라이프사이클 (사업계획 → 운영계획 전환)
+> **관련 파일**: `fo_plans_actions.js`, `fo_plans_list.js`, `approval.js`, Supabase `plans` 테이블
+> **최초 작성**: 2026-04-28
+> **최종 갱신**: 2026-04-28
+> **상태**: 🔴 미구현 (설계 완료, 구현 대기)
+
+---
+
+## 🏛️ Domain Council 확정 정책
+
+| 정책 | 확정 내용 |
+|---|---|
+| **복사 트리거** | 최종 결재자(총괄담당자) 승인 완료 시(`status → 'approved'`), `plan_type === 'forecast'` 계획에 한정 |
+| **복사 방지 조건** | 동일 `source_forecast_plan_id`로 이미 운영계획이 존재하면 복사 스킵 (멱등성) |
+| **복사본 초기 상태** | `status: 'saved'`, `plan_type: 'operation'` — 사용자가 세부 사항 보완 후 별도 상신 |
+| **예산 이중 점유 방지** | 복사본 `frozen_amount: 0` — 예산 Hold는 운영계획 결재 승인 시점에 별도 처리 |
+| **원본 연결** | `detail.source_forecast_plan_id: <원본 ID>` 기록 — 추적 및 감사 용도 |
+| **사용자 알림** | 복사 완료 후 FO 화면에 토스트 알림 표시: "운영계획이 자동 생성되었습니다" |
+
+---
+
+## 1. 기능 개요
+
+총괄담당자가 사업계획(forecast)을 최종 승인하면, 해당 계획의 모든 세부 정보를 그대로 복사한 운영계획(operation)이 자동 생성된다. 담당자는 운영계획 탭에서 복사된 계획의 실행 세부 사항(날짜, 장소, 강사 등)을 보완한 뒤 운영계획 결재를 진행한다.
+
+- **사용자 이중 입력 제거**: 사업계획 내용을 운영계획에서 다시 작성하지 않아도 됨
+- **추적 가능성**: `source_forecast_plan_id`로 원본 사업계획과 파생 운영계획 연결
+- **예산 안전성**: 복사본은 frozen_amount = 0으로 시작하여 이중 예산 점유 방지
+
+---
+
+## 2. 사용자 스토리
+
+> "총괄담당자가 팀 사업계획을 최종 승인하면, 해당 계획이 자동으로 운영계획에 복사되어 담당자가 실행 준비를 즉시 시작할 수 있다."
+
+> "운영계획 탭 → 팀 교육계획에서 복사된 계획을 확인하고, 날짜/장소를 보완한 뒤 운영계획 결재를 상신할 수 있다."
+
+---
+
+## 3. 비즈니스 플로우
+
+```
+[Phase 3: 팀 사업계획 확정]
+  팀원 저장(saved) → 팀장 확정 → 운영담당자 검토 → 총괄담당자 최종 승인
+          │
+          │ ★ 총괄담당자 status → 'approved' 트리거
+          ▼
+[Phase 4: 운영계획 자동 복사]
+  새 plans 레코드 INSERT:
+    plan_type: 'operation'
+    status: 'saved'
+    frozen_amount: 0
+    detail.source_forecast_plan_id: 원본 ID
+    (나머지 필드 원본 복사)
+          │
+          ▼
+[운영계획 탭]
+  복사된 계획이 '저장완료' 상태로 표시
+  담당자가 실행 세부사항 보완 → 운영계획 결재 상신
+```
+
+---
+
+## 4. DB/데이터 구조
+
+### 4.1 자동 생성되는 운영계획 레코드
+
+```sql
+INSERT INTO plans (
+  id,                    -- 새 ID: 'PLAN-{timestamp}'
+  edu_name,              -- 원본 복사
+  plan_type,             -- 'operation'  ← 변경
+  status,                -- 'saved'       ← 초기 상태
+  fiscal_year,           -- 원본 복사 (동일 연도 실행)
+  account_code,          -- 원본 복사
+  amount,                -- 원본 복사 (승인된 요청액)
+  frozen_amount,         -- 0             ← 이중 점유 방지
+  applicant_id,          -- 원본 복사
+  applicant_name,        -- 원본 복사
+  applicant_org_id,      -- 원본 복사
+  dept,                  -- 원본 복사
+  tenant_id,             -- 원본 복사
+  detail,                -- 원본 detail 복사 + source_forecast_plan_id 추가
+  created_at             -- 현재 시각
+);
+```
+
+### 4.2 detail 필드 구조 (복사본)
+
+```json
+{
+  ...원본 detail 전체 복사...,
+  "source_forecast_plan_id": "PLAN-1777370533134",
+  "auto_copied_at": "2026-04-28T10:38:00.000Z",
+  "copy_trigger": "forecast_approved"
+}
+```
+
+### 4.3 중복 방지 쿼리
+
+```javascript
+// 복사 전 기존 운영계획 존재 여부 확인
+const { data: existing } = await sb
+  .from('plans')
+  .select('id')
+  .eq('plan_type', 'operation')
+  .contains('detail', { source_forecast_plan_id: forecastPlan.id })
+  .limit(1);
+
+if (existing?.length > 0) {
+  console.log('[AutoCopy] 이미 복사된 운영계획 존재, 스킵:', existing[0].id);
+  return;
+}
+```
+
+---
+
+## 5. 구현 방식 — 트리거 위치
+
+현재 승인 처리는 `approval.js` 또는 `fo_plans_actions.js`의 최종 승인 함수에서 수행됩니다.
+
+```javascript
+// approval.js 또는 fo_plans_actions.js 내 최종 승인 처리 함수
+async function _onFinalApproval(planId, approverInfo) {
+  // 1. plans.status → 'approved' 업데이트 (기존 로직)
+  await sb.from('plans').update({ status: 'approved' }).eq('id', planId);
+
+  // 2. ★ 사업계획(forecast)인 경우 운영계획 자동 복사
+  const { data: plan } = await sb.from('plans').select('*').eq('id', planId).single();
+  
+  if (plan?.plan_type === 'forecast') {
+    await _autoCreateOperationPlan(plan);
+  }
+}
+
+async function _autoCreateOperationPlan(forecastPlan) {
+  // 중복 방지
+  const { data: existing } = await sb.from('plans')
+    .select('id')
+    .eq('plan_type', 'operation')
+    .contains('detail', { source_forecast_plan_id: forecastPlan.id })
+    .limit(1);
+  
+  if (existing?.length > 0) return;
+
+  const newId = 'PLAN-' + Date.now();
+  const newDetail = {
+    ...(forecastPlan.detail || {}),
+    source_forecast_plan_id: forecastPlan.id,
+    auto_copied_at: new Date().toISOString(),
+    copy_trigger: 'forecast_approved',
+  };
+
+  await sb.from('plans').insert({
+    id: newId,
+    edu_name: forecastPlan.edu_name,
+    plan_type: 'operation',
+    status: 'saved',
+    fiscal_year: forecastPlan.fiscal_year,
+    account_code: forecastPlan.account_code,
+    amount: forecastPlan.amount,
+    frozen_amount: 0,
+    applicant_id: forecastPlan.applicant_id,
+    applicant_name: forecastPlan.applicant_name,
+    applicant_org_id: forecastPlan.applicant_org_id,
+    dept: forecastPlan.dept,
+    tenant_id: forecastPlan.tenant_id,
+    detail: newDetail,
+    created_at: new Date().toISOString(),
+  });
+
+  // 사용자 알림 (화면에 표시 중인 경우)
+  if (typeof showToast === 'function') {
+    showToast('✅ 운영계획이 자동 생성되었습니다. 운영계획 탭에서 확인하세요.');
+  }
+}
+```
+
+---
+
+## 6. UI 변경사항
+
+### 6.1 운영계획 팀 탭 — 복사된 계획 뱃지
+
+복사된 계획에는 **"📋 사업계획 복사"** 뱃지를 표시하여 자동 복사본임을 명시:
+
+```
+┌──────────────────────────────────────────────┐
+│ 2027 이러닝_0428 1900  [저장완료] [📋 복사본] │
+│ 역량혁신팀 일반-운영계정 ▲ 350,000원          │
+│ [상신하기] [수정] [복제]                      │
+└──────────────────────────────────────────────┘
+```
+
+### 6.2 계획 상세 화면 — 원본 사업계획 링크
+
+```
+📌 원본 사업계획: [PLAN-1777370533134] 2027 이러닝_0428 1900 (승인완료)
+```
+
+---
+
+## 7. 예외 처리 및 엣지 케이스
+
+| # | 케이스 | 위험도 | 처리 방안 |
+|---|---|---|---|
+| EC-1 | 동일 사업계획 중복 복사 | 🔴 | `source_forecast_plan_id` 존재 여부로 멱등성 보장 |
+| EC-2 | 사업계획 반려 후 재승인 | 🟡 | 재승인 시 기존 복사본 존재 → 스킵 (기존 복사본 유지) |
+| EC-3 | 복사된 운영계획 수정 후 원본 변경 | 🟡 | 원본-복사본 동기화 없음. 복사는 1회성 스냅샷으로 처리 |
+| EC-4 | 네트워크 오류로 복사 실패 | 🟠 | 재시도 필요 — BO 관리자가 수동 복사 버튼으로 재실행 가능하도록 설계 필요 |
+| EC-5 | 예산 이중 점유 | 🔴 | 복사본 `frozen_amount: 0` 고정. 운영계획 결재 승인 시점에 별도 Hold 생성 |
+
+---
+
+## 8. 접근 권한
+
+| 역할 | 자동 복사 트리거 | 복사본 조회 | 복사본 수정 |
+|---|:---:|:---:|:---:|
+| FO 팀원 (원 작성자) | ❌ (시스템 자동) | ✅ | ✅ |
+| 총괄담당자 | ✅ (승인 시 자동) | ✅ | ❌ |
+| BO 운영담당자 | ❌ | ✅ (BO 대시보드) | ❌ |
+
+---
+
+## 9. 구현 대상 파일
+
+| 파일 | 작업 내용 |
+|---|---|
+| `approval.js` | 최종 승인 함수에 `_autoCreateOperationPlan` 호출 추가 |
+| `fo_plans_actions.js` | `_autoCreateOperationPlan` 함수 구현 |
+| `fo_plans_list.js` | 복사본 카드에 "📋 복사본" 뱃지 표시 로직 추가 |
+
+---
+
+## 10. Verification Plan
+
+- **자동 복사 확인**: 사업계획 최종 승인 후 운영계획 탭에 동일 내용의 `saved` 계획 생성 확인
+- **중복 방지 확인**: 동일 사업계획 승인 이벤트가 두 번 발생해도 운영계획 1건만 생성됨 확인
+- **예산 이중 점유 없음**: `bankbooks.frozen_amount` 변화 없음 확인
+- **원본 링크 확인**: 복사본 `detail.source_forecast_plan_id` 정상 기록 확인
+
+---
+
+## 11. 📌 미결 사항 (구현 전 확인 필요)
+
+> [!IMPORTANT]
+> 아래 항목들은 구현 시작 전 결정이 필요합니다.
+
+| # | 질문 | 옵션 A | 옵션 B |
+|---|---|---|---|
+| Q-P4-01 | 재승인 시 기존 복사본 처리 | 기존 복사본 유지 (1회성 스냅샷) ← 권장 | 기존 복사본 삭제 후 재생성 |
+| Q-P4-02 | 복사본 알림 방식 | 화면 토스트 알림만 | 별도 알림 탭 + 이메일 |
+| Q-P4-03 | 운영계획 결재 시 frozen_amount | 복사본 결재 승인 시 새로 생성 | 원본 forecast frozen을 이전 |
+
+

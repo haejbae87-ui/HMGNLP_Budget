@@ -190,14 +190,13 @@ function _renderBdLevel1(el, isPlatform, tenants) {
   const plans = _bdPlans || [];
 
   // 전체 집계
-  const totalCount = plans.length;
-  const demandTotal         = plans.reduce((s, p) => s + Number(p.amount || 0), 0);
-  const opConfirmedTotal    = plans.reduce((s, p) => s + Number(p.op_confirmed_amount || 0), 0);
-  const finalConfirmedTotal = plans.reduce((s, p) => s + Number(p.final_confirmed_amount || 0), 0);
-  const pendingTotal  = plans.filter((p) => p.status === "pending").reduce((s, p) => s + Number(p.amount || 0), 0);
-  const rejectedTotal = plans.filter((p) => p.status === "rejected").reduce((s, p) => s + Number(p.amount || 0), 0);
-  const opPct    = demandTotal > 0 ? Math.round((opConfirmedTotal / demandTotal) * 100) : 0;
-  const finalPct = demandTotal > 0 ? Math.round((finalConfirmedTotal / demandTotal) * 100) : 0;
+  const totalCount     = plans.length;
+  const demandTotal    = plans.reduce((s, p) => s + Number(p.amount || 0), 0);
+  const opTotal        = plans.reduce((s, p) => s + Number(p.op_confirmed_amount || 0), 0);
+  const finalTotal     = plans.reduce((s, p) => s + Number(p.final_confirmed_amount || 0), 0);
+  const pendingTotal   = plans.filter((p) => p.status === "pending").reduce((s, p) => s + Number(p.amount || 0), 0);
+  const rejectedTotal  = plans.filter((p) => p.status === "rejected").reduce((s, p) => s + Number(p.amount || 0), 0);
+  const opPct = demandTotal > 0 ? Math.round((opTotal / demandTotal) * 100) : 0;
 
   // 그룹별 집계
   const groupRows = _bdGroups.map((g) => _bdAggregateGroup(g, plans));
@@ -210,10 +209,10 @@ function _renderBdLevel1(el, isPlatform, tenants) {
   }
 
   const cards = [
-    { icon: "📋", label: "전체 계획",    val: `${totalCount}건`,              color: "#002C5F", bg: "#EFF6FF" },
-    { icon: "📊", label: "사업계획금액", val: _bdFmt(demandTotal),             color: "#0369A1", bg: "#F0F9FF" },
-    { icon: "🔵", label: "1차확정금액",  val: _bdFmt(opConfirmedTotal),       color: "#0369A1", bg: "#E0F2FE" },
-    { icon: "🟣", label: "최종확정금액", val: _bdFmt(finalConfirmedTotal),    color: "#7C3AED", bg: "#F5F3FF" },
+    { icon: "📋", label: "전체 계획",   val: `${totalCount}건`,      color: "#002C5F", bg: "#EFF6FF" },
+    { icon: "📊", label: "수요 예산",   val: _bdFmt(demandTotal),    color: "#0369A1", bg: "#F0F9FF" },
+    { icon: "🔵", label: "1차확정 합계", val: _bdFmt(opTotal),        color: "#0369A1", bg: "#EFF6FF" },
+    { icon: "✅", label: "최종확정 합계",val: _bdFmt(finalTotal),     color: "#7C3AED", bg: "#F5F3FF" },
   ];
 
   // F-152: 역할별 시뮬레이션 버튼 분기
@@ -258,23 +257,14 @@ function _renderBdLevel1(el, isPlatform, tenants) {
     </div>
 
     <div class="bo-card" style="padding:14px 20px;margin-bottom:16px">
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <div style="display:flex;align-items:center;gap:12px">
-          <span style="font-size:11px;font-weight:900;color:#0369A1;white-space:nowrap;min-width:68px">1차확정률</span>
-          <div style="flex:1;height:8px;background:#E5E7EB;border-radius:4px;overflow:hidden">
-            <div style="width:${opPct}%;height:100%;background:linear-gradient(90deg,#0369A1,#38BDF8);border-radius:4px;transition:width .5s"></div>
-          </div>
-          <span style="font-size:12px;font-weight:900;color:#0369A1;white-space:nowrap;min-width:36px">${opPct}%</span>
-          <span style="font-size:11px;color:#9CA3AF">${_bdFmt(opConfirmedTotal)} / ${_bdFmt(demandTotal)}</span>
+      <div style="display:flex;align-items:center;gap:16px">
+        <span style="font-size:12px;font-weight:900;color:#374151;white-space:nowrap">1차확정률</span>
+        <div style="flex:1;height:10px;background:#E5E7EB;border-radius:5px;overflow:hidden">
+          <div style="width:${opPct}%;height:100%;background:linear-gradient(90deg,#0369A1,#38BDF8);border-radius:5px;transition:width .5s"></div>
         </div>
-        <div style="display:flex;align-items:center;gap:12px">
-          <span style="font-size:11px;font-weight:900;color:#7C3AED;white-space:nowrap;min-width:68px">최종확정률</span>
-          <div style="flex:1;height:8px;background:#E5E7EB;border-radius:4px;overflow:hidden">
-            <div style="width:${finalPct}%;height:100%;background:linear-gradient(90deg,#7C3AED,#A78BFA);border-radius:4px;transition:width .5s"></div>
-          </div>
-          <span style="font-size:12px;font-weight:900;color:#7C3AED;white-space:nowrap;min-width:36px">${finalPct}%</span>
-          <span style="font-size:11px;color:#9CA3AF">${_bdFmt(finalConfirmedTotal)} / ${_bdFmt(demandTotal)}</span>
-        </div>
+        <span style="font-size:13px;font-weight:900;color:#0369A1;white-space:nowrap">${opPct}%</span>
+        <span style="font-size:11px;color:#9CA3AF">(${_bdFmt(opTotal)} / ${_bdFmt(demandTotal)})</span>
+        <span style="font-size:11px;color:#7C3AED;font-weight:800;margin-left:8px">최종확정 ${_bdFmt(finalTotal)}</span>
       </div>
     </div>
 
@@ -303,8 +293,9 @@ function _renderBdLevel1(el, isPlatform, tenants) {
             <td style="text-align:center">${g.teamCount}</td>
             <td style="text-align:center">${g.count}건</td>
             <td style="text-align:right;font-weight:800">${_bdFmt(g.demand)}</td>
-            <td style="text-align:right;font-weight:800;color:#0369A1;background:#0369A106">${_bdFmt(g.opConfirmed)}</td>
-            <td style="text-align:right;font-weight:800;color:#7C3AED;background:#7C3AED06">${_bdFmt(g.finalConfirmed)}</td>
+            <td style="text-align:right;font-weight:800;color:#059669">${_bdFmt(g.confirmed)}</td>
+            <td style="text-align:right;color:#D97706">${_bdFmt(g.pending)}</td>
+            <td style="text-align:right;color:#DC2626">${_bdFmt(g.rejected)}</td>
             <td style="text-align:center">
               <div style="display:flex;align-items:center;gap:6px;justify-content:center">
                 <div style="width:50px;height:5px;background:#E5E7EB;border-radius:3px;overflow:hidden">
@@ -320,9 +311,11 @@ function _renderBdLevel1(el, isPlatform, tenants) {
             <td colspan="2">합계</td>
             <td style="text-align:center">${totalCount}건</td>
             <td style="text-align:right">${_bdFmt(demandTotal)}</td>
-            <td style="text-align:right;color:#0369A1">${_bdFmt(opConfirmedTotal)}</td>
-            <td style="text-align:right;color:#7C3AED">${_bdFmt(finalConfirmedTotal)}</td>
-            <td style="text-align:center;font-weight:900;color:${opPct >= 80 ? "#059669" : opPct >= 50 ? "#D97706" : "#DC2626"}">${opPct}%</td>
+            <td style="text-align:right;color:#0369A1">${_bdFmt(opTotal)}</td>
+            <td style="text-align:right;color:#7C3AED">${_bdFmt(finalTotal)}</td>
+            <td style="text-align:right;color:#D97706">${_bdFmt(pendingTotal)}</td>
+            <td style="text-align:right;color:#DC2626">${_bdFmt(rejectedTotal)}</td>
+            <td style="text-align:center;font-weight:900;color:${opPct>=80?"#0369A1":opPct>=50?"#D97706":"#DC2626"}">${opPct}%</td>
           </tr>
         </tbody>
       </table>
@@ -360,13 +353,12 @@ function _renderBdLevel2(el, isPlatform, tenants) {
     return _bdAggregateTeam(t, tPlans);
   });
 
-  const totalDemand       = teamRows.reduce((s, t) => s + t.demand, 0);
-  const totalOpConfirmed  = teamRows.reduce((s, t) => s + t.opConfirmed, 0);
-  const totalFinalConf    = teamRows.reduce((s, t) => s + t.finalConfirmed, 0);
-  const totalPending      = teamRows.reduce((s, t) => s + t.pending, 0);
-  const totalCount        = teamRows.reduce((s, t) => s + t.count, 0);
-  const totalOpPct   = totalDemand > 0 ? Math.round((totalOpConfirmed / totalDemand) * 100) : 0;
-  const totalFinalPct = totalDemand > 0 ? Math.round((totalFinalConf / totalDemand) * 100) : 0;
+  const totalDemand    = teamRows.reduce((s, t) => s + t.demand, 0);
+  const totalOpConf    = teamRows.reduce((s, t) => s + (t.opConfirmed||0), 0);
+  const totalFinalConf = teamRows.reduce((s, t) => s + (t.finalConfirmed||0), 0);
+  const totalPending   = teamRows.reduce((s, t) => s + t.pending, 0);
+  const totalCount     = teamRows.reduce((s, t) => s + t.count, 0);
+  const totalPct = totalDemand > 0 ? Math.round((totalOpConf / totalDemand) * 100) : 0;
 
   el.innerHTML = `
   <div class="bo-fade">
@@ -392,8 +384,8 @@ function _renderBdLevel2(el, isPlatform, tenants) {
         <div style="margin-top:8px;display:flex;gap:20px;font-size:12px;flex-wrap:wrap">
           <span>팀수 <strong>${teams.length}개</strong></span>
           <span>수요 <strong>${_bdFmt(totalDemand)}</strong></span>
-          <span>1차확정 <strong style="color:#86EFAC">${_bdFmt(totalOpConfirmed)}</strong></span>
-          <span>최종확정 <strong style="color:#D8B4FE">${_bdFmt(totalFinalConf)}</strong></span>
+          <span>1차확정 <strong style="color:#93C5FD">${_bdFmt(totalOpConf)}</strong></span>
+          <span>최종확정 <strong style="color:#C4B5FD">${_bdFmt(totalFinalConf)}</strong></span>
           <span>${totalCount}건</span>
         </div>
       </div>
@@ -404,48 +396,45 @@ function _renderBdLevel2(el, isPlatform, tenants) {
       <table class="bo-table" style="font-size:12px">
         <thead><tr>
           <th>팀</th><th style="text-align:center">건수</th>
-          <th style="text-align:right">사업계획금액</th>
-          <th style="text-align:right;background:#0369A112;color:#0369A1">1차확정금액</th>
-          <th style="text-align:right;background:#7C3AED12;color:#7C3AED">최종확정금액</th>
-          <th style="text-align:center">1차확정률</th>
+          <th style="text-align:right">수요</th>
+          <th style="text-align:right;color:#0369A1">1차확정</th>
+          <th style="text-align:right;color:#7C3AED">최종확정</th>
+          <th style="text-align:right">미결</th><th style="text-align:center">1차확정률</th>
           <th style="text-align:center">상신자</th>
         </tr></thead>
         <tbody>
-          ${teamRows
-            .map((t) => {
-              const applicantList =
-                Object.entries(t.applicants)
-                  .map(([n, v]) => `${n}(${v.count}건)`)
-                  .join(", ") || "-";
+          ${teamRows.map((t) => {
+              const applicantList = Object.entries(t.applicants).map(([n,v])=>`${n}(${v.count}건)`).join(", ")||"-";
               return `
-          <tr onclick="_bdDrillOrg='${t.name.replace(/'/g, "\\'")}';renderBudgetDemand()" style="cursor:pointer;transition:background .12s"
+          <tr onclick="_bdDrillOrg='${t.name.replace(/'/g,"\\'")}';renderBudgetDemand()" style="cursor:pointer;transition:background .12s"
               onmouseover="this.style.background='#F0F9FF'" onmouseout="this.style.background=''">
             <td style="font-weight:800">${t.name}</td>
             <td style="text-align:center">${t.count}건</td>
             <td style="text-align:right;font-weight:800">${_bdFmt(t.demand)}</td>
-            <td style="text-align:right;font-weight:800;color:#0369A1;background:#0369A106">${_bdFmt(t.opConfirmed)}</td>
-            <td style="text-align:right;font-weight:800;color:#7C3AED;background:#7C3AED06">${_bdFmt(t.finalConfirmed)}</td>
+            <td style="text-align:right;font-weight:800;color:#0369A1">${_bdFmt(t.opConfirmed||0)}</td>
+            <td style="text-align:right;font-weight:800;color:#7C3AED">${_bdFmt(t.finalConfirmed||0)}</td>
+            <td style="text-align:right;color:#D97706">${_bdFmt(t.pending)}</td>
             <td style="text-align:center">
               <div style="display:flex;align-items:center;gap:4px;justify-content:center">
                 <div style="width:40px;height:5px;background:#E5E7EB;border-radius:3px;overflow:hidden">
-                  <div style="width:${t.pct}%;height:100%;background:${t.pct >= 80 ? "#059669" : t.pct >= 50 ? "#D97706" : "#DC2626"};border-radius:3px"></div>
+                  <div style="width:${t.pct}%;height:100%;background:${t.pct>=80?"#0369A1":t.pct>=50?"#D97706":"#DC2626"};border-radius:3px"></div>
                 </div>
-                <span style="font-size:10px;font-weight:800;color:${t.pct >= 80 ? "#059669" : t.pct >= 50 ? "#D97706" : "#DC2626"}">${t.pct}%</span>
+                <span style="font-size:10px;font-weight:800;color:${t.pct>=80?"#0369A1":t.pct>=50?"#D97706":"#DC2626"}">${t.pct}%</span>
               </div>
             </td>
             <td style="font-size:10px;color:#6B7280;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${applicantList}</td>
-          </tr>`;
-            })
-            .join("")}
+          </tr>`; }).join("")}
           <tr style="background:#F9FAFB;font-weight:900;border-top:2px solid #E5E7EB">
             <td>소계</td>
             <td style="text-align:center">${totalCount}건</td>
             <td style="text-align:right">${_bdFmt(totalDemand)}</td>
-            <td style="text-align:right;color:#0369A1">${_bdFmt(totalOpConfirmed)}</td>
+            <td style="text-align:right;color:#0369A1">${_bdFmt(totalOpConf)}</td>
             <td style="text-align:right;color:#7C3AED">${_bdFmt(totalFinalConf)}</td>
-            <td style="text-align:center;font-weight:900;color:${totalOpPct >= 80 ? "#059669" : totalOpPct >= 50 ? "#D97706" : "#DC2626"}">${totalOpPct}%</td>
+            <td style="text-align:right;color:#D97706">${_bdFmt(totalPending)}</td>
+            <td style="text-align:center;font-weight:900;color:${totalPct>=80?"#0369A1":totalPct>=50?"#D97706":"#DC2626"}">${totalPct}%</td>
             <td></td>
           </tr>
+
         </tbody>
       </table>`
           : `<div style="padding:40px;text-align:center;color:#9CA3AF">하위 팀 데이터 없음</div>`
@@ -594,6 +583,9 @@ function _renderBdLevel3(el) {
           style="padding:8px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#0369A1,#0369A1CC);color:white;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px #0369A140">💾 1차확정 일괄저장</button>` : ""}
         ${isGlobal ? `<button onclick="_bdL3SaveFinal()" id="bd-l3-save-final"
           style="padding:8px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#7C3AED,#7C3AEDCC);color:white;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px #7C3AED40">💾 최종확정 일괄저장</button>` : ""}
+        <button onclick="_bdL3TempSave()" id="bd-l3-temp-save-btn"
+          style="padding:8px 18px;border-radius:10px;border:1.5px solid #D97706;background:white;color:#D97706;font-size:12px;font-weight:900;cursor:pointer"
+          title="DB에 저장하되 화면 유지 — 계속 편집 가능">💾 임시저장</button>
         <div style="display:flex;align-items:center;gap:6px">
           <select id="bd-l3-bulk-action" style="padding:8px 12px;border-radius:8px;border:1.5px solid #E5E7EB;font-size:12px;font-weight:700;background:white;cursor:pointer">
             <option value="">선택 항목 처리...</option>
@@ -747,6 +739,41 @@ async function _bdL3Save(fieldKey, btnId, dbField) {
   }
 }
 
+// ── 임시저장: 리렌더링 없이 DB만 저장 (입력 상태 유지)
+async function _bdL3TempSave() {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 없음'); return; }
+  const tbody = document.getElementById('bd-l3-tbody');
+  if (!tbody) return;
+  const inputs = Array.from(tbody.querySelectorAll('input[data-field]'));
+  const changed = inputs.filter(i => {
+    const orig = parseInt(i.dataset.orig ?? '');
+    const cur  = parseInt(i.value) || 0;
+    return isNaN(orig) ? i.value !== '' : cur !== orig;
+  });
+  if (changed.length === 0) { alert('변경된 항목이 없습니다.'); return; }
+  const btn = document.getElementById('bd-l3-temp-save-btn');
+  if (btn) btn.textContent = '⏳ 임시저장 중...';
+  try {
+    const opField    = 'op_confirmed_amount';
+    const finalField = 'final_confirmed_amount';
+    await Promise.all(changed.map(i => {
+      const dbField = i.dataset.field === 'op' ? opField : finalField;
+      return sb.from('plans').update({ [dbField]: parseInt(i.value)||0, updated_at: new Date().toISOString() }).eq('id', i.dataset.planId);
+    }));
+    // 리렌더링 없이 data-orig 갱신 + 테두리 초기화
+    changed.forEach(i => {
+      i.dataset.orig = i.value;
+      i.style.borderColor = '';
+    });
+    if (typeof _boShowToast === 'function') _boShowToast(`💾 ${changed.length}건 임시저장 완료 (편집 계속 가능)`, 'info');
+    if (btn) btn.textContent = '💾 임시저장';
+  } catch(e) {
+    alert('❌ 임시저장 실패: ' + e.message);
+    if (btn) btn.textContent = '💾 임시저장';
+  }
+}
+
 // ── 전체 체크마스 토글
 function _bdL3CheckAll(cb) {
   document.querySelectorAll('.bd-l3-chk').forEach(c => c.checked = cb.checked);
@@ -867,36 +894,30 @@ function _bdAggregateGroup(g, plans) {
     const dept = p.detail?.dept || p.applicant_name || "";
     return teamNames.some((tn) => _bdFuzzy(dept, tn) || _bdFuzzy(tn, dept));
   });
-  const demand        = gPlans.reduce((s, p) => s + Number(p.amount || 0), 0);
-  const opConfirmed   = gPlans.reduce((s, p) => s + Number(p.op_confirmed_amount || 0), 0);
+  const demand      = gPlans.reduce((s, p) => s + Number(p.amount || 0), 0);
+  const confirmed   = gPlans.filter((p) => ["approved","completed"].includes(p.status)).reduce((s, p) => s + Number(p.amount || 0), 0);
+  const opConfirmed = gPlans.reduce((s, p) => s + Number(p.op_confirmed_amount || 0), 0);
   const finalConfirmed = gPlans.reduce((s, p) => s + Number(p.final_confirmed_amount || 0), 0);
   const pending  = gPlans.filter((p) => p.status === "pending").reduce((s, p) => s + Number(p.amount || 0), 0);
   const rejected = gPlans.filter((p) => p.status === "rejected").reduce((s, p) => s + Number(p.amount || 0), 0);
-  return {
-    id: g.id, name: g.name, count: gPlans.length,
-    demand, opConfirmed, finalConfirmed, pending, rejected,
-    pct: demand > 0 ? Math.round((opConfirmed / demand) * 100) : 0,
-    teamCount: teams.length,
-  };
+  const opPct = demand > 0 ? Math.round((opConfirmed / demand) * 100) : 0;
+  return { id: g.id, name: g.name, count: gPlans.length, demand, confirmed, opConfirmed, finalConfirmed, pending, rejected, pct: opPct, teamCount: teams.length };
 }
 
 function _bdAggregateUnmatched(unmatchedPlans) {
-  const demand        = unmatchedPlans.reduce((s, p) => s + Number(p.amount || 0), 0);
-  const opConfirmed   = unmatchedPlans.reduce((s, p) => s + Number(p.op_confirmed_amount || 0), 0);
+  const demand      = unmatchedPlans.reduce((s, p) => s + Number(p.amount || 0), 0);
+  const confirmed   = unmatchedPlans.filter((p) => ["approved","completed"].includes(p.status)).reduce((s, p) => s + Number(p.amount || 0), 0);
+  const opConfirmed = unmatchedPlans.reduce((s, p) => s + Number(p.op_confirmed_amount || 0), 0);
   const finalConfirmed = unmatchedPlans.reduce((s, p) => s + Number(p.final_confirmed_amount || 0), 0);
   const pending  = unmatchedPlans.filter((p) => p.status === "pending").reduce((s, p) => s + Number(p.amount || 0), 0);
   const rejected = unmatchedPlans.filter((p) => p.status === "rejected").reduce((s, p) => s + Number(p.amount || 0), 0);
-  return {
-    id: "__unmatched__", name: "기타/미분류", count: unmatchedPlans.length,
-    demand, opConfirmed, finalConfirmed, pending, rejected,
-    pct: demand > 0 ? Math.round((opConfirmed / demand) * 100) : 0,
-    teamCount: 0,
-  };
+  const opPct = demand > 0 ? Math.round((opConfirmed / demand) * 100) : 0;
+  return { id: "__unmatched__", name: "기타/미분류", count: unmatchedPlans.length, demand, confirmed, opConfirmed, finalConfirmed, pending, rejected, pct: opPct, teamCount: 0 };
 }
 
 function _bdAggregateTeam(t, tPlans) {
-  const demand        = tPlans.reduce((s, p) => s + Number(p.amount || 0), 0);
-  const opConfirmed   = tPlans.reduce((s, p) => s + Number(p.op_confirmed_amount || 0), 0);
+  const demand      = tPlans.reduce((s, p) => s + Number(p.amount || 0), 0);
+  const opConfirmed = tPlans.reduce((s, p) => s + Number(p.op_confirmed_amount || 0), 0);
   const finalConfirmed = tPlans.reduce((s, p) => s + Number(p.final_confirmed_amount || 0), 0);
   const pending = tPlans.filter((p) => p.status === "pending").reduce((s, p) => s + Number(p.amount || 0), 0);
   const applicantMap = {};
@@ -906,12 +927,8 @@ function _bdAggregateTeam(t, tPlans) {
     applicantMap[name].count++;
     applicantMap[name].demand += Number(p.amount || 0);
   });
-  return {
-    id: t.id, name: t.name, count: tPlans.length,
-    demand, opConfirmed, finalConfirmed, pending,
-    pct: demand > 0 ? Math.round((opConfirmed / demand) * 100) : 0,
-    applicants: applicantMap,
-  };
+  const opPct = demand > 0 ? Math.round((opConfirmed / demand) * 100) : 0;
+  return { id: t.id, name: t.name, count: tPlans.length, demand, opConfirmed, finalConfirmed, pending, pct: opPct, applicants: applicantMap };
 }
 
 function _bdFmt(n) {

@@ -1378,9 +1378,11 @@ function _renderPlanCard(p) {
 
   const STATUS_LABEL = {
     draft: "임시저장", saved: "저장완료", pending: "결재대기",
-    submitted: "결재대기", in_review: "1차검토완료", approved: "승인완료",
+    submitted: "상신중", in_review: "1차검토완료", approved: "승인완료",
     rejected: "반려", recalled: "회수됨", cancelled: "취소",
+    team_approved: "팀장 검토완료",
   };
+
 
   const rawStatus = p.status || "승인완료";
   const status = STATUS_LABEL[rawStatus] || rawStatus;
@@ -1390,10 +1392,16 @@ function _renderPlanCard(p) {
     : "";
   const isDraft = rawStatus === "draft" || rawStatus === "작성중";
   const isSaved = rawStatus === "saved" || rawStatus === "저장완료";
-  const isPending = rawStatus === "pending" || rawStatus === "submitted" || rawStatus === "신청중" || rawStatus === "결재진행중";
+  // submitted = 팀 사업계획 번들 상신중 (회수 가능)
+  const isBundleSubmitted = rawStatus === "submitted";
+  const isPending = rawStatus === "pending" || rawStatus === "신청중" || rawStatus === "결재진행중" || rawStatus === "in_review" || rawStatus === "team_approved";
   const safeId = String(p.id || "").replace(/'/g, "\\'");
   const safeTitle = (p.title || "").replace(/'/g, "");
   const isSelected = _selectedPlans.includes(p.id);
+  // 회수 가능 여부: submitted 상태 + 본인 계획
+  const isMyPlan = !p.author || p.author === currentPersona.name;
+  const canRecallBundle = isBundleSubmitted && isMyPlan;
+
 
   // 버튼 스타일 공통 헬퍼
   const btnPrimary = (label, onclick) => `<button onclick="${onclick}" style="padding:6px 14px;border-radius:8px;font-size:11px;font-weight:800;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.25)">${label}</button>`;
@@ -1419,7 +1427,13 @@ function _renderPlanCard(p) {
           ${btnOutline('✏️ 수정', `event.stopPropagation();resumePlanDraft('${safeId}')`, '#1D4ED8', '#BFDBFE')}
           ${btnOutline('📋 복제', `event.stopPropagation();clonePlan('${safeId}')`, '#7C3AED', '#DDD6FE')}
          </div>`
-      : isPending
+      : isBundleSubmitted
+        ? `<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center">
+            <div style="font-size:10px;color:#D97706;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:4px 10px;font-weight:700">⏳ 팀장 검토 대기</div>
+            ${canRecallBundle ? btnDanger('↩️ 회수', `event.stopPropagation();foRecallBundlePlan('${safeId}')`) : ''}
+            ${btnOutline('📋 복제', `event.stopPropagation();clonePlan('${safeId}')`, '#7C3AED', '#DDD6FE')}
+           </div>`
+        : isPending
         ? `<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
             ${btnDanger('취소 요청', `cancelPlan('${safeId}')`)}
             ${btnOutline('📋 복제', `event.stopPropagation();clonePlan('${safeId}')`, '#7C3AED', '#DDD6FE')}
@@ -2520,3 +2534,76 @@ async function foTeamForecastConfirm(accountCode, dept, fiscalYear) {
   }
 }
 window.foTeamForecastConfirm = foTeamForecastConfirm;
+
+/**
+ * 번들에 포함된 단일 계획 회수 (plans.status: submitted → saved)
+ * - submission_items에서 해당 plan 제거
+ * - 번들에 남은 계획이 없으면 submission_documents.status → 'recalled'
+ * - 회수 가능 조건: submitted 상태 + 본인 계획
+ */
+async function foRecallBundlePlan(planId) {
+  if (!confirm('↩️ 이 사업계획을 번들에서 회수하시겠습니까?\n\n회수 후 수정하여 다시 확정할 수 있습니다.')) return;
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 실패'); return; }
+
+  try {
+    const now = new Date().toISOString();
+
+    // 1) 해당 plan이 포함된 submission_items 조회
+    const { data: items, error: itemErr } = await sb.from('submission_items')
+      .select('id, submission_id')
+      .eq('item_id', String(planId))
+      .eq('item_type', 'plan');
+    if (itemErr) throw itemErr;
+
+    if (!items || items.length === 0) {
+      // submission_items 없음 → plans.status만 saved로 복귀
+      await sb.from('plans').update({ status: 'saved', updated_at: now }).eq('id', planId);
+      alert('✅ 회수 완료! 저장완료 상태로 복귀되었습니다.');
+      _plansDbLoaded = false; _dbMyPlans = []; _plansDbCache = [];
+      _teamPlansLoaded = false; _dbTeamPlans = [];
+      renderPlans();
+      return;
+    }
+
+    const submissionId = items[0].submission_id;
+
+    // 2) plans.status → saved 복귀
+    const { error: planErr } = await sb.from('plans')
+      .update({ status: 'saved', updated_at: now }).eq('id', planId);
+    if (planErr) throw planErr;
+
+    // 3) submission_items에서 해당 행 삭제
+    await sb.from('submission_items').delete().eq('item_id', String(planId)).eq('submission_id', submissionId);
+
+    // 4) 번들의 남은 항목 확인
+    const { data: remainItems } = await sb.from('submission_items')
+      .select('id').eq('submission_id', submissionId);
+
+    if (!remainItems || remainItems.length === 0) {
+      // 번들이 비었으면 submission_documents도 recalled로
+      await sb.from('submission_documents')
+        .update({ status: 'recalled', updated_at: now }).eq('id', submissionId);
+      alert('✅ 회수 완료!\n모든 계획이 회수되어 번들이 취소되었습니다.');
+    } else {
+      // 번들 total_amount 재계산
+      const { data: remainPlans } = await sb.from('plans')
+        .select('amount').in('id', remainItems.map(r => r.item_id).filter(Boolean));
+      const newTotal = (remainPlans || []).reduce((s, r) => s + Number(r.amount || 0), 0);
+      await sb.from('submission_documents')
+        .update({ total_amount: newTotal, updated_at: now }).eq('id', submissionId);
+      alert('✅ 회수 완료! 저장완료 상태로 복귀되었습니다.\n나머지 계획은 번들에 유지됩니다.');
+    }
+
+    // 캐시 초기화 후 재렌더
+    _plansDbLoaded = false; _dbMyPlans = []; _plansDbCache = [];
+    _teamPlansLoaded = false; _dbTeamPlans = [];
+    renderPlans();
+
+  } catch (err) {
+    alert('❌ 회수 실패: ' + err.message);
+    console.error('[foRecallBundlePlan]', err);
+  }
+}
+window.foRecallBundlePlan = foRecallBundlePlan;

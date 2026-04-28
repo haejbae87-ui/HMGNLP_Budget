@@ -41,6 +41,9 @@ async function renderBudgetDemand() {
   const role = boCurrentPersona.role;
   const isPlatform =
     role === "platform_admin" || role === "tenant_global_admin";
+  // ── 역할 판별 (bo_role_view.js 활용) ──
+  const _isOpMgr   = typeof boIsOpManager   === 'function' ? boIsOpManager()   : false;
+  const _isGlobAdm = typeof boIsGlobalAdmin === 'function' ? boIsGlobalAdmin() : !_isOpMgr;
   if (!_bdTenant)
     _bdTenant = isPlatform
       ? tenants.find((t) => t.id !== "SYSTEM")?.id || "HMC"
@@ -64,6 +67,26 @@ async function renderBudgetDemand() {
   const tplIdsWithAccounts = [
     ...new Set(allAccts.map((a) => a.virtual_org_template_id).filter(Boolean)),
   ];
+
+  // ★ Op-Manager: persona.domainId(IG-HMC-GEN) → isolation_group_id 매칭으로 관할 template만
+  let allowedTplIds = tplIdsWithAccounts;
+  if (_isOpMgr) {
+    const myDomainId = boCurrentPersona?.domainId;
+    const myVorgIds  = boCurrentPersona?.vorgIds || [];
+    try {
+      const { data: allTpls } = await sb
+        .from("virtual_org_templates")
+        .select("id,isolation_group_id")
+        .eq("tenant_id", _bdTenant)
+        .in("id", tplIdsWithAccounts.length > 0 ? tplIdsWithAccounts : ["__NONE__"]);
+      const domainKey = myDomainId || myVorgIds[0];
+      if (domainKey) {
+        const matched = (allTpls || []).filter(t => t.isolation_group_id === domainKey);
+        if (matched.length > 0) allowedTplIds = matched.map(t => t.id);
+      }
+    } catch(e) { /* fallback: 전체 */ }
+  }
+
   try {
     const { data } = await sb
       .from("virtual_org_templates")
@@ -71,7 +94,7 @@ async function renderBudgetDemand() {
       .eq("tenant_id", _bdTenant)
       .in(
         "id",
-        tplIdsWithAccounts.length > 0 ? tplIdsWithAccounts : ["__NONE__"],
+        allowedTplIds.length > 0 ? allowedTplIds : ["__NONE__"],
       );
     _bdTplList = data || [];
   } catch (e) {
@@ -82,7 +105,11 @@ async function renderBudgetDemand() {
 
   // ── 3. 선택된 제도그룹의 tree 그룹 + 해당 계정 로드 ──
   const selTpl = _bdTplList.find((t) => t.id === _bdTplId);
-  _bdGroups = selTpl?.tree_data?.hqs || [];
+  const allHqs = selTpl?.tree_data?.hqs || [];
+  // ★ Op-Manager: boGetMyGroups()로 관할 hq만 추출
+  _bdGroups = (_isOpMgr && typeof boGetMyGroups === 'function')
+    ? boGetMyGroups(allHqs)
+    : allHqs;
   _bdAcctList = allAccts.filter((a) => a.virtual_org_template_id === _bdTplId);
 
   // ── 4. plans 로드 (account_code 기반 필터 — 올바른 template 매핑) ──
@@ -108,9 +135,29 @@ async function renderBudgetDemand() {
       if (acct) q = q.eq("account_code", acct.code);
     }
     const { data } = await q;
-    _bdPlans = data || [];
+    let rawPlans = data || [];
+    // ★ Op-Manager: 관할 hq의 팀 이름으로 client-side 필터 (데이터 격리)
+    if (_isOpMgr && _bdGroups.length > 0) {
+      const myTeamNames = new Set();
+      _bdGroups.forEach(hq => {
+        (hq.teams || []).forEach(t => { if (t.name) myTeamNames.add(t.name); });
+        if (hq.name) myTeamNames.add(hq.name);
+      });
+      rawPlans = rawPlans.filter(p => {
+        const dept = p.detail?.dept || p.applicant_name || p.team || '';
+        return [...myTeamNames].some(tn =>
+          dept === tn || dept.includes(tn) || tn.includes(dept)
+        );
+      });
+    }
+    _bdPlans = rawPlans;
   } catch (e) {
     _bdPlans = [];
+  }
+
+  // ★ Op-Manager: 관할 hq가 1개이면 L2로 자동 진입 (초기 로드 시만)
+  if (_isOpMgr && _bdGroups.length === 1 && !_bdDrillHq && !_bdDrillOrg && !_bdSimMode) {
+    _bdDrillHq = _bdGroups[0].id;
   }
 
   // 드릴다운 라우팅
@@ -526,6 +573,35 @@ function _renderBdLevel3(el) {
     );
   });
 
+  // ── Layout A: 현재 hq의 팀별 요약 사전 집계 ──────────────────────────────
+  // _bdDrillOrg(현재 팀)가 속한 hq를 찾아 전체 팀 요약 구성
+  const _l3Hq = _bdGroups.find(hq =>
+    (hq.teams || []).some(t => {
+      const tn = t.name || '';
+      const org = _bdDrillOrg || '';
+      return tn === org || tn.includes(org) || org.includes(tn);
+    })
+  ) || null;
+  const _l3Teams = _l3Hq?.teams || [];
+  const _l3AllPlans = _bdPlans || [];
+  // 팀별 집계 (동일 hq 내 모든 팀)
+  const _l3TeamRows = _l3Teams.map(t => {
+    const tp = _l3AllPlans.filter(p => {
+      const dept = p.detail?.dept || p.applicant_name || '';
+      return dept === t.name || _bdFuzzy(dept, t.name) || _bdFuzzy(t.name, dept);
+    });
+    const demand = tp.reduce((s,p) => s + Number(p.amount||0), 0);
+    const opConf = tp.reduce((s,p) => s + Number(p.op_confirmed_amount||0), 0);
+    const finalConf = tp.reduce((s,p) => s + Number(p.final_confirmed_amount||0), 0);
+    const pending = tp.filter(p => !['op_rejected','final_rejected','final_approved'].includes(p.bo_status || (p.status==='approved'?'op_review_pending':'')));
+    const approved = tp.filter(p => p.bo_status === 'final_approved').length;
+    const excluded = tp.filter(p => ['op_rejected','final_rejected'].includes(p.bo_status)).length;
+    const pct = demand > 0 ? Math.round((opConf / demand) * 100) : 0;
+    const isCurrent = (t.name === _bdDrillOrg || _bdFuzzy(t.name, _bdDrillOrg || '') || _bdFuzzy(_bdDrillOrg || '', t.name));
+    return { name: t.name, count: tp.length, demand, opConf, finalConf,
+             pendingCount: pending.length, approved, excluded, pct, isCurrent };
+  }).filter(r => r.count > 0 || _l3Teams.length <= 6); // 데이터 없는 팀은 팀이 많으면 생략
+
   // ── 상태 레이블 (한글)
   const boStatusLabel = {
     op_review_pending: "운영담당자 검토대기",
@@ -607,6 +683,65 @@ function _renderBdLevel3(el) {
         <span style="font-size:12px">최종확정 합계 <strong id="bd-l3-final-total" style="color:#7C3AED;font-size:13px">${_bdFmt(finalSum)}</strong></span>
       </div>
     </div>` : ""}
+
+    ${_l3TeamRows.length > 1 ? `
+    <!-- Layout A: 팀별 요약 테이블 (목록 위) -->
+    <div class="bo-card" style="overflow:hidden;margin-bottom:12px">
+      <div style="padding:14px 20px;background:linear-gradient(135deg,#002C5F08,#0369A108);border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:13px;font-weight:900;color:#002C5F">🏢 ${_l3Hq?.name || '팀별'} 요약</span>
+        <span style="font-size:11px;color:#9CA3AF">팀 클릭 시 해당 팀 계획 목록으로 이동</span>
+      </div>
+      <table class="bo-table" style="font-size:12px">
+        <thead><tr>
+          <th>팀명</th>
+          <th style="text-align:center">계획건수</th>
+          <th style="text-align:right">계획금액</th>
+          <th style="text-align:right;color:#0369A1">1차확정</th>
+          <th style="text-align:right;color:#7C3AED">최종확정</th>
+          <th style="text-align:center">미결</th>
+          <th style="text-align:center">최종승인</th>
+          <th style="text-align:center">제외</th>
+          <th style="text-align:center">1차확정률</th>
+        </tr></thead>
+        <tbody>
+          ${_l3TeamRows.map(r => `
+          <tr onclick="_bdDrillOrg='${r.name.replace(/'/g,"\\'")}';renderBudgetDemand()"
+            style="cursor:pointer;transition:background .12s;${r.isCurrent ? 'background:#EFF6FF;font-weight:900;' : ''}"
+            onmouseover="if(!${r.isCurrent})this.style.background='#F8FAFC'"
+            onmouseout="if(!${r.isCurrent})this.style.background=''">
+            <td style="${r.isCurrent ? 'color:#002C5F;font-weight:900' : 'font-weight:700'}">
+              ${r.isCurrent ? '▶ ' : ''}${r.name}
+            </td>
+            <td style="text-align:center">${r.count}건</td>
+            <td style="text-align:right;font-weight:800">${_bdFmt(r.demand)}</td>
+            <td style="text-align:right;font-weight:800;color:#0369A1">${_bdFmt(r.opConf)}</td>
+            <td style="text-align:right;font-weight:800;color:#7C3AED">${_bdFmt(r.finalConf)}</td>
+            <td style="text-align:center;color:#D97706">${r.pendingCount}</td>
+            <td style="text-align:center;color:#059669;font-weight:800">${r.approved}</td>
+            <td style="text-align:center;color:#DC2626">${r.excluded}</td>
+            <td style="text-align:center">
+              <div style="display:flex;align-items:center;gap:4px;justify-content:center">
+                <div style="width:40px;height:5px;background:#E5E7EB;border-radius:3px;overflow:hidden">
+                  <div style="width:${r.pct}%;height:100%;background:${r.pct>=80?'#0369A1':r.pct>=50?'#D97706':'#DC2626'};border-radius:3px"></div>
+                </div>
+                <span style="font-size:10px;font-weight:900;color:${r.pct>=80?'#0369A1':r.pct>=50?'#D97706':'#DC2626'}">${r.pct}%</span>
+              </div>
+            </td>
+          </tr>`).join('')}
+          <tr style="background:#F9FAFB;font-weight:900;border-top:2px solid #E5E7EB;font-size:11px">
+            <td>소계</td>
+            <td style="text-align:center">${_l3TeamRows.reduce((s,r)=>s+r.count,0)}건</td>
+            <td style="text-align:right">${_bdFmt(_l3TeamRows.reduce((s,r)=>s+r.demand,0))}</td>
+            <td style="text-align:right;color:#0369A1">${_bdFmt(_l3TeamRows.reduce((s,r)=>s+r.opConf,0))}</td>
+            <td style="text-align:right;color:#7C3AED">${_bdFmt(_l3TeamRows.reduce((s,r)=>s+r.finalConf,0))}</td>
+            <td style="text-align:center;color:#D97706">${_l3TeamRows.reduce((s,r)=>s+r.pendingCount,0)}</td>
+            <td style="text-align:center;color:#059669">${_l3TeamRows.reduce((s,r)=>s+r.approved,0)}</td>
+            <td style="text-align:center;color:#DC2626">${_l3TeamRows.reduce((s,r)=>s+r.excluded,0)}</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>` : ''}
 
     <div class="bo-card" style="overflow:hidden">
       <div style="padding:18px 24px;background:linear-gradient(135deg,#002C5F,#0369A1);color:white">

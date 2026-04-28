@@ -1006,13 +1006,16 @@ function renderPlans() {
             amount: Number(d.amount || 0),
             status: _mapDbStatus(d.status),
             account: d.account_code,
+            account_code: d.account_code,
             date: d.created_at?.slice(0, 10) || "",
             author: d.applicant_name || "-",
+            applicant_id: d.applicant_id || null,  // ★ Section A 보기/수정 버튼 권한 판별용
             authorDept: d.dept || "-",
             tenantId: d.tenant_id,
             fiscalYear: d.fiscal_year,
             plan_type: d.plan_type || 'operation', // ★ 팀 계획 plan_type 포함
           }));
+
           renderPlans();
         })();
       }
@@ -2053,11 +2056,13 @@ function _foRenderTeamForecastBundleBar(teamPlansArr, myDbCache) {
     amount: Number(d.amount || 0),
     account: d.account_code,
     author: d.applicant_name || currentPersona.name,
+    applicant_id: d.applicant_id || currentPersona.id,  // ★ 본인 여부 판별용
     authorDept: d.dept || currentPersona.dept,
     fiscalYear: d.fiscal_year,
     status: 'saved',
     account_code: d.account_code,
   }));
+
 
   const allSaved = [...myForecasts, ...savedForecasts];
 
@@ -2089,14 +2094,32 @@ function _foRenderTeamForecastBundleBar(teamPlansArr, myDbCache) {
     const total = plans.reduce((s, p) => s + (Number(p.amount) || 0), 0);
     const safeAcc = accCode.replace(/'/g, "\\'");
     const accName = window._accountNameCache?.[accCode] || accCode;
-    const rows = plans.map(p => `
-      <div style="display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid #F3F4F6">
-        <div style="flex:1">
-          <div style="font-size:12px;font-weight:700;color:#111827">${p.title || p.edu_name || '-'}</div>
-          <div style="font-size:10px;color:#9CA3AF">${p.author || '-'} · ${p.authorDept || '-'}</div>
+    const rows = plans.map(p => {
+      const isMyPlan = p.author === currentPersona.name || p.applicant_id === currentPersona.id;
+      const safeId = (p.id || '').replace(/'/g, "\\'");
+      return `
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid #F3F4F6">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.title || p.edu_name || '-'}</div>
+          <div style="font-size:10px;color:#9CA3AF;margin-top:1px">${p.author || '-'} · ${p.authorDept || '-'}</div>
         </div>
-        <div style="font-size:12px;font-weight:800;color:#1D4ED8">${(Number(p.amount) || 0).toLocaleString()}원</div>
-      </div>`).join('');
+        <div style="font-size:12px;font-weight:800;color:#1D4ED8;white-space:nowrap">${(Number(p.amount) || 0).toLocaleString()}원</div>
+        <div style="display:flex;gap:5px;flex-shrink:0">
+          <button onclick="_viewingPlanDetail='${safeId}';renderPlans()"
+            style="padding:4px 10px;border-radius:7px;border:1.5px solid #BFDBFE;background:white;color:#1D4ED8;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">
+            🔍 보기
+          </button>
+          ${isMyPlan
+            ? `<button onclick="resumePlanDraft('${safeId}')"
+                style="padding:4px 10px;border-radius:7px;border:1.5px solid #D1FAE5;background:white;color:#059669;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">
+                ✏️ 수정
+              </button>`
+            : `<span style="padding:4px 10px;border-radius:7px;background:#F9FAFB;color:#9CA3AF;font-size:10px;font-weight:600;white-space:nowrap">팀원 작성</span>`
+          }
+        </div>
+      </div>`;
+    }).join('');
+
 
     return `
 <div style="margin-bottom:14px;border-radius:14px;border:1.5px solid #BFDBFE;overflow:hidden;background:white">

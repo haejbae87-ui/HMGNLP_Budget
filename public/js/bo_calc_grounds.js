@@ -744,8 +744,6 @@ function _cgRenderMatrix() {
           <th style="padding:6px 8px;text-align:right;font-weight:800;color:#374151;width:90px">단가(원)</th>
           <th style="padding:6px 8px;text-align:center;font-weight:800;color:#374151;width:70px">상한유형</th>
           <th style="padding:6px 8px;text-align:right;font-weight:800;color:#374151;width:90px">상한가(원)</th>
-          <th style="padding:6px 8px;text-align:center;font-weight:800;color:#374151;width:60px">단위</th>
-          <th style="padding:6px 8px;text-align:center;font-weight:800;color:#374151;width:45px">qty2</th>
           <th style="padding:6px 8px;text-align:center;font-weight:800;color:#374151;width:55px">상태</th>
           <th style="padding:6px 8px;text-align:center;width:35px"></th>
         </tr></thead>
@@ -758,8 +756,6 @@ function _cgRenderMatrix() {
             <td style="padding:4px 6px"><input type="number" value="${p.unit_price||0}" onchange="_cgDtUpdateSubItem(${di},${pi},'price',this.value)" style="width:100%;box-sizing:border-box;padding:5px 6px;border:1px solid #E5E7EB;border-radius:5px;font-size:11px;text-align:right"></td>
             <td style="padding:4px 6px"><select onchange="_cgDtUpdateSubItem(${di},${pi},'limit_type',this.value)" style="width:100%;padding:5px 3px;border:1px solid #E5E7EB;border-radius:5px;font-size:10px">${['none','soft','hard'].map(lt=>`<option value="${lt}" ${(p.limit_type||'none')===lt?'selected':''}>${lt==='none'?'없음':lt==='soft'?'⚠Soft':'🚫Hard'}</option>`).join('')}</select></td>
             <td style="padding:4px 6px"><input type="number" value="${p.limit_value||0}" onchange="_cgDtUpdateSubItem(${di},${pi},'limit_value',this.value)" style="width:100%;box-sizing:border-box;padding:5px 6px;border:1px solid #E5E7EB;border-radius:5px;font-size:11px;text-align:right" ${(p.limit_type||'none')==='none'?'disabled':''}></td>
-            <td style="padding:4px 6px"><select onchange="_cgDtUpdateSubItem(${di},${pi},'qty2_label',this.value)" style="width:100%;padding:5px 3px;border:1px solid #E5E7EB;border-radius:5px;font-size:10px">${QTY2_LABELS.map(u=>`<option value="${u}" ${(p.qty2_label||'박')===u?'selected':''}>${u}</option>`).join('')}</select></td>
-            <td style="padding:4px 6px"><input type="number" value="${p.qty2_value||1}" onchange="_cgDtUpdateSubItem(${di},${pi},'qty2',this.value)" style="width:45px;padding:5px 3px;border:1px solid #E5E7EB;border-radius:5px;font-size:11px;text-align:center"></td>
             <td style="padding:4px 6px;text-align:center">
               <button onclick="_cgDtToggleSubItemActive(${di},${pi})" style="font-size:9px;padding:3px 7px;border-radius:5px;border:1px solid ${isItemActive ? '#A7F3D0' : '#FDE68A'};background:${isItemActive ? '#D1FAE5' : '#FEF3C7'};color:${isItemActive ? '#065F46' : '#92400E'};cursor:pointer;font-weight:800">${isItemActive ? '활성' : '비활성'}</button>
             </td>

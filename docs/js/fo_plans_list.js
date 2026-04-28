@@ -1176,11 +1176,17 @@ function renderPlans() {
        </div>`
     : '';
 
-  // P12: 묶음 상신 배너 (내 계획 탭 + HMC/KIA + forecast+saved 계획 존재 시)
+  // P12: 묶음 상신 배너 (내 계획 탭 + forecast+saved 계획 존재 시)
   const forecastSaved = _planViewTab === 'mine'
     ? (_plansDbCache || []).filter(d => d.plan_type === 'forecast' && d.status === 'saved')
     : [];
   const bundleBar = typeof _foRenderBundleBar === 'function' ? _foRenderBundleBar(forecastSaved) : '';
+
+  // Phase 3: 팀 탭 — 계정별 사업계획 일괄 확정 배너
+  // 팀 탭 + 사업계획(forecast) 모드일 때 팀 전체의 saved forecast 계획을 계정별로 그룹핑하여 표시
+  const teamForecastBundleBar = (isBusiness && _planViewTab === 'team')
+    ? _foRenderTeamForecastBundleBar(_dbTeamPlans, _plansDbCache || [])
+    : '';
 
   // ★ 모드별 페이지 타이틀 & 빈 상태 분리
   const pageTitle = isBusiness ? '사업계획 (수요예측)' : '운영계획 관리 (실행)';
@@ -1239,6 +1245,7 @@ function renderPlans() {
   ${statsBar}
   ${filterBar}
   ${bundleBar}
+  ${teamForecastBundleBar}
   <div id="fo-realloc-area"></div>
   <div id="plan-list">${listHtml}</div>
 </div>
@@ -1981,3 +1988,256 @@ async function _s9RefundBudget(sb, { planId, tenantId, accountCode, refundAmt, r
   return true;
 }
 window._s9RefundBudget = _s9RefundBudget;
+
+// ─── Phase 3: 팀 사업계획 일괄 확정 (Team Forecast Bundle) ─────────────────
+// 팀 탭 + forecast 모드에서 saved 계획을 계정별로 그룹핑 → 팀장에게 통보
+
+/**
+ * 팀원들의 saved forecast 계획을 account_code 별로 그룹핑하여 계정별 확정 배너 렌더링
+ * @param {Array} teamPlansArr - _dbTeamPlans 배열 (팀원 계획)
+ * @param {Array} myDbCache   - _plansDbCache 배열 (내 계획 원본, DB 필드 포함)
+ */
+function _foRenderTeamForecastBundleBar(teamPlansArr, myDbCache) {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!teamPlansArr || !teamPlansArr.length) {
+    return `
+<div style="margin-bottom:16px;padding:18px 20px;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB;text-align:center">
+  <div style="font-size:13px;font-weight:700;color:#9CA3AF">📋 팀원의 작성 완료된 사업계획이 없습니다</div>
+  <div style="font-size:11px;color:#D1D5DB;margin-top:4px">팀원들이 사업계획을 저장 완료(saved)해야 확정할 수 있습니다</div>
+</div>`;
+  }
+
+  // saved + forecast 계획만 필터
+  const savedForecasts = teamPlansArr.filter(p => {
+    const rawSt = p.status || '';
+    return (rawSt === 'saved' || rawSt === '저장완료') && p.fiscalYear === _planYear;
+  });
+
+  // 내 계획(saved + forecast)도 포함
+  const myForecasts = myDbCache.filter(d =>
+    (d.status === 'saved') &&
+    (d.plan_type === 'forecast' || d.plan_type === 'business') &&
+    (d.fiscal_year === _planYear)
+  ).map(d => ({
+    id: d.id,
+    title: d.edu_name || String(d.id),
+    amount: Number(d.amount || 0),
+    account: d.account_code,
+    author: d.applicant_name || currentPersona.name,
+    authorDept: d.dept || currentPersona.dept,
+    fiscalYear: d.fiscal_year,
+    status: 'saved',
+    account_code: d.account_code,
+  }));
+
+  const allSaved = [...myForecasts, ...savedForecasts];
+
+  if (!allSaved.length) {
+    return `
+<div style="margin-bottom:16px;padding:18px 20px;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB;text-align:center">
+  <div style="font-size:13px;font-weight:700;color:#9CA3AF">📋 ${_planYear}년 확정 가능한 사업계획이 없습니다</div>
+  <div style="font-size:11px;color:#D1D5DB;margin-top:4px">저장 완료(saved) 상태의 수요예측 사업계획만 포함됩니다</div>
+</div>`;
+  }
+
+  // account_code별 그룹핑
+  const grouped = {};
+  allSaved.forEach(p => {
+    const acc = p.account || p.account_code || 'unknown';
+    if (!grouped[acc]) grouped[acc] = [];
+    grouped[acc].push(p);
+  });
+
+  // draft 인원 계산 (팀원 중 미완료)
+  const draftCount = (teamPlansArr || []).filter(p => {
+    const rawSt = p.status || '';
+    return (rawSt === 'draft' || rawSt === '작성중') && p.fiscalYear === _planYear;
+  }).length;
+
+  const dept = currentPersona.dept || currentPersona.team || '';
+
+  const groupHtml = Object.entries(grouped).map(([accCode, plans]) => {
+    const total = plans.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    const safeAcc = accCode.replace(/'/g, "\\'");
+    const accName = window._accountNameCache?.[accCode] || accCode;
+    const rows = plans.map(p => `
+      <div style="display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid #F3F4F6">
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:700;color:#111827">${p.title || p.edu_name || '-'}</div>
+          <div style="font-size:10px;color:#9CA3AF">${p.author || '-'} · ${p.authorDept || '-'}</div>
+        </div>
+        <div style="font-size:12px;font-weight:800;color:#1D4ED8">${(Number(p.amount) || 0).toLocaleString()}원</div>
+      </div>`).join('');
+
+    return `
+<div style="margin-bottom:14px;border-radius:14px;border:1.5px solid #BFDBFE;overflow:hidden;background:white">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);border-bottom:1px solid #BFDBFE">
+    <div>
+      <div style="font-size:13px;font-weight:900;color:#1D4ED8">💳 ${accName} 계정 사업계획</div>
+      <div style="font-size:11px;color:#3B82F6;margin-top:2px">${plans.length}건 · 총 요청액 ${total.toLocaleString()}원${draftCount > 0 ? ` · ⚠️ ${draftCount}명 미완료(제외)` : ''}</div>
+    </div>
+    <button onclick="foTeamForecastConfirm('${safeAcc}','${dept.replace(/'/g,'')}',${_planYear})"
+      style="padding:10px 20px;border-radius:10px;background:#1D4ED8;color:white;font-size:12px;font-weight:900;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(29,78,216,.3);white-space:nowrap">
+      📤 팀 사업계획 확정
+    </button>
+  </div>
+  <div>${rows}</div>
+  <div style="padding:10px 14px;background:#F9FAFB;display:flex;justify-content:flex-end">
+    <span style="font-size:11px;font-weight:900;color:#1D4ED8">합계: ${total.toLocaleString()}원</span>
+  </div>
+</div>`;
+  }).join('');
+
+  return `
+<div style="margin-bottom:20px">
+  <div style="font-size:12px;font-weight:900;color:#374151;margin-bottom:10px">
+    👥 팀 사업계획 현황 (${_planYear}년) — 계정별 일괄 확정
+  </div>
+  ${groupHtml}
+</div>`;
+}
+window._foRenderTeamForecastBundleBar = _foRenderTeamForecastBundleBar;
+
+/**
+ * 팀 사업계획 계정별 일괄 확정 실행
+ * - submission_type='team_forecast' 문서 생성
+ * - 동일 계정+팀+연도 중복 번들 방지
+ * - Hold 없음 (요청액 기록만)
+ */
+async function foTeamForecastConfirm(accountCode, dept, fiscalYear) {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 실패'); return; }
+
+  const tenantId = currentPersona.tenantId;
+  const submitterId = currentPersona.id;
+  const submitterName = currentPersona.name;
+
+  // 중복 번들 방지: 동일 팀+계정+연도에 이미 submitted/in_review 번들 존재 여부 확인
+  try {
+    const { data: existing } = await sb
+      .from('submission_documents')
+      .select('id, submitter_name, created_at, status')
+      .eq('submission_type', 'team_forecast')
+      .eq('tenant_id', tenantId)
+      .eq('account_code', accountCode)
+      .eq('fiscal_year', fiscalYear)
+      .eq('submitter_org_name', dept)
+      .in('status', ['submitted', 'team_approved', 'in_review', 'allocated'])
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      const ex = existing[0];
+      const dt = ex.created_at ? new Date(ex.created_at).toLocaleString('ko-KR') : '';
+      alert(`⚠️ 이미 확정된 번들이 있습니다.\n확정자: ${ex.submitter_name} · ${dt}\n상태: ${ex.status}\n\n재확정이 필요하면 기존 번들을 취소 후 다시 시도해주세요.`);
+      return;
+    }
+  } catch (e) {
+    console.warn('[foTeamForecastConfirm] 중복체크 오류:', e.message);
+  }
+
+  // 대상 계획 수집 (내 계획 + 팀원 계획 중 같은 계정 + saved + forecast)
+  const myForecasts = (_plansDbCache || []).filter(d =>
+    d.account_code === accountCode &&
+    d.status === 'saved' &&
+    (d.plan_type === 'forecast' || d.plan_type === 'business') &&
+    d.fiscal_year === fiscalYear
+  );
+  const teamForecasts = (_dbTeamPlans || []).filter(p =>
+    (p.account || p.account_code) === accountCode &&
+    (p.status === 'saved' || p.status === '저장완료') &&
+    p.fiscalYear === fiscalYear
+  );
+
+  // ID 중복 제거
+  const allIds = new Set();
+  const allPlans = [];
+  [...myForecasts, ...teamForecasts].forEach(p => {
+    const id = String(p.id);
+    if (!allIds.has(id)) { allIds.add(id); allPlans.push(p); }
+  });
+
+  if (!allPlans.length) {
+    alert('확정할 수 있는 저장완료 사업계획이 없습니다.');
+    return;
+  }
+
+  const total = allPlans.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  const accName = window._accountNameCache?.[accountCode] || accountCode;
+
+  const ok = confirm(
+    `📤 [${accName}] 계정 팀 사업계획 확정\n\n` +
+    `포함: ${allPlans.length}건 / 총 요청액 ${total.toLocaleString()}원\n` +
+    `확정자: ${submitterName} (${dept})\n\n` +
+    `확정하면 포함된 계획이 팀장 검토 대기 상태로 전환됩니다.\n계속 진행하시겠습니까?`
+  );
+  if (!ok) return;
+
+  const now = new Date().toISOString();
+
+  // 팀장 자가 확정 여부 판별
+  const isLeaderPos = /팀장|리더|부장|차장|과장/i.test(currentPersona.pos || '');
+  const initialStatus = isLeaderPos ? 'team_approved' : 'submitted';
+
+  try {
+    // 1) submission_documents 생성
+    const { data: doc, error: docErr } = await sb.from('submission_documents').insert({
+      tenant_id: tenantId,
+      submission_type: 'team_forecast',
+      submitter_id: submitterId,
+      submitter_name: submitterName,
+      submitter_org_id: currentPersona.orgId || null,
+      submitter_org_name: dept,
+      title: `${dept} ${fiscalYear}년 사업계획 (${accName})`,
+      account_code: accountCode,
+      fiscal_year: fiscalYear,
+      total_amount: total,
+      approval_system: 'platform',
+      approval_nodes: [
+        { order: 0, type: 'draft', label: '확정', approverKey: submitterId, activation: 'always' },
+        { order: 1, type: 'review', label: '팀장 검토', approverKey: 'leader', activation: 'always' },
+        { order: 2, type: 'transfer', label: 'BO 전달', approverKey: 'ops', activation: 'always' },
+      ],
+      current_node_order: isLeaderPos ? 2 : 1,
+      doc_type: 'plan',
+      status: initialStatus,
+      submitted_at: now,
+    }).select('id').single();
+    if (docErr) throw docErr;
+    const docId = doc?.id;
+    if (!docId) throw new Error('submission_documents id 미반환');
+
+    // 2) submission_items INSERT
+    await sb.from('submission_items').insert(
+      allPlans.map((p, i) => ({
+        submission_id: docId,
+        item_type: 'plan',
+        item_id: String(p.id),
+        item_title: p.edu_name || p.title || String(p.id),
+        item_amount: Number(p.amount || 0),
+        item_status_at_submit: 'saved',
+        final_status: 'pending',
+        sort_order: i,
+      }))
+    );
+
+    // 3) plans.status → submitted (번들 잠금)
+    for (const p of allPlans) {
+      await sb.from('plans').update({ status: 'submitted', updated_at: now }).eq('id', p.id);
+    }
+
+    // 캐시 초기화 후 리렌더
+    _plansDbLoaded = false; _dbMyPlans = []; _plansDbCache = [];
+    _teamPlansLoaded = false; _dbTeamPlans = [];
+
+    const msgExtra = isLeaderPos
+      ? '\n팀장으로 인식되어 BO 운영담당자에게 바로 전달되었습니다.'
+      : '\n팀장 결재함에 검토 요청이 전송되었습니다.';
+
+    alert(`✅ 팀 사업계획 확정 완료!\n${allPlans.length}건 · ${total.toLocaleString()}원${msgExtra}`);
+    renderPlans();
+  } catch (err) {
+    alert('❌ 확정 실패: ' + err.message);
+    console.error('[Phase3 foTeamForecastConfirm]', err);
+  }
+}
+window.foTeamForecastConfirm = foTeamForecastConfirm;

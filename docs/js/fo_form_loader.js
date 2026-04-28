@@ -1767,10 +1767,47 @@ window.foRenderStandardReadOnlyForm = function (data, context = 'FO') {
   const ef = data.extra_fields || d.extra_fields || {};
 
   const title = data.title || data.edu_name || d.title || '-';
-  const purpose = data.purpose?.label || data.purpose || d.purpose || '-';
-  const eduType = data.eduType || data.edu_type || d.eduType || '';
-  const eduSubType = data.eduSubType || data.edu_sub_type || d.eduSubType || '';
-  const eduTypeStr = eduType + (eduSubType ? ' > ' + eduSubType : '');
+
+  // ★ 교육목적 한글 라벨 변환: data.purpose가 객체{label}(FO 위저드) 또는 코드 문자열(DB)
+  const _PURPOSE_LABELS = {
+    'internal_edu': '이러닝/집합(비대면) 운영',
+    'elearning_class': '이러닝/집합 교육운영',
+    'conf_seminar': '세미나/콘퍼런스',
+    'workshop': '워크숍/참가',
+    'external_personal': '개인직무 사외학습',
+    'external_group': '그룹 사외학습',
+    'misc_ops': '기타 운영',
+    'etc': '기타',
+  };
+  const purposeRaw = data.purpose;
+  let purpose;
+  if (purposeRaw && typeof purposeRaw === 'object') {
+    purpose = purposeRaw.label || purposeRaw.id || '-';
+  } else {
+    purpose = _PURPOSE_LABELS[purposeRaw] || purposeRaw || d.purpose || '-';
+  }
+
+  // ★ 교육유형 한글 라벨 변환
+  const _EDU_TYPE_LABELS_MAP = {
+    'elearning': '이러닝',
+    'class': '집합교육',
+    'live': '라이브',
+    'seminar': '세미나',
+    'regular': '정규교육',
+    'academic': '학술 및 연구활동',
+    'knowledge': '지식자원 학습',
+    'competency': '역량개발지원',
+    'facility': '교육시설운영',
+    'conf': '학회/세미나',
+    'book': '도서',
+    'lang': '어학학습비',
+    'cert': '자격증 취득',
+  };
+  const eduTypeRaw = data.eduType || data.edu_type || d.eduType || '';
+  const eduSubTypeRaw = data.eduSubType || data.edu_sub_type || d.eduSubType || '';
+  const eduTypeLabel = _EDU_TYPE_LABELS_MAP[eduTypeRaw] || (typeof getEduTypeLabel === 'function' ? getEduTypeLabel(eduTypeRaw) : eduTypeRaw) || eduTypeRaw;
+  const eduSubTypeLabel = _EDU_TYPE_LABELS_MAP[eduSubTypeRaw] || eduSubTypeRaw;
+  const eduTypeStr = eduTypeLabel + (eduSubTypeLabel ? ' > ' + eduSubTypeLabel : '');
   const eduCategory = data.edu_category || d.edu_category || '-';
   const learningObjective = data.learning_objective || d.learning_objective || '-';
   

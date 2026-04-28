@@ -1,4 +1,4 @@
-// ─── fo_apply_list.js — 신청 목록/결과등록/스마트버튼 (REFACTOR-2: apply.js 분리) ───
+﻿// ─── fo_apply_list.js — 신청 목록/결과등록/스마트버튼 (REFACTOR-2: apply.js 분리) ───
 // ─── APPLY (교육신청) — 목록 ↔ 신청폼 ↔ 결과폼 전환 허브 ────────────────────
 
 // ─── DB 승인된 교육계획 캐시 (MOCK_PLANS 대체) ──────────────────────────────
@@ -573,162 +573,131 @@ function _renderApplyList() {
     pending: history.filter((h) => h.applyStatus === "승인대기").length,
   };
 
-  // Segmented tab
+  // Segmented tab (개선: 업라인 탭 + 자연스러운 상태 전환)
   const tabBar = teamViewEnabled
     ? `
-  <div style="display:flex;gap:4px;background:#F3F4F6;padding:4px;border-radius:14px;margin-bottom:20px;width:fit-content">
+  <div style="display:flex;gap:0;border-bottom:2px solid #E5E7EB;margin-bottom:24px">
     <button onclick="_applyListTab='mine';_renderApplyList()" style="
-      padding:8px 20px;border-radius:10px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s;
-      background:${_applyListTab === "mine" ? "#fff" : "transparent"};
-      color:${_applyListTab === "mine" ? "#002C5F" : "#6B7280"};
-      box-shadow:${_applyListTab === "mine" ? "0 1px 4px rgba(0,0,0,.12)" : "none"}">
+      padding:10px 22px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:all .2s;
+      background:transparent;
+      color:${_applyListTab === 'mine' ? '#002C5F' : '#9CA3AF'};
+      border-bottom:${_applyListTab === 'mine' ? '2.5px solid #002C5F' : '2.5px solid transparent'};
+      margin-bottom:-2px">
       👤 내 신청
     </button>
     <button onclick="_applyListTab='team';_renderApplyList()" style="
-      padding:8px 20px;border-radius:10px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s;
-      background:${_applyListTab === "team" ? "#fff" : "transparent"};
-      color:${_applyListTab === "team" ? "#002C5F" : "#6B7280"};
-      box-shadow:${_applyListTab === "team" ? "0 1px 4px rgba(0,0,0,.12)" : "none"}">
+      padding:10px 22px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:all .2s;
+      background:transparent;
+      color:${_applyListTab === 'team' ? '#002C5F' : '#9CA3AF'};
+      border-bottom:${_applyListTab === 'team' ? '2.5px solid #002C5F' : '2.5px solid transparent'};
+      margin-bottom:-2px">
       👥 팀 신청
     </button>
   </div>`
     : "";
 
-  // 통계 카드
+  // 통계 카드 (개선: 4개 통계 + 그라디언트)
+  const applyStatItems = [
+    { label: '전체', val: statCounts.total, sub: `${_applyYear}년`, icon: '📊',
+      grad: 'linear-gradient(135deg,#EFF6FF,#DBEAFE)', color: '#1D4ED8', border: '#BFDBFE' },
+    { label: '승인완료', val: statCounts.approved, sub: '결과 작성 가능', icon: '✅',
+      grad: 'linear-gradient(135deg,#F0FDF4,#ECFDF5)', color: '#059669', border: '#A7F3D0' },
+    { label: '진행중', val: statCounts.inProgress, sub: '결재 대기', icon: '⏳',
+      grad: 'linear-gradient(135deg,#FFFBEB,#FEF3C7)', color: '#D97706', border: '#FDE68A' },
+    { label: '반려', val: statCounts.rejected, sub: '결재반려', icon: '❌',
+      grad: 'linear-gradient(135deg,#FEF2F2,#FEE2E2)', color: '#DC2626', border: '#FECACA' },
+  ];
   const statsBar = `
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
-    ${[
-      {
-        label: "승인완료",
-        val: statCounts.approved,
-        color: "#059669",
-        bg: "#F0FDF4",
-        icon: "✅",
-      },
-      {
-        label: "진행중",
-        val: statCounts.inProgress,
-        color: "#D97706",
-        bg: "#FFFBEB",
-        icon: "⏳",
-      },
-      {
-        label: "반려",
-        val: statCounts.rejected,
-        color: "#DC2626",
-        bg: "#FEF2F2",
-        icon: "❌",
-      },
-      {
-        label: "승인대기",
-        val: statCounts.pending,
-        color: "#6B7280",
-        bg: "#F9FAFB",
-        icon: "🕐",
-      },
-    ]
-      .map(
-        (s) => `
-    <div style="background:${s.bg};border-radius:14px;padding:14px 16px;border:1.5px solid ${s.color}20">
-      <div style="font-size:11px;font-weight:700;color:${s.color};margin-bottom:6px">${s.icon} ${s.label}</div>
-      <div style="font-size:24px;font-weight:900;color:${s.color}">${s.val}<span style="font-size:13px;margin-left:2px">건</span></div>
-    </div>`,
-      )
-      .join("")}
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+    ${applyStatItems.map(s => `
+    <div style="background:${s.grad};border-radius:16px;padding:18px 16px;border:1.5px solid ${s.border};position:relative;overflow:hidden">
+      <div style="position:absolute;top:12px;right:14px;font-size:20px;opacity:.4">${s.icon}</div>
+      <div style="font-size:10px;font-weight:700;color:${s.color};text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${s.label}</div>
+      <div style="font-size:28px;font-weight:900;color:${s.color};line-height:1">${s.val}<span style="font-size:12px;font-weight:700;margin-left:2px">건</span></div>
+      <div style="font-size:10px;color:${s.color}99;margin-top:4px">${s.sub}</div>
+    </div>`).join('')}
   </div>`;
 
-  // 목록 행
   const rows = history
     .map((h) => {
-      const cfg = STATUS_CFG[h.applyStatus] || STATUS_CFG["승인대기"];
+      const STATUS_LABEL_MAP = {
+        draft: '임시저장', saved: '저장완료', pending: '결재대기',
+        submitted: '결재대기', in_review: '1차검토', approved: '승인완료',
+        completed: '수료완료', rejected: '반려', cancelled: '취소',
+      };
+      const STATUS_GRAD = {
+        '승인완료': { grad: 'linear-gradient(135deg,#F0FDF4,white)', color: '#059669', border: '#A7F3D0', icon: '✅' },
+        '수료완료': { grad: 'linear-gradient(135deg,#F0FDF4,white)', color: '#059669', border: '#A7F3D0', icon: '🏅' },
+        '반려':    { grad: 'linear-gradient(135deg,#FEF2F2,white)', color: '#DC2626', border: '#FECACA', icon: '❌' },
+        '결재진행중': { grad: 'linear-gradient(135deg,#FFFBEB,white)', color: '#D97706', border: '#FDE68A', icon: '⏳' },
+        '결재대기': { grad: 'linear-gradient(135deg,#FFFBEB,white)', color: '#D97706', border: '#FDE68A', icon: '⏳' },
+        '승인대기': { grad: 'linear-gradient(135deg,#F9FAFB,white)', color: '#6B7280', border: '#E5E7EB', icon: '🕐' },
+        '작성중': { grad: 'linear-gradient(135deg,#EFF6FF,white)', color: '#1D4ED8', border: '#BFDBFE', icon: '📝' },
+        '임시저장': { grad: 'linear-gradient(135deg,#EFF6FF,white)', color: '#1D4ED8', border: '#BFDBFE', icon: '📝' },
+        '저장완료': { grad: 'linear-gradient(135deg,#ECFDF5,white)', color: '#059669', border: '#6EE7B7', icon: '📤' },
+        '취소':    { grad: 'linear-gradient(135deg,#F9FAFB,white)', color: '#9CA3AF', border: '#E5E7EB', icon: '🚫' },
+      };
+      const displayStatus = STATUS_LABEL_MAP[h.rawStatus] || h.applyStatus || '승인대기';
+      const cfg2 = STATUS_GRAD[displayStatus] || STATUS_GRAD['승인대기'];
+      const cfg = STATUS_CFG[h.applyStatus] || STATUS_CFG['승인대기'];
       const canResult = h.applyStatus === "승인완료";
       const authorBadge = h.author
-        ? `<span style="font-size:10px;background:#F3F4F6;color:#374151;padding:2px 8px;border-radius:10px;margin-left:6px">👤 ${h.author}</span>`
+        ? `<span style="font-size:10px;background:#F3F4F6;color:#6B7280;padding:2px 8px;border-radius:8px;margin-left:4px">👤 ${h.author}</span>`
         : "";
       return `
-    <div style="display:flex;align-items:flex-start;gap:16px;padding:18px 20px;border-radius:14px;
-                border:1.5px solid ${cfg.border};background:${cfg.bg};transition:all .15s">
-      <div style="font-size:24px;flex-shrink:0;margin-top:2px">${cfg.icon}</div>
+    <div style="display:flex;align-items:flex-start;gap:14px;padding:18px 20px;border-radius:16px;
+                border:1.5px solid ${cfg2.border};background:${cfg2.grad};
+                box-shadow:0 1px 4px rgba(0,0,0,.04);transition:all .15s;position:relative;overflow:hidden"
+         onmouseover="this.style.boxShadow='0 6px 24px rgba(0,0,0,.09)';this.style.transform='translateY(-2px)'"
+         onmouseout="this.style.boxShadow='0 1px 4px rgba(0,0,0,.04)';this.style.transform='none'">
+      <!-- 좌측 쾌러바 -->
+      <div style="position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:16px 0 0 16px;background:${cfg2.color}"></div>
+      <!-- 상태 아이콘 -->
+      <div style="width:40px;height:40px;border-radius:12px;background:${cfg2.color}18;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;border:1px solid ${cfg2.border}">${cfg2.icon}</div>
       <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">
           <span style="font-size:14px;font-weight:900;color:#111827">${h.title}</span>
-          <span style="font-size:9px;font-weight:900;padding:2px 7px;border-radius:6px;background:${cfg.color}20;color:${cfg.color}">${h.applyStatus}</span>
-          ${h.resultDone ? '<span style="font-size:9px;font-weight:900;padding:2px 7px;border-radius:6px;background:#DBEAFE;color:#1D4ED8">📋 결과작성완료</span>' : ""}
+          <span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:100px;background:${cfg2.color}18;color:${cfg2.color};white-space:nowrap">${displayStatus}</span>
+          ${h.resultDone ? '<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:100px;background:#DBEAFE;color:#1D4ED8">📋 결과완료</span>' : ""}
           ${authorBadge}
         </div>
-        <div style="font-size:11px;color:#6B7280;display:flex;gap:12px;flex-wrap:wrap">
-          <span>📅 ${h.date} ~ ${h.endDate}</span>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:11px;color:#6B7280;margin-bottom:8px">
+          <span>📅 ${h.date}${h.endDate && h.endDate !== h.date ? ' ~ ' + h.endDate : ''}</span>
           <span>📚 ${h.type}</span>
-          <span>💰 ${h.budget} · ${(h.amount || 0).toLocaleString()}원</span>
-          <span>⏱ ${h.hours}H</span>
+          <span style="font-weight:700;color:#374151">💰 ${(h.amount || 0).toLocaleString()}원</span>
+          ${h.budget ? `<span style="background:#F3F4F6;padding:1px 6px;border-radius:4px">💳 ${h.budget}</span>` : ''}
         </div>
         ${(() => {
           if (h.rawStatus !== 'saved') return '';
           const _sid = String(h.id || '').replace(/["'<>&]/g, '');
           const _stitle = String(h.title || '').replace(/["'<>&]/g, '');
-          return `<div style="margin-top:8px;padding:8px 12px;border-radius:8px;background:#ECFDF5;border:1px solid #6EE7B7;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><span style="font-size:11px;font-weight:800;color:#065F46">📤 저장완료 — 결재함에서 상신 가능</span><button onclick="event.stopPropagation();_appSingleSubmit('${_sid}','${_stitle}')" style="padding:5px 14px;border-radius:8px;background:#059669;color:white;font-size:11px;font-weight:900;border:none;cursor:pointer;white-space:nowrap">📤 상신하기</button></div>`;
+          return `<div style="padding:8px 12px;border-radius:8px;background:#ECFDF5;border:1px solid #6EE7B7;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px"><span style="font-size:11px;font-weight:800;color:#065F46">📤 저장완료 — 상신 가능</span><button onclick="event.stopPropagation();_appSingleSubmit('${_sid}','${_stitle}')" style="padding:5px 14px;border-radius:8px;background:#059669;color:white;font-size:11px;font-weight:900;border:none;cursor:pointer;white-space:nowrap">📤 상신하기</button></div>`;
         })()}
-
-      <div style="flex-shrink:0;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-        ${
-          h.applyStatus === '반려'
-            ? `<div style="margin-top:8px;padding:8px 12px;border-radius:8px;background:#FEE2E2;border:1px solid #FECACA;font-size:11px;color:#DC2626;font-weight:700">
-                ⚠️ 반려 사유: ${h.rejectReason || '예산 잔액 부족으로 반려되었습니다. 예산 계획 수립 후 재신청 바랍니다.'}
-               </div>`
-            : ''
-        }
-        ${
-          h.refundStatus === 'pending'
-            ? `<div style="margin-top:8px;padding:8px 12px;border-radius:8px;background:#FEF3C7;border:1px solid #FCD34D;font-size:11px;color:#92400E;font-weight:700">
-                ⏳ 취소 요청 처리 중
-               </div>`
-            : ''
-        }
-      </div>
-      <div style="flex-shrink:0;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-        ${
-          h.rawStatus === 'draft' || h.applyStatus === '작성중'
-            ? `<button onclick="resumeApplyDraft('${h.id.replace(/'/g, "\\\"'\\\"")}')"
-               style="padding:8px 14px;border-radius:8px;background:#0369A1;color:white;font-size:11px;font-weight:800;border:none;cursor:pointer;white-space:nowrap">✏️ 이어쓰기</button>
-               <button onclick="deleteApplyDraft('${h.id.replace(/'/g, "\\\"'\\\"")}')"
-               style="padding:8px 14px;border-radius:8px;background:white;color:#DC2626;font-size:11px;font-weight:800;border:1.5px solid #FECACA;cursor:pointer;white-space:nowrap">🗑 삭제</button>`
-            : ''
-        }
-        ${
-          (h.rawStatus === 'pending' || h.rawStatus === 'submitted' || h.applyStatus === '승인대기' || h.applyStatus === '결재진행중') && h.rawStatus !== 'saved'
-            ? `<button onclick="cancelApply('${h.id.replace(/'/g, "\\\"'\\\"")}')"
-               style="padding:8px 14px;border-radius:8px;background:white;color:#DC2626;font-size:11px;font-weight:800;border:1.5px solid #FECACA;cursor:pointer;white-space:nowrap">취소 요청</button>`
-            : ''
-        }
-        ${
-          h.applyStatus === '승인완료' && !h.resultDone
-            ? `<button onclick="_openResultForm('${h.id.replace(/'/g, "\\\"'\\\"")}',${'\'' + (h.title||'').replace(/'/g,'') + '\''},${h.amount||0})"
-               style="padding:8px 14px;border-radius:8px;background:#002C5F;color:white;font-size:11px;font-weight:800;border:none;cursor:pointer;white-space:nowrap">📝 결과 작성</button>`
-            : ''
-        }
-        ${
-          h.applyStatus === '승인완료' && h.resultDone
-            ? `<button style="padding:8px 14px;border-radius:8px;background:#F3F4F6;color:#9CA3AF;font-size:11px;font-weight:800;border:none;cursor:default;white-space:nowrap">✅ 결과 제출 완료</button>`
-            : ''
-        }
+        ${h.applyStatus === '반려' ? `<div style="padding:8px 12px;border-radius:8px;background:#FEE2E2;border:1px solid #FECACA;font-size:11px;color:#DC2626;font-weight:700;margin-bottom:6px">⚠️ 반려 사유: ${h.rejectReason || '예산 잔액 부족으로 반려되었습니다. 예산 계획 수립 후 재신청 바랍니다.'}</div>` : ''}
+        ${h.refundStatus === 'pending' ? `<div style="padding:8px 12px;border-radius:8px;background:#FEF3C7;border:1px solid #FCD34D;font-size:11px;color:#92400E;font-weight:700">⏳ 취소 요청 처리 중</div>` : ''}
+        <!-- 액션 버튼 -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+          ${(() => {
+            const _aid = String(h.id || "").replace(/[<>&]/g, "");
+            const _atitle = String(h.title || "").replace(/'/g, "");
+            const isDraft = h.rawStatus === "draft" || h.applyStatus === "작성중";
+            const isPending = (h.rawStatus === "pending" || h.rawStatus === "submitted" || h.applyStatus === "승인대기" || h.applyStatus === "결재진행중") && h.rawStatus !== "saved";
+            let a = "";
+            if (isDraft) {
+              a += `<button onclick="resumeApplyDraft('` + _aid + `')" style="padding:6px 14px;border-radius:8px;background:#1D4ED8;color:white;font-size:11px;font-weight:800;border:none;cursor:pointer">✏️ 이어쓰기</button>`;
+              a += `<button onclick="deleteApplyDraft('` + _aid + `')" style="padding:6px 14px;border-radius:8px;background:white;color:#DC2626;font-size:11px;font-weight:800;border:1.5px solid #FECACA;cursor:pointer">🗑 삭제</button>`;
+            }
+            if (isPending) a += `<button onclick="cancelApply('` + _aid + `')" style="padding:6px 14px;border-radius:8px;background:white;color:#DC2626;font-size:11px;font-weight:800;border:1.5px solid #FECACA;cursor:pointer">취소 요청</button>`;
+            if (h.applyStatus === "승인완료" && !h.resultDone) a += `<button onclick="_openResultForm('` + _aid + `','` + _atitle + `',` + (h.amount||0) + `)" style="padding:6px 14px;border-radius:8px;background:linear-gradient(135deg,#002C5F,#1D4ED8);color:white;font-size:11px;font-weight:800;border:none;cursor:pointer">📝 결과 작성</button>`;
+            if (h.applyStatus === "승인완료" && h.resultDone) a += `<button disabled style="padding:6px 14px;border-radius:8px;background:#F3F4F6;color:#9CA3AF;font-size:11px;font-weight:800;border:none;cursor:default">✅ 결과 제출 완료</button>`;
+            return a;
+          })()}
+        </div>
+        </div>
       </div>
     </div>`;
     })
     .join('');
-
-  const emptyMsg = `<div style="padding:60px 20px;text-align:center;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB">
-    <div style="font-size:48px;margin-bottom:16px">📭</div>
-    <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">${_applyYear}년 교육신청 이력이 없습니다</div>
-    <div style="font-size:12px;color:#9CA3AF;margin-bottom:20px;line-height:1.6">
-      교육 신청을 하면 결재 진행 상황과 결과를 이 화면에서 확인할 수 있습니다.<br>
-      위의 "교육 신청" 버튼으로 첫 신청을 시작해보세요.
-    </div>
-    <button onclick="applyViewMode='form';applyState=resetApplyState();renderApply()"
-      style="padding:12px 28px;border-radius:12px;background:#002C5F;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">
-      ✏️ 교육 신청하기
-    </button>
-  </div>`;
-
   // 연도 선택
   const curY = new Date().getFullYear();
   const yearSelector = `
@@ -738,22 +707,29 @@ function _renderApplyList() {
   </select>`;
 
   document.getElementById("page-apply").innerHTML = `
-<div class="max-w-4xl mx-auto space-y-4">
-  <div style="display:flex;align-items:flex-end;justify-content:space-between">
-    <div>
-      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육 신청</div>
-      <h1 class="text-3xl font-black text-brand tracking-tight">교육신청 현황</h1>
-      <p style="font-size:12px;color:#9CA3AF;margin-top:4px">${currentPersona.name} · ${currentPersona.dept}</p>
+<div style="max-width:900px;margin:0 auto;padding:0 16px 80px">
+  <!-- 헤더 -->
+  <div style="margin-bottom:24px">
+    <div style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">
+      <span style="color:#D1D5DB">HOME</span>
+      <span style="color:#D1D5DB">›</span>
+      <span style="color:#002C5F">교육신청</span>
     </div>
-    <div style="display:flex;gap:10px;align-items:center">
-      ${yearSelector}
-      ${_applySmartButtons()}
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:nowrap">
+      <div style="min-width:0;flex:1">
+        <h1 style="font-size:22px;font-weight:900;color:#111827;letter-spacing:-.3px">교육신청 현황</h1>
+        <p style="font-size:12px;color:#9CA3AF;margin-top:4px">${currentPersona.name} · ${currentPersona.dept}</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+        ${yearSelector}
+        ${_applySmartButtons()}
+      </div>
     </div>
   </div>
   ${tabBar}
   ${statsBar}
-  <div class="card p-6">
-    ${history.length === 0 ? emptyMsg : `<div style="display:flex;flex-direction:column;gap:10px">${rows}</div>`}
+  <div style="display:flex;flex-direction:column;gap:10px">
+    ${history.length === 0 ? emptyMsg : rows}
   </div>
 </div>`;
 }

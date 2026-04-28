@@ -924,11 +924,15 @@ function _renderCalcGroundsSection(s, curBudget) {
             const isSoftOver = item && item.softLimit > 0 && row.total > item.softLimit;
             const isHardOver = item && item.hardLimit > 0 && row.total > item.hardLimit;
             const rowBg = isHardOver ? "#FEF2F2" : isSoftOver ? "#FFFBEB" : "#fff";
-            // 프리셋 옵션 (캐시된 데이터)
+            // 프리셋: venue_name 기준 지역(venue) 분리
             const presets = row._presets || [];
-            const presetOpts = presets.length > 0
-              ? `<option value="">-- 프리셋 --</option>` + presets.map(p => `<option value="${p.venue_name}|${p.preset_name}|${p.unit_price}|${p.qty2_value||1}" ${row.presetKey===(p.venue_name+'|'+p.preset_name)?'selected':''}>${p.venue_name ? p.venue_name+' · ' : ''}${p.preset_name} (${Number(p.unit_price).toLocaleString()}원)</option>`).join('')
-              : `<option value="">-- 직접입력 --</option>`;
+            const venues = [...new Set(presets.map(p => p.venue_name).filter(Boolean))];
+            const isComposite = venues.length > 0;
+            // 선택 중인 장소의 세부항목 목록
+            const selVenue = row.venueName || '';
+            const venuePresets = isComposite
+              ? presets.filter(p => p.venue_name === selVenue)
+              : presets;
             const showQty2 = true; // 항상 표시
             const showRounds = true; // 항상 표시
             const uSel = (val, fn) => `<select onchange="${fn}(${idx},this.value)" style="font-size:11px;font-weight:700;border:1.5px solid #BFDBFE;border-radius:6px;padding:2px 4px;background:#EFF6FF;color:#1D4ED8;cursor:pointer;width:52px">${CG_UNIT_TYPES.map(u=>'<option value="'+u+'" '+(val===u?'selected':'')+'>'+u+'</option>').join('')}</select>`;
@@ -952,12 +956,41 @@ function _renderCalcGroundsSection(s, curBudget) {
               </div>` : ""}
               ${isHardOver ? `<span style="color:#DC2626;font-size:10px;font-weight:800;display:block;margin-top:2px">🚫 Hard Limit(${fmt(item.hardLimit)}원) 초과 — 저장 불가</span>` : ""}
             </td>
-            <td class="px-3 py-2">
-              ${presets.length > 0 ? `
-              <select onchange="_cgApplyPreset(${idx}, this.value)"
-                style="font-size:10px;font-weight:700;border:1.5px solid #BFDBFE;border-radius:6px;padding:3px 5px;background:#EFF6FF;width:100%;max-width:140px">
-                ${presetOpts}
-              </select>` : `<span style="font-size:10px;color:#9CA3AF">직접입력</span>`}
+            <td class="px-3 py-2" style="min-width:130px">
+              ${isComposite ? `
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <!-- 장소(venue) 선택 -->
+                  <select onchange="_cgSelectVenue(${idx}, this.value)"
+                    style="font-size:10px;font-weight:700;border:1.5px solid #BFDBFE;border-radius:6px;padding:3px 5px;background:#EFF6FF;color:#1D4ED8;width:100%">
+                    <option value="">장소 선택...</option>
+                    ${venues.map(v => `<option value="${v}" ${selVenue===v?'selected':''}>${v}</option>`).join('')}
+                  </select>
+                  <!-- 세부항목(preset) 선택 (장소 선택 후 표시) -->
+                  ${selVenue ? `
+                  <select onchange="_cgApplyPreset(${idx}, this.value)"
+                    style="font-size:10px;font-weight:700;border:1.5px solid #BFDBFE;border-radius:6px;padding:3px 5px;background:#F0FDF4;color:#065F46;width:100%">
+                    <option value="">세부항목 선택...</option>
+                    ${venuePresets.map(p => {
+                      const pVal = p.venue_name+'|'+(p.preset_name||p.detail_name||'')+'|'+p.unit_price+'|'+(p.qty2_value||1);
+                      const sel = row.presetKey === (p.venue_name+'|'+(p.preset_name||p.detail_name||'')) ? 'selected' : '';
+                      const label = (p.preset_name||p.detail_name||'') + (p.unit_price>0 ? ' ('+Number(p.unit_price).toLocaleString()+'원)' : '');
+                      return `<option value="${pVal}" ${sel}>${label}</option>`;
+                    }).join('')}
+                  </select>` : `<span style="font-size:10px;color:#9CA3AF">장소를 먼저 선택하세요</span>`}
+                </div>
+              ` : presets.length > 0 ? `
+                <select onchange="_cgApplyPreset(${idx}, this.value)"
+                  style="font-size:10px;font-weight:700;border:1.5px solid #BFDBFE;border-radius:6px;padding:3px 5px;background:#EFF6FF;width:100%">
+                  <option value="">세부항목 선택...</option>
+                  ${presets.map(p => {
+                    const pVal = (p.venue_name||'')+'|'+(p.preset_name||p.detail_name||'')+'|'+p.unit_price+'|'+(p.qty2_value||1);
+                    const sel = row.presetKey === ((p.venue_name||'')+'|'+(p.preset_name||p.detail_name||'')) ? 'selected' : '';
+                    const label = (p.preset_name||p.detail_name||'') + (p.unit_price>0?' ('+Number(p.unit_price).toLocaleString()+'원)':'');
+                    return `<option value="${pVal}" ${sel}>${label}</option>`;
+                  }).join('')}
+                </select>
+              ` : `<span style="font-size:10px;color:#9CA3AF">직접입력</span>`}
+              ${row.presetName ? `<div style="font-size:9px;color:#059669;margin-top:2px;font-weight:700">✓ ${row.venueName ? row.venueName+' · ' : ''}${row.presetName}</div>` : ''}
             </td>
             <td class="px-3 py-2">
               <input type="number" value="${row.unitPrice || 0}"
@@ -1262,19 +1295,41 @@ async function _cgUpdateItemId(idx, itemId) {
   renderPlanWizard();
 }
 
+// 장소(venue) 선택 → presetName 초기화 후 재렌더
+function _cgSelectVenue(idx, venue) {
+  const row = planState.calcGrounds[idx];
+  if (!row) return;
+  row.venueName = venue || '';
+  row.presetName = '';
+  row.presetKey = '';
+  // 장소에 단일 세부항목밖에 없으면 자동 선택
+  const presets = (row._presets || []).filter(p => p.venue_name === venue);
+  if (presets.length === 1) {
+    const p = presets[0];
+    row.presetName = p.preset_name || p.detail_name || '';
+    row.presetKey = `${venue}|${row.presetName}`;
+    row.unitPrice = Number(p.unit_price) || row.unitPrice;
+    if (p.qty2_value) row.qty2 = Number(p.qty2_value) || 1;
+    _cgRecalcRow(row, null);
+    _syncCalcToAmount();
+  }
+  renderPlanWizard();
+}
+
 function _cgApplyPreset(idx, val) {
   const row = planState.calcGrounds[idx];
   if (!row || !val) return;
   // val: "venue_name|preset_name|unit_price|qty2_value"
-  const [venueName, presetName, priceStr, qty2Str] = val.split("|");
-  row.venueName = venueName || "";
-  row.presetName = presetName || "";
-  row.presetKey = val ? `${venueName}|${presetName}` : "";
-  // 단가 소급 없음: preset 선택 시 최신 단가 적용 (신규 행이므로 항상 로드)
+  const parts = val.split("|");
+  const venueName = parts[0] || '';
+  const presetName = parts[1] || '';
+  const priceStr = parts[2] || '0';
+  const qty2Str = parts[3] || '1';
+  row.venueName = venueName;
+  row.presetName = presetName;
+  row.presetKey = `${venueName}|${presetName}`;
   row.unitPrice = Number(priceStr) || row.unitPrice;
-  const item = typeof CALC_GROUNDS_MASTER !== "undefined"
-    ? CALC_GROUNDS_MASTER.find(g => g.id === row.itemId) : null;
-  if (item?.hasQty2 && qty2Str) row.qty2 = Number(qty2Str) || 1;
+  if (qty2Str) row.qty2 = Number(qty2Str) || 1;
   _cgRecalcRow(row, item);
   _syncCalcToAmount();
   _cgRefreshTotals();

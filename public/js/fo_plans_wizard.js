@@ -456,6 +456,18 @@ function renderPlanWizard() {
         : ""
     }
 
+    ${
+      curBudget
+        ? `
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl px-4 py-3 mb-5">
+      <div class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">선택된 예산 계정</div>
+      <div class="flex flex-wrap gap-4">
+        <div class="flex items-center gap-2"><span class="text-[10px] font-black text-blue-300">② 예산</span><span class="text-xs font-black text-gray-800">${curBudget.name}</span></div>
+      </div>
+    </div>`
+        : ""
+    }
+
     ${["self-learning", "edu-operation"]
       .map((catKey) => {
         const items = categorized[catKey] || [];
@@ -540,9 +552,10 @@ function renderPlanWizard() {
     }
     ${(() => {
       // 교육유형 트리 가져오기
+      // ★ curBudget.accountCode 직접 전달하여 ACCOUNT_TYPE_MAP 역매핑 실패 피한
       const tree =
         typeof getPolicyEduTree !== "undefined" && curBudget
-          ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget.account)
+          ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget.accountCode || curBudget.account)
           : [];
 
       if (tree.length === 0) {
@@ -595,7 +608,7 @@ function renderPlanWizard() {
       ${(() => {
         const tree2 =
           typeof getPolicyEduTree !== "undefined" && curBudget
-            ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget.account)
+            ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget.accountCode || curBudget.account)
             : [];
         const selNode = tree2.find((n) => n.id === s.eduType);
         const isLeaf = selNode && (!selNode.subs || selNode.subs.length === 0);
@@ -608,24 +621,11 @@ function renderPlanWizard() {
     </div>
   </div>
 
-    <!-- 이전 단계 선택 요약 -->
-    ${
-      s.purpose || curBudget
-        ? `
-    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl px-4 py-3 mb-5">
-      <div class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">선택 내역</div>
-      <div class="flex flex-wrap gap-4">
-        ${s.purpose ? `<div class="flex items-center gap-2"><span class="text-[10px] font-black text-blue-300">① 목적</span><span class="text-xs font-black text-gray-800">${s.purpose.icon} ${s.purpose.label}</span></div>` : ""}
-        ${curBudget ? `<div class="flex items-center gap-2"><span class="text-[10px] font-black text-blue-300">② 예산</span><span class="text-xs font-black text-gray-800">${curBudget.name}</span></div>` : ""}
-      </div>
-    </div>`
-        : ""
-    }
     ${(() => {
       // 교육유형 트리 가져오기
       const tree =
         typeof getPolicyEduTree !== "undefined" && curBudget
-          ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget.account)
+          ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget.accountCode || curBudget.account)
           : [];
 
       if (tree.length === 0) {
@@ -697,7 +697,7 @@ function renderPlanWizard() {
       ${(() => {
         const tree2 =
           typeof getPolicyEduTree !== "undefined" && curBudget
-            ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget.account)
+            ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget.accountCode || curBudget.account)
             : [];
         const selNode = tree2.find((n) => n.id === s.eduType);
         const isLeaf = selNode && (!selNode.subs || selNode.subs.length === 0);

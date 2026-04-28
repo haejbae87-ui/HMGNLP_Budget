@@ -1843,6 +1843,14 @@ window.foRenderStandardReadOnlyForm = function (data, context = 'FO') {
   // 2. 비용 정보 & 산출근거
   let calcGroundsHtml = '';
   if (calcGrounds.length > 0) {
+    // 항목명 매핑 헬퍼: itemId 우선, 레거시 폴백
+    const _cgItemName = (cg) => {
+      if (cg.itemId && typeof CALC_GROUNDS_MASTER !== 'undefined' && CALC_GROUNDS_MASTER) {
+        const m = CALC_GROUNDS_MASTER.find(g => g.id === cg.itemId);
+        if (m) return m.name || m.label || cg.itemId;
+      }
+      return cg.type || cg.label || cg.name || cg.itemId || '-';
+    };
     calcGroundsHtml = `
       <div style="margin-top:16px;border:1px solid #E5E7EB;border-radius:8px;overflow:hidden">
         <table style="width:100%;border-collapse:collapse;font-size:12px;text-align:right">
@@ -1855,18 +1863,41 @@ window.foRenderStandardReadOnlyForm = function (data, context = 'FO') {
             </tr>
           </thead>
           <tbody>
-            ${calcGrounds.map(cg => `
+            ${calcGrounds.map(cg => {
+              const itemName = _cgItemName(cg);
+              const unitPrice = Number(cg.unitPrice != null ? cg.unitPrice : (cg.unit_price != null ? cg.unit_price : (cg.price || 0)));
+              const qty1 = Number(cg.qty1 != null ? cg.qty1 : (cg.qty != null ? cg.qty : (cg.quantity || 1)));
+              const qty2 = Number(cg.qty2 != null ? cg.qty2 : 1);
+              const qty3 = Number(cg.qty3 != null ? cg.qty3 : 1);
+              const type1 = cg.type1 || '';
+              const type2 = cg.type2 || '';
+              const type3 = cg.type3 || '';
+              const hasQty2 = (cg.activeMultipliers >= 2) || (qty2 > 1);
+              const hasQty3 = (cg.activeMultipliers >= 3) || (qty3 > 1);
+              let qtyDisplay = `${qty1}${type1 ? ' ' + type1 : ''}`;
+              if (hasQty2) qtyDisplay += ` × ${qty2}${type2 ? ' ' + type2 : ''}`;
+              if (hasQty3) qtyDisplay += ` × ${qty3}${type3 ? ' ' + type3 : ''}`;
+              const subtotal = Number(cg.total != null ? cg.total : (unitPrice * qty1 * qty2 * qty3));
+              return `
               <tr style="border-top:1px solid #E5E7EB">
-                <td style="padding:8px 12px;text-align:left;font-weight:700;color:#111827">${cg.type || cg.label || cg.name || '-'}</td>
-                <td style="padding:8px 12px">${Number(cg.price || cg.unit_price || 0).toLocaleString()}원</td>
-                <td style="padding:8px 12px">${cg.qty || cg.quantity || 1}</td>
-                <td style="padding:8px 12px;font-weight:800;color:#1D4ED8">${(Number(cg.price || cg.unit_price || 0) * Number(cg.qty || cg.quantity || 1)).toLocaleString()}원</td>
-              </tr>
-            `).join('')}
+                <td style="padding:8px 12px;text-align:left;font-weight:700;color:#111827">${itemName}</td>
+                <td style="padding:8px 12px">${unitPrice.toLocaleString()}원</td>
+                <td style="padding:8px 12px">${qtyDisplay}</td>
+                <td style="padding:8px 12px;font-weight:800;color:#1D4ED8">${subtotal.toLocaleString()}원</td>
+              </tr>`;
+            }).join('')}
             <tr style="background:#F9FAFB;border-top:2px solid #D1D5DB">
               <td colspan="3" style="padding:10px 12px;text-align:right;font-weight:900;color:#111827">합계</td>
               <td style="padding:10px 12px;font-weight:900;color:#002C5F;font-size:14px">
-                ${calcGrounds.reduce((sum, cg) => sum + (Number(cg.price || cg.unit_price || 0) * Number(cg.qty || cg.quantity || 1)), 0).toLocaleString()}원
+                ${calcGrounds.reduce((sum, cg) => {
+                  const t = Number(cg.total != null ? cg.total : (
+                    Number(cg.unitPrice != null ? cg.unitPrice : (cg.unit_price || cg.price || 0)) *
+                    Number(cg.qty1 != null ? cg.qty1 : (cg.qty || cg.quantity || 1)) *
+                    Number(cg.qty2 != null ? cg.qty2 : 1) *
+                    Number(cg.qty3 != null ? cg.qty3 : 1)
+                  ));
+                  return sum + t;
+                }, 0).toLocaleString()}원
               </td>
             </tr>
           </tbody>

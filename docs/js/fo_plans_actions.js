@@ -1671,3 +1671,84 @@ async function _foCheckBankBalanceWarning(amount) {
   } catch(e) {}
   return true;
 }
+
+// ─── Phase 4: 사업계획 승인 시 운영계획 자동 복사 ─────────────────────────────
+// PRD: implementation_plan.md §Phase4
+// 트리거: 총괄담당자 최종 승인(status → 'approved'), plan_type === 'forecast' 한정
+// 멱등성: source_forecast_plan_id 중복 방지
+// 예산 안전성: frozen_amount = 0 (운영계획 결재 승인 시점에 별도 처리)
+
+/**
+ * 사업계획(forecast) 최종 승인 완료 시 운영계획(operation) 자동 생성
+ * @param {Object} sb           - Supabase 클라이언트
+ * @param {Object} forecastPlan - plans 테이블 원본 레코드 (plan_type === 'forecast')
+ * @returns {string|null}       - 생성된 운영계획 ID 또는 null (스킵)
+ */
+async function _autoCreateOperationPlan(sb, forecastPlan) {
+  if (!sb || !forecastPlan) return null;
+  if (forecastPlan.plan_type !== 'forecast' && forecastPlan.plan_type !== 'business') return null;
+
+  try {
+    // ─── 중복 방지: 이미 복사된 운영계획 존재 여부 확인 ───────────────────────
+    const { data: existing } = await sb.from('plans')
+      .select('id')
+      .eq('plan_type', 'operation')
+      .eq('tenant_id', forecastPlan.tenant_id)
+      .contains('detail', { source_forecast_plan_id: String(forecastPlan.id) })
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      console.log('[Phase4] 운영계획 이미 존재 — 스킵:', existing[0].id);
+      return null;
+    }
+
+    // ─── 복사본 생성 ─────────────────────────────────────────────────────────
+    const now = new Date().toISOString();
+    const newId = 'PLAN-' + Date.now();
+
+    // detail 필드: 원본 복사 + 추적 메타 추가
+    const newDetail = {
+      ...(forecastPlan.detail || {}),
+      source_forecast_plan_id: String(forecastPlan.id),
+      auto_copied_at: now,
+      copy_trigger: 'forecast_approved',
+    };
+
+    const insertData = {
+      id: newId,
+      edu_name: forecastPlan.edu_name,
+      plan_type: 'operation',
+      status: 'saved',              // ← 사용자가 보완 후 별도 상신
+      fiscal_year: forecastPlan.fiscal_year,
+      account_code: forecastPlan.account_code,
+      amount: forecastPlan.amount,
+      frozen_amount: 0,             // ← 이중 점유 방지
+      allocated_amount: 0,          // ← 배정액 초기화 (운영계획 결재 시 확정)
+      applicant_id: forecastPlan.applicant_id,
+      applicant_name: forecastPlan.applicant_name,
+      applicant_org_id: forecastPlan.applicant_org_id || null,
+      dept: forecastPlan.dept || null,
+      tenant_id: forecastPlan.tenant_id,
+      edu_type: forecastPlan.edu_type || null,
+      detail: newDetail,
+      created_at: now,
+      updated_at: now,
+    };
+
+    const { data: newPlan, error: insertErr } = await sb.from('plans').insert(insertData).select('id').single();
+    if (insertErr) throw insertErr;
+
+    console.log('[Phase4] 운영계획 자동 생성 완료:', newPlan?.id, '← 원본:', forecastPlan.id);
+
+    // ─── FO 화면 토스트 알림 (화면이 열려 있는 경우만) ──────────────────────
+    if (typeof showToast === 'function') {
+      showToast('✅ 운영계획이 자동 생성되었습니다. 운영계획 탭에서 확인하세요.', 5000);
+    }
+
+    return newPlan?.id || null;
+  } catch (err) {
+    console.error('[Phase4 _autoCreateOperationPlan] 실패 (비치명적):', err.message);
+    return null;
+  }
+}
+window._autoCreateOperationPlan = _autoCreateOperationPlan;

@@ -957,6 +957,7 @@ function renderPlans() {
           tenantId: d.tenant_id,
           fiscalYear: d.fiscal_year,
           plan_type: d.plan_type || 'operation', // ★ plan_type 포함 (사업계획/운영계획 분리 필수)
+          source_forecast_plan_id: d.detail?.source_forecast_plan_id || null, // Phase4: 복사본 판별
         }));
         _plansDbCache = data;
       }
@@ -1016,6 +1017,7 @@ function renderPlans() {
             tenantId: d.tenant_id,
             fiscalYear: d.fiscal_year,
             plan_type: d.plan_type || 'operation', // ★ 팀 계획 plan_type 포함
+            source_forecast_plan_id: d.detail?.source_forecast_plan_id || null, // Phase4: 복사본 판별
           }));
 
           renderPlans();
@@ -1480,6 +1482,7 @@ function _renderPlanCard(p) {
               <span style="font-size:14px;font-weight:900;color:#111827;word-break:break-all">${p.title}</span>
               <span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:100px;background:${cfg.color}18;color:${cfg.color};white-space:nowrap">${status}</span>
               ${authorBadge}
+              ${p.source_forecast_plan_id && p.plan_type === 'operation' ? `<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:100px;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;white-space:nowrap">📋 사업계획 복사본</span>` : ''}
             </div>
           </div>
         </div>

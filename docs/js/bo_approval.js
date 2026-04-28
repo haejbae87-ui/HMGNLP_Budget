@@ -362,19 +362,13 @@ async function boApproveSubDoc(docId) {
               const finalAmt = (plan.allocated_amount && Number(plan.allocated_amount) > 0) ? plan.allocated_amount : plan.amount;
               await sb.from("plans").update({ allocated_amount: finalAmt, updated_at: now }).eq("id", it.item_id);
               
-              // 운영계획으로 자동 복사 (사업계획인 경우)
-              if (plan.plan_type === "business") {
-                const newPlan = { ...plan };
-                delete newPlan.id; // supabase가 자동 생성하거나 수동 채번 로직이 있다면 여기서 처리 (uuid)
-                newPlan.plan_type = "operation";
-                newPlan.parent_id = plan.id;
-                newPlan.allocated_amount = finalAmt;
-                newPlan.status = "approved"; // 복사된 운영계획도 즉시 승인 상태
-                newPlan.created_at = now;
-                newPlan.updated_at = now;
-                try {
-                  await sb.from("plans").insert(newPlan);
-                } catch (copyErr) { console.error("운영계획 복사 실패:", copyErr); }
+              // 운영계획으로 자동 복사 (Phase 4: forecast/business → operation)
+              if (plan.plan_type === 'forecast' || plan.plan_type === 'business') {
+                if (typeof _autoCreateOperationPlan === 'function') {
+                  _autoCreateOperationPlan(sb, plan).catch(e =>
+                    console.warn('[Phase4] 운영계획 자동복사 실패 (비치명적):', e.message)
+                  );
+                }
               }
             }
           }

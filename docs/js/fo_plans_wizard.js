@@ -1,5 +1,5 @@
-// ─── fo_plans_wizard.js — 계획 수립 마법사 Step 렌더 (REFACTOR-2: plans.js 분리) ───
-// ─── PLAN WIZARD ─────────────────────────────────────────────────────────────
+// ?�?�?� fo_plans_wizard.js ??계획 ?�립 마법??Step ?�더 (REFACTOR-2: plans.js 분리) ?�?�?�
+// ?�?�?� PLAN WIZARD ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
 
 function startPlanWizard(mode = 'ongoing', forcedYear = null, accountCode = null, targetAccountsJson = null) {
   planState = resetPlanState();
@@ -13,14 +13,14 @@ function startPlanWizard(mode = 'ongoing', forcedYear = null, accountCode = null
     }
   }
 
-  // Phase1: 계정 컨텍스트 자동 주입 (L2에서 선택된 계정)
+  // Phase1: 계정 컨텍?�트 ?�동 주입 (L2?�서 ?�택??계정)
   if (accountCode) {
     planState.contextAccountCode = accountCode;
   } else if (typeof _selectedAccountCode !== 'undefined' && _selectedAccountCode) {
     planState.contextAccountCode = _selectedAccountCode;
   }
 
-  // Phase2: contextAccountCode → budgetId 자동 매핑 (예산 선택 Step 스킵용)
+  // Phase2: contextAccountCode ??budgetId ?�동 매핑 (?�산 ?�택 Step ?�킵??
   if (planState.contextAccountCode) {
     const matchedBudget = (currentPersona?.budgets || []).find(b =>
       b.accountCode === planState.contextAccountCode || b.id === planState.contextAccountCode
@@ -35,19 +35,19 @@ function startPlanWizard(mode = 'ongoing', forcedYear = null, accountCode = null
     planState.fiscal_year = forcedYear || _planYear;
     _planYear = planState.fiscal_year; // update global filter
   } else {
-    // 자동 태그: 연도 기반 plan_type 결정 (하위호환)
+    // ?�동 ?�그: ?�도 기반 plan_type 결정 (?�위?�환)
     planState.fiscal_year = forcedYear || _planYear;
     planState.plan_type = planState.fiscal_year > curYear ? "forecast" : "ongoing";
   }
-  // 수요예측 마감 체크 (비동기) — 제도그룹 기반으로 전환
+  // ?�요?�측 마감 체크 (비동�? ???�도그룹 기반?�로 ?�환
   if (planState.plan_type === "forecast") {
-    // currentPersona의 제도그룹 ID 배열 추출 (다중 소속 지원)
+    // currentPersona???�도그룹 ID 배열 추출 (?�중 ?�속 지??
     const vorgTplIds = currentPersona.vorgIds || (currentPersona.domainId ? [currentPersona.domainId] : []) || null;
     _checkForecastDeadline(currentPersona.tenantId || "HMC", _planYear, vorgTplIds).then(
       (dl) => {
         if (dl && (dl.is_closed || dl.status === "closed" || dl.status === "expired")) {
           const goOngoing = confirm(
-            `⚠ ${_planYear}년도 수요예측 접수가 마감되었습니다.\n\n${curYear}년을 선택하여 상시 교육계획으로 수립하시겠습니까?\n\n[확인] ${curYear}년 상시 계획으로 전환\n[취소] 마감된 ${_planYear}년 수요예측으로 계속`,
+            `??${_planYear}?�도 ?�요?�측 ?�수가 마감?�었?�니??\n\n${curYear}?�을 ?�택?�여 ?�시 교육계획?�로 ?�립?�시겠습?�까?\n\n[?�인] ${curYear}???�시 계획?�로 ?�환\n[취소] 마감??${_planYear}???�요?�측?�로 계속`,
           );
           if (goOngoing) {
             _planYear = curYear;
@@ -55,8 +55,8 @@ function startPlanWizard(mode = 'ongoing', forcedYear = null, accountCode = null
             planState.plan_type = "ongoing";
           }
         } else if (!dl) {
-          // 기간 미설정 안내 → 상시 계획으로 자동 전환
-          alert(`ℹ ${_planYear}년도 수요예측 접수 기간이 아직 설정되지 않았습니다.\n상시 교육계획으로 전환됩니다.`);
+          // 기간 미설???�내 ???�시 계획?�로 ?�동 ?�환
+          alert(`??${_planYear}?�도 ?�요?�측 ?�수 기간???�직 ?�정?��? ?�았?�니??\n?�시 교육계획?�로 ?�환?�니??`);
           _planYear = curYear;
           planState.fiscal_year = curYear;
           planState.plan_type = "ongoing";
@@ -64,24 +64,24 @@ function startPlanWizard(mode = 'ongoing', forcedYear = null, accountCode = null
           const d = dl.recruit_start
             ? Math.ceil((new Date(dl.recruit_start) - new Date()) / 86400000)
             : null;
-          alert(`⏳ ${_planYear}년도 수요예측 접수 기간이 아직 시작되지 않았습니다.${d !== null ? ` (D-${d})` : ""}\n상시 교육계획으로 전환됩니다.`);
+          alert(`??${_planYear}?�도 ?�요?�측 ?�수 기간???�직 ?�작?��? ?�았?�니??${d !== null ? ` (D-${d})` : ""}\n?�시 교육계획?�로 ?�환?�니??`);
           _planYear = curYear;
           planState.fiscal_year = curYear;
           planState.plan_type = "ongoing";
         }
-        // status === 'open': 정상 수요예측 수립 가능
+        // status === 'open': ?�상 ?�요?�측 ?�립 가??
       },
     );
   }
   _viewingPlanDetail = null;
-  renderPlans(); // planState가 있으면 위저드 뷰 렌더
+  renderPlans(); // planState가 ?�으�??��???�??�더
 }
 
-// ─── 계획 상세 보기 ──────────────────────────────────────────────
+// ?�?�?� 계획 ?�세 보기 ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
 let _viewingPlanDetail = null;
 
 function viewPlanDetail(planId) {
-  // DB plans 또는 mock에서 해당 계획 찾기
+  // DB plans ?�는 mock?�서 ?�당 계획 찾기
   const allPlans = typeof _plansDbCache !== "undefined" ? _plansDbCache : [];
   const mockPlans =
     typeof currentPersona !== "undefined" && currentPersona.plans
@@ -91,7 +91,7 @@ function viewPlanDetail(planId) {
     allPlans.find((p) => p.id === planId) ||
     mockPlans.find((p) => p.id === planId);
   if (!plan) {
-    alert("계획을 찾을 수 없습니다.");
+    alert("계획??찾을 ???�습?�다.");
     return;
   }
   _viewingPlanDetail = plan;
@@ -100,19 +100,19 @@ function viewPlanDetail(planId) {
 
 function _renderPlanDetailView(plan) {
   const STATUS_LABEL = {
-    draft: "작성중",
-    saved: "작성완료",
-    pending: "결재대기",
-    submitted: "결재대기",
-    approved: "승인완료",
+    draft: "?�성�?,
+    saved: "?�성?�료",
+    pending: "결재?��?,
+    submitted: "결재?��?,
+    approved: "?�인?�료",
     rejected: "반려",
     cancelled: "취소",
-    승인완료: "승인완료",
-    진행중: "진행중",
+    ?�인?�료: "?�인?�료",
+    진행�? "진행�?,
     반려: "반려",
-    결재진행중: "결재대기",
-    신청중: "결재대기",
-    작성중: "작성중",
+    결재진행�? "결재?��?,
+    ?�청�? "결재?��?,
+    ?�성�? "?�성�?,
     취소: "취소",
   };
   const STATUS_COLOR = {
@@ -123,12 +123,12 @@ function _renderPlanDetailView(plan) {
     approved: "#059669",
     rejected: "#DC2626",
     cancelled: "#9CA3AF",
-    승인완료: "#059669",
-    진행중: "#059669",
+    ?�인?�료: "#059669",
+    진행�? "#059669",
     반려: "#DC2626",
-    결재진행중: "#D97706",
-    신청중: "#D97706",
-    작성중: "#0369A1",
+    결재진행�? "#D97706",
+    ?�청�? "#D97706",
+    ?�성�? "#0369A1",
     취소: "#9CA3AF",
   };
   const st = plan.status || "pending";
@@ -138,14 +138,14 @@ function _renderPlanDetailView(plan) {
   const amount = Number(plan.amount || plan.planAmount || 0);
   const safeId = String(plan.id || "").replace(/'/g, "\\'");
   const safeTitle = String(plan.title || plan.edu_name || "").replace(/'/g, "");
-  const isPending = st === "pending" || st === "submitted" || st === "신청중" || st === "결재진행중";
-  const isDraft = st === "draft" || st === "작성중";
-  const isSaved = st === "saved" || st === "저장완료";
-  const isApproved = st === "approved" || st === "승인완료";
-  // 만료 검증
+  const isPending = st === "pending" || st === "submitted" || st === "?�청�? || st === "결재진행�?;
+  const isDraft = st === "draft" || st === "?�성�?;
+  const isSaved = st === "saved" || st === "?�?�완�?;
+  const isApproved = st === "approved" || st === "?�인?�료";
+  // 만료 검�?
   const endDate = d.endDate || plan.end_date || null;
   const isExpired = endDate && new Date(endDate) < new Date();
-  // 연결된 신청 조회
+  // ?�결???�청 조회
   const linkedApps = (
     typeof MOCK_HISTORY !== "undefined" ? MOCK_HISTORY : []
   ).filter((h) => h.planId === plan.id);
@@ -155,14 +155,14 @@ function _renderPlanDetailView(plan) {
   const accountName = curBudget ? curBudget.name : (plan.account_code || plan.account || "-");
 
   return `
-  <div class="max-w-4xl mx-auto">
+  <div class="max-w-5xl mx-auto">
     <div style="margin-bottom:16px">
       <button onclick="_viewingPlanDetail=null;renderPlans()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">
-        ← 목록으로
+        ??목록?�로
       </button>
     </div>
     <div style="border-radius:16px;overflow:hidden;border:1.5px solid #E5E7EB;background:white;box-shadow:0 4px 20px rgba(0,0,0,.06)">
-      <!-- 헤더 -->
+      <!-- ?�더 -->
       <div style="padding:24px 28px;background:linear-gradient(135deg,#002C5F,#0369A1);color:white">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:${stColor}40;color:white">${stLabel}</span>
@@ -170,51 +170,51 @@ function _renderPlanDetailView(plan) {
         <h2 style="margin:0;font-size:20px;font-weight:900">${plan.title || plan.edu_name || "-"}</h2>
         <p style="margin:6px 0 0;font-size:12px;opacity:.8">${plan.applicant_name || currentPersona.name} · ${plan.dept || currentPersona.dept}</p>
       </div>
-      <!-- 상세 정보 (7단계 통합 뷰) -->
+      <!-- ?�세 ?�보 (7?�계 ?�합 �? -->
       <div style="padding:24px 28px; background:#F9FAFB">
-        ${typeof window.foRenderStandardReadOnlyForm === 'function' ? window.foRenderStandardReadOnlyForm({...plan, amount, accountCode: plan.account_code || plan.account || ''}, 'FO') : '<p>렌더러 로딩 중...</p>'}
+        ${typeof window.foRenderStandardReadOnlyForm === 'function' ? window.foRenderStandardReadOnlyForm({...plan, amount, accountCode: plan.account_code || plan.account || ''}, 'FO') : '<p>?�더??로딩 �?..</p>'}
       </div>
-      <!-- 결재/검토 진행현황 -->
+      <!-- 결재/검??진행?�황 -->
       ${typeof renderApprovalStepper === "function" ? renderApprovalStepper(st, "plan") : ""}
-      <!-- 연결된 교육신청 -->
+      <!-- ?�결??교육?�청 -->
       <div style="padding:16px 28px;border-top:1px solid #F3F4F6">
-        <div style="font-size:12px;font-weight:800;color:#6B7280;margin-bottom:10px">🔗 연결된 교육신청</div>
+        <div style="font-size:12px;font-weight:800;color:#6B7280;margin-bottom:10px">?�� ?�결??교육?�청</div>
         ${
           linkedApps.length > 0
             ? linkedApps
                 .map(
                   (app) => `
           <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#F9FAFB;border-radius:10px;margin-bottom:6px">
-            <span style="font-size:14px">📝</span>
+            <span style="font-size:14px">?��</span>
             <div style="flex:1">
               <div style="font-size:12px;font-weight:800;color:#111827">${app.title || app.id}</div>
-              <div style="font-size:11px;color:#6B7280">${app.date || "-"} · ${(app.amount || 0).toLocaleString()}원</div>
+              <div style="font-size:11px;color:#6B7280">${app.date || "-"} · ${(app.amount || 0).toLocaleString()}??/div>
             </div>
-            <span style="font-size:10px;font-weight:900;padding:3px 8px;border-radius:5px;background:${app.status === "완료" ? "#D1FAE5" : app.status === "진행중" ? "#DBEAFE" : "#FEF3C7"};color:${app.status === "완료" ? "#065F46" : app.status === "진행중" ? "#1D4ED8" : "#92400E"}">${app.status || "신청중"}</span>
+            <span style="font-size:10px;font-weight:900;padding:3px 8px;border-radius:5px;background:${app.status === "?�료" ? "#D1FAE5" : app.status === "진행�? ? "#DBEAFE" : "#FEF3C7"};color:${app.status === "?�료" ? "#065F46" : app.status === "진행�? ? "#1D4ED8" : "#92400E"}">${app.status || "?�청�?}</span>
           </div>
         `,
                 )
                 .join("")
             : `
           <div style="padding:12px 14px;background:#F9FAFB;border-radius:10px;font-size:12px;color:#9CA3AF;text-align:center">
-            아직 연결된 교육신청이 없습니다.
+            ?�직 ?�결??교육?�청???�습?�다.
           </div>
         `
         }
       </div>
-      <!-- 액션 -->
+      <!-- ?�션 -->
       <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6">
-        <button onclick="_viewingPlanDetail=null;renderPlans()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">← 목록으로</button>
-        ${isDraft ? `<button onclick="_viewingPlanDetail=null;resumePlanDraft('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#0369A1;color:white;cursor:pointer">✏️ 이어쓰기</button>` : ""}
+        <button onclick="_viewingPlanDetail=null;renderPlans()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">??목록?�로</button>
+        ${isDraft ? `<button onclick="_viewingPlanDetail=null;resumePlanDraft('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#0369A1;color:white;cursor:pointer">?�️ ?�어?�기</button>` : ""}
         ${isSaved ? `
-          <button onclick="_viewingPlanDetail=null;_aprSingleSubmitFromPlan('${safeId}','${safeTitle}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#059669;color:white;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">📤 상신하기</button>
-          <button onclick="_viewingPlanDetail=null;resumePlanDraft('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #BFDBFE;background:white;color:#0369A1;cursor:pointer">✏️ 수정</button>
+          <button onclick="_viewingPlanDetail=null;_aprSingleSubmitFromPlan('${safeId}','${safeTitle}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#059669;color:white;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">?�� ?�신?�기</button>
+          <button onclick="_viewingPlanDetail=null;resumePlanDraft('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #BFDBFE;background:white;color:#0369A1;cursor:pointer">?�️ ?�정</button>
         ` : ""}
-        ${isPending ? `<button onclick="foRecallPlanFromDetail('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FECACA;background:white;color:#DC2626;cursor:pointer">회수하기</button>` : ""}
-        ${canApply ? `<button onclick="_viewingPlanDetail=null;startApplyFromPlan('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:linear-gradient(135deg,#059669,#10B981);color:white;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">▶ 이 계획으로 교육신청</button>` : ""}
-        ${isApproved ? `<button onclick="foOpenReduceAllocation('${safeId}')" style="padding:10px 20px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FDE68A;background:#FFFBEB;color:#B45309;cursor:pointer" title="배정액 하향 조정 (내용 변경 불가)">📉 배정액 축소</button>` : ""}
-        ${isApproved && isExpired ? `<button disabled style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #E5E7EB;background:#F9FAFB;color:#9CA3AF;cursor:not-allowed" title="계획 기간이 만료되어 신청할 수 없습니다">⚠ 기간 만료</button>` : ""}
-        ${!isApproved && !isDraft && !isPending ? `<span style="font-size:11px;color:#9CA3AF;align-self:center">ℹ 승인완료 상태에서 신청 가능합니다</span>` : ""}
+        ${isPending ? `<button onclick="foRecallPlanFromDetail('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FECACA;background:white;color:#DC2626;cursor:pointer">?�수?�기</button>` : ""}
+        ${canApply ? `<button onclick="_viewingPlanDetail=null;startApplyFromPlan('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:linear-gradient(135deg,#059669,#10B981);color:white;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">????계획?�로 교육?�청</button>` : ""}
+        ${isApproved ? `<button onclick="foOpenReduceAllocation('${safeId}')" style="padding:10px 20px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FDE68A;background:#FFFBEB;color:#B45309;cursor:pointer" title="배정???�향 조정 (?�용 변�?불�?)">?�� 배정??축소</button>` : ""}
+        ${isApproved && isExpired ? `<button disabled style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #E5E7EB;background:#F9FAFB;color:#9CA3AF;cursor:not-allowed" title="계획 기간??만료?�어 ?�청?????�습?�다">??기간 만료</button>` : ""}
+        ${!isApproved && !isDraft && !isPending ? `<span style="font-size:11px;color:#9CA3AF;align-self:center">???�인?�료 ?�태?�서 ?�청 가?�합?�다</span>` : ""}
       </div>
     </div>
   </div>`;
@@ -222,37 +222,37 @@ function _renderPlanDetailView(plan) {
 
 function closePlanWizard() {
   planState = null;
-  renderPlans(); // 목록 뷰로 복귀
+  renderPlans(); // 목록 뷰로 복�?
 }
 
 function renderPlanWizard() {
   const s = planState;
   if (!s) return;
 
-  // P1 수정: 정책 로드 완료 전이면 먼저 로드 후 재렌더
-  // (빠른 클릭 등으로 SERVICE_POLICIES 비어있을 때 Fallback 경로 방지)
+  // P1 ?�정: ?�책 로드 ?�료 ?�이�?먼�? 로드 ???�렌??
+  // (빠른 ?�릭 ?�으�?SERVICE_POLICIES 비어?�을 ??Fallback 경로 방�?)
   if (!_foServicePoliciesLoaded) {
     _loadFoPolicies().then(() => renderPlanWizard());
     return;
   }
 
-  // 정책 우선: 역할이 아닌 매칭 정책의 target_type으로 UI 섹션 결정
+  // ?�책 ?�선: ??��???�닌 매칭 ?�책??target_type?�로 UI ?�션 결정
   const policyResult =
     typeof _getActivePolicies !== "undefined"
       ? _getActivePolicies(currentPersona)
       : null;
   const matchedPolicies = policyResult ? policyResult.policies : [];
-  // 패턴A 존재 시 계획 필수 안내
+  // ?�턴A 존재 ??계획 ?�수 ?�내
   const hasPlanRequiredPattern = matchedPolicies.some(
     (p) => (p.process_pattern || p.processPattern) === "A",
   );
 
-  // 정책 기반 목적 필터 (apply.js 동일: 행위 기반 카테고리)
-  // ★★ 교육계획 화면 전용: 패턴 A(계획 필수) 정책이 있는 목적만 표시 ★★
-  // 패턴 B/C/D/E 전용 목적은 계획 수립이 불필요하므로 제외
+  // ?�책 기반 목적 ?�터 (apply.js ?�일: ?�위 기반 카테고리)
+  // ?�★ 교육계획 ?�면 ?�용: ?�턴 A(계획 ?�수) ?�책???�는 목적�??�시 ?�★
+  // ?�턴 B/C/D/E ?�용 목적?� 계획 ?�립??불필?�하므�??�외
   const _allPurposes = getPersonaPurposes(currentPersona);
 
-  // 패턴 A 정책이 존재하는 BO purpose 키 수집
+  // ?�턴 A ?�책??존재?�는 BO purpose ???�집
   const _FO_TO_BO =
     typeof _FO_TO_BO_PURPOSE !== "undefined" ? _FO_TO_BO_PURPOSE : {};
   const _BO_TO_FO =
@@ -261,19 +261,19 @@ function renderPlanWizard() {
   matchedPolicies.forEach((p) => {
     const pt = p.process_pattern || p.processPattern || "";
     if (pt === "A") {
-      // BO purpose → FO purpose ID로 변환하여 수집
+      // BO purpose ??FO purpose ID�?변?�하???�집
       const foPurpose = _BO_TO_FO[p.purpose] || p.purpose;
       planRequiredPurposes.add(foPurpose);
     }
   });
 
-  // 패턴 A 정책이 있는 목적만 필터 (패턴 A 정책이 없으면 계획 수립 자체 불필요 → 빈 목록)
+  // ?�턴 A ?�책???�는 목적�??�터 (?�턴 A ?�책???�으�?계획 ?�립 ?�체 불필????�?목록)
   let allPurposes = _allPurposes.filter((p) =>
     planRequiredPurposes.has(p.id),
   );
 
-  // ★ 계정 기반 목적 필터: L2에서 특정 계정을 선택한 경우 해당 계정에 등록된 정책의 목적만 노출
-  // (ex. HMC-OPS 선택 시 → elearning_class, conf_seminar 목적만 / HMC-RND 선택 시 → elearning_class, external_personal만)
+  // ??계정 기반 목적 ?�터: L2?�서 ?�정 계정???�택??경우 ?�당 계정???�록???�책??목적�??�출
+  // (ex. HMC-OPS ?�택 ????elearning_class, conf_seminar 목적�?/ HMC-RND ?�택 ????elearning_class, external_personal�?
   if (s.contextAccountCode) {
     allPurposes = allPurposes.filter((p) => {
       const boPurposeKeys = _FO_TO_BO[p.id] || [p.id];
@@ -289,7 +289,7 @@ function renderPlanWizard() {
     });
   }
 
-  // 수요예측 캠페인: 타겟 계정이 주어졌다면 해당 계정에 연동되는 목적만 노출
+  // ?�요?�측 캠페?? ?��?계정??주어졌다�??�당 계정???�동?�는 목적�??�출
   if (s.plan_type === 'forecast' && s.targetAccounts && s.targetAccounts.length > 0) {
     allPurposes = allPurposes.filter((p) => {
       const rawBudgets = getPersonaBudgets(currentPersona, p.id) || [];
@@ -325,19 +325,19 @@ function renderPlanWizard() {
       ? _CATEGORY_META
       : {
           "self-learning": {
-            icon: "📚",
-            label: "직접 학습",
-            desc: "본인이 직접 참여하는 교육",
+            icon: "?��",
+            label: "직접 ?�습",
+            desc: "본인??직접 참여?�는 교육",
           },
           "edu-operation": {
-            icon: "🎯",
-            label: "교육 운영",
-            desc: "교육과정을 기획하거나 운영하는 경우",
+            icon: "?��",
+            label: "교육 ?�영",
+            desc: "교육과정??기획?�거???�영?�는 경우",
           },
           "result-only": {
-            icon: "📝",
-            label: "결과만 등록",
-            desc: "이미 수료한 교육의 결과를 등록",
+            icon: "?��",
+            label: "결과�??�록",
+            desc: "?��? ?�료??교육??결과�??�록",
           },
         };
   const categorized = {};
@@ -346,8 +346,8 @@ function renderPlanWizard() {
     if (!categorized[cat]) categorized[cat] = [];
     categorized[cat].push(p);
   });
-  // ★ 교육계획 전용: 패턴 A 정책의 account codes만으로 예산 필터링 ★
-  // (모든 목적의 예산이 아닌, 패턴 A 정책에 연결된 계정만 표시)
+  // ??교육계획 ?�용: ?�턴 A ?�책??account codes만으�??�산 ?�터�???
+  // (모든 목적???�산???�닌, ?�턴 A ?�책???�결??계정�??�시)
   const _planPatternACodes = new Set();
   if (s.purpose) {
     const boPurposeKeys =
@@ -368,7 +368,7 @@ function renderPlanWizard() {
   const _rawBudgets = s.purpose
     ? getPersonaBudgets(currentPersona, s.purpose.id)
     : [];
-  // 패턴 A 계정 코드가 있으면 해당 코드만 필터, 없으면 전체 (폴백)
+  // ?�턴 A 계정 코드가 ?�으�??�당 코드�??�터, ?�으�??�체 (?�백)
   let availBudgets =
     _planPatternACodes.size > 0
       ? _rawBudgets.filter((b) => {
@@ -381,13 +381,13 @@ function renderPlanWizard() {
         })
       : _rawBudgets;
       
-  // 수요예측 캠페인의 타겟 계정이 주어졌다면 추가로 필터링
+  // ?�요?�측 캠페?�의 ?��?계정??주어졌다�?추�?�??�터�?
   if (s.plan_type === 'forecast' && s.targetAccounts && s.targetAccounts.length > 0) {
     availBudgets = availBudgets.filter(b => s.targetAccounts.includes(b.accountCode));
   }
   const curBudget = availBudgets.find((b) => b.id === s.budgetId)
-    // ★ 폴백: contextAccountCode로 자동 주입된 budgetId가 availBudgets에 없을 때
-    // (목적 선택 전 자동 주입 → 목적 기반 availBudgets에서 제외될 수 있음)
+    // ???�백: contextAccountCode�??�동 주입??budgetId가 availBudgets???�을 ??
+    // (목적 ?�택 ???�동 주입 ??목적 기반 availBudgets?�서 ?�외?????�음)
     || (s.contextAccountCode
       ? (currentPersona.budgets || []).find(b =>
           b.accountCode === s.contextAccountCode || b.id === s.budgetId
@@ -395,7 +395,7 @@ function renderPlanWizard() {
       : null)
     || null;
 
-  // 프로세스 패턴 안내 (apply.js 동일)
+  // ?�로?�스 ?�턴 ?�내 (apply.js ?�일)
   const _processInfo =
     curBudget && s.purpose
       ? typeof getProcessPatternInfo !== "undefined"
@@ -407,13 +407,13 @@ function renderPlanWizard() {
         : null
       : null;
 
-  // ── 스탭 지시자 (3단계: 목적→교육유형→세부정보) ──────────────────────────────────────
-  const stepLabels = ["목적 선택", "교육유형", "세부 정보"];
+  // ?�?� ?�탭 지?�자 (3?�계: 목적?�교?�유?�→?��??�보) ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
+  const stepLabels = ["목적 ?�택", "교육?�형", "?��? ?�보"];
   const stepper = [1, 2, 3]
     .map(
       (n) => `
   <div class="step-item flex items-center gap-2 ${s.step > n ? "done" : s.step === n ? "active" : ""}">
-    <div class="step-circle w-8 h-8 rounded-full flex items-center justify-center text-sm font-black transition-all">${s.step > n ? "✓" : n}</div>
+    <div class="step-circle w-8 h-8 rounded-full flex items-center justify-center text-sm font-black transition-all">${s.step > n ? "?? : n}</div>
     <span class="text-xs font-bold ${s.step === n ? "text-brand" : "text-gray-400"} hidden sm:block">${stepLabels[n - 1]}</span>
     ${n < 3 ? '<div class="h-px flex-1 bg-gray-200 mx-2 w-8"></div>' : ""}
   </div>`,
@@ -421,36 +421,36 @@ function renderPlanWizard() {
     .join("");
 
   document.getElementById("page-plans").innerHTML = `
-<div class="max-w-4xl mx-auto space-y-6">
-  <!-- 헤더 -->
+<div class="max-w-5xl mx-auto space-y-6">
+  <!-- ?�더 -->
   <div class="flex items-center justify-between">
     <div>
-      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육계획</div>
-      <h1 class="text-3xl font-black text-brand tracking-tight">교육계획 수립</h1>
+      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home ??교육계획</div>
+      <h1 class="text-3xl font-black text-brand tracking-tight">교육계획 ?�립</h1>
     </div>
-    <button onclick="closePlanWizard()" style="padding:8px 18px;border-radius:10px;background:white;border:1.5px solid #E5E7EB;font-size:12px;font-weight:800;color:#374151;cursor:pointer">← 목록으로</button>
+    <button onclick="closePlanWizard()" style="padding:8px 18px;border-radius:10px;background:white;border:1.5px solid #E5E7EB;font-size:12px;font-weight:800;color:#374151;cursor:pointer">??목록?�로</button>
   </div>
 
-  <!-- 스탭 카드 (apply.js 동일) -->
+  <!-- ?�탭 카드 (apply.js ?�일) -->
   <div class="card p-5">
     <div class="flex items-center gap-2">${stepper}</div>
   </div>
 
-  <!-- 콘텐츠 카드 -->
+  <!-- 콘텐�?카드 -->
   <div class="card p-8">
 
-  <!-- Step 1: 행위 기반 카테고리 (apply.js 동일) -->
+  <!-- Step 1: ?�위 기반 카테고리 (apply.js ?�일) -->
   <div class="${s.step === 1 ? "" : "hidden"}">
-    <h3 class="text-base font-black text-gray-800 mb-5">01. 교육 목적 선택</h3>
+    <h3 class="text-base font-black text-gray-800 mb-5">01. 교육 목적 ?�택</h3>
 
     ${
       hasPlanRequiredPattern
         ? `
     <div class="mb-5 p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl flex items-start gap-3">
-      <span class="text-2xl flex-shrink-0">📋</span>
+      <span class="text-2xl flex-shrink-0">?��</span>
       <div>
-        <div class="font-black text-blue-700 text-sm mb-1">계획 수립 필수 정책이 포함되어 있습니다</div>
-        <p class="text-xs text-blue-500 leading-relaxed">일부 교육 목적은 계획 수립 후 신청하는 절차(패턴A)가 적용됩니다.</p>
+        <div class="font-black text-blue-700 text-sm mb-1">계획 ?�립 ?�수 ?�책???�함?�어 ?�습?�다</div>
+        <p class="text-xs text-blue-500 leading-relaxed">?��? 교육 목적?� 계획 ?�립 ???�청?�는 ?�차(?�턴A)가 ?�용?�니??</p>
       </div>
     </div>`
         : ""
@@ -460,9 +460,9 @@ function renderPlanWizard() {
       curBudget
         ? `
     <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl px-4 py-3 mb-5">
-      <div class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">선택된 예산 계정</div>
+      <div class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">?�택???�산 계정</div>
       <div class="flex flex-wrap gap-4">
-        <div class="flex items-center gap-2"><span class="text-[10px] font-black text-blue-300">② 예산</span><span class="text-xs font-black text-gray-800">${curBudget.name}</span></div>
+        <div class="flex items-center gap-2"><span class="text-[10px] font-black text-blue-300">???�산</span><span class="text-xs font-black text-gray-800">${curBudget.name}</span></div>
       </div>
     </div>`
         : ""
@@ -508,12 +508,12 @@ function renderPlanWizard() {
         ? `
     <div class="p-6 bg-blue-50 border-2 border-blue-200 rounded-2xl">
       <div class="flex items-start gap-3">
-        <span class="text-2xl flex-shrink-0">📋</span>
+        <span class="text-2xl flex-shrink-0">?��</span>
         <div>
-          <div class="font-black text-blue-700 text-sm mb-2">교육계획 수립이 필요한 정책이 없습니다</div>
+          <div class="font-black text-blue-700 text-sm mb-2">교육계획 ?�립???�요???�책???�습?�다</div>
           <p class="text-xs text-blue-500 leading-relaxed mb-0">
-            현재 사용자의 예산 계정에는 교육계획 수립이 필수인 정책(패턴 A)이 설정되어 있지 않습니다.<br>
-            교육계획 없이 바로 <strong>교육신청</strong> 화면에서 신청하시면 됩니다.
+            ?�재 ?�용?�의 ?�산 계정?�는 교육계획 ?�립???�수???�책(?�턴 A)???�정?�어 ?��? ?�습?�다.<br>
+            교육계획 ?�이 바로 <strong>교육?�청</strong> ?�면?�서 ?�청?�시�??�니??
           </p>
         </div>
       </div>
@@ -524,35 +524,35 @@ function renderPlanWizard() {
     <div class="flex justify-end mt-6 pt-4 border-t border-gray-100">
       <button onclick="planNext()" ${!s.purpose ? "disabled" : ""}
         class="px-8 py-3 rounded-xl font-black text-sm transition ${s.purpose ? "bg-brand text-white hover:bg-blue-900 shadow-lg" : "bg-gray-200 text-gray-400 cursor-not-allowed"}">
-        다음 →
+        ?�음 ??
       </button>
     </div>
   </div>
 
-  <!-- ── Step 2 (구 예산 선택): contextAccountCode로 자동 주입되어 표시 생략 ── -->
-  <!-- 계정은 L2 Account Hub에서 이미 선택됨 (_selectedAccountCode) -->
+  <!-- ?�?� Step 2 (�??�산 ?�택): contextAccountCode�??�동 주입?�어 ?�시 ?�략 ?�?� -->
+  <!-- 계정?� L2 Account Hub?�서 ?��? ?�택??(_selectedAccountCode) -->
   <div class="hidden">
   </div>
 
-  <!-- ── Step 2: 교육유형 선택 ── -->
+  <!-- ?�?� Step 2: 교육?�형 ?�택 ?�?� -->
   <div class="${s.step === 2 ? "" : "hidden"}">
-    <h3 class="text-base font-black text-gray-800 mb-4">02. 교육유형 선택</h3>
-    <!-- 이전 단계 선택 요약 -->
+    <h3 class="text-base font-black text-gray-800 mb-4">02. 교육?�형 ?�택</h3>
+    <!-- ?�전 ?�계 ?�택 ?�약 -->
     ${
       s.purpose || curBudget
         ? `
     <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl px-4 py-3 mb-5">
-      <div class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">선택 내역</div>
+      <div class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">?�택 ?�역</div>
       <div class="flex flex-wrap gap-4">
-        ${s.purpose ? `<div class="flex items-center gap-2"><span class="text-[10px] font-black text-blue-300">① 목적</span><span class="text-xs font-black text-gray-800">${s.purpose.icon} ${s.purpose.label}</span></div>` : ""}
-        ${curBudget ? `<div class="flex items-center gap-2"><span class="text-[10px] font-black text-blue-300">② 예산</span><span class="text-xs font-black text-gray-800">${curBudget.name}</span></div>` : ""}
+        ${s.purpose ? `<div class="flex items-center gap-2"><span class="text-[10px] font-black text-blue-300">??목적</span><span class="text-xs font-black text-gray-800">${s.purpose.icon} ${s.purpose.label}</span></div>` : ""}
+        ${curBudget ? `<div class="flex items-center gap-2"><span class="text-[10px] font-black text-blue-300">???�산</span><span class="text-xs font-black text-gray-800">${curBudget.name}</span></div>` : ""}
       </div>
     </div>`
         : ""
     }
     ${(() => {
-      // 교육유형 트리 가져오기
-      // ★ curBudget.accountCode 직접 전달하여 ACCOUNT_TYPE_MAP 역매핑 실패 피한
+      // 교육?�형 ?�리 가?�오�?
+      // ??curBudget.accountCode 직접 ?�달?�여 ACCOUNT_TYPE_MAP ??��???�패 ?�한
       const tree =
         typeof getPolicyEduTree !== "undefined" && curBudget
           ? getPolicyEduTree(currentPersona, s.purpose?.id, curBudget.accountCode || curBudget.account)
@@ -564,11 +564,11 @@ function renderPlanWizard() {
           SERVICE_POLICIES.length > 0;
         return hasPolicies
           ? `<div class="p-5 bg-yellow-50 border-2 border-yellow-200 rounded-2xl">
-              <div class="font-black text-yellow-700 text-sm">⚠️ 허용된 교육유형 정보가 없습니다</div>
-              <div class="text-xs text-yellow-600 mt-1">관리자에게 교육지원 운영 규칙 설정을 요청해 주세요.</div>
+              <div class="font-black text-yellow-700 text-sm">?�️ ?�용??교육?�형 ?�보가 ?�습?�다</div>
+              <div class="text-xs text-yellow-600 mt-1">관리자?�게 교육지???�영 규칙 ?�정???�청??주세??</div>
             </div>`
           : `<div class="p-5 bg-gray-50 rounded-2xl text-sm font-bold text-gray-500 flex items-center gap-3">
-              <span class="text-accent text-xl">✓</span> 이 예산 계정은 모든 교육유형에 사용 가능합니다.
+              <span class="text-accent text-xl">??/span> ???�산 계정?� 모든 교육?�형???�용 가?�합?�다.
             </div>`;
       }
 
@@ -604,7 +604,7 @@ function renderPlanWizard() {
         .join("");
     })()}
     <div class="flex justify-between mt-6 pt-4 border-t border-gray-100">
-      <button onclick="planPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
+      <button onclick="planPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">???�전</button>
       ${(() => {
         const tree2 =
           typeof getPolicyEduTree !== "undefined" && curBudget
@@ -615,77 +615,77 @@ function renderPlanWizard() {
         const canNext = s.eduType && (isLeaf || s.subType);
         return `<button onclick="planNext()" ${!canNext ? "disabled" : ""}
           class="px-8 py-3 rounded-xl font-black text-sm transition ${!canNext ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-brand text-white hover:bg-blue-900 shadow-lg"}">
-          다음 →
+          ?�음 ??
         </button>`;
       })()}
     </div>
   </div>
 
-  <!-- ── Step 3: 폼 세부정보 입력 ── -->
+  <!-- ?�?� Step 3: ???��??�보 ?�력 ?�?� -->
   <div class="${s.step === 3 ? "" : "hidden"}">
-    <h3 class="text-base font-black text-gray-800 mb-5">03. 세부 정보 입력</h3>
+    <h3 class="text-base font-black text-gray-800 mb-5">03. ?��? ?�보 ?�력</h3>
 
-    <!-- 선택 요약 배너 -->
+    <!-- ?�택 ?�약 배너 -->
     <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 mb-6">
       <div class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-        <span class="w-1.5 h-1.5 bg-blue-400 rounded-full inline-block"></span> 계획 요약
+        <span class="w-1.5 h-1.5 bg-blue-400 rounded-full inline-block"></span> 계획 ?�약
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div class="bg-white rounded-xl px-4 py-3 border border-blue-100">
-          <div class="text-[10px] text-blue-400 font-black uppercase tracking-wider mb-1">① 교육 목적</div>
-          <div class="font-black text-sm text-gray-900">${s.purpose?.icon || ""} ${s.purpose?.label || "—"}</div>
+          <div class="text-[10px] text-blue-400 font-black uppercase tracking-wider mb-1">??교육 목적</div>
+          <div class="font-black text-sm text-gray-900">${s.purpose?.icon || ""} ${s.purpose?.label || "??}</div>
         </div>
         <div class="bg-white rounded-xl px-4 py-3 border border-blue-100">
-          <div class="text-[10px] text-blue-400 font-black uppercase tracking-wider mb-1">② 예산 계정</div>
-          <div class="font-black text-sm ${curBudget?.account === "연구투자" ? "text-orange-500" : "text-accent"}">${curBudget?.name || "—"}</div>
+          <div class="text-[10px] text-blue-400 font-black uppercase tracking-wider mb-1">???�산 계정</div>
+          <div class="font-black text-sm ${curBudget?.account === "?�구?�자" ? "text-orange-500" : "text-accent"}">${curBudget?.name || "??}</div>
 
         </div>
         <div class="bg-white rounded-xl px-4 py-3 border border-blue-100">
-          <div class="text-[10px] text-blue-400 font-black uppercase tracking-wider mb-1">③ 교육유형</div>
-          <div class="font-black text-sm text-gray-900">${typeof getEduTypeLabel !== "undefined" && s.eduType ? getEduTypeLabel(s.eduType) : s.eduType || "—"}</div>
+          <div class="text-[10px] text-blue-400 font-black uppercase tracking-wider mb-1">??교육?�형</div>
+          <div class="font-black text-sm text-gray-900">${typeof getEduTypeLabel !== "undefined" && s.eduType ? getEduTypeLabel(s.eduType) : s.eduType || "??}</div>
         </div>
       </div>
     </div>
 
-    <!-- ── 동적 양식 필드 (BO form_templates 기반) ── -->
+    <!-- ?�?� ?�적 ?�식 ?�드 (BO form_templates 기반) ?�?� -->
     <div class="space-y-5">
       ${(() => {
         if (s.formTemplateLoading) {
-          return `<div style="padding:32px;text-align:center;color:#6B7280;font-size:14px;font-weight:600"><div style="font-size:28px;margin-bottom:8px">⌛</div>양식 로딩 중...</div>`;
+          return `<div style="padding:32px;text-align:center;color:#6B7280;font-size:14px;font-weight:600"><div style="font-size:28px;margin-bottom:8px">??/div>?�식 로딩 �?..</div>`;
         }
         
-        // BO 양식이 로드된 경우 (동적 양식 fields 배열)
+        // BO ?�식??로드??경우 (?�적 ?�식 fields 배열)
         if (s.formTemplate && s.formTemplate.fields && s.formTemplate.fields.length > 0) {
           if (typeof renderDynamicFormFields === "function") {
             const dynamicHtml = renderDynamicFormFields(s.formTemplate.fields, s, "planState", curBudget);
             if (dynamicHtml) {
               const tplBadge = s.formTemplate.name
-                ? `<div style="margin-bottom:16px;padding:8px 14px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;font-size:11px;font-weight:700;color:#1D4ED8">📋 양식: ${s.formTemplate.name}</div>`
+                ? `<div style="margin-bottom:16px;padding:8px 14px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;font-size:11px;font-weight:700;color:#1D4ED8">?�� ?�식: ${s.formTemplate.name}</div>`
                 : "";
               return tplBadge + dynamicHtml;
             }
           }
         }
         
-        // ── Phase B: 표준 렌더러 (정규화 컬럼 기반 또는 인라인 폼) ──
+        // ?�?� Phase B: ?��? ?�더??(?�규??컬럼 기반 ?�는 ?�라???? ?�?�
         if (typeof window.foRenderStandardPlanForm === 'function') {
           return window.foRenderStandardPlanForm(s, curBudget, s.formTemplate?.isInline ? s.formTemplate.inlineFields : null);
         }
         
-        return `<div class="p-4 text-center text-red-500 font-bold">폼 렌더러를 불러오지 못했습니다.</div>`;
+        return `<div class="p-4 text-center text-red-500 font-bold">???�더?��? 불러?��? 못했?�니??</div>`;
       })()}
     </div>
 
     <div class="flex justify-between mt-6 pt-4 border-t border-gray-100">
-      <button onclick="planPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
+      <button onclick="planPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">???�전</button>
       <div class="flex gap-3">
         <button onclick="closePlanWizard()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">취소</button>
         <button onclick="savePlanDraft()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-blue-200 text-blue-700 hover:bg-blue-50 transition">
-          💾 임시저장
+          ?�� ?�시?�??
         </button>
         <button onclick="savePlanSaved()" ${s.hardLimitViolated ? "disabled" : ""}
           class="px-7 py-3 rounded-xl font-black text-sm transition ${s.hardLimitViolated ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-md"}">
-          ✅ 저장
+          ???�??
         </button>
       </div>
   </div>

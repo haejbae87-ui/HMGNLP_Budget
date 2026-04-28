@@ -50,7 +50,8 @@ async function _cgLoadFromDb() {
         usageType: r.usage_type || "edu_operation",
         hasRounds: r.has_rounds === true,
         hasQty2: r.has_qty2 === true,
-        qty2Type: r.qty2_type || "박",
+        qty2Type: r.qty2_type || "일",
+        qty2AllowedTypes: r.qty2_allowed_types || (r.qty2_type ? [r.qty2_type] : ["일","박","회"]),
         isOverseas: r.is_overseas === true,
         // v4 신규
         sapCode: r.sap_code || "",
@@ -409,7 +410,7 @@ async function _renderCgDetailPage() {
     <div id="cg-dt-edu-op-section" style="display:${usageType === 'edu_operation' ? 'block' : 'none'}">
       <div style="padding:10px 14px;background:#DBEAFE;border:1.5px solid #93C5FD;border-radius:10px;margin-bottom:16px;font-size:12px;color:#1E40AF;font-weight:600">🎯 교육운영용 — 단가 × 인원 × qty2 × 차수 (3중 승산 고정)</div>
 
-      <!-- Phase2: has_qty2 / has_rounds / qty2_type 설정 -->
+      <!-- Phase2: has_qty2 / has_rounds / qty2_allowed_types 설정 -->
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding:12px 14px;background:#F8FAFC;border-radius:10px;border:1.5px solid #E5E7EB">
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;cursor:pointer">
           <input type="checkbox" id="cg-dt-has-rounds" ${item?.hasRounds ? 'checked' : ''} style="accent-color:#7C3AED;width:14px;height:14px">
@@ -421,11 +422,18 @@ async function _renderCgDetailPage() {
           <span style="color:#D97706">📦 박/일/회(qty2) 컬럼 활성화</span>
           <span style="font-size:10px;color:#9CA3AF;font-weight:500">체크 시 FO에 수량 단위 입력란 표시</span>
         </label>
-        <div id="cg-dt-qty2-type-wrap" style="display:${item?.hasQty2 ? 'flex' : 'none'};align-items:center;gap:6px">
-          <span style="font-size:12px;font-weight:700;color:#374151">단위:</span>
-          <select id="cg-dt-qty2-type" style="padding:4px 8px;border:1.5px solid #FDE68A;border-radius:6px;font-size:12px;font-weight:700;background:#FFFBEB">
-            ${['박','일','회','시간'].map(u => `<option value="${u}" ${(item?.qty2Type||'박')===u?'selected':''}>${u}</option>`).join('')}
-          </select>
+        <div id="cg-dt-qty2-type-wrap" style="display:${item?.hasQty2 ? 'block' : 'none'};margin-top:8px;width:100%">
+          <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:6px">FO에서 선택 가능한 단위 (복수 선택 가능):</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            ${['명','일','박','회','시간','반','월','점'].map(u => {
+              const allowed = item?.qty2AllowedTypes || [];
+              const chk = allowed.includes(u) ? 'checked' : '';
+              return `<label style="display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:7px;cursor:pointer;border:1.5px solid ${chk?'#D97706':'#E5E7EB'};background:${chk?'#FFFBEB':'#fff'};font-size:12px;font-weight:700;color:${chk?'#92400E':'#6B7280'}" onclick="_cgDtToggleQty2Unit('${u}',this)">
+                <input type="checkbox" name="cg-dt-qty2-allowed" value="${u}" ${chk} style="accent-color:#D97706;width:13px;height:13px">${u}
+              </label>`;
+            }).join('')}
+          </div>
+          <div style="margin-top:6px;font-size:10px;color:#9CA3AF">💡 FO에서 사용자가 이 목록 중 단위를 선택합니다 (예: 숙박비 → 박/일, 식비 → 일/식)</div>
         </div>
       </div>
 
@@ -884,11 +892,26 @@ function _cgDtSelectLimitType(val, prefix) {
   if (f) f.style.display = val === "none" ? "none" : "grid";
 }
 
-// Phase 2: has_qty2 체크박스 토글 시 qty2_type 단위 선택 표시/숨김
+// Phase 2: has_qty2 체크박스 토글 시 qty2_allowed_types 단위 선택 표시/숨김
 function _cgDtToggleQty2Type() {
   const checked = document.getElementById('cg-dt-has-qty2')?.checked;
   const wrap = document.getElementById('cg-dt-qty2-type-wrap');
-  if (wrap) wrap.style.display = checked ? 'flex' : 'none';
+  if (wrap) wrap.style.display = checked ? 'block' : 'none';
+}
+
+// Phase 2: qty2 허용 단위 체크박스 클릭 시 스타일 토글
+function _cgDtToggleQty2Unit(unit, labelEl) {
+  // onclick에서 호출. labelEl은 label 요소
+  // checkbox 값 변경은 이미 체크박스가 토글함. 라벨 스타일만 동기화
+  setTimeout(() => {
+    const cb = labelEl?.querySelector('input[type="checkbox"]');
+    const isChecked = cb?.checked;
+    if (labelEl) {
+      labelEl.style.borderColor = isChecked ? '#D97706' : '#E5E7EB';
+      labelEl.style.background = isChecked ? '#FFFBEB' : '#fff';
+      labelEl.style.color = isChecked ? '#92400E' : '#6B7280';
+    }
+  }, 0);
 }
 
 
@@ -944,7 +967,15 @@ async function _cgSaveDetail() {
     usage_type: usageType,
     has_rounds: document.getElementById("cg-dt-has-rounds")?.checked ?? (usageType === "edu_operation"),
     has_qty2: document.getElementById("cg-dt-has-qty2")?.checked ?? false,
-    qty2_type: document.getElementById("cg-dt-qty2-type")?.value || "박",
+    qty2_allowed_types: (() => {
+      const checked = [...(document.querySelectorAll('input[name="cg-dt-qty2-allowed"]:checked') || [])];
+      const vals = checked.map(el => el.value);
+      return vals.length > 0 ? vals : ['일'];
+    })(),
+    qty2_type: (() => {
+      const checked = [...(document.querySelectorAll('input[name="cg-dt-qty2-allowed"]:checked') || [])];
+      return checked.length > 0 ? checked[0].value : '일';
+    })(),
     is_overseas: isOverseas,
     pricing_type: pricingType,
     dimension_category: pricingType === 'composite' ? (document.getElementById("cg-dt-dim-cat")?.value || 'venue') : null,

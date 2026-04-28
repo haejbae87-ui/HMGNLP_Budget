@@ -225,9 +225,15 @@ function renderGNB() {
   // 1depth 활성 메뉴 판별 (드롭다운 자식 포함)
   function isMenuActive(menu) {
     if (!menu.dropdown) return currentPage === menu.id;
-    return menu.dropdown.some(
-      (d) => d.id && d.navigate && currentPage === d.id,
-    );
+    return menu.dropdown.some((d) => {
+      if (!d.id || !d.navigate) return false;
+      if (currentPage === 'plans' && (d.id === 'forecast' || d.id === 'plans')) {
+        const mode = typeof plansMode !== 'undefined' ? plansMode : 'operation';
+        if (d.id === 'forecast') return mode === 'forecast';
+        if (d.id === 'plans')    return mode !== 'forecast';
+      }
+      return currentPage === d.id;
+    });
   }
 
   // 네비 HTML 생성
@@ -252,7 +258,17 @@ function renderGNB() {
         .map((d) => {
           if (d.divider)
             return `<div style="height:1px;background:#F3F4F6;margin:6px 0"></div>`;
-          const isCurrent = d.navigate && currentPage === d.id;
+          const isCurrent = (() => {
+            if (!d.navigate) return false;
+            if (currentPage !== d.id && !(d.id === 'forecast' && currentPage === 'plans') && !(d.id === 'plans' && currentPage === 'plans')) return false;
+            // plans 페이지: plansMode로 구분
+            if (currentPage === 'plans') {
+              const mode = typeof plansMode !== 'undefined' ? plansMode : 'operation';
+              if (d.id === 'forecast') return mode === 'forecast';
+              if (d.id === 'plans')    return mode !== 'forecast';
+            }
+            return currentPage === d.id;
+          })();
           if (!d.navigate) {
             // 미기획 항목 — 비활성 표시
             return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-radius:8px;opacity:0.5;cursor:default">

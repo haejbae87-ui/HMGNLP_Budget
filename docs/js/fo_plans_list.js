@@ -2041,13 +2041,9 @@ window._s9RefundBudget = _s9RefundBudget;
  */
 function _foRenderTeamForecastBundleBar(teamPlansArr, myDbCache) {
   const sb = typeof getSB === 'function' ? getSB() : null;
-  if (!teamPlansArr || !teamPlansArr.length) {
-    return `
-<div style="margin-bottom:16px;padding:18px 20px;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB;text-align:center">
-  <div style="font-size:13px;font-weight:700;color:#9CA3AF">📋 팀원의 작성 완료된 사업계획이 없습니다</div>
-  <div style="font-size:11px;color:#D1D5DB;margin-top:4px">팀원들이 사업계획을 저장 완료(saved)해야 확정할 수 있습니다</div>
-</div>`;
-  }
+  // ★ early return 제거: teamPlansArr가 비어 있어도 myForecasts(본인 계획)가 있으면 배너 표시
+  // (최O영처럼 타 팀원 계획이 없는 경우에도 자신의 계획으로 팀 확정 가능해야 함)
+
 
   // saved + forecast 계획만 필터
   const savedForecasts = teamPlansArr.filter(p => {

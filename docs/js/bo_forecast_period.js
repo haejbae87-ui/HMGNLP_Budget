@@ -338,7 +338,6 @@ async function _fpSaveCampaign() {
       tenant_id: _fpTenantId,
       fiscal_year: _fpFiscalYear,
       vorg_template_id: _fpVorgId,
-      account_code: '__MULTI__', // 구 버전 NOT NULL 제약조건 우회용
       title: title,
       target_accounts: targetAccounts,
       recruit_start: start,

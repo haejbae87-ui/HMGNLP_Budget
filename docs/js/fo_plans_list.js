@@ -821,7 +821,7 @@ async function _renderAccountHub() {
             })()
         : '';
       return `
-    <button onclick="_selectAccount('${b.accountCode}','${(b.name||b.accountCode).replace(/'/g,'')}')"
+    <button onclick="_selectAccount('${b.accountCode}','${(b.name||b.accountCode).replace(/'/g,'')}', ${cam ? cam.fiscal_year : 'null'})"
       style="text-align:left;padding:24px 22px;border-radius:20px;border:2px solid #E5E7EB;background:white;
              cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.05);transition:all 0.18s"
       onmouseover="this.style.borderColor='#002C5F';this.style.boxShadow='0 8px 28px rgba(0,44,95,0.12)';this.style.transform='translateY(-3px)'"
@@ -849,9 +849,12 @@ async function _renderAccountHub() {
 </div>`;
 }
 
-function _selectAccount(accountCode, accountName) {
+function _selectAccount(accountCode, accountName, targetYear = null) {
   _selectedAccountCode = accountCode;
   _selectedAccountName = accountName;
+  if (targetYear) {
+    _planYear = targetYear;
+  }
   _plansDbLoaded = false;
   _dbMyPlans = [];
   _plansDbCache = [];

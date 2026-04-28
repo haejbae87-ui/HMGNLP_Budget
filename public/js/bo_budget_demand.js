@@ -94,10 +94,8 @@ async function renderBudgetDemand() {
       .eq("tenant_id", _bdTenant)
       .neq("status", "draft")
       .order("created_at", { ascending: false });
-    // 연도 필터
-    q = q
-      .gte("created_at", `${_bdYear}-01-01T00:00:00`)
-      .lt("created_at", `${_bdYear + 1}-01-01T00:00:00`);
+    // ★ fiscal_year 기준 필터 (created_at 기준이면 2027 계획이 2026년 목록에 노출되는 버그 발생)
+    q = q.eq("fiscal_year", _bdYear);
     // 선택된 제도그룹에 속한 계정의 plans만 조회
     if (tplAccountCodes.length > 0) {
       q = q.in("account_code", tplAccountCodes);

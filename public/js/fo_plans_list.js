@@ -259,6 +259,16 @@ let _planViewTab = "mine"; // 'mine' | 'team'
 let _planYear = new Date().getFullYear(); // 연도 필터
 let _lastPlansMode = null; // 모드 전환 감지용
 
+// ── Phase1: 4계층 네비게이션 상태 ────────────────────────────────────────────
+let _selectedVorgId = null;      // 현재 선택된 제도그룹(VOrg) ID
+let _selectedVorgName = null;    // 제도그룹 표시명
+let _selectedAccountCode = null; // 현재 선택된 예산계정 코드
+let _selectedAccountName = null; // 계정 표시명
+let _userVorgList = [];          // 사용자 소속 VOrg 목록
+let _userAccountList = [];       // 선택된 VOrg의 계정 목록
+let _accountBudgetMap = {};      // 계정코드 → 예산정보 캐시
+let _activeCampaignForAccount = null; // 계정에 해당하는 활성 캠페인
+
 // 모드 전환 시 캐시 완전 초기화
 function _resetPlansCacheForModeSwitch() {
   _plansDbLoaded = false;
@@ -271,6 +281,15 @@ function _resetPlansCacheForModeSwitch() {
   _selectionAccount = null;
   _planStatusFilter = 'all';
   _planAccountFilter = '';
+  // Phase1: 네비게이션 상태도 초기화
+  _selectedVorgId = null;
+  _selectedVorgName = null;
+  _selectedAccountCode = null;
+  _selectedAccountName = null;
+  _userVorgList = [];
+  _userAccountList = [];
+  _accountBudgetMap = {};
+  _activeCampaignForAccount = null;
   console.log('[MODE SWITCH] 캐시 초기화 완료:', window.plansMode);
 }
 
@@ -526,6 +545,257 @@ async function _renderForecastDashboard() {
 </div>`;
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// Phase 1 — L1: 제도그룹(VOrg) 허브
+// VOrg가 1개이면 자동 스킵, 2개 이상이면 카드 선택 화면 표시
+// ══════════════════════════════════════════════════════════════════════
+async function _renderVorgHub() {
+  const container = document.getElementById('page-plans');
+  if (!container) return;
+  const isBusiness = (window.plansMode || 'operation') === 'forecast';
+  const modeLabel = isBusiness ? '사업계획' : '운영계획';
+  const modeIcon  = isBusiness ? '📋' : '🛠';
+
+  // VOrg 목록 수집 (currentPersona에서)
+  let vorgIds = [];
+  if (Array.isArray(currentPersona?.vorgIds) && currentPersona.vorgIds.length > 0) {
+    vorgIds = currentPersona.vorgIds;
+  } else if (currentPersona?.vorgId) {
+    vorgIds = [currentPersona.vorgId];
+  } else if (currentPersona?.domainId) {
+    vorgIds = [currentPersona.domainId];
+  }
+
+  // VORG_TEMPLATES 에서 메타데이터 매핑
+  const templates = typeof VORG_TEMPLATES !== 'undefined' ? VORG_TEMPLATES : [];
+  const vorgItems = vorgIds.map(vid => {
+    const tpl = templates.find(t => t.id === vid || t.code === vid) || {};
+    return {
+      id: vid,
+      name: tpl.name || vid,
+      code: tpl.code || vid,
+      ownedAccounts: tpl.ownedAccounts || [],
+    };
+  }).filter(v => v.id);
+
+  // 단일 VOrg → 자동 선택 후 L2로 스킵
+  if (vorgItems.length <= 1) {
+    const v = vorgItems[0] || { id: vorgIds[0] || 'default', name: '기본 제도그룹', ownedAccounts: [] };
+    _selectedVorgId = v.id;
+    _selectedVorgName = v.name;
+    renderPlans();
+    return;
+  }
+
+  // 복수 VOrg → 선택 카드 UI 렌더링
+  _userVorgList = vorgItems;
+  container.innerHTML = `
+<div class="max-w-4xl mx-auto space-y-6">
+  <div>
+    <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">HOME › ${modeLabel}</div>
+    <h1 class="text-3xl font-black text-brand tracking-tight">${modeIcon} 제도그룹 선택</h1>
+    <p class="text-gray-500 text-sm mt-1">계획을 수립할 제도그룹을 선택해 주세요.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px">
+    ${vorgItems.map(v => {
+      const accountCount = v.ownedAccounts.length;
+      return `
+    <button onclick="_selectVorg('${v.id}','${v.name.replace(/'/g,'')}')"
+      style="text-align:left;padding:28px 24px;border-radius:20px;border:2px solid #E5E7EB;background:white;
+             cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.05);transition:all 0.18s"
+      onmouseover="this.style.borderColor='#002C5F';this.style.boxShadow='0 8px 28px rgba(0,44,95,0.12)';this.style.transform='translateY(-3px)'"
+      onmouseout="this.style.borderColor='#E5E7EB';this.style.boxShadow='0 4px 16px rgba(0,0,0,0.05)';this.style.transform='none'">
+      <div style="font-size:28px;margin-bottom:12px">🏛</div>
+      <div style="font-size:16px;font-weight:900;color:#111827;margin-bottom:6px">${v.name}</div>
+      <div style="font-size:12px;color:#6B7280;font-weight:600">예산계정 ${accountCount}개</div>
+      <div style="margin-top:16px;font-size:12px;font-weight:800;color:#002C5F;display:flex;align-items:center;gap:4px">
+        선택하기 <span>→</span>
+      </div>
+    </button>`;
+    }).join('')}
+  </div>
+</div>`;
+}
+
+function _selectVorg(vorgId, vorgName) {
+  _selectedVorgId = vorgId;
+  _selectedVorgName = vorgName;
+  _selectedAccountCode = null;
+  _selectedAccountName = null;
+  _userAccountList = [];
+  renderPlans();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Phase 1 — L2: 예산계정 허브
+// 계정이 1개이면 자동 스킵, 2개 이상이면 카드 선택 화면 표시
+// ══════════════════════════════════════════════════════════════════════
+async function _renderAccountHub() {
+  const container = document.getElementById('page-plans');
+  if (!container) return;
+  const isBusiness = (window.plansMode || 'operation') === 'forecast';
+  const modeLabel = isBusiness ? '사업계획' : '운영계획';
+  const modeIcon  = isBusiness ? '📋' : '🛠';
+
+  // 로딩 표시
+  container.innerHTML = `<div style="padding:80px;text-align:center;color:#6B7280;font-weight:600;font-size:14px">⏳ 예산계정 조회 중...</div>`;
+
+  // 계정 목록: currentPersona.budgets에서 현재 VOrg에 속하는 계정 수집
+  const vorgTemplate = (typeof VORG_TEMPLATES !== 'undefined' ? VORG_TEMPLATES : [])
+    .find(t => t.id === _selectedVorgId || t.code === _selectedVorgId);
+  const ownedAccounts = vorgTemplate?.ownedAccounts || [];
+
+  // persona 예산에서 이 VOrg의 계정만 필터 (allowedAccounts 또는 budgets 배열)
+  let accountItems = [];
+  const budgets = currentPersona?.budgets || [];
+  if (ownedAccounts.length > 0) {
+    // ownedAccounts 기반 필터
+    accountItems = budgets.filter(b =>
+      ownedAccounts.some(ac => ac === b.accountCode || ac === b.id)
+    );
+  } else {
+    // ownedAccounts 없으면 전체 budgets 사용 (폴백)
+    accountItems = budgets;
+  }
+
+  // 중복 제거 (accountCode 기준)
+  const seen = new Set();
+  accountItems = accountItems.filter(b => {
+    if (seen.has(b.accountCode)) return false;
+    seen.add(b.accountCode);
+    return true;
+  });
+
+  // 계정이 0개 → 빈 안내
+  if (accountItems.length === 0) {
+    container.innerHTML = `
+<div class="max-w-4xl mx-auto space-y-6">
+  <div>
+    <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">
+      HOME › <span onclick="_selectedVorgId=null;renderPlans()" style="cursor:pointer;text-decoration:underline">${modeLabel}</span> › 예산계정
+    </div>
+    <h1 class="text-3xl font-black text-brand tracking-tight">💳 예산계정 선택</h1>
+  </div>
+  <div style="padding:60px 20px;text-align:center;border-radius:16px;background:#FFF9F9;border:1.5px dashed #FCA5A5">
+    <div style="font-size:36px;margin-bottom:12px">⚠️</div>
+    <div style="font-size:14px;font-weight:900;color:#DC2626">이 제도그룹에 배정된 예산계정이 없습니다.</div>
+    <div style="font-size:12px;color:#9CA3AF;margin-top:6px">관리자에게 예산 배정을 요청해 주세요.</div>
+    <button onclick="_selectedVorgId=null;renderPlans()" style="margin-top:20px;padding:10px 20px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:13px;font-weight:700;cursor:pointer">← 제도그룹 선택으로</button>
+  </div>
+</div>`;
+    return;
+  }
+
+  // 계정이 1개 → 자동 선택 후 L3로 스킵
+  if (accountItems.length === 1) {
+    const a = accountItems[0];
+    _selectedAccountCode = a.accountCode;
+    _selectedAccountName = a.name;
+    renderPlans();
+    return;
+  }
+
+  // 복수 계정 → 선택 카드 UI 렌더링
+  _userAccountList = accountItems;
+
+  // 사업계획 모드: 캠페인 데이터 미리 로드
+  if (isBusiness && !_forecastDeadlinesCache && !_isFetchingForecasts) {
+    _isFetchingForecasts = true;
+    const sb = typeof getSB === 'function' ? getSB() : null;
+    if (sb) {
+      try {
+        const { data } = await sb.from('forecast_deadlines')
+          .select('*').eq('tenant_id', currentPersona.tenantId);
+        const now = new Date(); now.setHours(0,0,0,0);
+        _forecastDeadlinesCache = (data || []).filter(dl => {
+          if (dl.recruit_start && now < new Date(dl.recruit_start)) return false;
+          if (!dl.target_accounts || dl.target_accounts.length === 0) return false;
+          const allowed = currentPersona.allowedAccounts || [];
+          if (!allowed.includes('*')) {
+            if (!dl.target_accounts.some(acc => allowed.includes(acc))) return false;
+          }
+          return true;
+        });
+      } catch(e) { _forecastDeadlinesCache = []; }
+    } else { _forecastDeadlinesCache = []; }
+    _isFetchingForecasts = false;
+  }
+
+  const showBack = (_userVorgList.length > 1);
+  const campaigns = _forecastDeadlinesCache || [];
+
+  container.innerHTML = `
+<div class="max-w-4xl mx-auto space-y-6">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between">
+    <div>
+      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">
+        HOME › ${showBack ? `<span onclick="_selectedVorgId=null;renderPlans()" style="cursor:pointer;text-decoration:underline">${modeLabel}</span>` : modeLabel} › 예산계정
+      </div>
+      <h1 class="text-3xl font-black text-brand tracking-tight">💳 예산계정 선택</h1>
+      <p class="text-gray-500 text-sm mt-1">${_selectedVorgName || modeLabel} · 계획을 수립할 예산계정을 선택하세요.</p>
+    </div>
+    ${showBack ? `<button onclick="_selectedVorgId=null;renderPlans()" style="padding:8px 18px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;cursor:pointer;color:#6B7280">← 제도그룹</button>` : ''}
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px">
+    ${accountItems.map(b => {
+      const balance   = (b.balance || 0);
+      const used      = (b.used || 0);
+      const remaining = balance - used;
+      const pct       = balance > 0 ? Math.round(remaining / balance * 100) : 0;
+      const barColor  = pct < 20 ? '#EF4444' : pct < 50 ? '#F59E0B' : '#10B981';
+      const barBg     = pct < 20 ? '#FEE2E2' : pct < 50 ? '#FEF9C3' : '#D1FAE5';
+      // 이 계정을 타겟으로 하는 활성 캠페인
+      const cam = campaigns.find(c => Array.isArray(c.target_accounts) && c.target_accounts.includes(b.accountCode));
+      const now2 = new Date(); now2.setHours(0,0,0,0);
+      const camClosed = cam && (cam.is_closed || (cam.recruit_end && now2 > new Date(cam.recruit_end)));
+      const camBadge = cam
+        ? camClosed
+          ? `<div style="font-size:11px;color:#6B7280;font-weight:800;margin-top:6px">🔒 캠페인 마감됨</div>`
+          : (() => {
+              const d = cam.recruit_end ? Math.ceil((new Date(cam.recruit_end) - now2) / 86400000) : null;
+              return `<div style="font-size:11px;color:#DC2626;font-weight:800;margin-top:6px">📅 캠페인 D-${d !== null ? d : '?'} · ${cam.recruit_end ? cam.recruit_end.substring(0,10) : '상시'}</div>`;
+            })()
+        : '';
+      return `
+    <button onclick="_selectAccount('${b.accountCode}','${(b.name||b.accountCode).replace(/'/g,'')}')"
+      style="text-align:left;padding:24px 22px;border-radius:20px;border:2px solid #E5E7EB;background:white;
+             cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.05);transition:all 0.18s"
+      onmouseover="this.style.borderColor='#002C5F';this.style.boxShadow='0 8px 28px rgba(0,44,95,0.12)';this.style.transform='translateY(-3px)'"
+      onmouseout="this.style.borderColor='#E5E7EB';this.style.boxShadow='0 4px 16px rgba(0,0,0,0.05)';this.style.transform='none'">
+      <div style="font-size:12px;font-weight:900;color:#6B7280;margin-bottom:8px">💳 ${b.accountCode || ''}</div>
+      <div style="font-size:17px;font-weight:900;color:#111827;margin-bottom:14px">${b.name || b.accountCode}</div>
+      ${balance > 0 ? `
+      <div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:11px;color:#6B7280;font-weight:700">잔액</span>
+          <span style="font-size:11px;font-weight:900;color:${barColor}">${remaining.toLocaleString()}원 (${pct}%)</span>
+        </div>
+        <div style="height:6px;border-radius:3px;background:#F3F4F6;overflow:hidden">
+          <div style="height:100%;width:${100-pct}%;background:${barColor};border-radius:3px;transition:width 0.3s"></div>
+        </div>
+        <div style="font-size:10px;color:#9CA3AF;margin-top:4px">배정 ${balance.toLocaleString()}원</div>
+      </div>` : `<div style="font-size:12px;color:#9CA3AF;margin-bottom:14px">⏳ 예산 미배정</div>`}
+      ${camBadge}
+      <div style="margin-top:14px;font-size:12px;font-weight:800;color:#002C5F;display:flex;align-items:center;gap:4px">
+        계획 목록 보기 <span>→</span>
+      </div>
+    </button>`;
+    }).join('')}
+  </div>
+</div>`;
+}
+
+function _selectAccount(accountCode, accountName) {
+  _selectedAccountCode = accountCode;
+  _selectedAccountName = accountName;
+  _plansDbLoaded = false;
+  _dbMyPlans = [];
+  _plansDbCache = [];
+  _teamPlansLoaded = false;
+  _dbTeamPlans = [];
+  renderPlans();
+}
+
 function renderPlans() {
   console.log('[renderPlans] plansMode:', window.plansMode);
 
@@ -560,6 +830,20 @@ function renderPlans() {
     renderPlanWizard();
     return;
   }
+
+  // ── Phase1: 4계층 라우팅 ─────────────────────────────────────────────────
+  // 계정이 선택되지 않았으면 허브 화면 먼저 표시
+  if (!_selectedAccountCode) {
+    // VOrg가 선택되지 않았으면 VOrg 허브 (단일이면 자동 스킵)
+    if (!_selectedVorgId) {
+      _renderVorgHub();
+      return;
+    }
+    // VOrg는 선택됐으나 계정 미선택이면 계정 허브
+    _renderAccountHub();
+    return;
+  }
+  // 계정 선택됨 → 아래의 계획 목록 렌더링으로 진행
 
   // 사업계획 모드: 캠페인 데이터 비동기 로드 (목록과 함께 표시)
   if (isBusiness && !_forecastDeadlinesCache && !_isFetchingForecasts) {
@@ -872,16 +1156,23 @@ function renderPlans() {
 
   document.getElementById("page-plans").innerHTML = `
 <div class="max-w-4xl mx-auto space-y-4 pb-20">
-  ${campaignSection}
-  <div style="display:flex;align-items:flex-end;justify-content:space-between;${isBusiness && campaignSection ? 'margin-top:32px;padding-top:24px;border-top:2px solid #E5E7EB' : ''}">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between">
     <div>
-      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › ${pageTitle}</div>
-      <h1 class="text-3xl font-black text-brand tracking-tight">내 ${isBusiness ? '사업계획 목록' : '운영계획 목록'}</h1>
+      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">
+        HOME
+        ${_userVorgList.length > 1 ? ` › <span onclick="_selectedVorgId=null;_selectedAccountCode=null;renderPlans()" style="cursor:pointer;text-decoration:underline;color:#6B7280">${_selectedVorgName || '제도그룹'}</span>` : ''}
+        ${_userAccountList.length > 1 ? ` › <span onclick="_selectedAccountCode=null;renderPlans()" style="cursor:pointer;text-decoration:underline;color:#6B7280">계정선택</span>` : ''}
+        › ${pageTitle}
+      </div>
+      <h1 class="text-3xl font-black text-brand tracking-tight">
+        ${_selectedAccountName ? `💳 ${_selectedAccountName} ` : ''}${isBusiness ? '사업계획 목록' : '운영계획 목록'}
+      </h1>
       <p class="text-gray-500 text-sm mt-1">${currentPersona.name} · ${currentPersona.dept}</p>
     </div>
-    <div style="display:flex;gap:10px;align-items:center">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      ${_userAccountList.length > 1 ? `<button onclick="_selectedAccountCode=null;renderPlans()" style="padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;cursor:pointer;color:#6B7280">← 계정선택</button>` : ''}
       ${yearSelector}
-      <button onclick="startPlanWizard('${planTypeStr}')" class="flex items-center gap-2 bg-brand text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-blue-900 transition shadow-lg">
+      <button onclick="startPlanWizard('${planTypeStr}', null, '${(_selectedAccountCode||'').replace(/'/g,'')}')" class="flex items-center gap-2 bg-brand text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-blue-900 transition shadow-lg">
         + ${planLabelStr}
       </button>
     </div>

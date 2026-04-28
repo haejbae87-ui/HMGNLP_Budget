@@ -1,7 +1,7 @@
 // ─── fo_plans_wizard.js — 계획 수립 마법사 Step 렌더 (REFACTOR-2: plans.js 분리) ───
 // ─── PLAN WIZARD ─────────────────────────────────────────────────────────────
 
-function startPlanWizard(mode = 'ongoing', forcedYear = null, targetAccountsJson = null) {
+function startPlanWizard(mode = 'ongoing', forcedYear = null, accountCode = null, targetAccountsJson = null) {
   planState = resetPlanState();
   const curYear = new Date().getFullYear();
   
@@ -11,6 +11,13 @@ function startPlanWizard(mode = 'ongoing', forcedYear = null, targetAccountsJson
     } catch (e) {
       console.error('Failed to parse targetAccounts', e);
     }
+  }
+
+  // Phase1: 계정 컨텍스트 자동 주입 (L2에서 선택된 계정)
+  if (accountCode) {
+    planState.contextAccountCode = accountCode;
+  } else if (typeof _selectedAccountCode !== 'undefined' && _selectedAccountCode) {
+    planState.contextAccountCode = _selectedAccountCode;
   }
 
   if (mode === 'forecast') {

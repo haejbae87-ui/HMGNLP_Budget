@@ -527,9 +527,14 @@ function _renderBdUnmatched(el, plans, isPlatform, tenants) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Level 3: 개별 계획 목록
+// Level 3: 사업계획 목록 (상세모달 / 확정금액 시뮬레이션 / 한글상태 / 계정명)
 // ────────────────────────────────────────────────────────────────────────────
+
+// ── L3 인라인 편집 상태 (시뮬레이션)
+let _bdL3Edits = {}; // { planId: amount }
+
 function _renderBdLevel3(el) {
+  _bdL3Edits = {};
   const plans = (_bdPlans || []).filter((p) => {
     const dept = p.detail?.dept || p.applicant_name || "";
     const target = _bdDrillOrg || "";
@@ -541,72 +546,294 @@ function _renderBdLevel3(el) {
     );
   });
 
-  const statusLabel = {
-    pending: "대기",
-    approved: "승인",
-    rejected: "반려",
-    cancelled: "취소",
-    completed: "완료",
+  // ── 상태 레이블 (한글)
+  const boStatusLabel = {
+    op_review_pending: "운영담당자 검토대기",
+    op_rejected:       "검토 제외",
+    op_approved:       "총괄 대기",
+    final_approved:    "총괄 승인",
+    final_rejected:    "총괄 제외",
   };
-  const statusColor = {
-    pending: "#D97706",
-    approved: "#059669",
-    rejected: "#DC2626",
-    cancelled: "#9CA3AF",
-    completed: "#059669",
+  const boStatusColor = {
+    op_review_pending: "#0369A1",
+    op_rejected:       "#6B7280",
+    op_approved:       "#7C3AED",
+    final_approved:    "#059669",
+    final_rejected:    "#DC2626",
   };
+
+  function _getStatusBadge(p) {
+    if (p.bo_status && boStatusLabel[p.bo_status]) {
+      const c = boStatusColor[p.bo_status];
+      return `<span style="font-size:10px;font-weight:900;padding:3px 10px;border-radius:6px;background:${c}18;color:${c}">${boStatusLabel[p.bo_status]}</span>`;
+    }
+    const rawSt = p.status || "pending";
+    // submitted / pending → 팀장 검토중
+    const label = (rawSt === "pending" || rawSt === "submitted") ? "팀장 검토중"
+      : rawSt === "approved" ? "승인" : rawSt === "rejected" ? "반려"
+      : rawSt === "cancelled" ? "취소" : rawSt === "completed" ? "완료" : rawSt;
+    const color = (rawSt === "pending" || rawSt === "submitted") ? "#D97706"
+      : rawSt === "approved" || rawSt === "completed" ? "#059669"
+      : rawSt === "rejected" ? "#DC2626" : "#9CA3AF";
+    return `<span style="font-size:10px;font-weight:900;padding:3px 10px;border-radius:6px;background:${color}18;color:${color}">${label}</span>`;
+  }
+
+  function _getAccountName(code) {
+    const a = (_bdAcctList || []).find(x => x.code === code);
+    return a ? a.name : (code || "-");
+  }
+
+  const role = boCurrentPersona?.role || "";
+  const isOp     = ["budget_op_manager","tenant_op_manager"].includes(role);
+  const isGlobal = ["platform_admin","tenant_global_admin","budget_global_admin"].includes(role);
+  // 확정금액 입력 가능 여부
+  const canEdit = isOp || isGlobal;
+  const amtField = isOp ? "op_confirmed_amount" : "final_confirmed_amount";
+  const amtLabel = isOp ? "1차확정금액" : "최종확정금액";
+  const amtColor = isOp ? "#0369A1" : "#7C3AED";
+
   const demandSum = plans.reduce((s, p) => s + Number(p.amount || 0), 0);
-  const confirmedSum = plans
-    .filter((p) => ["approved", "completed"].includes(p.status))
-    .reduce((s, p) => s + Number(p.amount || 0), 0);
+  const confirmedSum = plans.reduce((s, p) => s + Number(p[amtField] || 0), 0);
 
   el.innerHTML = `
   <div class="bo-fade">
-    <div style="margin-bottom:16px">
-      <button onclick="_bdDrillOrg=null;renderBudgetDemand()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">
+    <div style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <button onclick="_bdDrillOrg=null;renderBudgetDemand()"
+        style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">
         ← 이전으로
       </button>
+      ${canEdit ? `<button onclick="_bdL3SaveAll()" id="bd-l3-save-btn"
+        style="padding:9px 22px;border-radius:10px;border:none;background:linear-gradient(135deg,${amtColor},${amtColor}CC);color:white;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 14px ${amtColor}40;transition:transform .15s"
+        onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
+        💾 ${amtLabel} 일괄저장
+      </button>` : ""}
     </div>
+
+    ${canEdit ? `
+    <div class="bo-card" style="padding:14px 20px;margin-bottom:12px;background:linear-gradient(135deg,${amtColor}08,${amtColor}04);border:1.5px solid ${amtColor}30">
+      <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+        <span style="font-size:12px;font-weight:900;color:${amtColor}">✏️ ${amtLabel} 시뮬레이션</span>
+        <div style="display:flex;gap:24px;font-size:12px;align-items:center">
+          <span>사업계획금액 합계 <strong style="color:#002C5F">${_bdFmt(demandSum)}</strong></span>
+          <span>${amtLabel} 합계
+            <strong id="bd-l3-total" style="color:${amtColor};font-size:14px;margin-left:4px">${_bdFmt(confirmedSum)}</strong>
+          </span>
+          <span style="font-size:11px;color:#6B7280">리스트에서 금액 입력 후 <strong>일괄저장</strong>을 누르세요</span>
+        </div>
+      </div>
+    </div>` : ""}
+
     <div class="bo-card" style="overflow:hidden">
       <div style="padding:20px 24px;background:linear-gradient(135deg,#002C5F,#0369A1);color:white">
-        <div style="font-size:11px;opacity:.7;margin-bottom:4px">📊 상세 계획 목록</div>
-        <h2 style="margin:0;font-size:18px;font-weight:900">${_bdDrillOrg} — ${_bdYear}년 교육계획</h2>
-        <div style="margin-top:8px;display:flex;gap:20px;font-size:12px">
-          <span>수요 <strong>${_bdFmt(demandSum)}</strong></span>
-          <span>확정 <strong style="color:#86EFAC">${_bdFmt(confirmedSum)}</strong></span>
+        <div style="font-size:11px;opacity:.7;margin-bottom:4px">📋 사업계획 목록</div>
+        <h2 style="margin:0;font-size:18px;font-weight:900">${_bdDrillOrg} — ${_bdYear}년 사업계획</h2>
+        <div style="margin-top:8px;display:flex;gap:20px;font-size:12px;flex-wrap:wrap">
+          <span>사업계획금액 <strong>${_bdFmt(demandSum)}</strong></span>
+          <span>${amtLabel} <strong style="color:#86EFAC">${_bdFmt(confirmedSum)}</strong></span>
           <span>${plans.length}건</span>
         </div>
       </div>
-      ${
-        plans.length > 0
-          ? `
-      <table class="bo-table" style="font-size:12px">
+      ${plans.length > 0 ? `
+      <div style="overflow-x:auto">
+      <table class="bo-table" style="font-size:12px;min-width:${canEdit?'860':'700'}px">
         <thead><tr>
-          <th>ID</th><th>계획명</th><th>상신자</th><th>계정</th>
-          <th style="text-align:right">금액</th><th>상태</th><th>제출일</th>
+          <th>ID</th>
+          <th>계획명</th>
+          <th>상신자</th>
+          <th>예산계정</th>
+          <th style="text-align:right">사업계획금액</th>
+          ${canEdit ? `<th style="text-align:right;background:${amtColor}12;color:${amtColor}">${amtLabel}</th>` : ""}
+          <th style="min-width:130px">상태</th>
+          <th>제출일</th>
         </tr></thead>
-        <tbody>
-          ${plans
-            .map((p) => {
-              const st = p.status || "pending";
-              return `
+        <tbody id="bd-l3-tbody">
+          ${plans.map((p, idx) => {
+            const safeId = (p.id || "").replace(/'/g, "\\'");
+            const curAmt = p[amtField] != null ? Number(p[amtField]) : null;
+            const canRowEdit = canEdit && !["op_rejected","final_rejected","final_approved"].includes(p.bo_status);
+            return `
           <tr>
-            <td><code style="font-size:10px;background:#F3F4F6;padding:2px 6px;border-radius:4px">${(p.id || "").slice(-8)}</code></td>
-            <td style="font-weight:700">${p.edu_name || "-"}</td>
+            <td><code style="font-size:10px;background:#F3F4F6;padding:2px 6px;border-radius:4px">${(p.id||"").slice(-8)}</code></td>
+            <td>
+              <span onclick="_bdShowPlanDetail('${safeId}')"
+                style="font-weight:700;color:#002C5F;cursor:pointer;text-decoration:underline;text-underline-offset:2px;transition:color .12s"
+                onmouseover="this.style.color='#0369A1'" onmouseout="this.style.color='#002C5F'">
+                ${p.edu_name || "-"}
+              </span>
+            </td>
             <td style="font-size:11px;color:#6B7280">${p.applicant_name || "-"}</td>
-            <td>${p.account_code || "-"}</td>
-            <td style="text-align:right;font-weight:900">${Number(p.amount || 0).toLocaleString()}원</td>
-            <td><span style="font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;background:${statusColor[st] || "#6B7280"}15;color:${statusColor[st] || "#6B7280"}">${statusLabel[st] || st}</span></td>
-            <td style="font-size:11px;color:#6B7280">${(p.created_at || "").slice(0, 10)}</td>
+            <td style="font-size:11px">${_getAccountName(p.account_code)}</td>
+            <td style="text-align:right;font-weight:900">${Number(p.amount||0).toLocaleString()}원</td>
+            ${canEdit ? `<td style="text-align:right;padding:4px 8px;background:${amtColor}06">
+              ${canRowEdit
+                ? `<input type="number" min="0" value="${curAmt ?? ''}" data-plan-id="${p.id}" data-orig="${curAmt ?? ''}"
+                    placeholder="입력"
+                    oninput="_bdL3OnInput(this)"
+                    style="width:110px;text-align:right;padding:5px 8px;border:1.5px solid ${amtColor}60;border-radius:6px;font-size:12px;font-weight:700;color:${amtColor};outline:none;transition:border-color .15s"
+                    onfocus="this.style.borderColor='${amtColor}'" onblur="this.style.borderColor='${amtColor}60'" />`
+                : `<span style="font-weight:800;color:${amtColor}">${curAmt != null ? curAmt.toLocaleString()+"원" : "-"}</span>`}
+            </td>` : ""}
+            <td>
+              ${_getStatusBadge(p)}
+              ${isOp && (p.bo_status === "op_review_pending" || !p.bo_status) ? `
+                <div style="margin-top:5px;display:flex;gap:4px">
+                  <button onclick="_bdUpdateBoStatus('${safeId}','op_approved')"
+                    style="font-size:10px;padding:2px 9px;border-radius:5px;border:none;background:#059669;color:white;cursor:pointer;font-weight:700">승인</button>
+                  <button onclick="_bdUpdateBoStatus('${safeId}','op_rejected')"
+                    style="font-size:10px;padding:2px 9px;border-radius:5px;border:none;background:#DC2626;color:white;cursor:pointer;font-weight:700">반려</button>
+                </div>` : ""}
+              ${isGlobal && p.bo_status === "op_approved" ? `
+                <div style="margin-top:5px;display:flex;gap:4px">
+                  <button onclick="_bdUpdateBoStatus('${safeId}','final_approved')"
+                    style="font-size:10px;padding:2px 9px;border-radius:5px;border:none;background:#059669;color:white;cursor:pointer;font-weight:700">최종승인</button>
+                  <button onclick="_bdUpdateBoStatus('${safeId}','final_rejected')"
+                    style="font-size:10px;padding:2px 9px;border-radius:5px;border:none;background:#DC2626;color:white;cursor:pointer;font-weight:700">반려</button>
+                </div>` : ""}
+            </td>
+            <td style="font-size:11px;color:#6B7280">${(p.created_at||"").slice(0,10)}</td>
           </tr>`;
-            })
-            .join("")}
+          }).join("")}
         </tbody>
-      </table>`
-          : `<div style="padding:40px;text-align:center;color:#9CA3AF">데이터 없음</div>`
-      }
+      </table>
+      </div>` : `<div style="padding:40px;text-align:center;color:#9CA3AF">데이터 없음</div>`}
+    </div>
+  </div>
+
+  <!-- 계획 상세 모달 -->
+  <div id="bd-plan-detail-modal"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center"
+    onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:white;border-radius:18px;padding:32px;max-width:640px;width:92%;max-height:82vh;overflow-y:auto;position:relative;box-shadow:0 24px 64px rgba(0,0,0,.35)">
+      <button onclick="document.getElementById('bd-plan-detail-modal').style.display='none'"
+        style="position:absolute;top:16px;right:16px;border:none;background:#F3F4F6;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;font-weight:900;line-height:1">✕</button>
+      <div id="bd-plan-detail-content" style="padding-top:4px">로딩 중...</div>
     </div>
   </div>`;
+
+  // ── 현재 role 기반 field 저장 (비동기 저장 함수에서 참조)
+  window._bdL3AmtField = amtField;
+}
+
+// ── 인라인 입력 → 실시간 합계 갱신
+function _bdL3OnInput(input) {
+  const planId = input.dataset.planId;
+  const val = parseInt(input.value) || 0;
+  _bdL3Edits[planId] = val;
+  // 합계 재계산
+  const tbody = document.getElementById('bd-l3-tbody');
+  if (!tbody) return;
+  let total = 0;
+  tbody.querySelectorAll('input[data-plan-id]').forEach(inp => {
+    total += parseInt(inp.value) || 0;
+  });
+  const el = document.getElementById('bd-l3-total');
+  if (el) el.textContent = total >= 100000000 ? (total/100000000).toFixed(1)+'억'
+    : total >= 10000 ? (total/10000).toFixed(0)+'만원'
+    : total.toLocaleString()+'원';
+  // 변경된 셀 강조
+  const orig = parseInt(input.dataset.orig ?? '');
+  input.style.borderColor = (!isNaN(orig) && val !== orig) ? '#F59E0B' : '';
+}
+
+// ── 일괄 저장
+async function _bdL3SaveAll() {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 없음'); return; }
+  const field = window._bdL3AmtField;
+  if (!field) return;
+  const tbody = document.getElementById('bd-l3-tbody');
+  if (!tbody) return;
+  const inputs = Array.from(tbody.querySelectorAll('input[data-plan-id]'));
+  const changed = inputs.filter(i => {
+    const orig = parseInt(i.dataset.orig ?? '');
+    const cur = parseInt(i.value) || 0;
+    return isNaN(orig) ? i.value !== '' : cur !== orig;
+  });
+  if (changed.length === 0) { alert('변경된 항목이 없습니다.'); return; }
+  const btn = document.getElementById('bd-l3-save-btn');
+  if (btn) btn.textContent = '⏳ 저장 중...';
+  try {
+    await Promise.all(changed.map(i =>
+      sb.from('plans').update({
+        [field]: parseInt(i.value) || 0,
+        updated_at: new Date().toISOString(),
+      }).eq('id', i.dataset.planId)
+    ));
+    if (typeof _boShowToast === 'function') _boShowToast(`✅ ${changed.length}건 저장 완료`, 'success');
+    else alert(`✅ ${changed.length}건 저장 완료`);
+    _bdPlans = null;
+    renderBudgetDemand();
+  } catch(e) {
+    alert('❌ 저장 실패: ' + e.message);
+    if (btn) btn.textContent = '💾 일괄저장';
+  }
+}
+
+// ── bo_status 업데이트
+async function _bdUpdateBoStatus(planId, newStatus) {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) return;
+  const reviewer = boCurrentPersona?.name || 'admin';
+  const now = new Date().toISOString();
+  const extra = newStatus.startsWith('op_')
+    ? { op_reviewed_by: reviewer, op_reviewed_at: now }
+    : { final_reviewed_by: reviewer, final_reviewed_at: now };
+  // op_approved → 팀장 승인 완료 시 bo_status 진입 트리거
+  const { error } = await sb.from('plans').update({ bo_status: newStatus, ...extra, updated_at: now }).eq('id', planId);
+  if (error) { alert('❌ 상태 변경 실패: ' + error.message); return; }
+  if (typeof _boShowToast === 'function') _boShowToast('✅ 상태 변경 완료', 'success');
+  _bdPlans = null;
+  renderBudgetDemand();
+}
+
+// ── 계획 상세 모달
+async function _bdShowPlanDetail(planId) {
+  const modal = document.getElementById('bd-plan-detail-modal');
+  const content = document.getElementById('bd-plan-detail-content');
+  if (!modal || !content) return;
+  modal.style.display = 'flex';
+  content.innerHTML = '<div style="text-align:center;padding:40px;color:#9CA3AF">⏳ 로딩 중...</div>';
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { content.innerHTML = '<p style="color:#EF4444">DB 연결 없음</p>'; return; }
+  const { data: p, error } = await sb.from('plans').select('*').eq('id', planId).single();
+  if (error || !p) { content.innerHTML = '<p style="color:#EF4444">데이터 로드 실패</p>'; return; }
+  const acctName = (_bdAcctList || []).find(a => a.code === p.account_code)?.name || p.account_code || '-';
+  const boLabelMap = {
+    op_review_pending:'운영담당자 검토대기', op_rejected:'검토 제외',
+    op_approved:'총괄 대기', final_approved:'총괄 승인', final_rejected:'총괄 제외'
+  };
+  const statusStr = p.bo_status ? (boLabelMap[p.bo_status] || p.bo_status)
+    : (p.status === 'pending' ? '팀장 검토중' : p.status || '-');
+  const rows = [
+    ['계획명', p.edu_name || '-'],
+    ['상신자', p.applicant_name || '-'],
+    ['예산계정', acctName],
+    ['사업계획금액', Number(p.amount||0).toLocaleString()+'원'],
+    ['1차확정금액', p.op_confirmed_amount != null ? Number(p.op_confirmed_amount).toLocaleString()+'원' : '-'],
+    ['최종확정금액', p.final_confirmed_amount != null ? Number(p.final_confirmed_amount).toLocaleString()+'원' : '-'],
+    ['상태', statusStr],
+    ['회계연도', p.fiscal_year || '-'],
+    ['제출일', (p.created_at||'').slice(0,10)],
+    ['운영담당자 검토', p.op_reviewed_by ? `${p.op_reviewed_by} (${(p.op_reviewed_at||'').slice(0,10)})` : '-'],
+    ['총괄담당자 검토', p.final_reviewed_by ? `${p.final_reviewed_by} (${(p.final_reviewed_at||'').slice(0,10)})` : '-'],
+  ];
+  const detailRows = p.detail ? Object.entries(p.detail).map(([k,v]) =>
+    `<tr><td style="color:#6B7280;padding:6px 12px;font-size:11px;white-space:nowrap">${k}</td><td style="padding:6px 12px;font-size:12px">${v ?? '-'}</td></tr>`
+  ).join('') : '';
+  content.innerHTML = `
+    <h3 style="margin:0 0 20px;font-size:18px;font-weight:900;color:#002C5F;padding-right:40px">${p.edu_name || '계획 상세'}</h3>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+      ${rows.map(([k,v]) => `
+        <tr style="border-bottom:1px solid #F3F4F6">
+          <td style="color:#6B7280;padding:8px 12px;font-size:11px;font-weight:700;white-space:nowrap;width:120px">${k}</td>
+          <td style="padding:8px 12px;font-size:13px;font-weight:600">${v}</td>
+        </tr>`).join('')}
+    </table>
+    ${detailRows ? `
+      <div style="font-size:11px;font-weight:900;color:#6B7280;margin-bottom:8px">📋 상세 입력 내용</div>
+      <table style="width:100%;border-collapse:collapse;background:#F9FAFB;border-radius:10px;overflow:hidden">
+        ${detailRows}
+      </table>` : ''}`;
 }
 
 // ── 헬퍼 함수 ──────────────────────────────────────────────────────────────

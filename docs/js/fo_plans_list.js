@@ -1197,11 +1197,13 @@ function renderPlans() {
        </div>`
     : '';
 
-  // P12: 묶음 상신 배너 (내 계획 탭 + forecast+saved 계획 존재 시)
+  // P12: 묶음 상신 배너 (내 교육계획에서 묶음상신 기능 주석 처리 - 2026-04-28)
   const forecastSaved = _planViewTab === 'mine'
     ? (_plansDbCache || []).filter(d => d.plan_type === 'forecast' && d.status === 'saved')
     : [];
-  const bundleBar = typeof _foRenderBundleBar === 'function' ? _foRenderBundleBar(forecastSaved) : '';
+  // const bundleBar = typeof _foRenderBundleBar === 'function' ? _foRenderBundleBar(forecastSaved) : '';
+  const bundleBar = '';
+
 
   // Phase 3: 팀 탭 — 계정별 사업계획 일괄 확정 배너
   // 팀 탭 + 사업계획(forecast) 모드일 때 팀 전체의 saved forecast 계획을 계정별로 그룹핑하여 표시
@@ -1380,16 +1382,17 @@ function _renderPlanCard(p) {
       onmouseout="this.style.boxShadow='${isSelected ? '0 0 0 3px rgba(29,78,216,.1)' : '0 1px 4px rgba(0,0,0,.04)'}';this.style.transform='none'">
       <!-- 좌측 상태 컬러 바 -->
       <div style="position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:16px 0 0 16px;background:${cfg.color}"></div>
-      <!-- 체크박스 (saved 상태만) -->
-      ${isSaved ? `
+      <!-- 체크박스 (내 교육계획 묶음 상신 임시 주석 처리) -->
+      ${/*isSaved ? \`
         <div style="flex-shrink:0;padding-top:3px;" onclick="event.stopPropagation()">
           <input type="checkbox"
-                 ${isSelected ? 'checked' : ''}
-                 ${_selectionAccount && _selectionAccount !== p.account ? 'disabled style="opacity:0.4"' : ''}
-                 onchange="_togglePlanSelection(event, '${safeId}', '${p.account || ""}')"
+                 \${isSelected ? 'checked' : ''}
+                 \${_selectionAccount && _selectionAccount !== p.account ? 'disabled style="opacity:0.4"' : ''}
+                 onchange="_togglePlanSelection(event, '\${safeId}', '\${p.account || ""}')"
                  style="width:18px;height:18px;cursor:pointer;accent-color:#1D4ED8;border-radius:4px">
         </div>
-      ` : ''}
+      \` : */ ''}
+
       <!-- 상태 아이콘 -->
       <div style="width:40px;height:40px;border-radius:12px;background:${cfg.grad};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;border:1px solid ${cfg.border}">${cfg.icon}</div>
       <!-- 콘텐츠 -->

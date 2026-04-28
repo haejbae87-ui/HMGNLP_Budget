@@ -553,7 +553,7 @@ async function _renderForecastDashboard() {
   }
 
   container.innerHTML = `
-<div class="max-w-4xl mx-auto space-y-4">
+<div class="max-w-5xl mx-auto space-y-4">
   <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px">
     <div>
       <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 수요예측</div>
@@ -651,7 +651,7 @@ async function _renderVorgHub() {
   // 복수 VOrg → 선택 카드 UI 렌더링
   _userVorgList = vorgItems;
   container.innerHTML = `
-<div class="max-w-4xl mx-auto space-y-6">
+<div class="max-w-5xl mx-auto space-y-6">
   <div>
     <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">HOME › ${modeLabel}</div>
     <h1 class="text-3xl font-black text-brand tracking-tight">${modeIcon} 제도그룹 선택</h1>
@@ -733,7 +733,7 @@ async function _renderAccountHub() {
   // 계정이 0개 → 빈 안내
   if (accountItems.length === 0) {
     container.innerHTML = `
-<div class="max-w-4xl mx-auto space-y-6">
+<div class="max-w-5xl mx-auto space-y-6">
   <div>
     <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">
       HOME › <span onclick="_selectedVorgId=null;renderPlans()" style="cursor:pointer;text-decoration:underline">${modeLabel}</span> › 예산계정
@@ -789,7 +789,7 @@ async function _renderAccountHub() {
   const campaigns = _forecastDeadlinesCache || [];
 
   container.innerHTML = `
-<div class="max-w-4xl mx-auto space-y-6">
+<div class="max-w-5xl mx-auto space-y-6">
   <div style="display:flex;align-items:flex-end;justify-content:space-between">
     <div>
       <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">

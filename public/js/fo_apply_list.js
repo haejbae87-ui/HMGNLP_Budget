@@ -352,7 +352,7 @@ function _renderResultForm() {
   const canNext2 = s.useBudget !== null && (!s.useBudget || s.budgetId);
 
   document.getElementById("page-apply").innerHTML = `
-<div class="max-w-4xl mx-auto space-y-6">
+<div class="max-w-5xl mx-auto space-y-6">
   <div class="flex items-center justify-between">
     <div>
       <button onclick="applyViewMode='list';renderApply()"

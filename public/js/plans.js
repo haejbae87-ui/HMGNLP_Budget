@@ -616,7 +616,7 @@ function renderPlans() {
   const planLabelStr = isBusiness ? "사업계획 수립" : "운영계획 수립";
 
   document.getElementById("page-plans").innerHTML = `
-<div class="max-w-4xl mx-auto space-y-4 pb-20 relative">
+<div class="max-w-5xl mx-auto space-y-4 pb-20 relative">
   ${isBusiness && typeof _forecastCampaignHtmlStr !== "undefined" ? _forecastCampaignHtmlStr : ""}
 
   <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:${isBusiness ? '40px' : '0'}; border-top:${isBusiness ? '2px solid #E5E7EB' : 'none'}; padding-top:${isBusiness ? '24px' : '0'}">
@@ -964,7 +964,7 @@ function _renderPlanDetailView(plan) {
   const canApply = isApproved && !isExpired;
 
   return `
-  <div class="max-w-4xl mx-auto">
+  <div class="max-w-5xl mx-auto">
     <div style="margin-bottom:16px">
       <button onclick="_viewingPlanDetail=null;renderPlans()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">
         ← 목록으로
@@ -1188,7 +1188,7 @@ function renderPlanWizard() {
     .join("");
 
   document.getElementById("page-plans").innerHTML = `
-<div class="max-w-4xl mx-auto space-y-6">
+<div class="max-w-5xl mx-auto space-y-6">
   <!-- 헤더 -->
   <div class="flex items-center justify-between">
     <div>

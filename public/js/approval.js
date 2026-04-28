@@ -412,7 +412,7 @@ async function renderApprovalMember() {
   </div>`;
 
   el.innerHTML = `
-<div class="max-w-4xl mx-auto space-y-4">
+<div class="max-w-5xl mx-auto space-y-4">
   <div style="display:flex;align-items:flex-end;justify-content:space-between">
     <div>
       <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 결재 › 팀원용</div>
@@ -532,7 +532,7 @@ async function renderApprovalLeader() {
 
   if (!_isLeaderPersona()) {
     el.innerHTML = `
-    <div class="max-w-4xl mx-auto">
+    <div class="max-w-5xl mx-auto">
       <div class="card p-16 text-center">
         <div style="font-size:48px;margin-bottom:16px">&#x1F512;</div>
         <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">&#xC811;&#xADFC; &#xAD8C;&#xD55C;&#xC774; &#xC5C6;&#xC2B5;&#xB2C8;&#xB2E4;</div>
@@ -720,7 +720,7 @@ async function renderApprovalLeader() {
   </div>`;
 
   el.innerHTML = `
-<div class="max-w-4xl mx-auto space-y-4">
+<div class="max-w-5xl mx-auto space-y-4">
   <div style="display:flex;align-items:flex-end;justify-content:space-between">
     <div>
       <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 결재 › 리더용</div>

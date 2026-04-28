@@ -351,7 +351,7 @@ function _renderResultForm() {
   const canNext2 = s.useBudget !== null && (!s.useBudget || s.budgetId);
 
   document.getElementById("page-apply").innerHTML = `
-<div class="max-w-4xl mx-auto space-y-6">
+<div class="max-w-5xl mx-auto space-y-6">
   <div class="flex items-center justify-between">
     <div>
       <button onclick="applyViewMode='list';renderApply()"
@@ -742,7 +742,7 @@ function _renderApplyList() {
   </select>`;
 
   document.getElementById("page-apply").innerHTML = `
-<div class="max-w-4xl mx-auto space-y-4">
+<div class="max-w-5xl mx-auto space-y-4">
   <div style="display:flex;align-items:flex-end;justify-content:space-between">
     <div>
       <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육 신청</div>
@@ -887,7 +887,7 @@ function _renderApplyForm() {
   ) {
     _loadFoPolicies().then(() => _renderApplyForm());
     document.getElementById("page-apply").innerHTML =
-      `<div class="max-w-4xl mx-auto" style="padding:60px 20px;text-align:center">
+      `<div class="max-w-5xl mx-auto" style="padding:60px 20px;text-align:center">
       <div style="font-size:28px;margin-bottom:8px">⌛</div>
       <div style="font-size:14px;font-weight:700;color:#6B7280">교육지원 운영 규칙 로딩 중...</div>
     </div>`;
@@ -897,7 +897,7 @@ function _renderApplyForm() {
   if (!_dbApprovedPlansLoaded || _dbApprPlanPersonaId !== currentPersona.id) {
     _loadApprovedPlans().then(() => _renderApplyForm());
     document.getElementById("page-apply").innerHTML =
-      `<div class="max-w-4xl mx-auto" style="padding:60px 20px;text-align:center">
+      `<div class="max-w-5xl mx-auto" style="padding:60px 20px;text-align:center">
       <div style="font-size:28px;margin-bottom:8px">⌛</div>
       <div style="font-size:14px;font-weight:700;color:#6B7280">교육계획 데이터 로딩 중...</div>
     </div>`;
@@ -1028,7 +1028,7 @@ function _renderApplyForm() {
       : null;
 
   document.getElementById("page-apply").innerHTML = `
-    <div class="max-w-4xl mx-auto space-y-6">
+    <div class="max-w-5xl mx-auto space-y-6">
   <div class="flex items-center justify-between">
     <div>
       <button onclick="applyViewMode='list';renderApply()"

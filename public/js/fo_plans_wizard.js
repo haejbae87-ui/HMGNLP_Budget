@@ -155,7 +155,7 @@ function _renderPlanDetailView(plan) {
   const accountName = curBudget ? curBudget.name : (plan.account_code || plan.account || "-");
 
   return `
-  <div class="max-w-4xl mx-auto">
+  <div class="max-w-5xl mx-auto">
     <div style="margin-bottom:16px">
       <button onclick="_viewingPlanDetail=null;renderPlans()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">
         ← 목록으로
@@ -421,7 +421,7 @@ function renderPlanWizard() {
     .join("");
 
   document.getElementById("page-plans").innerHTML = `
-<div class="max-w-4xl mx-auto space-y-6">
+<div class="max-w-5xl mx-auto space-y-6">
   <!-- 헤더 -->
   <div class="flex items-center justify-between">
     <div>

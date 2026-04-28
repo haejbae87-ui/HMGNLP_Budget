@@ -8,7 +8,7 @@ function _renderApplyForm() {
   ) {
     _loadFoPolicies().then(() => _renderApplyForm());
     document.getElementById("page-apply").innerHTML =
-      `<div class="max-w-4xl mx-auto" style="padding:60px 20px;text-align:center">
+      `<div class="max-w-5xl mx-auto" style="padding:60px 20px;text-align:center">
       <div style="font-size:28px;margin-bottom:8px">⌛</div>
       <div style="font-size:14px;font-weight:700;color:#6B7280">교육지원 운영 규칙 로딩 중...</div>
     </div>`;
@@ -18,7 +18,7 @@ function _renderApplyForm() {
   if (!_dbApprovedPlansLoaded || _dbApprPlanPersonaId !== currentPersona.id) {
     _loadApprovedPlans().then(() => _renderApplyForm());
     document.getElementById("page-apply").innerHTML =
-      `<div class="max-w-4xl mx-auto" style="padding:60px 20px;text-align:center">
+      `<div class="max-w-5xl mx-auto" style="padding:60px 20px;text-align:center">
       <div style="font-size:28px;margin-bottom:8px">⌛</div>
       <div style="font-size:14px;font-weight:700;color:#6B7280">교육계획 데이터 로딩 중...</div>
     </div>`;
@@ -149,7 +149,7 @@ function _renderApplyForm() {
       : null;
 
   document.getElementById("page-apply").innerHTML = `
-    <div class="max-w-4xl mx-auto space-y-6">
+    <div class="max-w-5xl mx-auto space-y-6">
   <div class="flex items-center justify-between">
     <div>
       <button onclick="applyViewMode='list';renderApply()"

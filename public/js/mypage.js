@@ -7,7 +7,7 @@ function renderMypage() {
   const totalH = _history.reduce((s, h) => s + h.hours, 0);
   const doneCount = _history.filter((h) => h.status === "완료").length;
   document.getElementById("page-mypage").innerHTML = `
-<div class="max-w-4xl mx-auto space-y-6">
+<div class="max-w-5xl mx-auto space-y-6">
   <div>
     <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 마이페이지</div>
     <h1 class="text-3xl font-black text-brand tracking-tight">마이페이지</h1>

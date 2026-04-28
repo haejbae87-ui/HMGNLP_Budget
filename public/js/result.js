@@ -87,7 +87,7 @@ function _renderResultList() {
         _renderResultList();
       });
     document.getElementById("page-result").innerHTML =
-      `<div class="max-w-4xl mx-auto" style="padding:60px 20px;text-align:center">
+      `<div class="max-w-5xl mx-auto" style="padding:60px 20px;text-align:center">
       <div style="font-size:28px;margin-bottom:8px">⌛</div>
       <div style="font-size:14px;font-weight:700;color:#6B7280">결과 데이터 로딩 중...</div>
     </div>`;
@@ -208,7 +208,7 @@ function _renderResultList() {
   </div>`;
 
   document.getElementById("page-result").innerHTML = `
-<div class="max-w-4xl mx-auto space-y-4">
+<div class="max-w-5xl mx-auto space-y-4">
   <div style="display:flex;align-items:flex-end;justify-content:space-between">
     <div>
       <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육결과</div>
@@ -548,7 +548,7 @@ function _renderResultWizard() {
   })();
 
   document.getElementById("page-result").innerHTML = `
-<div class="max-w-4xl mx-auto space-y-6">
+<div class="max-w-5xl mx-auto space-y-6">
   <div class="flex items-center justify-between">
     <div>
       <button onclick="_resultWizardState=null;renderResult()" style="font-size:11px;font-weight:800;color:#6B7280;background:none;border:none;cursor:pointer;padding:0;margin-bottom:6px;display:flex;align-items:center;gap:4px"

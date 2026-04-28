@@ -879,21 +879,14 @@ function _renderCalcGroundsSection(s, curBudget) {
     if (item && item.hardLimit > 0 && r.total > item.hardLimit) hasHard = true;
   });
 
-  // thead 컬럼 결정: any row의 has_qty2/has_rounds 확인
-  const anyHasQty2 = rows.some((r) => {
-    const it = items.find(g => g.id === r.itemId);
-    return it?.hasQty2 === true;
-  });
-  const anyHasRounds = rows.some((r) => {
-    const it = items.find(g => g.id === r.itemId);
-    return it?.hasRounds === true;
-  });
+  // 교육운영형: 수량+유형 3쌍 항상 표시 (BO 설정 무관)
+  const CG_UNIT_TYPES = ['시간','명','식','일','박','회','차수','장'];
 
   return `
 <div class="rounded-2xl border-2 border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-5">
   <div class="flex items-center justify-between mb-4">
     <div>
-      <div class="text-xs font-black text-blue-600 uppercase tracking-widest mb-0.5">📐 세부 산출 근거 <span style="font-size:10px;background:#DBEAFE;color:#1D4ED8;padding:2px 8px;border-radius:5px">🎯 교육운영용 (단가 × 인원 × qty2 × 차수)</span></div>
+      <div class="text-xs font-black text-blue-600 uppercase tracking-widest mb-0.5">📐 세부 산출 근거 <span style="font-size:10px;background:#DBEAFE;color:#1D4ED8;padding:2px 8px;border-radius:5px">🎯 교육운영용 (단가 × 수량1 × 수량2 × 수량3)</span></div>
       <div class="text-[11px] text-gray-500">항목 선택 → 장소(선택) → 프리셋 선택 시 단가·박수 자동 입력됩니다.</div>
     </div>
     <button onclick="_cgAddRow()"
@@ -907,19 +900,21 @@ function _renderCalcGroundsSection(s, curBudget) {
       ? `
   <!-- 항목 행 테이블 -->
   <div class="bg-white rounded-xl overflow-hidden border border-blue-100 mb-3" style="overflow-x:auto">
-    <table class="w-full text-xs" style="min-width:820px">
+    <table class="w-full text-xs" style="min-width:960px">
       <thead class="bg-blue-50">
         <tr class="text-[10px] font-black text-blue-500 uppercase tracking-wider">
           <th class="px-3 py-2 text-left" style="min-width:130px">항목</th>
-          <th class="px-3 py-2 text-left" style="min-width:100px">세부항목(장소+프리셋)</th>
-          <th class="px-3 py-2 text-right w-24">단가 (원)</th>
-          <th class="px-3 py-2 text-right w-14">수량1</th>
-          <th class="px-3 py-2 text-center w-10">유형1</th>
-          ${anyHasQty2 ? `<th class="px-3 py-2 text-right w-14">수량2</th><th class="px-3 py-2 text-center w-14">유형2</th>` : ""}
-          ${anyHasRounds ? `<th class="px-3 py-2 text-right w-12">차수</th>` : ""}
-          <th class="px-3 py-2 text-right w-28">산출금액 (원)</th>
-          <th class="px-3 py-2 text-left w-20">비고</th>
-          <th class="px-3 py-2 text-center w-8"></th>
+          <th class="px-3 py-2 text-left" style="min-width:90px">세부항목</th>
+          <th class="px-3 py-2 text-right" style="width:80px">단가(원)</th>
+          <th class="px-3 py-2 text-right" style="width:48px">수량1</th>
+          <th class="px-3 py-2 text-center" style="width:56px">유형1</th>
+          <th class="px-3 py-2 text-right" style="width:48px">수량2</th>
+          <th class="px-3 py-2 text-center" style="width:56px">유형2</th>
+          <th class="px-3 py-2 text-right" style="width:48px">수량3</th>
+          <th class="px-3 py-2 text-center" style="width:56px">유형3</th>
+          <th class="px-3 py-2 text-right" style="width:90px">예산금액(원)</th>
+          <th class="px-3 py-2 text-left" style="width:72px">비고</th>
+          <th class="px-3 py-2 text-center" style="width:32px"></th>
         </tr>
       </thead>
       <tbody>
@@ -934,9 +929,9 @@ function _renderCalcGroundsSection(s, curBudget) {
             const presetOpts = presets.length > 0
               ? `<option value="">-- 프리셋 --</option>` + presets.map(p => `<option value="${p.venue_name}|${p.preset_name}|${p.unit_price}|${p.qty2_value||1}" ${row.presetKey===(p.venue_name+'|'+p.preset_name)?'selected':''}>${p.venue_name ? p.venue_name+' · ' : ''}${p.preset_name} (${Number(p.unit_price).toLocaleString()}원)</option>`).join('')
               : `<option value="">-- 직접입력 --</option>`;
-            const showQty2 = item?.hasQty2 === true;
-            const showRounds = item?.hasRounds === true;
-            const qty2Label = item?.qty2Type || '박';
+            const showQty2 = true; // 항상 표시
+            const showRounds = true; // 항상 표시
+            const uSel = (val, fn) => `<select onchange="${fn}(${idx},this.value)" style="font-size:11px;font-weight:700;border:1.5px solid #BFDBFE;border-radius:6px;padding:2px 4px;background:#EFF6FF;color:#1D4ED8;cursor:pointer;width:52px">${CG_UNIT_TYPES.map(u=>'<option value="'+u+'" '+(val===u?'selected':'')+'>'+u+'</option>').join('')}</select>`;
             return `
           <tr style="background:${rowBg};border-top:1px solid #F3F4F6">
             <td class="px-3 py-2">
@@ -970,20 +965,30 @@ function _renderCalcGroundsSection(s, curBudget) {
                 style="width:80px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:4px 6px">
             </td>
             <td class="px-3 py-2">
-              <input type="number" value="${row.qty1 || row.qty || 1}" min="1"
-                oninput="_cgUpdateQty1(${idx}, this.value)"
-                style="width:46px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:4px 6px">
+              <input type="number" value="${row.qty1||row.qty||1}" min="1"
+                oninput="_cgUpdateQty1(${idx},this.value)"
+                style="width:38px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:3px 5px">
             </td>
-            <td class="px-3 py-2 text-center" style="color:#6B7280;font-size:10px;font-weight:800">명</td>
-            ${anyHasQty2 ? `<td class="px-3 py-2">${showQty2 ? `<input type="number" value="${row.qty2 || 1}" min="1" oninput="_cgUpdateQty2(${idx}, this.value)" style="width:40px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:4px 6px">` : `<span style="color:#ccc;font-size:10px">—</span>`}</td><td class="px-3 py-2 text-center">${showQty2 ? `<select onchange="_cgUpdateQty2Type(${idx}, this.value)" style="font-size:10px;font-weight:800;border:1.5px solid #BFDBFE;border-radius:5px;padding:2px 5px;background:#EFF6FF;color:#1D4ED8;cursor:pointer">${(item?.qty2AllowedTypes||(item?.qty2Type?[item.qty2Type]:['일'])).map(u=>`<option value="${u}" ${(row.qty2Type||item?.qty2Type||'일')===u?'selected':''}>${u}</option>`).join('')}</select>` : `<span style="color:#ccc;font-size:10px">—</span>`}</td>` : ""}
-            ${anyHasRounds ? `<td class="px-3 py-2">${showRounds ? `<input type="number" value="${row.qty3 || 1}" min="1" oninput="_cgUpdateQty3(${idx}, this.value)" style="width:38px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:4px 6px">` : `<span style="color:#ccc;font-size:10px">—</span>`}</td>` : ""}
-            <td class="px-3 py-2 text-right font-black" style="color:${isHardOver ? "#DC2626" : isSoftOver ? "#D97706" : "#111827"}">
+            <td class="px-3 py-2">${uSel(row.type1||'명','_cgUpdateType1')}</td>
+            <td class="px-3 py-2">
+              <input type="number" value="${row.qty2||1}" min="1"
+                oninput="_cgUpdateQty2(${idx},this.value)"
+                style="width:38px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:3px 5px">
+            </td>
+            <td class="px-3 py-2">${uSel(row.type2||'일','_cgUpdateType2')}</td>
+            <td class="px-3 py-2">
+              <input type="number" value="${row.qty3||1}" min="1"
+                oninput="_cgUpdateQty3(${idx},this.value)"
+                style="width:38px;text-align:right;font-size:11px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:6px;padding:3px 5px">
+            </td>
+            <td class="px-3 py-2">${uSel(row.type3||'차수','_cgUpdateType3')}</td>
+            <td class="px-3 py-2 text-right font-black" style="color:${isHardOver?'#DC2626':isSoftOver?'#D97706':'#111827'}">
               ${fmt(row.total)}
             </td>
             <td class="px-3 py-2">
               <input type="text" value="${(row.note||'').replace(/"/g,'&quot;')}" placeholder="비고"
-                oninput="_cgUpdateRowNote(${idx}, this.value)"
-                style="width:68px;font-size:10px;border:1.5px solid #E5E7EB;border-radius:5px;padding:3px 5px;color:#6B7280">
+                oninput="_cgUpdateRowNote(${idx},this.value)"
+                style="width:60px;font-size:10px;border:1.5px solid #E5E7EB;border-radius:5px;padding:2px 4px;color:#6B7280">
             </td>
             <td class="px-3 py-2 text-center">
               <button onclick="_cgRemoveRow(${idx})" style="color:#D1D5DB;font-size:14px;border:none;background:none;cursor:pointer">✕</button>
@@ -1211,10 +1216,9 @@ async function _cgAddRow() {
   planState.calcGrounds.push({
     itemId: firstItem?.id || "",
     unitPrice: firstItem?.unitPrice || 0,
-    qty1: 1,
-    qty2: firstItem?.hasQty2 ? (presets[0]?.qty2_value || 1) : 1,
-    qty2Type: (firstItem?.qty2AllowedTypes?.[0]) || firstItem?.qty2Type || "일",
-    qty3: firstItem?.hasRounds ? 1 : 1,
+    qty1: 1, type1: '명',
+    qty2: 1, type2: '일',
+    qty3: 1, type3: '차수',
     total: firstItem?.unitPrice || 0,
     note: "",
     presetKey: "",
@@ -1277,9 +1281,8 @@ function _cgApplyPreset(idx, val) {
 }
 
 function _cgRecalcRow(row, item) {
-  row.total = window._calcGroundTotal
-    ? window._calcGroundTotal({ unitPrice: row.unitPrice, qty1: row.qty1 || row.qty || 1, qty2: item?.hasQty2 ? (row.qty2||1) : 1, qty3: item?.hasRounds ? (row.qty3||1) : 1 })
-    : (row.unitPrice || 0) * (row.qty1 || row.qty || 1) * (item?.hasQty2 ? (row.qty2||1) : 1) * (item?.hasRounds ? (row.qty3||1) : 1);
+  // 항상 qty1 × qty2 × qty3 (BO has_qty2/has_rounds 무관)
+  row.total = (row.unitPrice || 0) * (row.qty1 || row.qty || 1) * (row.qty2 || 1) * (row.qty3 || 1);
 }
 
 function _cgUpdateQty1(idx, val) {
@@ -1341,8 +1344,11 @@ function _cgUpdateRowNote(idx, val) {
 // qty2 단위(유형) 업데이트 — 재계산은 수량이 변경될 때만 (단위만 변경 시 합계 동일)
 function _cgUpdateQty2Type(idx, val) {
   const row = planState.calcGrounds[idx];
-  if (row) row.qty2Type = val;
+  if (row) { row.qty2Type = val; row.type2 = val; }
 }
+function _cgUpdateType1(idx, val) { const row = planState.calcGrounds[idx]; if (row) row.type1 = val; }
+function _cgUpdateType2(idx, val) { const row = planState.calcGrounds[idx]; if (row) { row.type2 = val; row.qty2Type = val; } }
+function _cgUpdateType3(idx, val) { const row = planState.calcGrounds[idx]; if (row) row.type3 = val; }
 
 // 소계만 텍스트 업데이트 (전체 렌더 최소화)
 function _cgRefreshTotals() {

@@ -853,6 +853,134 @@ async function renderApprovalLeader() {
 </div>`;
 }
 
+// ─── Phase 3: 팀 사업계획 번들 — 팀장 BO 전달 ────────────────────────────────
+/**
+ * 팀장이 팀 사업계획 번들을 확인하고 BO 운영담당자에게 전달
+ * submission_documents.status: 'submitted' → 'team_approved'
+ */
+async function _teamForecastBoTransfer(docId) {
+  if (!confirm('📤 이 팀 사업계획 번들을 BO 운영담당자에게 전달하시겠습니까?\n\n전달 후에는 BO에서 1차 예산 취합 검토가 시작됩니다.')) return;
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 실패'); return; }
+
+  try {
+    const now = new Date().toISOString();
+    // submission_documents → team_approved 전환
+    const { error: docErr } = await sb.from('submission_documents')
+      .update({
+        status: 'team_approved',
+        reviewer_id: currentPersona.id,
+        reviewer_name: currentPersona.name,
+        reviewed_at: now,
+        updated_at: now,
+      })
+      .eq('id', docId);
+    if (docErr) throw docErr;
+
+    // approval_history 기록 (비치명적)
+    try {
+      await sb.from('approval_history').insert({
+        submission_id: docId,
+        node_order: 1,
+        node_label: '팀장 검토',
+        action: 'approve',
+        approver_name: currentPersona.name,
+        comment: 'BO 전달',
+        action_at: now,
+      });
+    } catch(e) { console.warn('[_teamForecastBoTransfer] 이력 저장 실패:', e.message); }
+
+    alert('✅ BO 전달 완료!\n\nBO 운영담당자 결재함에서 확인할 수 있습니다.\n팀 사업계획이 1차 예산 취합 검토 단계로 넘어갔습니다.');
+
+    // 리더 결재함 새로고침
+    _aprLeaderLoaded = false; _aprSubDocData = []; _aprLeaderData = [];
+    renderApprovalLeader();
+  } catch (err) {
+    alert('❌ 전달 실패: ' + err.message);
+    console.error('[_teamForecastBoTransfer]', err);
+  }
+}
+window._teamForecastBoTransfer = _teamForecastBoTransfer;
+
+// ─── Phase 3: 팀 사업계획 번들 — 팀장 반려 ─────────────────────────────────
+/**
+ * 팀장이 팀 사업계획 번들을 반려
+ * - submission_documents.status: 'submitted' → 'rejected'
+ * - 번들에 포함된 모든 plans.status: 'submitted' → 'saved' (팀원들이 수정 후 재확정 가능)
+ */
+async function _teamForecastReject(docId) {
+  const reason = prompt('❌ 반려 사유를 입력해주세요.\n(팀원들에게 수정 방향을 안내해주세요)');
+  if (reason === null) return; // 취소
+  if (!reason.trim()) {
+    alert('반려 사유를 입력해야 합니다.');
+    return;
+  }
+  if (!confirm(`이 팀 사업계획 번들을 반려하시겠습니까?\n\n반려 사유: ${reason}\n\n포함된 모든 계획이 저장완료 상태로 복귀되어\n팀원들이 수정 후 다시 확정할 수 있습니다.`)) return;
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 실패'); return; }
+
+  try {
+    const now = new Date().toISOString();
+
+    // 1) 번들에 포함된 plan ID 조회
+    const { data: items, error: itemErr } = await sb.from('submission_items')
+      .select('item_id, item_type')
+      .eq('submission_id', docId)
+      .eq('item_type', 'plan');
+    if (itemErr) throw itemErr;
+
+    const planIds = (items || []).map(i => i.item_id).filter(Boolean);
+
+    // 2) plans.status → saved 복귀
+    if (planIds.length > 0) {
+      const { error: planErr } = await sb.from('plans')
+        .update({ status: 'saved', updated_at: now })
+        .in('id', planIds);
+      if (planErr) throw planErr;
+    }
+
+    // 3) submission_documents → rejected 전환
+    const { error: docErr } = await sb.from('submission_documents')
+      .update({
+        status: 'rejected',
+        reject_reason: reason,
+        reject_node_label: currentPersona.pos || '팀장',
+        rejected_at: now,
+        reviewer_id: currentPersona.id,
+        reviewer_name: currentPersona.name,
+        reviewed_at: now,
+        updated_at: now,
+      })
+      .eq('id', docId);
+    if (docErr) throw docErr;
+
+    // 4) approval_history 기록 (비치명적)
+    try {
+      await sb.from('approval_history').insert({
+        submission_id: docId,
+        node_order: 1,
+        node_label: '팀장 검토',
+        action: 'reject',
+        approver_name: currentPersona.name,
+        comment: reason,
+        action_at: now,
+      });
+    } catch(e) { console.warn('[_teamForecastReject] 이력 저장 실패:', e.message); }
+
+    alert(`✅ 반려 처리 완료!\n\n반려 사유: ${reason}\n\n${planIds.length}건의 계획이 저장완료 상태로 복귀되었습니다.\n팀원들이 수정 후 다시 팀 사업계획을 확정할 수 있습니다.`);
+
+    // 리더 결재함 새로고침
+    _aprLeaderLoaded = false; _aprSubDocData = []; _aprLeaderData = [];
+    renderApprovalLeader();
+  } catch (err) {
+    alert('❌ 반려 실패: ' + err.message);
+    console.error('[_teamForecastReject]', err);
+  }
+}
+window._teamForecastReject = _teamForecastReject;
+
 async function _approvalActionDoc(docId, action) {
   const commentEl = document.getElementById("comment-doc-" + docId);
   const comment = commentEl?.value?.trim() || "";

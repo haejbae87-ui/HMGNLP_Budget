@@ -1009,7 +1009,8 @@ function renderPlans() {
             author: d.applicant_name || "-",
             authorDept: d.dept || "-",
             tenantId: d.tenant_id,
-            fiscalYear: d.fiscal_year, // 연도 필터링을 위한 속성 추가
+            fiscalYear: d.fiscal_year,
+            plan_type: d.plan_type || 'operation', // ★ 팀 계획 plan_type 포함
           }));
           renderPlans();
         })();
@@ -1024,10 +1025,15 @@ function renderPlans() {
   const targetPlanType = isBusiness ? 'business' : 'operation';
   // DB 원본에서 plan_type으로 선필터
   const typePlans = plans.filter(p => {
-    // DB plan_type 매칭: _plansDbCache에서 plan_type 확인
-    const dbPlan = (_plansDbCache || []).find(d => d.id === p.id);
-    const pType = dbPlan?.plan_type || 'operation';
-    return pType === targetPlanType || (isBusiness && pType === 'forecast');
+    // ★ 팀 계획은 자체 plan_type 사용, 내 계획은 _plansDbCache에서 확인
+    let pType;
+    if (_planViewTab === 'team') {
+      pType = p.plan_type || 'operation';
+    } else {
+      const dbPlan = (_plansDbCache || []).find(d => d.id === p.id);
+      pType = dbPlan?.plan_type || 'operation';
+    }
+    return pType === targetPlanType || (isBusiness && (pType === 'forecast' || pType === 'business'));
   });
 
   // #7: 상태/계정/연도 필터 적용

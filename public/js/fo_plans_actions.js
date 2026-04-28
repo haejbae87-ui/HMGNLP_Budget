@@ -531,7 +531,7 @@ async function resumePlanDraft(planId) {
       }
     }
 
-    planState.step = 4;
+    planState.step = 3; // 세부정보 입력 화면으로 바로 진입
 
     // ★ step 4 진입 시 formTemplate 비동기 로드 (정상 위저드 흐름과 동일)
     planState.formTemplateLoading = true;

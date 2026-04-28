@@ -1316,15 +1316,29 @@ window._loadUnitPricesForItem = async function(itemId, tenantId) {
     const sb = typeof _sb === "function" ? _sb() : null;
     if (!sb) {
       return (typeof _cgDetailUnitPrices !== "undefined" ? _cgDetailUnitPrices : [])
-        .filter((p) => p.active !== false && (p.calc_ground_id === itemId || p.calc_ground_name === CALC_GROUNDS_MASTER.find(g=>g.id===itemId)?.name))
+        .filter((p) => p.active !== false && (p.calc_ground_id === itemId || p.calc_ground_name === (CALC_GROUNDS_MASTER||[]).find(g=>g.id===itemId)?.name))
         .sort((a, b) => (a.sort_order||99) - (b.sort_order||99));
     }
-    const { data } = await sb
+    // 1차: calc_ground_id로 조회
+    let { data } = await sb
       .from("calc_ground_unit_prices")
       .select("venue_name,preset_name,detail_name,unit_price,qty2_value,qty2_label,limit_type,limit_value,sort_order")
-      .or(`calc_ground_id.eq.${itemId},calc_ground_name.eq.${(CALC_GROUNDS_MASTER||[]).find(g=>g.id===itemId)?.name||'__none__'}`)
+      .eq("calc_ground_id", itemId)
       .eq("active", true)
       .order("sort_order", { ascending: true });
+    // 2차: calc_ground_id 조회 결과 없으면 name으로 fallback
+    if (!data || data.length === 0) {
+      const itemName = (CALC_GROUNDS_MASTER||[]).find(g => g.id === itemId)?.name;
+      if (itemName) {
+        const res2 = await sb
+          .from("calc_ground_unit_prices")
+          .select("venue_name,preset_name,detail_name,unit_price,qty2_value,qty2_label,limit_type,limit_value,sort_order")
+          .eq("calc_ground_name", itemName)
+          .eq("active", true)
+          .order("sort_order", { ascending: true });
+        data = res2.data || [];
+      }
+    }
     return data || [];
   } catch (e) {
     console.warn("[UnitPrices] 로드 실패:", e);

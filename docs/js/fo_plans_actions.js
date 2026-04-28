@@ -1518,6 +1518,12 @@ function _foToggleRealloc() {
 async function _foRenderReallocUI() {
   const area = document.getElementById('fo-realloc-area');
   if (!area) return;
+
+  // ★ 사업계획 탭에서는 재배분 UI를 완전히 숨김 (운영계획 탭 전용 기능)
+  if (window.plansMode === 'forecast') {
+    area.innerHTML = '';
+    return;
+  }
   
   const approvedPlans = (_plansDbCache || []).filter(p =>
     (p.status === '승인완료' || p.status === 'approved') && Number(p.allocated_amount || 0) >= 0

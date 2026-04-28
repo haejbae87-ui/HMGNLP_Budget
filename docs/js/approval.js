@@ -1698,11 +1698,33 @@ async function _teamForecastBoTransfer(docId) {
   const sb = typeof getSB === 'function' ? getSB() : null;
   if (!sb) { alert('DB 연결 실패'); return; }
   try {
+    const now = new Date().toISOString();
+
+    // 1. 번들 상태 → team_approved
     const { error } = await sb.from('submission_documents')
-      .update({ status: 'team_approved', updated_at: new Date().toISOString() })
+      .update({ status: 'team_approved', updated_at: now })
       .eq('id', docId);
     if (error) throw error;
-    alert('✅ BO 전달 완료! BO 운영담당자 대시보드에서 확인할 수 있습니다.');
+
+    // 2. 번들에 포함된 plans → status='approved', bo_status='op_review_pending'
+    const { data: sItems } = await sb.from('submission_items')
+      .select('item_id, item_type')
+      .eq('submission_id', docId);
+    if (sItems && sItems.length > 0) {
+      const planIds = sItems.filter(si => si.item_type === 'plan').map(si => si.item_id);
+      if (planIds.length > 0) {
+        const { error: planErr } = await sb.from('plans')
+          .update({
+            status: 'approved',
+            bo_status: 'op_review_pending',
+            updated_at: now,
+          })
+          .in('id', planIds);
+        if (planErr) console.error('[_teamForecastBoTransfer] plans 업데이트 실패:', planErr.message);
+      }
+    }
+
+    alert('✅ BO 전달 완료!\nBO 운영담당자 대시보드에서 확인할 수 있습니다.');
     _aprLeaderLoaded = false; _aprLeaderData = []; _aprSubDocData = [];
     renderApprovalLeader();
   } catch (err) {

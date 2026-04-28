@@ -1429,8 +1429,7 @@ function _renderPlanCard(p) {
          </div>`
       : isBundleSubmitted
         ? `<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center">
-            <div style="font-size:10px;color:#D97706;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:4px 10px;font-weight:700">⏳ 팀장 검토 대기</div>
-            ${canRecallBundle ? btnDanger('↩️ 회수', `event.stopPropagation();foRecallBundlePlan('${safeId}')`) : ''}
+            <div style="font-size:10px;color:#D97706;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:4px 10px;font-weight:700">⏳ 팀장 검토 대기 중</div>
             ${btnOutline('📋 복제', `event.stopPropagation();clonePlan('${safeId}')`, '#7C3AED', '#DDD6FE')}
            </div>`
         : isPending
@@ -2151,13 +2150,67 @@ function _foRenderTeamForecastBundleBar(teamPlansArr, myDbCache) {
     return true;
   });
 
+  // ★ submitted 상태 계획 (상신된 번들) 감지
+  const submittedForecasts = [
+    ...teamPlansArr.filter(p => p.status === 'submitted' && p.fiscalYear === _planYear),
+    ...myDbCache.filter(d => d.status === 'submitted' && (d.plan_type === 'forecast' || d.plan_type === 'business') && d.fiscal_year === _planYear)
+      .map(d => ({ id: d.id, title: d.edu_name || String(d.id), amount: Number(d.amount || 0), account: d.account_code, account_code: d.account_code, author: d.applicant_name || currentPersona.name, fiscalYear: d.fiscal_year, status: 'submitted' }))
+  ].filter((p, i, arr) => arr.findIndex(x => String(x.id) === String(p.id)) === i); // ID 중복 제거
+
   if (!allSaved.length) {
+    // 상신된 번들이 있으면 회수 UI 표시
+    if (submittedForecasts.length > 0) {
+      const submittedByAcc = {};
+      submittedForecasts.forEach(p => {
+        const acc = p.account || p.account_code || 'unknown';
+        if (!submittedByAcc[acc]) submittedByAcc[acc] = { plans: [], total: 0 };
+        submittedByAcc[acc].plans.push(p);
+        submittedByAcc[acc].total += Number(p.amount) || 0;
+      });
+      const submittedHtml = Object.entries(submittedByAcc).map(([acc, { plans, total }]) => {
+        const accName = window._accountNameCache?.[acc] || acc;
+        const safeAcc = acc.replace(/'/g, "\\'");
+        const safeDept = (currentPersona.dept || '').replace(/'/g, '');
+        const planListHtml = plans.map(p =>
+          `<div style="display:flex;justify-content:space-between;font-size:11px;padding:5px 8px;border-radius:6px;background:white;border:1px solid #FDE68A;margin-bottom:4px">
+            <span style="font-weight:700;color:#92400E">${p.title || String(p.id)}</span>
+            <span style="color:#D97706;font-weight:800">▲ ${Number(p.amount||0).toLocaleString()}원</span>
+          </div>`
+        ).join('');
+        return `<div style="border-radius:14px;border:1.5px solid #FDE68A;background:linear-gradient(135deg,#FFFBEB,#FEF3C7);margin-bottom:12px;overflow:hidden">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #FDE68A">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:14px">⏳</span>
+      <div>
+        <div style="font-size:13px;font-weight:900;color:#92400E">${accName} 계정 — 팀장 검토 대기</div>
+        <div style="font-size:11px;color:#D97706;margin-top:1px">${plans.length}건 상신 · 총 ${total.toLocaleString()}원</div>
+      </div>
+    </div>
+    <button onclick="foRecallBundleAll('${safeAcc}','${safeDept}',${_planYear})"
+      style="padding:9px 18px;border-radius:10px;background:#DC2626;color:white;font-size:12px;font-weight:900;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(220,38,38,.3);white-space:nowrap">
+      ↩️ 번들 전체 회수
+    </button>
+  </div>
+  <div style="padding:10px 14px">
+    <div style="font-size:11px;font-weight:800;color:#92400E;margin-bottom:6px">📋 상신된 계획 목록</div>
+    ${planListHtml}
+    <div style="font-size:10px;color:#B45309;margin-top:6px">회수 후 수정하여 다시 확정할 수 있습니다.</div>
+  </div>
+</div>`;
+      }).join('');
+      return `<div style="margin-bottom:20px">
+  <div style="font-size:12px;font-weight:900;color:#374151;margin-bottom:10px">👥 팀 사업계획 현황 (${_planYear}년) — 상신된 번들</div>
+  ${submittedHtml}
+</div>`;
+    }
+    // 상신된 번들도 없으면 빈 안내
     return `
 <div style="margin-bottom:16px;padding:18px 20px;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB;text-align:center">
   <div style="font-size:13px;font-weight:700;color:#9CA3AF">📋 ${_planYear}년 확정 가능한 사업계획이 없습니다</div>
   <div style="font-size:11px;color:#D1D5DB;margin-top:4px">저장 완료(saved) 상태의 수요예측 사업계획만 포함됩니다</div>
 </div>`;
   }
+
 
   // account_code별 그룹핑
   const grouped = {};
@@ -2607,3 +2660,77 @@ async function foRecallBundlePlan(planId) {
   }
 }
 window.foRecallBundlePlan = foRecallBundlePlan;
+
+/**
+ * 번들 전체 일괄 회수
+ * - accountCode + dept + fiscalYear 기준으로 submitted 번들 문서 조회
+ * - 포함된 모든 plan.status → saved 복귀
+ * - submission_documents.status → recalled
+ */
+async function foRecallBundleAll(accountCode, dept, fiscalYear) {
+  const totalSubmitted = document.querySelectorAll ?
+    [...document.querySelectorAll('[data-submitted-plan]')].length : '?';
+
+  if (!confirm(`↩️ ${accountCode} 계정 번들을 전체 회수하시겠습니까?\n\n포함된 모든 계획이 저장완료 상태로 복귀되며,\n수정 후 다시 팀 사업계획 확정을 진행할 수 있습니다.`)) return;
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 실패'); return; }
+  const tenantId = currentPersona?.tenantId || currentPersona?.tenant_id;
+
+  try {
+    const now = new Date().toISOString();
+
+    // 1) 해당 계정·팀·연도의 submitted 번들 문서 조회
+    const { data: docs, error: docErr } = await sb.from('submission_documents')
+      .select('id, status')
+      .eq('submission_type', 'team_forecast')
+      .eq('account_code', accountCode)
+      .eq('fiscal_year', fiscalYear)
+      .in('status', ['submitted', 'pending']);
+    if (docErr) throw docErr;
+
+    if (!docs || docs.length === 0) {
+      // 번들 문서 없음 → 단순히 submitted 계획들만 saved 복귀
+      const { error: planErr } = await sb.from('plans')
+        .update({ status: 'saved', updated_at: now })
+        .eq('account_code', accountCode)
+        .eq('fiscal_year', fiscalYear)
+        .eq('status', 'submitted')
+        .eq('tenant_id', tenantId);
+      if (planErr) throw planErr;
+    } else {
+      for (const doc of docs) {
+        // 2) submission_items에서 plan ID 목록 조회
+        const { data: items } = await sb.from('submission_items')
+          .select('item_id').eq('submission_id', doc.id).eq('item_type', 'plan');
+        const planIds = (items || []).map(i => i.item_id).filter(Boolean);
+
+        // 3) 포함된 plan들 saved 복귀
+        if (planIds.length > 0) {
+          await sb.from('plans')
+            .update({ status: 'saved', updated_at: now })
+            .in('id', planIds);
+        }
+
+        // 4) 번들 문서 recalled 처리
+        await sb.from('submission_documents')
+          .update({ status: 'recalled', updated_at: now }).eq('id', doc.id);
+      }
+    }
+
+    // 캐시 초기화 후 재렌더
+    if (window._tfBundleSelections) {
+      delete window._tfBundleSelections[`${accountCode}_${fiscalYear}`];
+    }
+    _plansDbLoaded = false; _dbMyPlans = []; _plansDbCache = [];
+    _teamPlansLoaded = false; _dbTeamPlans = [];
+
+    alert(`✅ 번들 전체 회수 완료!\n${accountCode} 계정 상신된 계획이 저장완료 상태로 복귀되었습니다.\n수정 후 다시 팀 사업계획 확정을 진행하세요.`);
+    renderPlans();
+
+  } catch (err) {
+    alert('❌ 번들 회수 실패: ' + err.message);
+    console.error('[foRecallBundleAll]', err);
+  }
+}
+window.foRecallBundleAll = foRecallBundleAll;

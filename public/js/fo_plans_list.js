@@ -1068,87 +1068,81 @@ function renderPlans() {
     ${[curY + 1, curY, curY - 1, curY - 2].map((y) => `<option value="${y}" ${_planYear === y ? "selected" : ""}>${y}년</option>`).join("")}
   </select>`;
 
-  // 탭 UI
+  // 탭 UI (개선: 하이라이트 강화, 팀 탭 건수 뱃지)
+  const teamSavedCount = isBusiness ? (_dbTeamPlans||[]).filter(p => (p.status==='saved'||p.status==='저장완료') && p.fiscalYear===_planYear).length : 0;
   const tabBar = teamViewEnabled
     ? `
-  <div style="display:flex;gap:4px;background:#F3F4F6;padding:4px;border-radius:14px;margin-bottom:20px;width:fit-content">
+  <div style="display:flex;gap:0;border-bottom:2px solid #E5E7EB;margin-bottom:24px">
     <button onclick="_planViewTab='mine';renderPlans()" style="
-      padding:8px 20px;border-radius:10px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s;
-      background:${_planViewTab === "mine" ? "#fff" : "transparent"};
-      color:${_planViewTab === "mine" ? "#002C5F" : "#6B7280"};
-      box-shadow:${_planViewTab === "mine" ? "0 1px 4px rgba(0,0,0,.12)" : "none"}">
+      padding:10px 22px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:all .2s;
+      background:transparent;position:relative;
+      color:${_planViewTab === 'mine' ? '#002C5F' : '#9CA3AF'};
+      border-bottom:${_planViewTab === 'mine' ? '2.5px solid #002C5F' : '2.5px solid transparent'};
+      margin-bottom:-2px">
       👤 내 교육계획
     </button>
     <button onclick="_planViewTab='team';renderPlans()" style="
-      padding:8px 20px;border-radius:10px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s;
-      background:${_planViewTab === "team" ? "#fff" : "transparent"};
-      color:${_planViewTab === "team" ? "#002C5F" : "#6B7280"};
-      box-shadow:${_planViewTab === "team" ? "0 1px 4px rgba(0,0,0,.12)" : "none"}">
-      👥 팀 교육계획
+      padding:10px 22px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:all .2s;
+      background:transparent;position:relative;
+      color:${_planViewTab === 'team' ? '#002C5F' : '#9CA3AF'};
+      border-bottom:${_planViewTab === 'team' ? '2.5px solid #002C5F' : '2.5px solid transparent'};
+      margin-bottom:-2px">
+      👥 팀 교육계획${isBusiness && teamSavedCount > 0 ? ` <span style="font-size:10px;background:#1D4ED8;color:white;padding:1px 7px;border-radius:20px;margin-left:4px">${teamSavedCount}</span>` : ''}
     </button>
   </div>`
     : "";
 
-  // 통계 카드
+  // 통계 카드 (개선: 그라디언트 + 큰 숫자 + 소계 정보)
+  const statItems = [
+    { label: '전체', val: stats.total, sub: `${_planYear}년`, icon: '📋',
+      grad: 'linear-gradient(135deg,#EFF6FF,#DBEAFE)', color: '#1D4ED8', border: '#BFDBFE' },
+    { label: isBusiness ? '결재대기' : '진행중', val: isBusiness ? currentYearPlans.filter(p => p.status==='submitted'||p.status==='결재진행중'||p.status==='신청중').length : stats.active,
+      sub: '처리 대기', icon: '⏳',
+      grad: 'linear-gradient(135deg,#FFFBEB,#FEF3C7)', color: '#D97706', border: '#FDE68A' },
+    { label: isBusiness ? '저장완료' : '완료', val: isBusiness ? stats.saved : stats.done,
+      sub: isBusiness ? '확정 대기' : '교육 이수', icon: isBusiness ? '📤' : '✅',
+      grad: 'linear-gradient(135deg,#ECFDF5,#D1FAE5)', color: '#059669', border: '#6EE7B7' },
+    { label: '반려', val: stats.rejected, sub: '검토 필요', icon: '❌',
+      grad: 'linear-gradient(135deg,#FEF2F2,#FECACA)', color: '#DC2626', border: '#FECACA' },
+  ];
   const statsBar = `
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
-    ${[
-      {
-        label: "전체",
-        val: stats.total,
-        color: "#002C5F",
-        bg: "#EFF6FF",
-        icon: "📋",
-      },
-      {
-        label: "진행중",
-        val: stats.active,
-        color: "#0369A1",
-        bg: "#F0F9FF",
-        icon: "⏳",
-      },
-      {
-        label: "완료",
-        val: stats.done,
-        color: "#059669",
-        bg: "#F0FDF4",
-        icon: "✅",
-      },
-      {
-        label: "반려",
-        val: stats.rejected,
-        color: "#DC2626",
-        bg: "#FEF2F2",
-        icon: "❌",
-      },
-    ]
-      .map(
-        (s) => `
-    <div style="background:${s.bg};border-radius:14px;padding:14px 16px;border:1.5px solid ${s.color}20">
-      <div style="font-size:11px;font-weight:700;color:${s.color};margin-bottom:6px">${s.icon} ${s.label}</div>
-      <div style="font-size:24px;font-weight:900;color:${s.color}">${s.val}<span style="font-size:13px;margin-left:2px">건</span></div>
-    </div>`,
-      )
-      .join("")}
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+    ${statItems.map(s => `
+    <div style="background:${s.grad};border-radius:16px;padding:18px 16px;border:1.5px solid ${s.border};position:relative;overflow:hidden">
+      <div style="position:absolute;top:12px;right:14px;font-size:20px;opacity:.4">${s.icon}</div>
+      <div style="font-size:10px;font-weight:700;color:${s.color};text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${s.label}</div>
+      <div style="font-size:28px;font-weight:900;color:${s.color};line-height:1">${s.val}<span style="font-size:12px;font-weight:700;margin-left:2px">건</span></div>
+      <div style="font-size:10px;color:${s.color}99;margin-top:4px">${s.sub}</div>
+    </div>`).join('')}
   </div>`;
 
-  // #7: 필터 UI
+  // 필터 UI (개선: pill 스타일 컬러 배지)
+  const filterCfg = [
+    { val:'all', label:'전체', ic:'', activeColor:'#1D4ED8', activeBg:'#EFF6FF' },
+    { val:'saved', label:'저장완료', ic:'📤', activeColor:'#059669', activeBg:'#ECFDF5' },
+    { val:'pending', label:'결재대기', ic:'⏳', activeColor:'#D97706', activeBg:'#FFFBEB' },
+    { val:'approved', label:'승인완료', ic:'✅', activeColor:'#059669', activeBg:'#F0FDF4' },
+    { val:'rejected', label:'반려', ic:'❌', activeColor:'#DC2626', activeBg:'#FEF2F2' },
+  ];
   const filterBar = `
-  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
-    <div style="display:flex;gap:4px">
-      ${[['all','표전체'],['saved','📤저장완료'],['pending','⏳결재대기'],['approved','✅승인완료'],['rejected','❌반려']]
-        .map(([val,label]) => `<button onclick="_planStatusFilter='${val}';_plansDbLoaded=false;_dbMyPlans=[];_plansDbCache=[];renderPlans()"
-          style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;
-          border:1.5px solid ${_planStatusFilter===val?'#002C5F':'#E5E7EB'};
-          background:${_planStatusFilter===val?'#002C5F':'white'};
-          color:${_planStatusFilter===val?'white':'#6B7280'}">${label}</button>`).join('')}
+  <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:18px;padding:14px 16px;background:#F8FAFF;border-radius:14px;border:1px solid #E8EDF5">
+    <span style="font-size:11px;font-weight:700;color:#9CA3AF;margin-right:4px;white-space:nowrap">상태</span>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${filterCfg.map(f => {
+        const isActive = _planStatusFilter === f.val;
+        return `<button onclick="_planStatusFilter='${f.val}';_plansDbLoaded=false;_dbMyPlans=[];_plansDbCache=[];renderPlans()"
+          style="padding:5px 14px;border-radius:100px;font-size:11px;font-weight:800;cursor:pointer;transition:all .15s;
+          border:1.5px solid ${isActive ? f.activeColor + '50' : '#E5E7EB'};
+          background:${isActive ? f.activeBg : 'white'};
+          color:${isActive ? f.activeColor : '#9CA3AF'}">${f.ic ? f.ic + ' ' : ''}${f.label}</button>`;
+      }).join('')}
     </div>
     ${uniqueAccounts.length > 1 ? `<select onchange="_planAccountFilter=this.value;renderPlans()"
-      style="padding:6px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer">
-      <option value="">계정 전체</option>
+      style="margin-left:8px;padding:5px 10px;border:1.5px solid #E5E7EB;border-radius:100px;font-size:11px;font-weight:700;cursor:pointer;background:white;color:#374151">
+      <option value="">💳 계정 전체</option>
       ${uniqueAccounts.map(a=>`<option value="${a}" ${_planAccountFilter===a?'selected':''}>${_accountNameCache[a] || a}</option>`).join('')}
     </select>` : ''}
-    <span style="font-size:11px;color:#9CA3AF;margin-left:auto">필터된 결과: <b>${filteredPlans.length}</b>건</span>
+    <span style="font-size:11px;color:#9CA3AF;margin-left:auto;white-space:nowrap">결과 <b style="color:#374151">${filteredPlans.length}</b>건</span>
   </div>`;
 
   // --- Floating Action Bar (Batch Submit) ---
@@ -1207,40 +1201,44 @@ function renderPlans() {
   const listHtml =
     filteredPlans.length > 0
       ? filteredPlans.map((p) => _renderPlanCard(p)).join("")
-      : `<div style="padding:60px 20px;text-align:center;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB">
-        <div style="font-size:48px;margin-bottom:16px">${emptyIcon}</div>
-        <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">
-          ${emptyTitle}
-        </div>
-        <div style="font-size:12px;color:#9CA3AF;margin-bottom:20px;line-height:1.6">
-          ${emptyDesc}
-        </div>
-        <button onclick="startPlanWizard('${planTypeStr}')" style="padding:12px 28px;border-radius:12px;background:#002C5F;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">+ ${planLabelStr}하기</button>
+      : `<div style="padding:72px 20px;text-align:center;border-radius:20px;background:linear-gradient(135deg,#F8FAFF,#EFF6FF);border:1.5px dashed #BFDBFE">
+        <div style="width:72px;height:72px;margin:0 auto 20px;border-radius:50%;background:linear-gradient(135deg,#EFF6FF,#DBEAFE);display:flex;align-items:center;justify-content:center;font-size:36px;box-shadow:0 4px 20px rgba(29,78,216,.12)">${emptyIcon}</div>
+        <div style="font-size:16px;font-weight:900;color:#1D4ED8;margin-bottom:8px">${emptyTitle}</div>
+        <div style="font-size:12px;color:#6B7280;margin-bottom:28px;line-height:1.7;max-width:280px;margin-left:auto;margin-right:auto">${emptyDesc}</div>
+        <button onclick="startPlanWizard('${planTypeStr}', null, '${(_selectedAccountCode||'').replace(/'/g,'')}')" style="padding:13px 32px;border-radius:14px;background:linear-gradient(135deg,#002C5F,#1D4ED8);color:white;font-size:13px;font-weight:900;border:none;cursor:pointer;box-shadow:0 4px 20px rgba(29,78,216,.35);letter-spacing:.3px">+ ${planLabelStr}</button>
       </div>`;
 
   document.getElementById("page-plans").innerHTML = `
-<div class="max-w-4xl mx-auto space-y-4 pb-20">
-  <div style="display:flex;align-items:flex-end;justify-content:space-between">
-    <div>
-      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">
-        HOME
-        ${_userVorgList.length > 1 ? ` › <span onclick="_selectedVorgId=null;_selectedAccountCode=null;renderPlans()" style="cursor:pointer;text-decoration:underline;color:#6B7280">${_selectedVorgName || '제도그룹'}</span>` : ''}
-        ${_userAccountList.length > 1 ? ` › <span onclick="_selectedAccountCode=null;renderPlans()" style="cursor:pointer;text-decoration:underline;color:#6B7280">계정선택</span>` : ''}
-        › ${pageTitle}
-      </div>
-      <h1 class="text-3xl font-black text-brand tracking-tight">
-        ${_selectedAccountName ? `💳 ${_selectedAccountName} ` : ''}${isBusiness ? '사업계획 목록' : '운영계획 목록'}
-      </h1>
-      <p class="text-gray-500 text-sm mt-1">${currentPersona.name} · ${currentPersona.dept}</p>
+<div style="max-width:900px;margin:0 auto;padding:0 16px 80px">
+
+  <!-- 헤더 영역: 브레드크럼 + 제목 + 액션 버튼 -->
+  <div style="margin-bottom:24px">
+    <!-- 브레드크럼 -->
+    <div style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;flex-wrap:wrap">
+      <span style="color:#D1D5DB">HOME</span>
+      ${_userVorgList.length > 1 ? `<span style="color:#D1D5DB">›</span><span onclick="_selectedVorgId=null;_selectedAccountCode=null;renderPlans()" style="cursor:pointer;color:#6B7280;font-weight:800">${_selectedVorgName || '제도그룹'}</span>` : ''}
+      ${_userAccountList.length > 1 ? `<span style="color:#D1D5DB">›</span><span onclick="_selectedAccountCode=null;renderPlans()" style="cursor:pointer;color:#6B7280;font-weight:800">${_selectedAccountName || '계정선택'}</span>` : ''}
+      <span style="color:#D1D5DB">›</span>
+      <span style="color:#002C5F">${isBusiness ? '사업계획' : '운영계획'}</span>
     </div>
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      ${_userAccountList.length > 1 ? `<button onclick="_selectedAccountCode=null;renderPlans()" style="padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;cursor:pointer;color:#6B7280">← 계정선택</button>` : ''}
-      ${yearSelector}
-      <button onclick="startPlanWizard('${planTypeStr}', null, '${(_selectedAccountCode||'').replace(/'/g,'')}')" class="flex items-center gap-2 bg-brand text-white px-6 py-3 rounded-2xl font-black text-sm hover:bg-blue-900 transition shadow-lg">
-        + ${planLabelStr}
-      </button>
+    <!-- 제목 + 버튼 행 (flex, 줄바꿈 방지) -->
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:nowrap">
+      <div style="min-width:0;flex:1">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          ${_selectedAccountName ? `<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:8px;background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border:1px solid #BFDBFE;flex-shrink:0"><span style="font-size:13px">💳</span><span style="font-size:12px;font-weight:800;color:#1D4ED8">${_selectedAccountName}</span></div>` : ''}
+          <h1 style="font-size:22px;font-weight:900;color:#111827;letter-spacing:-.3px;white-space:nowrap">${isBusiness ? '사업계획 목록' : '운영계획 목록'}</h1>
+        </div>
+        <p style="font-size:12px;color:#9CA3AF;margin-top:4px">${currentPersona.name} · ${currentPersona.dept}</p>
+      </div>
+      <!-- 액션 버튼 그룹 -->
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+        ${_userAccountList.length > 1 ? `<button onclick="_selectedAccountCode=null;renderPlans()" style="padding:9px 14px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;cursor:pointer;color:#6B7280;white-space:nowrap" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='white'">← 계정선택</button>` : ''}
+        ${yearSelector}
+        <button onclick="startPlanWizard('${planTypeStr}', null, '${(_selectedAccountCode||'').replace(/'/g,'')}')" style="padding:10px 20px;border-radius:12px;background:linear-gradient(135deg,#002C5F,#1D4ED8);color:white;font-size:13px;font-weight:900;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(29,78,216,.3);white-space:nowrap;letter-spacing:.2px" onmouseover="this.style.opacity='.9'" onmouseout="this.style.opacity='1'">+ ${planLabelStr}</button>
+      </div>
     </div>
   </div>
+
   ${tabBar}
   ${statsBar}
   ${filterBar}
@@ -1264,119 +1262,126 @@ let _teamPlansLoaded = false;
 
 function _renderPlanCard(p) {
   const STATUS_CFG = {
-    승인완료: { color: "#059669", bg: "#F0FDF4", border: "#BBF7D0", icon: "✅" },
-    진행중: { color: "#059669", bg: "#F0FDF4", border: "#BBF7D0", icon: "✅" },
-    반려: { color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", icon: "❌" },
-    결재진행중: { color: "#D97706", bg: "#FFFBEB", border: "#FDE68A", icon: "⏳" },
-    신청중: { color: "#D97706", bg: "#FFFBEB", border: "#FDE68A", icon: "⏳" },
-    승인대기: { color: "#6B7280", bg: "#F9FAFB", border: "#E5E7EB", icon: "🕐" },
-    작성중: { color: "#0369A1", bg: "#EFF6FF", border: "#BFDBFE", icon: "📝" },
-    취소: { color: "#9CA3AF", bg: "#F9FAFB", border: "#E5E7EB", icon: "🚫" },
-    // S-5: saved 상태 (DB 저장완료, 상신 대기)
-    저장완료: { color: "#065F46", bg: "#ECFDF5", border: "#6EE7B7", icon: "✅" },
+    승인완료: { color: "#059669", bg: "#F0FDF4", border: "#A7F3D0", icon: "✅", grad: "linear-gradient(135deg,#F0FDF4,#ECFDF5)" },
+    진행중:  { color: "#059669", bg: "#F0FDF4", border: "#A7F3D0", icon: "✅", grad: "linear-gradient(135deg,#F0FDF4,#ECFDF5)" },
+    반려:    { color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", icon: "❌", grad: "linear-gradient(135deg,#FEF2F2,#FEE2E2)" },
+    결재진행중: { color: "#D97706", bg: "#FFFBEB", border: "#FDE68A", icon: "⏳", grad: "linear-gradient(135deg,#FFFBEB,#FEF3C7)" },
+    신청중:  { color: "#D97706", bg: "#FFFBEB", border: "#FDE68A", icon: "⏳", grad: "linear-gradient(135deg,#FFFBEB,#FEF3C7)" },
+    승인대기: { color: "#6B7280", bg: "#F9FAFB", border: "#E5E7EB", icon: "🕐", grad: "linear-gradient(135deg,#F9FAFB,#F3F4F6)" },
+    작성중:  { color: "#1D4ED8", bg: "#EFF6FF", border: "#BFDBFE", icon: "📝", grad: "linear-gradient(135deg,#EFF6FF,#DBEAFE)" },
+    취소:    { color: "#9CA3AF", bg: "#F9FAFB", border: "#E5E7EB", icon: "🚫", grad: "linear-gradient(135deg,#F9FAFB,#F3F4F6)" },
+    저장완료: { color: "#059669", bg: "#ECFDF5", border: "#6EE7B7", icon: "📤", grad: "linear-gradient(135deg,#ECFDF5,#D1FAE5)" },
     // DB 영문 상태 매핑
-    draft: { color: "#0369A1", bg: "#EFF6FF", border: "#BFDBFE", icon: "📝" },
-    saved: { color: "#065F46", bg: "#ECFDF5", border: "#6EE7B7", icon: "📤" },
-    pending: { color: "#D97706", bg: "#FFFBEB", border: "#FDE68A", icon: "⏳" },
-    submitted: { color: "#D97706", bg: "#FFFBEB", border: "#FDE68A", icon: "⏳" },
-    in_review: { color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE", icon: "🔄" },
-    approved: { color: "#059669", bg: "#F0FDF4", border: "#BBF7D0", icon: "✅" },
-    rejected: { color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", icon: "❌" },
-    recalled: { color: "#9CA3AF", bg: "#F9FAFB", border: "#E5E7EB", icon: "↩️" },
-    cancelled: { color: "#9CA3AF", bg: "#F9FAFB", border: "#E5E7EB", icon: "🚫" },
+    draft:    { color: "#1D4ED8", bg: "#EFF6FF", border: "#BFDBFE", icon: "📝", grad: "linear-gradient(135deg,#EFF6FF,#DBEAFE)" },
+    saved:    { color: "#059669", bg: "#ECFDF5", border: "#6EE7B7", icon: "📤", grad: "linear-gradient(135deg,#ECFDF5,#D1FAE5)" },
+    pending:  { color: "#D97706", bg: "#FFFBEB", border: "#FDE68A", icon: "⏳", grad: "linear-gradient(135deg,#FFFBEB,#FEF3C7)" },
+    submitted:{ color: "#D97706", bg: "#FFFBEB", border: "#FDE68A", icon: "⏳", grad: "linear-gradient(135deg,#FFFBEB,#FEF3C7)" },
+    in_review:{ color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE", icon: "🔄", grad: "linear-gradient(135deg,#F5F3FF,#EDE9FE)" },
+    approved: { color: "#059669", bg: "#F0FDF4", border: "#A7F3D0", icon: "✅", grad: "linear-gradient(135deg,#F0FDF4,#ECFDF5)" },
+    rejected: { color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", icon: "❌", grad: "linear-gradient(135deg,#FEF2F2,#FEE2E2)" },
+    recalled: { color: "#9CA3AF", bg: "#F9FAFB", border: "#E5E7EB", icon: "↩️", grad: "linear-gradient(135deg,#F9FAFB,#F3F4F6)" },
+    cancelled:{ color: "#9CA3AF", bg: "#F9FAFB", border: "#E5E7EB", icon: "🚫", grad: "linear-gradient(135deg,#F9FAFB,#F3F4F6)" },
   };
 
-  // DB 영문 상태를 한글 라벨로
   const STATUS_LABEL = {
-    draft: "임시저장",
-    saved: "저장완료",
-    pending: "결재대기",
-    submitted: "결재대기",
-    in_review: "1차검토완료",
-    approved: "승인완료",
-    rejected: "반려",
-    recalled: "회수됨",
-    cancelled: "취소",
+    draft: "임시저장", saved: "저장완료", pending: "결재대기",
+    submitted: "결재대기", in_review: "1차검토완료", approved: "승인완료",
+    rejected: "반려", recalled: "회수됨", cancelled: "취소",
   };
 
   const rawStatus = p.status || "승인완료";
-  const status = STATUS_LABEL[rawStatus] || rawStatus; // 화면 표시용 한글 라벨
+  const status = STATUS_LABEL[rawStatus] || rawStatus;
   const cfg = STATUS_CFG[rawStatus] || STATUS_CFG[status] || STATUS_CFG["승인대기"];
   const authorBadge = p.author
-    ? `<span style="font-size:10px;background:#E5E7EB;color:#374151;padding:2px 8px;border-radius:10px;margin-left:6px">👤 ${p.author}</span>`
+    ? `<span style="font-size:10px;background:#F3F4F6;color:#6B7280;padding:2px 8px;border-radius:8px;margin-left:4px">👤 ${p.author}</span>`
     : "";
   const isDraft = rawStatus === "draft" || rawStatus === "작성중";
-  const isSaved = rawStatus === "saved" || rawStatus === "저장완료"; // S-5: 저장완료 상태
+  const isSaved = rawStatus === "saved" || rawStatus === "저장완료";
   const isPending = rawStatus === "pending" || rawStatus === "submitted" || rawStatus === "신청중" || rawStatus === "결재진행중";
   const safeId = String(p.id || "").replace(/'/g, "\\'");
   const safeTitle = (p.title || "").replace(/'/g, "");
+  const isSelected = _selectedPlans.includes(p.id);
+
+  // 버튼 스타일 공통 헬퍼
+  const btnPrimary = (label, onclick) => `<button onclick="${onclick}" style="padding:6px 14px;border-radius:8px;font-size:11px;font-weight:800;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.25)">${label}</button>`;
+  const btnOutline = (label, onclick, color='#1D4ED8', borderColor='#BFDBFE') => `<button onclick="${onclick}" style="padding:6px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:${color};border:1.5px solid ${borderColor};cursor:pointer">${label}</button>`;
+  const btnDanger  = (label, onclick) => `<button onclick="${onclick}" style="padding:6px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#DC2626;border:1.5px solid #FECACA;cursor:pointer">${label}</button>`;
 
   const actionBtns = isDraft
-    ? `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-        <button onclick="resumePlanDraft('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:#0369A1;color:white;border:none;cursor:pointer">✏️ 이어쓰기</button>
-        <button onclick="event.stopPropagation();clonePlan('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#7C3AED;border:1.5px solid #DDD6FE;cursor:pointer">📱 복제</button>
-        <button onclick="deletePlanDraft('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#DC2626;border:1.5px solid #FECACA;cursor:pointer">🗑 삭제</button>
+    ? `<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+        ${btnOutline('✏️ 이어쓰기', `resumePlanDraft('${safeId}')`, '#1D4ED8', '#BFDBFE')}
+        ${btnOutline('📋 복제', `event.stopPropagation();clonePlan('${safeId}')`, '#7C3AED', '#DDD6FE')}
+        ${btnDanger('🗑 삭제', `deletePlanDraft('${safeId}')`)}
        </div>`
     : isSaved
-      ? `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-          <button onclick="event.stopPropagation();_aprSingleSubmitFromPlan('${safeId}','${safeTitle}')"
-            style="padding:6px 16px;border-radius:8px;font-size:11px;font-weight:900;background:#059669;color:white;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.25)">📤 상신하기</button>
-          <button onclick="event.stopPropagation();resumePlanDraft('${safeId}')"
-            style="padding:6px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#0369A1;border:1.5px solid #BFDBFE;cursor:pointer">✏️ 수정</button>
-          <button onclick="event.stopPropagation();clonePlan('${safeId}')"
-            style="padding:6px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#7C3AED;border:1.5px solid #DDD6FE;cursor:pointer">📱 복제</button>
+      ? `<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+          ${btnPrimary('📤 상신하기', `event.stopPropagation();_aprSingleSubmitFromPlan('${safeId}','${safeTitle}')`)}
+          ${btnOutline('✏️ 수정', `event.stopPropagation();resumePlanDraft('${safeId}')`, '#1D4ED8', '#BFDBFE')}
+          ${btnOutline('📋 복제', `event.stopPropagation();clonePlan('${safeId}')`, '#7C3AED', '#DDD6FE')}
          </div>`
       : isPending
-        ? `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-          <button onclick="cancelPlan('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#DC2626;border:1.5px solid #FECACA;cursor:pointer">취소 요청</button>
-          <button onclick="event.stopPropagation();clonePlan('${safeId}')"
-            style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#7C3AED;border:1.5px solid #DDD6FE;cursor:pointer">📱 복제</button>
-         </div>`
+        ? `<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+            ${btnDanger('취소 요청', `cancelPlan('${safeId}')`)}
+            ${btnOutline('📋 복제', `event.stopPropagation();clonePlan('${safeId}')`, '#7C3AED', '#DDD6FE')}
+           </div>`
         : (rawStatus === "approved")
           ? (() => {
               const hasAlloc = Number(p.allocated_amount||0) > 0;
-              return `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-              ${hasAlloc ? `<button onclick="event.stopPropagation();_startApplyFromPlan('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.2)">📝 교육 신청</button>` : ''}
-              <button onclick="event.stopPropagation();foOpenReduceAllocation('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#D97706;border:1.5px solid #FDE68A;cursor:pointer" title="승인된 배정액을 하향 조정하고 잌액을 통장으로 환불합니다">📉 배정액 축소</button>
-              <button onclick="event.stopPropagation();clonePlan('${safeId}')"
-                style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#7C3AED;border:1.5px solid #DDD6FE;cursor:pointer">📱 복제</button>
+              return `<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+              ${hasAlloc ? btnPrimary('📝 교육 신청', `event.stopPropagation();_startApplyFromPlan('${safeId}')`) : ''}
+              ${btnOutline('📉 배정액 축소', `event.stopPropagation();foOpenReduceAllocation('${safeId}')`, '#D97706', '#FDE68A')}
+              ${btnOutline('📋 복제', `event.stopPropagation();clonePlan('${safeId}')`, '#7C3AED', '#DDD6FE')}
              </div>`;
             })()
           : "";
 
   return `
-    <div onclick="viewPlanDetail('${safeId}')" style="display:flex;align-items:flex-start;gap:16px;padding:18px 20px;border-radius:14px;
-                border:1.5px solid ${_selectedPlans.includes(p.id) ? '#002C5F' : cfg.border};background:${_selectedPlans.includes(p.id) ? '#F0F9FF' : cfg.bg};transition:all .15s;margin-bottom:12px;cursor:pointer"
-         onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.08)';this.style.transform='translateY(-1px)'"
-         onmouseout="this.style.boxShadow='none';this.style.transform='none'">
+    <div onclick="viewPlanDetail('${safeId}')"
+      style="display:flex;align-items:flex-start;gap:14px;padding:18px 20px;border-radius:16px;
+             border:1.5px solid ${isSelected ? '#1D4ED8' : cfg.border};
+             background:${isSelected ? '#EFF6FF' : 'white'};
+             box-shadow:${isSelected ? '0 0 0 3px rgba(29,78,216,.1)' : '0 1px 4px rgba(0,0,0,.04)'};
+             transition:all .15s;margin-bottom:10px;cursor:pointer;position:relative;overflow:hidden"
+      onmouseover="this.style.boxShadow='0 6px 24px rgba(0,0,0,.09)';this.style.transform='translateY(-2px)'"
+      onmouseout="this.style.boxShadow='${isSelected ? '0 0 0 3px rgba(29,78,216,.1)' : '0 1px 4px rgba(0,0,0,.04)'}';this.style.transform='none'">
+      <!-- 좌측 상태 컬러 바 -->
+      <div style="position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:16px 0 0 16px;background:${cfg.color}"></div>
+      <!-- 체크박스 (saved 상태만) -->
       ${isSaved ? `
-        <div style="flex-shrink:0;padding-top:4px;" onclick="event.stopPropagation()">
-          <input type="checkbox" 
-                 ${_selectedPlans.includes(p.id) ? 'checked' : ''}
-                 ${_selectionAccount && _selectionAccount !== p.account ? 'disabled style="opacity:0.5"' : ''}
+        <div style="flex-shrink:0;padding-top:3px;" onclick="event.stopPropagation()">
+          <input type="checkbox"
+                 ${isSelected ? 'checked' : ''}
+                 ${_selectionAccount && _selectionAccount !== p.account ? 'disabled style="opacity:0.4"' : ''}
                  onchange="_togglePlanSelection(event, '${safeId}', '${p.account || ""}')"
-                 style="width:20px;height:20px;cursor:pointer;accent-color:#002C5F;">
+                 style="width:18px;height:18px;cursor:pointer;accent-color:#1D4ED8;border-radius:4px">
         </div>
       ` : ''}
-      <div style="font-size:24px;flex-shrink:0;margin-top:2px">${cfg.icon}</div>
+      <!-- 상태 아이콘 -->
+      <div style="width:40px;height:40px;border-radius:12px;background:${cfg.grad};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;border:1px solid ${cfg.border}">${cfg.icon}</div>
+      <!-- 콘텐츠 -->
       <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
-          <span style="font-size:14px;font-weight:900;color:#111827">${p.title}</span>
-          <span style="font-size:9px;font-weight:900;padding:2px 7px;border-radius:6px;background:${cfg.color}20;color:${cfg.color}">${status}</span>
-          ${authorBadge}
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="font-size:14px;font-weight:900;color:#111827;word-break:break-all">${p.title}</span>
+              <span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:100px;background:${cfg.color}18;color:${cfg.color};white-space:nowrap">${status}</span>
+              ${authorBadge}
+            </div>
+          </div>
         </div>
-        <div style="font-size:11px;color:#6B7280;display:flex;gap:12px;flex-wrap:wrap">
-          <span>💳 ${_accountNameCache[p.account] || p.account || "-"} 예산</span>
-          <span>💰 ${(p.amount || 0).toLocaleString()}원</span>
-          ${Number(p.allocated_amount||0)>0?`<span style="font-weight:800;color:#059669">✅ 배정 ${Number(p.allocated_amount).toLocaleString()}원</span>`:`<span style="color:#D1D5DB">⏳ 미배정</span>`}
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:11px;color:#6B7280">
+          <span style="display:flex;align-items:center;gap:3px"><span style="font-size:10px">💳</span>${_accountNameCache[p.account] || p.account || "-"}</span>
+          <span style="display:flex;align-items:center;gap:3px;font-weight:700;color:#374151"><span style="font-size:10px">💰</span>${(p.amount || 0).toLocaleString()}원</span>
+          ${Number(p.allocated_amount||0)>0 ? `<span style="font-weight:800;color:#059669;background:#F0FDF4;padding:2px 8px;border-radius:6px">✅ 배정 ${Number(p.allocated_amount).toLocaleString()}원</span>` : `<span style="color:#D1D5DB;font-size:10px">미배정</span>`}
           <!-- B-1: 잔여예산 뱃지 (비동기 로드) -->
-          ${p.account ? `<span id="budget-badge-${safeId}" style="font-size:10px;padding:2px 8px;border-radius:6px;background:#F3F4F6;color:#9CA3AF">잔액 로딩중...</span>` : ''}
+          ${p.account ? `<span id="budget-badge-${safeId}" style="font-size:10px;padding:2px 8px;border-radius:6px;background:#F3F4F6;color:#9CA3AF">잔액 확인중...</span>` : ''}
         </div>
         ${actionBtns}
       </div>
-      <div style="flex-shrink:0;color:#9CA3AF;font-size:16px;margin-top:4px">›</div>
+      <div style="flex-shrink:0;color:#D1D5DB;font-size:18px;margin-top:6px">›</div>
     </div>`;
 }
+
 
 // ─── B-1: 계획 카드 잔여예산 비동기 업데이트 ─────────────────────────────────
 // 카드 렌더링 후 account_budgets를 조회하여 잔여예산 뱃지 업데이트

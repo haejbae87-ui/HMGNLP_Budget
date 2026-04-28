@@ -218,3 +218,42 @@
   - plans.js: Introduced Business (수요예측/사업계획) vs Operation (상시/운영계획) tabs and state separation.
   - pproval.js: Enforced fixed Top-Down approval line for Business plans and adjusted submission_type to team_business.
   - o_approval.js: Replaced legacy forecast terminology with business, and implemented auto-cloning of approved business plans into operation plans with parent_id linkage.
+
+
+---
+
+### 2026-04-29 세션 (Phase 3 완성 + Phase 4 운영계획 자동복사)
+
+- [x] **Phase 3 완성 — _teamForecastBoTransfer() / _teamForecastReject() 구현 (approval.js)**
+  - BO 전달: submission_documents.status 'submitted' → 'team_approved' + approval_history 기록
+  - 반려: 번들 내 모든 plans.status → 'saved' 복귀, submission_documents → 'rejected'
+  - 두 함수 모두 window.* 로 전역 노출, 리더 결재함 자동 새로고침
+
+- [x] **Phase 4 — _autoCreateOperationPlan() 공통 함수 구현 (fo_plans_actions.js)**
+  - plan_type='forecast'/'business' 한정 (멱등성: source_forecast_plan_id 중복 방지)
+  - 복사본: status='saved', frozen_amount=0, allocated_amount=0
+  - detail에 source_forecast_plan_id, auto_copied_at, copy_trigger 기록
+  - FO 화면 showToast 알림 지원
+
+- [x] **Phase 4 — bo_approval.js 기존 복사 로직 버그 수정 및 공통 함수로 교체**
+  - 버그 수정: plan_type 'business'만 → 'forecast'|'business' 확장
+  - 버그 수정: 복사본 status 'approved' → 'saved' (사용자 보완 필요 상태)
+  - 버그 수정: frozen_amount=0 추가, source_forecast_plan_id 추적 추가
+
+- [x] **Phase 4 — fo_plans_list.js 복사본 뱃지 렌더링**
+  - _dbMyPlans / _dbTeamPlans 매핑에 source_forecast_plan_id 포함
+  - 운영계획 카드 중 source_forecast_plan_id 있는 카드에 '📋 사업계획 복사본' 뱃지 표시
+
+---
+
+## ⚠️ PRD 상충 / 미결 의사결정 사항 (2026-04-29 기준)
+
+| # | 항목 | 현재 구현 | PRD 원문 | 결정 필요 내용 |
+|---|------|-----------|---------|--------------|
+| **DEC-01** | **Phase 4 plan_type 조건** | 'forecast' \| 'business' 모두 처리 | implementation_plan.md는 'forecast'만 명시 | 'business' 타입도 운영계획 복사 대상으로 공식 확정할지? |
+| **DEC-02** | **복사본 재승인 시 처리** | 기존 복사본 유지 (스킵) | Q-P4-01 미결 | 재승인 시: A) 기존 유지 ← 현재 구현 / B) 삭제 후 재생성 |
+| **DEC-03** | **복사본 알림 방식** | showToast 화면 알림만 | Q-P4-02 미결 | A) 토스트만 ← 현재 구현 / B) 알림탭 + 이메일 |
+| **DEC-04** | **운영계획 결재 시 frozen_amount** | 복사본은 0, 결재 시 새로 생성 | Q-P4-03 미결 | A) 결재 시 새로 생성 ← 현재 구현 / B) 원본 forecast frozen 이전 |
+| **DEC-05** | **팀장 결재함 team_forecast 번들 조회** | 'submitted','in_review','team_approved' 범위 조회 | Phase 3 PRD F-004a | team_approved 건도 계속 팀장 결재함에 보여야 하는지, 아니면 숨길지? |
+| **DEC-06** | **결재선 계정 기반 라우팅 (Q-P3-01)** | 현재 training type 기반 로직 사용 | Phase 3 미결 사항 | account_code 기반(HMC-OPS 등) 결재선 라우팅 업그레이드 필요 여부 |
+

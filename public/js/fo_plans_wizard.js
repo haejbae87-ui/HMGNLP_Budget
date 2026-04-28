@@ -385,7 +385,15 @@ function renderPlanWizard() {
   if (s.plan_type === 'forecast' && s.targetAccounts && s.targetAccounts.length > 0) {
     availBudgets = availBudgets.filter(b => s.targetAccounts.includes(b.accountCode));
   }
-  const curBudget = availBudgets.find((b) => b.id === s.budgetId) || null;
+  const curBudget = availBudgets.find((b) => b.id === s.budgetId)
+    // ★ 폴백: contextAccountCode로 자동 주입된 budgetId가 availBudgets에 없을 때
+    // (목적 선택 전 자동 주입 → 목적 기반 availBudgets에서 제외될 수 있음)
+    || (s.contextAccountCode
+      ? (currentPersona.budgets || []).find(b =>
+          b.accountCode === s.contextAccountCode || b.id === s.budgetId
+        )
+      : null)
+    || null;
 
   // 프로세스 패턴 안내 (apply.js 동일)
   const _processInfo =

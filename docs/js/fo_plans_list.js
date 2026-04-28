@@ -953,8 +953,9 @@ function renderPlans() {
           date: d.created_at?.slice(0, 10) || "",
           budgetId: d.detail?.budgetId || null,
           purpose: d.detail?.purpose || null,
-          tenantId: d.tenant_id, // 크로스 테넌트 뱃지용
-          fiscalYear: d.fiscal_year, // 연도 필터링을 위한 속성 추가
+          tenantId: d.tenant_id,
+          fiscalYear: d.fiscal_year,
+          plan_type: d.plan_type || 'operation', // ★ plan_type 포함 (사업계획/운영계획 분리 필수)
         }));
         _plansDbCache = data;
       }

@@ -47,6 +47,40 @@ function boGetMyOrgIds() {
 }
 
 /**
+ * 운영담당자의 관할 hq 그룹 목록 반환
+ * VOrg tree(hqs 배열)에서 persona.id가 managers에 있거나
+ * persona.scope가 hq.name에 포함된 그룹을 찾아 반환
+ *
+ * @param {Array} [hqs=[]] - VOrg tree_data.hqs 배열 (bo_budget_demand._bdGroups 등)
+ * @returns {Array} 관할 hq 객체 배열 (id, name, teams 포함)
+ */
+function boGetMyGroups(hqs) {
+  if (boIsGlobalAdmin()) return hqs || []; // 총괄: 전체
+
+  const allHqs = hqs || [];
+  if (!allHqs.length) return [];
+
+  const p = boCurrentPersona;
+  if (!p) return [];
+
+  const personaId  = p.id;        // 예: "P102"
+  const scope      = p.scope;     // 예: "HMG경영연구원"
+  const mvId       = p.managedVorgId; // 예: "HQ01"
+
+  return allHqs.filter(hq => {
+    // 1순위: managers 배열에 persona ID가 있는 경우
+    if (personaId && (hq.managers || []).some(m => m.id === personaId)) return true;
+    // 2순위: managedVorgId가 hq.id와 일치
+    if (mvId && hq.id === mvId) return true;
+    // 3순위: scope 이름이 hq.name에 포함되거나 그 반대
+    if (scope && hq.name) {
+      if (hq.name.includes(scope) || scope.includes(hq.name)) return true;
+    }
+    return false;
+  });
+}
+
+/**
  * Supabase 쿼리에 관할 필터 적용
  * 운영담당자: managedGroups 기반 그룹 ID 필터
  * 총괄/플랫폼: 필터 없음

@@ -102,11 +102,16 @@ function planPrev() {
 async function savePlanDraft() {
   const total = _calcGroundsTotal();
   const amount = total || Number(planState.amount || 0);
+  // ★ budgetId 없을 때 contextAccountCode로 폴백 (캠페인 진입 등)
   const curBudget = planState.budgetId
     ? (currentPersona.budgets || []).find((b) => b.id === planState.budgetId)
-    : null;
+    : planState.contextAccountCode
+      ? (currentPersona.budgets || []).find((b) =>
+          b.accountCode === planState.contextAccountCode || b.id === planState.contextAccountCode
+        )
+      : null;
   const accountCode =
-    curBudget?.accountCode || _getPlanAccountCode(curBudget) || "";
+    curBudget?.accountCode || _getPlanAccountCode(curBudget) || planState.contextAccountCode || planState.accountCode || "";
   const sb = typeof getSB === "function" ? getSB() : null;
   if (!sb) {
     alert("DB 연결 실패");
@@ -202,11 +207,16 @@ async function savePlanSaved() {
   }
   const total = _calcGroundsTotal();
   const amount = total || Number(planState.amount || 0);
+  // ★ budgetId 없을 때 contextAccountCode로 폴백 (캠페인 진입 등)
   const curBudget = planState.budgetId
     ? (currentPersona.budgets || []).find((b) => b.id === planState.budgetId)
-    : null;
+    : planState.contextAccountCode
+      ? (currentPersona.budgets || []).find((b) =>
+          b.accountCode === planState.contextAccountCode || b.id === planState.contextAccountCode
+        )
+      : null;
   const accountCode =
-    curBudget?.accountCode || _getPlanAccountCode(curBudget) || "";
+    curBudget?.accountCode || _getPlanAccountCode(curBudget) || planState.contextAccountCode || planState.accountCode || "";
   const sb = typeof getSB === "function" ? getSB() : null;
   if (!sb) { alert("DB 연결 실패"); return; }
   try {
@@ -497,6 +507,19 @@ async function resumePlanDraft(planId) {
     planState.policyId = data.policy_id || null;
     planState.region = data.detail?.region || "domestic";
     planState.accountCode = data.account_code || "";
+
+    // ★ budgetId 없을 때 account_code로 budgetId + contextAccountCode 복원
+    // (캠페인 진입으로 저장된 계획은 budgetId가 null일 수 있음)
+    if (!planState.budgetId && data.account_code) {
+      planState.contextAccountCode = data.account_code;
+      const matchedBudget = (currentPersona.budgets || []).find(b =>
+        b.accountCode === data.account_code || b.id === data.account_code
+      );
+      if (matchedBudget) {
+        planState.budgetId = matchedBudget.id;
+      }
+    }
+
 
     // ★ purpose 복원: PURPOSES 배열에서 id로 풀 오브젝트 매칭
     const purposeId = data.detail?.purpose;

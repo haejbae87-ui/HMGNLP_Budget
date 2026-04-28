@@ -555,11 +555,11 @@ async function renderApprovalLeader() {
         ? await getCrossTenantInfo(currentPersona) : null;
       const filterTids = ctInfo?.linkedTids || [tid];
 
-      // [S-5] submission_documents 기반 조회
+      // [S-5] submission_documents 기반 조회 (team_forecast 번들 포함)
       try {
         let sdQ = sb.from("submission_documents")
           .select("*, submission_items(*)")
-          .in("status", ["submitted", "in_review"])
+          .in("status", ["submitted", "in_review", "team_approved"])
           .neq("submitter_id", pid)
           .order("submitted_at", { ascending: false });
         if (filterTids.length > 1) sdQ = sdQ.in("tenant_id", filterTids);
@@ -736,10 +736,120 @@ async function renderApprovalLeader() {
       </div>
     </div>
   </div>
-  ${totalPending===0 ? emptyMsg : `
-    ${_aprSubDocData.length>0?`<div style="font-size:11px;font-weight:800;color:#1D4ED8;margin:8px 0 4px">📤 상신 문서 기반 (${_aprSubDocData.length}건)</div>${subDocCards}`:""}
-    ${_aprLeaderData.length>0?`<div style="font-size:11px;font-weight:800;color:#9CA3AF;margin:${_aprSubDocData.length>0?"16px":"8px"} 0 4px">📄 레거시 방식 (${_aprLeaderData.length}건)</div>${legacyCards}`:""}
-  `}
+  ${(() => {
+    // Phase 3: team_forecast 번들 카드 (별도 섹션)
+    const tfDocs = _aprSubDocData.filter(d => d.submission_type === 'team_forecast');
+    const otherDocs = _aprSubDocData.filter(d => d.submission_type !== 'team_forecast');
+    const tfCards = tfDocs.map(doc => {
+      const items = doc.submission_items || [];
+      const safeDocId = String(doc.id).replace(/'/g, "\\'");
+      const totalAmt = Number(doc.total_amount || 0);
+      const subAt = (doc.submitted_at || doc.created_at || '').slice(0, 16).replace('T', ' ');
+      const isTeamApproved = doc.status === 'team_approved';
+      const stBadge = isTeamApproved
+        ? `<span style="font-size:10px;font-weight:800;padding:3px 10px;border-radius:8px;background:#F0FDF4;color:#059669">✅ 팀장 확인완료</span>`
+        : `<span style="font-size:10px;font-weight:800;padding:3px 10px;border-radius:8px;background:#FFFBEB;color:#D97706">🕐 검토 대기</span>`;
+      const itemList = items.length > 0
+        ? items.map((it, i) => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F9FAFB;font-size:12px"><span>${i+1}. ${it.item_title||it.item_id}</span><span style="font-weight:800;color:#1D4ED8">${Number(it.item_amount||0).toLocaleString()}원</span></div>`).join('')
+        : `<div style="font-size:11px;color:#9CA3AF;padding:6px 0">연결된 계획 없음</div>`;
+      const boTransferBtn = !isTeamApproved
+        ? `<button onclick="_teamForecastBoTransfer('${safeDocId}')"
+            style="padding:8px 20px;border-radius:8px;background:#1D4ED8;color:white;font-size:12px;font-weight:900;border:none;cursor:pointer;min-width:100px"
+            onmouseover="this.style.background='#1E40AF'" onmouseout="this.style.background='#1D4ED8'">📤 BO 전달</button>`
+        : `<button disabled style="padding:8px 20px;border-radius:8px;background:#E5E7EB;color:#9CA3AF;font-size:12px;font-weight:900;border:none;min-width:100px;cursor:default">✅ 전달완료</button>`;
+      const rejectBundleBtn = !isTeamApproved
+        ? `<button onclick="_teamForecastReject('${safeDocId}')"
+            style="padding:8px 20px;border-radius:8px;background:white;color:#DC2626;font-size:12px;font-weight:900;border:1.5px solid #DC2626;cursor:pointer;min-width:80px"
+            onmouseover="this.style.background='#FEF2F2'" onmouseout="this.style.background='white'">❌ 반려</button>`
+        : '';
+      return `
+    <div style="border-radius:16px;border:2px solid #BFDBFE;background:white;padding:20px 22px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,44,95,.06)">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-size:11px;font-weight:900;padding:2px 8px;border-radius:6px;background:#FEF3C7;color:#92400E">📦 팀 사업계획 번들</span>
+            ${stBadge}
+          </div>
+          <div style="font-size:15px;font-weight:900;color:#111827;margin-bottom:6px">${doc.title}</div>
+          <div style="font-size:11px;color:#6B7280;display:flex;gap:12px;flex-wrap:wrap">
+            <span>👤 확정자: ${doc.submitter_name}${doc.submitter_org_name ? ' · ' + doc.submitter_org_name : ''}</span>
+            <span>📅 ${subAt}</span>
+            <span>📊 ${items.length}건</span>
+            ${doc.account_code ? `<span>🏦 ${doc.account_code}</span>` : ''}
+            ${doc.fiscal_year ? `<span>📆 ${doc.fiscal_year}년</span>` : ''}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:11px;color:#6B7280;margin-bottom:2px">총 요청액</div>
+          <div style="font-size:22px;font-weight:900;color:#1D4ED8">${totalAmt.toLocaleString()}원</div>
+          <div style="font-size:10px;color:#9CA3AF">Hold 없음 · 수요예측 요청</div>
+        </div>
+      </div>
+      <div style="background:#F8FAFF;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:800;color:#374151;margin-bottom:8px">📋 포함 계획 목록</div>
+        ${itemList}
+      </div>
+      <div style="display:flex;gap:10px;padding-top:14px;border-top:1px solid #F3F4F6;justify-content:flex-end">
+        ${rejectBundleBtn}
+        ${boTransferBtn}
+      </div>
+    </div>`;
+    }).join('');
+
+    // 일반 상신문서 카드 (기존 로직 유지)
+    const regularSubDocCards = otherDocs.map(doc => {
+      const items = doc.submission_items||[];
+      const safeDocId = String(doc.id).replace(/'/g,"\\'");
+      const totalAmt = Number(doc.total_amount||0);
+      const subAt = (doc.submitted_at||doc.created_at||'').slice(0,16).replace('T',' ');
+      const stBadge = doc.status==='in_review'
+        ? `<span style="font-size:10px;font-weight:800;padding:3px 10px;border-radius:8px;background:#F5F3FF;color:#7C3AED">🔄 검토완료</span>`
+        : `<span style="font-size:10px;font-weight:800;padding:3px 10px;border-radius:8px;background:#FFF7ED;color:#C2410C">🕐 결재대기</span>`;
+      const itemList = items.length>0
+        ? items.map((it,i)=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F9FAFB;font-size:12px"><span>${i+1}. ${it.item_title||it.item_id}</span><span style="font-weight:800;color:#002C5F">${Number(it.item_amount||0).toLocaleString()}원</span></div>`).join('')
+        : `<div style="font-size:11px;color:#9CA3AF;padding:6px 0">연결된 항목 없음</div>`;
+      return `
+    <div style="border-radius:16px;border:2px solid #DBEAFE;background:white;padding:20px 22px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,44,95,.06)">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-size:11px;font-weight:900;padding:2px 8px;border-radius:6px;background:#DBEAFE;color:#1D4ED8">📤 상신문서</span>
+            ${stBadge}
+          </div>
+          <div style="font-size:15px;font-weight:900;color:#111827;margin-bottom:6px">${doc.title}</div>
+          <div style="font-size:11px;color:#6B7280;display:flex;gap:12px;flex-wrap:wrap">
+            <span>👤 ${doc.submitter_name}${doc.submitter_org_name?' · '+doc.submitter_org_name:''}</span>
+            <span>📅 ${subAt}</span>
+            <span>📊 ${items.length}건</span>
+            ${doc.account_code?`<span>🏦 ${doc.account_code}`:''}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:11px;color:#6B7280;margin-bottom:2px">신청 총액</div>
+          <div style="font-size:22px;font-weight:900;color:#002C5F">${totalAmt.toLocaleString()}원</div>
+        </div>
+      </div>
+      <div style="background:#F8FAFF;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:800;color:#374151;margin-bottom:8px">📋 첨부 항목</div>
+        ${itemList}
+      </div>
+      <div style="display:flex;gap:10px;padding-top:14px;border-top:1px solid #F3F4F6">
+        <div style="flex:1"><textarea id="comment-doc-${safeDocId}" placeholder="결재 의견 (반려 시 필수)" rows="2" style="width:100%;padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;resize:none;box-sizing:border-box"></textarea></div>
+        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+          <button onclick="_approvalActionDoc('${safeDocId}','approve')" style="padding:8px 20px;border-radius:8px;background:#059669;color:white;font-size:12px;font-weight:900;border:none;cursor:pointer;min-width:80px" onmouseover="this.style.background='#047857'" onmouseout="this.style.background='#059669'">✅ 승인</button>
+          <button onclick="_approvalActionDoc('${safeDocId}','reject')"  style="padding:8px 20px;border-radius:8px;background:white;color:#DC2626;font-size:12px;font-weight:900;border:1.5px solid #DC2626;cursor:pointer;min-width:80px" onmouseover="this.style.background='#FEF2F2'" onmouseout="this.style.background='white'">❌ 반려</button>
+        </div>
+      </div>
+    </div>`;
+    }).join('');
+
+    if (totalPending === 0) return emptyMsg;
+    return `
+      ${tfDocs.length>0 ? `<div style="font-size:11px;font-weight:800;color:#D97706;margin:8px 0 4px">📦 팀 사업계획 번들 (${tfDocs.length}건)</div>${tfCards}` : ''}
+      ${otherDocs.length>0 ? `<div style="font-size:11px;font-weight:800;color:#1D4ED8;margin:${tfDocs.length>0?'16px':'8px'} 0 4px">📤 상신 문서 기반 (${otherDocs.length}건)</div>${regularSubDocCards}` : ''}
+      ${_aprLeaderData.length>0 ? `<div style="font-size:11px;font-weight:800;color:#9CA3AF;margin:${_aprSubDocData.length>0?'16px':'8px'} 0 4px">📄 레거시 방식 (${_aprLeaderData.length}건)</div>${legacyCards}` : ''}
+    `;
+  })()}
 </div>`;
 }
 
@@ -1576,3 +1686,74 @@ async function _aprBulkSubmitFromTeam(planIds) {
     console.error('[_aprBulkSubmitFromTeam]', err.message);
   }
 }
+
+// ─── Phase 3: 팀장 BO 전달 / 번들 반려 ────────────────────────────────────
+
+/**
+ * 팀장이 team_forecast 번들을 BO 운영담당자에게 전달
+ * submission_documents.status = 'team_approved'
+ */
+async function _teamForecastBoTransfer(docId) {
+  if (!confirm('📤 이 팀 사업계획 번들을 BO 운영담당자에게 전달하시겠습니까?')) return;
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 실패'); return; }
+  try {
+    const { error } = await sb.from('submission_documents')
+      .update({ status: 'team_approved', updated_at: new Date().toISOString() })
+      .eq('id', docId);
+    if (error) throw error;
+    alert('✅ BO 전달 완료! BO 운영담당자 대시보드에서 확인할 수 있습니다.');
+    _aprLeaderLoaded = false; _aprLeaderData = []; _aprSubDocData = [];
+    renderApprovalLeader();
+  } catch (err) {
+    alert('❌ 전달 실패: ' + err.message);
+    console.error('[_teamForecastBoTransfer]', err.message);
+  }
+}
+window._teamForecastBoTransfer = _teamForecastBoTransfer;
+
+/**
+ * 팀장이 team_forecast 번들을 반려
+ * - submission_documents.status = 'rejected'
+ * - 포함된 plans.status = 'saved' (복귀)
+ */
+async function _teamForecastReject(docId) {
+  const reason = prompt('반려 사유를 입력해주세요 (팀원들에게 전달됩니다):');
+  if (reason === null) return; // 취소
+  if (!reason.trim()) { alert('반려 사유를 입력해주세요.'); return; }
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 실패'); return; }
+
+  try {
+    const now = new Date().toISOString();
+
+    // 1. 번들 반려 처리
+    const { error: docErr } = await sb.from('submission_documents')
+      .update({ status: 'rejected', reject_reason: reason, rejected_at: now, updated_at: now })
+      .eq('id', docId);
+    if (docErr) throw docErr;
+
+    // 2. 포함된 plans를 saved로 복귀
+    const { data: sItems } = await sb.from('submission_items')
+      .select('item_id, item_type')
+      .eq('submission_id', docId);
+    if (sItems && sItems.length > 0) {
+      for (const si of sItems) {
+        if (si.item_type === 'plan') {
+          await sb.from('plans')
+            .update({ status: 'saved', reject_reason: reason, updated_at: now })
+            .eq('id', si.item_id);
+        }
+      }
+    }
+
+    alert(`❌ 번들 반려 완료\n사유: ${reason}\n\n포함된 계획이 모두 '저장완료' 상태로 복귀되었습니다.\n팀원들이 재확정할 수 있습니다.`);
+    _aprLeaderLoaded = false; _aprLeaderData = []; _aprSubDocData = [];
+    renderApprovalLeader();
+  } catch (err) {
+    alert('❌ 반려 처리 실패: ' + err.message);
+    console.error('[_teamForecastReject]', err.message);
+  }
+}
+window._teamForecastReject = _teamForecastReject;

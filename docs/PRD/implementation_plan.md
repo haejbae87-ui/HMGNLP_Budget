@@ -1,98 +1,320 @@
-# 복수 교육계획 통합 신청 (N:1 연동) 구현 계획
+# Phase 3: 팀 사업계획 일괄 확정 (Team Forecast Bundle) 구현 계획
 
-사용자님의 요청에 따라, **[교육계획 N:1 교육신청 (복수 계획 연동 신청)]** 기능에 대한 도메인 전문가 위원회의 검증 결과를 반영한 최종 구현 계획서입니다. 
-
----
-
-## 🏛️ Domain Council (도메인 전문가 교차 검증) 요약
-
-### 🚨 기존 PRD와의 핵심 상충(Conflict) 및 분석
-
-사용자님의 추가 요구사항을 분석한 결과, **기존 v1.4 PRD 설계와 정면으로 상충되는 핵심 개념**을 발견했습니다.
-
-1. **차수(Round/Session) 개념의 주체 불일치**
-   - **기존 설계**: 교육계획(Plan)을 수립할 때부터 "몇 차수 할 거냐"를 정하고, 신청 시에는 **계획의 차수**를 선택한다고 보았습니다. 그래서 '개인직무'나 '워크숍' 등 모든 유형에 차수 선택 UI가 있었습니다.
-   - **사용자 요구사항**: 차수는 철저히 **백오피스(LMS)에 개설된 교육과정의 차수(Session)**를 의미합니다.
-   - **조치**: "차수"라는 개념을 계획에서 분리하여 LMS 연동 전용으로 격상시킵니다. LMS 연동이 없는 개인직무/워크숍은 차수 선택 없이 '산출근거'만 입력하도록 폼을 대대적으로 분리합니다.
-
-2. **차수 중복 방지(Disable)의 기준**
-   - **기존 설계**: 동일 신청서 내에서 같은 계획 차수를 중복 선택하는 것을 막았습니다.
-   - **사용자 요구사항**: **이미 예산 집행이 상신된 LMS 차수**라면, 다른 교육신청서에서도 중복해서 사용할 수 없도록 전역적으로 Disable 처리해야 합니다 (예산 이중 집행 방지).
-
-3. **1 Line Item = N LMS Sessions (과정 단위 통합 매핑)**
-   - **사용자 피드백 수용**: "차수별로 세부산출근거를 쪼개지 말고, 한 과정에 대해 여러 차수를 선택한 뒤 통합된 산출근거를 작성하는 것이 편리하다"는 의견을 반영했습니다.
-   - **조치**: 1개의 Line Item(과정 항목) 안에서 **복수의 LMS 차수(Session)**를 다중 선택(체크박스)할 수 있도록 구조를 확정합니다. DB 구조는 `linked_sessions JSONB` 배열을 사용하며, 예산 사용 추적은 "이 과정 전체에 얼마를 썼다"는 과정 단위로 이루어집니다.
+> **도메인**: FO — 교육계획 (수요예측 번들 확정)
+> **관련 파일**: `fo_plans_list.js`, `fo_plans_wizard.js`, `fo_approval.js`, `submission_documents` 테이블
+> **최초 작성**: 2026-04-28
+> **최종 갱신**: 2026-04-28
+> **상태**: 🔴 미구현
 
 ---
 
-## User Review Required
+## 🏛️ Domain Council 확정 정책 (최종)
+
+| 정책 | 확정 내용 |
+|---|---|
+| **확정 권한** | 팀 구성원(`currentPersona.dept` 일치) 누구나 가능. 대표 지정 없음 |
+| **포함 필터** | `saved` 상태 + `plan_type='forecast'` 계획만 포함. `draft` 제외 |
+| **계정 혼합** | ❌ 금지 — **계정(account_code)별 번들 분리 생성** |
+| **예산 Hold** | ❌ 없음 — `plans.amount`는 수요 요청액(수요예측 금액)이며 예산 예약 아님 |
+| **팀장 자가 확정** | 확정 누른 사람 = 팀장인 경우 → `team_approved` 자동 전환 → BO 바로 전달 |
+| **PRD 충돌 해소** | `fo_submission_approval.md` v1.1 `account_code` 단일값 정책과 완전 일치. `budget_lifecycle.md` F-112 (대표 지정) → "누구나 가능"으로 이 문서가 우선 적용 |
+
+---
+
+## 1. 기능 개요
+
+팀원들이 각자 수요예측 사업계획을 수립(`saved`)한 후, 팀 구성원 중 누구든 해당 계정의 `saved` 계획들을 하나의 번들로 묶어 팀장에게 통보하는 경량 워크플로우.
+
+- 결재를 타는 개념이 아닌 **"팀 수요 취합 통보"** 성격
+- 예산 Hold 없음 — 금액은 "얼마 필요합니다" 수준의 요청액
+- 계정별로 별도 번들 생성 (HMC-OPS 번들, HMC-ETC 번들 각각)
+- 팀장은 번들을 확인 후 BO 운영담당자에게 전달
+
+---
+
+## 2. 사용자 스토리
+
+> "팀원(누구나)은 팀 탭에서 계정별로 `saved` 상태 수요예측 계획을 확인하고, '팀 사업계획 확정' 버튼을 눌러 팀장에게 번들 통보할 수 있다."
+
+> "팀장은 결재함에서 번들 문서를 열어 팀 전체 사업계획 목록을 확인하고, BO 운영담당자에게 전달할 수 있다."
+
+> "BO 운영담당자는 팀별 team_forecast 번들을 수신하여 1차 예산 취합 대시보드에서 검토할 수 있다."
+
+---
+
+## 3. 상세 기능 요구사항
+
+### [F-001] 팀 탭 — 계정별 번들 현황 표시
+
+| 번호 | 기능 | 설명 | 우선순위 |
+|---|---|---|---|
+| F-001a | 계정별 그룹핑 표시 | 팀원들의 `saved` + `forecast` 계획을 `account_code`별로 그룹핑하여 표시 | 🔴 HIGH |
+| F-001b | 번들 상태 표시 | 계정별로 "확정 대기 중", "확정 완료(N건)", "BO 전달 완료" 상태 표시 | 🔴 HIGH |
+| F-001c | 미완료 팀원 표시 | `draft` 상태 계획 작성자 목록을 "미완료 N명" 으로 표시 (번들 미포함) | 🟡 MED |
+| F-001d | 번들 후 추가 계획 표시 | 번들 확정 후 새로 `saved`된 계획은 "번들 미포함" 표시 + "재확정" 안내 | 🟡 MED |
+
+### [F-002] 팀 사업계획 확정 버튼
+
+| 번호 | 기능 | 설명 | 우선순위 |
+|---|---|---|---|
+| F-002a | 계정별 확정 버튼 | 계정 그룹마다 독립적인 "📤 [계정명] 사업계획 확정" 버튼 | 🔴 HIGH |
+| F-002b | 중복 확정 방지 | 동일 팀 + 동일 계정 + 동일 연도에 `submitted` 번들 존재 시 버튼 비활성화 + 확정자 표시 | 🔴 HIGH |
+| F-002c | 확정 전 확인 모달 | "N건 포함, 총 요청액 X원. M명 미완료(제외)" 확인 후 진행 | 🟡 MED |
+
+### [F-003] 번들 생성 처리
+
+| 번호 | 기능 | 설명 | 우선순위 |
+|---|---|---|---|
+| F-003a | submission_documents 생성 | `submission_type='team_forecast'`, `account_code` 단일값, `submitter_id`=클릭한 사람 | 🔴 HIGH |
+| F-003b | submission_items INSERT | 포함된 `plan_id`들을 `submission_items`에 INSERT | 🔴 HIGH |
+| F-003c | plans.status 전환 | 번들에 포함된 계획: `saved` → `submitted` (번들 잠금) | 🔴 HIGH |
+| F-003d | 팀장 자가 확정 처리 | submitter = 팀장(`pos` 포함)인 경우 → `status='team_approved'` 자동 전환 | 🟡 MED |
+
+### [F-004] 팀장 결재함 — 번들 카드 뷰
+
+| 번호 | 기능 | 설명 | 우선순위 |
+|---|---|---|---|
+| F-004a | 번들 카드 표시 | 기존 개별 계획 카드와 분리된 "📦 팀 번들" 카드 표시 | 🔴 HIGH |
+| F-004b | 번들 상세 드릴다운 | 번들 카드 클릭 → 팀원별 계획 목록 + 상세 내용 열람 | 🔴 HIGH |
+| F-004c | BO 전달 버튼 | 검토 완료 후 "BO 전달" 클릭 → `status='team_approved'` | 🔴 HIGH |
+| F-004d | 반려 기능 | 번들 반려 시 → 포함 계획 전건 `saved` 복귀 + "번들 반려" 표시 | 🟡 MED |
+
+---
+
+## 4. DB/데이터 구조
+
+### 기존 테이블 활용 (신규 테이블 없음)
+
+```sql
+-- submission_documents: team_forecast 번들 1건 (계정별)
+INSERT INTO submission_documents (
+  id,
+  submission_type,   -- 'team_forecast'
+  tenant_id,
+  submitter_id,      -- 확정 버튼 누른 팀원 ID
+  submitter_name,    -- 확정자 이름
+  submitter_dept,    -- 팀명 (dept)
+  account_code,      -- 단일 계정 (HMC-OPS / HMC-ETC 등)
+  fiscal_year,       -- 대상 연도
+  total_amount,      -- SUM(plans.amount) — 요청액 합계, Hold 없음
+  status,            -- 'submitted' (팀장 검토 대기)
+  created_at
+)
+
+-- submission_items: 번들에 포함된 각 계획
+INSERT INTO submission_items (
+  submission_id,     -- 위 번들 ID
+  item_type,         -- 'plan'
+  item_id,           -- plans.id
+  amount             -- plans.amount
+)
+
+-- plans 상태 전환
+UPDATE plans SET status = 'submitted' 
+WHERE id IN (번들에 포함된 plan_id들)
+```
+
+### status 흐름
+
+```
+[FO 팀원 확정]
+  plans.status: saved → submitted
+  submission_documents.status: 'submitted'
+        ↓
+[팀장 결재함 수신]
+  팀장이 [BO 전달] 클릭
+  submission_documents.status: 'team_approved'
+        ↓
+[BO 운영담당자 대시보드 수신]
+  bo_budget_consolidation: team_forecast 카드 표시
+  (기존 F-001~F-004 흐름 연결)
+```
+
+### 팀장 자가 확정 분기
+
+```javascript
+const isTeamLeader = /팀장|리더|부장|차장|과장/i.test(currentPersona.pos || '');
+const isSelfSubmit = submitterId === teamLeaderId;
+
+if (isTeamLeader || isSelfSubmit) {
+  // team_approved 자동 전환 → BO 바로 전달
+  status = 'team_approved';
+} else {
+  status = 'submitted'; // 팀장 검토 대기
+}
+```
+
+---
+
+## 5. 비즈니스 로직
+
+### 5.1 번들 포함 조건 (필터링 로직)
+
+```javascript
+// 팀 탭에서 번들 대상 계획 필터
+const bundleTarget = allPlans.filter(p =>
+  p.dept === currentPersona.dept &&          // 같은 팀
+  p.status === 'saved' &&                     // saved만 (draft 제외)
+  p.plan_type === 'forecast' &&              // 수요예측만
+  p.account_code === targetAccountCode &&     // 동일 계정만
+  p.fiscal_year === currentFiscalYear         // 동일 연도
+);
+```
+
+### 5.2 중복 번들 방지
+
+```javascript
+// 확정 버튼 클릭 전 기존 번들 존재 여부 확인
+const existingBundle = await getSB()
+  .from('submission_documents')
+  .select('id, submitter_name, created_at')
+  .eq('submission_type', 'team_forecast')
+  .eq('submitter_dept', currentPersona.dept)
+  .eq('account_code', targetAccountCode)
+  .eq('fiscal_year', currentFiscalYear)
+  .in('status', ['submitted', 'team_approved', 'in_review'])
+  .single();
+
+if (existingBundle) {
+  // 버튼 비활성화 + "이미 확정됨 (확정자: 홍길동)" 표시
+  return;
+}
+```
+
+### 5.3 예산 처리 원칙
+
+- `frozen_amount` 변경 없음
+- `used_amount` 변경 없음
+- `plans.amount` = 수요 요청액으로만 기록
+- 실제 예산 배정은 BO 운영담당자 → 총괄담당자 단계에서 결정
+
+---
+
+## 6. 접근 권한
+
+| 역할 | 팀 탭 조회 | 확정 버튼 | 번들 반려 | BO 결재함 수신 |
+|---|:---:|:---:|:---:|:---:|
+| FO 일반 팀원 | ✅ (같은 팀) | ✅ | ❌ | ❌ |
+| FO 팀장 | ✅ | ✅ | ✅ | ✅ (자기 팀) |
+| BO 운영담당자 | ❌ | ❌ | ❌ | ✅ (관할 팀) |
+
+---
+
+## 7. 예외 처리 및 엣지 케이스
+
+| # | 케이스 | 위험도 | 처리 방안 |
+|---|---|---|---|
+| EC-1 | 동일 계정 번들 중복 생성 시도 | 🔴 | 기존 `submitted` 번들 존재 시 버튼 비활성화, 확정자·일시 표시 |
+| EC-2 | 팀장이 직접 확정 → 자기 결재함 도달 | 🟡 | `team_approved` 자동 전환 → BO 바로 전달 |
+| EC-3 | 번들 확정 후 팀원이 새 계획 saved | 🟡 | 번들 미포함 표시 + "재확정 필요" 안내. 재확정 = 기존 번들 취소 후 재생성 |
+| EC-4 | dept 값이 없는 사용자의 확정 시도 | 🟡 | dept 없으면 팀 탭 숨김 + "팀 정보가 없습니다" 안내 |
+| EC-5 | 번들 포함 계획이 0건 (모두 draft) | 🟢 | 확정 버튼 비활성화 + "확정 가능한 완료 계획이 없습니다" 표시 |
+| EC-6 | 팀에 계정이 N개 → N개 번들 각각 확정 필요 | 🟡 | 계정별 그룹마다 확정 버튼 독립 표시. "미확정 계정" 뱃지로 안내 |
+| EC-7 | 번들 반려 후 재확정 | 🟡 | 반려된 번들의 계획들 `saved` 복귀 → 재확정 가능 |
+
+---
+
+## 8. UI/UX 설계
+
+### 8.1 팀 탭 — 계정별 번들 그룹
+
+```
+[우리 팀 2026년 수요예측 사업계획]
+
+ ┌── HMC-OPS 계정 ──────────────────────────┐
+ │ ✅ 홍길동 — 이러닝 집합 교육  3,000,000  │
+ │ ✅ 이민지 — 워크샵 세미나    5,000,000   │
+ │ ⚠️ 박영희 — 작성 중 (제외)               │
+ │ 포함: 2건 / 요청액 8,000,000원           │
+ │                                          │
+ │  [📤 HMC-OPS 사업계획 확정]              │
+ └──────────────────────────────────────────┘
+
+ ┌── HMC-ETC 계정 ──────────────────────────┐
+ │ ✅ 김철수 — 외부교육 참가    2,000,000   │
+ │ 포함: 1건 / 요청액 2,000,000원           │
+ │                                          │
+ │  ✅ 확정 완료 (확정자: 홍길동 · 04/28)   │
+ └──────────────────────────────────────────┘
+```
+
+### 8.2 팀장 결재함 — 번들 카드
+
+```
+ ┌── 📦 팀 수요예측 번들 ──────────────────────┐
+ │ [내구기술팀] 2026년 HMC-OPS 사업계획        │
+ │ 확정자: 이민지 · 2026-04-28 14:05           │
+ │ 포함: 2건 · 총 요청액 8,000,000원           │
+ │                                             │
+ │  ▼ 계획 목록                                │
+ │  홍길동 - 이러닝 집합  3,000,000원  [상세▶] │
+ │  이민지 - 워크샵      5,000,000원  [상세▶] │
+ │                                             │
+ │  [BO 전달]  [반려]                          │
+ └─────────────────────────────────────────────┘
+```
+
+---
+
+## 9. 수정 필요 PRD 목록
+
+| PRD 파일 | 수정 내용 | 우선순위 |
+|---|---|---|
+| `budget_lifecycle.md` F-112 | "대표만 상신" → "팀원 누구나 확정 가능" 수정 | 🟡 |
+| `fo_submission_approval.md` | `team_forecast` 번들 FO 생성 흐름 §4.x에 추가 | 🟡 |
+
+---
+
+## 10. 구현 대상 파일
+
+| 파일 | 작업 내용 |
+|---|---|
+| `fo_plans_list.js` | 팀 탭 — 계정별 번들 그룹 UI, 확정 버튼, 중복 방지 로직 |
+| `fo_approval.js` | 팀장 결재함 — 번들 카드 렌더링, BO 전달 버튼 |
+| Supabase | `submission_documents`, `submission_items` INSERT 로직 |
+
+---
+
+## 11. Verification Plan
+
+- **중복 확정 차단**: 같은 계정 번들을 2명이 연달아 누를 때 두 번째 시도 차단 확인
+- **팀장 자가 확정**: 팀장 계정으로 확정 시 `team_approved` 자동 전환 + BO 대시보드 즉시 도달
+- **Draft 제외**: `draft` 계획이 번들에 포함되지 않음 확인
+- **BO 연결**: `team_approved` 이후 `bo_budget_consolidation` F-001 카드에 정상 노출 확인
+
+---
+
+## 12. 📌 추후 논의 필요 항목 (Deferred Decisions)
 
 > [!IMPORTANT]
-> **예산 사용 추적의 기준 (과정 단위 통합 및 계획 대비 추적)**
-> 다중 차수를 선택하고 과정 단위로 통합 산출근거를 적게 되면, 차수별 세부 비용 추적은 불가능하지만 **"이 과정 운영에 비용이 얼마 들었다"**는 파악할 수 있습니다. 
-> 
-> **특히, 사용자님께서 짚어주신 핵심 기대효과가 완벽히 지원됩니다:**
-> - 계획 시 작성한 산출근거(Planned)와 신청 시 작성한 산출근거(Applied)가 DB상 분리되어 저장됩니다 (`application_plan_items` 테이블).
-> - 한 교육계획을 여러 번 나누어 신청(여러 차수로 분할 신청)하더라도, 각 신청서의 Line Item(과정)들이 동일한 `plan_id`를 바라보므로, **나중에 해당 `plan_id`로 신청된 모든 세부산출근거와 총액을 합산하여 원본 계획 예산과 완벽히 비교/추적**할 수 있습니다.
+> 아래 항목들은 현재 Phase 3 구현 범위에서 제외되었으나, 반드시 후속 논의 및 설계가 필요한 사항입니다.
 
-> [!WARNING]
-> **LMS 차수 Disable 시점**
-> "이미 다른 교육신청에서 사용한 차수"의 기준을 `결재진행중` 및 `승인완료` 상태인 신청서로 정의하겠습니다. (반려되거나 작성 중인 경우는 선택 가능)
+### Q-P3-01: 수요예측 결재라인 — 계정 단위 분리 설계 (🔴 HIGH)
 
-> [!NOTE]
-> **반려/임시저장 시 이어쓰기 (Draft) 재편집 정책 확정**
-> 결재가 반려되거나 임시저장(작성 중)인 신청서를 이어쓰기 할 경우, **특정 교육계획, 특정 교육과정(Line Item), 특정 교육과정의 차수까지 모두 자유롭게 추가/수정/삭제**가 가능합니다. 문제가 된 부분만 유연하게 수정하여 바로 다시 상신할 수 있도록 지원합니다.
+**현황**:
+- BO 정책 빌더(`bo_policy_builder.js`)에는 이미 **"수요예측 결재라인"** UI 섹션이 존재하며, 현재 "미설정" 상태
+- 기존 결재라인 설정은 **교육유형(edu_type)별**로 금액 구간 결재자를 지정하는 구조
 
----
+**문제점**:
+- 수요예측(forecast) 사업계획은 특정 교육유형이 아닌 **계정(account_code) 단위**로 예산이 관리됨
+- `HMC-OPS` 계정 수요예측과 `HMC-RND` 계정 수요예측은 결재자가 다를 수 있음
+- 현재 교육유형별 결재라인으로는 이 분리가 불가능
 
-## Proposed Changes
+**논의 필요 사항**:
+1. 수요예측 결재라인을 **계정 단위**로 별도 설정하는 UI/DB 구조 설계
+2. 기존 교육유형별 결재라인(`approval_line_design.md`)과 수요예측 계정별 결재라인의 **공존 아키텍처**
+3. `bo_policy_builder.js`의 "수요예측 결재라인" 섹션을 계정 단위 설정으로 확장하는 방안
+4. 팀장 → BO 운영담당자 → 총괄담당자 3단계 고정 라인 vs 계정별 유연 설정 중 선택
 
-### 1. Database Schema
-#### [NEW] `application_plan_items` 테이블 신설
-- 신청서(Header)에 속하는 개별 과정(Line Item) 관리.
-- **필드**: `application_id`, `plan_id`, `budget_usage_type`, `settlement_method`, `calc_grounds_snapshot`, `subtotal`
-- **추가**: `result_status` (개별 수료/결과 상태 트리)
-- **[LMS 매핑용 신설]**: `channel_id`, `course_id`, `linked_sessions` (JSONB: 다중 차수 정보 배열)
-  - 집합/이러닝이 아닐 경우(개인직무, 워크숍 등)는 NULL 저장.
-- **[삭제됨]**: `selected_rounds` (계획의 차수 개념 삭제에 따라 제거)
+**참고 스크린샷**: BO 정책 빌더 Step 3 "결재라인" 화면에서 "수요예측 결재라인" 섹션이 이미 분리되어 있으나 미설정 상태 확인됨.
 
-### 2. UI Simplification for Budget Inputs (Back Office Policy Builder)
-- In `bo_policy_builder.js`, move the "Company", "Institutional Group" (Virtual Org), and "Budget Account" selections to the very top of Step 0.
-- Simplify the Institutional Group and Budget Account selectors into basic dropdown menus, mirroring the Company selector.
-
-### 3. Process-Level Calc Grounds & Budget Tracking
-- Budget breakdown (`calc_grounds`) is managed at the **Course (Line Item)** level (`application_plan_items` table), not the round (session) level.
-- When users select multiple rounds, they write a single `calc_grounds` table representing the total budget for the course in that specific application.
-- **Aggregation Tracking**: Since each `application_plan_items` row contains `plan_id`, the system can aggregate all applied budgets across multiple applications/rounds and compare them against the original `edu_plans` budget.
-
-### 4. Re-edit Policy for Drafts & Rejections
-- The application allows full flexibility when in "Draft" or "Saved" (rejected) status.
-- Users can freely add or delete specific **Education Plans**, add or delete **Courses (Line Items)**, and add or delete **Rounds (Sessions)** without constraint, up until the point of final submission.
-
-### 5. Front Office (`apply.js`)
-#### [MODIFY] 폼 구조 (Header + Line Items) 분기 처리 (핵심)
-- 교육유형이 **[집합/이러닝]** 인 경우:
-  - 접속자의 채널 담당자 권한(`_ch_mgr_`)을 조회하여 운영 중인 **LMS 과정-차수 피커(Picker)** 필수 노출.
-  - 선택된 차수가 기 결재진행/승인 건이면 **Disable** 처리.
-  - 해당 차수 운영에 필요한 **세부산출근거** 재입력 폼 노출.
-- 교육유형이 **[워크숍/개인직무/기타 등]** 인 경우:
-  - LMS 과정-차수 선택 UI 아예 없음.
-  - **세부산출근거** 재입력 폼만 단독 노출 ("이번에 이 계획으로 얼마 쓸 것인지").
-
-### 3. Back Office (`bo_approval.js` 등)
-#### [MODIFY] 결재 문서 뷰
-- 결재 문서 로딩 시 `application_plan_items` 데이터를 함께 조인하여 불러옴.
-- 신청 합계 금액 아래에 묶여 있는 각 교육과정(Line Item) 리스트 및 소계를 반복 렌더링.
+**연관 PRD**: `fo_submission_approval.md`, `budget_lifecycle.md` Phase 12~14, `approval_line_design.md`
 
 ---
 
-## Verification Plan
+## 13. 변경 이력
 
-### Automated/Manual Tests
-- **제약 조건 검증**: 서로 다른 목적이나 예산 계정의 계획을 묶으려 시도할 때 정확히 차단되는지 브라우저에서 테스트.
-- **이어쓰기 검증**: 결재 반려 후 이어쓰기 시 과정 삭제/추가가 자유롭게 가능하며, 금액 소계가 자동 재계산되는지 확인.
-- **결재문서 검증**: 결재 상신 후, 관리자(BO) 및 결재권자 화면에서 묶음 내역 전체가 정확히 렌더링되는지 확인.
-
----
-
-구현 계획이 괜찮으시다면 승인 부탁드립니다. 승인 직후 바로 코딩 작업에 착수하겠습니다!
+| 날짜 | 내용 | 작성자 |
+|---|---|---|
+| 2026-04-28 | 최초 작성 — Phase 3 팀 사업계획 일괄 확정. Domain Council 3회 검증. 계정별 번들 분리, 누구나 확정, Hold 없음 확정 | AI |
+| 2026-04-28 | §12 추후 논의 항목 추가 — Q-P3-01 수요예측 결재라인 계정 단위 분리 설계 기록 | AI |

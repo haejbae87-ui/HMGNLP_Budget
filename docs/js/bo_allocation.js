@@ -1528,11 +1528,11 @@ async function submitTransfer() {
   // 인메모리 업데이트
   from.allocAmount -= amount;
   to.allocAmount += amount;
-  const now = new Date().toISOString().slice(0, 10);
+  const todayStr = new Date().toISOString().slice(0, 10);
   ACCOUNT_ADJUST_HISTORY.push({
     id: `AH${Date.now()}a`,
     accountBudgetId: from.accountBudgetId,
-    date: now,
+    date: todayStr,
     type: "이관출처",
     amount: -amount,
     note: `→ ${to.teamName}: ${reason}`,
@@ -1541,7 +1541,7 @@ async function submitTransfer() {
   ACCOUNT_ADJUST_HISTORY.push({
     id: `AH${Date.now()}b`,
     accountBudgetId: to.accountBudgetId,
-    date: now,
+    date: todayStr,
     type: "이관수신",
     amount: +amount,
     note: `← ${from.teamName}: ${reason}`,

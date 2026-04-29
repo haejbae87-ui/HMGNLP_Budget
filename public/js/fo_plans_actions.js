@@ -1371,9 +1371,12 @@ function _cgApplyPreset(idx, val) {
   row.presetKey = `${venueName}|${presetName}`;
   row.unitPrice = Number(priceStr) || row.unitPrice;
   if (qty2Str) row.qty2 = Number(qty2Str) || 1;
+  // item을 CALC_GROUNDS_MASTER에서 안전하게 조회 (undefined 버그 수정)
+  const item = typeof CALC_GROUNDS_MASTER !== "undefined"
+    ? CALC_GROUNDS_MASTER.find(g => g.id === row.itemId) : null;
   _cgRecalcRow(row, item);
   _syncCalcToAmount();
-  _cgRefreshTotals();
+  renderPlanWizard();
 }
 
 function _cgRecalcRow(row, item) {

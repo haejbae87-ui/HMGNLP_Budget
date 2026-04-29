@@ -14,9 +14,12 @@ const _CACHE_TTL_MS = 60_000; // 60초 TTL — BO 수정 후 최대 1분 내 반
 // ─── FO 전용: calc_grounds DB 경량 로더 (TTL 캐시) ─────────────────────────
 let _FO_CG_CACHE = null;
 let _FO_CG_LOADED_AT = 0;
+let _FO_CG_VORG = undefined; // 캐시가 어떤 vorgId로 로드됐는지 추적 (페르소나 변경 시 무효화)
 
 async function _foLoadCalcGrounds() {
-  if (_FO_CG_CACHE && Date.now() - _FO_CG_LOADED_AT < _CACHE_TTL_MS)
+  const curVorgId = (typeof currentPersona !== "undefined" ? currentPersona?.vorgTemplateId : null) || null;
+  // vorgId가 바뀌면 캐시 무효화
+  if (_FO_CG_CACHE && Date.now() - _FO_CG_LOADED_AT < _CACHE_TTL_MS && _FO_CG_VORG === curVorgId)
     return _FO_CG_CACHE;
   const sb = typeof getSB === "function" ? getSB() : null;
   if (!sb) {
@@ -24,11 +27,26 @@ async function _foLoadCalcGrounds() {
     return [];
   }
   try {
-    const { data, error } = await sb
+    // 현재 페르소나의 vorgTemplateId로 필터 (제도그룹 귀속 항목 + 공유 항목)
+    const vorgId = curVorgId;
+    const tenantId = (typeof currentPersona !== "undefined" ? currentPersona?.tenantId : null) || null;
+
+    let query = sb
       .from("calc_grounds")
       .select("*")
       .eq("active", true)
       .order("sort_order");
+
+    // 테넌트 필터 (있을 때만)
+    if (tenantId) query = query.eq("tenant_id", tenantId);
+
+    // 제도그룹 필터: 해당 vorgId 항목 + 공유 항목(null) 모두 로드
+    // DB에서 OR 조건: virtual_org_template_id = vorgId OR virtual_org_template_id IS NULL
+    if (vorgId) {
+      query = query.or(`virtual_org_template_id.eq.${vorgId},virtual_org_template_id.is.null`);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
     _FO_CG_CACHE = (data || []).map((r) => ({
       id: r.id,
@@ -59,8 +77,9 @@ async function _foLoadCalcGrounds() {
       CALC_GROUNDS_MASTER.push(..._FO_CG_CACHE);
     }
     _FO_CG_LOADED_AT = Date.now();
+    _FO_CG_VORG = curVorgId; // 캐시에 vorgId 기록
     console.log(
-      `[fo_form_loader] calc_grounds DB 로드: ${_FO_CG_CACHE.length}건`,
+      `[fo_form_loader] calc_grounds DB 로드: ${_FO_CG_CACHE.length}건 (vorgId=${vorgId||'전체'})`,
     );
   } catch (e) {
     console.warn("[fo_form_loader] calc_grounds 로드 실패:", e.message);

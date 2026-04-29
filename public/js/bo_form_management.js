@@ -444,7 +444,7 @@ function _formRenderPage() {
         </div>
 
         <!-- 필드 토글 영역 -->
-        <div style="padding:16px;max-height:460px;overflow-y:auto">
+        <div id="fm-field-toggles" style="padding:16px;max-height:460px;overflow-y:auto">
           ${_formRenderFieldToggles(_formActiveStage, usesBudget)}
         </div>
 
@@ -455,8 +455,9 @@ function _formRenderPage() {
             👁️ 미리보기
           </button>
           <button onclick="_formSave()"
-            style="padding:8px 24px;border:none;background:linear-gradient(135deg,#6366F1,#8B5CF6);color:white;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px #6366F140">
-            💾 저장
+            style="padding:8px 24px;border:none;background:linear-gradient(135deg,#6366F1,#8B5CF6);color:white;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px #6366F140"
+            title="현재 예산계정의 모든 단계 양식 설정을 저장합니다">
+            💾 전체 저장
           </button>
         </div>
       </div>
@@ -530,7 +531,18 @@ function _formSelectStage(s) { _formActiveStage = s; _formRenderPage(); }
 function _formToggleField(stateKey, fieldKey, val) {
   if (!_formFieldStates[stateKey]) _formFieldStates[stateKey] = {};
   _formFieldStates[stateKey][fieldKey] = val;
-  _formRenderPage();
+
+  // 스크롤 위치 보존: 토글 영역만 부분 업데이트
+  const container = document.getElementById('fm-field-toggles');
+  if (container) {
+    const scrollTop = container.scrollTop;
+    const acc = _formAccountList.find(a => a.code === _formAccountCode);
+    const usesBudget = acc?.uses_budget !== false;
+    container.innerHTML = _formRenderFieldToggles(_formActiveStage, usesBudget);
+    container.scrollTop = scrollTop; // 스크롤 위치 복원
+  } else {
+    _formRenderPage(); // fallback
+  }
 }
 
 // ── 저장 ────────────────────────────────────────────────────────────────────

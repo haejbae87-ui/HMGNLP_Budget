@@ -168,7 +168,7 @@ async function renderFormManagement() {
     // DB 로드 (platform_admin은 전체, 나머지는 자사만)
     const sb = typeof _sb === 'function' ? _sb() : window.__supabase;
     if (sb) {
-      let tplQuery = sb.from('virtual_org_templates').select('id,name,tenant_id,template_type');
+      let tplQuery = sb.from('virtual_org_templates').select('id,name,tenant_id,service_type');
       let accQuery = sb.from('budget_accounts').select('*');
       if (!isPlatform) {
         const tid = user.tenant_id || 'HMC';
@@ -214,7 +214,7 @@ function _formRenderPage() {
 
   // 회사 기준 및 교육지원(education_support) 제도그룹 필터
   const filteredVorgs = _formTplList.filter(t => 
-    t.template_type === 'education_support' && 
+    t.service_type === 'education_support' && 
     (!_formTenantId || t.tenant_id === _formTenantId)
   );
 

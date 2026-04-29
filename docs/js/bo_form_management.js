@@ -212,9 +212,9 @@ function _formRenderPage() {
   const role = (typeof boCurrentPersona !== 'undefined' && boCurrentPersona?.role) || user.role || '';
   const isPlatform = role === 'platform_admin';
 
-  // 회사 기준 및 교육지원(education_support) 제도그룹 필터
+  // 회사 기준 및 교육지원(edu_support) 제도그룹 필터
   const filteredVorgs = _formTplList.filter(t => 
-    t.service_type === 'education_support' && 
+    t.service_type === 'edu_support' && 
     (!_formTenantId || t.tenant_id === _formTenantId)
   );
 

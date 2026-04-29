@@ -80,7 +80,7 @@ const _FORM_FIELDS = {
     ]},
     { cat:'비용항목', icon:'💰', budgetOnly:true, fields:[
       {key:'requested_budget',label:'요청 예산 규모',type:'number',unit:'원'},
-      {key:'budget_reason',label:'예산 산출 근거',type:'textarea'},
+      {key:'calc_grounds',label:'세부산출근거',type:'calc_grounds'},
       {key:'expected_effect',label:'기대효과',type:'textarea'},
     ]},
   ],

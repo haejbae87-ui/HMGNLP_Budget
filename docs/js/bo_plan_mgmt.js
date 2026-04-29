@@ -167,17 +167,19 @@ async function renderBoPlanMgmt() {
       "center_rnd",
     ];
     // E-4: P16 역할 구분 — bo_role_view.js 신규 함수 사용
-    const isGlobalBO = typeof boIsGlobalAdmin === 'function' ? boIsGlobalAdmin() : isGlobalAdmin(boCurrentPersona);
-    const isOpBO = typeof boIsOpManager === 'function' ? boIsOpManager() : isOpManager(boCurrentPersona);
+    const isGlobalBO   = typeof boIsGlobalAdmin   === 'function' ? boIsGlobalAdmin()   : isGlobalAdmin(boCurrentPersona);
+    const isOpBO       = typeof boIsOpManager     === 'function' ? boIsOpManager()     : isOpManager(boCurrentPersona);
+    const isPlatformBO = typeof boIsPlatformAdmin === 'function' ? boIsPlatformAdmin() : false;
 
     // P16 F-150: 운영담당자 관할 데이터 스코핑
     if (typeof boFilterPlansByScope === 'function') {
       plans = boFilterPlansByScope(plans);
     }
 
-    // 총괄담당자: 승인/반려 가능  | 운영담당자: 1차검토 가능
+    // 총괄담당자: 승인/반려 가능 | 운영담당자: 1차검토 가능
+    // 플랫폼 담당자: 두 역할 모두 가능 (테스트 목적 슈퍼어드민)
     const canApprove = isGlobalBO;
-    const canReview = isOpBO && !isGlobalBO; // 운영담당자전용 (1차검토)
+    const canReview  = (isOpBO && !isGlobalBO) || isPlatformBO; // 운영담당자 또는 플랫폼
 
     // ★ 편집 모드가 아닐 때 originals 초기화
     if (!_boPlanEditMode) {
@@ -270,7 +272,13 @@ async function renderBoPlanMgmt() {
         <td style="text-align:center" onclick="event.stopPropagation()">
           ${
             status === "pending" || status === "pending_approval" || status === "in_review" || status === "submitted"
-              ? `
+              ? isPlatformBO
+                ? `<div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap">
+                <button onclick="boPlanOpReview('${safeId}')" style="border:none;background:#1D4ED8;color:white;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:800;cursor:pointer">📤 1차</button>
+                <button onclick="boPlanApprove('${safeId}')" style="border:none;background:#7C3AED;color:white;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:800;cursor:pointer">✅ 최종</button>
+                <button onclick="boPlanReject('${safeId}')" style="border:1px solid #EF4444;color:#EF4444;background:#fff;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:700;cursor:pointer">❌</button>
+              </div>`
+                : `
           <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
             <button onclick="boPlanApprove('${safeId}')" class="bo-btn-accent bo-btn-sm">승인</button>
             <button onclick="boPlanReject('${safeId}')" class="bo-btn-sm" style="border:1px solid #EF4444;color:#EF4444;background:#fff;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer">반려</button>
@@ -426,15 +434,15 @@ async function renderBoPlanMgmt() {
           </div>
         </div>
 
-        <!-- P11: 운영담당자 전용 — 1차 검토 대기 섹션 -->
+        <!-- P11: 운영담당자/플랫폼 전용 — 1차 검토 대기 섹션 -->
         ${canReview && reviewPending.length > 0 ? `
         <div style="margin-bottom:20px;padding:20px;border-radius:14px;background:linear-gradient(135deg,#FFFBEB,#FEF3C7);border:2px solid #F59E0B">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
             <div>
-              <div style="font-size:14px;font-weight:900;color:#92400E">🔍 1차 검토 대기 (${reviewPending.length}건)</div>
-              <div style="font-size:11px;color:#B45309;margin-top:2px">검토 완료 시 총괄담당자에게 자동 전달됩니다</div>
+              <div style="font-size:14px;font-weight:900;color:#92400E">🔍 1차 확정 대기 (${reviewPending.length}건)</div>
+              <div style="font-size:11px;color:#B45309;margin-top:2px">${isPlatformBO ? '플랫폼 담당자: 1차 확정 처리 또는 최종 확정 처리 모두 가능' : '검토 완료 시 총괄담당자에게 자동 전달됩니다'}</div>
             </div>
-            <span style="font-size:11px;padding:4px 12px;border-radius:8px;background:#F59E0B;color:white;font-weight:800">운영담당자 전용</span>
+            <span style="font-size:11px;padding:4px 12px;border-radius:8px;background:${isPlatformBO ? '#7C3AED' : '#F59E0B'};color:white;font-weight:800">${isPlatformBO ? '🖥️ 플랫폼 담당자' : '운영담당자 전용'}</span>
           </div>
           <div style="display:flex;flex-direction:column;gap:8px">
             ${reviewPending.map(p => {
@@ -447,7 +455,11 @@ async function renderBoPlanMgmt() {
                 + '</div>'
                 + '<div style="display:flex;gap:6px;flex-shrink:0">'
                 + '<button onclick="_openBoPlanDetail(\'' + sid + '\')" style="padding:6px 12px;border-radius:8px;background:#EFF6FF;color:#1D4ED8;font-size:11px;font-weight:800;border:1.5px solid #BFDBFE;cursor:pointer">📄 상세</button>'
-                + '<button onclick="boPlanOpReview(\'' + sid + '\')" style="padding:6px 16px;border-radius:8px;background:#F59E0B;color:white;font-size:11px;font-weight:900;border:none;cursor:pointer">🔍 1차 검토 완료</button>'
+                + (isPlatformBO
+                  ? '<button onclick="boPlanOpReview(\'' + sid + '\')" style="padding:6px 14px;border-radius:8px;background:#1D4ED8;color:white;font-size:11px;font-weight:900;border:none;cursor:pointer">📤 1차 확정</button>'
+                    + '<button onclick="boPlanApprove(\'' + sid + '\')" style="padding:6px 14px;border-radius:8px;background:#7C3AED;color:white;font-size:11px;font-weight:900;border:none;cursor:pointer">✅ 최종 확정</button>'
+                  : '<button onclick="boPlanOpReview(\'' + sid + '\')" style="padding:6px 16px;border-radius:8px;background:#F59E0B;color:white;font-size:11px;font-weight:900;border:none;cursor:pointer">🔍 1차 검토 완료</button>'
+                )
                 + '<button onclick="boPlanReject(\'' + sid + '\')" style="padding:6px 12px;border-radius:8px;background:white;color:#EF4444;font-size:11px;font-weight:800;border:1.5px solid #EF4444;cursor:pointer">❌ 반려</button>'
                 + '</div></div>';
             }).join('')}

@@ -22,13 +22,29 @@ const _BAM_EDU_MAP = {
 
 // ─── Tab 2: 서비스 정책·프로세스 ────────────────────────────────────────
 // 통합 그룹 체크박스 트리 — 직접학습/교육운영 동시 선택 가능
+// BO policy_builder _EDU_TYPE_MAP + FO EDU_TYPE_SUBTYPES 완전 동기화
 const _BAM_EDU_TREE = [
   { group: 'learner', icon: '📚', label: '직접학습', color: '#7C3AED', desc: '개인 학습자가 직접 참여',
     categories: [
-      { purpose: 'external_personal', label: '개인직무 사외학습',
+      { purpose: 'regular', label: '정규교육', desc: '이러닝 · 집합 · 라이브',
         types: [
-          { id: 'regular', label: '정규교육' }, { id: 'academic', label: '학술 및 연구활동' },
-          { id: 'knowledge', label: '지식자원 학습' }, { id: 'competency', label: '역량개발지원' }, { id: 'etc_learner', label: '기타' },
+          { id: 'elearning', label: '이러닝' }, { id: 'class', label: '집합' }, { id: 'live', label: '라이브' },
+        ]},
+      { purpose: 'academic', label: '학술 및 연구활동', desc: '학회/컨퍼런스 · 세미나 · 연수',
+        types: [
+          { id: 'conf', label: '학회/컨퍼런스' }, { id: 'seminar', label: '세미나' }, { id: 'acad_study', label: '연수' },
+        ]},
+      { purpose: 'knowledge', label: '지식자원 학습', desc: '도서 · 논문/저널 · 기술자료',
+        types: [
+          { id: 'book', label: '도서구입' }, { id: 'journal', label: '논문/저널' }, { id: 'tech_resource', label: '기술자료(DB구독·자료구매)' },
+        ]},
+      { purpose: 'competency', label: '역량개발지원', desc: '어학 · 자격증 · 학협회비',
+        types: [
+          { id: 'lang', label: '어학학습비 지원' }, { id: 'cert', label: '자격증 취득지원' }, { id: 'assoc', label: '학협회비' },
+        ]},
+      { purpose: 'etc', label: '기타', desc: '교육출강 · 팀빌딩',
+        types: [
+          { id: 'teach', label: '교육출강(사/내외)' }, { id: 'team_build', label: '팀빌딩' },
         ]},
     ]},
   { group: 'operator', icon: '🎯', label: '교육운영', color: '#1D4ED8', desc: '교육과정을 기획·운영',
@@ -36,9 +52,9 @@ const _BAM_EDU_TREE = [
       { purpose: 'elearning_class', label: '이러닝/집합(비대면) 운영',
         types: [{ id: 'elearning', label: '이러닝' }, { id: 'class', label: '집합교육' }]},
       { purpose: 'conf_seminar', label: '워크샵/세미나/콘퍼런스 운영',
-        types: [{ id: 'conference', label: '콘퍼런스' }, { id: 'seminar', label: '세미나' }, { id: 'teambuilding', label: '팀빌딩' }]},
+        types: [{ id: 'conference', label: '콘퍼런스' }, { id: 'seminar', label: '세미나' }, { id: 'teambuilding', label: '팀빌딩' }, { id: 'cert_maintain', label: '자격유지' }, { id: 'system_link', label: '제도연계' }]},
       { purpose: 'misc_ops', label: '기타 운영',
-        types: [{ id: 'course_dev', label: '과정개발' }, { id: 'material_dev', label: '교안개발' }, { id: 'facility', label: '교육시설운영' }]},
+        types: [{ id: 'course_dev', label: '과정개발' }, { id: 'material_dev', label: '교안개발' }, { id: 'video_prod', label: '영상제작' }, { id: 'facility', label: '교육시설운영' }]},
     ]},
 ];
 
@@ -92,6 +108,7 @@ function _bamRenderPolicyTab(d) {
           onclick="_bamToggleCategoryAll('${cat.types.map(t=>t.id).join(',')}')">
           <input type="checkbox" ${allChecked ? 'checked' : (catSelCount > 0 ? 'indeterminate' : '')} style="margin:0;accent-color:${g.color};pointer-events:none">
           <span style="font-size:12px;font-weight:800;color:${catSelCount > 0 ? g.color : '#475569'}">${cat.label}</span>
+          ${cat.desc ? `<span style="font-size:10px;color:#9CA3AF;margin-left:4px">${cat.desc}</span>` : ''}
           ${catSelCount > 0 ? `<span style="font-size:9px;padding:1px 6px;border-radius:4px;background:${g.color}15;color:${g.color};font-weight:700">${catSelCount}/${cat.types.length}</span>` : ''}
         </div>
         <!-- 교육 유형 체크박스 -->

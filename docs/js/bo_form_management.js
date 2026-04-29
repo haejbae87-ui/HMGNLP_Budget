@@ -466,55 +466,76 @@ function _formRenderPage() {
   </div>`;
 }
 
-// ── 필드 타입 뱃지 색상 ─────────────────────────────────────────────────────
-const _FORM_TYPE_BADGE = {
-  text:'텍스트', textarea:'장문', number:'숫자', boolean:'토글',
-  date:'날짜', daterange:'기간', select:'선택', file:'파일',
-  autocomplete:'검색입력', rating:'별점', calc_grounds:'산출근거',
-};
-const _FORM_TYPE_COLOR = {
-  text:'#6B7280', textarea:'#7C3AED', number:'#1D4ED8', boolean:'#059669',
-  date:'#D97706', daterange:'#D97706', select:'#4338CA', file:'#9333EA',
-  autocomplete:'#0891B2', rating:'#F59E0B', calc_grounds:'#DC2626',
+// ── 필드별 아이콘 매핑 ──────────────────────────────────────────────────────
+const _FORM_FIELD_ICON = {
+  edu_purpose:'🎯', edu_type:'📚', course_name:'⭐', is_overseas:'🌐',
+  target_audience:'👥', planned_headcount:'👥', planned_rounds:'🔄', planned_days:'📅',
+  hours_per_round:'⏱', edu_period:'📆', is_continuing:'🔁', institution_name:'🏛',
+  venue_detail:'🏠', venue_type:'🏠', is_ei_eligible:'🏥', education_region:'📍',
+  learning_objective:'🎯', course_description:'📝', expected_benefit:'💡',
+  supporting_docs:'📎', apply_reason:'💬', course_brochure:'📄',
+  learning_content:'📖', planned_hours:'⏱', planned_duration:'⏳',
+  overseas_country:'✈️', education_format:'💻', has_accommodation:'🏨',
+  lunch_provided:'🍽', is_paid_education:'💳', instructor_name:'👨‍🏫',
+  requested_budget:'💰', calc_grounds:'📊', admin_comment:'🔧', allocated_amount:'💵',
+  planned_amount:'💰', expected_benefit_op:'💡', edu_method:'🎓',
+  is_completed:'✅', score:'📈', actual_hours:'⏱', actual_days:'📅',
+  attendance_rate:'📊', review_comment:'💬', work_application_plan:'📋',
+  recommendation_target:'👤', share_result:'📤', remarks:'📝',
+  satisfaction_rating:'⭐', applicability_rating:'⭐', recommendation_rating:'⭐',
+  instructor_rating:'⭐', difficulty_rating:'⭐', relevance_rating:'⭐', facility_rating:'⭐',
+  actual_cost:'💰', payment_method:'💳', payment_date:'📅',
+  ei_refund_amount:'🏥', payment_completed:'✅',
+  completion_cert:'🎓', expense_receipt:'🧾', receipt:'🧾',
 };
 
-// ── 필드 토글 렌더 ──────────────────────────────────────────────────────────
+// ── 필드 토글 렌더 (토글 스위치 1열 리스트 — FO 스타일) ─────────────────────
 function _formRenderFieldToggles(stage, usesBudget) {
   const cats = _FORM_FIELDS[stage] || [];
   const stateKey = `${_formSelEduType}|${stage}`;
   const states = _formFieldStates[stateKey] || {};
+  const stageM = _FORM_STAGE_META[stage] || {};
+  const stageColor = stageM.color || '#6366F1';
 
-  return cats.map(cat => {
+  return `<div style="font-size:13px;font-weight:900;color:${stageColor};margin-bottom:12px;display:flex;align-items:center;gap:6px">
+    ${stageM.icon || '📝'} ${stageM.label || stage} 필드
+  </div>` + cats.map(cat => {
     const isBudgetCat = cat.budgetOnly;
     const catDisabled = isBudgetCat && !usesBudget;
+    const isLockedCat = cat.locked;
 
-    return `<div style="margin-bottom:14px;border:1px solid ${catDisabled?'#F3F4F6':'#E5E7EB'};border-radius:10px;overflow:hidden;
-        ${catDisabled?'opacity:0.5':''}">
-      <div style="padding:8px 14px;background:${cat.locked?'#DBEAFE':'#F8FAFC'};display:flex;align-items:center;gap:8px;
-        border-bottom:1px solid #E5E7EB">
-        <span>${cat.icon}</span>
-        <span style="font-size:12px;font-weight:800;color:${cat.locked?'#1E40AF':'#374151'}">${cat.cat}</span>
-        ${cat.locked?'<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#BFDBFE;color:#1E40AF;font-weight:700">필수</span>':''}
-        ${catDisabled?'<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#FEF3C7;color:#92400E;font-weight:700">무예산 비활성</span>':''}
+    return `
+    <div style="margin-bottom:16px${catDisabled ? ';opacity:0.45' : ''}">
+      <!-- 섹션 헤더 -->
+      <div style="font-size:11px;font-weight:800;color:#64748B;margin-bottom:6px;display:flex;align-items:center;gap:5px">
+        ${cat.icon} ${cat.cat}
+        ${isLockedCat ? '<span style="font-size:9px;padding:1px 6px;border-radius:4px;background:#DBEAFE;color:#1E40AF;font-weight:700">(필수 고정)</span>' : ''}
+        ${catDisabled ? '<span style="font-size:9px;padding:1px 6px;border-radius:4px;background:#FEF3C7;color:#92400E;font-weight:700">무예산 비활성</span>' : ''}
       </div>
-      <div style="padding:10px 14px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      <!-- 필드 리스트 -->
+      <div style="display:flex;flex-direction:column;gap:4px">
         ${cat.fields.map(f => {
-          const isLocked = f.locked || cat.locked;
+          const isLocked = f.locked || isLockedCat;
           const isOn = isLocked ? true : (states[f.key] !== undefined ? states[f.key] : true);
           const disabled = isLocked || catDisabled;
-          const typeBadge = _FORM_TYPE_BADGE[f.type] || f.type || '';
-          const typeColor = _FORM_TYPE_COLOR[f.type] || '#9CA3AF';
-          return `<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;
-              border:1.5px solid ${disabled ? '#F3F4F6' : (isOn?'#6366F1':'#E5E7EB')};
-              background:${disabled ? '#FAFAFA' : (isOn?'#EEF2FF':'white')};
-              cursor:${disabled?'not-allowed':'pointer'};transition:all .12s"
-            ${disabled?'':`onclick="event.preventDefault();_formToggleField('${stateKey}','${f.key}',${!isOn})"`}>
-            <input type="checkbox" ${isOn?'checked':''} ${disabled?'disabled':''}
-              style="margin:0;accent-color:#6366F1;pointer-events:none">
-            <span style="font-size:12px;color:${disabled?'#9CA3AF':'#374151'};font-weight:${isOn?'600':'400'};flex:1">${f.label}</span>
-            <span style="font-size:8px;padding:1px 5px;border-radius:3px;background:${typeColor}15;color:${typeColor};font-weight:700;white-space:nowrap">${typeBadge}</span>
-            ${isLocked?'<span style="font-size:8px;color:#9CA3AF">🔒</span>':''}
-          </label>`;
+          const icon = _FORM_FIELD_ICON[f.key] || '📄';
+
+          return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;
+              border:1.5px solid ${isOn ? stageColor + '30' : '#F3F4F6'};
+              background:${isOn ? stageColor + '08' : 'white'};
+              transition:all .15s;${disabled ? 'cursor:default' : 'cursor:pointer'}"
+            ${disabled ? '' : `onclick="_formToggleField('${stateKey}','${f.key}',${!isOn})"`}>
+            <span style="font-size:16px;flex-shrink:0">${icon}</span>
+            <span style="flex:1;font-size:12px;font-weight:${isOn ? '700' : '500'};color:${isOn ? stageColor : '#6B7280'}">${f.label}</span>
+            ${isLocked ? '<span style="font-size:9px;padding:1px 6px;border-radius:4px;background:#FEE2E2;color:#DC2626;font-weight:700">필수</span>' : ''}
+            <!-- 토글 스위치 -->
+            <div style="width:40px;height:22px;border-radius:11px;position:relative;flex-shrink:0;
+              background:${disabled ? (isOn ? '#93C5FD' : '#E5E7EB') : (isOn ? stageColor : '#D1D5DB')};
+              transition:background .2s;${disabled ? 'opacity:0.7' : ''}">
+              <div style="width:18px;height:18px;border-radius:50%;background:white;position:absolute;top:2px;
+                ${isOn ? 'right:2px' : 'left:2px'};box-shadow:0 1px 3px rgba(0,0,0,.2);transition:all .2s"></div>
+            </div>
+          </div>`;
         }).join('')}
       </div>
     </div>`;
@@ -733,7 +754,7 @@ function _formPreviewField(f) {
   }
 }
 
-// ── 미리보기 ────────────────────────────────────────────────────────────────
+// ── 미리보기 (FO 카드 기반 레이아웃) ─────────────────────────────────────────
 function _formPreview() {
   const stage = _formActiveStage;
   const stageM = _FORM_STAGE_META[stage];
@@ -758,36 +779,43 @@ function _formPreview() {
   // 모달 렌더
   const overlay = document.createElement('div');
   overlay.id = 'fm-preview-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)';
   overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
 
   overlay.innerHTML = `
-  <div style="background:white;border-radius:16px;width:100%;max-width:700px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">
-    <div style="padding:16px 20px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;justify-content:space-between;
-      background:linear-gradient(135deg,${stageM.color}08,${stageM.color}15);border-radius:16px 16px 0 0">
+  <div style="background:#F8FAFC;border-radius:20px;width:100%;max-width:700px;max-height:85vh;overflow-y:auto;box-shadow:0 25px 80px rgba(0,0,0,.25)">
+    <!-- 헤더 -->
+    <div style="padding:18px 24px;display:flex;align-items:center;justify-content:space-between;
+      background:white;border-bottom:1px solid #E5E7EB;border-radius:20px 20px 0 0;position:sticky;top:0;z-index:1">
       <div>
-        <div style="font-size:14px;font-weight:900;color:${stageM.color}">${stageM.icon} ${stageM.label} 미리보기</div>
-        <div style="font-size:11px;color:#6B7280;margin-top:2px">교육유형: ${eduInfo.breadcrumb} | 계정: ${_formAccountCode}</div>
+        <div style="font-size:15px;font-weight:900;color:#1E293B;display:flex;align-items:center;gap:6px">
+          🔍 [미리보기] ${stageM.label}
+        </div>
+        <div style="font-size:11px;color:#94A3B8;margin-top:3px">
+          교육유형: ${eduInfo.breadcrumb} &nbsp;|&nbsp; 계정: ${_formAccountCode}
+        </div>
       </div>
       <button onclick="document.getElementById('fm-preview-overlay').remove()"
-        style="padding:4px 12px;border:1px solid #D1D5DB;background:white;border-radius:6px;cursor:pointer;font-size:12px">✕ 닫기</button>
+        style="width:32px;height:32px;border:none;background:#F1F5F9;border-radius:8px;cursor:pointer;font-size:16px;color:#64748B;display:flex;align-items:center;justify-content:center"
+        onmouseover="this.style.background='#E2E8F0'" onmouseout="this.style.background='#F1F5F9'">✕</button>
     </div>
-    <div style="padding:20px">
-      <div style="font-size:11px;color:#9CA3AF;margin-bottom:16px;padding:8px 12px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px">
-        ℹ️ 이 화면은 FO 사용자에게 보이는 입력 폼의 미리보기입니다. 비활성화된 필드는 표시되지 않습니다.
-      </div>
+
+    <!-- 본문 -->
+    <div style="padding:20px 24px">
       ${activeFields.map(g => `
-        <div style="margin-bottom:16px">
-          <div style="font-size:12px;font-weight:800;color:#374151;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #E5E7EB">
-            ${g.icon} ${g.cat}
+        <!-- 섹션 카드 -->
+        <div style="background:white;border:1px solid #E2E8F0;border-radius:14px;margin-bottom:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04)">
+          <!-- 섹션 헤더 -->
+          <div style="padding:12px 18px;background:linear-gradient(135deg,#F8FAFC,#EFF6FF);border-bottom:1px solid #E2E8F0;
+            display:flex;align-items:center;gap:8px">
+            <span style="font-size:14px">${g.icon}</span>
+            <span style="font-size:13px;font-weight:800;color:#1E293B">${g.cat}</span>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <!-- 필드 목록 -->
+          <div style="padding:16px 18px">
             ${g.fields.map(f => {
-              // 장문(textarea), 기간(daterange), 산출근거, 파일은 full-width
-              const fullWidth = ['textarea','daterange','calc_grounds','file'].includes(f.type);
-              return `<div style="${fullWidth?'grid-column:1/-1':''}">
-                ${_formPreviewField(f)}
-              </div>`;
+              const icon = _FORM_FIELD_ICON[f.key] || '📄';
+              return _formPreviewFieldCard(f, icon);
             }).join('')}
           </div>
         </div>
@@ -796,6 +824,92 @@ function _formPreview() {
   </div>`;
 
   document.body.appendChild(overlay);
+}
+
+// ── 미리보기 필드 렌더 (FO 카드 스타일) ──────────────────────────────────────
+function _formPreviewFieldCard(f, icon) {
+  const required = f.locked;
+  const base = 'width:100%;padding:10px 14px;border:1px solid #E2E8F0;border-radius:10px;font-size:13px;background:#F8FAFC;box-sizing:border-box;color:#374151';
+  const labelHtml = `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+    <span style="font-size:14px">${icon}</span>
+    <span style="font-size:12px;font-weight:700;color:#374151">${f.label}</span>
+    ${required ? '<span style="color:#EF4444;font-weight:900">*</span>' : ''}
+  </div>`;
+
+  switch (f.type) {
+    case 'boolean':
+      return `<div style="margin-bottom:14px">${labelHtml}
+        <div style="display:flex;align-items:center;gap:10px;padding:4px 0">
+          <div style="width:44px;height:24px;border-radius:12px;background:#3B82F6;position:relative;cursor:default">
+            <div style="width:20px;height:20px;border-radius:50%;background:white;position:absolute;top:2px;right:2px;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div>
+          </div>
+          <span style="font-size:12px;color:#3B82F6;font-weight:700">ON</span>
+        </div>
+      </div>`;
+    case 'textarea':
+      return `<div style="margin-bottom:14px">${labelHtml}
+        <textarea disabled rows="3" placeholder="${f.label}을(를) 입력하세요"
+          style="${base};resize:none;font-family:inherit;min-height:70px"></textarea>
+      </div>`;
+    case 'number':
+      return `<div style="margin-bottom:14px">${labelHtml}
+        <div style="position:relative">
+          <input type="number" disabled placeholder="0" style="${base};text-align:right;padding-right:${f.unit?'40px':'14px'}">
+          ${f.unit?`<span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:12px;color:#94A3B8;font-weight:600">${f.unit}</span>`:''}
+        </div>
+      </div>`;
+    case 'daterange':
+      return `<div style="margin-bottom:14px">${labelHtml}
+        <div style="display:flex;gap:10px;align-items:center">
+          <div style="flex:1">
+            <div style="font-size:10px;color:#94A3B8;margin-bottom:3px">시작일</div>
+            <input type="date" disabled style="${base}">
+          </div>
+          <div style="flex:1">
+            <div style="font-size:10px;color:#94A3B8;margin-bottom:3px">종료일</div>
+            <input type="date" disabled style="${base}">
+          </div>
+        </div>
+      </div>`;
+    case 'date':
+      return `<div style="margin-bottom:14px">${labelHtml}
+        <input type="date" disabled style="${base}">
+      </div>`;
+    case 'select':
+      return `<div style="margin-bottom:14px">${labelHtml}
+        <select disabled style="${base};appearance:auto">
+          <option>— 선택하세요 —</option>
+          ${(f.options||[]).map(o=>`<option>${o}</option>`).join('')}
+        </select>
+      </div>`;
+    case 'file':
+      return `<div style="margin-bottom:14px">${labelHtml}
+        <div style="padding:20px;border:2px dashed #CBD5E1;border-radius:12px;text-align:center;background:#FAFBFC">
+          <div style="font-size:24px;margin-bottom:6px">📎</div>
+          <div style="font-size:11px;color:#64748B">파일을 여기에 드래그하거나 <span style="color:#3B82F6;font-weight:700;text-decoration:underline">찾아보기</span></div>
+        </div>
+      </div>`;
+    case 'autocomplete':
+      return `<div style="margin-bottom:14px">${labelHtml}
+        <div style="display:flex;gap:8px">
+          <input type="text" disabled placeholder="[검색] 버튼을 클릭하세요" style="${base};flex:1">
+          <button disabled style="padding:8px 16px;border:1px solid #3B82F6;background:#3B82F6;color:white;border-radius:10px;font-size:12px;font-weight:700;cursor:default;white-space:nowrap">검색</button>
+        </div>
+      </div>`;
+    case 'rating':
+      return `<div style="margin-bottom:14px">${labelHtml}
+        <div style="display:flex;gap:4px;padding:4px 0">
+          ${[1,2,3,4,5].map(n=>`<span style="font-size:22px;color:${n<=4?'#F59E0B':'#E2E8F0'};cursor:default">${n<=4?'★':'☆'}</span>`).join('')}
+          <span style="font-size:12px;color:#64748B;margin-left:8px;align-self:center">4 / 5</span>
+        </div>
+      </div>`;
+    case 'calc_grounds':
+      return _formPreviewField(f);
+    default:
+      return `<div style="margin-bottom:14px">${labelHtml}
+        <input type="text" disabled placeholder="${f.label}을(를) 입력하세요" style="${base}">
+      </div>`;
+  }
 }
 
 // ── 초기 로드 시 DB에서 기존 설정 복원 ──────────────────────────────────────

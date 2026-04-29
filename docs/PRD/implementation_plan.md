@@ -1,10 +1,10 @@
 # Phase 3: 팀 사업계획 일괄 확정 (Team Forecast Bundle) 구현 계획
 
 > **도메인**: FO — 교육계획 (수요예측 번들 확정)
-> **관련 파일**: `fo_plans_list.js`, `fo_plans_wizard.js`, `fo_approval.js`, `submission_documents` 테이블
+> **관련 파일**: `fo_plans_list.js`, `approval.js`, `submission_documents` 테이블
 > **최초 작성**: 2026-04-28
-> **최종 갱신**: 2026-04-28
-> **상태**: 🔴 미구현
+> **최종 갱신**: 2026-04-29
+> **상태**: ✅ 구현 완료 (2026-04-29)
 
 ---
 
@@ -355,10 +355,10 @@ if (existingBundle) {
 # Phase 4: 사업계획 승인 시 운영계획 자동 복사 (Forecast → Operation Auto-Copy)
 
 > **도메인**: FO — 교육계획 라이프사이클 (사업계획 → 운영계획 전환)
-> **관련 파일**: `fo_plans_actions.js`, `fo_plans_list.js`, `approval.js`, Supabase `plans` 테이블
+> **관련 파일**: `fo_plans_actions.js`, `fo_plans_list.js`, `bo_approval.js`, Supabase `plans` 테이블
 > **최초 작성**: 2026-04-28
-> **최종 갱신**: 2026-04-28
-> **상태**: 🔴 미구현 (설계 완료, 구현 대기)
+> **최종 갱신**: 2026-04-29
+> **상태**: ✅ 구현 완료 (2026-04-29)
 
 ---
 

@@ -257,3 +257,46 @@
 | **DEC-05** | **팀장 결재함 team_forecast 번들 조회** | 'submitted','in_review','team_approved' 범위 조회 | Phase 3 PRD F-004a | team_approved 건도 계속 팀장 결재함에 보여야 하는지, 아니면 숨길지? |
 | **DEC-06** | **결재선 계정 기반 라우팅 (Q-P3-01)** | 현재 training type 기반 로직 사용 | Phase 3 미결 사항 | account_code 기반(HMC-OPS 등) 결재선 라우팅 업그레이드 필요 여부 |
 
+
+
+---
+
+## 🚀 다음 세션 시작 가이드 (2026-04-29 기준)
+
+### 📌 현재 완료된 워크플로우 전체 흐름
+
+`
+[FO 팀원] saved 사업계획 → 팀 탭에서 '📤 팀 사업계획 확정' 클릭
+    ↓ foTeamForecastConfirm() — submission_documents 생성, plans → submitted
+[FO 팀장] 결재함 → '📤 BO 전달' 클릭
+    ↓ _teamForecastBoTransfer() — status: team_approved 전환 ✅ 완료
+[BO 운영담당자] bo_budget_consolidation 대시보드에서 수신 ← ❌ 미구현
+    ↓ (미구현) 1차 예산 조정 → 총괄담당자 상신
+[총괄담당자] 최종 승인
+    ↓ _autoCreateOperationPlan() — 운영계획 자동 생성 ✅ 완료
+[FO 팀원] 운영계획 탭에서 '📋 사업계획 복사본' 뱃지 확인 → 상신 ✅ 완료
+`
+
+### 🎯 다음 세션 1순위: BO 취합 대시보드 (bo_budget_consolidation)
+
+**목표**: BO 운영담당자가 	eam_approved 상태의 팀 번들을 수신·검토·총괄 상신하는 화면
+
+**관련 파일**:
+- docs/PRD/bo_budget_consolidation.md — 설계 문서 (취합 대시보드 PRD)
+- public/js/bo_approval.js — BO 결재 로직 (이미 	eam_approved 조회 코드 존재)
+- public/js/bo_budget_demand.js — BO 예산 수요 대시보드 (관련 화면)
+
+**시작 전 확인 사항**:
+1. o_budget_consolidation.md PRD 내용 먼저 읽기
+2. o_approval.js에서 	eam_approved 상태 문서가 현재 어떻게 표시되는지 확인
+3. 별도 메뉴 탭으로 구현할지, 기존 'bo_approval' 취합현황 탭을 개선할지 결정
+
+### ⚠️ 결정이 필요한 미결 사항 (DEC 목록)
+
+| # | 질문 | 현재 구현 방향 | 결정 필요 |
+|---|------|--------------|---------|
+| DEC-01 | plan_type='business'도 자동복사 대상? | ✅ 포함 (현재 구현) | 공식 확정 필요 |
+| DEC-02 | 재승인 시 기존 복사본 처리 | 기존 유지(스킵) | 옵션 A/B 확정 |
+| DEC-05 | team_approved 번들 팀장 결재함 노출 여부 | 현재 노출 중 | 숨길지 여부 |
+| DEC-06 | 결재선 account_code 기반 라우팅 | training type 기반 유지 | 업그레이드 여부 |
+

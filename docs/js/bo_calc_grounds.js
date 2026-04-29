@@ -1271,7 +1271,8 @@ window._getCalcGroundsForType = function(type, vorgId, isOverseas) {
   return (CALC_GROUNDS_MASTER || []).filter((g) => {
     if (g.active === false) return false;
     if ((g.usageType || "edu_operation") !== type) return false;
-    if (g.domainId && vorgId && g.domainId !== vorgId) return false;
+    // vorgId가 있을 때만 domainId 필터 적용. vorgId 없으면 모든 항목 표시 (공유 항목 포함)
+    if (vorgId && g.domainId && g.domainId !== vorgId) return false;
     if (g.isOverseas && !isOverseas) return false;
     return true;
   }).sort((a, b) => (a.sortOrder || 99) - (b.sortOrder || 99));
@@ -1317,7 +1318,9 @@ window.getApplicableCalcGroundsForType = function(type, vorgId, userSelections) 
 window._loadUnitPricesForItem = async function(itemId, tenantId) {
   if (!itemId) return [];
   try {
-    const sb = typeof _sb === "function" ? _sb() : null;
+    // FO에서는 getSB(), BO에서는 _sb() 사용
+    const sb = (typeof _sb === "function" ? _sb() : null)
+             || (typeof getSB === "function" ? getSB() : null);
     if (!sb) {
       return (typeof _cgDetailUnitPrices !== "undefined" ? _cgDetailUnitPrices : [])
         .filter((p) => p.active !== false && (p.calc_ground_id === itemId || p.calc_ground_name === (CALC_GROUNDS_MASTER||[]).find(g=>g.id===itemId)?.name))

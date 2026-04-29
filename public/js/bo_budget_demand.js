@@ -1196,7 +1196,38 @@ async function _bdL3BulkAction() {
   const reviewer = boCurrentPersona?.name || 'admin';
   const now = new Date().toISOString();
   const extra = action.startsWith('op_') ? { op_reviewed_by: reviewer, op_reviewed_at: now } : { final_reviewed_by: reviewer, final_reviewed_at: now };
+
+  // 1) bo_status 일괄 업데이트
   await Promise.all(checked.map(id => sb.from('plans').update({ bo_status: action, ...extra, updated_at: now }).eq('id', id)));
+
+  // 2) [Phase 4] 총괄 승인 시 → 사업계획(forecast/business)에 한해 운영계획 자동 복사
+  if (action === 'final_approved' && typeof _autoCreateOperationPlan === 'function') {
+    try {
+      // 선택된 계획의 전체 레코드 조회
+      const { data: approvedPlans } = await sb.from('plans')
+        .select('*')
+        .in('id', checked);
+
+      if (approvedPlans && approvedPlans.length > 0) {
+        let copiedCount = 0;
+        for (const plan of approvedPlans) {
+          if (plan.plan_type === 'forecast' || plan.plan_type === 'business') {
+            const newId = await _autoCreateOperationPlan(sb, plan);
+            if (newId) copiedCount++;
+          }
+        }
+        if (copiedCount > 0) {
+          if (typeof _boShowToast === 'function') {
+            _boShowToast(`📋 운영계획 ${copiedCount}건이 자동 생성되었습니다.`, 'info');
+          }
+          console.log(`[Phase4] 수요분석 총괄승인 → 운영계획 자동복사 ${copiedCount}건 완료`);
+        }
+      }
+    } catch (e) {
+      console.warn('[Phase4] 운영계획 자동복사 실패 (비치명적):', e.message);
+    }
+  }
+
   if (typeof _boShowToast === 'function') _boShowToast(`✅ ${checked.length}건 처리 완료`, 'success');
   sel.value = '';
   _bdPlans = null; renderBudgetDemand();

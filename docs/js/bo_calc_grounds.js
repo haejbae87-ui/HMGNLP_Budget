@@ -338,12 +338,12 @@ async function _renderCgDetailPage() {
     <div style="font-size:13px;font-weight:800;color:#1D4ED8;margin-bottom:14px">🏢 소속 설정</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <div style="grid-column:1/-1">
-        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">제도그룹 <span style="font-size:10px;color:#6B7280">(미선택 = 테넌트 전체 공유)</span></label>
+        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">제도그룹 <span style="color:#EF4444">*</span></label>
         <select id="cg-dt-grp" style="width:100%;padding:8px 10px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:12px">
-          <option value="">— 테넌트 전체 공유 —</option>
+          <option value="">— 제도그룹 선택 (필수) —</option>
           ${groupOpts}
         </select>
-        <div style="margin-top:4px;font-size:10px;color:#1D4ED8">💡 같은 제도그룹 하위의 모든 예산계정에서 이 항목을 공유합니다.</div>
+        <div style="margin-top:4px;font-size:10px;color:#DC2626">⚠️ 세부산출근거는 반드시 제도그룹에 귀속되어야 합니다.</div>
       </div>
       <div style="grid-column:1/-1">
         <label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px">세부산출근거 유형 <span style="color:#EF4444">*</span></label>
@@ -742,6 +742,7 @@ function _cgRenderMatrix() {
         <thead><tr style="background:#F3F4F6">
           <th style="padding:6px 8px;text-align:left;font-weight:800;color:#374151;min-width:100px">세부항목명</th>
           <th style="padding:6px 8px;text-align:right;font-weight:800;color:#374151;width:90px">단가(원)</th>
+          <th style="padding:6px 8px;text-align:center;font-weight:800;color:#D97706;width:70px">박수(qty2)<br><span style="font-size:9px;font-weight:500;color:#9CA3AF">프리셋 자동입력</span></th>
           <th style="padding:6px 8px;text-align:center;font-weight:800;color:#374151;width:70px">상한유형</th>
           <th style="padding:6px 8px;text-align:right;font-weight:800;color:#374151;width:90px">상한가(원)</th>
           <th style="padding:6px 8px;text-align:center;font-weight:800;color:#374151;width:55px">상태</th>
@@ -754,6 +755,7 @@ function _cgRenderMatrix() {
           <tr style="border-bottom:1px solid #E5E7EB;${!isItemActive ? 'opacity:.5;' : ''}">
             <td style="padding:4px 6px"><input type="text" value="${p.preset_name||p.detail_name||''}" onchange="_cgDtUpdateSubItem(${di},${pi},'name',this.value)" style="width:100%;box-sizing:border-box;padding:5px 6px;border:1px solid #E5E7EB;border-radius:5px;font-size:11px"></td>
             <td style="padding:4px 6px"><input type="number" value="${p.unit_price||0}" onchange="_cgDtUpdateSubItem(${di},${pi},'price',this.value)" style="width:100%;box-sizing:border-box;padding:5px 6px;border:1px solid #E5E7EB;border-radius:5px;font-size:11px;text-align:right"></td>
+            <td style="padding:4px 6px"><input type="number" value="${p.qty2_value||1}" min="1" onchange="_cgDtUpdateSubItem(${di},${pi},'qty2_value',this.value)" style="width:100%;box-sizing:border-box;padding:5px 6px;border:1.5px solid #FDE68A;border-radius:5px;font-size:11px;text-align:center;background:#FFFBEB;color:#92400E;font-weight:700"></td>
             <td style="padding:4px 6px"><select onchange="_cgDtUpdateSubItem(${di},${pi},'limit_type',this.value)" style="width:100%;padding:5px 3px;border:1px solid #E5E7EB;border-radius:5px;font-size:10px">${['none','soft','hard'].map(lt=>`<option value="${lt}" ${(p.limit_type||'none')===lt?'selected':''}>${lt==='none'?'없음':lt==='soft'?'⚠Soft':'🚫Hard'}</option>`).join('')}</select></td>
             <td style="padding:4px 6px"><input type="number" value="${p.limit_value||0}" onchange="_cgDtUpdateSubItem(${di},${pi},'limit_value',this.value)" style="width:100%;box-sizing:border-box;padding:5px 6px;border:1px solid #E5E7EB;border-radius:5px;font-size:11px;text-align:right" ${(p.limit_type||'none')==='none'?'disabled':''}></td>
             <td style="padding:4px 6px;text-align:center">
@@ -815,6 +817,7 @@ function _cgDtUpdateSubItem(dimIdx, itemIdx, field, value) {
   if (field === 'name') { items[itemIdx].preset_name = value; items[itemIdx].detail_name = value; }
   else if (field === 'price') items[itemIdx].unit_price = Number(value) || 0;
   else if (field === 'qty2') items[itemIdx].qty2_value = Number(value) || 1;
+  else if (field === 'qty2_value') items[itemIdx].qty2_value = Number(value) || 1;
   else if (field === 'limit_type') items[itemIdx].limit_type = value;
   else if (field === 'limit_value') items[itemIdx].limit_value = Number(value) || 0;
   else if (field === 'qty2_label') items[itemIdx].qty2_label = value;
@@ -925,6 +928,7 @@ async function _cgSaveDetail() {
 
   const tenantId = _cgFilterTenant || boCurrentPersona.tenantId || "HMC";
   const groupId = document.getElementById("cg-dt-grp")?.value || null;
+  if (!groupId) { alert("❌ 제도그룹을 선택해야 합니다.\n세부산출근거는 반드시 제도그룹에 귀속되어야 합니다."); return; }
   const isOverseas = document.getElementById("cg-dt-is-overseas")?.checked === true;
 
   let unitPrice = 0, limitType = "none", softLimit = 0, hardLimit = 0;

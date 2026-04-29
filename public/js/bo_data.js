@@ -4488,6 +4488,12 @@ function _boEduFilterBar(onChangeCallback) {
     tenants.map(function(t) { return '<option value="' + t.id + '"' + (_boEduFilter.tenantId === t.id ? ' selected' : '') + '>' + (t.name || t.id) + '</option>'; }).join('') +
     '</select></div>' +
     '<div class="bo-filter-divider"></div>' +
+    '<div style="display:flex;align-items:center;gap:8px"><span class="bo-filter-label">VOrg</span>' +
+    '<select id="bf-vorg" class="bo-filter-select" onchange="_boFilterChange(\'vorgId\',this.value,\'' + onChangeCallback + '\')">' +
+    '<option value="">' + String.fromCodePoint(0xC804) + String.fromCodePoint(0xCCB4) + ' ' + String.fromCodePoint(0xAD50) + String.fromCodePoint(0xC721) + String.fromCodePoint(0xC870) + String.fromCodePoint(0xC9C1) + '</option>' +
+    filteredVorgs.map(function(v) { var vid = v.id; var vname = v.name || v.id; return '<option value="' + vid + '"' + (_boEduFilter.vorgId === vid ? ' selected' : '') + '>' + vname + '</option>'; }).join('') +
+    '</select></div>' +
+    '<div class="bo-filter-divider"></div>' +
     '<div style="display:flex;align-items:center;gap:8px"><span class="bo-filter-label">' + String.fromCodePoint(0xACC4) + String.fromCodePoint(0xC815) + '</span>' +
     '<select id="bf-account" class="bo-filter-select" onchange="_boFilterChange(\'accountCode\',this.value,\'' + onChangeCallback + '\')">' +
     '<option value="">' + String.fromCodePoint(0xC804) + String.fromCodePoint(0xCCB4) + ' ' + String.fromCodePoint(0xACC4) + String.fromCodePoint(0xC815) + '</option>' +
@@ -4498,6 +4504,7 @@ function _boEduFilterBar(onChangeCallback) {
     '<button onclick="_boFilterReset(\'' + onChangeCallback + '\')" class="bo-filter-btn-reset">' + String.fromCodePoint(0xCD08) + String.fromCodePoint(0xAE30) + String.fromCodePoint(0xD654) + '</button>' +
     '</div>';
 }
+
 
 function _boFilterChange(key, value, callbackName) {
   _boEduFilter[key] = value;
@@ -4522,6 +4529,11 @@ function _boFilterReset(callbackName) {
 function _boApplyEduFilter(items) {
   return items.filter(function(item) {
     if (_boEduFilter.tenantId && (item.tenant_id || item.tenantId) !== _boEduFilter.tenantId) return false;
+    // ★ VOrg(교육조직) 필터: vorg_template_id 직접 매칭
+    if (_boEduFilter.vorgId) {
+      var itemVorg = item.vorg_template_id || item.vorgTemplateId || item.vorg_id || '';
+      if (itemVorg !== _boEduFilter.vorgId) return false;
+    }
     if (_boEduFilter.accountCode && (item.account_code || item.account) !== _boEduFilter.accountCode) return false;
     if (_boEduFilter.purpose && item.detail && item.detail.purpose !== _boEduFilter.purpose) return false;
     if (_boEduFilter.eduType && (item.edu_type || item.eduType) !== _boEduFilter.eduType) return false;

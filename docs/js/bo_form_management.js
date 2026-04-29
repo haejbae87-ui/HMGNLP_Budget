@@ -67,8 +67,8 @@ const _FORM_FIELDS = {
   // ── 사업계획 (Forecast) — PL-01~16 기반 ──────────────────────────────────
   forecast: [
     { cat:'기본정보', icon:'📋', locked:true, fields:[
-      {key:'edu_purpose',        label:'교육목적',   type:'select',  locked:true},
-      {key:'edu_type',           label:'교육유형',   type:'select',  locked:true},
+      {key:'edu_purpose',        label:'교육목적',   type:'select'},
+      {key:'edu_type',           label:'교육유형',   type:'select'},
       {key:'course_name',        label:'교육과정명', type:'text',    locked:true},
       {key:'is_overseas',        label:'국내/해외',  type:'boolean', locked:true},
     ]},
@@ -102,8 +102,8 @@ const _FORM_FIELDS = {
   // ── 운영계획 (Operation) ────────────────────────────────────────────────
   operation: [
     { cat:'기본정보', icon:'📋', locked:true, fields:[
-      {key:'edu_purpose',   label:'교육목적', type:'select',  locked:true},
-      {key:'edu_type',      label:'교육유형', type:'select',  locked:true},
+      {key:'edu_purpose',   label:'교육목적', type:'select'},
+      {key:'edu_type',      label:'교육유형', type:'select'},
       {key:'course_name',   label:'교육명',   type:'text',    locked:true},
       {key:'is_overseas',   label:'국내/해외',type:'boolean', locked:true},
     ]},
@@ -135,8 +135,8 @@ const _FORM_FIELDS = {
   // ── 신청 (Apply) — A-01~20 기반 ──────────────────────────────────────────
   apply: [
     { cat:'기본정보', icon:'📋', locked:true, fields:[
-      {key:'edu_purpose', label:'교육목적', type:'select', locked:true},
-      {key:'edu_type',    label:'교육유형', type:'select', locked:true},
+      {key:'edu_purpose', label:'교육목적', type:'select'},
+      {key:'edu_type',    label:'교육유형', type:'select'},
     ]},
     { cat:'과정정보', icon:'📐', fields:[
       {key:'course_name',        label:'과정명',       type:'text'},
@@ -177,8 +177,8 @@ const _FORM_FIELDS = {
   // ── 결과 (Result) — R-01~12 + RT-01~07 + 비용정산 기반 ───────────────────
   result: [
     { cat:'기본정보', icon:'📋', locked:true, fields:[
-      {key:'edu_purpose', label:'교육목적', type:'select', locked:true},
-      {key:'edu_type',    label:'교육유형', type:'select', locked:true},
+      {key:'edu_purpose', label:'교육목적', type:'select'},
+      {key:'edu_type',    label:'교육유형', type:'select'},
       {key:'course_name', label:'교육명',   type:'text',   locked:true},
     ]},
     { cat:'수료정보', icon:'🎓', fields:[

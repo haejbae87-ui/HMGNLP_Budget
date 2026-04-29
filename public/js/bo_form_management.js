@@ -168,7 +168,7 @@ async function renderFormManagement() {
     // DB 로드 (platform_admin은 전체, 나머지는 자사만)
     const sb = typeof _sb === 'function' ? _sb() : window.__supabase;
     if (sb) {
-      let tplQuery = sb.from('virtual_org_templates').select('id,name,tenant_id');
+      let tplQuery = sb.from('virtual_org_templates').select('id,name,tenant_id,template_type');
       let accQuery = sb.from('budget_accounts').select('*');
       if (!isPlatform) {
         const tid = user.tenant_id || 'HMC';

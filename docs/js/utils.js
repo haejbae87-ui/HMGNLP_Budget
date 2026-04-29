@@ -61,6 +61,12 @@ Object.entries(_BO_TO_FO_PURPOSE).forEach(([bo, fo]) => {
 
 // ── 교육유형 라벨 매핑 (BO raw key → 한글 라벨) ──
 const EDU_TYPE_LABELS = {
+  // ── 직접학습(learner) 세부항목 — l_ 접두어로 교육운영과 ID 충돌 방지 ──
+  l_elearning: "이러닝",
+  l_class: "집합",
+  l_seminar: "세미나",
+  l_team_build: "팀빌딩",
+  // ── 공통 ──
   regular: "정규교육",
   elearning: "이러닝",
   class: "집합",

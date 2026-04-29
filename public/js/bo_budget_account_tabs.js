@@ -155,7 +155,27 @@ function _bamToggleEduType(id) {
   const i = arr.indexOf(id);
   if (i >= 0) arr.splice(i, 1); else arr.push(id);
   _bamDetailData.edu_types = arr;
+  _bamDetailData.purpose_types = _bamComputePurposeTypes(arr);
   _bamRenderTabs();
+}
+
+// ── edu_types 배열 → purpose_types JSONB 자동 계산 ──
+// 결과: { learner: { regular: ["l_elearning","l_class"], academic: ["conf"] }, operator: { elearning_class: ["elearning"] } }
+function _bamComputePurposeTypes(eduTypes) {
+  const result = {};
+  _BAM_EDU_TREE.forEach(g => {
+    const groupPurposes = {};
+    g.categories.forEach(cat => {
+      const matched = cat.types.filter(t => eduTypes.includes(t.id)).map(t => t.id);
+      if (matched.length > 0) {
+        groupPurposes[cat.purpose] = matched;
+      }
+    });
+    if (Object.keys(groupPurposes).length > 0) {
+      result[g.group] = groupPurposes;
+    }
+  });
+  return result;
 }
 
 function _bamToggleCategoryAll(idsStr) {
@@ -170,6 +190,7 @@ function _bamToggleCategoryAll(idsStr) {
     ids.forEach(id => { if (!arr.includes(id)) arr.push(id); });
     _bamDetailData.edu_types = arr;
   }
+  _bamDetailData.purpose_types = _bamComputePurposeTypes(_bamDetailData.edu_types);
   _bamRenderTabs();
 }
 

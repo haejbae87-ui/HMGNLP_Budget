@@ -102,46 +102,56 @@ async function renderFormManagement() {
   const ct = document.getElementById('bo-content');
   ct.innerHTML = '<div style="text-align:center;padding:60px;color:#9CA3AF">⏳ 양식관리 데이터 로딩 중...</div>';
 
-  const user = JSON.parse(sessionStorage.getItem('loggedInUser') || '{}');
-  const role = (boCurrentPersona?.role) || user.role || '';
-  const isPlatform = role === 'platform_admin';
-
-  // DB 로드 (platform_admin은 전체, 나머지는 자사만)
   try {
-    const sb = window.__supabase;
-    let tplQuery = sb.from('virtual_org_templates').select('id,name,tenant_id');
-    let accQuery = sb.from('budget_accounts').select('*');
-    if (!isPlatform) {
-      const tid = user.tenant_id || 'HMC';
-      tplQuery = tplQuery.eq('tenant_id', tid);
-      accQuery = accQuery.eq('tenant_id', tid);
+    const user = JSON.parse(sessionStorage.getItem('loggedInUser') || '{}');
+    const role = (typeof boCurrentPersona !== 'undefined' && boCurrentPersona?.role) || user.role || '';
+    const isPlatform = role === 'platform_admin';
+
+    // DB 로드 (platform_admin은 전체, 나머지는 자사만)
+    const sb = typeof _sb === 'function' ? _sb() : window.__supabase;
+    if (sb) {
+      let tplQuery = sb.from('virtual_org_templates').select('id,name,tenant_id');
+      let accQuery = sb.from('budget_accounts').select('*');
+      if (!isPlatform) {
+        const tid = user.tenant_id || 'HMC';
+        tplQuery = tplQuery.eq('tenant_id', tid);
+        accQuery = accQuery.eq('tenant_id', tid);
+      }
+      const [tplRes, accRes] = await Promise.all([tplQuery, accQuery]);
+      _fmTplList = tplRes.data || [];
+      _fmAccountList = accRes.data || [];
+    } else {
+      console.warn('[FormMgmt] Supabase 미연결, mock 사용');
+      _fmTplList = (window.VORG_TEMPLATES||[]);
+      _fmAccountList = (window.BUDGET_ACCOUNTS||[]);
     }
-    const [tplRes, accRes] = await Promise.all([tplQuery, accQuery]);
-    _fmTplList = tplRes.data || [];
-    _fmAccountList = accRes.data || [];
+
+    // 회사 목록 추출
+    _fmTenantList = typeof TENANTS !== 'undefined'
+      ? TENANTS
+      : [...new Set(_fmTplList.map(t => t.tenant_id).filter(Boolean))].map(id => ({ id, name: id }));
+
+    // platform_admin: 회사 미선택 시 첫 번째 자동 선택
+    if (isPlatform && !_fmTenantId && _fmTenantList.length) _fmTenantId = _fmTenantList[0].id;
+    // 일반 admin: 자사 고정
+    if (!isPlatform) _fmTenantId = user.tenant_id || 'HMC';
+
+    _fmRenderPage();
   } catch(e) {
-    console.warn('[FormMgmt] DB 로드 실패, mock 사용', e);
-    _fmTplList = (window.VORG_TEMPLATES||[]);
-    _fmAccountList = (window.BUDGET_ACCOUNTS||[]);
+    console.error('[FormMgmt] 렌더링 에러:', e);
+    ct.innerHTML = `<div style="text-align:center;padding:60px;color:#EF4444">
+      <div style="font-size:32px;margin-bottom:12px">⚠️</div>
+      <div style="font-size:14px;font-weight:700">양식관리 로드 중 오류가 발생했습니다</div>
+      <div style="font-size:12px;color:#6B7280;margin-top:8px">${e.message || e}</div>
+      <button onclick="renderFormManagement()" style="margin-top:16px;padding:10px 24px;border-radius:10px;border:none;background:#7C3AED;color:white;font-weight:700;cursor:pointer">다시 시도</button>
+    </div>`;
   }
-
-  // 회사 목록 추출
-  _fmTenantList = typeof TENANTS !== 'undefined'
-    ? TENANTS
-    : [...new Set(_fmTplList.map(t => t.tenant_id))].map(id => ({ id, name: id }));
-
-  // platform_admin: 회사 미선택 시 첫 번째 자동 선택
-  if (isPlatform && !_fmTenantId && _fmTenantList.length) _fmTenantId = _fmTenantList[0].id;
-  // 일반 admin: 자사 고정
-  if (!isPlatform) _fmTenantId = user.tenant_id || 'HMC';
-
-  _fmRenderPage();
 }
 
 function _fmRenderPage() {
   const ct = document.getElementById('bo-content');
   const user = JSON.parse(sessionStorage.getItem('loggedInUser') || '{}');
-  const role = (boCurrentPersona?.role) || user.role || '';
+  const role = (typeof boCurrentPersona !== 'undefined' && boCurrentPersona?.role) || user.role || '';
   const isPlatform = role === 'platform_admin';
 
   // 회사 기준 제도그룹 필터

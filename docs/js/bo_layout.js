@@ -353,8 +353,8 @@ const PLATFORM_MENUS = [
   },
   {
     id: "service-policy",
-    icon: "🔧",
-    label: "교육지원 운영 규칙관리",
+    icon: "📝",
+    label: "교육 양식관리",
     section: null,
     gnb: GNB_CATE.PROGRAM,
   },
@@ -575,8 +575,8 @@ const TENANT_ADMIN_MENUS = [
 
   {
     id: "service-policy",
-    icon: "🔧",
-    label: "교육지원 운영 규칙관리",
+    icon: "📝",
+    label: "교육 양식관리",
     section: null,
     gnb: GNB_CATE.PROGRAM,
   },
@@ -772,8 +772,8 @@ const BUDGET_ADMIN_MENUS = [
 
   {
     id: "service-policy",
-    icon: "🔧",
-    label: "교육지원 운영 규칙관리",
+    icon: "📝",
+    label: "교육 양식관리",
     section: null,
     gnb: GNB_CATE.PROGRAM,
   },
@@ -911,8 +911,8 @@ const BUDGET_OP_MENUS = [
   },
   {
     id: "service-policy",
-    icon: "🔧",
-    label: "교육지원 운영 규칙관리",
+    icon: "📝",
+    label: "교육 양식관리",
     section: "교육지원제도 설정",
     gnb: GNB_CATE.PROGRAM,
   },
@@ -1081,8 +1081,8 @@ const TENANT_DUAL_MENUS = [
 
   {
     id: "service-policy",
-    icon: "🔧",
-    label: "교육지원 운영 규칙관리",
+    icon: "📝",
+    label: "교육 양식관리",
     section: null,
     gnb: GNB_CATE.PROGRAM,
   },
@@ -1632,7 +1632,7 @@ function boNavigate(menuId) {
   if (menuId === "pricing-dimensions") renderPricingDimensions();
 
   if (menuId === "forecast-period") renderForecastPeriodMgmt();
-  if (menuId === "service-policy") renderServicePolicy();
+  if (menuId === "service-policy") renderFormManagement();
   // 운영 메뉴
   if (menuId === "plan-mgmt") renderBoPlanMgmt();
   if (menuId === "allocation") renderOrgBudget();

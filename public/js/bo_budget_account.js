@@ -302,6 +302,8 @@ window._baLoadBudgetAccounts = () => {
 
 // ─── 예산계정 상세 화면 로직 (독립화) ────────────────────────────────────────────────
 let _bamEditId = null;
+let _bamActiveTab = 'basic'; // 'basic' | 'policy' | 'approval'
+let _bamDetailData = {};     // 상세 화면에서 편집 중인 데이터
 
 function _bamCloseDetailView() {
   document.getElementById("bam-detail-view").style.display = "none";
@@ -311,11 +313,12 @@ function _bamCloseDetailView() {
 
 async function _bamShowDetailView(id) {
   _bamEditId = id || null;
+  _bamActiveTab = 'basic';
   const list = window._baAccountList || [];
   const a = id ? list.find((x) => x.id === id) || null : null;
   const autoCode = a?.code || ("BA-" + String(Date.now()).slice(-6));
-  
-  // budget_account_org_policy 로드 (기존 bankbook_mode 값 반영)
+
+  // DB에서 기존 정책 데이터 로드
   let policy = null;
   if (id && window._baTplId) {
     try {
@@ -329,136 +332,87 @@ async function _bamShowDetailView(id) {
     } catch(e) {}
   }
 
-  const title = id ? "예산 계정 수정" : "예산 계정 신규 등록";
-  
+  // 편집 데이터 초기화
+  _bamDetailData = {
+    code: autoCode,
+    name: a?.name || '',
+    description: a?.description || '',
+    uses_budget: a?.uses_budget !== false,
+    integration_type: a?.account_type || 'sap',
+    sap_code: a?.sap_code || '',
+    bankbook_mode: policy?.bankbook_mode || 'isolated',
+    individual_limit: policy?.individual_limit || '',
+    // 서비스 정책 (신규 컬럼)
+    service_type: a?.service_type || '',
+    purpose: a?.purpose || '',
+    edu_types: a?.edu_types || [],
+    selected_edu_item: a?.selected_edu_item || null,
+    process_pattern: a?.process_pattern || '',
+    // 결재라인 (신규 컬럼)
+    approval_config: a?.approval_config || {},
+  };
+
   const detailEl = document.getElementById("bam-detail-view");
-  detailEl.innerHTML = `
-<div class="bo-card" style="padding:24px;max-width:900px;margin:0 auto">
-  <div style="margin-bottom:20px;display:flex;align-items:center;gap:12px;border-bottom:2px solid #F1F5F9;padding-bottom:12px">
+  detailEl.innerHTML = `<div class="bo-card" style="padding:0;max-width:960px;margin:0 auto">
+  <div style="padding:16px 24px;display:flex;align-items:center;gap:12px;border-bottom:2px solid #F1F5F9">
     <button onclick="_bamCloseDetailView()" style="padding:8px 14px;border:1.5px solid #E5E7EB;border-radius:10px;background:white;cursor:pointer;font-size:13px;font-weight:700;color:#374151;display:flex;align-items:center;gap:6px">◀ 목록으로</button>
     <div style="flex:1">
-      <h1 class="bo-page-title" style="margin:0">${title}</h1>
-      <p class="bo-page-sub" style="margin:4px 0 0">예산계정의 기본정보 및 연동 정책을 설정합니다.</p>
+      <h1 class="bo-page-title" style="margin:0">${id ? "예산 계정 수정" : "예산 계정 신규 등록"}</h1>
+      <p class="bo-page-sub" style="margin:4px 0 0">예산계정의 기본정보, 서비스 정책 및 결재라인을 설정합니다.</p>
     </div>
   </div>
-
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
-    <div style="grid-column:1/-1; padding:12px 16px; background:#F8FAFC; border:1.5px solid #E2E8F0; border-radius:10px; display:flex; align-items:center; gap:8px">
-      <span style="font-size:12px; font-weight:800; color:#475569">🏢 소속 제도그룹</span>
-      <span style="font-size:14px; font-weight:900; color:#1E40AF; margin-left:4px">${window._baTplName || '지정되지 않음'}</span>
-      <span style="font-size:11px; color:#64748B; margin-left:auto">※ 이 예산 계정은 위 제도그룹에 종속됩니다.</span>
-    </div>
-    
-    <div style="grid-column:1/-1">
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정코드 (자동채번)</label>
-      <input id="bam-dt-code" type="text" value="${autoCode}" readonly
-        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;background:#F9FAFB;color:#6B7280">
-    </div>
-    <div>
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정명 *</label>
-      <input id="bam-dt-name" type="text" placeholder="예) 교육훈련비" value="${a?.name || ""}"
-        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
-    </div>
-    <div>
-      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">용도 설명</label>
-      <input id="bam-dt-desc" type="text" placeholder="예) 사내 집합/이러닝 운영비" value="${a?.description || ""}"
-        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
-    </div>
+  <div style="padding:12px 24px;background:#F8FAFC;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;gap:8px">
+    <span style="font-size:12px;font-weight:800;color:#475569">🏢 소속 제도그룹</span>
+    <span style="font-size:14px;font-weight:900;color:#1E40AF">${window._baTplName || '지정되지 않음'}</span>
   </div>
-
-  <!-- 예산 사용 여부 -->
-  <div style="margin-bottom:16px">
-    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px">예산 사용 여부</label>
-    <div style="display:flex;gap:12px">
-      <label id="bam-dt-uses-yes-label" style="display:flex;align-items:center;gap:8px;padding:12px 16px;border:1.5px solid ${a?.uses_budget !== false ? "#059669" : "#E5E7EB"};border-radius:10px;cursor:pointer;background:${a?.uses_budget !== false ? "#F0FDF4" : "#fff"};flex:1" onclick="_bamToggleUsesBudget(true)">
-        <input type="radio" name="bam-dt-uses-budget" value="yes" ${a?.uses_budget !== false ? "checked" : ""} style="accent-color:#059669">
-        <div>
-          <div style="font-size:12px;font-weight:800;color:#059669">✅ 사용</div>
-          <div style="font-size:10px;color:#6B7280">조직별 통장 생성 및 예산 배정 허용</div>
-        </div>
-      </label>
-      <label id="bam-dt-uses-no-label" style="display:flex;align-items:center;gap:8px;padding:12px 16px;border:1.5px solid ${a?.uses_budget === false ? "#DC2626" : "#E5E7EB"};border-radius:10px;cursor:pointer;background:${a?.uses_budget === false ? "#FEF2F2" : "#fff"};flex:1" onclick="_bamToggleUsesBudget(false)">
-        <input type="radio" name="bam-dt-uses-budget" value="no" ${a?.uses_budget === false ? "checked" : ""} style="accent-color:#DC2626">
-        <div>
-          <div style="font-size:12px;font-weight:800;color:#DC2626">⛔ 미사용</div>
-          <div style="font-size:10px;color:#6B7280">통장 생성 안 함, 조회만 가능</div>
-        </div>
-      </label>
-    </div>
-  </div>
-
-  <!-- 연동 방식 -->
-  <div id="bam-dt-integration-section" style="margin-bottom:16px;${a?.uses_budget === false ? "display:none" : ""}">
-    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px">연동 방식</label>
-    <div style="display:flex;gap:12px">
-      <label style="display:flex;align-items:center;gap:8px;padding:12px 16px;border:1.5px solid ${!a?.integration_type || a?.integration_type === "sap" ? "#1D4ED8" : "#E5E7EB"};border-radius:10px;cursor:pointer;background:${!a?.integration_type || a?.integration_type === "sap" ? "#EFF6FF" : "#fff"};flex:1">
-        <input type="radio" name="bam-dt-integration" value="sap" ${!a?.integration_type || a?.integration_type === "sap" ? "checked" : ""} onchange="_bamToggleIntegration()" style="accent-color:#1D4ED8">
-        <div>
-          <div style="font-size:12px;font-weight:800;color:#1D4ED8">🔗 SAP 연동</div>
-          <div style="font-size:10px;color:#6B7280">ERP 예산관리와 실시간 연동</div>
-        </div>
-      </label>
-      <label style="display:flex;align-items:center;gap:8px;padding:12px 16px;border:1.5px solid ${a?.integration_type === "standalone" ? "#059669" : "#E5E7EB"};border-radius:10px;cursor:pointer;background:${a?.integration_type === "standalone" ? "#F0FDF4" : "#fff"};flex:1">
-        <input type="radio" name="bam-dt-integration" value="standalone" ${a?.integration_type === "standalone" ? "checked" : ""} onchange="_bamToggleIntegration()" style="accent-color:#059669">
-        <div>
-          <div style="font-size:12px;font-weight:800;color:#059669">📋 자체관리 (미연동)</div>
-          <div style="font-size:10px;color:#6B7280">시스템 내 독립 예산 관리</div>
-        </div>
-      </label>
-    </div>
-    <div id="bam-dt-sap-code-section" style="margin-top:10px;${!a?.integration_type || a?.integration_type === "sap" ? "" : "display:none"}">
-      <label style="font-size:11px;font-weight:700;color:#1D4ED8;display:block;margin-bottom:4px">🔗 SAP 연동 코드</label>
-      <input id="bam-dt-sap-code" type="text" placeholder="예) S12345 (SAP 시스템 연동키)" value="${a?.sap_code || ""}"
-        style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:13px;font-weight:700">
-    </div>
-  </div>
-
-  <!-- 통장 생성 정책 -->
-  <div id="bam-dt-bankbook-mode-section" style="margin-bottom:24px;${a?.uses_budget === false ? "display:none" : ""}">
-    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px">통장 생성 정책</label>
-    <div style="font-size:10px;color:#9CA3AF;margin-bottom:8px">가상교육조직에 상위 조직(본부)을 맵핑했을 때 통장을 어떻게 만들지 결정합니다.</div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <label id="bam-dt-mode-isolated-label" style="display:flex;align-items:flex-start;gap:8px;padding:12px 14px;border:1.5px solid ${(policy?.bankbook_mode || "isolated") === "isolated" ? "#7C3AED" : "#E5E7EB"};border-radius:10px;cursor:pointer;background:${(policy?.bankbook_mode || "isolated") === "isolated" ? "#F5F3FF" : "#fff"};flex:1;min-width:140px" onclick="_bamToggleBankbookMode('isolated')">
-        <input type="radio" name="bam-dt-bankbook-mode" value="isolated" ${(policy?.bankbook_mode || "isolated") === "isolated" ? "checked" : ""} style="accent-color:#7C3AED;margin-top:2px">
-        <div>
-          <div style="font-size:11px;font-weight:800;color:#7C3AED">팀별 분리 통장</div>
-          <div style="font-size:10px;color:#6B7280;margin-top:2px">하위 팀마다 개별 통장<br>예) 내구기술팀 통장</div>
-        </div>
-      </label>
-      <label id="bam-dt-mode-shared-label" style="display:flex;align-items:flex-start;gap:8px;padding:12px 14px;border:1.5px solid ${policy?.bankbook_mode === "shared" ? "#D97706" : "#E5E7EB"};border-radius:10px;cursor:pointer;background:${policy?.bankbook_mode === "shared" ? "#FFFBEB" : "#fff"};flex:1;min-width:140px" onclick="_bamToggleBankbookMode('shared')">
-        <input type="radio" name="bam-dt-bankbook-mode" value="shared" ${policy?.bankbook_mode === "shared" ? "checked" : ""} style="accent-color:#D97706;margin-top:2px">
-        <div>
-          <div style="font-size:11px;font-weight:800;color:#D97706">상위 조직 공유 통장</div>
-          <div style="font-size:10px;color:#6B7280;margin-top:2px">본부단위 통장 1개, 하위 팀 공유</div>
-          <div style="font-size:10px;color:#D97706;margin-top:4px;font-weight:700">⚠️ 패더 소진 시 하위 팀 전체 영향</div>
-        </div>
-      </label>
-      <label id="bam-dt-mode-individual-label" style="display:flex;align-items:flex-start;gap:8px;padding:12px 14px;border:1.5px solid ${policy?.bankbook_mode === "individual" ? "#059669" : "#E5E7EB"};border-radius:10px;cursor:pointer;background:${policy?.bankbook_mode === "individual" ? "#ECFDF5" : "#fff"};flex:1;min-width:140px" onclick="_bamToggleBankbookMode('individual')">
-        <input type="radio" name="bam-dt-bankbook-mode" value="individual" ${policy?.bankbook_mode === "individual" ? "checked" : ""} style="accent-color:#059669;margin-top:2px">
-        <div>
-          <div style="font-size:11px;font-weight:800;color:#059669">👤 개인별 분리 통장</div>
-          <div style="font-size:10px;color:#6B7280;margin-top:2px">팀원 1인당 개별 통장<br>예) 홍길동 참가통장</div>
-          <div style="font-size:10px;color:#059669;margin-top:4px;font-weight:700">💰 성장지원금 · 한도 엄격</div>
-        </div>
-      </label>
-    </div>
-    <div id="bam-dt-individual-limit-section" style="margin-top:12px;${policy?.bankbook_mode === "individual" ? "" : "display:none"}">
-      <label style="font-size:11px;font-weight:700;color:#059669;display:block;margin-bottom:4px">💰 1인당 기본 한도 (원)</label>
-      <input id="bam-dt-individual-limit" type="number" min="0" step="10000" placeholder="예) 500000" value="${policy?.individual_limit || ""}"
-        style="width:200px;padding:8px 12px;border:1.5px solid #A7F3D0;border-radius:8px;font-size:13px;font-weight:700">
-      <span style="font-size:10px;color:#6B7280;margin-left:8px">FO 첫 로그인 시 자동 생성 + 이 금액 배정</span>
-    </div>
-  </div>
-
-  <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:16px;border-top:2px solid #E5E7EB">
+  <div id="bam-tab-bar" style="display:flex;border-bottom:2px solid #E5E7EB"></div>
+  <div id="bam-tab-content" style="padding:24px"></div>
+  <div style="display:flex;gap:10px;justify-content:flex-end;padding:16px 24px;border-top:2px solid #E5E7EB">
     <button onclick="_bamCloseDetailView()" style="padding:10px 24px;border:1.5px solid #E5E7EB;border-radius:10px;background:white;font-size:13px;font-weight:700;cursor:pointer;color:#6B7280">취소</button>
     <button onclick="_bamSaveAccount()" style="padding:10px 28px;border:none;border-radius:10px;background:linear-gradient(135deg,#1D4ED8,#2563EB);color:white;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,.35)">💾 저장</button>
   </div>
 </div>`;
-  
+
+  _bamRenderTabs();
   document.getElementById("bam-filter-area").style.display = "none";
   document.getElementById("bam-list-view").style.display = "none";
   detailEl.style.display = "block";
+}
+
+function _bamRenderTabs() {
+  const tabs = [
+    { key: 'basic', label: '📋 기본정보', color: '#1D4ED8' },
+    { key: 'policy', label: '🎯 서비스 정책 · 프로세스', color: '#7C3AED' },
+    { key: 'approval', label: '📝 결재라인', color: '#059669' },
+  ];
+  const bar = document.getElementById("bam-tab-bar");
+  if (!bar) return;
+  bar.innerHTML = tabs.map(t => `<button onclick="_bamSwitchTab('${t.key}')"
+    style="flex:1;padding:12px 16px;font-size:13px;font-weight:${_bamActiveTab === t.key ? '900' : '600'};
+    color:${_bamActiveTab === t.key ? t.color : '#6B7280'};
+    background:${_bamActiveTab === t.key ? t.color + '08' : 'transparent'};
+    border:none;border-bottom:3px solid ${_bamActiveTab === t.key ? t.color : 'transparent'};
+    cursor:pointer;transition:all .15s">${t.label}</button>`).join('');
+  _bamRenderTabContent();
+}
+
+function _bamSwitchTab(tab) {
+  _bamActiveTab = tab;
+  _bamRenderTabs();
+}
+
+function _bamRenderTabContent() {
+  const el = document.getElementById("bam-tab-content");
+  if (!el) return;
+  const d = _bamDetailData;
+
+  if (_bamActiveTab === 'basic') {
+    el.innerHTML = _bamRenderBasicTab(d);
+  } else if (_bamActiveTab === 'policy') {
+    el.innerHTML = _bamRenderPolicyTab(d);
+  } else if (_bamActiveTab === 'approval') {
+    el.innerHTML = _bamRenderApprovalTab(d);
+  }
 }
 
 function _bamToggleIntegration() {
@@ -521,34 +475,28 @@ function _bamToggleBankbookMode(mode) {
 }
 
 async function _bamSaveAccount() {
-  const code = document.getElementById("bam-dt-code").value.trim();
-  const name = document.getElementById("bam-dt-name").value.trim();
-  if (!code || !name) {
-    alert("계정명은 필수입니다.");
-    return;
-  }
-  if (!window._baTplId) {
-    alert("제도그룹을 먼저 선택하세요.");
-    return;
-  }
+  const d = _bamDetailData;
+  if (!d.code || !d.name) { alert("계정명은 필수입니다."); return; }
+  if (!window._baTplId) { alert("제도그룹을 먼저 선택하세요."); return; }
 
   const role = boCurrentPersona.role;
   const tenantId = role === "platform_admin" ? (window._baTenantId || "HMC") : (boCurrentPersona.tenantId || "HMC");
-  const integration = document.querySelector('input[name="bam-dt-integration"]:checked')?.value || "sap";
-  const sapCode = integration === "sap" ? document.getElementById("bam-dt-sap-code")?.value.trim() : null;
-  const usesBudget = document.querySelector('input[name="bam-dt-uses-budget"]:checked')?.value !== "no";
-  const bankbookMode = document.querySelector('input[name="bam-dt-bankbook-mode"]:checked')?.value || "isolated";
 
   const payload = {
     tenant_id: tenantId,
     virtual_org_template_id: window._baTplId,
-    code,
-    name,
-    account_type: integration,
-    sap_code: sapCode,
-    description: document.getElementById("bam-dt-desc").value.trim(),
+    code: d.code, name: d.name,
+    account_type: d.integration_type || 'sap',
+    sap_code: d.integration_type === 'sap' ? (d.sap_code || null) : null,
+    description: d.description || '',
     active: true,
-    uses_budget: usesBudget,
+    uses_budget: d.uses_budget !== false,
+    service_type: d.service_type || null,
+    purpose: d.purpose || null,
+    edu_types: d.edu_types || [],
+    selected_edu_item: d.selected_edu_item || null,
+    process_pattern: d.process_pattern || null,
+    approval_config: d.approval_config || {},
     updated_at: new Date().toISOString(),
   };
 
@@ -559,45 +507,83 @@ async function _bamSaveAccount() {
     if (_bamEditId) {
       const { error } = await sb.from("budget_accounts").update(payload).eq("id", _bamEditId);
       if (error) throw error;
-      
-      const policyPayload = {
-        budget_account_id: _bamEditId,
-        vorg_template_id: window._baTplId,
-        bankbook_mode: bankbookMode,
-        bankbook_level: "team",
-        updated_at: new Date().toISOString(),
-      };
-      if (bankbookMode === "individual") {
-        const limitVal = document.getElementById("bam-dt-individual-limit")?.value;
-        policyPayload.individual_limit = limitVal ? Number(limitVal) : null;
-      } else {
-        policyPayload.individual_limit = null;
-      }
-      await sb.from("budget_account_org_policy").upsert(policyPayload, { onConflict: "budget_account_id,vorg_template_id" });
+      const pp = { budget_account_id: _bamEditId, vorg_template_id: window._baTplId,
+        bankbook_mode: d.bankbook_mode || 'isolated', bankbook_level: "team", updated_at: new Date().toISOString(),
+        individual_limit: d.bankbook_mode === "individual" && d.individual_limit ? Number(d.individual_limit) : null };
+      await sb.from("budget_account_org_policy").upsert(pp, { onConflict: "budget_account_id,vorg_template_id" });
     } else {
       payload.id = "BA-" + Date.now();
       const { error } = await sb.from("budget_accounts").insert(payload);
       if (error) throw error;
-      
-      const newPolicyPayload = {
-        budget_account_id: payload.id,
-        vorg_template_id: window._baTplId,
-        bankbook_mode: bankbookMode,
-        bankbook_level: "team",
-      };
-      if (bankbookMode === "individual") {
-        const limitVal = document.getElementById("bam-dt-individual-limit")?.value;
-        newPolicyPayload.individual_limit = limitVal ? Number(limitVal) : null;
-      }
-      await sb.from("budget_account_org_policy").insert(newPolicyPayload);
-      
-      if(typeof _syncBankbooksForTemplate === "function") {
-        try { await _syncBankbooksForTemplate(window._baTplId, payload.tenant_id); } catch (e) {}
+      const np = { budget_account_id: payload.id, vorg_template_id: window._baTplId,
+        bankbook_mode: d.bankbook_mode || 'isolated', bankbook_level: "team",
+        individual_limit: d.bankbook_mode === "individual" && d.individual_limit ? Number(d.individual_limit) : null };
+      await sb.from("budget_account_org_policy").insert(np);
+      if (typeof _syncBankbooksForTemplate === "function") {
+        try { await _syncBankbooksForTemplate(window._baTplId, payload.tenant_id); } catch(e) {}
       }
     }
     _bamCloseDetailView();
     _bamLoadBudgetAccountsList(window._baTplId);
-  } catch (e) {
-    alert("저장 실패: " + e.message);
-  }
+  } catch (e) { alert("저장 실패: " + e.message); }
+}
+
+// ─── Tab 1: 기본정보 탭 렌더링 ─────────────────────────────────────────
+function _bamRenderBasicTab(d) {
+  const _r = (id, v) => `oninput="_bamDetailData.${id}=this.value"`;
+  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+  <div style="grid-column:1/-1">
+    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정코드 (자동채번)</label>
+    <input type="text" value="${d.code}" readonly style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;background:#F9FAFB;color:#6B7280">
+  </div>
+  <div>
+    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정명 *</label>
+    <input type="text" value="${d.name}" placeholder="예) 교육훈련비" ${_r('name')} style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+  </div>
+  <div>
+    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">용도 설명</label>
+    <input type="text" value="${d.description}" placeholder="예) 사내 집합/이러닝 운영비" ${_r('description')} style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+  </div>
+</div>
+
+<!-- 예산 사용 여부 -->
+<div style="margin-top:16px">
+  <label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px">예산 사용 여부</label>
+  <div style="display:flex;gap:12px">
+    ${[{v:true,c:'#059669',i:'✅',l:'사용',s:'조직별 통장 생성 및 예산 배정 허용'},{v:false,c:'#DC2626',i:'⛔',l:'미사용',s:'통장 생성 안 함, 조회만 가능'}]
+      .map(o=>`<label style="display:flex;align-items:center;gap:8px;padding:12px 16px;border:1.5px solid ${d.uses_budget===o.v?o.c:'#E5E7EB'};border-radius:10px;cursor:pointer;background:${d.uses_budget===o.v?o.c+'15':'#fff'};flex:1"
+        onclick="_bamDetailData.uses_budget=${o.v};_bamRenderTabs()"><input type="radio" name="bam-uses" ${d.uses_budget===o.v?'checked':''} style="accent-color:${o.c}">
+        <div><div style="font-size:12px;font-weight:800;color:${o.c}">${o.i} ${o.l}</div><div style="font-size:10px;color:#6B7280">${o.s}</div></div></label>`).join('')}
+  </div>
+</div>
+
+${d.uses_budget ? `
+<!-- 연동 방식 -->
+<div style="margin-top:16px">
+  <label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px">연동 방식</label>
+  <div style="display:flex;gap:12px">
+    ${[{v:'sap',c:'#1D4ED8',i:'🔗',l:'SAP 연동',s:'ERP 예산관리와 실시간 연동'},{v:'standalone',c:'#059669',i:'📋',l:'자체관리 (미연동)',s:'시스템 내 독립 예산 관리'}]
+      .map(o=>`<label style="display:flex;align-items:center;gap:8px;padding:12px 16px;border:1.5px solid ${d.integration_type===o.v?o.c:'#E5E7EB'};border-radius:10px;cursor:pointer;background:${d.integration_type===o.v?o.c+'15':'#fff'};flex:1"
+        onclick="_bamDetailData.integration_type='${o.v}';_bamRenderTabs()"><input type="radio" name="bam-int" ${d.integration_type===o.v?'checked':''} style="accent-color:${o.c}">
+        <div><div style="font-size:12px;font-weight:800;color:${o.c}">${o.i} ${o.l}</div><div style="font-size:10px;color:#6B7280">${o.s}</div></div></label>`).join('')}
+  </div>
+  ${d.integration_type==='sap'?`<div style="margin-top:10px"><label style="font-size:11px;font-weight:700;color:#1D4ED8;display:block;margin-bottom:4px">🔗 SAP 연동 코드</label>
+    <input type="text" value="${d.sap_code}" placeholder="예) S12345" oninput="_bamDetailData.sap_code=this.value"
+      style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:13px;font-weight:700"></div>`:''}
+</div>
+
+<!-- 통장 생성 정책 -->
+<div style="margin-top:16px">
+  <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px">통장 생성 정책</label>
+  <div style="font-size:10px;color:#9CA3AF;margin-bottom:8px">가상교육조직에 상위 조직을 맵핑했을 때 통장 생성 방식</div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    ${[{v:'isolated',c:'#7C3AED',l:'팀별 분리 통장',s:'하위 팀마다 개별 통장'},{v:'shared',c:'#D97706',l:'상위 조직 공유 통장',s:'본부단위 통장 1개, 하위 팀 공유'},{v:'individual',c:'#059669',l:'👤 개인별 분리 통장',s:'팀원 1인당 개별 통장'}]
+      .map(o=>`<label style="display:flex;align-items:flex-start;gap:8px;padding:12px 14px;border:1.5px solid ${d.bankbook_mode===o.v?o.c:'#E5E7EB'};border-radius:10px;cursor:pointer;background:${d.bankbook_mode===o.v?o.c+'15':'#fff'};flex:1;min-width:140px"
+        onclick="_bamDetailData.bankbook_mode='${o.v}';_bamRenderTabs()"><input type="radio" name="bam-bm" ${d.bankbook_mode===o.v?'checked':''} style="accent-color:${o.c};margin-top:2px">
+        <div><div style="font-size:11px;font-weight:800;color:${o.c}">${o.l}</div><div style="font-size:10px;color:#6B7280;margin-top:2px">${o.s}</div></div></label>`).join('')}
+  </div>
+  ${d.bankbook_mode==='individual'?`<div style="margin-top:12px"><label style="font-size:11px;font-weight:700;color:#059669;display:block;margin-bottom:4px">💰 1인당 기본 한도 (원)</label>
+    <input type="number" min="0" step="10000" value="${d.individual_limit||''}" placeholder="예) 500000" oninput="_bamDetailData.individual_limit=this.value"
+      style="width:200px;padding:8px 12px;border:1.5px solid #A7F3D0;border-radius:8px;font-size:13px;font-weight:700"></div>`:''}
+</div>` : ''}`;
 }

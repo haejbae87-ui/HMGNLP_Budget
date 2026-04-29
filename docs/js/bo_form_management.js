@@ -212,10 +212,11 @@ function _formRenderPage() {
   const role = (typeof boCurrentPersona !== 'undefined' && boCurrentPersona?.role) || user.role || '';
   const isPlatform = role === 'platform_admin';
 
-  // 회사 기준 제도그룹 필터
-  const filteredVorgs = _formTenantId
-    ? _formTplList.filter(t => t.tenant_id === _formTenantId)
-    : _formTplList;
+  // 회사 기준 및 교육지원(education_support) 제도그룹 필터
+  const filteredVorgs = _formTplList.filter(t => 
+    t.template_type === 'education_support' && 
+    (!_formTenantId || t.tenant_id === _formTenantId)
+  );
 
   // vorg 유효성 확인
   if (_formVorgId && !filteredVorgs.find(t => t.id === _formVorgId)) _formVorgId = '';

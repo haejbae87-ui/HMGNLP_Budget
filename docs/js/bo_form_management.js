@@ -1,6 +1,7 @@
 // ─── 📝 교육 양식관리 ─────────────────────────────────────────────────────
 // 제도그룹별 예산계정의 교육유형에 맞는 양식(필드 on/off)을 관리합니다.
 // 4단계: 사업계획(forecast) · 운영계획(operation) · 신청(apply) · 결과(result)
+// PRD: field_standardization.md 기반 필드 타입 표준화 적용
 
 let _formTenantId = '';       // 선택된 회사(tenant)
 let _formVorgId = '';
@@ -27,72 +28,129 @@ const _FORM_STAGE_META = {
   result:    { icon:'📄', label:'결과 양식',     color:'#D97706' },
 };
 
-// ── 단계별 필드 카탈로그 ────────────────────────────────────────────────────
+// ── 3-Depth 교육유형 한글 라벨 역참조 ────────────────────────────────────────
+// _BAM_EDU_TREE (bo_budget_account_tabs.js) 기반
+function _formEduTypeInfo(typeId) {
+  if (typeof _BAM_EDU_TREE === 'undefined') return { group:'', category:'', type: typeId, breadcrumb: typeId };
+  for (const g of _BAM_EDU_TREE) {
+    for (const c of g.categories || []) {
+      for (const t of c.types || []) {
+        if (t.id === typeId) {
+          return { group: g.label, groupIcon: g.icon, groupColor: g.color,
+                   category: c.label, type: t.label,
+                   breadcrumb: `${g.label} > ${c.label} > ${t.label}` };
+        }
+      }
+    }
+  }
+  return { group:'', category:'', type: typeId, breadcrumb: typeId };
+}
+
+// 교육유형 ID 목록을 3-depth 트리로 그루핑
+function _formGroupEduTypes(eduTypeIds) {
+  if (typeof _BAM_EDU_TREE === 'undefined') return [];
+  const result = [];
+  for (const g of _BAM_EDU_TREE) {
+    const cats = [];
+    for (const c of g.categories || []) {
+      const matched = (c.types || []).filter(t => eduTypeIds.includes(t.id));
+      if (matched.length > 0) cats.push({ purpose: c.purpose, label: c.label, desc: c.desc, types: matched });
+    }
+    if (cats.length > 0) result.push({ group: g.group, icon: g.icon, label: g.label, color: g.color, desc: g.desc, categories: cats });
+  }
+  return result;
+}
+
+// ── 단계별 필드 카탈로그 (PRD field_standardization.md 기반 타입 적용) ────────
+// type: text | textarea | number | boolean | date | daterange | select | file | autocomplete | rating | calc_grounds
 const _FORM_FIELDS = {
   forecast: [
     { cat:'기본정보', icon:'📋', locked:true, fields:[
-      {key:'edu_purpose',label:'교육목적',locked:true},{key:'edu_type',label:'교육유형',locked:true},
-      {key:'edu_name',label:'교육명',locked:true},{key:'is_overseas',label:'국내/해외',locked:true},
+      {key:'edu_purpose',label:'교육목적',type:'select',locked:true},
+      {key:'edu_type',label:'교육유형',type:'select',locked:true},
+      {key:'edu_name',label:'교육명',type:'text',locked:true},
+      {key:'is_overseas',label:'국내/해외',type:'boolean',locked:true},
     ]},
     { cat:'교육상세', icon:'📐', fields:[
-      {key:'target_audience',label:'교육대상'},{key:'planned_headcount',label:'대상인원'},
-      {key:'planned_rounds',label:'예상차수'},{key:'edu_period',label:'교육기간'},
-      {key:'is_continuing',label:'전년도 계속교육'},
+      {key:'target_audience',label:'교육대상',type:'select'},
+      {key:'planned_headcount',label:'대상인원',type:'number',unit:'명'},
+      {key:'planned_rounds',label:'예상차수',type:'number',unit:'차수'},
+      {key:'edu_period',label:'교육기간',type:'daterange'},
+      {key:'is_continuing',label:'전년도 계속교육',type:'boolean'},
     ]},
     { cat:'비용항목', icon:'💰', budgetOnly:true, fields:[
-      {key:'requested_budget',label:'요청 예산 규모'},{key:'budget_reason',label:'예산 산출 근거'},
-      {key:'expected_effect',label:'기대효과'},
+      {key:'requested_budget',label:'요청 예산 규모',type:'number',unit:'원'},
+      {key:'budget_reason',label:'예산 산출 근거',type:'textarea'},
+      {key:'expected_effect',label:'기대효과',type:'textarea'},
     ]},
   ],
   operation: [
     { cat:'기본정보', icon:'📋', locked:true, fields:[
-      {key:'edu_purpose',label:'교육목적',locked:true},{key:'edu_type',label:'교육유형',locked:true},
-      {key:'edu_name',label:'교육명',locked:true},{key:'is_overseas',label:'국내/해외',locked:true},
+      {key:'edu_purpose',label:'교육목적',type:'select',locked:true},
+      {key:'edu_type',label:'교육유형',type:'select',locked:true},
+      {key:'edu_name',label:'교육명',type:'text',locked:true},
+      {key:'is_overseas',label:'국내/해외',type:'boolean',locked:true},
     ]},
     { cat:'교육상세', icon:'📐', fields:[
-      {key:'venue_type',label:'장소유형'},{key:'venue_name',label:'교육장소'},
-      {key:'planned_days',label:'교육일수'},{key:'edu_period',label:'교육기간'},
-      {key:'planned_rounds',label:'교육차수'},{key:'planned_headcount',label:'교육인원'},
-      {key:'edu_institution',label:'교육기관'},{key:'instructor',label:'강사정보'},
-      {key:'edu_method',label:'교육방법(대면/비대면)'},
+      {key:'venue_type',label:'장소유형',type:'select',options:['사내','사외','온라인']},
+      {key:'venue_name',label:'교육장소',type:'text'},
+      {key:'planned_days',label:'교육일수',type:'number',unit:'일'},
+      {key:'edu_period',label:'교육기간',type:'daterange'},
+      {key:'planned_rounds',label:'교육차수',type:'number',unit:'차수'},
+      {key:'planned_headcount',label:'교육인원',type:'number',unit:'명'},
+      {key:'edu_institution',label:'교육기관',type:'autocomplete'},
+      {key:'instructor',label:'강사정보',type:'text'},
+      {key:'edu_method',label:'교육방법',type:'select',options:['대면','비대면','블렌디드']},
     ]},
     { cat:'비용항목', icon:'💰', budgetOnly:true, fields:[
-      {key:'planned_amount',label:'계획액'},{key:'calc_grounds',label:'세부산출근거'},
-      {key:'expected_effect',label:'기대효과'},
+      {key:'planned_amount',label:'계획액',type:'number',unit:'원'},
+      {key:'calc_grounds',label:'세부산출근거',type:'calc_grounds'},
+      {key:'expected_effect',label:'기대효과',type:'textarea'},
     ]},
     { cat:'관리자 필드', icon:'🔧', fields:[
-      {key:'bo_comment',label:'BO 코멘트'},{key:'allocated_amount',label:'배정액'},
+      {key:'bo_comment',label:'BO 코멘트',type:'textarea'},
+      {key:'allocated_amount',label:'배정액',type:'number',unit:'원'},
     ]},
   ],
   apply: [
     { cat:'기본정보', icon:'📋', locked:true, fields:[
-      {key:'edu_name',label:'교육명/과정명',locked:true},{key:'edu_type',label:'교육유형',locked:true},
+      {key:'edu_name',label:'교육명/과정명',type:'text',locked:true},
+      {key:'edu_type',label:'교육유형',type:'select',locked:true},
     ]},
     { cat:'신청상세', icon:'📐', fields:[
-      {key:'apply_reason',label:'신청사유'},{key:'course_info',label:'과정/기관 정보'},
-      {key:'edu_period',label:'교육기간'},{key:'edu_institution',label:'교육기관'},
-      {key:'is_overseas',label:'국내/해외'},
+      {key:'apply_reason',label:'신청사유',type:'textarea'},
+      {key:'course_info',label:'과정/기관 정보',type:'textarea'},
+      {key:'edu_period',label:'교육기간',type:'daterange'},
+      {key:'edu_institution',label:'교육기관',type:'autocomplete'},
+      {key:'is_overseas',label:'국내/해외',type:'boolean'},
     ]},
     { cat:'비용항목', icon:'💰', budgetOnly:true, fields:[
-      {key:'estimated_cost',label:'예상비용'},{key:'actual_cost',label:'실비'},
+      {key:'estimated_cost',label:'예상비용',type:'number',unit:'원'},
+      {key:'actual_cost',label:'실비',type:'number',unit:'원'},
     ]},
     { cat:'첨부', icon:'📎', fields:[
-      {key:'attachments',label:'증빙서류'},{key:'receipt',label:'영수증'},
+      {key:'attachments',label:'증빙서류',type:'file'},
+      {key:'receipt',label:'영수증',type:'file'},
     ]},
   ],
   result: [
     { cat:'기본정보', icon:'📋', locked:true, fields:[
-      {key:'edu_name',label:'교육명',locked:true},{key:'edu_type',label:'교육유형',locked:true},
+      {key:'edu_name',label:'교육명',type:'text',locked:true},
+      {key:'edu_type',label:'교육유형',type:'select',locked:true},
     ]},
     { cat:'결과상세', icon:'📐', fields:[
-      {key:'completion_status',label:'수료여부'},{key:'satisfaction',label:'만족도'},
-      {key:'learning_summary',label:'학습내용/소감'},{key:'attendance_rate',label:'출석률'},
+      {key:'completion_status',label:'수료여부',type:'boolean'},
+      {key:'satisfaction',label:'만족도',type:'rating'},
+      {key:'learning_summary',label:'학습내용/소감',type:'textarea'},
+      {key:'attendance_rate',label:'출석률',type:'number',unit:'%'},
     ]},
     { cat:'비용항목', icon:'💰', budgetOnly:true, fields:[
-      {key:'actual_cost',label:'실비용'},{key:'settlement_amount',label:'정산금액'},
+      {key:'actual_cost',label:'실비용',type:'number',unit:'원'},
+      {key:'settlement_amount',label:'정산금액',type:'number',unit:'원'},
     ]},
     { cat:'첨부', icon:'📎', fields:[
-      {key:'certificate',label:'수료증'},{key:'receipt',label:'영수증'},
+      {key:'certificate',label:'수료증',type:'file'},
+      {key:'receipt',label:'영수증',type:'file'},
     ]},
   ],
 };
@@ -188,8 +246,8 @@ function _formRenderPage() {
   // 활성 단계 유효성
   if (!stages.includes(_formActiveStage)) _formActiveStage = stages[0];
 
-  // 교육유형 라벨 매핑
-  const eduLabel = (id) => (window.EDU_TYPE_LABELS || {})[id] || id;
+  // 교육유형 3-depth 트리 그루핑
+  const eduTree = _formGroupEduTypes(eduTypes);
 
   ct.innerHTML = `
   <div style="max-width:1100px;margin:0 auto;padding:20px">
@@ -273,21 +331,35 @@ function _formRenderPage() {
       </div>
     ` : `
     <!-- 본문: 좌측 사이드바 + 우측 콘텐츠 -->
-    <div style="display:grid;grid-template-columns:200px 1fr;gap:16px;min-height:500px">
-      <!-- 좌측: 교육유형 사이드바 -->
-      <div style="background:white;border:1px solid #E5E7EB;border-radius:14px;overflow:hidden">
+    <div style="display:grid;grid-template-columns:220px 1fr;gap:16px;min-height:500px">
+      <!-- 좌측: 교육유형 3-Depth 사이드바 -->
+      <div style="background:white;border:1px solid #E5E7EB;border-radius:14px;overflow:hidden;overflow-y:auto;max-height:600px">
         <div style="padding:10px 14px;background:#F8FAFC;border-bottom:1px solid #E5E7EB;font-size:11px;font-weight:800;color:#475569">
           📚 교육유형 (${eduTypes.length})
         </div>
-        ${eduTypes.map(et => {
-          const active = et === _formSelEduType;
-          return `<div onclick="_formSelectEduType('${et}')"
-            style="padding:10px 14px;cursor:pointer;border-left:3px solid ${active?'#4F46E5':'transparent'};
-              background:${active?'#EEF2FF':'white'};font-size:12px;font-weight:${active?'800':'500'};
-              color:${active?'#4338CA':'#374151'};transition:all .15s;border-bottom:1px solid #F3F4F6">
-            ${active?'▸ ':''} ${eduLabel(et)}
-          </div>`;
-        }).join('')}
+        ${eduTree.map(g => `
+          <!-- 1Depth: 그룹 (직접학습/교육운영) -->
+          <div style="padding:8px 12px;background:linear-gradient(135deg,${g.color}08,${g.color}15);border-bottom:1px solid #E5E7EB">
+            <div style="font-size:11px;font-weight:900;color:${g.color};display:flex;align-items:center;gap:5px">
+              ${g.icon} ${g.label}
+            </div>
+          </div>
+          ${g.categories.map(c => `
+            <!-- 2Depth: 목적 카테고리 (정규교육, 학술 등) -->
+            <div style="padding:5px 12px 3px 20px;font-size:10px;font-weight:700;color:#6B7280;border-bottom:1px solid #FAFAFA">
+              ▸ ${c.label}
+            </div>
+            ${c.types.map(t => {
+              const active = t.id === _formSelEduType;
+              return `<div onclick="_formSelectEduType('${t.id}')"
+                style="padding:7px 12px 7px 34px;cursor:pointer;border-left:3px solid ${active?g.color:'transparent'};
+                  background:${active?g.color+'12':'white'};font-size:12px;font-weight:${active?'800':'500'};
+                  color:${active?g.color:'#374151'};transition:all .12s;border-bottom:1px solid #F8F9FA">
+                ${active?'● ':'○ '} ${t.label}
+              </div>`;
+            }).join('')}
+          `).join('')}
+        `).join('')}
       </div>
 
       <!-- 우측: 단계 탭 + 필드 토글 -->
@@ -328,6 +400,18 @@ function _formRenderPage() {
   </div>`;
 }
 
+// ── 필드 타입 뱃지 색상 ─────────────────────────────────────────────────────
+const _FORM_TYPE_BADGE = {
+  text:'텍스트', textarea:'장문', number:'숫자', boolean:'토글',
+  date:'날짜', daterange:'기간', select:'선택', file:'파일',
+  autocomplete:'검색입력', rating:'별점', calc_grounds:'산출근거',
+};
+const _FORM_TYPE_COLOR = {
+  text:'#6B7280', textarea:'#7C3AED', number:'#1D4ED8', boolean:'#059669',
+  date:'#D97706', daterange:'#D97706', select:'#4338CA', file:'#9333EA',
+  autocomplete:'#0891B2', rating:'#F59E0B', calc_grounds:'#DC2626',
+};
+
 // ── 필드 토글 렌더 ──────────────────────────────────────────────────────────
 function _formRenderFieldToggles(stage, usesBudget) {
   const cats = _FORM_FIELDS[stage] || [];
@@ -352,6 +436,8 @@ function _formRenderFieldToggles(stage, usesBudget) {
           const isLocked = f.locked || cat.locked;
           const isOn = isLocked ? true : (states[f.key] !== undefined ? states[f.key] : true);
           const disabled = isLocked || catDisabled;
+          const typeBadge = _FORM_TYPE_BADGE[f.type] || f.type || '';
+          const typeColor = _FORM_TYPE_COLOR[f.type] || '#9CA3AF';
           return `<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;
               border:1.5px solid ${disabled ? '#F3F4F6' : (isOn?'#6366F1':'#E5E7EB')};
               background:${disabled ? '#FAFAFA' : (isOn?'#EEF2FF':'white')};
@@ -359,7 +445,8 @@ function _formRenderFieldToggles(stage, usesBudget) {
             ${disabled?'':`onclick="event.preventDefault();_formToggleField('${stateKey}','${f.key}',${!isOn})"`}>
             <input type="checkbox" ${isOn?'checked':''} ${disabled?'disabled':''}
               style="margin:0;accent-color:#6366F1;pointer-events:none">
-            <span style="font-size:12px;color:${disabled?'#9CA3AF':'#374151'};font-weight:${isOn?'600':'400'}">${f.label}</span>
+            <span style="font-size:12px;color:${disabled?'#9CA3AF':'#374151'};font-weight:${isOn?'600':'400'};flex:1">${f.label}</span>
+            <span style="font-size:8px;padding:1px 5px;border-radius:3px;background:${typeColor}15;color:${typeColor};font-weight:700;white-space:nowrap">${typeBadge}</span>
             ${isLocked?'<span style="font-size:8px;color:#9CA3AF">🔒</span>':''}
           </label>`;
         }).join('')}
@@ -422,6 +509,97 @@ async function _formSave() {
   }
 }
 
+// ── 필드 타입별 미리보기 렌더 헬퍼 ──────────────────────────────────────────
+function _formPreviewField(f) {
+  const lbl = `<label style="display:block;font-size:11px;font-weight:600;color:#4B5563;margin-bottom:3px">
+    ${f.label} ${f.locked?'<span style="color:#EF4444">*</span>':''}
+    <span style="font-size:9px;color:${_FORM_TYPE_COLOR[f.type]||'#9CA3AF'};margin-left:4px">(${_FORM_TYPE_BADGE[f.type]||f.type||''})</span>
+  </label>`;
+  const base = 'width:100%;padding:8px 12px;border:1px solid #D1D5DB;border-radius:8px;font-size:12px;background:#F9FAFB;box-sizing:border-box';
+
+  switch (f.type) {
+    case 'boolean':
+      return `<div style="margin-bottom:8px">${lbl}
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 0">
+          <div style="width:36px;height:20px;border-radius:10px;background:#059669;position:relative;cursor:default">
+            <div style="width:16px;height:16px;border-radius:50%;background:white;position:absolute;top:2px;right:2px;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div>
+          </div>
+          <span style="font-size:12px;color:#059669;font-weight:600">ON</span>
+        </div>
+      </div>`;
+    case 'textarea':
+      return `<div style="margin-bottom:8px">${lbl}
+        <textarea disabled rows="3" placeholder="${f.label}을(를) 입력하세요"
+          style="${base};resize:none;font-family:inherit"></textarea>
+      </div>`;
+    case 'number':
+      return `<div style="margin-bottom:8px">${lbl}
+        <div style="position:relative">
+          <input type="number" disabled placeholder="0" style="${base};text-align:right;padding-right:${f.unit?'40px':'12px'}">
+          ${f.unit?`<span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:#9CA3AF;font-weight:600">${f.unit}</span>`:''}
+        </div>
+      </div>`;
+    case 'date':
+      return `<div style="margin-bottom:8px">${lbl}
+        <input type="date" disabled style="${base}">
+      </div>`;
+    case 'daterange':
+      return `<div style="margin-bottom:8px">${lbl}
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="date" disabled style="${base};flex:1">
+          <span style="color:#9CA3AF;font-size:12px;font-weight:700">~</span>
+          <input type="date" disabled style="${base};flex:1">
+        </div>
+      </div>`;
+    case 'select':
+      return `<div style="margin-bottom:8px">${lbl}
+        <select disabled style="${base};appearance:auto">
+          <option>— 선택하세요 —</option>
+          ${(f.options||[]).map(o=>`<option>${o}</option>`).join('')}
+        </select>
+      </div>`;
+    case 'file':
+      return `<div style="margin-bottom:8px">${lbl}
+        <div style="padding:16px;border:2px dashed #D1D5DB;border-radius:10px;text-align:center;background:#FAFAFA">
+          <div style="font-size:20px;margin-bottom:4px">📎</div>
+          <div style="font-size:11px;color:#6B7280">파일을 여기에 드래그하거나 <span style="color:#6366F1;text-decoration:underline">찾아보기</span></div>
+        </div>
+      </div>`;
+    case 'autocomplete':
+      return `<div style="margin-bottom:8px">${lbl}
+        <div style="position:relative">
+          <input type="text" disabled placeholder="검색어를 입력하세요" style="${base};padding-right:32px">
+          <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:14px;color:#9CA3AF">🔍</span>
+        </div>
+      </div>`;
+    case 'rating':
+      return `<div style="margin-bottom:8px">${lbl}
+        <div style="display:flex;gap:4px;padding:6px 0">
+          ${[1,2,3,4,5].map(n=>`<span style="font-size:20px;color:${n<=4?'#F59E0B':'#D1D5DB'};cursor:default">${n<=4?'★':'☆'}</span>`).join('')}
+          <span style="font-size:12px;color:#6B7280;margin-left:6px;align-self:center">4 / 5</span>
+        </div>
+      </div>`;
+    case 'calc_grounds':
+      return `<div style="margin-bottom:8px">${lbl}
+        <div style="border:1px solid #FCA5A5;border-radius:10px;overflow:hidden">
+          <div style="padding:8px 12px;background:#FEF2F2;font-size:11px;font-weight:700;color:#991B1B">📊 세부산출근거 입력 영역</div>
+          <div style="padding:12px;background:#FFFBFB">
+            <div style="display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:6px;font-size:10px;color:#6B7280;font-weight:700;margin-bottom:6px">
+              <span>항목</span><span style="text-align:right">단가</span><span style="text-align:right">수량</span><span style="text-align:right">소계</span>
+            </div>
+            <div style="display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:6px;font-size:11px;color:#374151;padding:4px 0;border-top:1px solid #FEE2E2">
+              <span>교육참가비</span><span style="text-align:right">500,000</span><span style="text-align:right">1</span><span style="text-align:right;font-weight:700">500,000</span>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    default: // text
+      return `<div style="margin-bottom:8px">${lbl}
+        <input type="text" disabled placeholder="${f.label}을(를) 입력하세요" style="${base}">
+      </div>`;
+  }
+}
+
 // ── 미리보기 ────────────────────────────────────────────────────────────────
 function _formPreview() {
   const stage = _formActiveStage;
@@ -429,7 +607,7 @@ function _formPreview() {
   const cats = _FORM_FIELDS[stage] || [];
   const stateKey = `${_formSelEduType}|${stage}`;
   const states = _formFieldStates[stateKey] || {};
-  const eduLabel = (window.EDU_TYPE_LABELS || {})[_formSelEduType] || _formSelEduType;
+  const eduInfo = _formEduTypeInfo(_formSelEduType);
   const acc = _formAccountList.find(a => a.code === _formAccountCode);
   const usesBudget = acc?.uses_budget !== false;
 
@@ -451,12 +629,12 @@ function _formPreview() {
   overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
 
   overlay.innerHTML = `
-  <div style="background:white;border-radius:16px;width:100%;max-width:640px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+  <div style="background:white;border-radius:16px;width:100%;max-width:700px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">
     <div style="padding:16px 20px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;justify-content:space-between;
       background:linear-gradient(135deg,${stageM.color}08,${stageM.color}15);border-radius:16px 16px 0 0">
       <div>
         <div style="font-size:14px;font-weight:900;color:${stageM.color}">${stageM.icon} ${stageM.label} 미리보기</div>
-        <div style="font-size:11px;color:#6B7280;margin-top:2px">교육유형: ${eduLabel} | 계정: ${_formAccountCode}</div>
+        <div style="font-size:11px;color:#6B7280;margin-top:2px">교육유형: ${eduInfo.breadcrumb} | 계정: ${_formAccountCode}</div>
       </div>
       <button onclick="document.getElementById('fm-preview-overlay').remove()"
         style="padding:4px 12px;border:1px solid #D1D5DB;background:white;border-radius:6px;cursor:pointer;font-size:12px">✕ 닫기</button>
@@ -470,15 +648,15 @@ function _formPreview() {
           <div style="font-size:12px;font-weight:800;color:#374151;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #E5E7EB">
             ${g.icon} ${g.cat}
           </div>
-          ${g.fields.map(f => `
-            <div style="margin-bottom:8px">
-              <label style="display:block;font-size:11px;font-weight:600;color:#4B5563;margin-bottom:3px">
-                ${f.label} ${f.locked?'<span style="color:#EF4444">*</span>':''}
-              </label>
-              <input type="text" disabled placeholder="${f.label}을(를) 입력하세요"
-                style="width:100%;padding:8px 12px;border:1px solid #D1D5DB;border-radius:8px;font-size:12px;background:#F9FAFB;box-sizing:border-box">
-            </div>
-          `).join('')}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            ${g.fields.map(f => {
+              // 장문(textarea), 기간(daterange), 산출근거, 파일은 full-width
+              const fullWidth = ['textarea','daterange','calc_grounds','file'].includes(f.type);
+              return `<div style="${fullWidth?'grid-column:1/-1':''}">
+                ${_formPreviewField(f)}
+              </div>`;
+            }).join('')}
+          </div>
         </div>
       `).join('')}
     </div>

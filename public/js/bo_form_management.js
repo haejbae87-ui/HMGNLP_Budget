@@ -555,7 +555,8 @@ async function _formSave() {
   });
 
   try {
-    const sb = window.__supabase;
+    const sb = typeof _sb === 'function' ? _sb() : window.__supabase;
+    if (!sb) throw new Error('Supabase 클라이언트가 초기화되지 않았습니다.');
     const { error } = await sb.from('budget_accounts')
       .update({ form_config: formConfig, updated_at: new Date().toISOString() })
       .eq('code', _formAccountCode)

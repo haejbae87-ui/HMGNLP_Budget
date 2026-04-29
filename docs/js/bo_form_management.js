@@ -581,15 +581,70 @@ function _formPreviewField(f) {
       </div>`;
     case 'calc_grounds':
       return `<div style="margin-bottom:8px">${lbl}
-        <div style="border:1px solid #FCA5A5;border-radius:10px;overflow:hidden">
-          <div style="padding:8px 12px;background:#FEF2F2;font-size:11px;font-weight:700;color:#991B1B">📊 세부산출근거 입력 영역</div>
-          <div style="padding:12px;background:#FFFBFB">
-            <div style="display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:6px;font-size:10px;color:#6B7280;font-weight:700;margin-bottom:6px">
-              <span>항목</span><span style="text-align:right">단가</span><span style="text-align:right">수량</span><span style="text-align:right">소계</span>
+        <div style="border:1.5px solid #BFDBFE;border-radius:12px;overflow:hidden;background:#F8FBFF">
+          <!-- 헤더: 산출근거 제목 + 수식 뱃지 -->
+          <div style="padding:10px 14px;background:linear-gradient(135deg,#EFF6FF,#F0F9FF);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:13px">📋</span>
+            <span style="font-size:12px;font-weight:800;color:#1E40AF">세부 산출 근거</span>
+            <span style="font-size:10px;padding:3px 8px;border-radius:12px;background:#F97316;color:white;font-weight:700">
+              🎯 교육운영용 (단가 × 수량1 × 수량2 × 수량3)
+            </span>
+            <button disabled style="margin-left:auto;padding:4px 10px;border:1px solid #3B82F6;background:#3B82F6;color:white;border-radius:6px;font-size:10px;font-weight:700;cursor:default">
+              + 항목추가
+            </button>
+          </div>
+          <div style="padding:6px 14px;font-size:10px;color:#6B7280;background:#F0F9FF;border-bottom:1px solid #DBEAFE">
+            항목 선택 → 장소(선택) → 프리셋 선택 시 단가·박수 자동 입력됩니다.
+          </div>
+          <!-- 테이블 -->
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:11px">
+              <thead>
+                <tr style="background:#EFF6FF">
+                  <th style="padding:8px 10px;text-align:left;font-weight:800;color:#1E40AF;border-bottom:2px solid #BFDBFE;white-space:nowrap">항목</th>
+                  <th style="padding:8px 10px;text-align:left;font-weight:800;color:#1E40AF;border-bottom:2px solid #BFDBFE;white-space:nowrap">세부항목</th>
+                  <th style="padding:8px 10px;text-align:right;font-weight:800;color:#1E40AF;border-bottom:2px solid #BFDBFE;white-space:nowrap">단가(원)</th>
+                  <th style="padding:8px 10px;text-align:center;font-weight:800;color:#1E40AF;border-bottom:2px solid #BFDBFE;white-space:nowrap">수량 및 단위</th>
+                  <th style="padding:8px 10px;text-align:right;font-weight:800;color:#1E40AF;border-bottom:2px solid #BFDBFE;white-space:nowrap">예산금액(원)</th>
+                  <th style="padding:8px 6px;text-align:center;font-weight:800;color:#1E40AF;border-bottom:2px solid #BFDBFE;white-space:nowrap">비고</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom:1px solid #E5E7EB">
+                  <td style="padding:8px 10px">
+                    <select disabled style="padding:4px 6px;border:1px solid #D1D5DB;border-radius:6px;font-size:11px;background:white;min-width:80px">
+                      <option>교육운영비</option>
+                    </select>
+                  </td>
+                  <td style="padding:8px 6px;color:#6B7280;font-size:10px">직접입력</td>
+                  <td style="padding:8px 10px;text-align:right">
+                    <input type="text" disabled value="50,000" style="width:70px;padding:4px 6px;border:1px solid #D1D5DB;border-radius:6px;font-size:11px;text-align:right;background:#F9FAFB">
+                  </td>
+                  <td style="padding:8px 6px;text-align:center">
+                    <div style="display:flex;align-items:center;gap:4px;justify-content:center">
+                      <span style="font-size:10px;color:#6B7280">수량</span>
+                      <input type="text" disabled value="1" style="width:36px;padding:4px;border:1px solid #D1D5DB;border-radius:6px;font-size:11px;text-align:center;background:#F9FAFB">
+                      <select disabled style="padding:3px 4px;border:1px solid #D1D5DB;border-radius:6px;font-size:10px;background:white">
+                        <option>명</option>
+                      </select>
+                      <button disabled style="width:18px;height:18px;border:1px solid #D1D5DB;border-radius:4px;font-size:10px;background:#F3F4F6;color:#6B7280;cursor:default">+</button>
+                    </div>
+                  </td>
+                  <td style="padding:8px 10px;text-align:right;font-weight:800;color:#1E40AF;font-size:12px">50,000</td>
+                  <td style="padding:8px 6px;text-align:center">
+                    <input type="text" disabled style="width:40px;padding:3px;border:1px solid #E5E7EB;border-radius:4px;font-size:10px;background:#FAFAFA">
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- 합계 -->
+          <div style="padding:10px 14px;background:#EFF6FF;border-top:2px solid #BFDBFE;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:12px;font-weight:800;color:#1E40AF">세부 산출 합계</div>
+              <div style="font-size:9px;color:#6B7280;margin-top:2px">※ 최대 인원(1명) 기준 1인당 약 50,000원</div>
             </div>
-            <div style="display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:6px;font-size:11px;color:#374151;padding:4px 0;border-top:1px solid #FEE2E2">
-              <span>교육참가비</span><span style="text-align:right">500,000</span><span style="text-align:right">1</span><span style="text-align:right;font-weight:700">500,000</span>
-            </div>
+            <div style="font-size:18px;font-weight:900;color:#059669">50,000</div>
           </div>
         </div>
       </div>`;

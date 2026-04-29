@@ -290,7 +290,7 @@ async function switchPersonaAndReload(key) {
     _dbMyApps = [];
   }
   if (typeof _aprMemberLoaded !== 'undefined') { _aprMemberLoaded = false; _aprMemberData = []; }
-  if (typeof _aprLeaderLoaded !== 'undefined')  { _aprLeaderLoaded = false;  _aprLeaderData = [];  }
+  if (typeof _aprLeaderLoaded !== 'undefined')  { _aprLeaderLoaded = false; _aprLeaderData = []; _aprSubDocData = []; _aprLeaderTab = 'pending'; }
   // PRD#13: 페르소나 전환 시 Realtime 채널 재구독 (applicant_id 기준 채널 교체)
   if (typeof foStopRealtime === 'function')  foStopRealtime();
   if (typeof foStartRealtime === 'function') setTimeout(foStartRealtime, 300);

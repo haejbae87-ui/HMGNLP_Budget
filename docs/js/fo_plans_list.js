@@ -436,7 +436,7 @@ function _buildForecastCampaignHtml() {
       const badges = targetIds.map(code => `<span style="display:inline-block;padding:2px 6px;border-radius:4px;background:#E0E7FF;color:#4338CA;font-size:10px;font-weight:800;margin-right:4px">💳 ${code}</span>`).join('');
       const encodedTargets = encodeURIComponent(JSON.stringify(targetIds));
       return `
-      <div ${isClosed ? '' : `onclick="_planYear=${c.fiscal_year};startPlanWizard('forecast', ${c.fiscal_year}, '${encodedTargets}')"`}
+      <div ${isClosed ? '' : `onclick="_planYear=${c.fiscal_year};startPlanWizard('forecast', ${c.fiscal_year}, null, '${encodedTargets}')"`}
            style="padding:24px 20px;border-radius:16px;background:${isClosed ? '#F9FAFB' : 'white'};border:1.5px solid ${isClosed ? '#E5E7EB' : '#BFDBFE'};cursor:${isClosed ? 'not-allowed' : 'pointer'};box-shadow:0 4px 12px rgba(0,0,0,0.04);transition:all 0.15s;opacity:${isClosed ? '0.7' : '1'}"
            ${isClosed ? '' : `onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(37,99,235,0.1)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.04)'"`}>
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
@@ -530,7 +530,7 @@ async function _renderForecastDashboard() {
         const encodedTargets = encodeURIComponent(JSON.stringify(targetIds));
 
         return `
-        <div ${isClosed ? '' : `onclick="_planYear=${c.fiscal_year};startPlanWizard('forecast', ${c.fiscal_year}, '${encodedTargets}')"`} 
+        <div ${isClosed ? '' : `onclick="_planYear=${c.fiscal_year};startPlanWizard('forecast', ${c.fiscal_year}, null, '${encodedTargets}')"`} 
              style="padding:24px 20px;border-radius:16px;background:${isClosed ? '#F9FAFB' : 'white'};border:1.5px solid ${isClosed ? '#E5E7EB' : '#BFDBFE'};cursor:${isClosed ? 'not-allowed' : 'pointer'};box-shadow:0 4px 12px rgba(0,0,0,0.04);transition:all 0.15s;opacity:${isClosed ? '0.7' : '1'}"
              ${isClosed ? '' : `onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(37,99,235,0.1)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.04)'"`}>
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
@@ -1444,7 +1444,7 @@ function _renderPlanCard(p) {
               const hasAlloc = Number(p.allocated_amount||0) > 0;
               return `<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
               ${hasAlloc ? btnPrimary('📝 교육 신청', `event.stopPropagation();_startApplyFromPlan('${safeId}')`) : ''}
-              ${btnOutline('📉 배정액 축소', `event.stopPropagation();foOpenReduceAllocation('${safeId}')`, '#D97706', '#FDE68A')}
+              ${/* btnOutline('📉 배정액 축소', `event.stopPropagation();foOpenReduceAllocation('${safeId}')`, '#D97706', '#FDE68A') */ ''}
               ${btnOutline('📋 복제', `event.stopPropagation();clonePlan('${safeId}')`, '#7C3AED', '#DDD6FE')}
              </div>`;
             })()

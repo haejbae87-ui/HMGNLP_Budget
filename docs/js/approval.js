@@ -60,9 +60,11 @@ let _aprMemberLoaded = false;
 let _aprMemberData = []; // plans + applications (내가 신청한 것)
 let _aprLeaderLoaded = false;
 let _aprLeaderData = []; // plans + applications (결재대기, 남이 신청한 것) — 레거시
-let _aprSubDocData = []; // submission_documents (S-5: 상신 문서 기반 쯸사)
+let _aprSubDocData = []; // submission_documents (S-5: 상신 문서 기반 조회) — 전체(진행중+완료+반려)
 let _aprSavedData = [];  // [A-1] saved 상태 항목 (상신 대기 — 저장완료 섹션 표시용)
 let _aprSelectedItems = new Map(); // [A-1] 다건 상신 선택 항목
+let _aprLeaderTab = 'pending'; // 리더용 탭: 'pending'(진행중) | 'approved'(결재완료) | 'rejected'(반려)
+
 
 // ─── 팀원용 결재함 ────────────────────────────────────────────────────────────
 // 내가 신청한 교육의 결재 상태 확인 (DB 실시간)
@@ -555,21 +557,27 @@ async function renderApprovalLeader() {
         ? await getCrossTenantInfo(currentPersona) : null;
       const filterTids = ctInfo?.linkedTids || [tid];
 
-      // [S-5] submission_documents 기반 조회 (team_forecast 번들 포함)
+      // [S-5] submission_documents 기반 조회 — 내 팀원 건 + 진행중/완료/반려 전체 로드
       try {
+        const myOrgId = currentPersona.orgId || null;
         let sdQ = sb.from("submission_documents")
           .select("*, submission_items(*)")
-          .in("status", ["submitted", "in_review", "team_approved"])
+          .in("status", ["submitted", "in_review", "team_approved", "approved", "rejected"])
           .neq("submitter_id", pid)
           .order("submitted_at", { ascending: false });
         if (filterTids.length > 1) sdQ = sdQ.in("tenant_id", filterTids);
         else sdQ = sdQ.eq("tenant_id", tid);
         const { data: sdDocs } = await sdQ;
-        _aprSubDocData = sdDocs || [];
-        console.log(`[renderApprovalLeader] 상신문서 ${_aprSubDocData.length}건`);
+        // ★ 팀 필터: submitter_org_id가 내 orgId와 일치하는 건만
+        const allDocs = sdDocs || [];
+        _aprSubDocData = myOrgId
+          ? allDocs.filter(d => !d.submitter_org_id || d.submitter_org_id === myOrgId)
+          : allDocs;
+        console.log(`[renderApprovalLeader] 상신문서 전체 ${allDocs.length}건 → 팀 필터 후 ${_aprSubDocData.length}건`);
       } catch (sdErr) {
         console.warn("[renderApprovalLeader] submission_documents 조회 실패:", sdErr.message);
       }
+
 
       // 레거시: 상신 문서에 포함되지 않은 건
       const linkedIds = new Set(_aprSubDocData.flatMap(d => (d.submission_items||[]).map(i => i.item_id)));
@@ -613,72 +621,32 @@ async function renderApprovalLeader() {
     }
   }
 
-  const totalPending = _aprSubDocData.length + _aprLeaderData.length;
+  // ★ 탭별 필터
+  const pendingStatuses = new Set(["submitted", "in_review", "team_approved"]);
+  const approvedStatuses = new Set(["approved"]);
+  const rejectedStatuses = new Set(["rejected"]);
+  const subDocByTab = _aprSubDocData.filter(d => {
+    if (_aprLeaderTab === 'pending')   return pendingStatuses.has(d.status);
+    if (_aprLeaderTab === 'approved')  return approvedStatuses.has(d.status);
+    if (_aprLeaderTab === 'rejected')  return rejectedStatuses.has(d.status);
+    return true;
+  });
+  const legacyByTab = _aprLeaderData.filter(item => {
+    if (_aprLeaderTab === 'pending')   return ['pending','submitted','in_review'].includes(item.status);
+    if (_aprLeaderTab === 'approved')  return item.status === 'approved';
+    if (_aprLeaderTab === 'rejected')  return item.status === 'rejected';
+    return true;
+  });
 
-  // 상신 문서 카드 (파란 테두리)
-  const subDocCards = _aprSubDocData.map(doc => {
-    const items = doc.submission_items||[];
-    const safeDocId = String(doc.id).replace(/'/g,"\\'");
-    const totalAmt = Number(doc.total_amount||0);
-    const subAt = (doc.submitted_at||doc.created_at||"").slice(0,16).replace("T"," ");
-    const stBadge = doc.status==="in_review"
-      ? `<span style="font-size:10px;font-weight:800;padding:3px 10px;border-radius:8px;background:#F5F3FF;color:#7C3AED">🔄 검토완료</span>`
-      : `<span style="font-size:10px;font-weight:800;padding:3px 10px;border-radius:8px;background:#FFF7ED;color:#C2410C">🕐 결재대기</span>`;
-    const itemList = items.length>0
-      ? items.map((it,i)=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F9FAFB;font-size:12px"><span>${i+1}. ${it.item_title||it.item_id}</span><span style="font-weight:800;color:#002C5F">${Number(it.item_amount||0).toLocaleString()}원</span></div>`).join("")
-      : `<div style="font-size:11px;color:#9CA3AF;padding:6px 0">연결된 항목 없음</div>`;
-    return `
-    <div style="border-radius:16px;border:2px solid #DBEAFE;background:white;padding:20px 22px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,44,95,.06)">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px">
-        <div style="flex:1">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-            <span style="font-size:11px;font-weight:900;padding:2px 8px;border-radius:6px;background:#DBEAFE;color:#1D4ED8">📤 상신문서</span>
-            ${stBadge}
-          </div>
-          <div style="font-size:15px;font-weight:900;color:#111827;margin-bottom:6px">${doc.title}</div>
-          <div style="font-size:11px;color:#6B7280;display:flex;gap:12px;flex-wrap:wrap">
-            <span>👤 ${doc.submitter_name}${doc.submitter_org_name?" · "+doc.submitter_org_name:""}</span>
-            <span>📅 ${subAt}</span>
-            <span>📊 ${items.length}건</span>
-            ${doc.account_code?`<span>🏦 ${doc.account_code}</span>`:""}
-            ${doc.approval_system === 'integrated' ? `<span style="font-size:9px;font-weight:900;padding:2px 7px;border-radius:5px;background:#DBEAFE;color:#1D4ED8;margin-left:2px">🔗 통합결재</span>` : ''}
-          </div>
-        </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:11px;color:#6B7280;margin-bottom:2px">신청 총액</div>
-          <div style="font-size:22px;font-weight:900;color:#002C5F">${totalAmt.toLocaleString()}원</div>
-        </div>
-      </div>
-      <div style="background:#F8FAFF;border-radius:10px;padding:12px 14px;margin-bottom:14px">
-        <div style="font-size:11px;font-weight:800;color:#374151;margin-bottom:8px">📋 첨부 항목</div>
-        ${itemList}
-      </div>
-      ${doc.content?`<div style="font-size:12px;color:#6B7280;background:#F9FAFB;border-radius:8px;padding:10px 12px;margin-bottom:12px;line-height:1.6">"${doc.content}"</div>`:""}
-      ${(() => {
-        const coop = Array.isArray(doc.coop_teams) ? doc.coop_teams : [];
-        const ref = Array.isArray(doc.reference_teams) ? doc.reference_teams : [];
-        if (doc.approval_system !== 'integrated' || (coop.length === 0 && ref.length === 0)) return '';
-        return `<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:11px">
-          <div style="font-weight:900;color:#1D4ED8;margin-bottom:6px">🔗 통합결재 정보</div>
-          ${coop.length > 0 ? `<div style="margin-bottom:4px"><span style="color:#6B7280;font-weight:700">협조처:</span> <span style="color:#374151">${coop.map(c => c.name||c).join(', ')}</span></div>` : ''}
-          ${ref.length > 0 ? `<div><span style="color:#6B7280;font-weight:700">참조처:</span> <span style="color:#374151">${ref.map(r => r.name||r).join(', ')}</span></div>` : ''}
-        </div>`;
-      })()}
-      <div style="display:flex;gap:10px;padding-top:14px;border-top:1px solid #F3F4F6">
-        <div style="flex:1">
-          <textarea id="comment-doc-${safeDocId}" placeholder="결재 의견 (반려 시 필수)" rows="2"
-            style="width:100%;padding:8px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;resize:none;box-sizing:border-box"></textarea>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
-          <button onclick="_approvalActionDoc('${safeDocId}','approve')" style="padding:8px 20px;border-radius:8px;background:#059669;color:white;font-size:12px;font-weight:900;border:none;cursor:pointer;min-width:80px" onmouseover="this.style.background='#047857'" onmouseout="this.style.background='#059669'">✅ 승인</button>
-          <button onclick="_approvalActionDoc('${safeDocId}','reject')"  style="padding:8px 20px;border-radius:8px;background:white;color:#DC2626;font-size:12px;font-weight:900;border:1.5px solid #DC2626;cursor:pointer;min-width:80px" onmouseover="this.style.background='#FEF2F2'" onmouseout="this.style.background='white'">❌ 반려</button>
-        </div>
-      </div>
-    </div>`;
-  }).join("");
+  const totalPending  = _aprSubDocData.filter(d => pendingStatuses.has(d.status)).length + _aprLeaderData.filter(i => ['pending','submitted','in_review'].includes(i.status)).length;
+  const totalApproved = _aprSubDocData.filter(d => approvedStatuses.has(d.status)).length;
+  const totalRejected = _aprSubDocData.filter(d => rejectedStatuses.has(d.status)).length;
+  const totalCurrent  = subDocByTab.length + legacyByTab.length;
 
-  // 레거시 카드
-  const legacyCards = _aprLeaderData.map(item=>{
+
+  // 레거시 카드 (tabByTab 기준)
+  const legacyCards = legacyByTab.map(item=>{
+
     const typeBdg = item._type==="plan"
       ? `<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#DBEAFE;color:#1D4ED8">📋 교육계획</span>`
       : `<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#FEF3C7;color:#B45309">📝 교육신청</span>`;
@@ -719,6 +687,20 @@ async function renderApprovalLeader() {
     <div style="font-size:12px;color:#9CA3AF">팀원의 교육계획·신청이 상신되면 여기서 결재할 수 있습니다.</div>
   </div>`;
 
+  // ─── 탭 UI 헬퍼 ──────────────────────────────────────────────────────────
+  function _leaderTabBtn(key, label, count, color) {
+    const isActive = _aprLeaderTab === key;
+    const bg = isActive ? color : 'white';
+    const textColor = isActive ? 'white' : '#374151';
+    const border = isActive ? `2px solid ${color}` : '1.5px solid #E5E7EB';
+    const shadow = isActive ? `0 4px 14px ${color}33` : 'none';
+    return `<button onclick="_aprLeaderTab='${key}';renderApprovalLeader()"
+      style="padding:9px 20px;border-radius:12px;background:${bg};border:${border};color:${textColor};font-size:12px;font-weight:900;cursor:pointer;box-shadow:${shadow};transition:all .15s;display:flex;align-items:center;gap:6px">
+      ${label}
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:${isActive?'rgba(255,255,255,.25)':color+'22'};color:${isActive?'white':color};font-size:11px;font-weight:900">${count}</span>
+    </button>`;
+  }
+
   el.innerHTML = `
 <div class="max-w-5xl mx-auto space-y-4">
   <div style="display:flex;align-items:flex-end;justify-content:space-between">
@@ -736,11 +718,20 @@ async function renderApprovalLeader() {
       </div>
     </div>
   </div>
+
+  <!-- ★ 탭 바 -->
+  <div style="display:flex;gap:8px;padding:4px 0 12px;border-bottom:2px solid #F3F4F6">
+    ${_leaderTabBtn('pending',  '⏳ 진행중',   totalPending,  '#1D4ED8')}
+    ${_leaderTabBtn('approved', '✅ 결재완료',  totalApproved, '#059669')}
+    ${_leaderTabBtn('rejected', '❌ 반려',      totalRejected, '#DC2626')}
+  </div>
+
   ${(() => {
     // Phase 3: team_forecast 번들 카드 (별도 섹션)
-    const tfDocs = _aprSubDocData.filter(d => d.submission_type === 'team_forecast');
-    const otherDocs = _aprSubDocData.filter(d => d.submission_type !== 'team_forecast');
+    const tfDocs = subDocByTab.filter(d => d.submission_type === 'team_forecast');
+    const otherDocs = subDocByTab.filter(d => d.submission_type !== 'team_forecast');
     const tfCards = tfDocs.map(doc => {
+
       const items = doc.submission_items || [];
       const safeDocId = String(doc.id).replace(/'/g, "\\'");
       const totalAmt = Number(doc.total_amount || 0);
@@ -843,15 +834,23 @@ async function renderApprovalLeader() {
     </div>`;
     }).join('');
 
-    if (totalPending === 0) return emptyMsg;
+    if (totalCurrent === 0) {
+      const emptyLabels = { pending:'진행 중인', approved:'결재 완료된', rejected:'반려된' };
+      return `<div class="card p-16 text-center">
+        <div style="font-size:48px;margin-bottom:16px">${_aprLeaderTab==='approved'?'✅':_aprLeaderTab==='rejected'?'❌':'📭'}</div>
+        <div style="font-size:15px;font-weight:900;color:#374151;margin-bottom:6px">${emptyLabels[_aprLeaderTab]||''} 결재 문서가 없습니다</div>
+        <div style="font-size:12px;color:#9CA3AF">${_aprLeaderTab==='pending'?'팀원의 교육계획·신청이 상신되면 여기서 결재할 수 있습니다.':'처리 내역이 없습니다.'}</div>
+      </div>`;
+    }
     return `
       ${tfDocs.length>0 ? `<div style="font-size:11px;font-weight:800;color:#D97706;margin:8px 0 4px">📦 팀 사업계획 번들 (${tfDocs.length}건)</div>${tfCards}` : ''}
       ${otherDocs.length>0 ? `<div style="font-size:11px;font-weight:800;color:#1D4ED8;margin:${tfDocs.length>0?'16px':'8px'} 0 4px">📤 상신 문서 기반 (${otherDocs.length}건)</div>${regularSubDocCards}` : ''}
-      ${_aprLeaderData.length>0 ? `<div style="font-size:11px;font-weight:800;color:#9CA3AF;margin:${_aprSubDocData.length>0?'16px':'8px'} 0 4px">📄 레거시 방식 (${_aprLeaderData.length}건)</div>${legacyCards}` : ''}
+      ${legacyByTab.length>0 ? `<div style="font-size:11px;font-weight:800;color:#9CA3AF;margin:${subDocByTab.length>0?'16px':'8px'} 0 4px">📄 레거시 방식 (${legacyByTab.length}건)</div>${legacyCards}` : ''}
     `;
   })()}
 </div>`;
 }
+
 
 // ─── Phase 3: 팀 사업계획 번들 — 팀장 BO 전달 ────────────────────────────────
 /**

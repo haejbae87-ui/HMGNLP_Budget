@@ -1,4 +1,4 @@
-﻿// ─── fo_apply_list.js — 신청 목록/결과등록/스마트버튼 (REFACTOR-2: apply.js 분리) ───
+// ─── fo_apply_list.js — 신청 목록/결과등록/스마트버튼 (REFACTOR-2: apply.js 분리) ───
 // ─── APPLY (교육신청) — 목록 ↔ 신청폼 ↔ 결과폼 전환 허브 ────────────────────
 
 // ─── DB 승인된 교육계획 캐시 (MOCK_PLANS 대체) ──────────────────────────────
@@ -698,6 +698,13 @@ function _renderApplyList() {
     </div>`;
     })
     .join('');
+  const emptyMsg = `
+    <div style="padding:60px 20px;text-align:center;border-radius:14px;background:#F9FAFB;border:1.5px dashed #D1D5DB">
+      <div style="font-size:32px;margin-bottom:12px">📭</div>
+      <div style="font-size:15px;font-weight:900;color:#111827;margin-bottom:6px">교육신청 내역이 없습니다</div>
+      <div style="font-size:13px;color:#6B7280;margin-bottom:20px">우측 상단의 버튼을 눌러 새로운 신청을 시작하세요</div>
+    </div>
+  `;
   // 연도 선택
   const curY = new Date().getFullYear();
   const yearSelector = `

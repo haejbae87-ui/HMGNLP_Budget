@@ -28,11 +28,11 @@ const _BAM_EDU_TREE = [
     categories: [
       { purpose: 'regular', label: '정규교육', desc: '이러닝 · 집합 · 라이브',
         types: [
-          { id: 'elearning', label: '이러닝' }, { id: 'class', label: '집합' }, { id: 'live', label: '라이브' },
+          { id: 'l_elearning', label: '이러닝' }, { id: 'l_class', label: '집합' }, { id: 'live', label: '라이브' },
         ]},
       { purpose: 'academic', label: '학술 및 연구활동', desc: '학회/컨퍼런스 · 세미나 · 연수',
         types: [
-          { id: 'conf', label: '학회/컨퍼런스' }, { id: 'seminar', label: '세미나' }, { id: 'acad_study', label: '연수' },
+          { id: 'conf', label: '학회/컨퍼런스' }, { id: 'l_seminar', label: '세미나' }, { id: 'acad_study', label: '연수' },
         ]},
       { purpose: 'knowledge', label: '지식자원 학습', desc: '도서 · 논문/저널 · 기술자료',
         types: [
@@ -44,7 +44,7 @@ const _BAM_EDU_TREE = [
         ]},
       { purpose: 'etc', label: '기타', desc: '교육출강 · 팀빌딩',
         types: [
-          { id: 'teach', label: '교육출강(사/내외)' }, { id: 'team_build', label: '팀빌딩' },
+          { id: 'teach', label: '교육출강(사/내외)' }, { id: 'l_team_build', label: '팀빌딩' },
         ]},
     ]},
   { group: 'operator', icon: '🎯', label: '교육운영', color: '#1D4ED8', desc: '교육과정을 기획·운영',

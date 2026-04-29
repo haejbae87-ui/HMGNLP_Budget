@@ -2,25 +2,25 @@
 // 제도그룹별 예산계정의 교육유형에 맞는 양식(필드 on/off)을 관리합니다.
 // 4단계: 사업계획(forecast) · 운영계획(operation) · 신청(apply) · 결과(result)
 
-let _fmTenantId = '';       // 선택된 회사(tenant)
-let _fmVorgId = '';
-let _fmAccountCode = '';
-let _fmSelEduType = '';
-let _fmActiveStage = 'forecast';
-let _fmTplList = [];        // 전체 vorg templates (DB)
-let _fmAccountList = [];    // 전체 budget accounts (DB)
-let _fmTenantList = [];     // 회사 목록
-let _fmFieldStates = {}; // { "elearning|forecast": { venue_type: true, ... } }
+let _formTenantId = '';       // 선택된 회사(tenant)
+let _formVorgId = '';
+let _formAccountCode = '';
+let _formSelEduType = '';
+let _formActiveStage = 'forecast';
+let _formTplList = [];        // 전체 vorg templates (DB)
+let _formAccountList = [];    // 전체 budget accounts (DB)
+let _formTenantList = [];     // 회사 목록
+let _formFieldStates = {}; // { "elearning|forecast": { venue_type: true, ... } }
 
 // ── 패턴 → 활성 단계 매핑 ──────────────────────────────────────────────────
-const _FM_PATTERN_STAGES = {
+const _FORM_PATTERN_STAGES = {
   A: ['forecast','operation','apply','result'],
   B: ['operation','apply','result'],
   C: ['apply','result'],
   D: ['operation','apply'],
   E: ['forecast','operation'],
 };
-const _FM_STAGE_META = {
+const _FORM_STAGE_META = {
   forecast:  { icon:'📊', label:'사업계획 양식', color:'#7C3AED' },
   operation: { icon:'📋', label:'운영계획 양식', color:'#1D4ED8' },
   apply:     { icon:'📝', label:'신청 양식',     color:'#059669' },
@@ -28,7 +28,7 @@ const _FM_STAGE_META = {
 };
 
 // ── 단계별 필드 카탈로그 ────────────────────────────────────────────────────
-const _FM_FIELDS = {
+const _FORM_FIELDS = {
   forecast: [
     { cat:'기본정보', icon:'📋', locked:true, fields:[
       {key:'edu_purpose',label:'교육목적',locked:true},{key:'edu_type',label:'교육유형',locked:true},
@@ -118,25 +118,25 @@ async function renderFormManagement() {
         accQuery = accQuery.eq('tenant_id', tid);
       }
       const [tplRes, accRes] = await Promise.all([tplQuery, accQuery]);
-      _fmTplList = tplRes.data || [];
-      _fmAccountList = accRes.data || [];
+      _formTplList = tplRes.data || [];
+      _formAccountList = accRes.data || [];
     } else {
       console.warn('[FormMgmt] Supabase 미연결, mock 사용');
-      _fmTplList = (window.VORG_TEMPLATES||[]);
-      _fmAccountList = (window.BUDGET_ACCOUNTS||[]);
+      _formTplList = (window.VORG_TEMPLATES||[]);
+      _formAccountList = (window.BUDGET_ACCOUNTS||[]);
     }
 
     // 회사 목록 추출
-    _fmTenantList = typeof TENANTS !== 'undefined'
+    _formTenantList = typeof TENANTS !== 'undefined'
       ? TENANTS
-      : [...new Set(_fmTplList.map(t => t.tenant_id).filter(Boolean))].map(id => ({ id, name: id }));
+      : [...new Set(_formTplList.map(t => t.tenant_id).filter(Boolean))].map(id => ({ id, name: id }));
 
     // platform_admin: 회사 미선택 시 첫 번째 자동 선택
-    if (isPlatform && !_fmTenantId && _fmTenantList.length) _fmTenantId = _fmTenantList[0].id;
+    if (isPlatform && !_formTenantId && _formTenantList.length) _formTenantId = _formTenantList[0].id;
     // 일반 admin: 자사 고정
-    if (!isPlatform) _fmTenantId = user.tenant_id || 'HMC';
+    if (!isPlatform) _formTenantId = user.tenant_id || 'HMC';
 
-    _fmRenderPage();
+    _formRenderPage();
   } catch(e) {
     console.error('[FormMgmt] 렌더링 에러:', e);
     ct.innerHTML = `<div style="text-align:center;padding:60px;color:#EF4444">
@@ -148,45 +148,45 @@ async function renderFormManagement() {
   }
 }
 
-function _fmRenderPage() {
+function _formRenderPage() {
   const ct = document.getElementById('bo-content');
   const user = JSON.parse(sessionStorage.getItem('loggedInUser') || '{}');
   const role = (typeof boCurrentPersona !== 'undefined' && boCurrentPersona?.role) || user.role || '';
   const isPlatform = role === 'platform_admin';
 
   // 회사 기준 제도그룹 필터
-  const filteredVorgs = _fmTenantId
-    ? _fmTplList.filter(t => t.tenant_id === _fmTenantId)
-    : _fmTplList;
+  const filteredVorgs = _formTenantId
+    ? _formTplList.filter(t => t.tenant_id === _formTenantId)
+    : _formTplList;
 
   // vorg 유효성 확인
-  if (_fmVorgId && !filteredVorgs.find(t => t.id === _fmVorgId)) _fmVorgId = '';
-  if (!_fmVorgId && filteredVorgs.length) _fmVorgId = filteredVorgs[0].id;
+  if (_formVorgId && !filteredVorgs.find(t => t.id === _formVorgId)) _formVorgId = '';
+  if (!_formVorgId && filteredVorgs.length) _formVorgId = filteredVorgs[0].id;
 
   // 제도그룹 기준 예산계정 필터
-  const filteredAccounts = _fmAccountList.filter(a =>
-    (!_fmVorgId || a.virtual_org_template_id === _fmVorgId) && a.active !== false
+  const filteredAccounts = _formAccountList.filter(a =>
+    (!_formVorgId || a.virtual_org_template_id === _formVorgId) && a.active !== false
   );
 
   // account 유효성 확인
-  if (_fmAccountCode && !filteredAccounts.find(a => a.code === _fmAccountCode)) _fmAccountCode = '';
-  const selAcc = filteredAccounts.find(a => a.code === _fmAccountCode) || null;
+  if (_formAccountCode && !filteredAccounts.find(a => a.code === _formAccountCode)) _formAccountCode = '';
+  const selAcc = filteredAccounts.find(a => a.code === _formAccountCode) || null;
   // 자동 선택하지 않음 — 사용자가 직접 선택해야 조회
 
   // 기존 설정 복원
-  if (selAcc) _fmLoadExistingConfig(selAcc);
+  if (selAcc) _formLoadExistingConfig(selAcc);
 
   const eduTypes = selAcc?.edu_types || [];
   const pattern = selAcc?.process_pattern || 'A';
-  const stages = _FM_PATTERN_STAGES[pattern] || _FM_PATTERN_STAGES.A;
+  const stages = _FORM_PATTERN_STAGES[pattern] || _FORM_PATTERN_STAGES.A;
   const usesBudget = selAcc?.uses_budget !== false;
 
   // 첫 교육유형 자동 선택
-  if (!_fmSelEduType || !eduTypes.includes(_fmSelEduType)) {
-    _fmSelEduType = eduTypes[0] || '';
+  if (!_formSelEduType || !eduTypes.includes(_formSelEduType)) {
+    _formSelEduType = eduTypes[0] || '';
   }
   // 활성 단계 유효성
-  if (!stages.includes(_fmActiveStage)) _fmActiveStage = stages[0];
+  if (!stages.includes(_formActiveStage)) _formActiveStage = stages[0];
 
   // 교육유형 라벨 매핑
   const eduLabel = (id) => (window.EDU_TYPE_LABELS || {})[id] || id;
@@ -209,10 +209,10 @@ function _fmRenderPage() {
         ${isPlatform ? `
         <div style="display:flex;align-items:center;gap:6px">
           <span style="font-size:12px;font-weight:700;color:#4338CA;white-space:nowrap">🏢 회사</span>
-          <select id="fm-tenant-sel" onchange="_fmOnTenantChange(this.value)"
+          <select id="fm-tenant-sel" onchange="_formOnTenantChange(this.value)"
             style="padding:6px 10px;border:1px solid #C7D2FE;border-radius:8px;font-size:12px;background:white;min-width:120px">
             <option value="">전체 회사</option>
-            ${_fmTenantList.map(t => `<option value="${t.id}" ${t.id===_fmTenantId?'selected':''}>${t.name||t.id}</option>`).join('')}
+            ${_formTenantList.map(t => `<option value="${t.id}" ${t.id===_formTenantId?'selected':''}>${t.name||t.id}</option>`).join('')}
           </select>
         </div>
         <div style="width:1px;height:24px;background:#C7D2FE"></div>
@@ -220,7 +220,7 @@ function _fmRenderPage() {
         <div style="display:flex;align-items:center;gap:6px">
           <span style="font-size:12px;font-weight:700;color:#4338CA;white-space:nowrap">🏢 회사</span>
           <span style="padding:6px 12px;border:1px solid #C7D2FE;border-radius:8px;font-size:12px;background:#F5F3FF;color:#4338CA;font-weight:700">
-            ${_fmTenantList.find(t=>t.id===_fmTenantId)?.name || _fmTenantId}
+            ${_formTenantList.find(t=>t.id===_formTenantId)?.name || _formTenantId}
           </span>
         </div>
         <div style="width:1px;height:24px;background:#C7D2FE"></div>
@@ -228,38 +228,38 @@ function _fmRenderPage() {
         <!-- 제도그룹 -->
         <div style="display:flex;align-items:center;gap:6px">
           <span style="font-size:12px;font-weight:700;color:#4338CA;white-space:nowrap">🏗️ 제도그룹</span>
-          <select id="fm-vorg-sel" onchange="_fmOnVorgChange(this.value)"
+          <select id="fm-vorg-sel" onchange="_formOnVorgChange(this.value)"
             style="padding:6px 10px;border:1px solid #C7D2FE;border-radius:8px;font-size:12px;background:white;min-width:200px">
             <option value="">제도그룹 선택</option>
-            ${filteredVorgs.map(t => `<option value="${t.id}" ${t.id===_fmVorgId?'selected':''}>${t.name}</option>`).join('')}
+            ${filteredVorgs.map(t => `<option value="${t.id}" ${t.id===_formVorgId?'selected':''}>${t.name}</option>`).join('')}
           </select>
         </div>
         <div style="width:1px;height:24px;background:#C7D2FE"></div>
         <!-- 예산계정 -->
         <div style="display:flex;align-items:center;gap:6px">
           <span style="font-size:12px;font-weight:700;color:#4338CA;white-space:nowrap">💳 예산계정</span>
-          <select id="fm-acc-sel" onchange="_fmOnAccountChange(this.value)"
+          <select id="fm-acc-sel" onchange="_formOnAccountChange(this.value)"
             style="padding:6px 10px;border:1px solid #C7D2FE;border-radius:8px;font-size:12px;background:white;min-width:180px"
-            ${!_fmVorgId?'disabled':''}>
+            ${!_formVorgId?'disabled':''}>
             <option value="">예산계정 선택</option>
-            ${filteredAccounts.map(a => `<option value="${a.code}" ${a.code===_fmAccountCode?'selected':''}>${a.name} (${a.code})</option>`).join('')}
+            ${filteredAccounts.map(a => `<option value="${a.code}" ${a.code===_formAccountCode?'selected':''}>${a.name} (${a.code})</option>`).join('')}
           </select>
         </div>
         ${selAcc ? `
         <div style="width:1px;height:24px;background:#C7D2FE"></div>
         <span style="font-size:10px;padding:4px 12px;border-radius:20px;background:#7C3AED;color:white;font-weight:800">
-          패턴${pattern}: ${(_FM_PATTERN_STAGES[pattern]||[]).map(s=>_FM_STAGE_META[s]?.label.replace(' 양식','')).join('→')}
+          패턴${pattern}: ${(_FORM_PATTERN_STAGES[pattern]||[]).map(s=>_FORM_STAGE_META[s]?.label.replace(' 양식','')).join('→')}
         </span>` : ''}
         ${selAcc && !usesBudget ? '<span style="font-size:10px;padding:4px 10px;border-radius:20px;background:#F59E0B;color:white;font-weight:800">💰 무예산</span>' : ''}
       </div>
       <!-- 안내 문구 -->
-      ${!_fmAccountCode ? `
+      ${!_formAccountCode ? `
       <div style="margin-top:10px;font-size:11px;color:#6366F1;display:flex;align-items:center;gap:6px">
         ℹ️ 회사 → 제도그룹 → 예산계정을 순서대로 선택하면 양식을 관리할 수 있습니다.
       </div>` : ''}
     </div>
 
-    ${!_fmAccountCode ? `
+    ${!_formAccountCode ? `
       <div style="padding:60px;text-align:center;background:#F0F9FF;border:2px dashed #BAE6FD;border-radius:16px">
         <div style="font-size:36px;margin-bottom:12px">👆</div>
         <div style="font-size:14px;font-weight:700;color:#0369A1;margin-bottom:6px">예산계정을 선택하세요</div>
@@ -280,8 +280,8 @@ function _fmRenderPage() {
           📚 교육유형 (${eduTypes.length})
         </div>
         ${eduTypes.map(et => {
-          const active = et === _fmSelEduType;
-          return `<div onclick="_fmSelectEduType('${et}')"
+          const active = et === _formSelEduType;
+          return `<div onclick="_formSelectEduType('${et}')"
             style="padding:10px 14px;cursor:pointer;border-left:3px solid ${active?'#4F46E5':'transparent'};
               background:${active?'#EEF2FF':'white'};font-size:12px;font-weight:${active?'800':'500'};
               color:${active?'#4338CA':'#374151'};transition:all .15s;border-bottom:1px solid #F3F4F6">
@@ -295,9 +295,9 @@ function _fmRenderPage() {
         <!-- 단계 탭 -->
         <div style="display:flex;border-bottom:2px solid #E5E7EB;background:#F8FAFC">
           ${stages.map(s => {
-            const m = _FM_STAGE_META[s];
-            const act = s === _fmActiveStage;
-            return `<div onclick="_fmSelectStage('${s}')"
+            const m = _FORM_STAGE_META[s];
+            const act = s === _formActiveStage;
+            return `<div onclick="_formSelectStage('${s}')"
               style="padding:10px 16px;cursor:pointer;font-size:12px;font-weight:${act?'800':'500'};
                 color:${act?m.color:'#6B7280'};border-bottom:3px solid ${act?m.color:'transparent'};
                 background:${act?'white':'transparent'};transition:all .15s;flex:1;text-align:center">
@@ -308,16 +308,16 @@ function _fmRenderPage() {
 
         <!-- 필드 토글 영역 -->
         <div style="padding:16px;max-height:460px;overflow-y:auto">
-          ${_fmRenderFieldToggles(_fmActiveStage, usesBudget)}
+          ${_formRenderFieldToggles(_formActiveStage, usesBudget)}
         </div>
 
         <!-- 하단 버튼 -->
         <div style="padding:12px 16px;border-top:1px solid #E5E7EB;display:flex;gap:10px;justify-content:flex-end;background:#FAFAFA">
-          <button onclick="_fmPreview()"
+          <button onclick="_formPreview()"
             style="padding:8px 20px;border:1px solid #6366F1;background:white;color:#6366F1;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">
             👁️ 미리보기
           </button>
-          <button onclick="_fmSave()"
+          <button onclick="_formSave()"
             style="padding:8px 24px;border:none;background:linear-gradient(135deg,#6366F1,#8B5CF6);color:white;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px #6366F140">
             💾 저장
           </button>
@@ -329,10 +329,10 @@ function _fmRenderPage() {
 }
 
 // ── 필드 토글 렌더 ──────────────────────────────────────────────────────────
-function _fmRenderFieldToggles(stage, usesBudget) {
-  const cats = _FM_FIELDS[stage] || [];
-  const stateKey = `${_fmSelEduType}|${stage}`;
-  const states = _fmFieldStates[stateKey] || {};
+function _formRenderFieldToggles(stage, usesBudget) {
+  const cats = _FORM_FIELDS[stage] || [];
+  const stateKey = `${_formSelEduType}|${stage}`;
+  const states = _formFieldStates[stateKey] || {};
 
   return cats.map(cat => {
     const isBudgetCat = cat.budgetOnly;
@@ -356,7 +356,7 @@ function _fmRenderFieldToggles(stage, usesBudget) {
               border:1.5px solid ${disabled ? '#F3F4F6' : (isOn?'#6366F1':'#E5E7EB')};
               background:${disabled ? '#FAFAFA' : (isOn?'#EEF2FF':'white')};
               cursor:${disabled?'not-allowed':'pointer'};transition:all .12s"
-            ${disabled?'':`onclick="event.preventDefault();_fmToggleField('${stateKey}','${f.key}',${!isOn})"`}>
+            ${disabled?'':`onclick="event.preventDefault();_formToggleField('${stateKey}','${f.key}',${!isOn})"`}>
             <input type="checkbox" ${isOn?'checked':''} ${disabled?'disabled':''}
               style="margin:0;accent-color:#6366F1;pointer-events:none">
             <span style="font-size:12px;color:${disabled?'#9CA3AF':'#374151'};font-weight:${isOn?'600':'400'}">${f.label}</span>
@@ -369,35 +369,35 @@ function _fmRenderFieldToggles(stage, usesBudget) {
 }
 
 // ── 이벤트 핸들러 ───────────────────────────────────────────────────────────
-function _fmOnTenantChange(v) { _fmTenantId = v; _fmVorgId = ''; _fmAccountCode = ''; _fmSelEduType = ''; _fmRenderPage(); }
-function _fmOnVorgChange(v) { _fmVorgId = v; _fmAccountCode = ''; _fmSelEduType = ''; _fmRenderPage(); }
-function _fmOnAccountChange(v) { _fmAccountCode = v; _fmSelEduType = ''; _fmRenderPage(); }
-function _fmSelectEduType(et) { _fmSelEduType = et; _fmRenderPage(); }
-function _fmSelectStage(s) { _fmActiveStage = s; _fmRenderPage(); }
+function _formOnTenantChange(v) { _formTenantId = v; _formVorgId = ''; _formAccountCode = ''; _formSelEduType = ''; _formRenderPage(); }
+function _formOnVorgChange(v) { _formVorgId = v; _formAccountCode = ''; _formSelEduType = ''; _formRenderPage(); }
+function _formOnAccountChange(v) { _formAccountCode = v; _formSelEduType = ''; _formRenderPage(); }
+function _formSelectEduType(et) { _formSelEduType = et; _formRenderPage(); }
+function _formSelectStage(s) { _formActiveStage = s; _formRenderPage(); }
 
-function _fmToggleField(stateKey, fieldKey, val) {
-  if (!_fmFieldStates[stateKey]) _fmFieldStates[stateKey] = {};
-  _fmFieldStates[stateKey][fieldKey] = val;
-  _fmRenderPage();
+function _formToggleField(stateKey, fieldKey, val) {
+  if (!_formFieldStates[stateKey]) _formFieldStates[stateKey] = {};
+  _formFieldStates[stateKey][fieldKey] = val;
+  _formRenderPage();
 }
 
 // ── 저장 ────────────────────────────────────────────────────────────────────
-async function _fmSave() {
-  const acc = _fmAccountList.find(a => a.code === _fmAccountCode);
+async function _formSave() {
+  const acc = _formAccountList.find(a => a.code === _formAccountCode);
   if (!acc) return alert('예산계정을 선택하세요.');
 
   // 현재 계정의 모든 양식 설정을 수집
   const formConfig = {};
   const eduTypes = acc.edu_types || [];
   const pattern = acc.process_pattern || 'A';
-  const stages = _FM_PATTERN_STAGES[pattern] || [];
+  const stages = _FORM_PATTERN_STAGES[pattern] || [];
 
   eduTypes.forEach(et => {
     stages.forEach(s => {
       const key = `${et}|${s}`;
-      if (_fmFieldStates[key]) {
+      if (_formFieldStates[key]) {
         if (!formConfig[et]) formConfig[et] = {};
-        formConfig[et][s] = _fmFieldStates[key];
+        formConfig[et][s] = _formFieldStates[key];
       }
     });
   });
@@ -406,14 +406,14 @@ async function _fmSave() {
     const sb = window.__supabase;
     const { error } = await sb.from('budget_accounts')
       .update({ form_config: formConfig, updated_at: new Date().toISOString() })
-      .eq('code', _fmAccountCode)
+      .eq('code', _formAccountCode)
       .eq('tenant_id', acc.tenant_id);
 
     if (error) throw error;
 
     // 로컬 캐시 업데이트
-    const idx = _fmAccountList.findIndex(a => a.code === _fmAccountCode);
-    if (idx >= 0) _fmAccountList[idx].form_config = formConfig;
+    const idx = _formAccountList.findIndex(a => a.code === _formAccountCode);
+    if (idx >= 0) _formAccountList[idx].form_config = formConfig;
 
     alert('✅ 양식 설정이 저장되었습니다.');
   } catch(e) {
@@ -423,14 +423,14 @@ async function _fmSave() {
 }
 
 // ── 미리보기 ────────────────────────────────────────────────────────────────
-function _fmPreview() {
-  const stage = _fmActiveStage;
-  const stageM = _FM_STAGE_META[stage];
-  const cats = _FM_FIELDS[stage] || [];
-  const stateKey = `${_fmSelEduType}|${stage}`;
-  const states = _fmFieldStates[stateKey] || {};
-  const eduLabel = (window.EDU_TYPE_LABELS || {})[_fmSelEduType] || _fmSelEduType;
-  const acc = _fmAccountList.find(a => a.code === _fmAccountCode);
+function _formPreview() {
+  const stage = _formActiveStage;
+  const stageM = _FORM_STAGE_META[stage];
+  const cats = _FORM_FIELDS[stage] || [];
+  const stateKey = `${_formSelEduType}|${stage}`;
+  const states = _formFieldStates[stateKey] || {};
+  const eduLabel = (window.EDU_TYPE_LABELS || {})[_formSelEduType] || _formSelEduType;
+  const acc = _formAccountList.find(a => a.code === _formAccountCode);
   const usesBudget = acc?.uses_budget !== false;
 
   // 활성 필드만 수집
@@ -456,7 +456,7 @@ function _fmPreview() {
       background:linear-gradient(135deg,${stageM.color}08,${stageM.color}15);border-radius:16px 16px 0 0">
       <div>
         <div style="font-size:14px;font-weight:900;color:${stageM.color}">${stageM.icon} ${stageM.label} 미리보기</div>
-        <div style="font-size:11px;color:#6B7280;margin-top:2px">교육유형: ${eduLabel} | 계정: ${_fmAccountCode}</div>
+        <div style="font-size:11px;color:#6B7280;margin-top:2px">교육유형: ${eduLabel} | 계정: ${_formAccountCode}</div>
       </div>
       <button onclick="document.getElementById('fm-preview-overlay').remove()"
         style="padding:4px 12px;border:1px solid #D1D5DB;background:white;border-radius:6px;cursor:pointer;font-size:12px">✕ 닫기</button>
@@ -488,11 +488,11 @@ function _fmPreview() {
 }
 
 // ── 초기 로드 시 DB에서 기존 설정 복원 ──────────────────────────────────────
-function _fmLoadExistingConfig(acc) {
+function _formLoadExistingConfig(acc) {
   if (!acc?.form_config) return;
   Object.entries(acc.form_config).forEach(([et, stages]) => {
     Object.entries(stages).forEach(([stage, fields]) => {
-      _fmFieldStates[`${et}|${stage}`] = { ...fields };
+      _formFieldStates[`${et}|${stage}`] = { ...fields };
     });
   });
 }

@@ -379,10 +379,13 @@ async function _renderCgDetailPage() {
         <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">SAP 코드 <span style="font-size:10px;color:#6B7280">(선택)</span></label>
         <input id="cg-dt-sap-code" type="text" value="${item?.sapCode || ''}" placeholder="예) SAP-ACC-001" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
       </div>
+      <!--
+      [HIDDEN] 표시 순서는 당분간 고정값(99)으로 사용
       <div>
         <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">표시 순서 <span style="font-size:10px;color:#6B7280">(숫자 작을수록 위에 표시)</span></label>
         <input id="cg-dt-order" type="number" value="${item?.sortOrder ?? 99}" placeholder="99" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
       </div>
+      -->
       <div style="grid-column:1/-1">
         <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">가이드 설명 <span style="font-size:10px;color:#6B7280">(학습자 화면 노출)</span></label>
         <textarea id="cg-dt-desc" rows="2" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;resize:none">${item?.desc || ''}</textarea>

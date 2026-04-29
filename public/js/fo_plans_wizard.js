@@ -514,7 +514,7 @@ function renderPlanWizard() {
     <div class="mb-6">
       <div class="flex items-center gap-2 mb-3">
         <span class="text-[10px] font-black px-2.5 py-1 rounded-full ${colors.badge} tracking-wider">${meta.icon} ${meta.label}</span>
-        <span class="text-[11px] text-gray-400">${meta.desc}</span>
+        ${meta.desc ? `<span class="text-[11px] text-gray-400">${meta.desc}</span>` : ''}
       </div>
       <div class="grid ${cols} gap-3">
         ${items
@@ -524,7 +524,7 @@ function renderPlanWizard() {
         <button onclick="selectPlanPurpose('${p.id}')" class="p-5 rounded-2xl border-2 text-left transition-all ${colors.borderHover} ${active ? colors.border + " " + colors.bgActive + " shadow-lg" : "border-gray-200 bg-white"}">
           <div class="text-2xl mb-2">${p.icon}</div>
           <div class="font-black text-gray-900 text-sm mb-0.5 ${active ? colors.textActive : ""}">${p.label}</div>
-          <div class="text-xs text-gray-500">${p.desc}</div>
+          ${p.desc ? `<div class="text-xs text-gray-500">${p.desc}</div>` : ''}
         </button>`;
           })
           .join("")}

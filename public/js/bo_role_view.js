@@ -30,6 +30,14 @@ function boIsOpManager() {
   return boGetRoleClass() === 'op_manager';
 }
 
+/**
+ * 플랫폼 담당자(platform_admin) 여부
+ * 테스트 목적으로 운영담당자 + 총괄담당자 권한을 모두 보유
+ */
+function boIsPlatformAdmin() {
+  return boGetRoleClass() === 'platform';
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // F-150: 관할 조직 데이터 스코핑
 // ══════════════════════════════════════════════════════════════════════════════
@@ -128,35 +136,37 @@ function boFilterPlansByScope(plans, orgField) {
 // F-151: 배정 편집 권한 분기
 // ══════════════════════════════════════════════════════════════════════════════
 
-/**
- * 배정액 편집 가능 여부
- * - 총괄: ✅ 전체 편집 가능
+/** 배정액 편집 가능 여부
+ * - 총괄/플랫폼: ✅ 전체 편집 가능
  * - 운영: 관할 교육조직 내 팀간 재배분만 가능 (총액 변경 불가)
  */
 function boCanEditAllocation() {
-  return boIsGlobalAdmin(); // 총괄만 교육조직 총액 변경 가능
+  return boIsGlobalAdmin(); // 총괄/플랫폼만 교육조직 총액 변경 가능
 }
 
 /**
  * 운영담당자 관할 내 팀간 재배분 가능 여부
- * - 총액 변경은 불가, Δ=0 범위 내 재배분만 가능
+ * 플랫폼 담당자도 테스트 목적으로 허용
  */
 function boCanRebalanceInScope() {
-  return boIsOpManager();
+  return boIsOpManager() || boIsPlatformAdmin();
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
 // F-152: 시뮬레이션 단계 분기
 // ══════════════════════════════════════════════════════════════════════════════
 
-/** 시뮬레이션 최종 확정 권한 (총괄만) */
+/** 시뮬레이션 최종 확정 권한 (총괄/플랫폼) */
 function boCanSimulate() {
   return boIsGlobalAdmin();
 }
 
-/** 1차 조정 버튼 표시 여부 (운영담당자) */
+/**
+ * 1차 조정 버튼 표시 여부
+ * 운영담당자 또는 플랫폼 담당자(테스트)
+ */
 function boCanFirstAdjust() {
-  return boIsOpManager();
+  return boIsOpManager() || boIsPlatformAdmin();
 }
 
 /** 기초·추가 배정 탭 접근 가능 여부 */
@@ -170,9 +180,10 @@ function boCanBaseAllocate() {
 
 /**
  * 운영담당자 검토 대기 탭 표시 여부
+ * 플랫폼 담당자도 1차 검토 탭을 볼 수 있도록 허용 (테스트 목적)
  */
 function boShowReviewPendingTab() {
-  return boIsOpManager();
+  return boIsOpManager() || boIsPlatformAdmin();
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -181,17 +192,29 @@ function boShowReviewPendingTab() {
 
 /**
  * 역할에 따라 승인 버튼 라벨/액션 반환
+ * platform_admin: 1차 확정(op_manager 역할) 또는 최종 확정(global_admin 역할) 모두 처리 가능
  * @param {'plan'|'application'|'result'} docType
+ * @param {'first'|'final'|undefined} [stage] - platform_admin 전용: 처리 단계 지정
  * @returns {{label: string, newStatus: string, color: string}}
  */
-function boGetApproveAction(docType) {
+function boGetApproveAction(docType, stage) {
+  // 플랫폼 담당자: stage 파라미터로 1차/최종 분기
+  if (boIsPlatformAdmin()) {
+    if (stage === 'first') {
+      if (docType === 'result') return { label: '📤 정산 1차 검토 (플랫폼)', newStatus: 'in_review', color: '#1D4ED8' };
+      return { label: '📤 1차 확정 처리 (플랫폼)', newStatus: 'in_review', color: '#1D4ED8' };
+    }
+    // stage === 'final' 또는 기본값
+    if (docType === 'result') return { label: '✅ 최종 확정 승인 (플랫폼)', newStatus: 'approved', color: '#7C3AED' };
+    return { label: '✅ 최종 확정 처리 (플랫폼)', newStatus: 'approved', color: '#7C3AED' };
+  }
   if (boIsGlobalAdmin()) {
     if (docType === 'result') return { label: '✅ 최종 정산 승인', newStatus: 'approved', color: '#059669' };
     return { label: '✅ 최종 승인', newStatus: 'approved', color: '#059669' };
   }
   // 운영담당자: 1차 검토 완료
-  if (docType === 'result') return { label: '📤 정산 검토 완료', newStatus: 'reviewed', color: '#1D4ED8' };
-  return { label: '📤 1차 검토 완료', newStatus: 'reviewed', color: '#1D4ED8' };
+  if (docType === 'result') return { label: '📤 정산 검토 완료', newStatus: 'in_review', color: '#1D4ED8' };
+  return { label: '📤 1차 검토 완료', newStatus: 'in_review', color: '#1D4ED8' };
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

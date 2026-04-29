@@ -159,6 +159,7 @@ function _bamRenderContent(tpl) {
   // bo_budget_master.js 의 기능과 호환되도록 전역변수 세팅
   window._baTplId = tpl.id;
   window._baTenantId = tpl.tenant_id || tpl.tenantId;
+  window._baTplName = tpl.name;
 
   // 리스트 뷰 & 디테일 뷰 컨테이너 분할
   mainEl.innerHTML = `
@@ -342,6 +343,12 @@ async function _bamShowDetailView(id) {
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div style="grid-column:1/-1; padding:12px 16px; background:#F8FAFC; border:1.5px solid #E2E8F0; border-radius:10px; display:flex; align-items:center; gap:8px">
+      <span style="font-size:12px; font-weight:800; color:#475569">🏢 소속 제도그룹</span>
+      <span style="font-size:14px; font-weight:900; color:#1E40AF; margin-left:4px">${window._baTplName || '지정되지 않음'}</span>
+      <span style="font-size:11px; color:#64748B; margin-left:auto">※ 이 예산 계정은 위 제도그룹에 종속됩니다.</span>
+    </div>
+    
     <div style="grid-column:1/-1">
       <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정코드 (자동채번)</label>
       <input id="bam-dt-code" type="text" value="${autoCode}" readonly

@@ -410,7 +410,8 @@ async function _renderCgDetailPage() {
     <div id="cg-dt-edu-op-section" style="display:${usageType === 'edu_operation' ? 'block' : 'none'}">
       <div style="padding:10px 14px;background:#DBEAFE;border:1.5px solid #93C5FD;border-radius:10px;margin-bottom:16px;font-size:12px;color:#1E40AF;font-weight:600">🎯 교육운영용 — 단가 × 인원 × qty2 × 차수 (3중 승산 고정)</div>
 
-      <!-- Phase2: has_qty2 / has_rounds / qty2_allowed_types 설정 -->
+      <!--
+      [HIDDEN] Phase2: has_qty2 / has_rounds / qty2_allowed_types 설정 — FO에서는 항상 표시(showQty2=true, showRounds=true)로 고정되어 있어 UI 불필요
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding:12px 14px;background:#F8FAFC;border-radius:10px;border:1.5px solid #E5E7EB">
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;cursor:pointer">
           <input type="checkbox" id="cg-dt-has-rounds" ${item?.hasRounds ? 'checked' : ''} style="accent-color:#7C3AED;width:14px;height:14px">
@@ -436,6 +437,7 @@ async function _renderCgDetailPage() {
           <div style="margin-top:6px;font-size:10px;color:#9CA3AF">💡 FO에서 사용자가 이 목록 중 단위를 선택합니다 (예: 숙박비 → 박/일, 식비 → 일/식)</div>
         </div>
       </div>
+      -->
 
       <div style="display:flex;gap:10px;margin-bottom:16px">
         <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:10px;cursor:pointer;border:2px solid ${pricingType === 'simple' ? '#059669' : '#E5E7EB'};background:${pricingType === 'simple' ? '#F0FDF4' : '#fff'}" onclick="_cgDtSelectPricingType('simple')">
@@ -491,7 +493,8 @@ async function _renderCgDetailPage() {
     </div>
   </div>
 
-  <!-- ④ 적용 조건 (Phase C: apply_conditions) -->
+  <!--
+  [HIDDEN] â£ 적용 조건 (Phase C: apply_conditions) — 현재는 사용하지 않으므로 숨김
   <div class="bo-card" style="padding:18px;margin-bottom:16px;border:1.5px solid #FEF08A">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
       <div style="font-size:13px;font-weight:800;color:#92400E">🏷️ 적용 조건 (apply_conditions)</div>
@@ -527,6 +530,7 @@ async function _renderCgDetailPage() {
     </div>
     <div style="margin-top:8px;font-size:10px;color:#9CA3AF">💡 FO에서 신청자가 선택한 조건에 맞는 항목만 세부산출근거에 표시됩니다. (EC-05 정책: 조건 키 없으면 표시)</div>
   </div>
+  -->
 
   <!-- ⑤ 하단 액션 바 -->
   <div style="display:flex;gap:10px;justify-content:flex-end;padding:16px 0;border-top:2px solid #E5E7EB">

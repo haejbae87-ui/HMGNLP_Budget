@@ -247,12 +247,14 @@ function renderPlanWizard() {
     (p) => (p.process_pattern || p.processPattern) === "A",
   );
 
-  // 정책 기반 목적 필터 (apply.js 동일: 행위 기반 카테고리)
+  // 정책 기반 목적 필터 (행위 기반 카테고리)
   // ★★ 교육계획 화면 전용: 패턴 A(계획 필수) 정책이 있는 목적만 표시 ★★
-  // 패턴 B/C/D/E 전용 목적은 계획 수립이 불필요하므로 제외
   const _allPurposes = getPersonaPurposes(currentPersona);
+  const budgets = currentPersona.budgets || [];
 
-  // 패턴 A 정책이 존재하는 BO purpose 키 수집
+  // B방향: edu_types 기반 목적 vs 레거시: service_policies 기반 목적
+  const _isEduTypeBased = _allPurposes.some(p => p._activeTypes);
+
   const _FO_TO_BO =
     typeof _FO_TO_BO_PURPOSE !== "undefined" ? _FO_TO_BO_PURPOSE : {};
   const _BO_TO_FO =
@@ -264,29 +266,57 @@ function renderPlanWizard() {
       // BO purpose → FO purpose ID로 변환하여 수집
       const foPurpose = _BO_TO_FO[p.purpose] || p.purpose;
       planRequiredPurposes.add(foPurpose);
+      // B방향 호환: _FO_EDU_TREE 카테고리 ID도 추가
+      if (typeof _FO_EDU_TREE !== "undefined") {
+        _FO_EDU_TREE.forEach(g => g.categories.forEach(cat => {
+          if (cat.id === p.purpose || foPurpose === cat.id) {
+            planRequiredPurposes.add(cat.id);
+          }
+        }));
+      }
     }
   });
 
-  // 패턴 A 정책이 있는 목적만 필터 (패턴 A 정책이 없으면 계획 수립 자체 불필요 → 빈 목록)
-  let allPurposes = _allPurposes.filter((p) =>
-    planRequiredPurposes.has(p.id),
-  );
+  // 패턴 A 정책이 있는 목적만 필터
+  // B방향: edu_types 기반이면 패턴 A 필터를 완화 (계정에 edu_types가 있으면 계획 수립 허용)
+  let allPurposes;
+  if (_isEduTypeBased && planRequiredPurposes.size === 0) {
+    // edu_types 기반인데 패턴 A 매칭이 안됨 → 전체 허용 (정책 미설정 상태)
+    allPurposes = _allPurposes;
+  } else if (_isEduTypeBased) {
+    // edu_types 기반 + 패턴 A 존재 → 전체 허용 (edu_types 자체가 계정 설정에 의해 필터링됨)
+    allPurposes = _allPurposes;
+  } else {
+    // 레거시: 패턴 A 정책이 있는 목적만 필터
+    allPurposes = _allPurposes.filter((p) =>
+      planRequiredPurposes.has(p.id),
+    );
+  }
 
-  // ★ 계정 기반 목적 필터: L2에서 특정 계정을 선택한 경우 해당 계정에 등록된 정책의 목적만 노출
-  // (ex. HMC-OPS 선택 시 → elearning_class, conf_seminar 목적만 / HMC-RND 선택 시 → elearning_class, external_personal만)
+  // ★ 계정 기반 목적 필터: L2에서 특정 계정을 선택한 경우 해당 계정의 교육유형에 맞는 목적만 노출
   if (s.contextAccountCode) {
-    allPurposes = allPurposes.filter((p) => {
-      const boPurposeKeys = _FO_TO_BO[p.id] || [p.id];
-      return matchedPolicies.some((pol) => {
-        const acc = pol.account_codes || pol.accountCodes || [];
-        const pt = pol.process_pattern || pol.processPattern || "";
-        return (
-          pt === "A" &&
-          acc.includes(s.contextAccountCode) &&
-          boPurposeKeys.includes(pol.purpose)
-        );
+    if (_isEduTypeBased) {
+      // B방향: 선택된 계정의 eduTypes에서 해당 카테고리의 types가 겹치는 목적만 표시
+      const ctxBudget = budgets.find(b => b.accountCode === s.contextAccountCode);
+      const ctxEduTypes = new Set(ctxBudget?.eduTypes || []);
+      if (ctxEduTypes.size > 0) {
+        allPurposes = allPurposes.filter(p => (p._activeTypes || []).some(t => ctxEduTypes.has(t)));
+      }
+    } else {
+      // 레거시: 정책 기반 필터
+      allPurposes = allPurposes.filter((p) => {
+        const boPurposeKeys = _FO_TO_BO[p.id] || [p.id];
+        return matchedPolicies.some((pol) => {
+          const acc = pol.account_codes || pol.accountCodes || [];
+          const pt = pol.process_pattern || pol.processPattern || "";
+          return (
+            pt === "A" &&
+            acc.includes(s.contextAccountCode) &&
+            boPurposeKeys.includes(pol.purpose)
+          );
+        });
       });
-    });
+    }
   }
 
   // 수요예측 캠페인: 타겟 계정이 주어졌다면 해당 계정에 연동되는 목적만 노출

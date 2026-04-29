@@ -413,19 +413,64 @@ const _CATEGORY_META = {
 };
 
 // 정책 기반 교육 목적 목록 반환
-// ★ vorg(교육조직) 기반 정책 매칭 → 해당 vorg에 설정된 모든 교육지원 운영 규칙의 목적을 표시
-// ★ target_type 접근 제어 없음: 조O성·이O봉 모두 자신의 vorg 정책 목적 전체에 접근 가능
-// (직접학습·교육운영 모두 vorg 정책 설정에 의해 결정됨)
+// ★ budget_accounts.purpose_types 기반 (BO Tab2 직접 참조)
+// purpose_types 구조: { learner: { regular: [...], academic: [...] }, operator: { elearning_class: [...] } }
 function getPersonaPurposes(persona) {
+  // ── 1순위: budget_accounts.purpose_types (BO→FO 직접 동기화) ──
+  const budgets = persona.budgets || [];
+  const hasPurposeTypes = budgets.some(b => b.purposeTypes && Object.keys(b.purposeTypes).length > 0);
+
+  if (hasPurposeTypes) {
+    // budget별 purpose_types에서 FO purpose ID 추출
+    const foPurposeSet = new Set();
+    const categoryMap = {}; // FO purpose → category
+
+    budgets.forEach(b => {
+      const pt = b.purposeTypes || {};
+      Object.entries(pt).forEach(([group, purposes]) => {
+        // group: 'learner' | 'operator'
+        Object.keys(purposes).forEach(purposeKey => {
+          // purpose key를 FO purpose ID로 변환
+          const foPurpose = _BO_TO_FO_PURPOSE[purposeKey] || purposeKey;
+          foPurposeSet.add(foPurpose);
+          categoryMap[foPurpose] = group === 'learner' ? 'self-learning' : 'edu-operation';
+        });
+      });
+    });
+
+    if (foPurposeSet.size > 0) {
+      const purposes = [];
+      foPurposeSet.forEach(pid => {
+        // PURPOSES 배열에서 찾기
+        const found = (typeof PURPOSES !== 'undefined' && PURPOSES.find(p => p.id === pid));
+        if (found) {
+          purposes.push({ ...found, category: categoryMap[pid] || _PURPOSE_CATEGORY[pid] || 'edu-operation' });
+        } else {
+          // DB edu_purpose_groups 또는 EDU_PURPOSE_MAP에서 동적 생성
+          const dbPurpose = (typeof EDU_PURPOSE_MAP !== 'undefined' && EDU_PURPOSE_MAP[pid])
+            || (typeof EDU_PURPOSE_GROUPS !== 'undefined' && Array.isArray(EDU_PURPOSE_GROUPS) && EDU_PURPOSE_GROUPS.find(g => g.id === pid));
+          if (dbPurpose) {
+            purposes.push({
+              id: dbPurpose.id, label: dbPurpose.label, icon: dbPurpose.icon || '📌',
+              desc: dbPurpose.description || '', subtypes: dbPurpose.subtypes || [], accounts: [],
+              category: categoryMap[pid] || _PURPOSE_CATEGORY[pid] || 'edu-operation',
+            });
+          }
+        }
+      });
+      console.log(`[getPersonaPurposes] budget_accounts 기반 ${purposes.length}건 목적 로드`);
+      return purposes;
+    }
+  }
+
+  // ── 2순위: service_policies (레거시 호환) ──
   const result = _getActivePolicies(persona);
   if (result) {
     const { source, policies } = result;
     if (source === "db") {
-      // vorg 매칭된 전체 정책의 purpose를 FO purpose id로 변환
       console.log(
-        `[getPersonaPurposes] ${persona.name}: vorg 매칭 정책 ${policies.length}건`,
+        `[getPersonaPurposes] ${persona.name}: vorg 매칭 정책 ${policies.length}건 (legacy)`,
       );
-
       const foPurposeIds = [
         ...new Set(
           policies
@@ -433,18 +478,12 @@ function getPersonaPurposes(persona) {
             .filter(Boolean),
         ),
       ];
-      // 결과등록 전용(패턴 C/D) 정책 확인
-      const hasResultOnly = policies.some((p) => {
-        const pt = p.process_pattern || p.processPattern || "";
-        return pt === "C" || pt === "D";
-      });
       const purposes = PURPOSES.filter((p) => foPurposeIds.includes(p.id)).map(
         (p) => ({
           ...p,
           category: _PURPOSE_CATEGORY[p.id] || "edu-operation",
         }),
       );
-      // 정책에 있지만 PURPOSES에 없는 목적 → DB edu_purpose_groups 기반 동적 생성 (misc_ops 등)
       foPurposeIds.forEach((pid) => {
         if (!purposes.find((p) => p.id === pid)) {
           const dbPurpose =
@@ -454,21 +493,13 @@ function getPersonaPurposes(persona) {
               EDU_PURPOSE_GROUPS.find((g) => g.id === pid));
           if (dbPurpose) {
             purposes.push({
-              id: dbPurpose.id,
-              label: dbPurpose.label,
-              icon: dbPurpose.icon || "📌",
-              desc: dbPurpose.description || "",
-              subtypes: dbPurpose.subtypes || [],
-              accounts: [],
+              id: dbPurpose.id, label: dbPurpose.label, icon: dbPurpose.icon || "📌",
+              desc: dbPurpose.description || "", subtypes: dbPurpose.subtypes || [], accounts: [],
               category: _PURPOSE_CATEGORY[pid] || "edu-operation",
             });
-            console.log(
-              `[getPersonaPurposes] 정책 기반 동적 목적 추가: ${pid} (${dbPurpose.label})`,
-            );
           }
         }
       });
-      // C/D 패턴 결과등록은 result.js 독립 화면에서 처리 (가상 목적 추가 없음)
       return purposes;
     }
     const activePurposeIds = [...new Set(policies.map((p) => p.foPurpose))];
@@ -477,14 +508,9 @@ function getPersonaPurposes(persona) {
       category: _PURPOSE_CATEGORY[p.id] || "edu-operation",
     }));
   }
-  // Fallback: 정책 매칭 실패 시
-  // SERVICE_POLICIES가 이미 로드되었는데 매칭 0건이면 → 정책 기반 제어 의도, 빈 배열
-  // SERVICE_POLICIES 미로드(=빈배열)이면 → persona.allowedAccounts 기반 (misc_ops 제외 방어)
-  if (typeof SERVICE_POLICIES !== "undefined" && SERVICE_POLICIES.length > 0) {
-    // 정책은 있는데 이 persona에 매칭되는 게 없음 → 빈 배열
-    console.warn(
-      "[getPersonaPurposes] SERVICE_POLICIES 존재하나 매칭 0건 → 빈 배열",
-    );
+  // Fallback: 빈 배열 (budget_accounts에 purpose_types 미설정, service_policies도 없음)
+  if ((typeof SERVICE_POLICIES !== "undefined" && SERVICE_POLICIES.length > 0) || hasPurposeTypes === false) {
+    console.warn("[getPersonaPurposes] 매칭 0건 → 빈 배열");
     return [];
   }
   const base = (() => {
@@ -498,7 +524,6 @@ function getPersonaPurposes(persona) {
         !p.accounts || p.accounts.some((acc) => allowedTypes.includes(acc)),
     );
   })();
-  // 방어: 교육지원 운영 규칙 DB에 없는 기타운영(misc_ops) 등은 정책 미검증 시 제외
   return base
     .filter((p) => p.id !== "misc_ops" && p.id !== "_result_only")
     .map((p) => ({
@@ -508,63 +533,69 @@ function getPersonaPurposes(persona) {
 }
 
 // 선택된 목적 + 예산 계정에 허용된 교육유형 목록 반환 (Step3용)
-// ⚠ DB(snake_case) + mock(camelCase) 양쪽 호환 필수
+// ★ 1순위: budget_accounts.purpose_types (BO Tab2 직접 참조)
+// ★ 2순위: service_policies (레거시 호환)
 function getPolicyEduTypes(persona, purposeId, budgetAccountType) {
+  // ── 1순위: budget_accounts.purpose_types ──
+  const budgets = persona.budgets || [];
+  // 선택된 예산에서 매칭되는 budget 찾기
+  let targetBudget = null;
+  if (budgetAccountType) {
+    targetBudget = budgets.find(b => {
+      if (/^[A-Z]+-/.test(budgetAccountType)) return b.accountCode === budgetAccountType;
+      return b.account === budgetAccountType;
+    });
+  }
+  if (targetBudget && targetBudget.purposeTypes && Object.keys(targetBudget.purposeTypes).length > 0) {
+    const pt = targetBudget.purposeTypes;
+    const boPurposeKeys = _FO_TO_BO_PURPOSE[purposeId] || [purposeId];
+    const types = [];
+    // 모든 group(learner/operator)에서 매칭되는 purpose의 교육유형 수집
+    Object.values(pt).forEach(groupPurposes => {
+      boPurposeKeys.forEach(bpk => {
+        if (groupPurposes[bpk]) {
+          groupPurposes[bpk].forEach(t => types.push(t));
+        }
+      });
+    });
+    if (types.length > 0) {
+      console.log(`[getPolicyEduTypes] budget_accounts 기반: ${purposeId}+${budgetAccountType} → ${types.join(',')}`);
+      return [...new Set(types)];
+    }
+  }
+
+  // ── 2순위: service_policies (레거시 호환) ──
   const result = _getActivePolicies(persona);
   if (result && purposeId) {
     const { source, policies } = result;
     if (source === "db") {
       const boPurposeKeys = _FO_TO_BO_PURPOSE[purposeId] || [purposeId];
-      // ★ budgetAccountType이 accountCode 형식(예: HMC-OPS)이면 직접 사용,
-      //   아니면 persona.budgets에서 찾거나 ACCOUNT_TYPE_MAP 역방향 매핑
       let acctCodeForType = null;
       if (budgetAccountType && /^[A-Z]+-/.test(budgetAccountType)) {
-        // 이미 accountCode 형식 (예: HMC-OPS, HMC-RND, KIA-OPS 등)
         acctCodeForType = budgetAccountType;
       } else if (budgetAccountType) {
-        const directBudget = (persona.budgets || []).find(
-          (b) => b.account === budgetAccountType,
-        );
+        const directBudget = budgets.find((b) => b.account === budgetAccountType);
         acctCodeForType =
           directBudget?.accountCode ||
-          Object.entries(ACCOUNT_TYPE_MAP).find(
-            ([, v]) => v === budgetAccountType,
-          )?.[0] ||
-          null;
+          Object.entries(ACCOUNT_TYPE_MAP).find(([, v]) => v === budgetAccountType)?.[0] || null;
       }
       const matched = policies.filter((p) => {
         if (!boPurposeKeys.includes(p.purpose)) return false;
-        // snake_case(DB) + camelCase(mock) 양쪽 호환
         const pAcctCodes = p.account_codes || p.accountCodes || [];
-        if (
-          acctCodeForType &&
-          pAcctCodes.length &&
-          !pAcctCodes.includes(acctCodeForType)
-        )
-          return false;
+        if (acctCodeForType && pAcctCodes.length && !pAcctCodes.includes(acctCodeForType)) return false;
         return true;
       });
       if (matched.length > 0) {
-        // selected_edu_item(DB) / selectedEduItem(mock) 양쪽 호환
         const types = [];
         matched.forEach((p) => {
           const sei = p.selected_edu_item || p.selectedEduItem;
-          if (sei?.subId) {
-            types.push(sei.subId); // 예: 'elearning'
-          } else if (sei?.typeId) {
-            types.push(sei.typeId); // 세부항목 없는 리프
-          } else {
-            const et = p.edu_types || p.eduTypes || [];
-            et.forEach((t) => types.push(t));
-          }
+          if (sei?.subId) { types.push(sei.subId); }
+          else if (sei?.typeId) { types.push(sei.typeId); }
+          else { (p.edu_types || p.eduTypes || []).forEach((t) => types.push(t)); }
         });
-        console.log(
-          `[getPolicyEduTypes] ${purposeId}+${budgetAccountType}(code:${acctCodeForType}) → ${types.join(",")} (matched: ${matched.map((p) => p.name || p.id).join(", ")})`,
-        );
+        console.log(`[getPolicyEduTypes] service_policies 기반 (legacy): ${purposeId}+${budgetAccountType} → ${types.join(',')}`);
         return [...new Set(types)];
       }
-      // ★ DB 정책이 있지만 매칭 0건 → SERVICE_DEFINITIONS fallback 금지 (계정 필터 불일치)
-      //   (빈 배열 반환으로 "허용된 교육유형 없음" UI 표시)
       return [];
     } else {
       const matched = policies.filter(
@@ -573,20 +604,6 @@ function getPolicyEduTypes(persona, purposeId, budgetAccountType) {
       if (matched.length > 0)
         return [...new Set(matched.flatMap((p) => p.allowedEduTypes || []))];
     }
-  }
-  // Fallback
-  if (typeof SERVICE_DEFINITIONS !== "undefined") {
-    const acctCode = Object.entries(ACCOUNT_TYPE_MAP).find(
-      ([, v]) => v === budgetAccountType,
-    )?.[0];
-    const linked = SERVICE_DEFINITIONS.filter(
-      (sv) =>
-        sv.tenantId === persona.tenantId &&
-        sv.status === "active" &&
-        (!acctCode || sv.linkedAccounts.includes(acctCode)),
-    );
-    if (linked.length > 0)
-      return [...new Set(linked.flatMap((sv) => sv.eduTypes || []))];
   }
   return [];
 }

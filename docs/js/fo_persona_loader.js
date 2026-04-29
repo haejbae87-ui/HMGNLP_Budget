@@ -334,7 +334,7 @@ async function _initCurrentPersona(persona) {
     if (accountIds.length > 0) {
       const { data: accts } = await sb
         .from("budget_accounts")
-        .select("id, code, name, uses_budget, active")
+        .select("id, code, name, uses_budget, active, purpose_types, edu_types, process_pattern")
         .in("id", accountIds)
         .eq("active", true);
       (accts || []).forEach((a) => {
@@ -437,6 +437,10 @@ async function _initCurrentPersona(persona) {
         parentOrgName: mode === "shared" ? bb.org_name : null,
         vorgName: vorgNameMap[bb.template_id] || "",
         isPersonal: !!bb.user_id, // 개인 통장 플래그
+        // BO→FO 동기화 필드
+        purposeTypes: acct.purpose_types || {},
+        eduTypes: acct.edu_types || [],
+        processPattern: acct.process_pattern || '',
       });
     }
 

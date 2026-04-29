@@ -21,60 +21,97 @@ const _BAM_EDU_MAP = {
 };
 
 // ─── Tab 2: 서비스 정책·프로세스 ────────────────────────────────────────
+// 통합 그룹 체크박스 트리 — 직접학습/교육운영 동시 선택 가능
+const _BAM_EDU_TREE = [
+  { group: 'learner', icon: '📚', label: '직접학습', color: '#7C3AED', desc: '개인 학습자가 직접 참여',
+    categories: [
+      { purpose: 'external_personal', label: '개인직무 사외학습',
+        types: [
+          { id: 'regular', label: '정규교육' }, { id: 'academic', label: '학술 및 연구활동' },
+          { id: 'knowledge', label: '지식자원 학습' }, { id: 'competency', label: '역량개발지원' }, { id: 'etc_learner', label: '기타' },
+        ]},
+    ]},
+  { group: 'operator', icon: '🎯', label: '교육운영', color: '#1D4ED8', desc: '교육과정을 기획·운영',
+    categories: [
+      { purpose: 'elearning_class', label: '이러닝/집합(비대면) 운영',
+        types: [{ id: 'elearning', label: '이러닝' }, { id: 'class', label: '집합교육' }]},
+      { purpose: 'conf_seminar', label: '워크샵/세미나/콘퍼런스 운영',
+        types: [{ id: 'conference', label: '콘퍼런스' }, { id: 'seminar', label: '세미나' }, { id: 'teambuilding', label: '팀빌딩' }]},
+      { purpose: 'misc_ops', label: '기타 운영',
+        types: [{ id: 'course_dev', label: '과정개발' }, { id: 'material_dev', label: '교안개발' }, { id: 'facility', label: '교육시설운영' }]},
+    ]},
+];
+
 function _bamRenderPolicyTab(d) {
-  const purposes = d.service_type ? _BAM_PURPOSE_MAP[d.service_type] || [] : [];
-  const eduTypes = d.purpose ? _BAM_EDU_MAP[d.purpose] || [] : [];
+  const sel = d.edu_types || [];
+  // 선택 카운트 뱃지
+  const totalSel = sel.length;
 
   let html = `<div style="display:grid;gap:18px">
-  <div style="padding:12px 16px;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:10px;font-size:12px;color:#5B21B6">
-    🎯 이 예산 계정이 지원하는 <strong>서비스 유형, 교육 목적, 교육 유형, 프로세스 패턴</strong>을 설정합니다.
+  <div style="padding:12px 16px;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:10px;font-size:12px;color:#5B21B6;display:flex;align-items:center;gap:8px">
+    🎯 이 예산 계정이 지원하는 <strong>교육 유형</strong>과 <strong>프로세스 패턴</strong>을 설정합니다.
+    <span style="font-size:10px;color:#9CA3AF;margin-left:auto">직접학습 · 교육운영 동시 선택 가능</span>
   </div>
 
-  <!-- 서비스 유형 -->
+  <!-- 교육 유형 통합 선택 -->
   <div>
-    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px">서비스 유형 <span style="color:#EF4444">*</span></label>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      ${[{v:'learner',c:'#7C3AED',i:'📚',l:'직접학습',d:'개인 학습자가 직접 참여하는 교육 서비스'},
-         {v:'operator',c:'#1D4ED8',i:'🎯',l:'교육운영',d:'교육과정을 기획하거나 운영하는 서비스'}
-      ].map(o => {
-        const sel = d.service_type === o.v;
-        return `<label style="display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border-radius:10px;border:2px solid ${sel?o.c:'#E5E7EB'};background:${sel?o.c+'15':'white'};cursor:pointer"
-          onclick="_bamDetailData.service_type='${o.v}';_bamDetailData.purpose='';_bamDetailData.edu_types=[];_bamRenderTabs()">
-          <input type="radio" name="bam-svc" ${sel?'checked':''} style="margin-top:2px;flex-shrink:0">
-          <div><div style="font-weight:800;font-size:13px;color:${sel?o.c:'#374151'}">${o.i} ${o.l}</div>
-          <div style="font-size:11px;color:#6B7280;margin-top:2px">${o.d}</div></div></label>`;
-      }).join('')}
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <label style="font-size:12px;font-weight:700">교육 유형 선택 <span style="color:#EF4444">*</span></label>
+      ${totalSel > 0 ? `<span style="font-size:10px;padding:3px 10px;border-radius:20px;background:#7C3AED;color:white;font-weight:800">${totalSel}개 선택됨</span>` : ''}
     </div>
-  </div>`;
+    <div style="display:grid;gap:12px">`;
 
-  // 교육 목적
-  if (purposes.length > 0) {
-    html += `<div style="border-top:1px dashed #E5E7EB;padding-top:16px">
-    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px">교육 목적 <span style="color:#EF4444">*</span></label>
-    <div style="display:grid;gap:6px">
-      ${purposes.map(p => {
-        const sel = d.purpose === p.id;
-        return `<label style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:10px;border:2px solid ${sel?'#7C3AED':'#E5E7EB'};background:${sel?'#F5F3FF':'white'};cursor:pointer"
-          onclick="_bamDetailData.purpose='${p.id}';_bamDetailData.edu_types=[];_bamRenderTabs()">
-          <input type="radio" name="bam-purp" ${sel?'checked':''} style="margin:0">
-          <span style="font-size:13px;font-weight:800;color:${sel?'#7C3AED':'#374151'}">${p.label}</span></label>`;
-      }).join('')}
-    </div></div>`;
-  }
+  _BAM_EDU_TREE.forEach(g => {
+    // 이 그룹 내 선택된 교육유형 수
+    const allTypeIds = g.categories.flatMap(c => c.types.map(t => t.id));
+    const grpSelCount = sel.filter(id => allTypeIds.includes(id)).length;
+    const isExpanded = grpSelCount > 0 || !d._collapsedGroups || !d._collapsedGroups[g.group];
 
-  // 교육 유형 (복수 선택)
-  if (eduTypes.length > 0) {
-    html += `<div style="border-top:1px dashed #E5E7EB;padding-top:16px">
-    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px">교육 유형 <span style="font-size:10px;color:#9CA3AF">(복수 선택 가능)</span></label>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      ${eduTypes.map(t => {
-        const chk = (d.edu_types||[]).includes(t.id);
-        return `<label style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;border:1.5px solid ${chk?'#7C3AED':'#E5E7EB'};background:${chk?'#F5F3FF':'white'};cursor:pointer"
-          onclick="_bamToggleEduType('${t.id}')"><input type="checkbox" ${chk?'checked':''} style="margin:0;flex-shrink:0">
-          <span style="font-size:13px;font-weight:800;color:${chk?'#7C3AED':'#374151'}">${t.label}</span></label>`;
-      }).join('')}
-    </div></div>`;
-  }
+    html += `<div style="border:2px solid ${grpSelCount > 0 ? g.color : '#E5E7EB'};border-radius:14px;overflow:hidden;transition:border-color .2s">
+      <!-- 그룹 헤더 -->
+      <div onclick="_bamToggleGroupCollapse('${g.group}')"
+        style="padding:12px 16px;background:${grpSelCount > 0 ? g.color + '08' : '#F9FAFB'};display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;border-bottom:1px solid ${grpSelCount > 0 ? g.color + '30' : '#F3F4F6'}">
+        <span style="font-size:18px">${g.icon}</span>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:900;color:${grpSelCount > 0 ? g.color : '#374151'}">${g.label}</div>
+          <div style="font-size:10px;color:#9CA3AF;margin-top:1px">${g.desc}</div>
+        </div>
+        ${grpSelCount > 0 ? `<span style="font-size:10px;padding:2px 9px;border-radius:20px;background:${g.color};color:white;font-weight:800">${grpSelCount}개</span>` : ''}
+        <span style="font-size:14px;color:#9CA3AF;transition:transform .2s;transform:rotate(${isExpanded ? '180' : '0'}deg)">▼</span>
+      </div>
+      <!-- 그룹 내용 -->
+      <div style="padding:${isExpanded ? '12px 16px' : '0 16px'};max-height:${isExpanded ? '600px' : '0'};overflow:hidden;transition:all .25s ease;background:white">`;
+
+    g.categories.forEach(cat => {
+      const catSelCount = cat.types.filter(t => sel.includes(t.id)).length;
+      const allChecked = catSelCount === cat.types.length;
+
+      html += `<div style="margin-bottom:10px">
+        <!-- 카테고리 헤더 (전체 선택/해제) -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:6px 0;border-bottom:1px dotted #E5E7EB;cursor:pointer"
+          onclick="_bamToggleCategoryAll('${cat.types.map(t=>t.id).join(',')}')">
+          <input type="checkbox" ${allChecked ? 'checked' : (catSelCount > 0 ? 'indeterminate' : '')} style="margin:0;accent-color:${g.color};pointer-events:none">
+          <span style="font-size:12px;font-weight:800;color:${catSelCount > 0 ? g.color : '#475569'}">${cat.label}</span>
+          ${catSelCount > 0 ? `<span style="font-size:9px;padding:1px 6px;border-radius:4px;background:${g.color}15;color:${g.color};font-weight:700">${catSelCount}/${cat.types.length}</span>` : ''}
+        </div>
+        <!-- 교육 유형 체크박스 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding-left:4px">
+          ${cat.types.map(t => {
+            const chk = sel.includes(t.id);
+            return `<label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;border:1.5px solid ${chk ? g.color : '#F3F4F6'};background:${chk ? g.color + '08' : 'white'};cursor:pointer;transition:all .12s"
+              onclick="event.preventDefault();_bamToggleEduType('${t.id}')">
+              <input type="checkbox" ${chk?'checked':''} style="margin:0;accent-color:${g.color};pointer-events:none">
+              <span style="font-size:12px;font-weight:${chk?'800':'600'};color:${chk ? g.color : '#374151'}">${t.label}</span>
+            </label>`;
+          }).join('')}
+        </div>
+      </div>`;
+    });
+
+    html += `</div></div>`;
+  });
+
+  html += `</div></div>`;
 
   // 프로세스 패턴
   html += `<div style="border-top:1px dashed #E5E7EB;padding-top:16px">
@@ -84,10 +121,10 @@ function _bamRenderPolicyTab(d) {
        {v:'B',c:'#1D4ED8',i:'📝',l:'패턴B: 신청→결과',d:'자율신청형. 신청 승인 시 가점유, 결과 후 실차감'},
        {v:'C',c:'#D97706',i:'🧾',l:'패턴C: 결과 단독(후정산)',d:'선지불 후정산. 개인 카드 결제 후 영수증 첨부'}
     ].map(o => {
-      const sel = d.process_pattern === o.v;
-      return `<label style="display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border-radius:10px;border:2px solid ${sel?o.c:'#E5E7EB'};background:${sel?o.c+'15':'white'};cursor:pointer"
-        onclick="_bamDetailData.process_pattern='${o.v}';_bamRenderTabs()"><input type="radio" name="bam-pat" ${sel?'checked':''} style="margin-top:2px;flex-shrink:0">
-        <div><div style="font-weight:800;font-size:13px;color:${sel?o.c:'#374151'}">${o.i} ${o.l}</div>
+      const sel2 = d.process_pattern === o.v;
+      return `<label style="display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border-radius:10px;border:2px solid ${sel2?o.c:'#E5E7EB'};background:${sel2?o.c+'15':'white'};cursor:pointer"
+        onclick="_bamDetailData.process_pattern='${o.v}';_bamRenderTabs()"><input type="radio" name="bam-pat" ${sel2?'checked':''} style="margin-top:2px;flex-shrink:0">
+        <div><div style="font-weight:800;font-size:13px;color:${sel2?o.c:'#374151'}">${o.i} ${o.l}</div>
         <div style="font-size:11px;color:#6B7280;margin-top:2px">${o.d}</div></div></label>`;
     }).join('')}
   </div></div>`;
@@ -101,6 +138,27 @@ function _bamToggleEduType(id) {
   const i = arr.indexOf(id);
   if (i >= 0) arr.splice(i, 1); else arr.push(id);
   _bamDetailData.edu_types = arr;
+  _bamRenderTabs();
+}
+
+function _bamToggleCategoryAll(idsStr) {
+  const ids = idsStr.split(',');
+  const arr = _bamDetailData.edu_types || [];
+  const allIn = ids.every(id => arr.includes(id));
+  if (allIn) {
+    // 전체 해제
+    _bamDetailData.edu_types = arr.filter(id => !ids.includes(id));
+  } else {
+    // 전체 선택
+    ids.forEach(id => { if (!arr.includes(id)) arr.push(id); });
+    _bamDetailData.edu_types = arr;
+  }
+  _bamRenderTabs();
+}
+
+function _bamToggleGroupCollapse(group) {
+  if (!_bamDetailData._collapsedGroups) _bamDetailData._collapsedGroups = {};
+  _bamDetailData._collapsedGroups[group] = !_bamDetailData._collapsedGroups[group];
   _bamRenderTabs();
 }
 

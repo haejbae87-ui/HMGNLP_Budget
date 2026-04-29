@@ -140,6 +140,15 @@ const EDU_TYPE_SUBTYPES = {
 // Step3 교육유형 UI 방식 결정: 선택한 목적의 정책이 학습자형 UI인지 판별
 // (접근 제어 아님 — 모든 사용자는 vorg 기반 정책의 모든 목적에 접근 가능)
 function isLearnerTargetType(persona, purposeId) {
+  // B방향: _FO_EDU_TREE에서 직접 판별 (신규 purpose ID 대응)
+  if (typeof _FO_EDU_TREE !== "undefined") {
+    for (const group of _FO_EDU_TREE) {
+      if (group.categories.some(c => c.id === purposeId)) {
+        return group.group === 'learner';
+      }
+    }
+  }
+  // 레거시: service_policies 기반 판별
   const result = _getActivePolicies(persona);
   if (!result) return true; // 정책 없으면 학습자형 기본 UI
   const { policies } = result;
@@ -245,6 +254,22 @@ function _getActivePolicies(persona) {
 // ★ vorg(교육조직) 기반 정책 매칭 → 해당 vorg 정책의 purpose로 필터
 // ★ target_type 기반 접근 제어 없음: 모든 사용자는 자신의 vorg 정책의 모든 예산에 접근 가능
 function getPersonaBudgets(persona, purposeId) {
+  // B방향: _FO_EDU_TREE 카테고리 ID인 경우 eduTypes 교차 필터
+  if (purposeId && typeof _FO_EDU_TREE !== "undefined") {
+    let catTypes = null;
+    for (const group of _FO_EDU_TREE) {
+      const cat = group.categories.find(c => c.id === purposeId);
+      if (cat) { catTypes = cat.types; break; }
+    }
+    if (catTypes) {
+      return (persona.budgets || []).filter(b => {
+        const bTypes = b.eduTypes || [];
+        return bTypes.some(t => catTypes.includes(t));
+      });
+    }
+  }
+
+  // 레거시: service_policies 기반 예산 필터링
   const result = _getActivePolicies(persona);
   if (result) {
     const { source, policies } = result;
@@ -389,10 +414,18 @@ function getProcessPatternInfo(persona, purposeId, accountCode) {
 // ── 개선3: 행위 기반 카테고리 분류 매핑 ──────────────────────────────────────
 // FO purpose ID → 행위 카테고리
 const _PURPOSE_CATEGORY = {
+  // 기존 (레거시 호환)
   external_personal: "self-learning", // 직접 학습
   internal_edu: "edu-operation", // 교육 운영
   conf_seminar: "edu-operation", // 교육 운영
   misc_ops: "edu-operation", // 교육 운영
+  // 신규 (B방향 개별 카드 — _FO_EDU_TREE 기반)
+  regular: "self-learning",
+  academic: "self-learning",
+  knowledge: "self-learning",
+  competency: "self-learning",
+  etc: "self-learning",
+  elearning_class: "edu-operation",
 };
 const _CATEGORY_META = {
   "self-learning": {
@@ -412,53 +445,66 @@ const _CATEGORY_META = {
   },
 };
 
+// ── BO _BAM_EDU_TREE와 1:1 대응하는 FO 공유 교육유형 트리 ──
+// edu_types 배열에서 목적 카테고리를 역매핑하고, 하위 세부유형을 필터링하는 데 사용
+const _FO_EDU_TREE = [
+  { group: 'learner', icon: '📚', label: '직접 학습', color: '#7C3AED',
+    categories: [
+      { id: 'regular', label: '정규교육', icon: '📚', desc: '이러닝·집합·라이브',
+        types: ['l_elearning','l_class','live'] },
+      { id: 'academic', label: '학술 및 연구활동', icon: '🎓', desc: '학회·세미나·연수',
+        types: ['conf','l_seminar','acad_study'] },
+      { id: 'knowledge', label: '지식자원 학습', icon: '📖', desc: '도서·논문·기술자료',
+        types: ['book','journal','tech_resource'] },
+      { id: 'competency', label: '역량개발지원', icon: '🏆', desc: '어학·자격증·학협회비',
+        types: ['lang','cert','assoc'] },
+      { id: 'etc', label: '기타', icon: '📌', desc: '교육출강·팀빌딩',
+        types: ['teach','l_team_build'] },
+    ]},
+  { group: 'operator', icon: '🎯', label: '교육 운영', color: '#1D4ED8',
+    categories: [
+      { id: 'elearning_class', label: '이러닝/집합(비대면) 운영', icon: '🖥', desc: '이러닝·집합교육',
+        types: ['elearning','class'] },
+      { id: 'conf_seminar', label: '워크샵/세미나/콘퍼런스 운영', icon: '👥', desc: '콘퍼런스·세미나·팀빌딩',
+        types: ['conference','seminar','teambuilding','cert_maintain','system_link'] },
+      { id: 'misc_ops', label: '기타 운영', icon: '📌', desc: '과정개발·교안·시설',
+        types: ['course_dev','material_dev','video_prod','facility'] },
+    ]},
+];
+
 // 정책 기반 교육 목적 목록 반환
-// ★ budget_accounts.purpose_types 기반 (BO Tab2 직접 참조)
-// purpose_types 구조: { learner: { regular: [...], academic: [...] }, operator: { elearning_class: [...] } }
+// ★ 1순위: budget_accounts.edu_types → _FO_EDU_TREE 역매핑 (B방향: 개별 카드)
+// ★ 2순위: service_policies (레거시 호환)
 function getPersonaPurposes(persona) {
-  // ── 1순위: budget_accounts.purpose_types (BO→FO 직접 동기화) ──
+  // ── 1순위: budget_accounts.edu_types → _FO_EDU_TREE 역매핑 ──
   const budgets = persona.budgets || [];
-  const hasPurposeTypes = budgets.some(b => b.purposeTypes && Object.keys(b.purposeTypes).length > 0);
+  const allEduTypes = new Set();
+  budgets.forEach(b => (b.eduTypes || []).forEach(t => allEduTypes.add(t)));
+  const hasEduTypes = allEduTypes.size > 0;
 
-  if (hasPurposeTypes) {
-    // budget별 purpose_types에서 FO purpose ID 추출
-    const foPurposeSet = new Set();
-    const categoryMap = {}; // FO purpose → category
-
-    budgets.forEach(b => {
-      const pt = b.purposeTypes || {};
-      Object.entries(pt).forEach(([group, purposes]) => {
-        // group: 'learner' | 'operator'
-        Object.keys(purposes).forEach(purposeKey => {
-          // purpose key를 FO purpose ID로 변환
-          const foPurpose = _BO_TO_FO_PURPOSE[purposeKey] || purposeKey;
-          foPurposeSet.add(foPurpose);
-          categoryMap[foPurpose] = group === 'learner' ? 'self-learning' : 'edu-operation';
-        });
-      });
-    });
-
-    if (foPurposeSet.size > 0) {
-      const purposes = [];
-      foPurposeSet.forEach(pid => {
-        // PURPOSES 배열에서 찾기
-        const found = (typeof PURPOSES !== 'undefined' && PURPOSES.find(p => p.id === pid));
-        if (found) {
-          purposes.push({ ...found, category: categoryMap[pid] || _PURPOSE_CATEGORY[pid] || 'edu-operation' });
-        } else {
-          // DB edu_purpose_groups 또는 EDU_PURPOSE_MAP에서 동적 생성
-          const dbPurpose = (typeof EDU_PURPOSE_MAP !== 'undefined' && EDU_PURPOSE_MAP[pid])
-            || (typeof EDU_PURPOSE_GROUPS !== 'undefined' && Array.isArray(EDU_PURPOSE_GROUPS) && EDU_PURPOSE_GROUPS.find(g => g.id === pid));
-          if (dbPurpose) {
-            purposes.push({
-              id: dbPurpose.id, label: dbPurpose.label, icon: dbPurpose.icon || '📌',
-              desc: dbPurpose.description || '', subtypes: dbPurpose.subtypes || [], accounts: [],
-              category: categoryMap[pid] || _PURPOSE_CATEGORY[pid] || 'edu-operation',
-            });
-          }
+  if (hasEduTypes) {
+    const purposes = [];
+    _FO_EDU_TREE.forEach(group => {
+      group.categories.forEach(cat => {
+        // 이 카테고리의 세부유형 중 하나라도 budget의 eduTypes에 포함되면 활성
+        const activeTypes = cat.types.filter(t => allEduTypes.has(t));
+        if (activeTypes.length > 0) {
+          purposes.push({
+            id: cat.id,
+            label: cat.label,
+            icon: cat.icon,
+            desc: cat.desc,
+            subtypes: [], // Step3에서 동적 생성
+            accounts: [],
+            category: group.group === 'learner' ? 'self-learning' : 'edu-operation',
+            _activeTypes: activeTypes, // 활성 세부유형 (Step3 필터링용)
+            _groupLabel: group.label,
+          });
         }
       });
-      console.log(`[getPersonaPurposes] budget_accounts 기반 ${purposes.length}건 목적 로드`);
+    });
+    if (purposes.length > 0) {
+      console.log(`[getPersonaPurposes] edu_types 기반 ${purposes.length}건 목적 로드 (B방향)`);
       return purposes;
     }
   }
@@ -533,12 +579,11 @@ function getPersonaPurposes(persona) {
 }
 
 // 선택된 목적 + 예산 계정에 허용된 교육유형 목록 반환 (Step3용)
-// ★ 1순위: budget_accounts.purpose_types (BO Tab2 직접 참조)
+// ★ 1순위: budget.eduTypes + _FO_EDU_TREE 카테고리 교차 필터 (B방향)
 // ★ 2순위: service_policies (레거시 호환)
 function getPolicyEduTypes(persona, purposeId, budgetAccountType) {
-  // ── 1순위: budget_accounts.purpose_types ──
+  // ── 1순위: budget.eduTypes + _FO_EDU_TREE 역매핑 ──
   const budgets = persona.budgets || [];
-  // 선택된 예산에서 매칭되는 budget 찾기
   let targetBudget = null;
   if (budgetAccountType) {
     targetBudget = budgets.find(b => {
@@ -546,21 +591,35 @@ function getPolicyEduTypes(persona, purposeId, budgetAccountType) {
       return b.account === budgetAccountType;
     });
   }
-  if (targetBudget && targetBudget.purposeTypes && Object.keys(targetBudget.purposeTypes).length > 0) {
-    const pt = targetBudget.purposeTypes;
-    const boPurposeKeys = _FO_TO_BO_PURPOSE[purposeId] || [purposeId];
-    const types = [];
-    // 모든 group(learner/operator)에서 매칭되는 purpose의 교육유형 수집
-    Object.values(pt).forEach(groupPurposes => {
-      boPurposeKeys.forEach(bpk => {
-        if (groupPurposes[bpk]) {
-          groupPurposes[bpk].forEach(t => types.push(t));
+  // targetBudget이 없으면 모든 budgets의 eduTypes 합산
+  const budgetEduTypes = targetBudget
+    ? new Set(targetBudget.eduTypes || [])
+    : (() => { const s = new Set(); budgets.forEach(b => (b.eduTypes || []).forEach(t => s.add(t))); return s; })();
+
+  if (budgetEduTypes.size > 0 && purposeId) {
+    // _FO_EDU_TREE에서 purposeId에 해당하는 카테고리 찾기
+    let catTypes = null;
+    for (const group of _FO_EDU_TREE) {
+      const cat = group.categories.find(c => c.id === purposeId);
+      if (cat) { catTypes = cat.types; break; }
+    }
+    if (catTypes) {
+      // 카테고리의 types와 budget의 eduTypes 교차
+      const intersection = catTypes.filter(t => budgetEduTypes.has(t));
+      if (intersection.length > 0) {
+        console.log(`[getPolicyEduTypes] edu_types+_FO_EDU_TREE 기반: ${purposeId}+${budgetAccountType} → ${intersection.join(',')}`);
+        return intersection;
+      }
+    }
+    // purposeId가 레거시 코드(external_personal 등)인 경우 — 레거시 매핑 시도
+    const legacyPurposeKeys = _FO_TO_BO_PURPOSE[purposeId] || [purposeId];
+    for (const group of _FO_EDU_TREE) {
+      for (const cat of group.categories) {
+        if (legacyPurposeKeys.includes(cat.id)) {
+          const intersection = cat.types.filter(t => budgetEduTypes.has(t));
+          if (intersection.length > 0) return intersection;
         }
-      });
-    });
-    if (types.length > 0) {
-      console.log(`[getPolicyEduTypes] budget_accounts 기반: ${purposeId}+${budgetAccountType} → ${types.join(',')}`);
-      return [...new Set(types)];
+      }
     }
   }
 

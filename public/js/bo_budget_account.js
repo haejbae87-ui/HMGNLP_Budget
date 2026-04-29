@@ -160,9 +160,10 @@ function _bamRenderContent(tpl) {
   window._baTplId = tpl.id;
   window._baTenantId = tpl.tenant_id || tpl.tenantId;
 
-  // 모달을 포함한 HTML 구조
+  // 리스트 뷰 & 디테일 뷰 컨테이너 분할
   mainEl.innerHTML = `
-    <div class="bo-card" style="padding:24px">
+    <!-- 리스트 뷰 -->
+    <div id="bam-list-view" class="bo-card" style="padding:24px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #F1F5F9">
         <div>
           <h3 style="font-size:16px;font-weight:900;color:#111827;margin:0 0 4px">💳 예산계정 관리</h3>
@@ -170,7 +171,7 @@ function _bamRenderContent(tpl) {
             제도그룹: <strong style="color:#0F172A">${tpl.name}</strong> 
           </p>
         </div>
-        <button onclick="if(typeof openS1Modal==='function') openS1Modal(); else alert('모달 함수 미정의');" class="bo-btn-primary">+ 계정 신규 등록</button>
+        <button onclick="_bamShowDetailView()" class="bo-btn-primary">+ 계정 신규 등록</button>
       </div>
       
       <div id="vu-budget-list">
@@ -178,19 +179,9 @@ function _bamRenderContent(tpl) {
       </div>
     </div>
     
-    <!-- 계정 등록/수정 모달 (기존 bo_budget_master.js의 openS1Modal 에서 #s1-modal을 사용함) -->
-    <div id="s1-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
-      <div style="background:#fff;border-radius:16px;width:500px;max-height:90vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-          <h3 id="s1-modal-title" style="font-size:15px;font-weight:800;margin:0">예산 계정 신규 등록</h3>
-          <button onclick="if(typeof s1CloseModal==='function') s1CloseModal();" style="border:none;background:none;font-size:18px;cursor:pointer;color:#9CA3AF">✕</button>
-        </div>
-        <div id="s1-modal-body"></div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
-          <button class="bo-btn-secondary bo-btn-sm" onclick="if(typeof s1CloseModal==='function') s1CloseModal();">취소</button>
-          <button class="bo-btn-primary bo-btn-sm" onclick="if(typeof s1SaveAccount==='function') s1SaveAccount();">저장</button>
-        </div>
-      </div>
+    <!-- 상세 뷰 -->
+    <div id="bam-detail-view" style="display:none">
+      <!-- 동적 렌더링 영역 -->
     </div>
   `;
 
@@ -263,7 +254,7 @@ async function _bamLoadBudgetAccountsList(tplId) {
         return `
       <tr style="border-bottom:1px solid #F1F5F9;cursor:pointer;transition:background .12s"
           onmouseover="this.style.background='#F8FAFF'" onmouseout="this.style.background=''"
-          onclick="if(typeof openS1Modal==='function') openS1Modal('${a.id}')">
+          onclick="_bamShowDetailView('${a.id}')">
         <td style="padding:11px 14px;text-align:center;color:#9CA3AF;font-size:12px">${idx + 1}</td>
         <td style="padding:11px 14px">
           <code style="font-size:11px;background:#F1F5F9;padding:2px 6px;border-radius:4px;color:#1E40AF;font-weight:700">${a.code || ""}</code>
@@ -307,3 +298,299 @@ window._baLoadBudgetAccounts = () => {
     _bamLoadBudgetAccountsList(window._bamSelectedTplId);
   }
 };
+
+// ─── 예산계정 상세 화면 로직 (독립화) ────────────────────────────────────────────────
+let _bamEditId = null;
+
+function _bamCloseDetailView() {
+  document.getElementById("bam-detail-view").style.display = "none";
+  document.getElementById("bam-list-view").style.display = "block";
+  document.getElementById("bam-filter-area").style.display = "flex";
+}
+
+async function _bamShowDetailView(id) {
+  _bamEditId = id || null;
+  const list = window._baAccountList || [];
+  const a = id ? list.find((x) => x.id === id) || null : null;
+  const autoCode = a?.code || ("BA-" + String(Date.now()).slice(-6));
+  
+  // budget_account_org_policy 로드 (기존 bankbook_mode 값 반영)
+  let policy = null;
+  if (id && window._baTplId) {
+    try {
+      const sb = typeof _sb === "function" ? _sb() : null;
+      if (sb) {
+        const { data } = await sb.from("budget_account_org_policy")
+          .select("bankbook_mode, bankbook_level, individual_limit")
+          .eq("budget_account_id", id).eq("vorg_template_id", window._baTplId).maybeSingle();
+        policy = data;
+      }
+    } catch(e) {}
+  }
+
+  const title = id ? "예산 계정 수정" : "예산 계정 신규 등록";
+  
+  const detailEl = document.getElementById("bam-detail-view");
+  detailEl.innerHTML = `
+<div class="bo-card" style="padding:24px;max-width:900px;margin:0 auto">
+  <div style="margin-bottom:20px;display:flex;align-items:center;gap:12px;border-bottom:2px solid #F1F5F9;padding-bottom:12px">
+    <button onclick="_bamCloseDetailView()" style="padding:8px 14px;border:1.5px solid #E5E7EB;border-radius:10px;background:white;cursor:pointer;font-size:13px;font-weight:700;color:#374151;display:flex;align-items:center;gap:6px">◀ 목록으로</button>
+    <div style="flex:1">
+      <h1 class="bo-page-title" style="margin:0">${title}</h1>
+      <p class="bo-page-sub" style="margin:4px 0 0">예산계정의 기본정보 및 연동 정책을 설정합니다.</p>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div style="grid-column:1/-1">
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정코드 (자동채번)</label>
+      <input id="bam-dt-code" type="text" value="${autoCode}" readonly
+        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;background:#F9FAFB;color:#6B7280">
+    </div>
+    <div>
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">계정명 *</label>
+      <input id="bam-dt-name" type="text" placeholder="예) 교육훈련비" value="${a?.name || ""}"
+        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+    </div>
+    <div>
+      <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">용도 설명</label>
+      <input id="bam-dt-desc" type="text" placeholder="예) 사내 집합/이러닝 운영비" value="${a?.description || ""}"
+        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+    </div>
+  </div>
+
+  <!-- 예산 사용 여부 -->
+  <div style="margin-bottom:16px">
+    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px">예산 사용 여부</label>
+    <div style="display:flex;gap:12px">
+      <label id="bam-dt-uses-yes-label" style="display:flex;align-items:center;gap:8px;padding:12px 16px;border:1.5px solid ${a?.uses_budget !== false ? "#059669" : "#E5E7EB"};border-radius:10px;cursor:pointer;background:${a?.uses_budget !== false ? "#F0FDF4" : "#fff"};flex:1" onclick="_bamToggleUsesBudget(true)">
+        <input type="radio" name="bam-dt-uses-budget" value="yes" ${a?.uses_budget !== false ? "checked" : ""} style="accent-color:#059669">
+        <div>
+          <div style="font-size:12px;font-weight:800;color:#059669">✅ 사용</div>
+          <div style="font-size:10px;color:#6B7280">조직별 통장 생성 및 예산 배정 허용</div>
+        </div>
+      </label>
+      <label id="bam-dt-uses-no-label" style="display:flex;align-items:center;gap:8px;padding:12px 16px;border:1.5px solid ${a?.uses_budget === false ? "#DC2626" : "#E5E7EB"};border-radius:10px;cursor:pointer;background:${a?.uses_budget === false ? "#FEF2F2" : "#fff"};flex:1" onclick="_bamToggleUsesBudget(false)">
+        <input type="radio" name="bam-dt-uses-budget" value="no" ${a?.uses_budget === false ? "checked" : ""} style="accent-color:#DC2626">
+        <div>
+          <div style="font-size:12px;font-weight:800;color:#DC2626">⛔ 미사용</div>
+          <div style="font-size:10px;color:#6B7280">통장 생성 안 함, 조회만 가능</div>
+        </div>
+      </label>
+    </div>
+  </div>
+
+  <!-- 연동 방식 -->
+  <div id="bam-dt-integration-section" style="margin-bottom:16px;${a?.uses_budget === false ? "display:none" : ""}">
+    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px">연동 방식</label>
+    <div style="display:flex;gap:12px">
+      <label style="display:flex;align-items:center;gap:8px;padding:12px 16px;border:1.5px solid ${!a?.integration_type || a?.integration_type === "sap" ? "#1D4ED8" : "#E5E7EB"};border-radius:10px;cursor:pointer;background:${!a?.integration_type || a?.integration_type === "sap" ? "#EFF6FF" : "#fff"};flex:1">
+        <input type="radio" name="bam-dt-integration" value="sap" ${!a?.integration_type || a?.integration_type === "sap" ? "checked" : ""} onchange="_bamToggleIntegration()" style="accent-color:#1D4ED8">
+        <div>
+          <div style="font-size:12px;font-weight:800;color:#1D4ED8">🔗 SAP 연동</div>
+          <div style="font-size:10px;color:#6B7280">ERP 예산관리와 실시간 연동</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;padding:12px 16px;border:1.5px solid ${a?.integration_type === "standalone" ? "#059669" : "#E5E7EB"};border-radius:10px;cursor:pointer;background:${a?.integration_type === "standalone" ? "#F0FDF4" : "#fff"};flex:1">
+        <input type="radio" name="bam-dt-integration" value="standalone" ${a?.integration_type === "standalone" ? "checked" : ""} onchange="_bamToggleIntegration()" style="accent-color:#059669">
+        <div>
+          <div style="font-size:12px;font-weight:800;color:#059669">📋 자체관리 (미연동)</div>
+          <div style="font-size:10px;color:#6B7280">시스템 내 독립 예산 관리</div>
+        </div>
+      </label>
+    </div>
+    <div id="bam-dt-sap-code-section" style="margin-top:10px;${!a?.integration_type || a?.integration_type === "sap" ? "" : "display:none"}">
+      <label style="font-size:11px;font-weight:700;color:#1D4ED8;display:block;margin-bottom:4px">🔗 SAP 연동 코드</label>
+      <input id="bam-dt-sap-code" type="text" placeholder="예) S12345 (SAP 시스템 연동키)" value="${a?.sap_code || ""}"
+        style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:13px;font-weight:700">
+    </div>
+  </div>
+
+  <!-- 통장 생성 정책 -->
+  <div id="bam-dt-bankbook-mode-section" style="margin-bottom:24px;${a?.uses_budget === false ? "display:none" : ""}">
+    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px">통장 생성 정책</label>
+    <div style="font-size:10px;color:#9CA3AF;margin-bottom:8px">가상교육조직에 상위 조직(본부)을 맵핑했을 때 통장을 어떻게 만들지 결정합니다.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <label id="bam-dt-mode-isolated-label" style="display:flex;align-items:flex-start;gap:8px;padding:12px 14px;border:1.5px solid ${(policy?.bankbook_mode || "isolated") === "isolated" ? "#7C3AED" : "#E5E7EB"};border-radius:10px;cursor:pointer;background:${(policy?.bankbook_mode || "isolated") === "isolated" ? "#F5F3FF" : "#fff"};flex:1;min-width:140px" onclick="_bamToggleBankbookMode('isolated')">
+        <input type="radio" name="bam-dt-bankbook-mode" value="isolated" ${(policy?.bankbook_mode || "isolated") === "isolated" ? "checked" : ""} style="accent-color:#7C3AED;margin-top:2px">
+        <div>
+          <div style="font-size:11px;font-weight:800;color:#7C3AED">팀별 분리 통장</div>
+          <div style="font-size:10px;color:#6B7280;margin-top:2px">하위 팀마다 개별 통장<br>예) 내구기술팀 통장</div>
+        </div>
+      </label>
+      <label id="bam-dt-mode-shared-label" style="display:flex;align-items:flex-start;gap:8px;padding:12px 14px;border:1.5px solid ${policy?.bankbook_mode === "shared" ? "#D97706" : "#E5E7EB"};border-radius:10px;cursor:pointer;background:${policy?.bankbook_mode === "shared" ? "#FFFBEB" : "#fff"};flex:1;min-width:140px" onclick="_bamToggleBankbookMode('shared')">
+        <input type="radio" name="bam-dt-bankbook-mode" value="shared" ${policy?.bankbook_mode === "shared" ? "checked" : ""} style="accent-color:#D97706;margin-top:2px">
+        <div>
+          <div style="font-size:11px;font-weight:800;color:#D97706">상위 조직 공유 통장</div>
+          <div style="font-size:10px;color:#6B7280;margin-top:2px">본부단위 통장 1개, 하위 팀 공유</div>
+          <div style="font-size:10px;color:#D97706;margin-top:4px;font-weight:700">⚠️ 패더 소진 시 하위 팀 전체 영향</div>
+        </div>
+      </label>
+      <label id="bam-dt-mode-individual-label" style="display:flex;align-items:flex-start;gap:8px;padding:12px 14px;border:1.5px solid ${policy?.bankbook_mode === "individual" ? "#059669" : "#E5E7EB"};border-radius:10px;cursor:pointer;background:${policy?.bankbook_mode === "individual" ? "#ECFDF5" : "#fff"};flex:1;min-width:140px" onclick="_bamToggleBankbookMode('individual')">
+        <input type="radio" name="bam-dt-bankbook-mode" value="individual" ${policy?.bankbook_mode === "individual" ? "checked" : ""} style="accent-color:#059669;margin-top:2px">
+        <div>
+          <div style="font-size:11px;font-weight:800;color:#059669">👤 개인별 분리 통장</div>
+          <div style="font-size:10px;color:#6B7280;margin-top:2px">팀원 1인당 개별 통장<br>예) 홍길동 참가통장</div>
+          <div style="font-size:10px;color:#059669;margin-top:4px;font-weight:700">💰 성장지원금 · 한도 엄격</div>
+        </div>
+      </label>
+    </div>
+    <div id="bam-dt-individual-limit-section" style="margin-top:12px;${policy?.bankbook_mode === "individual" ? "" : "display:none"}">
+      <label style="font-size:11px;font-weight:700;color:#059669;display:block;margin-bottom:4px">💰 1인당 기본 한도 (원)</label>
+      <input id="bam-dt-individual-limit" type="number" min="0" step="10000" placeholder="예) 500000" value="${policy?.individual_limit || ""}"
+        style="width:200px;padding:8px 12px;border:1.5px solid #A7F3D0;border-radius:8px;font-size:13px;font-weight:700">
+      <span style="font-size:10px;color:#6B7280;margin-left:8px">FO 첫 로그인 시 자동 생성 + 이 금액 배정</span>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:16px;border-top:2px solid #E5E7EB">
+    <button onclick="_bamCloseDetailView()" style="padding:10px 24px;border:1.5px solid #E5E7EB;border-radius:10px;background:white;font-size:13px;font-weight:700;cursor:pointer;color:#6B7280">취소</button>
+    <button onclick="_bamSaveAccount()" style="padding:10px 28px;border:none;border-radius:10px;background:linear-gradient(135deg,#1D4ED8,#2563EB);color:white;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,.35)">💾 저장</button>
+  </div>
+</div>`;
+  
+  document.getElementById("bam-filter-area").style.display = "none";
+  document.getElementById("bam-list-view").style.display = "none";
+  detailEl.style.display = "block";
+}
+
+function _bamToggleIntegration() {
+  const radios = document.querySelectorAll('input[name="bam-dt-integration"]');
+  let isSap = false;
+  radios.forEach((r) => {
+    const label = r.closest("label");
+    if (r.checked) {
+      if (r.value === "sap") isSap = true;
+      label.style.borderColor = r.value === "sap" ? "#1D4ED8" : "#059669";
+      label.style.background = r.value === "sap" ? "#EFF6FF" : "#F0FDF4";
+    } else {
+      label.style.borderColor = "#E5E7EB";
+      label.style.background = "#fff";
+    }
+  });
+  const sapSection = document.getElementById("bam-dt-sap-code-section");
+  if (sapSection) sapSection.style.display = isSap ? "" : "none";
+}
+
+function _bamToggleUsesBudget(val) {
+  const yesLabel = document.getElementById("bam-dt-uses-yes-label");
+  const noLabel = document.getElementById("bam-dt-uses-no-label");
+  if (!yesLabel || !noLabel) return;
+  const yesR = yesLabel.querySelector("input");
+  const noR = noLabel.querySelector("input");
+  yesR.checked = val;
+  noR.checked = !val;
+  yesLabel.style.borderColor = val ? "#059669" : "#E5E7EB";
+  yesLabel.style.background = val ? "#F0FDF4" : "#fff";
+  noLabel.style.borderColor = !val ? "#DC2626" : "#E5E7EB";
+  noLabel.style.background = !val ? "#FEF2F2" : "#fff";
+  
+  const intSection = document.getElementById("bam-dt-integration-section");
+  const modeSection = document.getElementById("bam-dt-bankbook-mode-section");
+  if (intSection) intSection.style.display = val ? "" : "none";
+  if (modeSection) modeSection.style.display = val ? "" : "none";
+}
+
+function _bamToggleBankbookMode(mode) {
+  const isoLabel = document.getElementById("bam-dt-mode-isolated-label");
+  const sharedLabel = document.getElementById("bam-dt-mode-shared-label");
+  const indLabel = document.getElementById("bam-dt-mode-individual-label");
+  const limitSection = document.getElementById("bam-dt-individual-limit-section");
+  if (!isoLabel || !sharedLabel) return;
+  isoLabel.querySelector("input").checked = mode === "isolated";
+  sharedLabel.querySelector("input").checked = mode === "shared";
+  if (indLabel) indLabel.querySelector("input").checked = mode === "individual";
+  
+  isoLabel.style.borderColor = mode === "isolated" ? "#7C3AED" : "#E5E7EB";
+  isoLabel.style.background = mode === "isolated" ? "#F5F3FF" : "#fff";
+  sharedLabel.style.borderColor = mode === "shared" ? "#D97706" : "#E5E7EB";
+  sharedLabel.style.background = mode === "shared" ? "#FFFBEB" : "#fff";
+  
+  if (indLabel) {
+    indLabel.style.borderColor = mode === "individual" ? "#059669" : "#E5E7EB";
+    indLabel.style.background = mode === "individual" ? "#ECFDF5" : "#fff";
+  }
+  if (limitSection) limitSection.style.display = mode === "individual" ? "" : "none";
+}
+
+async function _bamSaveAccount() {
+  const code = document.getElementById("bam-dt-code").value.trim();
+  const name = document.getElementById("bam-dt-name").value.trim();
+  if (!code || !name) {
+    alert("계정명은 필수입니다.");
+    return;
+  }
+  if (!window._baTplId) {
+    alert("제도그룹을 먼저 선택하세요.");
+    return;
+  }
+
+  const role = boCurrentPersona.role;
+  const tenantId = role === "platform_admin" ? (window._baTenantId || "HMC") : (boCurrentPersona.tenantId || "HMC");
+  const integration = document.querySelector('input[name="bam-dt-integration"]:checked')?.value || "sap";
+  const sapCode = integration === "sap" ? document.getElementById("bam-dt-sap-code")?.value.trim() : null;
+  const usesBudget = document.querySelector('input[name="bam-dt-uses-budget"]:checked')?.value !== "no";
+  const bankbookMode = document.querySelector('input[name="bam-dt-bankbook-mode"]:checked')?.value || "isolated";
+
+  const payload = {
+    tenant_id: tenantId,
+    virtual_org_template_id: window._baTplId,
+    code,
+    name,
+    account_type: integration,
+    sap_code: sapCode,
+    description: document.getElementById("bam-dt-desc").value.trim(),
+    active: true,
+    uses_budget: usesBudget,
+    updated_at: new Date().toISOString(),
+  };
+
+  try {
+    const sb = typeof _sb === "function" ? _sb() : null;
+    if (!sb) throw new Error("DB 연결이 없습니다.");
+
+    if (_bamEditId) {
+      const { error } = await sb.from("budget_accounts").update(payload).eq("id", _bamEditId);
+      if (error) throw error;
+      
+      const policyPayload = {
+        budget_account_id: _bamEditId,
+        vorg_template_id: window._baTplId,
+        bankbook_mode: bankbookMode,
+        bankbook_level: "team",
+        updated_at: new Date().toISOString(),
+      };
+      if (bankbookMode === "individual") {
+        const limitVal = document.getElementById("bam-dt-individual-limit")?.value;
+        policyPayload.individual_limit = limitVal ? Number(limitVal) : null;
+      } else {
+        policyPayload.individual_limit = null;
+      }
+      await sb.from("budget_account_org_policy").upsert(policyPayload, { onConflict: "budget_account_id,vorg_template_id" });
+    } else {
+      payload.id = "BA-" + Date.now();
+      const { error } = await sb.from("budget_accounts").insert(payload);
+      if (error) throw error;
+      
+      const newPolicyPayload = {
+        budget_account_id: payload.id,
+        vorg_template_id: window._baTplId,
+        bankbook_mode: bankbookMode,
+        bankbook_level: "team",
+      };
+      if (bankbookMode === "individual") {
+        const limitVal = document.getElementById("bam-dt-individual-limit")?.value;
+        newPolicyPayload.individual_limit = limitVal ? Number(limitVal) : null;
+      }
+      await sb.from("budget_account_org_policy").insert(newPolicyPayload);
+      
+      if(typeof _syncBankbooksForTemplate === "function") {
+        try { await _syncBankbooksForTemplate(window._baTplId, payload.tenant_id); } catch (e) {}
+      }
+    }
+    _bamCloseDetailView();
+    _bamLoadBudgetAccountsList(window._baTplId);
+  } catch (e) {
+    alert("저장 실패: " + e.message);
+  }
+}

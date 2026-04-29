@@ -433,6 +433,13 @@ function switchPersona() {
 // ─── FLOATING BUDGET WIDGET ─────────────────────────────────────────────────
 
 function renderFloatingBudget() {
+  // 사용자의 요청으로 내 예산 잔액 플로팅 위젯 전체 주석 처리
+  const el = document.getElementById("floating-budget");
+  if (el) {
+    el.style.display = "none";
+  }
+  return;
+  /*
   const budgets = currentPersona.budgets || [];
   const totalUsed = budgets.reduce((s, b) => s + b.used, 0);
   const totalBalance = budgets.reduce((s, b) => s + b.balance, 0);
@@ -443,44 +450,45 @@ function renderFloatingBudget() {
   const noBudget = budgets.length === 0;
   const allZero = budgets.length > 0 && totalBalance === 0;
 
-  document.getElementById("floating-budget").innerHTML = `
+  document.getElementById("floating-budget").innerHTML = \`
 <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
   <span class="w-2 h-2 bg-accent rounded-full inline-block"></span> 내 예산 잔액
 </div>
-${noBudget ? `
+\${noBudget ? \`
   <div style="font-size:11px;color:#9CA3AF;font-weight:600;padding:6px 0">예산 계정이 없습니다</div>
-` : allZero ? `
+\` : allZero ? \`
   <div class="text-2xl font-black text-gray-400 mb-1">0<span class="text-sm text-gray-400 font-normal ml-1">원</span></div>
   <div style="font-size:10px;color:#F59E0B;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:4px">
     <span>⏳</span> 예산 배정 대기 중
   </div>
-` : `
-  <div class="text-2xl font-black text-brand mb-2">${fmt(totalBalance - totalUsed)}<span class="text-sm text-gray-400 font-normal ml-1">원</span></div>
+\` : \`
+  <div class="text-2xl font-black text-brand mb-2">\${fmt(totalBalance - totalUsed)}<span class="text-sm text-gray-400 font-normal ml-1">원</span></div>
   <div class="h-2 bg-gray-100 rounded-full overflow-hidden mb-1.5">
-    <div class="h-full bg-accent rounded-full transition-all" style="width:${pct}%"></div>
+    <div class="h-full bg-accent rounded-full transition-all" style="width:\${pct}%"></div>
   </div>
-  <div class="text-[10px] text-gray-400 mb-3">${fmt(totalUsed)}원 집행 / ${fmt(totalBalance)}원 총 예산</div>
-`}
+  <div class="text-[10px] text-gray-400 mb-3">\${fmt(totalUsed)}원 집행 / \${fmt(totalBalance)}원 총 예산</div>
+\`}
 <div class="space-y-1.5 pt-2 border-t border-gray-100">
-  ${budgets
+  \${budgets
     .map((b) => {
       const isShared = b.bankbookMode === "shared";
       const isUnallocated = b.balance === 0;
       const label = isShared
-        ? `${b.parentOrgName || "상위조직"} 공유 통장`
+        ? \`\${b.parentOrgName || "상위조직"} 공유 통장\`
         : b.name;
       const sharedTag = isShared
-        ? `<span style="font-size:8px;padding:1px 5px;border-radius:4px;background:#FEF3C7;color:#D97706;font-weight:900;margin-left:4px">공유</span>`
+        ? \`<span style="font-size:8px;padding:1px 5px;border-radius:4px;background:#FEF3C7;color:#D97706;font-weight:900;margin-left:4px">공유</span>\`
         : "";
       const unallocTag = isUnallocated
-        ? `<span style="font-size:8px;padding:1px 5px;border-radius:4px;background:#F3F4F6;color:#9CA3AF;font-weight:900;margin-left:3px">미배정</span>`
+        ? \`<span style="font-size:8px;padding:1px 5px;border-radius:4px;background:#F3F4F6;color:#9CA3AF;font-weight:900;margin-left:3px">미배정</span>\`
         : "";
-      return `
+      return \`
   <div class="flex justify-between text-[11px] items-center">
-    <span class="text-gray-500 truncate mr-2">${label}${sharedTag}${unallocTag}</span>
-    <span class="font-black ${b.account === "연구투자" ? "text-orange-500" : isUnallocated ? "text-gray-300" : "text-accent"}">${fmt(b.balance - b.used)}원</span>
-  </div>`;
+    <span class="text-gray-500 truncate mr-2">\${label}\${sharedTag}\${unallocTag}</span>
+    <span class="font-black \${b.account === "연구투자" ? "text-orange-500" : isUnallocated ? "text-gray-300" : "text-accent"}">\${fmt(b.balance - b.used)}원</span>
+  </div>\`;
     })
     .join("")}
-</div>`;
+</div>\`;
+  */
 }

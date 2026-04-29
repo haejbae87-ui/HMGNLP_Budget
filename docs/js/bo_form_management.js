@@ -396,9 +396,9 @@ function _formRenderPage() {
       </div>
     ` : `
     <!-- 본문: 좌측 사이드바 + 우측 콘텐츠 -->
-    <div style="display:grid;grid-template-columns:220px 1fr;gap:16px;min-height:500px">
+    <div style="display:grid;grid-template-columns:220px 1fr;gap:16px;min-height:600px">
       <!-- 좌측: 교육유형 3-Depth 사이드바 -->
-      <div style="background:white;border:1px solid #E5E7EB;border-radius:14px;overflow:hidden;overflow-y:auto;max-height:600px">
+      <div style="background:white;border:1px solid #E5E7EB;border-radius:14px;overflow:hidden;overflow-y:auto;max-height:calc(100vh - 280px)">
         <div style="padding:10px 14px;background:#F8FAFC;border-bottom:1px solid #E5E7EB;font-size:11px;font-weight:800;color:#475569">
           📚 교육유형 (${eduTypes.length})
         </div>
@@ -428,9 +428,9 @@ function _formRenderPage() {
       </div>
 
       <!-- 우측: 단계 탭 + 필드 토글 -->
-      <div style="background:white;border:1px solid #E5E7EB;border-radius:14px;overflow:hidden">
+      <div style="background:white;border:1px solid #E5E7EB;border-radius:14px;display:flex;flex-direction:column;max-height:calc(100vh - 280px)">
         <!-- 단계 탭 -->
-        <div style="display:flex;border-bottom:2px solid #E5E7EB;background:#F8FAFC">
+        <div style="display:flex;border-bottom:2px solid #E5E7EB;background:#F8FAFC;flex-shrink:0;border-radius:14px 14px 0 0">
           ${stages.map(s => {
             const m = _FORM_STAGE_META[s];
             const act = s === _formActiveStage;
@@ -444,12 +444,12 @@ function _formRenderPage() {
         </div>
 
         <!-- 필드 토글 영역 -->
-        <div id="fm-field-toggles" style="padding:16px;max-height:460px;overflow-y:auto">
+        <div id="fm-field-toggles" style="padding:16px;flex:1;overflow-y:auto">
           ${_formRenderFieldToggles(_formActiveStage, usesBudget)}
         </div>
 
         <!-- 하단 버튼 -->
-        <div style="padding:12px 16px;border-top:1px solid #E5E7EB;display:flex;gap:10px;justify-content:flex-end;background:#FAFAFA">
+        <div style="padding:12px 16px;border-top:1px solid #E5E7EB;display:flex;gap:10px;justify-content:flex-end;background:#FAFAFA;flex-shrink:0;border-radius:0 0 14px 14px">
           <button onclick="_formPreview()"
             style="padding:8px 20px;border:1px solid #6366F1;background:white;color:#6366F1;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">
             👁️ 미리보기

@@ -1,4 +1,4 @@
-// ─── 📝 교육 양식관리 ─────────────────────────────────────────────────────
+﻿// ─── 📝 교육 양식관리 ─────────────────────────────────────────────────────
 // 제도그룹별 예산계정의 교육유형에 맞는 양식(필드 on/off)을 관리합니다.
 // 4단계: 사업계획(forecast) · 운영계획(operation) · 신청(apply) · 결과(result)
 // PRD: field_standardization.md 기반 필드 타입 표준화 적용
@@ -92,31 +92,31 @@ const _FORM_TYPE_BADGE = {
 // ── 단계별 필드 카탈로그 (PRD field_standardization.md 기반 타입 적용) ────────
 // type: text | textarea | number | boolean | date | daterange | select | file | autocomplete | rating | calc_grounds
 const _FORM_FIELDS = {
-  // ── 사업계획 (Forecast) — PL-01~16 기반 ──────────────────────────────────
+  // ── 사업계획 (Forecast) ────────────────────────────────────────────────────
   forecast: [
     { cat:'기본정보', icon:'📋', fields:[
       {key:'edu_purpose',  label:'교육목적',   type:'select'},
       {key:'edu_type',     label:'교육유형',   type:'select'},
-      {key:'course_name',  label:'교육과정명', type:'text',    locked:true},
-      {key:'is_overseas',  label:'국내/해외',  type:'boolean', locked:true},
-    ]},
-    { cat:'교육상세', icon:'📐', fields:[
-      {key:'target_audience',    label:'교육대상',      type:'select', options:['임원','팀장','팀원','전 직원','신입사원','기타']},
-      {key:'planned_headcount',  label:'교육인원',      type:'number', unit:'명'},
-      {key:'planned_rounds',     label:'교육차수',      type:'number', unit:'차수'},
-      {key:'planned_days',       label:'교육일수',      type:'number', unit:'일'},
-      {key:'hours_per_round',    label:'차수별 시간',   type:'number', unit:'시간'},
-      {key:'edu_period',         label:'교육기간',      type:'daterange'},
-      {key:'is_continuing',      label:'전년도 계속교육', type:'boolean'},
-      {key:'institution_name',   label:'교육기관',      type:'autocomplete'},
-      {key:'venue_detail',       label:'교육장소',      type:'text'},
-      {key:'is_ei_eligible',     label:'고용보험 해당', type:'boolean'},
+      {key:'course_name',  label:'교육과정명', type:'text', locked:true},
     ]},
     { cat:'교육내용', icon:'📝', fields:[
       {key:'learning_objective', label:'교육목표', type:'textarea'},
       {key:'course_description', label:'교육내용', type:'textarea'},
       {key:'expected_benefit',   label:'기대효과', type:'textarea'},
+      {key:'target_audience',    label:'교육대상', type:'select', options:['임원','팀장','팀원','전 직원','신입사원','기타']},
+      {key:'planned_headcount',  label:'교육인원', type:'number', unit:'명'},
       {key:'supporting_docs',    label:'증빙자료', type:'file'},
+    ]},
+    { cat:'장소정보', icon:'🏛️', fields:[
+      {key:'is_overseas',      label:'국내/해외',      type:'boolean'},
+      {key:'institution_name', label:'교육기관',        type:'autocomplete'},
+      {key:'venue_detail',     label:'교육장소',        type:'text'},
+      {key:'planned_rounds',   label:'교육차수',        type:'number', unit:'차수'},
+      {key:'planned_days',     label:'교육일수',        type:'number', unit:'일'},
+      {key:'hours_per_round',  label:'차수별 시간',     type:'number', unit:'시간'},
+      {key:'edu_period',       label:'교육기간',        type:'daterange'},
+      {key:'is_continuing',    label:'전년도 계속교육', type:'boolean'},
+      {key:'is_ei_eligible',   label:'고용보험 해당',   type:'boolean'},
     ]},
     { cat:'비용항목', icon:'💰', budgetOnly:true, fields:[
       {key:'requested_budget', label:'요청 예산 규모', type:'number', unit:'원'},
@@ -132,10 +132,10 @@ const _FORM_FIELDS = {
     { cat:'기본정보', icon:'📋', fields:[
       {key:'edu_purpose',  label:'교육목적', type:'select'},
       {key:'edu_type',     label:'교육유형', type:'select'},
-      {key:'course_name',  label:'교육명',   type:'text',    locked:true},
-      {key:'is_overseas',  label:'국내/해외',type:'boolean', locked:true},
+      {key:'course_name',  label:'교육명',   type:'text', locked:true},
     ]},
-    { cat:'장소/일정', icon:'📐', fields:[
+    { cat:'장소정보', icon:'🏛️', fields:[
+      {key:'is_overseas',       label:'국내/해외',    type:'boolean'},
       {key:'venue_type',        label:'장소유형',    type:'select', options:['사내','사외','온라인']},
       {key:'venue_detail',      label:'교육장소',    type:'text'},
       {key:'edu_period',        label:'교육기간',    type:'daterange'},
@@ -160,7 +160,7 @@ const _FORM_FIELDS = {
       {key:'allocated_amount', label:'배정액',       type:'number', unit:'원'},
     ]},
   ],
-  // ── 신청 (Apply) — A-01~20 기반 ──────────────────────────────────────────
+  // ── 신청 (Apply) ─────────────────────────────────────────────────────────
   apply: [
     { cat:'기본정보', icon:'📋', fields:[
       {key:'edu_purpose',  label:'교육목적', type:'select'},
@@ -175,7 +175,7 @@ const _FORM_FIELDS = {
       {key:'course_brochure',    label:'과정소개 자료',type:'file'},
       {key:'learning_content',   label:'학습내용',     type:'textarea'},
     ]},
-    { cat:'일정/장소', icon:'📅', fields:[
+    { cat:'장소정보', icon:'🏛️', fields:[
       {key:'edu_period',        label:'교육기간',       type:'daterange'},
       {key:'planned_hours',     label:'학습시간(예정)', type:'number', unit:'시간'},
       {key:'planned_duration',  label:'학습기간',       type:'text'},
@@ -185,7 +185,7 @@ const _FORM_FIELDS = {
       {key:'overseas_country',  label:'해외교육 국가',  type:'text'},
       {key:'education_format',  label:'교육형태',       type:'select', options:['온라인','오프라인','블렌디드']},
     ]},
-    { cat:'기타 조건', icon:'✅', fields:[
+    { cat:'기타정보', icon:'✅', fields:[
       {key:'has_accommodation', label:'숙박여부',       type:'boolean'},
       {key:'lunch_provided',    label:'중식제공여부',   type:'boolean'},
       {key:'is_paid_education', label:'유료교육여부',   type:'boolean'},
@@ -202,12 +202,12 @@ const _FORM_FIELDS = {
       {key:'receipt',         label:'영수증',   type:'file'},
     ]},
   ],
-  // ── 결과 (Result) — R-01~12 + RT-01~07 + 비용정산 기반 ───────────────────
+  // ── 결과 (Result) ─────────────────────────────────────────────────────────
   result: [
     { cat:'기본정보', icon:'📋', fields:[
       {key:'edu_purpose',  label:'교육목적', type:'select'},
       {key:'edu_type',     label:'교육유형', type:'select'},
-      {key:'course_name',  label:'교육명',   type:'text',   locked:true},
+      {key:'course_name',  label:'교육명',   type:'text', locked:true},
     ]},
     { cat:'수료정보', icon:'🎓', fields:[
       {key:'is_completed',    label:'수료여부',   type:'boolean'},

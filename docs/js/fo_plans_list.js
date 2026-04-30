@@ -977,6 +977,7 @@ function renderPlans() {
           fiscalYear: d.fiscal_year,
           plan_type: d.plan_type || 'operation', // ★ plan_type 포함 (사업계획/운영계획 분리 필수)
           source_forecast_plan_id: d.detail?.source_forecast_plan_id || null, // Phase4: 복사본 판별
+          final_confirmed_amount: d.final_confirmed_amount != null ? Number(d.final_confirmed_amount) : null, // ★ 최종확정금액 (BO→FO 읽기전용)
         }));
         _plansDbCache = data;
       }
@@ -1538,6 +1539,7 @@ function _renderPlanCard(p) {
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:11px;color:#6B7280">
           <span style="display:flex;align-items:center;gap:3px"><span style="font-size:10px">💳</span>${_accountNameCache[p.account] || p.account || "-"}</span>
           <span style="display:flex;align-items:center;gap:3px;font-weight:700;color:#374151"><span style="font-size:10px">💰</span>${(p.amount || 0).toLocaleString()}원</span>
+          ${(() => { const fca = p.final_confirmed_amount != null ? p.final_confirmed_amount : ((_plansDbCache||[]).find(d=>d.id===p.id)||{}).final_confirmed_amount; return fca != null && fca > 0 ? `<span style="font-weight:800;color:#1D4ED8;background:#EFF6FF;padding:2px 8px;border-radius:6px;border:1px solid #BFDBFE">🏷️ 확정 ${Number(fca).toLocaleString()}원</span>` : ''; })()}
           ${Number(p.allocated_amount||0)>0 ? `<span style="font-weight:800;color:#059669;background:#F0FDF4;padding:2px 8px;border-radius:6px">✅ 배정 ${Number(p.allocated_amount).toLocaleString()}원</span>` : `<span style="color:#D1D5DB;font-size:10px">미배정</span>`}
           <!-- B-1: 잔여예산 뱃지 (비동기 로드) -->
           ${p.account ? `<span id="budget-badge-${safeId}" style="font-size:10px;padding:2px 8px;border-radius:6px;background:#F3F4F6;color:#9CA3AF">잔액 확인중...</span>` : ''}
@@ -2341,34 +2343,34 @@ function _foRenderTeamForecastBundleBar(teamPlansArr, myDbCache) {
     return true;
   });
 
-  // ★ submitted 상태 계획 (상신된 번들) 감지
-  // submission_documents가 rejected/recalled된 경우 실시간으로 제외 (팀장 반려 즉시 반영)
-  let rejectedBundleItemIds = new Set();
-  try {
-    const candidateIds = [
-      ...teamPlansArr.filter(p => p.status === 'submitted' && p.fiscalYear === _planYear).map(p => String(p.id)),
-      ...myDbCache.filter(d => d.status === 'submitted' && (d.plan_type === 'forecast' || d.plan_type === 'business') && d.fiscal_year === _planYear).map(d => String(d.id)),
-    ];
-    if (candidateIds.length > 0 && sb) {
-      const { data: sItems } = await sb.from('submission_items').select('item_id, submission_id').in('item_id', candidateIds);
-      if (sItems && sItems.length > 0) {
-        const sIds = [...new Set(sItems.map(i => i.submission_id))];
-        const { data: sDocs } = await sb.from('submission_documents').select('id, status').in('id', sIds).in('status', ['rejected', 'recalled']);
-        if (sDocs && sDocs.length > 0) {
-          const rejectedSIds = new Set(sDocs.map(d => d.id));
-          sItems.filter(i => rejectedSIds.has(i.submission_id)).forEach(i => rejectedBundleItemIds.add(String(i.item_id)));
-        }
-      }
-    }
-  } catch(e) { console.warn('[submittedForecasts 번들 반려 보정]', e.message); }
-
+  // ★ submitted 상태 계획 (상신된 번들) — 동기 필터 (반려 보정은 비동기 후처리)
   const submittedForecasts = [
     ...teamPlansArr.filter(p => p.status === 'submitted' && p.fiscalYear === _planYear),
     ...myDbCache.filter(d => d.status === 'submitted' && (d.plan_type === 'forecast' || d.plan_type === 'business') && d.fiscal_year === _planYear)
       .map(d => ({ id: d.id, title: d.edu_name || String(d.id), amount: Number(d.amount || 0), account: d.account_code, account_code: d.account_code, author: d.applicant_name || currentPersona.name, fiscalYear: d.fiscal_year, status: 'submitted' }))
   ]
-    .filter((p, i, arr) => arr.findIndex(x => String(x.id) === String(p.id)) === i) // ID 중복 제거
-    .filter(p => !rejectedBundleItemIds.has(String(p.id))); // 반려/회수 번들 항목 제외
+    .filter((p, i, arr) => arr.findIndex(x => String(x.id) === String(p.id)) === i); // ID 중복 제거
+
+  // ★ 비동기 반려 보정 후처리: submission_documents에서 rejected/recalled 확인 후 DOM 업데이트
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (submittedForecasts.length > 0 && sb) {
+    (async () => {
+      try {
+        const candidateIds = submittedForecasts.map(p => String(p.id));
+        const { data: sItems } = await sb.from('submission_items').select('item_id, submission_id').in('item_id', candidateIds);
+        if (sItems && sItems.length > 0) {
+          const sIds = [...new Set(sItems.map(i => i.submission_id))];
+          const { data: sDocs } = await sb.from('submission_documents').select('id, status').in('id', sIds).in('status', ['rejected', 'recalled']);
+          if (sDocs && sDocs.length > 0) {
+            // 반려된 번들의 plan을 saved로 복원하고 페이지 새로고침
+            console.info('[번들 반려 보정] 반려/회수된 번들 감지, 목록 갱신');
+            _plansDbLoaded = false; _dbMyPlans = []; _plansDbCache = [];
+            renderPlans();
+          }
+        }
+      } catch(e) { console.warn('[submittedForecasts 번들 반려 보정]', e.message); }
+    })();
+  }
 
   if (!allSaved.length) {
     // 상신된 번들이 있으면 회수 UI 표시

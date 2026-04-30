@@ -917,113 +917,84 @@ function viewPlanDetail(planId) {
 }
 
 function _renderPlanDetailView(plan) {
-  const STATUS_LABEL = {
-    draft: "작성중",
-    pending: "신청중",
-    approved: "승인완료",
-    rejected: "반려",
-    cancelled: "취소",
-    승인완료: "승인완료",
-    진행중: "진행중",
-    반려: "반려",
-    결재진행중: "결재진행중",
-    신청중: "신청중",
-    작성중: "작성중",
-    취소: "취소",
-  };
-  const STATUS_COLOR = {
-    draft: "#0369A1",
-    pending: "#D97706",
-    approved: "#059669",
-    rejected: "#DC2626",
-    cancelled: "#9CA3AF",
-    승인완료: "#059669",
-    진행중: "#059669",
-    반려: "#DC2626",
-    결재진행중: "#D97706",
-    신청중: "#D97706",
-    작성중: "#0369A1",
-    취소: "#9CA3AF",
-  };
-  const st = plan.status || "pending";
-  const stLabel = STATUS_LABEL[st] || st;
-  const stColor = STATUS_COLOR[st] || "#6B7280";
-  const d = plan.detail || {};
-  const amount = Number(plan.amount || plan.planAmount || 0);
-  const safeId = String(plan.id || "").replace(/'/g, "\\'");
-  const isPending = st === "pending" || st === "신청중" || st === "결재진행중";
-  const isDraft = st === "draft" || st === "작성중";
-  const isApproved = st === "approved" || st === "승인완료";
-  // 만료 검증
-  const endDate = d.endDate || plan.end_date || null;
-  const isExpired = endDate && new Date(endDate) < new Date();
-  // 연결된 신청 조회
-  const linkedApps = (
-    typeof MOCK_HISTORY !== "undefined" ? MOCK_HISTORY : []
-  ).filter((h) => h.planId === plan.id);
-  const canApply = isApproved && !isExpired;
+  // ★ 통합 렌더러(foRenderPlanUnifiedView)로 위임
+  // fo_plans_actions.js에 정의된 단일 뷰 컴포넌트를 공유
+  if (typeof foRenderPlanUnifiedView === 'function') {
+    return foRenderPlanUnifiedView(plan, { mode: 'detail' });
+  }
 
+  // 폴백: foRenderPlanUnifiedView 미로드 시 기본 뷰
+  const st = plan.status || "pending";
+  const amount = Number(plan.amount || plan.planAmount || 0);
   return `
-  <div class="max-w-5xl mx-auto">
+  <div class="max-w-3xl mx-auto">
     <div style="margin-bottom:16px">
-      <button onclick="_viewingPlanDetail=null;renderPlans()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">
-        ← 목록으로
-      </button>
+      <button onclick="_viewingPlanDetail=null;renderPlans()" style="padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">← 목록으로</button>
     </div>
     <div style="border-radius:16px;overflow:hidden;border:1.5px solid #E5E7EB;background:white;box-shadow:0 4px 20px rgba(0,0,0,.06)">
-      <!-- 헤더 -->
       <div style="padding:24px 28px;background:linear-gradient(135deg,#002C5F,#0369A1);color:white">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:${stColor}40;color:white">${stLabel}</span>
-        </div>
         <h2 style="margin:0;font-size:20px;font-weight:900">${plan.title || plan.edu_name || "-"}</h2>
-        <p style="margin:6px 0 0;font-size:12px;opacity:.8">${plan.applicant_name || currentPersona.name} · ${plan.dept || currentPersona.dept}</p>
+        <p style="margin:6px 0 0;font-size:12px;opacity:.8">${plan.applicant_name || ""} · ${plan.dept || ""}</p>
       </div>
-      <!-- 상세 정보 (7단계 통합 뷰) -->
-      <div style="padding:24px 28px; background:#F9FAFB">
-        ${typeof window.foRenderStandardReadOnlyForm === 'function' ? window.foRenderStandardReadOnlyForm({...plan, amount, accountCode: plan.account_code || plan.account || ''}, 'FO') : '<p>렌더러 로딩 중...</p>'}
+      <div style="padding:24px 28px;background:#F9FAFB">
+        ${typeof window.foRenderStandardReadOnlyForm === 'function' ? window.foRenderStandardReadOnlyForm({...plan, amount, accountCode: plan.account_code || plan.account || ''}, 'FO') : '<p>로딩 중...</p>'}
       </div>
-      <!-- 결재/검토 진행현황 -->
       ${typeof renderApprovalStepper === "function" ? renderApprovalStepper(st, "plan") : ""}
-      <!-- 연결된 교육신청 -->
-      <div style="padding:16px 28px;border-top:1px solid #F3F4F6">
-        <div style="font-size:12px;font-weight:800;color:#6B7280;margin-bottom:10px">🔗 연결된 교육신청</div>
-        ${
-          linkedApps.length > 0
-            ? linkedApps
-                .map(
-                  (app) => `
-          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#F9FAFB;border-radius:10px;margin-bottom:6px">
-            <span style="font-size:14px">📝</span>
-            <div style="flex:1">
-              <div style="font-size:12px;font-weight:800;color:#111827">${app.title || app.id}</div>
-              <div style="font-size:11px;color:#6B7280">${app.date || "-"} · ${(app.amount || 0).toLocaleString()}원</div>
-            </div>
-            <span style="font-size:10px;font-weight:900;padding:3px 8px;border-radius:5px;background:${app.status === "완료" ? "#D1FAE5" : app.status === "진행중" ? "#DBEAFE" : "#FEF3C7"};color:${app.status === "완료" ? "#065F46" : app.status === "진행중" ? "#1D4ED8" : "#92400E"}">${app.status || "신청중"}</span>
-          </div>
-        `,
-                )
-                .join("")
-            : `
-          <div style="padding:12px 14px;background:#F9FAFB;border-radius:10px;font-size:12px;color:#9CA3AF;text-align:center">
-            아직 연결된 교육신청이 없습니다.
-          </div>
-        `
-        }
-      </div>
-      <!-- 액션 -->
       <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6">
         <button onclick="_viewingPlanDetail=null;renderPlans()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">← 목록으로</button>
-        ${isDraft ? `<button onclick="_viewingPlanDetail=null;resumePlanDraft('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#0369A1;color:white;cursor:pointer">✏️ 이어쓰기</button>` : ""}
-        ${isPending ? `<button onclick="_viewingPlanDetail=null;cancelPlan('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FECACA;background:white;color:#DC2626;cursor:pointer">취소 요청</button>` : ""}
-        ${canApply ? `<button onclick="_viewingPlanDetail=null;startApplyFromPlan('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:linear-gradient(135deg,#059669,#10B981);color:white;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">▶ 이 계획으로 교육신청</button>` : ""}
-        ${isApproved ? `<button onclick="foOpenReduceAllocation('${safeId}')" style="padding:10px 20px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FDE68A;background:#FFFBEB;color:#B45309;cursor:pointer" title="배정액 하향 조정 (내용 변경 불가)">📉 배정액 축소</button>` : ""}
-        ${isApproved && isExpired ? `<button disabled style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #E5E7EB;background:#F9FAFB;color:#9CA3AF;cursor:not-allowed" title="계획 기간이 만료되어 신청할 수 없습니다">⚠ 기간 만료</button>` : ""}
-        ${!isApproved && !isDraft && !isPending ? `<span style="font-size:11px;color:#9CA3AF;align-self:center">ℹ 승인완료 상태에서 신청 가능합니다</span>` : ""}
       </div>
     </div>
   </div>`;
 }
+
+// ★ 상세 뷰에서 직접 상신하기 (saved 상태 계획을 확인 화면 없이 바로 planState로 로드 후 confirmPlan)
+async function submitFromDetail(planId) {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 실패'); return; }
+  try {
+    const { data: plan, error } = await sb.from('plans').select('*').eq('id', planId).single();
+    if (error || !plan) throw new Error('계획 조회 실패');
+
+    // planState 복원
+    const d = plan.detail || {};
+    planState = {
+      editId: plan.id,
+      title: plan.edu_name || '',
+      amount: Number(plan.amount || 0),
+      status: plan.status,
+      currentStatus: plan.status,
+      plan_type: plan.plan_type || 'operation',
+      fiscal_year: plan.fiscal_year,
+      eduType: plan.edu_type || d.eduType,
+      eduSubType: d.eduSubType,
+      purpose: d.purpose ? { id: d.purpose } : null,
+      purpose_text: d.purpose_text || '',
+      calcGrounds: d.calcGrounds || [],
+      locations: d.locations || [],
+      budgetId: d.budgetId || null,
+      contextAccountCode: plan.account_code,
+      accountCode: plan.account_code,
+      isOverseas: plan.is_overseas || false,
+      overseasCountry: plan.overseas_country || null,
+      venueType: plan.venue_type || 'internal',
+      plannedRounds: plan.planned_rounds || 1,
+      plannedDays: plan.planned_days || null,
+      expectedBenefit: plan.expected_benefit || '',
+      educationFormat: plan.education_format || '',
+      content: d.content || '',
+      notes: d.notes || null,
+      institution: d.institution || null,
+      policyId: plan.policy_id || null,
+      formTemplate: d._form_snapshot ? { id: d._form_snapshot.id, inlineFields: null } : null,
+      confirmMode: true,
+    };
+    _viewingPlanDetail = null;
+    renderPlans();
+  } catch (err) {
+    alert('상신 준비 실패: ' + err.message);
+  }
+}
+window.submitFromDetail = submitFromDetail;
 
 function closePlanWizard() {
   planState = null;

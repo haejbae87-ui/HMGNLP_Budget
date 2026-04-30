@@ -132,6 +132,15 @@ function planPrev() {
   renderPlanWizard();
 }
 
+// ─── plan_type 결정 헬퍼 ──────────────────────────────────────────────────
+// planState.plan_type 우선, 없으면 현재 plansMode로 결정
+// forecast 모드 → 'forecast', 그 외 → 'operation'
+function _resolvePlanType() {
+  if (planState.plan_type) return planState.plan_type;
+  const mode = window.plansMode || 'operation';
+  return mode === 'forecast' ? 'forecast' : 'operation';
+}
+
 // ─── 임시저장 ──────────────────────────────────────────────────────────────
 async function savePlanDraft() {
   const total = _calcGroundsTotal();
@@ -166,7 +175,7 @@ async function savePlanDraft() {
       amount: amount,
       status: "draft",
       policy_id: planState.policyId || null,
-      plan_type: planState.plan_type || "ongoing",
+      plan_type: _resolvePlanType(),
       fiscal_year: planState.fiscal_year || new Date().getFullYear(),
       form_template_id: planState.formTemplate?.id || null,
       form_version: planState.formTemplate?.version || null,
@@ -269,7 +278,7 @@ async function savePlanSaved() {
       amount: amount,
       status: "saved",           // ← 3단계 상태 중 2단계
       policy_id: planState.policyId || null,
-      plan_type: planState.plan_type || "ongoing",
+      plan_type: _resolvePlanType(),
       fiscal_year: planState.fiscal_year || new Date().getFullYear(),
       form_template_id: planState.formTemplate?.id || null,
       form_version: planState.formTemplate?.version || null,
@@ -347,19 +356,98 @@ function renderPlanConfirm() {
       ? _getPlanAccountCode(curBudget)
       : "") ||
     "";
-  const accountName = curBudget?.accountName || "";
-  const purposeLabel = s.purpose?.label || s.purpose?.id || "-";
 
-  document.getElementById("page-plans").innerHTML = `
+  // ★ _renderPlanDetailView와 동일한 통합 뷰 렌더러 사용
+  // planState를 DB plan 객체 형태로 변환하여 foRenderPlanUnifiedView 호출
+  const planLike = {
+    ...s,
+    id: s.editId || null,
+    amount,
+    accountCode,
+    account_code: accountCode,
+    status: s.currentStatus || 'saved',
+    edu_name: s.title || '',
+    applicant_name: currentPersona.name,
+    dept: currentPersona.dept,
+    detail: s,
+  };
+  document.getElementById("page-plans").innerHTML = foRenderPlanUnifiedView(planLike, {
+    mode: 'confirm',  // confirm 모드: 수정하기 + 확정제출 버튼
+    inlineFields: (s.formTemplate && s.formTemplate.inlineFields) || null,
+  });
+}
+
+/**
+ * ★ 단일 통합 뷰 렌더러 (첨부2 상세뷰 + 첨부4 저장후 확인 화면 공통 사용)
+ * @param {Object} plan - DB plans 레코드 또는 planState를 변환한 객체
+ * @param {Object} opts - { mode: 'detail'|'confirm', inlineFields }
+ */
+function foRenderPlanUnifiedView(plan, opts = {}) {
+  const { mode = 'detail', inlineFields = null } = opts;
+  const STATUS_LABEL = {
+    draft: "작성중", saved: "저장완료", pending: "신청중", submitted: "결재대기",
+    approved: "승인완료", rejected: "반려", cancelled: "취소", recalled: "회수됨",
+    승인완료: "승인완료", 진행중: "진행중", 반려: "반려", 결재진행중: "결재진행중",
+    신청중: "신청중", 작성중: "작성중", 저장완료: "저장완료", 취소: "취소",
+  };
+  const STATUS_COLOR = {
+    draft: "#0369A1", saved: "#059669", pending: "#D97706", submitted: "#D97706",
+    approved: "#059669", rejected: "#DC2626", cancelled: "#9CA3AF", recalled: "#6B7280",
+    승인완료: "#059669", 반려: "#DC2626", 결재진행중: "#D97706", 신청중: "#D97706",
+    작성중: "#0369A1", 저장완료: "#059669", 취소: "#9CA3AF",
+  };
+
+  const st = plan.status || "saved";
+  const stLabel = STATUS_LABEL[st] || st;
+  const stColor = STATUS_COLOR[st] || "#6B7280";
+  const amount = Number(plan.amount || plan.planAmount || 0);
+  const safeId = String(plan.id || "").replace(/'/g, "\\'");
+
+  const isDraft = st === "draft" || st === "작성중";
+  const isSaved = st === "saved" || st === "저장완료";
+  const isPending = st === "pending" || st === "submitted" || st === "신청중" || st === "결재진행중" || st === "결재대기";
+  const isApproved = st === "approved" || st === "승인완료";
+  const isExpired = (() => {
+    const end = (plan.detail || {}).endDate || plan.end_date || null;
+    return end && new Date(end) < new Date();
+  })();
+  const canApply = isApproved && !isExpired;
+
+  // 연결된 교육신청
+  const linkedApps = (typeof MOCK_HISTORY !== "undefined" ? MOCK_HISTORY : [])
+    .filter(h => h.planId === plan.id);
+
+  // ── 인라인필드 결정: 파라미터 → plan.formTemplate → null
+  const resolvedInlineFields = inlineFields
+    || (plan.formTemplate && plan.formTemplate.inlineFields)
+    || null;
+
+  // ── 상태별 하단 버튼 구성
+  let actionBtns = '';
+  if (mode === 'confirm') {
+    // 저장 후 확인 화면 버튼
+    actionBtns = `
+      <button onclick="_planViewTab='mine';planState=null;renderPlans()" style="margin-right:auto;padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:#F9FAFB;color:#4B5563;cursor:pointer">≡ 목록으로</button>
+      <button onclick="planState.confirmMode=false;renderPlans()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">← 수정하기</button>
+      <button onclick="confirmPlan()" style="padding:10px 28px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#002C5F;color:white;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">✅ 확정 제출</button>`;
+  } else {
+    // 상세 뷰 버튼 (목록에서 클릭한 경우)
+    actionBtns = `
+      <button onclick="_viewingPlanDetail=null;renderPlans()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">← 목록으로</button>
+      ${(isDraft || isSaved) ? `<button onclick="_viewingPlanDetail=null;resumePlanDraft('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #E5E7EB;background:white;color:#0369A1;cursor:pointer">✏️ 수정</button>` : ""}
+      ${(isDraft || isSaved) ? `<button onclick="_viewingPlanDetail=null;submitFromDetail('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#002C5F;color:white;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">📤 상신하기</button>` : ""}
+      ${isPending ? `<button onclick="_viewingPlanDetail=null;cancelPlan('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FECACA;background:white;color:#DC2626;cursor:pointer">취소 요청</button>` : ""}
+      ${canApply ? `<button onclick="_viewingPlanDetail=null;startApplyFromPlan('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:linear-gradient(135deg,#059669,#10B981);color:white;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">▶ 이 계획으로 교육신청</button>` : ""}
+      ${isApproved ? `<button onclick="foOpenReduceAllocation('${safeId}')" style="padding:10px 20px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FDE68A;background:#FFFBEB;color:#B45309;cursor:pointer">📉 배정액 축소</button>` : ""}
+      ${!isApproved && !isDraft && !isSaved && !isPending ? `<span style="font-size:11px;color:#9CA3AF;align-self:center">ℹ 승인완료 상태에서 신청 가능합니다</span>` : ""}`;
+  }
+
+  return `
   <div class="max-w-3xl mx-auto">
-    <div style="background:white;border-radius:20px;border:1.5px solid #E5E7EB;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.08)">
+    ${mode === 'detail' ? `<div style="margin-bottom:16px"><button onclick="_viewingPlanDetail=null;renderPlans()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">← 목록으로</button></div>` : ''}
+    <div style="border-radius:20px;overflow:hidden;border:1.5px solid #E5E7EB;background:white;box-shadow:0 8px 30px rgba(0,0,0,.08)">
       <!-- 헤더 -->
       <div style="padding:24px 28px;background:linear-gradient(135deg,#002C5F,#0369A1);color:white">
-        <div style="font-size:11px;font-weight:700;opacity:.7;margin-bottom:4px">✅ 작성 확인</div>
-        <h2 style="margin:0;font-size:20px;font-weight:900">교육계획 제출 전 확인</h2>
-        <p style="margin:6px 0 0;font-size:12px;opacity:.8">아래 내용을 확인한 후 확정하면 결재라인으로 전달됩니다.</p>
-      </div>
-      <!-- 요약 (7단계 통합 뷰) -->
       <div style="padding:24px 28px; background:#F9FAFB">
         ${typeof window.foRenderStandardReadOnlyForm === 'function' ? window.foRenderStandardReadOnlyForm({...s, amount, accountCode}, 'FO', (s.formTemplate && s.formTemplate.inlineFields) || null) : '<p>렌더러 로딩 중...</p>'}
         
@@ -415,7 +503,7 @@ async function confirmPlan() {
         amount: amount,
         status: 'submitted',  // [S-6] pending → submitted
         policy_id: planState.policyId || null,
-        plan_type: planState.plan_type || 'ongoing',
+        plan_type: _resolvePlanType(),
         fiscal_year: planState.fiscal_year || new Date().getFullYear(),
         form_template_id: planState.formTemplate?.id || null,
         form_version: planState.formTemplate?.version || null,

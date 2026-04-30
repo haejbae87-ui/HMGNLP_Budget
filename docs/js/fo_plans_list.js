@@ -1046,18 +1046,23 @@ function renderPlans() {
 
 
   // ★ plan_type 필터 (사업계획/운영계획 분리 핵심)
-  const targetPlanType = isBusiness ? 'business' : 'operation';
   // DB 원본에서 plan_type으로 선필터
   const typePlans = plans.filter(p => {
-    // ★ 팀 계획은 자체 plan_type 사용, 내 계획은 _plansDbCache에서 확인
     let pType;
     if (_planViewTab === 'team') {
-      pType = p.plan_type || 'operation';
+      pType = p.plan_type || null;
     } else {
       const dbPlan = (_plansDbCache || []).find(d => d.id === p.id);
-      pType = dbPlan?.plan_type || 'operation';
+      pType = dbPlan?.plan_type || null;
     }
-    return pType === targetPlanType || (isBusiness && (pType === 'forecast' || pType === 'business'));
+    if (isBusiness) {
+      // 사업계획 모드: forecast, business, ongoing(legacy) 모두 허용
+      // ongoing은 미래 연도 계획으로 forecast 의도로 저장된 것으로 간주
+      return pType === 'forecast' || pType === 'business' || pType === 'ongoing' || !pType;
+    } else {
+      // 운영계획 모드: operation, ongoing(legacy) 허용. forecast/business 제외
+      return pType === 'operation' || pType === 'ongoing' || !pType;
+    }
   });
 
   // #7: 상태/계정/연도 필터 적용

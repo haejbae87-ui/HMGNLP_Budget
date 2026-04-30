@@ -20,13 +20,12 @@ function renderBoAllocation() {
   // 운영담당자 = 정의된 역할이 budget_op_manager이거나 managedVorgId만 있고 ownedAccounts는 없는 사람
   const isOpOnly = isOp && !isGlobal;
 
-  // 탭 목록: 운영담당자 차단 탭 (ⓗ 기초·추가배정)
+  // 탭 목록: 기초·추가배정은 '예산계정 마스터' 메뉴로 분리 (F-B01)
   const allTabs = [
     { label: "📊 계정 예산 현황", fn: "renderAllocOverview", idx: 0 },
-    { label: "➕ 기초·추가 배정", fn: "renderAllocEntry", idx: 1, globalOnly: true },
-    { label: "📋 팀 배분", fn: "renderTeamDist", idx: 2 },
-    { label: "↔ 이관", fn: "renderAllocTransfer", idx: 3, globalOnly: true },
-    { label: "📜 변경 이력", fn: "renderAllocHistory", idx: 4 },
+    { label: "📋 팀 배분", fn: "renderTeamDist", idx: 1 },
+    { label: "↔ 이관", fn: "renderAllocTransfer", idx: 2, globalOnly: true },
+    { label: "📜 변경 이력", fn: "renderAllocHistory", idx: 3 },
   ];
   const visibleTabs = isOpOnly ? allTabs.filter(t => !t.globalOnly) : allTabs;
 
@@ -880,7 +879,11 @@ async function submitInitBudget() {
   alert(
     `✅ 기초 예산 등록 완료!\n\n계정: ${acctName}\n금액: ${boFmt(amount)}원\n(DB 저장 완료)\n\n이제 [팀 배분] 탭에서 팀에 배분하세요.`,
   );
-  showAllocTab(0);
+  if (typeof boCurrentMenu !== 'undefined' && boCurrentMenu === 'budget-master') {
+    renderBudgetMaster();
+  } else {
+    showAllocTab(0);
+  }
 }
 
 async function submitAddBudget() {
@@ -935,7 +938,11 @@ async function submitAddBudget() {
   alert(
     `✅ 추가 배정 완료!\n\n계정: ${acctName}\n+${boFmt(amount)}원 추가\n새 계정 총액: ${boFmt(newTotal)}원 (DB 저장 완료)\n\n[팀 배분] 탭에서 배분 가능 재원을 팀에 배분하세요.`,
   );
-  showAllocTab(0);
+  if (typeof boCurrentMenu !== 'undefined' && boCurrentMenu === 'budget-master') {
+    renderBudgetMaster();
+  } else {
+    showAllocTab(0);
+  }
 }
 
 // ─── 탭 3: 팀 배분 (계정 재원 → 팀) ─────────────────────────────────────────

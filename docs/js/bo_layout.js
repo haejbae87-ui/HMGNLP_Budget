@@ -322,6 +322,13 @@ const PLATFORM_MENUS = [
     gnb: GNB_CATE.PROGRAM,
   },
   {
+    id: "budget-master",
+    icon: "🏦",
+    label: "예산계정 마스터",
+    section: null,
+    gnb: GNB_CATE.PROGRAM,
+  },
+  {
     id: "form-builder",
     icon: "📝",
     label: "교육양식 마법사",
@@ -549,6 +556,13 @@ const TENANT_ADMIN_MENUS = [
     section: "교육지원제도 기준정보",
     gnb: GNB_CATE.PROGRAM,
   },
+  {
+    id: "budget-master",
+    icon: "🏦",
+    label: "예산계정 마스터",
+    section: null,
+    gnb: GNB_CATE.PROGRAM,
+  },
 
   {
     id: "form-builder",
@@ -738,6 +752,13 @@ const BUDGET_ADMIN_MENUS = [
     icon: "💳",
     label: "예산계정 관리",
     section: "교육지원제도 기준정보",
+    gnb: GNB_CATE.PROGRAM,
+  },
+  {
+    id: "budget-master",
+    icon: "🏦",
+    label: "예산계정 마스터",
+    section: null,
     gnb: GNB_CATE.PROGRAM,
   },
   {
@@ -1046,6 +1067,13 @@ const TENANT_DUAL_MENUS = [
     icon: "💳",
     label: "예산계정 관리",
     section: "교육지원제도 기준정보",
+    gnb: GNB_CATE.PROGRAM,
+  },
+  {
+    id: "budget-master",
+    icon: "🏦",
+    label: "예산계정 마스터",
+    section: null,
     gnb: GNB_CATE.PROGRAM,
   },
   {
@@ -1622,6 +1650,7 @@ function boNavigate(menuId) {
   if (menuId === "vorg-manager-mgmt") renderVorgManagerMgmt();
   if (menuId === "vorg-coop-mgmt") renderVorgCoopMgmt();
   if (menuId === "budget-account") renderBudgetAccountMenu(); // 신규 추가
+  if (menuId === "budget-master") renderBudgetMaster(); // F-B01: 기초/추가 배정 마스터
   if (menuId === "cert-mapping") renderCertMappingMenu(); // 신규 추가
   if (menuId === "badge-group-mgmt") renderBadgeGroupMgmt();
   if (menuId === "badge-mgmt") renderBadgeMgmt();

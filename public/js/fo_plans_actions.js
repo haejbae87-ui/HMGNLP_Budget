@@ -422,6 +422,9 @@ function foRenderPlanUnifiedView(plan, opts = {}) {
     || (plan.formTemplate && plan.formTemplate.inlineFields)
     || null;
 
+  // ── 상태별 버튼 구성에서 사용할 safeTitle
+  const safeTitle = String(plan.title || plan.edu_name || '').replace(/'/g, '');
+
   // ── 상태별 하단 버튼 구성
   let actionBtns = '';
   if (mode === 'confirm') {
@@ -434,9 +437,9 @@ function foRenderPlanUnifiedView(plan, opts = {}) {
     // 상세 뷰 버튼 (목록에서 클릭한 경우)
     actionBtns = `
       <button onclick="_viewingPlanDetail=null;renderPlans()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">← 목록으로</button>
-      ${(isDraft || isSaved) ? `<button onclick="_viewingPlanDetail=null;resumePlanDraft('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #E5E7EB;background:white;color:#0369A1;cursor:pointer">✏️ 수정</button>` : ""}
-      ${(isDraft || isSaved) ? `<button onclick="_viewingPlanDetail=null;submitFromDetail('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#002C5F;color:white;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">📤 상신하기</button>` : ""}
-      ${isPending ? `<button onclick="_viewingPlanDetail=null;cancelPlan('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FECACA;background:white;color:#DC2626;cursor:pointer">취소 요청</button>` : ""}
+      ${(isDraft || isSaved) ? `<button onclick="_viewingPlanDetail=null;resumePlanDraft('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #BFDBFE;background:white;color:#0369A1;cursor:pointer">✏️ 수정</button>` : ""}
+      ${isSaved ? `<button onclick="_viewingPlanDetail=null;_aprSingleSubmitFromPlan('${safeId}','${safeTitle}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#059669;color:white;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">📤 상신하기</button>` : ""}
+      ${isPending ? `<button onclick="foRecallPlanFromDetail('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FECACA;background:white;color:#DC2626;cursor:pointer">회수하기</button>` : ""}
       ${canApply ? `<button onclick="_viewingPlanDetail=null;startApplyFromPlan('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:linear-gradient(135deg,#059669,#10B981);color:white;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">▶ 이 계획으로 교육신청</button>` : ""}
       ${isApproved ? `<button onclick="foOpenReduceAllocation('${safeId}')" style="padding:10px 20px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FDE68A;background:#FFFBEB;color:#B45309;cursor:pointer">📉 배정액 축소</button>` : ""}
       ${!isApproved && !isDraft && !isSaved && !isPending ? `<span style="font-size:11px;color:#9CA3AF;align-self:center">ℹ 승인완료 상태에서 신청 가능합니다</span>` : ""}`;
@@ -448,22 +451,50 @@ function foRenderPlanUnifiedView(plan, opts = {}) {
     <div style="border-radius:20px;overflow:hidden;border:1.5px solid #E5E7EB;background:white;box-shadow:0 8px 30px rgba(0,0,0,.08)">
       <!-- 헤더 -->
       <div style="padding:24px 28px;background:linear-gradient(135deg,#002C5F,#0369A1);color:white">
-      <div style="padding:24px 28px; background:#F9FAFB">
-        ${typeof window.foRenderStandardReadOnlyForm === 'function' ? window.foRenderStandardReadOnlyForm({...s, amount, accountCode}, 'FO', (s.formTemplate && s.formTemplate.inlineFields) || null) : '<p>렌더러 로딩 중...</p>'}
-        
-        <div style="margin-top:20px;padding:12px 16px;background:#FEF3C7;border-radius:10px;border:1.5px solid #FDE68A;font-size:12px;color:#92400E">
-          ⚠️ 제출 후에는 결재라인이 자동 구성되며, 상위 승인자가 취소하기 전까지 취소가 불가합니다.
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:${stColor}40;color:white">${stLabel}</span>
+          ${mode === 'confirm' ? '<span style="font-size:10px;font-weight:700;opacity:.7">✅ 제출 전 확인</span>' : ''}
         </div>
+        <h2 style="margin:0;font-size:20px;font-weight:900">${plan.title || plan.edu_name || '-'}</h2>
+        <p style="margin:6px 0 0;font-size:12px;opacity:.8">${plan.applicant_name || (typeof currentPersona !== 'undefined' ? currentPersona.name : '')} · ${plan.dept || (typeof currentPersona !== 'undefined' ? currentPersona.dept : '')}</p>
+      </div>
+      <!-- ★ 통합 필드 뷰 -->
+      <div style="padding:24px 28px;background:#F9FAFB">
+        ${typeof window.foRenderStandardReadOnlyForm === 'function'
+          ? window.foRenderStandardReadOnlyForm(
+              { ...plan, amount, accountCode: plan.accountCode || plan.account_code || plan.account || '' },
+              'FO',
+              resolvedInlineFields
+            )
+          : '<p>렌더러 로딩 중...</p>'}
+        ${mode === 'confirm' ? `<div style="margin-top:20px;padding:12px 16px;background:#FEF3C7;border-radius:10px;border:1.5px solid #FDE68A;font-size:12px;color:#92400E">⚠️ 제출 후에는 결재라인이 자동 구성되며, 상위 승인자가 취소하기 전까지 취소가 불가합니다.</div>` : ''}
+      </div>
+      <!-- ★ 결재/검토 진행현황 -->
+      ${typeof renderApprovalStepper === 'function' ? renderApprovalStepper(st, 'plan') : ''}
+      <!-- ★ 연결된 교육신청 -->
+      <div style="padding:16px 28px;border-top:1px solid #F3F4F6">
+        <div style="font-size:12px;font-weight:800;color:#6B7280;margin-bottom:10px">🔗 연결된 교육신청</div>
+        ${linkedApps.length > 0
+          ? linkedApps.map(app => `
+              <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#F9FAFB;border-radius:10px;margin-bottom:6px">
+                <span style="font-size:14px">📝</span>
+                <div style="flex:1">
+                  <div style="font-size:12px;font-weight:800;color:#111827">${app.title || app.id}</div>
+                  <div style="font-size:11px;color:#6B7280">${app.date || '-'} · ${(app.amount || 0).toLocaleString()}원</div>
+                </div>
+                <span style="font-size:10px;font-weight:900;padding:3px 8px;border-radius:5px;background:${app.status === '완료' ? '#D1FAE5' : app.status === '진행중' ? '#DBEAFE' : '#FEF3C7'};color:${app.status === '완료' ? '#065F46' : app.status === '진행중' ? '#1D4ED8' : '#92400E'}">${app.status || '신청중'}</span>
+              </div>`).join('')
+          : `<div style="padding:12px 14px;background:#F9FAFB;border-radius:10px;font-size:12px;color:#9CA3AF;text-align:center">아직 연결된 교육신청이 없습니다.</div>`}
       </div>
       <!-- 버튼 -->
-      <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6">
-        <button onclick="_planViewTab='mine';planState=null;renderPlans()" style="margin-right:auto;padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:#F9FAFB;color:#4B5563;cursor:pointer">≡ 목록으로</button>
-        <button onclick="planState.confirmMode=false;renderPlans()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">← 수정하기</button>
-        <button onclick="confirmPlan()" style="padding:10px 28px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#002C5F;color:white;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">✅ 확정 제출</button>
+      <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6;flex-wrap:wrap">
+        ${actionBtns}
       </div>
     </div>
   </div>`;
 }
+window.foRenderPlanUnifiedView = foRenderPlanUnifiedView;
+
 
 // ─── 확정 제출 ─────────────────────────────────────────────────────────────
 async function confirmPlan() {

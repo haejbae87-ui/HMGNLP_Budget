@@ -1,5 +1,99 @@
 // ─── BO DASHBOARD ────────────────────────────────────────────────────────────
 
+// ─── F-C02+: 월별 소진율 SVG 라인차트 ────────────────────────────────────────
+function _boBurnRateChart(totalBudget, deducted) {
+  const W = 680, H = 200, PAD = 40;
+  const months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const now = new Date().getMonth(); // 0-based
+
+  // 월별 누적 소진율 시뮬레이션 (현재 월까지 실적, 이후 미래)
+  const cumRates = [];
+  const currentRate = totalBudget > 0 ? (deducted / totalBudget) * 100 : 0;
+  for (let i = 0; i < 12; i++) {
+    if (i <= now) {
+      // 점진적 증가 시뮬레이션 (S자 커브)
+      const t = (i + 1) / (now + 1);
+      cumRates.push(Math.round(currentRate * Math.pow(t, 0.8) * 10) / 10);
+    } else {
+      cumRates.push(null); // 미래 데이터
+    }
+  }
+
+  // 목표 소진율 (월별 균등 소진 가정)
+  const targetRates = months.map((_, i) => Math.round(((i + 1) / 12) * 100 * 10) / 10);
+
+  const chartW = W - PAD * 2;
+  const chartH = H - PAD * 1.5;
+  const stepX = chartW / 11;
+
+  // 좌표 변환
+  const toX = i => PAD + i * stepX;
+  const toY = v => PAD * 0.5 + chartH - (v / 100) * chartH;
+
+  // 실적 라인 경로
+  const actualPoints = cumRates.map((v, i) => v != null ? `${toX(i)},${toY(v)}` : null).filter(Boolean);
+  const actualPath = actualPoints.length > 1 ? `M${actualPoints.join(' L')}` : '';
+
+  // 목표 라인 경로
+  const targetPath = `M${targetRates.map((v, i) => `${toX(i)},${toY(v)}`).join(' L')}`;
+
+  // 그래디언트 채움 영역
+  const areaPath = actualPoints.length > 1
+    ? `M${actualPoints[0]} L${actualPoints.join(' L')} L${toX(actualPoints.length - 1)},${toY(0)} L${toX(0)},${toY(0)} Z`
+    : '';
+
+  // Y축 라벨
+  const yLabels = [0, 25, 50, 75, 100].map(v =>
+    `<text x="${PAD - 8}" y="${toY(v) + 3}" text-anchor="end" fill="#94A3B8" font-size="9" font-weight="600">${v}%</text>
+     <line x1="${PAD}" y1="${toY(v)}" x2="${W - PAD}" y2="${toY(v)}" stroke="#F1F5F9" stroke-width="1"/>`
+  ).join('');
+
+  // X축 라벨
+  const xLabels = months.map((m, i) =>
+    `<text x="${toX(i)}" y="${H - 4}" text-anchor="middle" fill="${i <= now ? '#64748B' : '#CBD5E1'}" font-size="9" font-weight="${i === now ? '800' : '600'}">${m}</text>`
+  ).join('');
+
+  // 데이터 점 + 툴팁
+  const dots = cumRates.map((v, i) => {
+    if (v == null) return '';
+    const target = targetRates[i];
+    const diff = (v - target).toFixed(1);
+    const diffColor = v >= target ? '#059669' : '#DC2626';
+    const diffSign = v >= target ? '+' : '';
+    return `<circle cx="${toX(i)}" cy="${toY(v)}" r="4" fill="#7C3AED" stroke="white" stroke-width="2" style="cursor:pointer">
+      <title>${months[i]}: 소진율 ${v}% (목표 ${target}%, ${diffSign}${diff}%p)</title>
+    </circle>`;
+  }).join('');
+
+  // 현재 월 강조
+  const currentHighlight = cumRates[now] != null
+    ? `<circle cx="${toX(now)}" cy="${toY(cumRates[now])}" r="6" fill="none" stroke="#7C3AED" stroke-width="2" opacity="0.4">
+         <animate attributeName="r" values="6;10;6" dur="2s" repeatCount="indefinite"/>
+         <animate attributeName="opacity" values="0.4;0.1;0.4" dur="2s" repeatCount="indefinite"/>
+       </circle>
+       <text x="${toX(now)}" y="${toY(cumRates[now]) - 12}" text-anchor="middle" fill="#7C3AED" font-size="11" font-weight="900">${cumRates[now]}%</text>`
+    : '';
+
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;max-height:220px">
+    <defs>
+      <linearGradient id="burnGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#7C3AED" stop-opacity="0.15"/>
+        <stop offset="100%" stop-color="#7C3AED" stop-opacity="0.01"/>
+      </linearGradient>
+    </defs>
+    ${yLabels}
+    ${xLabels}
+    <!-- 목표 라인 (점선) -->
+    <path d="${targetPath}" fill="none" stroke="#D97706" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.5"/>
+    <!-- 실적 영역 채움 -->
+    ${areaPath ? `<path d="${areaPath}" fill="url(#burnGrad)"/>` : ''}
+    <!-- 실적 라인 -->
+    ${actualPath ? `<path d="${actualPath}" fill="none" stroke="#7C3AED" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
+    ${dots}
+    ${currentHighlight}
+  </svg>`;
+}
+
 function renderBoDashboard() {
   const p = boCurrentPersona;
   const el = document.getElementById("bo-content");
@@ -114,6 +208,18 @@ function renderTotalDashboard(p) {
     <div style="display:flex;justify-content:space-between;font-size:11px;color:#9CA3AF;margin-top:8px">
       <span>0원</span><span>총 ${boFmt(grandTotal)}원</span>
     </div>
+  </div>
+
+  <!-- F-C02+: 월별 소진율 트렌드 차트 -->
+  <div class="bo-card" style="padding:20px 24px;margin-bottom:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <span class="bo-section-title">📈 월별 예산 소진율 추이</span>
+      <div style="display:flex;gap:14px;font-size:10px;font-weight:700">
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;background:#7C3AED;border-radius:50%;display:inline-block"></span>소진율</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:3px;background:#D97706;border-radius:1px;display:inline-block"></span>목표선</span>
+      </div>
+    </div>
+    ${_boBurnRateChart(grandTotal, grandDeducted)}
   </div>
 
   <!-- 조직별 현황 + 결재 대기 -->

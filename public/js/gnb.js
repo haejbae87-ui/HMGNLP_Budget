@@ -1,5 +1,10 @@
 // ─── GNB (Top Navigation) — LXP 프론트 오피스 ────────────────────────────────
 
+// 페이지 새로고침 시 plansMode 상태 복원
+if (typeof window !== 'undefined') {
+  window.plansMode = sessionStorage.getItem('plansMode') || 'operation';
+}
+
 // 드롭다운 열림 상태
 let _gnbDropdownOpen = null;
 let _gnbListenerAttached = false;
@@ -25,7 +30,7 @@ function renderGNB() {
       dropdown: [
         {
           id: "forecast",
-          action: "window.plansMode='forecast';if(typeof _resetPlansCacheForModeSwitch==='function')_resetPlansCacheForModeSwitch();navigate('plans')",
+          action: "window.plansMode='forecast';sessionStorage.setItem('plansMode', 'forecast');if(typeof _resetPlansCacheForModeSwitch==='function')_resetPlansCacheForModeSwitch();navigate('plans')",
           label: "사업계획 (수요예측)",
           icon: "📢",
           navigate: true,
@@ -33,7 +38,7 @@ function renderGNB() {
         },
         {
           id: "plans",
-          action: "window.plansMode='operation';if(typeof _resetPlansCacheForModeSwitch==='function')_resetPlansCacheForModeSwitch();navigate('plans')",
+          action: "window.plansMode='operation';sessionStorage.setItem('plansMode', 'operation');if(typeof _resetPlansCacheForModeSwitch==='function')_resetPlansCacheForModeSwitch();navigate('plans')",
           label: "운영계획 관리 (실행)",
           icon: "🛠",
           navigate: true,

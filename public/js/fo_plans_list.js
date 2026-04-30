@@ -1080,6 +1080,26 @@ function renderPlans() {
     }
   });
 
+  // ★ 사업계획 모드: 활성 캠페인이 있으면 _planYear를 캠페인 fiscal_year로 자동 맞춤
+  // _planYear가 현재연도(기본값)이고, 캠페인 연도가 다를 때만 교정 (사용자가 직접 선택한 경우 유지)
+  if (isBusiness && _forecastDeadlinesCache && _forecastDeadlinesCache.length > 0) {
+    const now4 = new Date(); now4.setHours(0,0,0,0);
+    // 현재 계정(accountCode)에 맞는 활성 캠페인 우선, 없으면 첫 번째 활성 캠페인
+    const activeCam = _forecastDeadlinesCache.find(c =>
+      !c.is_closed &&
+      !(c.recruit_end && now4 > new Date(c.recruit_end)) &&
+      (_selectedAccountCode
+        ? Array.isArray(c.target_accounts) && c.target_accounts.includes(_selectedAccountCode)
+        : true)
+    ) || _forecastDeadlinesCache.find(c =>
+      !c.is_closed && !(c.recruit_end && now4 > new Date(c.recruit_end))
+    );
+    if (activeCam && activeCam.fiscal_year && _planYear !== activeCam.fiscal_year) {
+      console.log(`[renderPlans] 활성 캠페인 연도(${activeCam.fiscal_year})로 _planYear 자동 설정 (기존: ${_planYear})`);
+      _planYear = activeCam.fiscal_year;
+    }
+  }
+
   // #7: 상태/계정/연도 필터 적용
   const uniqueAccounts = [...new Set(typePlans.map(p => p.account || '').filter(Boolean))];
   const filteredPlans = typePlans.filter(p => {

@@ -270,6 +270,17 @@
 
 ---
 
+### 2026-04-30 세션 2 (예산 배정 화면 개편 v3 — Phase 0-A/B)
+
+- [x] **PRD 작성 — budget_allocation_redesign.md** — 3종 통장 정책, SAP 이중 원장, 회계연도 레이어, 역할 기반 권한 등 전체 요구사항 정의서 작성
+- [x] **DB: bankbook_fiscal_periods 테이블 생성** — 회계연도별 통장 예산 레이어 (opening_balance, carried_forward, burn_rate, status 등)
+- [x] **DB: org_budget_bankbooks 확장** — is_org_level, sap_cost_center_id, sap_sync_status, sap_synced_at 컬럼 추가
+- [x] **DB: budget_accounts 확장** — integration_mode (sap/self) 컬럼 추가
+- [x] **DB: sap_budget_interface_log 테이블 생성** — SAP CO 인터페이스 수신/전송 이력 (interface_type, direction, amount, sap_doc_number 등)
+- [x] **bo_budget_account.js — integration_mode 마이그레이션** — account_type → integration_mode 읽기/저장 변경
+- [x] **bo_budget_account_mgmt.js — integration_mode 마이그레이션** — account_type → integration_mode 읽기/저장/UI 7곳 변경
+- [x] **DB 데이터 마이그레이션** — 기존 19개 계정의 account_type 값 → integration_mode 동기화 (sap→sap, standalone→self)
+
  (2026-04-29 기준)
 
 ### 📌 현재 완료된 워크플로우 전체 흐름

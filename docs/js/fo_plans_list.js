@@ -1712,6 +1712,40 @@ async function foBundleConfirmSubmit() {
   const acct = (sel[0] && sel[0].account_code) || null;
   const now = new Date().toISOString();
 
+  // ── 수요예측 결재라인 설정 여부 확인 ──────────────────────────────────────
+  // forecast_approval_lines 테이블에 계정별 결재라인이 없으면 상신 차단
+  if (acct) {
+    try {
+      const tenantId = currentPersona.tenantId || 'HMC';
+      const { data: falRow, error: falErr } = await sb
+        .from('forecast_approval_lines')
+        .select('id, thresholds, active')
+        .eq('tenant_id', tenantId)
+        .eq('account_code', acct)
+        .eq('active', true)
+        .maybeSingle();
+
+      const hasApprovalLine = falRow && Array.isArray(falRow.thresholds) && falRow.thresholds.length > 0;
+      if (!hasApprovalLine) {
+        alert(
+          `⛔ 결재 불가\n\n` +
+          `예산계정 [${acct}]에 수요예측 결재라인이 설정되어 있지 않습니다.\n\n` +
+          `BO 관리자 > 예상 계정 관리 메뉴에서 해당 계정의 결재라인을 설정한 후 다시 시도해주세요.`
+        );
+        return;
+      }
+    } catch (falCheckErr) {
+      console.warn('[결재라인 확인 실패]', falCheckErr.message);
+      // DB 확인 실패 시 차단하지 않고 경고만 표시
+      const proceed = confirm(
+        `⚠️ 결재라인 확인 실패\n\n` +
+        `결재라인 설정 여부를 확인할 수 없습니다. 그래도 상신을 진행하시겠습니까?`
+      );
+      if (!proceed) return;
+    }
+  }
+  // ──────────────────────────────────────────────────────────────────────────
+
   try {
     const { data: doc, error: docErr } = await sb.from('submission_documents').insert({
       tenant_id: currentPersona.tenantId,
@@ -1765,6 +1799,7 @@ async function foBundleConfirmSubmit() {
 }
 
 // ─── P2: 교육계획 복제 (폼 선로드 방식) ─────────────────────────────────────
+
 // DB에 즉시 저장하지 않고, 원본 데이터를 읽어 폼 마법사에 미리 채운다.
 // 사용자가 내용 수정 후 '저장'을 눌러야 비로소 새 draft가 생성된다.
 async function clonePlan(planId) {

@@ -35,23 +35,7 @@ body {
   font-weight: 900;
 }
 
-.floating-budget {
-  position: fixed;
-  bottom: 28px;
-  right: 28px;
-  z-index: 100;
-  background: #fff;
-  border-radius: 1.5rem;
-  border: 1px solid #E5E7EB;
-  box-shadow: 0 8px 32px rgba(0, 44, 95, 0.13);
-  padding: 18px 22px;
-  min-width: 220px;
-  transition: box-shadow .2s;
-}
 
-.floating-budget:hover {
-  box-shadow: 0 12px 40px rgba(0, 44, 95, 0.20);
-}
 
 .step-item.done .step-circle {
   background: #007AFF;

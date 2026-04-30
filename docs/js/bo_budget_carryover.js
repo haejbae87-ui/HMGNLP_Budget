@@ -1,388 +1,366 @@
-// ─── bo_budget_carryover.js — P7: 조직 간 예산 이월 ──────────────────────────
-// 기능 1: 팀 간 예산 이관 (bankbooks 직접 참조)
-// 기능 2: 연도 말 잔액 이월 (carryover to next fiscal year)
-// 기능 3: 이관/이월 이력 → submission_documents 영구 저장
+// ─── bo_budget_carryover.js — F-G01: 회계연도 마감/이월/개시 ──────────────
+// bankbook_fiscal_periods 테이블 기반 연도 전환 프로세스
+// 1. 연도 마감 (status: open → closed)
+// 2. 잔액 이월 (carried_forward → 신규 fiscal period)
+// 3. 신년도 개시 (opening_balance 자동 설정)
 
-// ── 이관 화면 렌더링 ──────────────────────────────────────────────────────────
+// ── 메인 렌더 ──────────────────────────────────────────────────────────────
 async function renderBudgetCarryover() {
   const el = document.getElementById('bo-content');
+  if (!el) return;
   const sb = typeof getSB === 'function' ? getSB() : null;
   if (!sb) { el.innerHTML = '<p style="padding:20px;color:#EF4444">DB 연결 없음</p>'; return; }
 
   const tenantId = boCurrentPersona?.tenantId || 'HMC';
   const year = new Date().getFullYear();
+  const groupBar = typeof boRenderGroupContextBar === 'function' ? boRenderGroupContextBar() : '';
 
-  el.innerHTML = '<div style="padding:40px;text-align:center;color:#9CA3AF"><div style="font-size:32px">⏳</div>로딩 중...</div>';
+  el.innerHTML = `${groupBar}<div style="padding:60px;text-align:center;color:#9CA3AF"><div style="font-size:32px">⏳</div>회계연도 데이터 로딩 중...</div>`;
 
-  // 활성 bankbooks 로드
-  let bks = [];
   try {
-    const { data } = await sb.from('bankbooks')
-      .select('id,org_id,org_name,account_code,fiscal_year,current_balance,frozen_amount,status')
+    // 1. 활성 통장 목록
+    const { data: bankbooks } = await sb.from('org_budget_bankbooks')
+      .select('id,tenant_id,org_name,org_id,account_id,template_id,status,is_org_level,user_id')
       .eq('tenant_id', tenantId)
       .eq('status', 'active')
       .order('org_name');
-    bks = data || [];
-  } catch(e) { bks = []; }
 
-  // 이관 이력 로드 (최근 20건)
-  let logs = [];
-  try {
-    const { data } = await sb.from('submission_documents')
-      .select('id,doc_type,submitter_name,org_name,submitted_at,metadata')
-      .eq('tenant_id', tenantId)
-      .in('doc_type', ['budget_transfer', 'budget_carryover'])
-      .order('submitted_at', { ascending: false })
-      .limit(20);
-    logs = data || [];
-  } catch(e) { logs = []; }
+    // 2. 회계연도 기간 (현재연도 + 전년도)
+    const { data: fiscals } = await sb.from('bankbook_fiscal_periods')
+      .select('*')
+      .in('fiscal_year', [year, year - 1])
+      .order('fiscal_year', { ascending: false });
 
-  const acctCodes = [...new Set(bks.map(b => b.account_code))];
-  const orgNames  = [...new Set(bks.map(b => b.org_name).filter(Boolean))];
+    // 3. 예산계정 정보
+    const { data: accounts } = await sb.from('budget_accounts')
+      .select('id,name,code')
+      .eq('tenant_id', tenantId);
 
-  const acctOpts = acctCodes.map(c => `<option value="${c}">${c}</option>`).join('');
-  const orgOpts  = orgNames.map(n => `<option value="${n}">${n}</option>`).join('');
+    const acctMap = {};
+    (accounts || []).forEach(a => { acctMap[a.id] = a; });
 
-  const logRows = logs.map(l => {
-    const m = l.metadata || {};
-    const isTransfer = l.doc_type === 'budget_transfer';
-    return `<tr>
-      <td><span style="font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;
-        background:${isTransfer ? '#DBEAFE' : '#FEF3C7'};
-        color:${isTransfer ? '#1E40AF' : '#92400E'}">${isTransfer ? '이관' : '이월'}</span></td>
-      <td style="font-size:11px">${(l.submitted_at||'').slice(0,10)}</td>
-      <td style="font-size:11px">${l.submitter_name||'-'}</td>
-      <td style="font-size:11px">${m.from_org||'-'} → ${m.to_org||'-'}</td>
-      <td style="text-align:right;font-weight:800">${(m.amount||0).toLocaleString()}원</td>
-      <td style="font-size:11px;color:#6B7280">${m.reason||'-'}</td>
-    </tr>`;
-  }).join('');
+    // 현재연도/전년도 fiscal periods 매핑
+    const currentFiscals = (fiscals || []).filter(f => f.fiscal_year === year);
+    const prevFiscals = (fiscals || []).filter(f => f.fiscal_year === year - 1);
+    const bbs = bankbooks || [];
 
-  el.innerHTML = `
-  <div class="bo-fade">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
-      <div>
-        <h1 class="bo-page-title">↔ 조직 간 예산 이관/이월</h1>
-        <p class="bo-page-sub">팀 간 잔액 이관 및 연도 말 잔액 이월 처리</p>
-      </div>
-    </div>
+    // 현재연도 fiscal period가 있는 통장
+    const currentMap = {};
+    currentFiscals.forEach(f => { currentMap[f.bankbook_id] = f; });
 
-    <!-- 탭 -->
-    <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid #E5E7EB">
-      <button id="p7-tab-transfer" onclick="_p7ShowTab('transfer')"
-        style="padding:10px 20px;border:none;background:none;font-size:13px;font-weight:900;
-               color:#7C3AED;border-bottom:2.5px solid #7C3AED;cursor:pointer">↔ 팀 간 이관</button>
-      <button id="p7-tab-carryover" onclick="_p7ShowTab('carryover')"
-        style="padding:10px 20px;border:none;background:none;font-size:13px;font-weight:700;
-               color:#6B7280;border-bottom:2.5px solid transparent;cursor:pointer">📅 연도 이월</button>
-    </div>
+    // 전년도 fiscal period가 있는 통장
+    const prevMap = {};
+    prevFiscals.forEach(f => { prevMap[f.bankbook_id] = f; });
 
-    <!-- 팀 간 이관 패널 -->
-    <div id="p7-panel-transfer">
-      <div class="bo-card" style="padding:24px;max-width:700px;margin-bottom:20px">
-        <div style="font-size:14px;font-weight:900;color:#374151;margin-bottom:16px">↔ 팀 간 잔액 이관</div>
-        <div style="display:grid;gap:14px">
-          <div>
-            <label style="font-size:11px;font-weight:700;color:#6B7280;display:block;margin-bottom:6px">계정 코드 *</label>
-            <select id="p7-acct" onchange="_p7UpdateOrgs()" style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700">
-              <option value="">— 계정 선택 —</option>${acctOpts}
-            </select>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center">
-            <div>
-              <label style="font-size:11px;font-weight:700;color:#EF4444;display:block;margin-bottom:6px">From (출처 팀) *</label>
-              <select id="p7-from" style="width:100%;border:1.5px solid #FECACA;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:700">
-                <option>— 계정 먼저 선택 —</option>
-              </select>
-              <div id="p7-from-bal" style="font-size:10px;color:#6B7280;margin-top:4px"></div>
-            </div>
-            <div style="font-size:24px;color:#9CA3AF;text-align:center;margin-top:18px">→</div>
-            <div>
-              <label style="font-size:11px;font-weight:700;color:#059669;display:block;margin-bottom:6px">To (수신 팀) *</label>
-              <select id="p7-to" style="width:100%;border:1.5px solid #BBF7D0;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:700">
-                <option>— 계정 먼저 선택 —</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:700;color:#6B7280;display:block;margin-bottom:6px">이관 금액 *</label>
-            <div style="position:relative">
-              <input type="number" id="p7-amount" min="0" placeholder="0"
-                style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:12px 50px 12px 16px;font-size:18px;font-weight:900"/>
-              <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:13px;font-weight:700;color:#9CA3AF">원</span>
-            </div>
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:700;color:#6B7280;display:block;margin-bottom:6px">이관 사유 *</label>
-            <textarea id="p7-reason" rows="3" placeholder="조직 개편, 예산 부족, 사업 계획 변경 등"
-              style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-size:13px;resize:none;font-family:inherit"></textarea>
-          </div>
-          <button onclick="_p7SubmitTransfer()"
-            style="padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#7C3AED,#4F46E5);
-                   color:white;font-size:13px;font-weight:900;cursor:pointer">↔ 이관 처리</button>
+    // 통계
+    const openCount = currentFiscals.filter(f => f.status === 'open').length;
+    const closedCount = currentFiscals.filter(f => f.status === 'closed').length;
+    const totalBalance = currentFiscals.reduce((s, f) => s + Number(f.current_balance || 0), 0);
+    const totalUsed = currentFiscals.reduce((s, f) => s + Number(f.total_used || 0), 0);
+    const noFiscalCount = bbs.filter(b => !currentMap[b.id]).length;
+    const _fmt = v => Number(v || 0).toLocaleString('ko-KR');
+
+    // 통장 상세 테이블 행
+    const detailRows = bbs.map(bb => {
+      const fp = currentMap[bb.id];
+      const acct = acctMap[bb.account_id] || {};
+      const prevFp = prevMap[bb.id];
+      if (!fp) {
+        return `<tr style="border-top:1px solid #F1F5F9;background:#FFFBEB">
+          <td style="padding:8px 10px;font-weight:700">${bb.org_name || '-'}</td>
+          <td style="padding:8px 6px;font-size:11px">${acct.name || bb.account_id || ''}</td>
+          <td style="text-align:center"><span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#FEF3C7;color:#92400E;font-weight:800">미등록</span></td>
+          <td colspan="4" style="text-align:center;font-size:11px;color:#92400E;padding:8px">
+            <button onclick="_fgInitFiscalPeriod('${bb.id}',${year})" style="padding:4px 12px;border-radius:6px;border:1px solid #D97706;background:#FFFBEB;color:#D97706;font-size:10px;font-weight:800;cursor:pointer">📋 ${year}년 개시</button>
+          </td>
+        </tr>`;
+      }
+      const statusBadge = fp.status === 'open'
+        ? '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#DCFCE7;color:#166534;font-weight:800">🟢 운영중</span>'
+        : '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#FEE2E2;color:#991B1B;font-weight:800">🔴 마감</span>';
+      const burnRate = fp.burn_rate != null ? `${Number(fp.burn_rate).toFixed(1)}%` : '-';
+      return `<tr style="border-top:1px solid #F1F5F9">
+        <td style="padding:8px 10px;font-weight:700">${bb.org_name || '-'}</td>
+        <td style="padding:8px 6px;font-size:11px">${acct.name || ''}</td>
+        <td style="text-align:center">${statusBadge}</td>
+        <td style="text-align:right;padding:8px 6px;font-size:11px">${_fmt(fp.opening_balance)}원</td>
+        <td style="text-align:right;padding:8px 6px;font-size:11px;color:#DC2626">${_fmt(fp.total_used)}원</td>
+        <td style="text-align:right;padding:8px 6px;font-weight:800;color:#7C3AED">${_fmt(fp.current_balance)}원</td>
+        <td style="text-align:center;font-size:11px;font-weight:700">${burnRate}</td>
+      </tr>`;
+    }).join('');
+
+    el.innerHTML = `
+    ${groupBar}
+    <div style="max-width:1100px;margin:0 auto">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px">
+        <div>
+          <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">예산 운영 › 회계연도 관리</div>
+          <h1 class="text-3xl font-black text-brand tracking-tight">📅 회계연도 마감/이월</h1>
+          <p class="text-gray-500 text-sm mt-1">${year}년 회계연도 운영 현황 및 마감·이월 처리</p>
         </div>
       </div>
-    </div>
 
-    <!-- 연도 이월 패널 -->
-    <div id="p7-panel-carryover" style="display:none">
-      <div class="bo-card" style="padding:24px;max-width:700px;margin-bottom:20px">
-        <div style="font-size:14px;font-weight:900;color:#374151;margin-bottom:8px">📅 연도 말 잔액 이월</div>
-        <p style="font-size:12px;color:#6B7280;margin-bottom:16px">
-          ${year}년 잔여 예산을 ${year+1}년 통장으로 이월합니다.<br>
-          이월 시 기존 통장은 <code style="background:#F3F4F6;padding:2px 6px;border-radius:4px">closed</code>로 전환되고, 신규 통장이 생성됩니다.
-        </p>
-        <div style="display:grid;gap:14px">
-          <div>
-            <label style="font-size:11px;font-weight:700;color:#6B7280;display:block;margin-bottom:6px">이월 대상 계정</label>
-            <select id="p7-cy-acct" style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700">
-              <option value="">전체 계정</option>${acctOpts}
-            </select>
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:700;color:#6B7280;display:block;margin-bottom:6px">이월 팀</label>
-            <select id="p7-cy-org" style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700">
-              <option value="">전체 팀</option>${orgOpts}
-            </select>
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:700;color:#6B7280;display:block;margin-bottom:6px">이월 사유</label>
-            <textarea id="p7-cy-reason" rows="2" placeholder="${year}년 잔여예산 ${year+1}년 이월"
-              style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-size:13px;resize:none;font-family:inherit"></textarea>
-          </div>
-
-          <!-- 이월 대상 미리보기 -->
-          <div id="p7-cy-preview" style="background:#F9FAFB;border-radius:10px;padding:14px">
-            <div style="font-size:12px;font-weight:900;color:#374151;margin-bottom:8px">이월 대상 미리보기</div>
-            <table class="bo-table" style="font-size:11px">
-              <thead><tr>
-                <th>팀</th><th>계정</th>
-                <th style="text-align:right">현재 잔액</th>
-                <th style="text-align:right">동결</th>
-                <th style="text-align:right">이월 가능액</th>
-              </tr></thead>
-              <tbody>
-                ${bks.filter(b => Number(b.current_balance) > 0).map(b => {
-                  const avail = Math.max(0, Number(b.current_balance) - Number(b.frozen_amount||0));
-                  return `<tr>
-                    <td>${b.org_name||'-'}</td>
-                    <td><code style="font-size:9px;background:#E5E7EB;padding:1px 5px;border-radius:3px">${b.account_code}</code></td>
-                    <td style="text-align:right">${Number(b.current_balance).toLocaleString()}원</td>
-                    <td style="text-align:right;color:#D97706">${Number(b.frozen_amount||0).toLocaleString()}원</td>
-                    <td style="text-align:right;font-weight:800;color:#059669">${avail.toLocaleString()}원</td>
-                  </tr>`;
-                }).join('')}
-              </tbody>
-            </table>
-          </div>
-          <button onclick="_p7SubmitCarryover()"
-            style="padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#059669,#047857);
-                   color:white;font-size:13px;font-weight:900;cursor:pointer">📅 이월 실행</button>
+      <!-- 요약 카드 -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+        <div style="background:linear-gradient(135deg,#DCFCE7,#BBF7D0);border-radius:16px;padding:16px;border:1.5px solid #86EFAC;position:relative;overflow:hidden">
+          <div style="position:absolute;top:10px;right:12px;font-size:18px;opacity:.4">🟢</div>
+          <div style="font-size:10px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">운영중</div>
+          <div style="font-size:26px;font-weight:900;color:#166534;line-height:1">${openCount}<span style="font-size:11px;margin-left:2px">건</span></div>
+        </div>
+        <div style="background:linear-gradient(135deg,#FEE2E2,#FECACA);border-radius:16px;padding:16px;border:1.5px solid #FCA5A5;position:relative;overflow:hidden">
+          <div style="position:absolute;top:10px;right:12px;font-size:18px;opacity:.4">🔴</div>
+          <div style="font-size:10px;font-weight:700;color:#991B1B;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">마감완료</div>
+          <div style="font-size:26px;font-weight:900;color:#991B1B;line-height:1">${closedCount}<span style="font-size:11px;margin-left:2px">건</span></div>
+        </div>
+        <div style="background:linear-gradient(135deg,#F3E8FF,#DDD6FE);border-radius:16px;padding:16px;border:1.5px solid #C4B5FD;position:relative;overflow:hidden">
+          <div style="position:absolute;top:10px;right:12px;font-size:18px;opacity:.4">💰</div>
+          <div style="font-size:10px;font-weight:700;color:#7C3AED;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">잔액 합계</div>
+          <div style="font-size:22px;font-weight:900;color:#7C3AED;line-height:1">${_fmt(totalBalance)}<span style="font-size:10px;margin-left:2px">원</span></div>
+        </div>
+        <div style="background:linear-gradient(135deg,#FFF7ED,#FED7AA);border-radius:16px;padding:16px;border:1.5px solid #FED7AA;position:relative;overflow:hidden">
+          <div style="position:absolute;top:10px;right:12px;font-size:18px;opacity:.4">⚠️</div>
+          <div style="font-size:10px;font-weight:700;color:#C2410C;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">미등록</div>
+          <div style="font-size:26px;font-weight:900;color:#C2410C;line-height:1">${noFiscalCount}<span style="font-size:11px;margin-left:2px">건</span></div>
         </div>
       </div>
-    </div>
 
-    <!-- 이관/이월 이력 -->
-    <div class="bo-card" style="overflow:hidden">
-      <div style="padding:14px 20px;border-bottom:1px solid #F3F4F6">
-        <span style="font-size:14px;font-weight:900;color:#374151">📋 이관/이월 이력 (최근 20건)</span>
+      <!-- 일괄 처리 액션 -->
+      <div class="bo-card" style="padding:16px 20px;margin-bottom:20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:12px;font-weight:900;color:#374151;margin-right:auto">⚡ 일괄 처리</span>
+        ${noFiscalCount > 0 ? `<button onclick="_fgBatchInitFiscal(${year})" style="padding:8px 16px;border-radius:10px;border:1.5px solid #D97706;background:#FFFBEB;color:#D97706;font-size:11px;font-weight:800;cursor:pointer">📋 미등록 ${noFiscalCount}건 일괄 개시</button>` : ''}
+        ${openCount > 0 ? `<button onclick="_fgBatchClose(${year})" style="padding:8px 16px;border-radius:10px;border:1.5px solid #DC2626;background:#FEF2F2;color:#DC2626;font-size:11px;font-weight:800;cursor:pointer">🔒 ${year}년 일괄 마감</button>` : ''}
+        <button onclick="_fgBatchCarryover(${year})" style="padding:8px 16px;border-radius:10px;border:none;background:linear-gradient(135deg,#059669,#047857);color:white;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">📅 ${year+1}년 이월 실행</button>
       </div>
-      ${logs.length > 0 ? `
-      <table class="bo-table" style="font-size:12px">
-        <thead><tr>
-          <th>유형</th><th>일자</th><th>처리자</th><th>경로</th>
-          <th style="text-align:right">금액</th><th>사유</th>
-        </tr></thead>
-        <tbody>${logRows}</tbody>
-      </table>` : `<div style="padding:40px;text-align:center;color:#9CA3AF">이관/이월 이력이 없습니다</div>`}
-    </div>
-  </div>`;
 
-  // bankbooks를 window에 캐시
-  window._p7Bankbooks = bks;
-}
+      <!-- 상세 테이블 -->
+      <div class="bo-card" style="padding:0;overflow:hidden">
+        <div style="padding:14px 20px;border-bottom:1px solid #F1F5F9;display:flex;align-items:center;gap:8px">
+          <span style="background:#374151;color:white;font-size:10px;font-weight:900;padding:3px 10px;border-radius:6px">${year}년</span>
+          <div style="font-size:14px;font-weight:900;color:#374151">통장별 회계연도 현황</div>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="background:#F8FAFC">
+              <th style="text-align:left;padding:10px;font-weight:800;color:#64748B">조직/팀</th>
+              <th style="text-align:left;padding:10px 6px;font-weight:800;color:#64748B">계정</th>
+              <th style="text-align:center;padding:10px 6px;font-weight:800;color:#64748B">상태</th>
+              <th style="text-align:right;padding:10px 6px;font-weight:800;color:#64748B">개시잔액</th>
+              <th style="text-align:right;padding:10px 6px;font-weight:800;color:#64748B">사용액</th>
+              <th style="text-align:right;padding:10px 6px;font-weight:800;color:#64748B">현재잔액</th>
+              <th style="text-align:center;padding:10px 6px;font-weight:800;color:#64748B">소진율</th>
+            </tr>
+          </thead>
+          <tbody>${detailRows || '<tr><td colspan="7" style="padding:40px;text-align:center;color:#9CA3AF">활성 통장이 없습니다</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>`;
 
-// ── 탭 전환 ──────────────────────────────────────────────────────────────────
-function _p7ShowTab(tab) {
-  ['transfer','carryover'].forEach(t => {
-    document.getElementById(`p7-panel-${t}`).style.display = t === tab ? '' : 'none';
-    const btn = document.getElementById(`p7-tab-${t}`);
-    if (btn) {
-      btn.style.color       = t === tab ? '#7C3AED' : '#6B7280';
-      btn.style.fontWeight  = t === tab ? '900' : '700';
-      btn.style.borderBottom = t === tab ? '2.5px solid #7C3AED' : '2.5px solid transparent';
-    }
-  });
-}
-
-// ── 계정 선택 시 팀 드롭다운 갱신 ───────────────────────────────────────────
-function _p7UpdateOrgs() {
-  const acct = document.getElementById('p7-acct')?.value;
-  const bks  = (window._p7Bankbooks || []).filter(b => !acct || b.account_code === acct);
-  const opts = '<option value="">— 팀 선택 —</option>' +
-    bks.map(b => `<option value="${b.id}" data-bal="${b.current_balance}" data-frz="${b.frozen_amount||0}">
-      ${b.org_name} (잔액: ${Number(b.current_balance).toLocaleString()}원)</option>`).join('');
-  const frm = document.getElementById('p7-from');
-  const to  = document.getElementById('p7-to');
-  if (frm) { frm.innerHTML = opts; frm.onchange = _p7ShowFromBal; }
-  if (to)    to.innerHTML  = opts;
-}
-
-function _p7ShowFromBal() {
-  const sel = document.getElementById('p7-from');
-  const opt = sel?.options[sel.selectedIndex];
-  const bal = Number(opt?.dataset.bal || 0);
-  const frz = Number(opt?.dataset.frz || 0);
-  const avail = Math.max(0, bal - frz);
-  const el = document.getElementById('p7-from-bal');
-  if (el) el.textContent = `잔액 ${bal.toLocaleString()}원 | 동결 ${frz.toLocaleString()}원 | 이관 가능 ${avail.toLocaleString()}원`;
-}
-
-// ── 팀 간 이관 실행 ──────────────────────────────────────────────────────────
-async function _p7SubmitTransfer() {
-  const fromId = document.getElementById('p7-from')?.value;
-  const toId   = document.getElementById('p7-to')?.value;
-  const amount = Number(document.getElementById('p7-amount')?.value || 0);
-  const reason = (document.getElementById('p7-reason')?.value || '').trim();
-  const sb = typeof getSB === 'function' ? getSB() : null;
-
-  if (!fromId || !toId || !amount || !reason) { alert('모든 항목을 입력하세요.'); return; }
-  if (fromId === toId) { alert('출처와 수신 팀이 같습니다.'); return; }
-  if (!sb) { alert('DB 연결 필요'); return; }
-
-  const bks = window._p7Bankbooks || [];
-  const fromBk = bks.find(b => b.id === fromId);
-  const toBk   = bks.find(b => b.id === toId);
-  if (!fromBk || !toBk) { alert('통장 정보를 찾을 수 없습니다.'); return; }
-
-  const avail = Math.max(0, Number(fromBk.current_balance) - Number(fromBk.frozen_amount||0));
-  if (amount > avail) { alert(`이관 가능 금액은 ${avail.toLocaleString()}원입니다.`); return; }
-
-  if (!confirm(`↔ 이관 확인\n\n출처: ${fromBk.org_name}\n수신: ${toBk.org_name}\n금액: ${amount.toLocaleString()}원\n사유: ${reason}\n\n실행하시겠습니까?`)) return;
-
-  const btn = document.querySelector('#p7-panel-transfer button');
-  if (btn) { btn.disabled = true; btn.textContent = '처리 중...'; }
-
-  try {
-    // 1. From: current_balance 차감
-    const { error: e1 } = await sb.from('bankbooks')
-      .update({ current_balance: Number(fromBk.current_balance) - amount, updated_at: new Date().toISOString() })
-      .eq('id', fromId);
-    if (e1) throw e1;
-
-    // 2. To: current_balance 증가
-    const { error: e2 } = await sb.from('bankbooks')
-      .update({ current_balance: Number(toBk.current_balance) + amount, updated_at: new Date().toISOString() })
-      .eq('id', toId);
-    if (e2) throw e2;
-
-    // 3. 이력 기록
-    await sb.from('submission_documents').insert({
-      tenant_id: boCurrentPersona?.tenantId || 'HMC',
-      doc_type: 'budget_transfer',
-      submitter_name: boCurrentPersona?.name || 'admin',
-      org_name: fromBk.org_name,
-      submitted_at: new Date().toISOString(),
-      metadata: {
-        from_org: fromBk.org_name, from_bk_id: fromId,
-        to_org: toBk.org_name,   to_bk_id: toId,
-        account_code: fromBk.account_code,
-        amount, reason,
-        fiscal_year: fromBk.fiscal_year,
-      },
-    });
-
-    if (typeof _boShowToast === 'function') _boShowToast(`✅ 이관 완료: ${fromBk.org_name} → ${toBk.org_name} ${amount.toLocaleString()}원`, 'success');
-    alert(`✅ 이관 완료\n${fromBk.org_name} → ${toBk.org_name}\n${amount.toLocaleString()}원`);
-    renderBudgetCarryover();
-  } catch(err) {
-    alert('❌ 이관 실패: ' + err.message);
-    if (btn) { btn.disabled = false; btn.textContent = '↔ 이관 처리'; }
+    // 캐시
+    window._fgBankbooks = bbs;
+    window._fgCurrentFiscals = currentFiscals;
+    window._fgCurrentMap = currentMap;
+    window._fgAcctMap = acctMap;
+  } catch (err) {
+    el.innerHTML = `${groupBar}<div style="padding:40px;text-align:center;color:#EF4444">❌ 로드 실패: ${err.message}</div>`;
   }
 }
 
-// ── 연도 이월 실행 ────────────────────────────────────────────────────────────
-async function _p7SubmitCarryover() {
-  const acct   = document.getElementById('p7-cy-acct')?.value;
-  const orgFilter = document.getElementById('p7-cy-org')?.value;
-  const reason = (document.getElementById('p7-cy-reason')?.value || '').trim() ||
-    `${new Date().getFullYear()}년 잔여예산 ${new Date().getFullYear()+1}년 이월`;
+// ── 개별 통장 fiscal period 개시 ─────────────────────────────────────────────
+async function _fgInitFiscalPeriod(bankbookId, year) {
   const sb = typeof getSB === 'function' ? getSB() : null;
-  if (!sb) { alert('DB 연결 필요'); return; }
+  if (!sb) return;
+  if (!confirm(`${year}년 회계연도를 개시하시겠습니까?`)) return;
 
-  const year = new Date().getFullYear();
-  let targets = (window._p7Bankbooks || []).filter(b => {
-    const avail = Math.max(0, Number(b.current_balance) - Number(b.frozen_amount||0));
-    return avail > 0;
-  });
-  if (acct)      targets = targets.filter(b => b.account_code === acct);
-  if (orgFilter) targets = targets.filter(b => b.org_name === orgFilter);
+  try {
+    await sb.from('bankbook_fiscal_periods').insert({
+      bankbook_id: bankbookId,
+      fiscal_year: year,
+      opening_balance: 0,
+      carried_forward: 0,
+      total_allocated: 0,
+      total_distributed: 0,
+      total_used: 0,
+      total_frozen: 0,
+      current_balance: 0,
+      burn_rate: 0,
+      status: 'open',
+    });
+    alert(`✅ ${year}년 회계연도 개시 완료`);
+    renderBudgetCarryover();
+  } catch (err) {
+    alert('❌ 개시 실패: ' + err.message);
+  }
+}
 
-  if (targets.length === 0) { alert('이월 대상 잔액이 없습니다.'); return; }
+// ── 미등록 통장 일괄 개시 ────────────────────────────────────────────────────
+async function _fgBatchInitFiscal(year) {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) return;
+  const bbs = window._fgBankbooks || [];
+  const currentMap = window._fgCurrentMap || {};
+  const targets = bbs.filter(b => !currentMap[b.id]);
 
-  const totalAmt = targets.reduce((s, b) => s + Math.max(0, Number(b.current_balance) - Number(b.frozen_amount||0)), 0);
-  if (!confirm(`📅 연도 이월 확인\n\n대상: ${targets.length}개 통장\n이월 총액: ${totalAmt.toLocaleString()}원\n${year}년 → ${year+1}년\n\n실행하시겠습니까?`)) return;
+  if (targets.length === 0) { alert('미등록 통장이 없습니다.'); return; }
+  if (!confirm(`${targets.length}개 통장의 ${year}년 회계연도를 일괄 개시하시겠습니까?`)) return;
 
-  const btn = document.querySelector('#p7-panel-carryover button');
-  if (btn) { btn.disabled = true; btn.textContent = `처리 중 (0/${targets.length})...`; }
+  try {
+    const rows = targets.map(b => ({
+      bankbook_id: b.id,
+      fiscal_year: year,
+      opening_balance: 0,
+      carried_forward: 0,
+      total_allocated: 0,
+      total_distributed: 0,
+      total_used: 0,
+      total_frozen: 0,
+      current_balance: 0,
+      burn_rate: 0,
+      status: 'open',
+    }));
+    await sb.from('bankbook_fiscal_periods').insert(rows);
+    alert(`✅ ${targets.length}건 일괄 개시 완료`);
+    renderBudgetCarryover();
+  } catch (err) {
+    alert('❌ 일괄 개시 실패: ' + err.message);
+  }
+}
+
+// ── 연도 일괄 마감 ───────────────────────────────────────────────────────────
+async function _fgBatchClose(year) {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) return;
+  const fiscals = (window._fgCurrentFiscals || []).filter(f => f.status === 'open');
+
+  if (fiscals.length === 0) { alert('마감 대상이 없습니다.'); return; }
+
+  const totalBal = fiscals.reduce((s, f) => s + Number(f.current_balance || 0), 0);
+  const totalFrz = fiscals.reduce((s, f) => s + Number(f.total_frozen || 0), 0);
+  const _fmt = v => Number(v || 0).toLocaleString('ko-KR');
+
+  if (totalFrz > 0) {
+    if (!confirm(`⚠️ 동결 예산 ${_fmt(totalFrz)}원이 존재합니다.\n동결 해제 없이 마감하면 동결액은 소멸됩니다.\n\n계속하시겠습니까?`)) return;
+  }
+
+  if (!confirm(`🔒 ${year}년 일괄 마감 확인\n\n대상: ${fiscals.length}건\n잔액 합계: ${_fmt(totalBal)}원\n\n마감 후 해당 연도의 예산 사용이 차단됩니다.\n실행하시겠습니까?`)) return;
+
+  try {
+    const now = new Date().toISOString();
+    for (const fp of fiscals) {
+      const used = Number(fp.total_used || 0);
+      const alloc = Number(fp.total_allocated || 0) + Number(fp.opening_balance || 0);
+      const burnRate = alloc > 0 ? ((used / alloc) * 100) : 0;
+
+      await sb.from('bankbook_fiscal_periods').update({
+        status: 'closed',
+        closed_at: now,
+        burn_rate: Math.round(burnRate * 10) / 10,
+        updated_at: now,
+      }).eq('id', fp.id);
+    }
+
+    // 마감 로그
+    await sb.from('budget_usage_log').insert({
+      tenant_id: boCurrentPersona?.tenantId || 'HMC',
+      bankbook_id: fiscals[0]?.bankbook_id,
+      action: 'fiscal_close',
+      amount: 0,
+      prev_balance: totalBal,
+      new_balance: totalBal,
+      reason: `${year}년 회계연도 일괄 마감 (${fiscals.length}건)`,
+      performed_by: boCurrentPersona?.name || 'admin',
+    }).catch(() => {});
+
+    alert(`✅ ${year}년 일괄 마감 완료 (${fiscals.length}건)`);
+    renderBudgetCarryover();
+  } catch (err) {
+    alert('❌ 마감 실패: ' + err.message);
+  }
+}
+
+// ── 이월 실행 (마감된 연도 → 신년도) ─────────────────────────────────────────
+async function _fgBatchCarryover(fromYear) {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) return;
+  const toYear = fromYear + 1;
+  const fiscals = (window._fgCurrentFiscals || []).filter(f => f.status === 'closed');
+
+  if (fiscals.length === 0) {
+    alert(`⚠️ ${fromYear}년 마감 완료된 통장이 없습니다.\n먼저 [${fromYear}년 일괄 마감]을 실행하세요.`);
+    return;
+  }
+
+  // 이월 가능 잔액 계산 (current_balance - total_frozen)
+  const carryTargets = fiscals.filter(f => Number(f.current_balance || 0) > 0);
+  const totalCarry = carryTargets.reduce((s, f) => s + Number(f.current_balance || 0), 0);
+  const _fmt = v => Number(v || 0).toLocaleString('ko-KR');
+
+  if (carryTargets.length === 0) {
+    alert('이월 대상 잔액이 없습니다.');
+    return;
+  }
+
+  if (!confirm(`📅 이월 확인\n\n${fromYear}년 → ${toYear}년\n대상: ${carryTargets.length}건\n이월 총액: ${_fmt(totalCarry)}원\n\n신년도 통장에 이월 잔액이 개시됩니다.\n실행하시겠습니까?`)) return;
 
   let done = 0;
   const errors = [];
 
-  for (const bk of targets) {
-    const avail = Math.max(0, Number(bk.current_balance) - Number(bk.frozen_amount||0));
+  for (const fp of carryTargets) {
+    const carryAmount = Number(fp.current_balance || 0);
     try {
-      // 1. 기존 통장 closed
-      await sb.from('bankbooks').update({
-        status: 'closed', current_balance: 0, updated_at: new Date().toISOString()
-      }).eq('id', bk.id);
+      // 기존 신년도 fiscal period 확인
+      const { data: existing } = await sb.from('bankbook_fiscal_periods')
+        .select('id,opening_balance,carried_forward,current_balance')
+        .eq('bankbook_id', fp.bankbook_id)
+        .eq('fiscal_year', toYear)
+        .maybeSingle();
 
-      // 2. 신규 통장 생성 (next year)
-      const { error: insErr } = await sb.from('bankbooks').insert({
-        tenant_id: bk.tenant_id || boCurrentPersona?.tenantId,
-        account_code: bk.account_code,
-        org_id: bk.org_id,
-        org_name: bk.org_name,
-        template_id: bk.template_id,
-        group_id: bk.group_id,
-        fiscal_year: year + 1,
-        initial_amount: avail,
-        current_balance: avail,
-        frozen_amount: 0,
-        used_amount: 0,
-        status: 'active',
-      });
-      if (insErr) throw insErr;
-
-      // 3. 이력 기록
-      await sb.from('submission_documents').insert({
-        tenant_id: bk.tenant_id || boCurrentPersona?.tenantId,
-        doc_type: 'budget_carryover',
-        submitter_name: boCurrentPersona?.name || 'admin',
-        org_name: bk.org_name,
-        submitted_at: new Date().toISOString(),
-        metadata: {
-          from_org: bk.org_name, to_org: bk.org_name,
-          account_code: bk.account_code,
-          amount: avail, reason,
-          from_year: year, to_year: year + 1,
-          from_bk_id: bk.id,
-        },
-      }).catch(e => console.warn('[P7] carryover log skip:', e.message));
-
+      if (existing) {
+        // 이미 존재 → carried_forward, opening_balance 업데이트
+        await sb.from('bankbook_fiscal_periods').update({
+          carried_forward: Number(existing.carried_forward || 0) + carryAmount,
+          opening_balance: Number(existing.opening_balance || 0) + carryAmount,
+          current_balance: Number(existing.current_balance || 0) + carryAmount,
+          updated_at: new Date().toISOString(),
+        }).eq('id', existing.id);
+      } else {
+        // 신규 생성
+        await sb.from('bankbook_fiscal_periods').insert({
+          bankbook_id: fp.bankbook_id,
+          fiscal_year: toYear,
+          opening_balance: carryAmount,
+          carried_forward: carryAmount,
+          total_allocated: 0,
+          total_distributed: 0,
+          total_used: 0,
+          total_frozen: 0,
+          current_balance: carryAmount,
+          burn_rate: 0,
+          status: 'open',
+        });
+      }
       done++;
-      if (btn) btn.textContent = `처리 중 (${done}/${targets.length})...`;
-    } catch(err) {
-      errors.push(`${bk.org_name}: ${err.message}`);
+    } catch (err) {
+      errors.push(err.message);
     }
   }
 
-  if (btn) { btn.disabled = false; btn.textContent = '📅 이월 실행'; }
+  // 이월 로그
+  await sb.from('budget_usage_log').insert({
+    tenant_id: boCurrentPersona?.tenantId || 'HMC',
+    bankbook_id: carryTargets[0]?.bankbook_id,
+    action: 'fiscal_carryover',
+    amount: totalCarry,
+    prev_balance: 0,
+    new_balance: totalCarry,
+    reason: `${fromYear}→${toYear}년 이월 (${done}건, ${_fmt(totalCarry)}원)`,
+    performed_by: boCurrentPersona?.name || 'admin',
+  }).catch(() => {});
+
   if (errors.length > 0) {
-    alert(`⚠️ 일부 실패 (${done}/${targets.length} 성공)\n\n${errors.slice(0,5).join('\n')}`);
+    alert(`⚠️ 일부 실패 (${done}/${carryTargets.length})\n${errors.slice(0, 3).join('\n')}`);
   } else {
-    if (typeof _boShowToast === 'function') _boShowToast(`✅ ${done}건 이월 완료 (${totalAmt.toLocaleString()}원 → ${year+1}년)`, 'success');
-    alert(`✅ ${done}건 이월 완료\n${totalAmt.toLocaleString()}원 → ${year+1}년`);
+    alert(`✅ 이월 완료!\n\n${fromYear}→${toYear}년\n${done}건, ${_fmt(totalCarry)}원 이월`);
   }
   renderBudgetCarryover();
 }

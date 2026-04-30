@@ -1142,11 +1142,18 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
     return defaultShow;
   };
 
-  // 핵심 필드(계획명, 일정, 금액)는 BO에서 명시적 false가 아닌 한 항상 표시
-  const showRegion = _shouldShow('is_overseas') && !isElearning;
+  // 핵심 필드 표시 여부
+  // ★ BO form_config가 있으면 BO 설정이 이러닝 휴리스틱보다 우선
+  //   - is_overseas, venue_type: form_config에서 명시적 false가 아니면 표시
+  //   - form_config 없으면 이러닝에서는 기본 숨김 (기존 동작 유지)
+  const showRegion = hasFormConfig
+    ? _shouldShow('is_overseas')                    // BO 설정 우선
+    : (_shouldShow('is_overseas') && !isElearning); // 기본: 이러닝 숨김
   const showTitle = _shouldShow('edu_name') || _shouldShow('course_name');
   const showDates = _shouldShow('start_end_date');
-  const showVenue = _shouldShow('venue_type') && !isElearning;
+  const showVenue = hasFormConfig
+    ? (_shouldShow('venue_type') && !isElearning)   // BO에서 ON이어도 이러닝엔 장소 불필요
+    : (_shouldShow('venue_type') && !isElearning);
   const showHeadcount = _shouldShow('headcount') && _shouldShow('planned_headcount');
   const showAmount = _shouldShow('requested_budget') && !isNoBudget;
   const showCalc = _shouldShow('calc_grounds') && !isNoBudget;

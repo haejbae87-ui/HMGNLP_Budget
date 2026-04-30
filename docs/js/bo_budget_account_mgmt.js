@@ -300,7 +300,7 @@ async function renderBudgetAccount() {
           const rowNum = startIdx + i + 1;
           const isSelected = a.id === _baSelectedId;
           const intLabel =
-            !a.account_type || a.account_type === "sap"
+            a.integration_mode === "sap"
               ? "SAP 연동"
               : "자체관리";
           const budgetLabel = a.uses_budget === false ? "미사용" : "사용";
@@ -498,7 +498,7 @@ async function _baRefreshList() {
 function _baRenderDetailPanel(a, canEdit) {
   const nameLen = (a.name || "").length;
   const descLen = (a.description || "").length;
-  const isSap = !a.account_type || a.account_type === "sap";
+  const isSap = a.integration_mode === "sap";
   const usesBudget = a.uses_budget !== false;
   // bankbook_mode는 비동기 로드 필요하므로 기본값
   const bbMode = a._bankbook_mode || "isolated";
@@ -673,7 +673,7 @@ async function _baInlineSave(id) {
   const payload = {
     name,
     description: desc,
-    account_type: intType,
+    integration_mode: intType === "standalone" ? "self" : intType,
     sap_code: sapCode,
     uses_budget: usesBudget,
     updated_at: new Date().toISOString(),
@@ -809,22 +809,22 @@ async function openS1Modal(id) {
   <div id="s1-integration-section" style="margin-bottom:12px;${a?.uses_budget === false ? "display:none" : ""}">
     <label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px">연동 방식</label>
     <div style="display:flex;gap:12px">
-      <label style="display:flex;align-items:center;gap:8px;padding:10px 16px;border:1.5px solid ${!a?.integration_type || a?.integration_type === "sap" ? "#1D4ED8" : "#E5E7EB"};border-radius:10px;cursor:pointer;background:${!a?.integration_type || a?.integration_type === "sap" ? "#EFF6FF" : "#fff"};flex:1">
-        <input type="radio" name="s1-integration" value="sap" ${!a?.integration_type || a?.integration_type === "sap" ? "checked" : ""} onchange="_s1ToggleIntegration()" style="accent-color:#1D4ED8">
+      <label style="display:flex;align-items:center;gap:8px;padding:10px 16px;border:1.5px solid ${a?.integration_mode === "sap" ? "#1D4ED8" : "#E5E7EB"};border-radius:10px;cursor:pointer;background:${a?.integration_mode === "sap" ? "#EFF6FF" : "#fff"};flex:1">
+        <input type="radio" name="s1-integration" value="sap" ${a?.integration_mode === "sap" ? "checked" : ""} onchange="_s1ToggleIntegration()" style="accent-color:#1D4ED8">
         <div>
           <div style="font-size:12px;font-weight:800;color:#1D4ED8">🔗 SAP 연동</div>
           <div style="font-size:10px;color:#6B7280">ERP 예산관리와 실시간 연동</div>
         </div>
       </label>
-      <label style="display:flex;align-items:center;gap:8px;padding:10px 16px;border:1.5px solid ${a?.integration_type === "standalone" ? "#059669" : "#E5E7EB"};border-radius:10px;cursor:pointer;background:${a?.integration_type === "standalone" ? "#F0FDF4" : "#fff"};flex:1">
-        <input type="radio" name="s1-integration" value="standalone" ${a?.integration_type === "standalone" ? "checked" : ""} onchange="_s1ToggleIntegration()" style="accent-color:#059669">
+      <label style="display:flex;align-items:center;gap:8px;padding:10px 16px;border:1.5px solid ${a?.integration_mode === "self" ? "#059669" : "#E5E7EB"};border-radius:10px;cursor:pointer;background:${a?.integration_mode === "self" ? "#F0FDF4" : "#fff"};flex:1">
+        <input type="radio" name="s1-integration" value="standalone" ${a?.integration_mode === "self" ? "checked" : ""} onchange="_s1ToggleIntegration()" style="accent-color:#059669">
         <div>
           <div style="font-size:12px;font-weight:800;color:#059669">📋 자체관리 (미연동)</div>
           <div style="font-size:10px;color:#6B7280">시스템 내 독립 예산 관리</div>
         </div>
       </label>
     </div>
-    <div id="s1-sap-code-section" style="margin-top:10px;${!a?.integration_type || a?.integration_type === "sap" ? "" : "display:none"}">
+    <div id="s1-sap-code-section" style="margin-top:10px;${a?.integration_mode === "sap" ? "" : "display:none"}">
       <label style="font-size:11px;font-weight:700;color:#1D4ED8;display:block;margin-bottom:4px">🔗 SAP 연동 코드</label>
       <input id="s1-sap-code" type="text" placeholder="예) S12345 (SAP 시스템 연동키)" value="${a?.sap_code || ""}"
         style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #BFDBFE;border-radius:8px;font-size:13px;font-weight:700">
@@ -967,7 +967,7 @@ async function s1SaveAccount() {
     virtual_org_template_id: _baTplId,
     code,
     name,
-    account_type: integration,
+    integration_mode: integration === "standalone" ? "self" : integration,
     sap_code: sapCode,
     description: document.getElementById("s1-desc").value.trim(),
     active: true, // uses_budget=false여도 active는 true 유지 (비활성≠예산미사용)

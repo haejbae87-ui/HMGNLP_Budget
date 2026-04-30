@@ -83,13 +83,15 @@ let _viewingPlanDetail = null;
 function viewPlanDetail(planId) {
   // DB plans 또는 mock에서 해당 계획 찾기
   const allPlans = typeof _plansDbCache !== "undefined" ? _plansDbCache : [];
+  const teamPlans = typeof _dbTeamPlans !== "undefined" ? _dbTeamPlans : [];
   const mockPlans =
     typeof currentPersona !== "undefined" && currentPersona.plans
       ? currentPersona.plans
       : [];
   const plan =
-    allPlans.find((p) => p.id === planId) ||
-    mockPlans.find((p) => p.id === planId);
+    allPlans.find((p) => String(p.id) === String(planId)) ||
+    teamPlans.find((p) => String(p.id) === String(planId)) ||
+    mockPlans.find((p) => String(p.id) === String(planId));
   if (!plan) {
     alert("계획을 찾을 수 없습니다.");
     return;

@@ -1421,7 +1421,8 @@ function _renderPlanCard(p) {
     saved:    { color: "#059669", bg: "#ECFDF5", border: "#6EE7B7", icon: "📤", grad: "linear-gradient(135deg,#ECFDF5,#D1FAE5)" },
     pending:  { color: "#D97706", bg: "#FFFBEB", border: "#FDE68A", icon: "⏳", grad: "linear-gradient(135deg,#FFFBEB,#FEF3C7)" },
     submitted:{ color: "#D97706", bg: "#FFFBEB", border: "#FDE68A", icon: "⏳", grad: "linear-gradient(135deg,#FFFBEB,#FEF3C7)" },
-    in_review:{ color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE", icon: "🔄", grad: "linear-gradient(135deg,#F5F3FF,#EDE9FE)" },
+    team_approved:{ color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE", icon: "🔍", grad: "linear-gradient(135deg,#F5F3FF,#EDE9FE)" },
+    in_review:{ color: "#2563EB", bg: "#EFF6FF", border: "#BFDBFE", icon: "🔄", grad: "linear-gradient(135deg,#EFF6FF,#DBEAFE)" },
     approved: { color: "#059669", bg: "#F0FDF4", border: "#A7F3D0", icon: "✅", grad: "linear-gradient(135deg,#F0FDF4,#ECFDF5)" },
     rejected: { color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", icon: "❌", grad: "linear-gradient(135deg,#FEF2F2,#FEE2E2)" },
     recalled: { color: "#9CA3AF", bg: "#F9FAFB", border: "#E5E7EB", icon: "↩️", grad: "linear-gradient(135deg,#F9FAFB,#F3F4F6)" },
@@ -1430,9 +1431,9 @@ function _renderPlanCard(p) {
 
   const STATUS_LABEL = {
     draft: "임시저장", saved: "저장완료", pending: "결재대기",
-    submitted: "상신중", in_review: "1차검토완료", approved: "승인완료",
+    submitted: "팀장 검토 대기", in_review: "총괄담당자 검토 중", approved: "승인완료",
     rejected: "반려", recalled: "회수됨", cancelled: "취소",
-    team_approved: "팀장 검토완료",
+    team_approved: "운영자 검토 중",
   };
 
 

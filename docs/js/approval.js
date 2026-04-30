@@ -62,6 +62,7 @@ let _aprLeaderLoaded = false;
 let _aprLeaderData = []; // plans + applications (결재대기, 남이 신청한 것) — 레거시
 let _aprSubDocData = []; // submission_documents (S-5: 상신 문서 기반 조회) — 전체(진행중+완료+반려)
 let _aprSavedData = [];  // [A-1] saved 상태 항목 (상신 대기 — 저장완료 섹션 표시용)
+let _aprMyBundleDocs = []; // 내가 직접 상신한 team_forecast 번들 (팀원 결재함용)
 let _aprSelectedItems = new Map(); // [A-1] 다건 상신 선택 항목
 let _aprLeaderTab = 'pending'; // 리더용 탭: 'pending'(진행중) | 'approved'(결재완료) | 'rejected'(반려)
 
@@ -141,6 +142,16 @@ async function renderApprovalMember() {
         }
       } catch(e) { console.warn("[S-7] submission 연동 실패:", e.message); }
 
+      // [번들 조회] 내가 직접 상신한 team_forecast 번들 (submission_documents 직접 조회)
+      try {
+        const { data: myBundles } = await sb.from('submission_documents')
+          .select('*, submission_items(*)')
+          .eq('submitter_id', pid)
+          .eq('submission_type', 'team_forecast')
+          .order('submitted_at', { ascending: false });
+        _aprMyBundleDocs = myBundles || [];
+      } catch(e) { console.warn('[번들 조회 실패]', e.message); }
+
       // 통합
       _aprMemberData = [
         ...(plans || []).map((p) => ({
@@ -212,8 +223,9 @@ async function renderApprovalMember() {
     }
   }
 
-  // 상태별 통계 (saved·recalled·draft 제외 — recalled는 회수됐으므로 목록에서 숨김. saved는 계획 목록으로 이관됨)
-  const data = _aprMemberData.filter(d => !['recalled', 'draft', 'saved'].includes(d.status));
+  // 상태별 통계 (saved·recalled·draft 제외 + 번들 포함 항목은 개별 카드 제외)
+  const bundledItemIds = new Set((_aprMyBundleDocs || []).flatMap(d => (d.submission_items||[]).map(i => String(i.item_id))));
+  const data = _aprMemberData.filter(d => !['recalled', 'draft', 'saved'].includes(d.status) && !bundledItemIds.has(String(d.id)));
   const stats = {
     saved: 0, // 더 이상 결재함에서 카운트하지 않음
     total: data.length,
@@ -239,6 +251,72 @@ async function renderApprovalMember() {
     // BO 담당자가 정산 결과를 검토 중인 상태 (result.js → result_pending 전환 후)
   };
 
+
+  // ─── 번들 카드 생성 (team_forecast, 팀원 입장) ───────────────────────────────
+  const visibleBundles = (_aprMyBundleDocs || []).filter(d => d.status !== 'recalled');
+  const bundleCards = visibleBundles.map(doc => {
+    const items = doc.submission_items || [];
+    const totalAmt = Number(doc.total_amount || 0);
+    const subAt = (doc.submitted_at || doc.created_at || '').slice(0, 16).replace('T', ' ');
+    const canRecall = doc.status === 'submitted';
+    const stMap = {
+      submitted:     { label:'검토 대기',    color:'#D97706', bg:'#FFFBEB', icon:'⏳' },
+      team_approved: { label:'BO 전달완료',  color:'#059669', bg:'#F0FDF4', icon:'✅' },
+      rejected:      { label:'반려됨',       color:'#DC2626', bg:'#FEF2F2', icon:'❌' },
+      in_review:     { label:'검토 진행중',  color:'#7C3AED', bg:'#F5F3FF', icon:'🔄' },
+    };
+    const st = stMap[doc.status] || { label: doc.status, color:'#9CA3AF', bg:'#F9FAFB', icon:'🕐' };
+    const safeDocId = String(doc.id).replace(/'/g, "\\'");
+    const itemList = items.length > 0
+      ? items.map((it, i) => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F9FAFB;font-size:12px">
+          <span>${i+1}. ${it.item_title || it.item_id}</span>
+          <span style="font-weight:800;color:#1D4ED8">${Number(it.item_amount||0).toLocaleString()}원</span>
+        </div>`).join('')
+      : `<div style="font-size:11px;color:#9CA3AF;padding:6px 0">연결된 계획 없음</div>`;
+    const recallArea = canRecall
+      ? `<button onclick="_aprRecallBundle('${safeDocId}')"
+           style="padding:7px 18px;border-radius:8px;border:1.5px solid #9CA3AF;background:white;color:#6B7280;font-size:12px;font-weight:800;cursor:pointer"
+           onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='white'">↩️ 회수</button>
+         <span style="font-size:10px;color:#9CA3AF">팀장 검토 전까지 회수 가능</span>`
+      : (doc.status === 'team_approved'
+          ? `<span style="font-size:11px;color:#6B7280">⚠️ BO에 전달되어 회수 불가</span>`
+          : `<span style="font-size:11px;color:#9CA3AF">${st.icon} ${st.label}</span>`);
+    return `<div style="border-radius:16px;border:2px solid #BFDBFE;background:white;padding:20px 22px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,44,95,.06)">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-size:11px;font-weight:900;padding:2px 8px;border-radius:6px;background:#FEF3C7;color:#92400E">📦 팀 사업계획 번들</span>
+            <span style="font-size:10px;font-weight:800;padding:3px 10px;border-radius:8px;background:${st.bg};color:${st.color}">${st.icon} ${st.label}</span>
+          </div>
+          <div style="font-size:15px;font-weight:900;color:#111827;margin-bottom:6px">${doc.title || '(제목 없음)'}</div>
+          <div style="font-size:11px;color:#6B7280;display:flex;gap:12px;flex-wrap:wrap">
+            <span>📅 ${subAt}</span>
+            <span>📊 ${items.length}건</span>
+            ${doc.account_code ? `<span>🏦 ${doc.account_code}</span>` : ''}
+            ${doc.fiscal_year ? `<span>📆 ${doc.fiscal_year}년</span>` : ''}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:11px;color:#6B7280;margin-bottom:2px">총 요청액</div>
+          <div style="font-size:22px;font-weight:900;color:#1D4ED8">${totalAmt.toLocaleString()}원</div>
+        </div>
+      </div>
+      <div style="background:#F8FAFF;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:800;color:#374151;margin-bottom:8px">📋 포함 계획 목록</div>
+        ${itemList}
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding-top:12px;border-top:1px solid #F3F4F6">
+        ${recallArea}
+      </div>
+    </div>`;
+  }).join('');
+
+  const bundleSectionHtml = visibleBundles.length > 0
+    ? `<div style="margin-bottom:16px">
+        <div style="font-size:12px;font-weight:900;color:#374151;margin-bottom:10px">📦 팀 사업계획 번들 (${visibleBundles.length}건)</div>
+        ${bundleCards}
+      </div>`
+    : '';
 
   const cards = data
     .map((item) => {
@@ -421,7 +499,7 @@ async function renderApprovalMember() {
       <h1 class="text-3xl font-black text-brand tracking-tight">팀원용 결재함</h1>
       <p style="font-size:12px;color:#9CA3AF;margin-top:4px">${currentPersona.name} · ${currentPersona.dept} — 내 교육신청의 결재 현황</p>
     </div>
-    <button onclick="_aprMemberLoaded=false;_aprMemberData=[];_aprSavedData=[];_aprSelectedItems=new Set();renderApprovalMember()"
+    <button onclick="_aprMemberLoaded=false;_aprMemberData=[];_aprSavedData=[];_aprMyBundleDocs=[];_aprSelectedItems=new Set();renderApprovalMember()"
       style="padding:8px 16px;border-radius:10px;background:white;border:1.5px solid #E5E7EB;font-size:12px;font-weight:800;color:#374151;cursor:pointer">🔄 새로고침</button>
   </div>
 
@@ -475,7 +553,7 @@ async function renderApprovalMember() {
   }
 
   <!-- 결재 목록 -->
-  <div>${data.length === 0 ? emptyMsg : cards}</div>
+  <div>${bundleSectionHtml}${data.length === 0 && visibleBundles.length === 0 ? emptyMsg : cards}</div>
 </div>
 
 <!-- [S-3] 상신 문서 작성 인라인 모달 (id=apr-submit-modal) -->
@@ -526,6 +604,48 @@ async function renderApprovalMember() {
     }
   }
 }
+
+// ─── 팀 사업계획 번들 회수 (팀원용 결재함) ────────────────────────────────────
+async function _aprRecallBundle(submissionId) {
+  const doc = (_aprMyBundleDocs || []).find(d => d.id === submissionId);
+  if (!doc) { alert('번들 정보를 찾을 수 없습니다.'); return; }
+  if (doc.status !== 'submitted') {
+    alert('⚠️ 이미 팀장이 검토 중이거나 처리된 상신입니다.\n회수할 수 없습니다.');
+    return;
+  }
+  if (!confirm(`상신을 회수하면 포함된 사업계획 ${(doc.submission_items||[]).length}건이\n저장완료 상태로 되돌아갑니다.\n\n계속하시겠습니까?`)) return;
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('DB 연결 실패'); return; }
+
+  try {
+    const now = new Date().toISOString();
+    // 1) submission_documents → recalled
+    const { error: docErr } = await sb.from('submission_documents')
+      .update({ status: 'recalled', updated_at: now })
+      .eq('id', submissionId);
+    if (docErr) throw docErr;
+
+    // 2) 번들 내 plans → saved
+    const planItems = (doc.submission_items || []).filter(i => i.item_type === 'plan');
+    for (const item of planItems) {
+      await sb.from('plans')
+        .update({ status: 'saved', updated_at: now })
+        .eq('id', item.item_id);
+    }
+
+    // 3) 캐시 초기화 + 새로고침
+    _aprMemberLoaded = false;
+    _aprMemberData = [];
+    _aprMyBundleDocs = [];
+    alert(`✅ 회수 완료!\n사업계획 ${planItems.length}건이 저장완료 상태로 되돌아갔습니다.\n사업계획 목록에서 다시 수정하거나 상신할 수 있습니다.`);
+    renderApprovalMember();
+  } catch(err) {
+    alert('❌ 회수 실패: ' + err.message);
+    console.error('[_aprRecallBundle]', err);
+  }
+}
+window._aprRecallBundle = _aprRecallBundle;
 
 // --- 리더용 결재함 (S-5: submission_documents 기반) ---
 
@@ -972,6 +1092,9 @@ async function _teamForecastReject(docId) {
 
     // 리더 결재함 새로고침
     _aprLeaderLoaded = false; _aprSubDocData = []; _aprLeaderData = [];
+    // ★ FO 사업계획 목록 캐시도 무효화 (팀원 화면에 즉시 반영)
+    if (typeof _plansDbLoaded !== 'undefined') { _plansDbLoaded = false; _dbMyPlans = []; _plansDbCache = []; }
+    if (typeof _teamPlansLoaded !== 'undefined') { _teamPlansLoaded = false; _dbTeamPlans = []; }
     renderApprovalLeader();
   } catch (err) {
     alert('❌ 반려 실패: ' + err.message);

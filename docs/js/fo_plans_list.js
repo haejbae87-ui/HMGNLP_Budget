@@ -2342,11 +2342,33 @@ function _foRenderTeamForecastBundleBar(teamPlansArr, myDbCache) {
   });
 
   // ★ submitted 상태 계획 (상신된 번들) 감지
+  // submission_documents가 rejected/recalled된 경우 실시간으로 제외 (팀장 반려 즉시 반영)
+  let rejectedBundleItemIds = new Set();
+  try {
+    const candidateIds = [
+      ...teamPlansArr.filter(p => p.status === 'submitted' && p.fiscalYear === _planYear).map(p => String(p.id)),
+      ...myDbCache.filter(d => d.status === 'submitted' && (d.plan_type === 'forecast' || d.plan_type === 'business') && d.fiscal_year === _planYear).map(d => String(d.id)),
+    ];
+    if (candidateIds.length > 0 && sb) {
+      const { data: sItems } = await sb.from('submission_items').select('item_id, submission_id').in('item_id', candidateIds);
+      if (sItems && sItems.length > 0) {
+        const sIds = [...new Set(sItems.map(i => i.submission_id))];
+        const { data: sDocs } = await sb.from('submission_documents').select('id, status').in('id', sIds).in('status', ['rejected', 'recalled']);
+        if (sDocs && sDocs.length > 0) {
+          const rejectedSIds = new Set(sDocs.map(d => d.id));
+          sItems.filter(i => rejectedSIds.has(i.submission_id)).forEach(i => rejectedBundleItemIds.add(String(i.item_id)));
+        }
+      }
+    }
+  } catch(e) { console.warn('[submittedForecasts 번들 반려 보정]', e.message); }
+
   const submittedForecasts = [
     ...teamPlansArr.filter(p => p.status === 'submitted' && p.fiscalYear === _planYear),
     ...myDbCache.filter(d => d.status === 'submitted' && (d.plan_type === 'forecast' || d.plan_type === 'business') && d.fiscal_year === _planYear)
       .map(d => ({ id: d.id, title: d.edu_name || String(d.id), amount: Number(d.amount || 0), account: d.account_code, account_code: d.account_code, author: d.applicant_name || currentPersona.name, fiscalYear: d.fiscal_year, status: 'submitted' }))
-  ].filter((p, i, arr) => arr.findIndex(x => String(x.id) === String(p.id)) === i); // ID 중복 제거
+  ]
+    .filter((p, i, arr) => arr.findIndex(x => String(x.id) === String(p.id)) === i) // ID 중복 제거
+    .filter(p => !rejectedBundleItemIds.has(String(p.id))); // 반려/회수 번들 항목 제외
 
   if (!allSaved.length) {
     // 상신된 번들이 있으면 회수 UI 표시

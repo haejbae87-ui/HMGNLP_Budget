@@ -369,6 +369,19 @@ function _bhRender(el, isPlatform, tenants) {
     </div>
   </div>
 
+  <!-- F-H01: 유형별 분포 + 일별 추이 차트 -->
+  ${_bhLogs.length > 0 ? `
+  <div style="display:grid;grid-template-columns:280px 1fr;gap:14px;margin-bottom:14px">
+    <div class="bo-card" style="padding:16px 20px">
+      <div style="font-size:12px;font-weight:900;color:#374151;margin-bottom:12px">📊 유형별 분포</div>
+      ${_bhDonutChart(_bhLogs)}
+    </div>
+    <div class="bo-card" style="padding:16px 20px">
+      <div style="font-size:12px;font-weight:900;color:#374151;margin-bottom:12px">📈 일별 트랜잭션 추이</div>
+      ${_bhDailyTrendChart(_bhLogs)}
+    </div>
+  </div>` : ''}
+
   <!-- 트랜잭션 테이블 -->
   <div class="bo-card" style="overflow:hidden">
     <table class="bo-table" style="font-size:11px;width:100%">
@@ -643,4 +656,125 @@ async function _bhSyncActualAmounts() {
   } catch (err) {
     alert('❌ 동기화 실패: ' + err.message);
   }
+}
+
+// ── F-H01: 유형별 도넛차트 ──────────────────────────────────────────────────
+function _bhDonutChart(logs) {
+  const counts = {};
+  logs.forEach(l => { counts[l.action] = (counts[l.action] || 0) + 1; });
+  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const total = logs.length;
+  if (total === 0) return '<div style="text-align:center;color:#9CA3AF;padding:20px">데이터 없음</div>';
+
+  const R = 60, CX = 80, CY = 75, SW = 20;
+  let cumAngle = -90;
+  const arcs = entries.map(([action, count]) => {
+    const pct = count / total;
+    const angle = pct * 360;
+    const startAngle = cumAngle;
+    const endAngle = cumAngle + angle;
+    cumAngle = endAngle;
+    const startRad = (startAngle * Math.PI) / 180;
+    const endRad = (endAngle * Math.PI) / 180;
+    const x1 = CX + R * Math.cos(startRad);
+    const y1 = CY + R * Math.sin(startRad);
+    const x2 = CX + R * Math.cos(endRad);
+    const y2 = CY + R * Math.sin(endRad);
+    const largeArc = angle > 180 ? 1 : 0;
+    const color = BH_ACTION_COLORS[action] || '#6B7280';
+    if (entries.length === 1) {
+      return `<circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${color}" stroke-width="${SW}"/>`;
+    }
+    return `<path d="M${x1},${y1} A${R},${R} 0 ${largeArc},1 ${x2},${y2}" fill="none" stroke="${color}" stroke-width="${SW}">
+      <title>${BH_ACTION_LABELS[action] || action}: ${count}건 (${(pct * 100).toFixed(1)}%)</title>
+    </path>`;
+  }).join('');
+
+  const legend = entries.slice(0, 6).map(([action, count]) => {
+    const c = BH_ACTION_COLORS[action] || '#6B7280';
+    const pct = ((count / total) * 100).toFixed(0);
+    return `<div style="display:flex;align-items:center;gap:5px;font-size:10px">
+      <span style="width:8px;height:8px;border-radius:2px;background:${c};display:inline-block;flex-shrink:0"></span>
+      <span style="color:#374151;font-weight:600">${BH_ACTION_LABELS[action] || action}</span>
+      <span style="color:#9CA3AF;margin-left:auto">${count}건 ${pct}%</span>
+    </div>`;
+  }).join('');
+
+  return `<div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+    <svg viewBox="0 0 160 150" style="width:140px;height:auto">
+      ${arcs}
+      <text x="${CX}" y="${CY - 4}" text-anchor="middle" fill="#111827" font-size="16" font-weight="900">${total}</text>
+      <text x="${CX}" y="${CY + 10}" text-anchor="middle" fill="#9CA3AF" font-size="8" font-weight="600">건</text>
+    </svg>
+    <div style="display:grid;gap:4px;width:100%">${legend}</div>
+  </div>`;
+}
+
+// ── F-H01: 일별 트랜잭션 추이 바차트 ────────────────────────────────────────
+function _bhDailyTrendChart(logs) {
+  if (!logs.length) return '<div style="text-align:center;color:#9CA3AF;padding:20px">데이터 없음</div>';
+
+  // 일별 집계
+  const daily = {};
+  logs.forEach(l => {
+    const d = (l.performed_at || '').slice(0, 10);
+    if (!d) return;
+    if (!daily[d]) daily[d] = { inAmt: 0, outAmt: 0, count: 0 };
+    const amt = Number(l.amount || 0);
+    if (amt >= 0) daily[d].inAmt += amt;
+    else daily[d].outAmt += Math.abs(amt);
+    daily[d].count++;
+  });
+
+  const days = Object.keys(daily).sort();
+  if (days.length === 0) return '<div style="text-align:center;color:#9CA3AF;padding:20px">데이터 없음</div>';
+
+  const W = 500, H = 130, PAD = 30;
+  const chartW = W - PAD * 2;
+  const chartH = H - PAD;
+  const maxAmt = Math.max(...days.map(d => Math.max(daily[d].inAmt, daily[d].outAmt)), 1);
+  const barW = Math.max(4, Math.min(16, chartW / days.length - 2));
+  const gap = days.length > 1 ? chartW / (days.length - 1) : chartW;
+  const fmtShort = n => {
+    if (n >= 100000000) return (n / 100000000).toFixed(1) + '억';
+    if (n >= 10000) return (n / 10000).toFixed(0) + '만';
+    return n.toLocaleString();
+  };
+
+  // Y축 그리드
+  const ySteps = [0, 0.25, 0.5, 0.75, 1];
+  const yGrid = ySteps.map(s => {
+    const y = PAD * 0.3 + chartH - s * chartH;
+    const val = Math.round(maxAmt * s);
+    return `<line x1="${PAD}" y1="${y}" x2="${W - 10}" y2="${y}" stroke="#F1F5F9" stroke-width="1"/>
+      <text x="${PAD - 4}" y="${y + 3}" text-anchor="end" fill="#94A3B8" font-size="7" font-weight="600">${fmtShort(val)}</text>`;
+  }).join('');
+
+  // 바
+  const bars = days.map((d, i) => {
+    const x = PAD + (days.length === 1 ? chartW / 2 : i * gap);
+    const inH = (daily[d].inAmt / maxAmt) * chartH;
+    const outH = (daily[d].outAmt / maxAmt) * chartH;
+    const baseY = PAD * 0.3 + chartH;
+    const label = d.slice(5); // MM-DD
+    const showLabel = days.length <= 15 || i % Math.ceil(days.length / 10) === 0;
+    return `
+      <rect x="${x - barW / 2}" y="${baseY - inH}" width="${barW / 2}" height="${inH}" fill="#059669" rx="1.5" opacity="0.8">
+        <title>${d} 입금: ${fmtShort(daily[d].inAmt)}원</title>
+      </rect>
+      <rect x="${x}" y="${baseY - outH}" width="${barW / 2}" height="${outH}" fill="#EF4444" rx="1.5" opacity="0.8">
+        <title>${d} 출금: ${fmtShort(daily[d].outAmt)}원</title>
+      </rect>
+      ${showLabel ? `<text x="${x}" y="${H - 2}" text-anchor="middle" fill="#94A3B8" font-size="7" font-weight="600">${label}</text>` : ''}`;
+  }).join('');
+
+  return `<div style="display:flex;align-items:flex-end;gap:8px">
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;max-height:160px">
+      ${yGrid}${bars}
+    </svg>
+    <div style="display:flex;flex-direction:column;gap:3px;font-size:9px;font-weight:700;flex-shrink:0">
+      <span style="display:flex;align-items:center;gap:3px"><span style="width:6px;height:6px;background:#059669;border-radius:1px;display:inline-block"></span>입금</span>
+      <span style="display:flex;align-items:center;gap:3px"><span style="width:6px;height:6px;background:#EF4444;border-radius:1px;display:inline-block"></span>출금</span>
+    </div>
+  </div>`;
 }

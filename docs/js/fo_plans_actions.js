@@ -224,7 +224,11 @@ async function savePlanDraft() {
     planState.editId = planId;
     alert("💾 임시저장되었습니다.\n\n목록에서 이어쓰기할 수 있습니다.");
     console.log(`[savePlanDraft] 임시저장 성공: ${planId}`);
-  } catch (err) {
+     // ★ DB 캐시 무효화 (목록 새로고침 시 최신 draft 상태 반영)
+    if (typeof _plansDbLoaded !== 'undefined') _plansDbLoaded = false;
+    if (typeof _dbMyPlans !== 'undefined') _dbMyPlans = [];
+    if (typeof _plansDbCache !== 'undefined') _plansDbCache = [];
+ } catch (err) {
     alert("임시저장 실패: " + err.message);
     console.error("[savePlanDraft] 실패:", err.message);
   }
@@ -325,8 +329,7 @@ async function savePlanSaved() {
     const { error } = await sb.from("plans").upsert(row, { onConflict: "id" });
     if (error) throw error;
     planState.editId = planId;
-    alert(`✅ 작성이 완료되었습니다.\n\n저장된 내용을 확인한 후 [상신하기]를 진행해주세요.`);
-    console.log(`[savePlanSaved] 저장 성공 (saved): ${planId}`);
+       console.log(`[savePlanSaved] 저장 성공 (saved): ${planId}`);
     
     // 상태 전환: 확인 화면(Confirm Mode)으로 바로 이동
     planState.confirmMode = true;
@@ -335,7 +338,10 @@ async function savePlanSaved() {
     console.error("[savePlanSaved] 실패:", err.message);
     return; // 에러 시 렌더링 진행 안 함
   }
-  // ★ try 블록 바깥에서 렌더링
+  // ★ DB 캐시 무효화: 저장 후 목록 새로고침 시 최신 상태(saved) 반영
+  if (typeof _plansDbLoaded !== 'undefined') _plansDbLoaded = false;
+  if (typeof _dbMyPlans !== 'undefined') _dbMyPlans = [];
+  if (typeof _plansDbCache !== 'undefined') _plansDbCache = [];
   alert("✅ 작성이 완료되었습니다.\n\n저장된 내용을 확인한 후 [상신하기]를 진행해주세요.");
   renderPlans();
 }

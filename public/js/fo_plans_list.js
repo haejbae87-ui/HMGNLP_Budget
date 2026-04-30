@@ -941,6 +941,8 @@ function renderPlans() {
         .order("created_at", { ascending: false });
       if (tids.length > 1) query = query.in("tenant_id", tids);
       else query = query.eq("tenant_id", currentPersona.tenantId);
+      // ★ Fix-A: 선택된 계정 코드로 필터 (다른 계정 계획 교차 노출 방지)
+      if (_selectedAccountCode) query = query.eq("account_code", _selectedAccountCode);
       const { data, error } = await query;
       if (!error && data) {
         _dbMyPlans = data.map((d) => ({
@@ -998,6 +1000,12 @@ function renderPlans() {
           } else {
             query = query.eq("applicant_org_id", currentPersona.orgId);
           }
+          // ★ Fix-B: 같은 소속팀(dept)의 계획만 조회 (다른 팀 교차 노출 방지)
+          if (currentPersona.dept) {
+            query = query.eq("applicant_dept", currentPersona.dept);
+          }
+          // ★ Fix-A: 선택된 계정 코드로 필터 (다른 계정 계획 교차 노출 방지)
+          if (_selectedAccountCode) query = query.eq("account_code", _selectedAccountCode);
           if (tids.length > 1) query = query.in("tenant_id", tids);
           else query = query.eq("tenant_id", currentPersona.tenantId);
           const { data } = await query;
@@ -1900,6 +1908,7 @@ async function clonePlan(planId) {
         applicant_id: currentPersona.id,
         applicant_name: currentPersona.name,
         dept: currentPersona.dept || '',
+        applicant_dept: currentPersona.dept || null,   // ★ VOrg 스코핑: 소속팀 기록
         applicant_org_id: currentPersona.orgId || null,
         fiscal_year: planState.fiscal_year || new Date().getFullYear(),
         policy_id: planState.policyId || null,

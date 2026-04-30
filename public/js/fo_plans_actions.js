@@ -160,6 +160,7 @@ async function savePlanDraft() {
       applicant_id: currentPersona.id,
       applicant_name: currentPersona.name,
       applicant_org_id: currentPersona.orgId || null,
+      applicant_dept: currentPersona.dept || null,   // ★ VOrg 스코핑: 소속팀 기록
       edu_name: planState.title || planState.eduTypeName || "교육계획",
       edu_type: planState.eduType || planState.eduSubType || null,
       amount: amount,
@@ -262,6 +263,7 @@ async function savePlanSaved() {
       applicant_id: currentPersona.id,
       applicant_name: currentPersona.name,
       applicant_org_id: currentPersona.orgId || null,
+      applicant_dept: currentPersona.dept || null,   // ★ VOrg 스코핑: 소속팀 기록
       edu_name: planState.title || "교육계획",
       edu_type: planState.eduType || planState.eduSubType || null,
       amount: amount,
@@ -407,6 +409,7 @@ async function confirmPlan() {
         applicant_id: currentPersona.id,
         applicant_name: currentPersona.name,
         applicant_org_id: currentPersona.orgId || null,
+        applicant_dept: currentPersona.dept || null,   // ★ VOrg 스코핑: 소속팀 기록
         edu_name: planState.title || planState.eduTypeName || "교육계획",
         edu_type: planState.eduType || planState.eduSubType || null,
         amount: amount,

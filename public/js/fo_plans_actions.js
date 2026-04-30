@@ -42,7 +42,12 @@ function planNext() {
     const accCode = (() => {
       const budgets = currentPersona?.budgets || [];
       const b = budgets.find((x) => x.id === planState.budgetId);
-      return b?.accountCode || b?.account_code || null;
+      if (b?.accountCode || b?.account_code) return b.accountCode || b.account_code;
+      // 폴백: contextAccountCode (계정 카드 선택 시 설정됨)
+      if (planState.contextAccountCode) return planState.contextAccountCode;
+      // 폴백2: budgetId 자체가 accountCode인 경우
+      if (planState.budgetId && budgets.find(bb => bb.accountCode === planState.budgetId)) return planState.budgetId;
+      return null;
     })();
     // ★ purpose + account + eduType 기준 최적 정책 선택
     const boPurposeKeys =

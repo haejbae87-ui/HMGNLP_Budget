@@ -866,7 +866,7 @@ async function renderApprovalLeader() {
       const boTransferBtn = !isTeamApproved
         ? `<button onclick="_teamForecastBoTransfer('${safeDocId}')"
             style="padding:8px 20px;border-radius:8px;background:#1D4ED8;color:white;font-size:12px;font-weight:900;border:none;cursor:pointer;min-width:100px"
-            onmouseover="this.style.background='#1E40AF'" onmouseout="this.style.background='#1D4ED8'">📤 BO 전달</button>`
+            onmouseover="this.style.background='#1E40AF'" onmouseout="this.style.background='#1D4ED8'">✅ 승인</button>`
         : `<button disabled style="padding:8px 20px;border-radius:8px;background:#E5E7EB;color:#9CA3AF;font-size:12px;font-weight:900;border:none;min-width:100px;cursor:default">✅ 전달완료</button>`;
       const rejectBundleBtn = !isTeamApproved
         ? `<button onclick="_teamForecastReject('${safeDocId}')"

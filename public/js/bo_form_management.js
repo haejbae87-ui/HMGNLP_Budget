@@ -612,8 +612,8 @@ async function _formSave() {
       const allFieldsForStage = {};
       (_FORM_FIELDS[s] || []).forEach(cat => {
         (cat.fields || []).forEach(f => {
-          // locked 필드는 항상 true(필수), 나머지는 현재 토글값 또는 false
-          allFieldsForStage[f.key] = f.locked ? true : false;
+          // locked 필드는 항상 true(필수), 나머지도 기본 true(표시) — UI 토글 기본값과 일치
+          allFieldsForStage[f.key] = true;
         });
       });
       // 사용자가 토글한 값으로 덮어쓰기

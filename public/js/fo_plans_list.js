@@ -269,6 +269,7 @@ function resetPlanState() {
 // 계획 목록 뷰 상태
 let _planViewTab = "mine"; // 'mine' | 'team'
 let _planYear = new Date().getFullYear(); // 연도 필터
+let _planYearManuallySet = false; // 사용자가 직접 연도를 선택했는지 여부 (true면 자동 교정 금지)
 let _lastPlansMode = null; // 모드 전환 감지용
 
 // ── Phase1: 4계층 네비게이션 상태 ────────────────────────────────────────────
@@ -304,6 +305,7 @@ function _resetPlansCacheForModeSwitch() {
   _selectedVorgOwnedAccounts = [];
   _accountBudgetMap = {};
   _activeCampaignForAccount = null;
+  _planYearManuallySet = false; // ★ 모드 전환 시 수동 선택 플래그 초기화
   console.log('[MODE SWITCH] 캐시 초기화 완료:', window.plansMode);
 }
 
@@ -1081,10 +1083,9 @@ function renderPlans() {
   });
 
   // ★ 사업계획 모드: 활성 캠페인이 있으면 _planYear를 캠페인 fiscal_year로 자동 맞춤
-  // _planYear가 현재연도(기본값)이고, 캠페인 연도가 다를 때만 교정 (사용자가 직접 선택한 경우 유지)
-  if (isBusiness && _forecastDeadlinesCache && _forecastDeadlinesCache.length > 0) {
+  // 단, 사용자가 드롭다운으로 직접 선택한 경우(_planYearManuallySet=true)는 건너뜀
+  if (isBusiness && !_planYearManuallySet && _forecastDeadlinesCache && _forecastDeadlinesCache.length > 0) {
     const now4 = new Date(); now4.setHours(0,0,0,0);
-    // 현재 계정(accountCode)에 맞는 활성 캠페인 우선, 없으면 첫 번째 활성 캠페인
     const activeCam = _forecastDeadlinesCache.find(c =>
       !c.is_closed &&
       !(c.recruit_end && now4 > new Date(c.recruit_end)) &&
@@ -1142,7 +1143,7 @@ function renderPlans() {
   // 연도 선택
   const curY = new Date().getFullYear();
   const yearSelector = `
-  <select onchange="_planYear=Number(this.value);renderPlans()"
+  <select onchange="_planYearManuallySet=true;_planYear=Number(this.value);renderPlans()"
     style="padding:8px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:800;color:#002C5F;background:white;cursor:pointer;appearance:auto">
     ${[curY + 1, curY, curY - 1, curY - 2].map((y) => `<option value="${y}" ${_planYear === y ? "selected" : ""}>${y}년</option>`).join("")}
   </select>`;

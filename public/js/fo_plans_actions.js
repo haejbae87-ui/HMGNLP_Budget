@@ -330,11 +330,14 @@ async function savePlanSaved() {
     
     // 상태 전환: 확인 화면(Confirm Mode)으로 바로 이동
     planState.confirmMode = true;
-    renderPlans();
   } catch (err) {
     alert("저장 실패: " + err.message);
     console.error("[savePlanSaved] 실패:", err.message);
+    return; // 에러 시 렌더링 진행 안 함
   }
+  // ★ try 블록 바깥에서 렌더링
+  alert("✅ 작성이 완료되었습니다.\n\n저장된 내용을 확인한 후 [상신하기]를 진행해주세요.");
+  renderPlans();
 }
 
 // ─── 제출 → 작성확인 화면 ─────────────────────────────────────────────────

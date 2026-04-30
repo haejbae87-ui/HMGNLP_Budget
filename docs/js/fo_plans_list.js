@@ -1760,9 +1760,9 @@ function foBundleSubmitModal() {
       if (!sbL || !stepsEl) return;
       try {
         const { data: ab } = await sbL
-          .from('account_budgets')
+          .from('budget_accounts')
           .select('approval_config')
-          .eq('account_code', acct2)
+          .eq('code', acct2)
           .eq('tenant_id', currentPersona.tenantId || 'HMC')
           .maybeSingle();
 
@@ -2671,8 +2671,16 @@ async function foTeamForecastConfirm(accountCode, dept, fiscalYear) {
     </div>
   </div>
 
-  <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:11px;color:#92400E;margin-bottom:20px">
+  <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:11px;color:#92400E;margin-bottom:16px">
     ⚠️ 확정하면 선택된 계획이 <strong>팀장 검토 대기</strong> 상태로 전환됩니다.
+  </div>
+
+  <!-- 결재라인 표시 -->
+  <div id="tf-approval-line-box" style="margin-bottom:16px;padding:14px 16px;border-radius:12px;background:#F0F7FF;border:1.5px solid #BFDBFE">
+    <div style="font-size:11px;font-weight:800;color:#1D4ED8;margin-bottom:10px">📋 사업계획 결재라인</div>
+    <div id="tf-approval-steps" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <div style="font-size:11px;color:#9CA3AF">결재라인 조회 중...</div>
+    </div>
   </div>
 
   <div style="display:flex;gap:10px;justify-content:flex-end">
@@ -2682,6 +2690,51 @@ async function foTeamForecastConfirm(accountCode, dept, fiscalYear) {
 </div>`;
 
     document.body.appendChild(modal);
+
+    // ★ 결재라인 비동기 로드
+    (async () => {
+      const sbL = typeof getSB === 'function' ? getSB() : null;
+      const stepsEl = document.getElementById('tf-approval-steps');
+      if (!sbL || !stepsEl) return;
+      try {
+        const { data: ab } = await sbL
+          .from('budget_accounts')
+          .select('approval_config')
+          .eq('code', accountCode)
+          .eq('tenant_id', tenantId || 'HMC')
+          .maybeSingle();
+        const reviewMode = ab?.approval_config?.forecast?.reviewMode || null;
+        const REVIEW_STEPS = {
+          'leader_to_admin': [
+            { label: '작성자 상신', icon: '✍️', color: '#6B7280' },
+            { label: '팀장 검토', icon: '👤', color: '#1D4ED8' },
+            { label: '총괄담당자 최종검토', icon: '🏛️', color: '#7C3AED' },
+          ],
+          'leader_to_manager_to_admin': [
+            { label: '작성자 상신', icon: '✍️', color: '#6B7280' },
+            { label: '팀장 검토', icon: '👤', color: '#1D4ED8' },
+            { label: '운영담당자 검토', icon: '👤', color: '#D97706' },
+            { label: '총괄담당자 최종검토', icon: '🏛️', color: '#7C3AED' },
+          ],
+        };
+        const steps = REVIEW_STEPS[reviewMode];
+        if (steps && stepsEl) {
+          stepsEl.innerHTML = steps.map((st, i) =>
+            `<div style="display:flex;align-items:center;gap:4px">
+              ${i > 0 ? '<span style="color:#9CA3AF;font-size:12px">→</span>' : ''}
+              <div style="padding:5px 10px;border-radius:20px;background:${st.color}15;border:1.5px solid ${st.color}40;display:flex;align-items:center;gap:4px">
+                <span style="font-size:12px">${st.icon}</span>
+                <span style="font-size:10px;font-weight:800;color:${st.color}">${st.label}</span>
+              </div>
+            </div>`
+          ).join('');
+        } else if (stepsEl) {
+          stepsEl.innerHTML = `<div style="font-size:11px;color:#EF4444;font-weight:700">⚠️ 결재라인 미설정 — BO 관리자 > 예산계정 관리에서 설정해주세요.</div>`;
+        }
+      } catch (e) {
+        if (stepsEl) stepsEl.innerHTML = `<div style="font-size:11px;color:#9CA3AF">결재라인 정보를 불러올 수 없습니다.</div>`;
+      }
+    })();
 
     let confirmed = false;
     const closeModal = () => { modal.remove(); resolve(confirmed); };

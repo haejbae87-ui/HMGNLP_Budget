@@ -1122,9 +1122,8 @@ window.refreshCalcGroundsByContext = function(foContext, prefix) {
  */
 window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
   const inline = inlineFields || {};
-  // BO에서 명시적으로 필드를 설정한 경우(hasExplicitFields), 설정된 필드만 표시
-  const inlineKeys = Object.keys(inline);
-  const hasExplicitFields = inlineKeys.length > 0;
+  // ★ 블랙리스트 방식: form_config에서 명시적 false인 필드만 숨김, 나머지는 모두 표시
+  const hasFormConfig = Object.keys(inline).length > 0;
 
   const isOverseas   = s.is_overseas === true || s.region === 'overseas';
   const eduType      = s.eduType || '';
@@ -1134,10 +1133,9 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
 
   const isNoBudget = curBudget?.account === '참가' || curBudget?.usesBudget === false || curBudget?.uses_budget === false;
 
-  // BO 양식에 키가 있으면 표시, 명시적 false면 숨김, BO 양식이 없으면 기본 표시
+  // ★ 블랙리스트: inline[key] === false 일 때만 숨김, 그 외(true/undefined/미설정) 모두 표시
   const _shouldShow = (key, defaultShow = true) => {
     if (inline[key] === false) return false;
-    if (hasExplicitFields) return inline[key] !== undefined && inline[key] !== false;
     return defaultShow;
   };
 
@@ -1169,9 +1167,8 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
   const _field = (key, label, type, placeholder, stateObj = 'planState') => {
     // BO 인라인 필드 메타데이터 적용: label, placeholder, required 등 오버라이드
     const inlineMeta = (typeof inline[key] === 'object' && inline[key] !== null) ? inline[key] : null;
+    // ★ 블랙리스트: 명시적 false만 숨김
     if (inline[key] === false) return '';
-    // BO에서 명시적으로 필드를 설정한 경우, 설정된 필드만 표시
-    if (hasExplicitFields && inline[key] === undefined) return '';
     // BO 메타데이터로 label/placeholder 오버라이드
     if (inlineMeta) {
       label = inlineMeta.label || label;
@@ -2190,41 +2187,25 @@ function getFormConfigAsInlineFields(formConfig, eduType, stage) {
     return null;
   }
 
-  // BO 키 → FO 키 변환
+  // ★ 블랙리스트 방식: BO 키 → FO 키 변환, false(OFF) 필드만 inlineFields에 포함
   const inlineFields = {};
-  let onCount = 0;
   let offCount = 0;
 
   for (const [boKey, isOn] of Object.entries(fieldStates)) {
+    // true(ON) 필드는 무시 — 기본 표시이므로 전달할 필요 없음
+    if (isOn !== false) continue;
+
     const foKey = _BO_TO_FO_KEY_MAP[boKey];
-    if (foKey === null) continue; // BO 전용 필드 (admin_comment, allocated_amount 등)
+    if (foKey === null) continue; // BO 전용 필드 (admin_comment 등) — FO에서 안 쓰는 필드
 
     const mappedKey = (foKey === undefined) ? boKey : foKey;
 
-    if (isOn === true) {
-      // 여러 BO 키가 같은 FO 키를 가리킬 때 이미 true면 유지
-      if (inlineFields[mappedKey] !== true) {
-        inlineFields[mappedKey] = true;
-      }
-      onCount++;
-    } else {
-      // false: 명시적으로 숨김 처리 (이미 true면 유지 - ON 우선)
-      if (inlineFields[mappedKey] !== true) {
-        inlineFields[mappedKey] = false;
-      }
-      offCount++;
-    }
+    // 이미 다른 BO 키에 의해 false로 설정되지 않았으면 숨김 처리
+    inlineFields[mappedKey] = false;
+    offCount++;
   }
 
-  const totalFields = onCount + offCount;
-
-  // ★ 호환성 보장: form_config에 필드가 3개 미만이면 불완전한 이전 저장분 → null 반환 (Phase B 기본 렌더러 사용)
-  if (totalFields < 3) {
-    console.log(`[fo_form_loader] form_config 필드 수 부족 (${totalFields}개) → Phase B 기본 렌더러 사용`);
-    return null;
-  }
-
-  console.log(`[fo_form_loader] form_config → inlineFields 변환 완료 (${eduType}|${stage}): ON=${onCount}, OFF=${offCount}`, inlineFields);
+  console.log(`[fo_form_loader] form_config → inlineFields 변환 완료 (${eduType}|${stage}): 숨길 필드 ${offCount}개`, inlineFields);
   return Object.keys(inlineFields).length > 0 ? inlineFields : null;
 }
 window.getFormConfigAsInlineFields = getFormConfigAsInlineFields;

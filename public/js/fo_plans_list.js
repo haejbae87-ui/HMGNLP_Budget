@@ -749,20 +749,8 @@ async function _renderAccountHub() {
 </div>`;
     return;
   }
-
-  // 계정이 1개 → 자동 선택 후 L3로 스킵
-  if (accountItems.length === 1) {
-    const a = accountItems[0];
-    _selectedAccountCode = a.accountCode;
-    _selectedAccountName = a.name;
-    renderPlans();
-    return;
-  }
-
-  // 복수 계정 → 선택 카드 UI 렌더링
-  _userAccountList = accountItems;
-
-  // 사업계획 모드: 캠페인 데이터 미리 로드
+  // ★ 사업계획 모드: 계정 수 확인 전에 캠페인 데이터를 먼저 로드
+  // (1개 자동 스킵 시에도 fiscal_year 주입을 위해 캐시 필요)
   if (isBusiness && !_forecastDeadlinesCache && !_isFetchingForecasts) {
     _isFetchingForecasts = true;
     const sb = typeof getSB === 'function' ? getSB() : null;
@@ -783,7 +771,34 @@ async function _renderAccountHub() {
       } catch(e) { _forecastDeadlinesCache = []; }
     } else { _forecastDeadlinesCache = []; }
     _isFetchingForecasts = false;
+    // ★ 캠페인 로드 후 다시 renderPlans 호출 (fiscal_year 주입을 위해)
+    renderPlans();
+    return;
   }
+
+  // 계정이 1개 → 자동 선택 후 L3로 스킵
+  // ★ 1개 자동 스킵 시에도 캠페인의 fiscal_year를 _planYear에 반드시 주입
+  if (accountItems.length === 1) {
+    const a = accountItems[0];
+    // 사업계획 모드: 이 계정에 연결된 활성 캠페인의 fiscal_year 추출
+    let autoFiscalYear = null;
+    if (isBusiness && _forecastDeadlinesCache) {
+      const now2 = new Date(); now2.setHours(0,0,0,0);
+      const matchedCam = _forecastDeadlinesCache.find(c =>
+        Array.isArray(c.target_accounts) &&
+        c.target_accounts.includes(a.accountCode) &&
+        !c.is_closed &&
+        !(c.recruit_end && now2 > new Date(c.recruit_end))
+      );
+      autoFiscalYear = matchedCam?.fiscal_year || null;
+    }
+    // _selectAccount로 통일 (fiscal_year 주입 포함)
+    _selectAccount(a.accountCode, a.name || a.accountCode, autoFiscalYear);
+    return;
+  }
+
+  // 복수 계정 → 선택 카드 UI 렌더링
+  _userAccountList = accountItems;
 
   const showBack = (_userVorgList.length > 1);
   const campaigns = _forecastDeadlinesCache || [];

@@ -2206,7 +2206,8 @@ function getFormConfigAsInlineFields(formConfig, eduType, stage) {
   }
 
   console.log(`[fo_form_loader] form_config → inlineFields 변환 완료 (${eduType}|${stage}): 숨길 필드 ${offCount}개`, inlineFields);
-  return Object.keys(inlineFields).length > 0 ? inlineFields : null;
+  // ★ 빈 객체라도 반환 — 'BO 설정 존재' 시그널 (null = 미설정과 구분)
+  return inlineFields;
 }
 window.getFormConfigAsInlineFields = getFormConfigAsInlineFields;
 
@@ -2224,12 +2225,19 @@ async function loadFormConfigTemplate(accountCode, tenantId, eduType, stage) {
   const config = await loadBudgetAccountFormConfig(accountCode, tenantId);
   if (!config) return null;
 
+  // form_config가 빈 객체 {} → 설정 자체가 없는 계정 → 폴백 허용
+  if (typeof config === 'object' && Object.keys(config).length === 0) {
+    console.log(`[fo_form_loader] ${accountCode}: form_config 빈 객체 → 폴백`);
+    return null;
+  }
+
   const inlineFields = getFormConfigAsInlineFields(config, eduType, stage);
-  if (!inlineFields) return null;
+  // inlineFields가 null이면 해당 eduType/stage 설정이 없음 → 폴백
+  if (inlineFields === null) return null;
 
   return {
     isInline: true,
-    inlineFields: inlineFields,
+    inlineFields: inlineFields,  // {} (모두 표시) 또는 {key: false} (일부 숨김)
     name: `${accountCode} 계정 양식 (${stage})`,
     fields: [],           // 레거시 renderDynamicFormFields 간섭 방지
     _source: 'form_config', // 소스 식별자

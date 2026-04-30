@@ -599,7 +599,7 @@ async function _formSave() {
   const acc = _formAccountList.find(a => a.code === _formAccountCode);
   if (!acc) return alert('예산계정을 선택하세요.');
 
-  // 현재 계정의 모든 양식 설정을 수집
+  // 현재 계정의 모든 양식 설정을 수집 (토글 안 한 필드도 기본값으로 명시 저장)
   const formConfig = {};
   const eduTypes = acc.edu_types || [];
   const pattern = acc.process_pattern || 'A';
@@ -608,9 +608,22 @@ async function _formSave() {
   eduTypes.forEach(et => {
     stages.forEach(s => {
       const key = `${et}|${s}`;
+      // _FORM_FIELDS[s] 카탈로그에서 전체 필드 목록 가져와 기본값(false) 초기화
+      const allFieldsForStage = {};
+      (_FORM_FIELDS[s] || []).forEach(cat => {
+        (cat.fields || []).forEach(f => {
+          // locked 필드는 항상 true(필수), 나머지는 현재 토글값 또는 false
+          allFieldsForStage[f.key] = f.locked ? true : false;
+        });
+      });
+      // 사용자가 토글한 값으로 덮어쓰기
       if (_formFieldStates[key]) {
+        Object.assign(allFieldsForStage, _formFieldStates[key]);
+      }
+      // 하나라도 필드가 있는 경우만 저장
+      if (Object.keys(allFieldsForStage).length > 0) {
         if (!formConfig[et]) formConfig[et] = {};
-        formConfig[et][s] = _formFieldStates[key];
+        formConfig[et][s] = allFieldsForStage;
       }
     });
   });

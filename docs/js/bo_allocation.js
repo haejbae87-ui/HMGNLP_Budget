@@ -963,6 +963,22 @@ function renderTeamDist() {
   const ab = ACCOUNT_BUDGETS.find((x) => x.id === _distAbId);
   const distributable = ab ? getDistributable(ab) : 0;
 
+  // ── 통장 정책(bankbook_mode) 조회 ─────────────────────────────────────
+  // window._baPolicyCache: {accountCode: {bankbook_mode, bankbook_level, individual_limit}}
+  const policyCache = window._baPolicyCache || {};
+  const bbPolicy = policyCache[ab?.accountCode] || {};
+  const bbMode = bbPolicy.bankbook_mode || 'isolated';
+  const bbLevel = bbPolicy.bankbook_level || 'team';
+  const individualLimit = bbPolicy.individual_limit || 0;
+
+  // 정책별 뱃지 + 색상
+  const modeBadgeMap = {
+    isolated: { label: '🔒 팀격리', bg: '#DBEAFE', color: '#1D4ED8', desc: '교육조직→팀 단위로 예산이 격리 배분됩니다' },
+    shared:   { label: '🤝 조직공유', bg: '#D1FAE5', color: '#065F46', desc: '교육조직 단위로 예산을 공유하며, 팀 배분 없이 사용합니다' },
+    individual: { label: '👤 개인별', bg: '#FEF3C7', color: '#92400E', desc: '개인별 한도가 설정되며, 팀 내 개인 단위로 예산이 관리됩니다' },
+  };
+  const modeBadge = modeBadgeMap[bbMode] || modeBadgeMap.isolated;
+
   const acctSelectHtml = `
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
   ${myBudgets
@@ -970,8 +986,14 @@ function renderTeamDist() {
       const a = ACCOUNT_MASTER.find((x) => x.code === b.accountCode);
       const isSel = b.id === _distAbId;
       const d = getDistributable(b);
+      const bPolicy = policyCache[b.accountCode] || {};
+      const bMode = bPolicy.bankbook_mode || 'isolated';
+      const bBadge = modeBadgeMap[bMode] || modeBadgeMap.isolated;
       return `<button onclick="selectDistAb('${b.id}')" style="padding:8px 14px;border-radius:10px;cursor:pointer;border:2px solid ${isSel ? "#059669" : "#E5E7EB"};background:${isSel ? "#F0FDF4" : "white"};font-weight:700;font-size:11px">
-      <div style="color:${isSel ? "#059669" : "#374151"}">${a?.name || b.accountCode}</div>
+      <div style="display:flex;align-items:center;gap:4px">
+        <span style="color:${isSel ? "#059669" : "#374151"}">${a?.name || b.accountCode}</span>
+        <span style="font-size:8px;padding:1px 5px;border-radius:3px;background:${bBadge.bg};color:${bBadge.color};font-weight:800">${bBadge.label}</span>
+      </div>
       <div style="font-size:10px;color:${d > 0 ? "#059669" : "#9CA3AF"};margin-top:2px">${d > 0 ? "📦 " + boFmt(d) + "원" : "완전 배분"}</div>
     </button>`;
     })
@@ -984,6 +1006,68 @@ function renderTeamDist() {
       `<div style="padding:30px;text-align:center;color:#9CA3AF">계정을 선택하세요.</div>`
     );
 
+  // ── 통장 정책 안내 배너 ────────────────────────────────────────────────
+  const policyBanner = `
+  <div style="padding:10px 16px;background:${modeBadge.bg}22;border:1.5px solid ${modeBadge.bg};border-radius:10px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
+    <span style="font-size:20px">${modeBadge.label.split(' ')[0]}</span>
+    <div>
+      <div style="font-size:12px;font-weight:800;color:${modeBadge.color}">통장 정책: ${modeBadge.label}</div>
+      <div style="font-size:11px;color:#6B7280">${modeBadge.desc}</div>
+    </div>
+  </div>`;
+
+  // ── shared 모드: 교육조직 단위 배분만 (팀 배분 UI 숨김) ──────────────
+  if (bbMode === 'shared') {
+    return `
+    <div style="max-width:800px">
+      ${vmBanner}
+      ${policyBanner}
+      ${acctSelectHtml}
+      <div style="padding:12px 16px;background:#F0FDF4;border:1.5px solid #BBF7D0;border-radius:10px;margin-bottom:16px">
+        <div style="font-size:10px;color:#6B7280">배분 가능 재원</div>
+        <div style="font-weight:900;font-size:18px;color:#1D4ED8">${boFmt(distributable)}원</div>
+      </div>
+      <div class="bo-card" style="padding:24px;text-align:center">
+        <div style="font-size:32px;margin-bottom:8px">🤝</div>
+        <div style="font-weight:800;font-size:14px;color:#065F46;margin-bottom:6px">조직 공유 모드</div>
+        <div style="font-size:12px;color:#6B7280;line-height:1.6">
+          이 계정은 <b>교육조직 단위 공유</b> 정책이 적용됩니다.<br>
+          팀별 배분 없이 교육조직 전체가 예산을 공유하여 사용합니다.<br>
+          개별 팀 배분이 필요한 경우, 예산계정 관리에서 정책을 <b>팀격리(isolated)</b>로 변경하세요.
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // ── individual 모드: 개인 한도 설정 UI ─────────────────────────────────
+  if (bbMode === 'individual') {
+    return `
+    <div style="max-width:800px">
+      ${vmBanner}
+      ${policyBanner}
+      ${acctSelectHtml}
+      <div style="padding:12px 16px;background:#FEF3C7;border:1.5px solid #FDE68A;border-radius:10px;margin-bottom:16px">
+        <div style="font-size:10px;color:#6B7280">배분 가능 재원</div>
+        <div style="font-weight:900;font-size:18px;color:#92400E">${boFmt(distributable)}원</div>
+        <div style="font-size:11px;color:#92400E;margin-top:4px">개인별 한도: <b>${individualLimit > 0 ? boFmt(individualLimit) + '원/인' : '미설정'}</b></div>
+      </div>
+      <div class="bo-card" style="padding:24px;text-align:center">
+        <div style="font-size:32px;margin-bottom:8px">👤</div>
+        <div style="font-weight:800;font-size:14px;color:#92400E;margin-bottom:6px">개인별 한도 모드</div>
+        <div style="font-size:12px;color:#6B7280;line-height:1.6">
+          이 계정은 <b>개인별 한도</b> 정책이 적용됩니다.<br>
+          팀 배분 대신 개인당 사용 가능 금액이 제한됩니다.<br>
+          개인별 한도는 예산계정 관리에서 설정할 수 있습니다.
+        </div>
+        ${individualLimit > 0 ? `<div style="margin-top:12px;padding:8px 16px;background:#FEF3C7;border-radius:8px;display:inline-block">
+          <span style="font-size:11px;color:#92400E;font-weight:700">현재 설정: </span>
+          <span style="font-size:14px;font-weight:900;color:#92400E">${boFmt(individualLimit)}원/인</span>
+        </div>` : ''}
+      </div>
+    </div>`;
+  }
+
+  // ── isolated 모드 (기본): 교육조직→팀 배분 그리드 ─────────────────────
   const isRnd = ab.accountCode.includes("RND");
   const tpl = VIRTUAL_EDU_ORGS.find(
     (t) => t.tenantId === ab.tenantId && (isRnd ? t.tree.centers : t.tree.hqs),
@@ -1048,6 +1132,7 @@ function renderTeamDist() {
   return `
 <div style="max-width:800px">
   ${vmBanner}
+  ${policyBanner}
   <div style="padding:10px 16px;background:#EDE9FE;border:1px solid #C4B5FD;border-radius:10px;margin-bottom:16px;font-size:12px;color:#5B21B6;font-weight:600">
     📋 <b>일괄 배분</b> — 계정의 배분 가능 재원을 팀에 한 번에 나눠줍니다.
   </div>
@@ -1680,6 +1765,28 @@ async function _syncAllocFromDB(persona) {
       .in("id", acctIds);
     const acctMap = {};
     (accts || []).forEach((a) => { acctMap[a.id] = a; });
+
+    // 3-b. 통장 정책 캐시 로드 (bankbook_mode 기반 UI 분기용)
+    try {
+      const { data: policies } = await sb
+        .from("budget_account_org_policy")
+        .select("budget_account_id, bankbook_mode, bankbook_level, individual_limit")
+        .in("budget_account_id", acctIds);
+      const cache = {};
+      (policies || []).forEach(p => {
+        const acct = acctMap[p.budget_account_id];
+        if (acct) {
+          cache[acct.code] = {
+            bankbook_mode: p.bankbook_mode || 'isolated',
+            bankbook_level: p.bankbook_level || 'team',
+            individual_limit: p.individual_limit || 0,
+          };
+        }
+      });
+      window._baPolicyCache = cache;
+    } catch (polErr) {
+      console.warn("[BO Alloc Sync] policy cache load (non-critical):", polErr.message);
+    }
 
     // 4. bankbook_id �� �ֽ� allocation ��
     const allocMap = {};

@@ -2015,3 +2015,236 @@ window.foRenderStandardReadOnlyForm = function (data, context = 'FO') {
     </div>
   `;
 };
+
+// ─── BO form_config → FO inlineFields 변환 시스템 ────────────────────────────
+// BO 양식관리(bo_form_management.js)에서 budget_accounts.form_config에 저장한
+// 필드 ON/OFF 설정을 FO의 foRenderStandardPlanForm이 이해하는 inlineFields 형식으로 변환합니다.
+
+// BO _FORM_FIELDS 키 → FO foRenderStandardPlanForm inlineFields 키 매핑 테이블
+const _BO_TO_FO_KEY_MAP = {
+  // 기본정보
+  edu_purpose:        'edu_purpose',        // 교육목적 (select)
+  edu_type:           null,                 // 교육유형은 Step2에서 이미 선택 → FO에선 별도 표시 안 함
+  course_name:        'course_name',        // 교육과정명
+  is_overseas:        'is_overseas',        // 국내/해외
+  target_audience:    'target_audience',    // 교육대상
+  planned_headcount:  'planned_headcount',  // 참가인원
+  planned_rounds:     'planned_rounds',     // 예상차수
+  planned_days:       'edu_days',           // 교육일수
+  hours_per_round:    'hours_per_round',    // 차수별 학습시간
+  edu_period:         'start_end_date',     // 교육기간(시작~종료)
+  is_continuing:      'is_continuing',      // 전년도 계속여부
+  institution_name:   'edu_org',            // 교육기관
+  venue_detail:       'venue_type',         // 장소유형
+  venue_type:         'venue_type',         // 장소유형(alias)
+  is_ei_eligible:     'is_ei_eligible',     // 고용보험 환급여부
+  education_region:   'is_overseas',        // 교육지역 = 국내/해외
+  // 교육내용
+  learning_objective: 'learning_objective', // 교육목표/내용
+  course_description: 'learning_objective', // 과정설명(alias)
+  expected_benefit:   'learning_objective', // 기대효과 → 교육목표에 포함
+  supporting_docs:    'supporting_docs',    // 증빙자료/첨부파일
+  apply_reason:       'learning_objective', // 신청사유 → 교육목표에 포함
+  course_brochure:    'supporting_docs',    // 과정안내서
+  learning_content:   'learning_objective', // 학습내용
+  planned_hours:      'hours_per_round',    // 학습시간
+  planned_duration:   'edu_days',           // 학습기간(일수)
+  overseas_country:   'is_overseas',        // 해외국가 → 해외여부 연동
+  education_format:   'education_format',   // 교육형태(온/오프)
+  has_accommodation:  'has_accommodation',  // 숙박여부
+  lunch_provided:     'lunch_provided',     // 중식제공
+  is_paid_education:  'is_paid_education',  // 유료교육여부
+  instructor_name:    'instructor_name',    // 강사명
+  // 비용항목
+  requested_budget:   'requested_budget',   // 요청예산규모
+  calc_grounds:       'calc_grounds',       // 세부산출근거
+  admin_comment:      null,                 // 관리자 코멘트 → BO 전용
+  allocated_amount:   null,                 // 배정액 → BO 전용
+  planned_amount:     'requested_budget',   // 계획금액
+  // 결과 단계 전용 (결과 단계에서만 적용)
+  is_completed:       'is_completed',
+  score:              'score',
+  actual_hours:       'actual_hours',
+  actual_days:        'actual_days',
+  attendance_rate:    'attendance_rate',
+  review_comment:     'review_comment',
+  work_application_plan: 'work_application_plan',
+  recommendation_target: 'recommendation_target',
+  share_result:       'share_result',
+  remarks:            'remarks',
+  satisfaction_rating:'satisfaction_rating',
+  actual_cost:        'actual_cost',
+  payment_method:     'payment_method',
+  payment_date:       'payment_date',
+  ei_refund_amount:   'ei_refund_amount',
+  payment_completed:  'payment_completed',
+  completion_cert:    'supporting_docs',
+  expense_receipt:    'supporting_docs',
+  receipt:            'supporting_docs',
+};
+
+// budget_accounts.form_config 캐시 (TTL 기반)
+let _FORM_CONFIG_CACHE = {};  // { 'tenantId|accountCode': { data, loadedAt } }
+const _FORM_CONFIG_TTL = 60_000; // 60초
+
+/**
+ * budget_accounts 테이블에서 form_config를 로드합니다.
+ * @param {string} accountCode - 예산계정 코드
+ * @param {string} tenantId - 테넌트 ID
+ * @returns {Promise<Object|null>} form_config 객체 또는 null
+ */
+async function loadBudgetAccountFormConfig(accountCode, tenantId) {
+  if (!accountCode) return null;
+  const cacheKey = `${tenantId || ''}|${accountCode}`;
+  const cached = _FORM_CONFIG_CACHE[cacheKey];
+  if (cached && Date.now() - cached.loadedAt < _FORM_CONFIG_TTL) {
+    return cached.data;
+  }
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) return null;
+  try {
+    let q = sb.from('budget_accounts').select('form_config').eq('code', accountCode);
+    if (tenantId) q = q.eq('tenant_id', tenantId);
+    const { data, error } = await q.maybeSingle();
+    if (error || !data) {
+      console.warn('[fo_form_loader] form_config 로드 실패:', error?.message);
+      return null;
+    }
+    const config = data.form_config || null;
+    _FORM_CONFIG_CACHE[cacheKey] = { data: config, loadedAt: Date.now() };
+    console.log(`[fo_form_loader] form_config 로드: ${accountCode} →`, config ? '설정 있음' : '설정 없음');
+    return config;
+  } catch(e) {
+    console.warn('[fo_form_loader] form_config 로드 예외:', e.message);
+    return null;
+  }
+}
+window.loadBudgetAccountFormConfig = loadBudgetAccountFormConfig;
+
+/**
+ * BO form_config를 FO inlineFields 형식으로 변환합니다.
+ * @param {Object} formConfig - budget_accounts.form_config 전체 객체
+ * @param {string} eduType - 선택된 교육유형 ID (예: 'elearning', '정규교육')
+ * @param {string} stage   - 단계 (forecast|operation|apply|result)
+ * @returns {Object|null} inlineFields 객체 (foRenderStandardPlanForm 입력용), 없으면 null
+ */
+function getFormConfigAsInlineFields(formConfig, eduType, stage) {
+  if (!formConfig || !eduType || !stage) return null;
+
+  // FO의 'plan' 단계 = BO의 'forecast' 또는 'operation' 단계 매핑
+  const stageAliases = {
+    'plan':      ['forecast', 'operation', 'plan'],
+    'forecast':  ['forecast'],
+    'operation': ['operation'],
+    'apply':     ['apply'],
+    'result':    ['result'],
+  };
+  const targetStages = stageAliases[stage] || [stage];
+
+  // eduType 기반으로 form_config에서 설정 추출
+  // form_config 구조: { [eduType]: { [stage]: { [fieldKey]: boolean } } }
+  let fieldStates = null;
+
+  // 1순위: 정확한 eduType 매칭
+  if (formConfig[eduType]) {
+    for (const s of targetStages) {
+      if (formConfig[eduType][s]) {
+        fieldStates = formConfig[eduType][s];
+        break;
+      }
+    }
+  }
+
+  // 2순위: 부분 매칭 (eduType이 키에 포함되는 경우)
+  if (!fieldStates) {
+    const matchedKey = Object.keys(formConfig).find(k =>
+      k.includes(eduType) || eduType.includes(k)
+    );
+    if (matchedKey) {
+      for (const s of targetStages) {
+        if (formConfig[matchedKey][s]) {
+          fieldStates = formConfig[matchedKey][s];
+          console.log(`[fo_form_loader] form_config 부분 매칭: ${matchedKey} (요청: ${eduType})`);
+          break;
+        }
+      }
+    }
+  }
+
+  // 3순위: eduType 무관, 첫 번째 유효한 단계 설정 사용
+  if (!fieldStates) {
+    for (const etKey of Object.keys(formConfig)) {
+      for (const s of targetStages) {
+        if (formConfig[etKey][s] && Object.keys(formConfig[etKey][s]).length > 0) {
+          fieldStates = formConfig[etKey][s];
+          console.log(`[fo_form_loader] form_config 폴백 사용: ${etKey}|${s}`);
+          break;
+        }
+      }
+      if (fieldStates) break;
+    }
+  }
+
+  if (!fieldStates || Object.keys(fieldStates).length === 0) {
+    console.log(`[fo_form_loader] form_config: ${eduType}|${stage} 설정 없음 → 기본 표시 적용`);
+    return null;
+  }
+
+  // BO 키 → FO 키 변환
+  const inlineFields = {};
+  for (const [boKey, isOn] of Object.entries(fieldStates)) {
+    const foKey = _BO_TO_FO_KEY_MAP[boKey];
+    if (foKey === null) continue; // BO 전용 필드 (FO에서 표시 안 함)
+    if (foKey === undefined) {
+      // 매핑 없는 키는 그대로 사용
+      inlineFields[boKey] = isOn === true ? true : false;
+    } else {
+      // 이미 true로 설정된 경우 유지 (여러 BO 키가 같은 FO 키를 가리킬 수 있음)
+      if (inlineFields[foKey] !== true) {
+        inlineFields[foKey] = isOn === true ? true : false;
+      }
+    }
+  }
+
+  console.log(`[fo_form_loader] form_config → inlineFields 변환 완료 (${eduType}|${stage}):`, inlineFields);
+  return Object.keys(inlineFields).length > 0 ? inlineFields : null;
+}
+window.getFormConfigAsInlineFields = getFormConfigAsInlineFields;
+
+/**
+ * budget_accounts form_config를 DB에서 로드하고 inlineFields로 변환하는 통합 함수.
+ * fo_plans_actions.js의 planNext() step3 진입 시 호출합니다.
+ * @param {string} accountCode - 예산계정 코드
+ * @param {string} tenantId    - 테넌트 ID
+ * @param {string} eduType     - 교육유형 ID
+ * @param {string} stage       - 단계 (plan|apply|result)
+ * @returns {Promise<Object|null>} { isInline: true, inlineFields, name } 또는 null
+ */
+async function loadFormConfigTemplate(accountCode, tenantId, eduType, stage) {
+  const config = await loadBudgetAccountFormConfig(accountCode, tenantId);
+  if (!config) return null;
+
+  const inlineFields = getFormConfigAsInlineFields(config, eduType, stage);
+  if (!inlineFields) return null;
+
+  return {
+    isInline: true,
+    inlineFields: inlineFields,
+    name: `${accountCode} 계정 양식 (${stage})`,
+    fields: [],           // 레거시 renderDynamicFormFields 간섭 방지
+    _source: 'form_config', // 소스 식별자
+  };
+}
+window.loadFormConfigTemplate = loadFormConfigTemplate;
+
+// form_config 캐시 무효화 (BO 저장 직후 또는 페르소나 변경 시 호출)
+function invalidateFormConfigCache(accountCode, tenantId) {
+  if (accountCode && tenantId) {
+    delete _FORM_CONFIG_CACHE[`${tenantId}|${accountCode}`];
+  } else {
+    _FORM_CONFIG_CACHE = {};
+  }
+  console.log('[fo_form_loader] form_config 캐시 무효화');
+}
+window.invalidateFormConfigCache = invalidateFormConfigCache;
+

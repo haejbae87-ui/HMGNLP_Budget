@@ -1,14 +1,14 @@
-# 기능 단위 파일 분리 체크리스트
+# 🚧 실시간 AI 작업 진행 상황
 
-- [ ] js/data.js – 데이터 레이어 (PERSONAS, MOCK_HISTORY, MOCK_PLANS, applyState)
-- [ ] css/styles.css – 전역 CSS 스타일
-- [ ] js/utils.js – 공통 유틸 함수 (fmt, statusBadge, navigate, switchPersona)
-- [ ] js/gnb.js – GNB(상단 네비게이션) + Floating Budget Widget
-- [ ] js/dashboard.js – 대시보드 렌더링
-- [ ] js/plans.js – 교육계획 렌더링 + 폼 핸들러
-- [ ] js/history.js – 교육신청 목록 렌더링
-- [ ] js/apply.js – 교육신청 4단계 스텝 렌더링 + 핸들러
-- [ ] js/budget.js – 예산 관리 렌더링
-- [ ] js/mypage.js – 마이페이지 렌더링
-- [ ] js/main.js – 앱 초기화 (DOMContentLoaded)
-- [ ] index.html – 슬림화 (script/style 태그 → 외부 파일 참조)
+**작업**: BO 양식관리 → FO 연결 (form_config 연동)
+**시작**: 2026-04-30
+
+---
+
+- [x] Step 1: 현황 분석 완료 — fo_form_loader.js + fo_plans_actions.js 구조 파악
+- [x] Step 2: Domain Council 교차 검증 완료
+- [x] Step 3: fo_form_loader.js에 getFormConfigAsInlineFields() + loadFormConfigTemplate() 추가 완료
+- [ ] ⏳ Step 4: fo_plans_actions.js 수정 — planNext() Step3 진입시 form_config 로드 (진행 중 🛠️)
+- [ ] Step 5: fo_apply_form.js 수정 — applyState formTemplate 동일 적용  
+- [ ] Step 6: BO 저장 시 FO 캐시 무효화 연동
+- [ ] Step 7: 문법 검증 + git push

@@ -74,20 +74,41 @@ function planNext() {
       null;
 
     (async () => {
-      // 양식 로드 + 세부산출근거 DB 로드 병렬 수행
-      const tplPromise =
-        matched && typeof getFoFormTemplate === "function"
-          ? getFoFormTemplate(matched, "plan", eduType)
-          : Promise.resolve(null);
-      const cgPromise =
-        typeof _foLoadCalcGrounds === "function"
-          ? _foLoadCalcGrounds()
-          : Promise.resolve([]);
-      const [tpl] = await Promise.all([tplPromise, cgPromise]);
+      // ★ 우선순위: BO 양식관리(form_config) → form_templates DB 순으로 폴백
+      // 1) 예산계정 코드 + 테넌트 ID 추출
+      const budgets = currentPersona?.budgets || [];
+      const selectedBudget = budgets.find((x) => x.id === planState.budgetId);
+      const accCode = selectedBudget?.accountCode || selectedBudget?.account_code || accCode;
+      const tenantId = currentPersona?.tenantId || currentPersona?.tenant_id || null;
+
+      // 세부산출근거 DB 로드 (병렬)
+      const cgPromise = typeof _foLoadCalcGrounds === 'function'
+        ? _foLoadCalcGrounds()
+        : Promise.resolve([]);
+
+      // 2) form_config 우선 시도 (BO 양식관리 연동)
+      let tpl = null;
+      if (accCode && typeof loadFormConfigTemplate === 'function') {
+        tpl = await loadFormConfigTemplate(accCode, tenantId, eduType, 'plan');
+        if (tpl) {
+          console.log('[planNext] BO form_config 기반 양식 적용:', tpl.name);
+        }
+      }
+
+      // 3) form_config 없으면 기존 form_templates DB 방식으로 폴백
+      if (!tpl && matched && typeof getFoFormTemplate === 'function') {
+        tpl = await getFoFormTemplate(matched, 'plan', eduType);
+        if (tpl) {
+          console.log('[planNext] form_templates DB 방식 폴백:', tpl.name || tpl.id);
+        }
+      }
+
+      await cgPromise; // calc_grounds 로드 완료 대기
       planState.formTemplate = tpl || null;
       planState.formTemplateLoading = false;
       renderPlanWizard();
     })();
+
     return;
   }
   renderPlanWizard();
@@ -591,11 +612,17 @@ async function resumePlanDraft(planId) {
     if (rMatched) planState.policyId = rMatched.id;
 
     let tpl = null;
-    if (rMatched && typeof getFoFormTemplate === "function") {
-      // ★ P1-1 수정: 이어쓰기 시에도 eduType 전달
-      const rEduType =
-        planState.subType || planState.eduType || data.edu_type || "";
-      tpl = await getFoFormTemplate(rMatched, "plan", rEduType);
+    const rEduType = planState.subType || planState.eduType || data.edu_type || '';
+    const rTenantId = currentPersona?.tenantId || currentPersona?.tenant_id || null;
+
+    // ★ 우선순위: BO form_config → form_templates DB 폴백
+    if (rAccCode && typeof loadFormConfigTemplate === 'function') {
+      tpl = await loadFormConfigTemplate(rAccCode, rTenantId, rEduType, 'plan');
+      if (tpl) console.log('[planEdit] BO form_config 기반 양식 적용:', tpl.name);
+    }
+    if (!tpl && rMatched && typeof getFoFormTemplate === 'function') {
+      tpl = await getFoFormTemplate(rMatched, 'plan', rEduType);
+      if (tpl) console.log('[planEdit] form_templates DB 방식 폴백:', tpl.name || tpl.id);
     }
     planState.formTemplate = tpl || null;
     planState.formTemplateLoading = false;

@@ -130,7 +130,7 @@ function _renderApplyConfirm() {
       </div>
       <!-- 요약 (7단계 통합 뷰) -->
       <div style="padding:24px 28px; background:#F9FAFB">
-        ${typeof window.foRenderStandardReadOnlyForm === 'function' ? window.foRenderStandardReadOnlyForm({...s, amount: totalExp, accountCode}, 'FO') : '<p>렌더러 로딩 중...</p>'}
+        ${typeof window.foRenderStandardReadOnlyForm === 'function' ? window.foRenderStandardReadOnlyForm({...s, amount: totalExp, accountCode}, 'FO', (s.formTemplate && s.formTemplate.inlineFields) || null) : '<p>렌더러 로딩 중...</p>'}
         
         <div style="margin-top:20px;padding:12px 16px;background:#FEF3C7;border-radius:10px;border:1.5px solid #FDE68A;font-size:12px;color:#92400E">
           ⚠️ <strong>확정 제출</strong> 시 상신 문서가 자동 생성되어 팀장 결재함으로 전달됩니다.<br>

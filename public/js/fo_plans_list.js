@@ -1800,8 +1800,8 @@ async function foBundleConfirmSubmit() {
 
 // ─── P2: 교육계획 복제 (폼 선로드 방식) ─────────────────────────────────────
 
-// DB에 즉시 저장하지 않고, 원본 데이터를 읽어 폼 마법사에 미리 채운다.
-// 사용자가 내용 수정 후 '저장'을 눌러야 비로소 새 draft가 생성된다.
+// DB에 draft 상태로 즉시 저장 후 step 3(세부정보 입력)으로 진입한다.
+// 사용자가 내용 확인/수정 후 '저장'을 눌러 저장 완료 처리.
 async function clonePlan(planId) {
   const sb = typeof getSB === 'function' ? getSB() : null;
 
@@ -1831,11 +1831,12 @@ async function clonePlan(planId) {
 
   // ── planState 초기화 후 원본 데이터 매핑 ──────────────────────────────────
   const d = original.detail || {};
+  const cloneId = 'PLAN-CLONE-' + Date.now(); // 복제본 고유 ID
 
   // resumePlanDraft()와 동일한 방식으로 planState 복원
   planState = resetPlanState();
-  planState.editId = null;                              // 새 계획 → ID 없음
-  planState.title = '[복제] ' + (original.edu_name || ''); // 제목에 [복제] 접두어
+  planState.editId = cloneId;                               // 복제본 새 ID 부여
+  planState.title = (original.edu_name || '') + '_복제';   // ★ 접미어 _복제
   planState.eduType = original.edu_type || d.eduType || '';
   planState.eduSubType = d.eduSubType || '';
   planState.subType = d.eduSubType || '';
@@ -1876,10 +1877,54 @@ async function clonePlan(planId) {
     }
   }
 
-  // step 4(상세 입력)로 바로 진입 — 제목/목적은 이미 채워져 있음
-  planState.step = 4;
+  // ★ step 3(세부정보) 으로 진입 — step=4는 빈 화면이 됨
+  planState.step = 3;
   planState.formTemplateLoading = true;
   _viewingPlanDetail = null;
+
+  // ★ DB에 즉시 draft 저장 — 닫아도 데이터 보존
+  if (sb) {
+    try {
+      const curBudget = planState.budgetId
+        ? (currentPersona.budgets || []).find(b => b.id === planState.budgetId)
+        : null;
+      await sb.from('plans').insert({
+        id: cloneId,
+        tenant_id: currentPersona.tenantId,
+        edu_name: planState.title,
+        edu_type: planState.eduType || null,
+        plan_type: planState.plan_type || 'ongoing',
+        status: 'draft',
+        amount: Number(planState.amount) || 0,
+        account_code: original.account_code || curBudget?.accountCode || '',
+        applicant_id: currentPersona.id,
+        applicant_name: currentPersona.name,
+        dept: currentPersona.dept || '',
+        applicant_org_id: currentPersona.orgId || null,
+        fiscal_year: planState.fiscal_year || new Date().getFullYear(),
+        policy_id: planState.policyId || null,
+        detail: {
+          ...d,
+          purpose: purposeId || null,
+          budgetId: planState.budgetId || null,
+          calcGrounds: planState.calcGrounds,
+          locations: planState.locations,
+          region: planState.region,
+          startDate: planState.startDate,
+          endDate: planState.endDate,
+          content: planState.content,
+          eduSubType: planState.eduSubType,
+          _clonedFromId: planId,  // 출처 추적
+          _bo: undefined,         // BO 코멘트 제외
+        },
+        created_at: new Date().toISOString(),
+      });
+      console.log('[clonePlan] draft 즉시 저장 완료:', cloneId);
+    } catch (saveErr) {
+      console.warn('[clonePlan] draft 즉시 저장 실패 (비치명적):', saveErr.message);
+      // 저장 실패해도 폼 진입은 허용 — 사용자가 직접 저장 가능
+    }
+  }
 
   // 폼 템플릿 비동기 로드 (resumePlanDraft 동일 패턴)
   renderPlans();
@@ -1892,7 +1937,7 @@ async function clonePlan(planId) {
       renderPlans();
     });
   } else {
-    // 폼 템플릿 로더 없을 시 즉시 step 4 표시
+    // 폼 템플릿 로더 없을 시 즉시 step 3 표시
     setTimeout(() => {
       planState.formTemplateLoading = false;
       renderPlans();
@@ -1900,6 +1945,7 @@ async function clonePlan(planId) {
   }
 }
 window.clonePlan = clonePlan;
+
 
 // ─── [S-11] 배정액 축소 + 예산 환불 ──────────────────────────────────────────
 // PRD: allocation_reduce_refund.md

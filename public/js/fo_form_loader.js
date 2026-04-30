@@ -1786,10 +1786,22 @@ function getLineItemFieldConfig(eduType) {
 window.getLineItemFieldConfig = getLineItemFieldConfig;
 
 // ─── 7단계 통합 읽기 전용 뷰 ─────────────────────────────────────────────
-window.foRenderStandardReadOnlyForm = function (data, context = 'FO') {
+window.foRenderStandardReadOnlyForm = function (data, context = 'FO', inlineFields = null) {
   const isBO = context === 'BO';
   // 데이터 정규화: FO(planState) vs BO(DB Record)
   const d = data.detail || {};
+
+  // ★ inlineFields 자동 감지: 호출자가 명시적으로 전달하지 않아도
+  //   data 안에 form_config (BO 양식 설정) 또는 _inlineFields가 있으면 자동 적용.
+  //   form_config는 { plan: {...}, apply: {...} } 구조이므로 plan/ongoing/forecast 키 우선 추출.
+  if (!inlineFields) {
+    const fc = data.form_config || d.form_config;
+    if (fc && typeof fc === 'object') {
+      inlineFields = fc.plan || fc.ongoing || fc.forecast || fc;
+    } else if (data._inlineFields) {
+      inlineFields = data._inlineFields;
+    }
+  }
   const ef = data.extra_fields || d.extra_fields || {};
 
   const title = data.title || data.edu_name || d.title || '-';
@@ -1979,16 +1991,24 @@ window.foRenderStandardReadOnlyForm = function (data, context = 'FO') {
     ? `<div style="display:flex;gap:4px;flex-wrap:wrap">` + locations.map(l => `<span style="padding:2px 8px;border-radius:12px;background:#EFF6FF;color:#1D4ED8;font-size:11px;font-weight:700">${typeof l==='string'?l:(l.name||l.label)}</span>`).join('') + `</div>` 
     : '';
 
+  // inlineFields가 있으면 활성화된 필드만 표시, 없으면 값이 있는 것만 표시
+  const _hasField = (foKey) => {
+    if (!inlineFields || Object.keys(inlineFields).length === 0) return true; // 설정 없으면 전체 표시
+    // inlineFields는 { foKey: true/false } 형태
+    if (foKey in inlineFields) return !!inlineFields[foKey];
+    return true; // 등록되지 않은 키는 표시 허용
+  };
+
   const scheduleRows = [
-    row('교육기간', `${startDate} ~ ${endDate}`),
-    row('총 학습시간', hours !== '-' ? `${hours}H` : null),
-    row('예상차수', plannedRounds !== '-' ? `${plannedRounds}회` : null),
-    row('교육일수', plannedDays !== '-' ? `${plannedDays}일` : null),
-    row('예상인원', participantCount !== '-' ? `${participantCount}명` : null),
-    row('국내/해외', regionLabel),
-    row('장소유형', venueLabel),
-    row('교육기관', eduOrg),
-    locHtml ? row('세부장소', locHtml) : ''
+    (_hasField('start_end_date') && startDate !== '-') ? row('교육기간', `${startDate} ~ ${endDate}`) : '',
+    (_hasField('hours_per_round') && hours !== '-') ? row('총 학습시간', `${hours}H`) : '',
+    (_hasField('planned_rounds') && plannedRounds !== '-') ? row('예상차수', `${plannedRounds}회`) : '',
+    (_hasField('edu_days') && plannedDays !== '-') ? row('교육일수', `${plannedDays}일`) : '',
+    (_hasField('planned_headcount') && participantCount !== '-') ? row('예상인원', `${participantCount}명`) : '',
+    _hasField('is_overseas') ? row('국내/해외', regionLabel) : '',
+    _hasField('venue_type') ? row('장소유형', venueLabel) : '',
+    _hasField('edu_org') ? row('교육기관', eduOrg) : '',
+    (locHtml && _hasField('venue_type')) ? row('세부장소', locHtml) : ''
   ].filter(Boolean);
 
   // 4. 교육 기관

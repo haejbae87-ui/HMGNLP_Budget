@@ -670,7 +670,8 @@ function _renderPlanCard(p) {
     saved: { color: "#065F46", bg: "#ECFDF5", border: "#6EE7B7", icon: "📤" },
     pending: { color: "#D97706", bg: "#FFFBEB", border: "#FDE68A", icon: "⏳" },
     submitted: { color: "#D97706", bg: "#FFFBEB", border: "#FDE68A", icon: "⏳" },
-    in_review: { color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE", icon: "🔄" },
+    team_approved: { color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE", icon: "🔍" },
+    in_review: { color: "#2563EB", bg: "#EFF6FF", border: "#BFDBFE", icon: "🔄" },
     approved: { color: "#059669", bg: "#F0FDF4", border: "#BBF7D0", icon: "✅" },
     rejected: { color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", icon: "❌" },
     recalled: { color: "#9CA3AF", bg: "#F9FAFB", border: "#E5E7EB", icon: "↩️" },
@@ -682,8 +683,9 @@ function _renderPlanCard(p) {
     draft: "임시저장",
     saved: "저장완료",
     pending: "결재대기",
-    submitted: "결재대기",
-    in_review: "1차검토완료",
+    submitted: "팀장 검토 대기",
+    team_approved: "운영자 검토 중",
+    in_review: "총괄담당자 검토 중",
     approved: "승인완료",
     rejected: "반려",
     recalled: "회수됨",
@@ -901,13 +903,15 @@ let _viewingPlanDetail = null;
 function viewPlanDetail(planId) {
   // DB plans 또는 mock에서 해당 계획 찾기
   const allPlans = typeof _plansDbCache !== "undefined" ? _plansDbCache : [];
+  const teamPlans = typeof _dbTeamPlans !== "undefined" ? _dbTeamPlans : [];
   const mockPlans =
     typeof currentPersona !== "undefined" && currentPersona.plans
       ? currentPersona.plans
       : [];
   const plan =
-    allPlans.find((p) => p.id === planId) ||
-    mockPlans.find((p) => p.id === planId);
+    allPlans.find((p) => String(p.id) === String(planId)) ||
+    teamPlans.find((p) => String(p.id) === String(planId)) ||
+    mockPlans.find((p) => String(p.id) === String(planId));
   if (!plan) {
     alert("계획을 찾을 수 없습니다.");
     return;

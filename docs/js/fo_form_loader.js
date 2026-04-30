@@ -1122,8 +1122,9 @@ window.refreshCalcGroundsByContext = function(foContext, prefix) {
  */
 window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
   const inline = inlineFields || {};
-  // ★ 블랙리스트 방식: form_config에서 명시적 false인 필드만 숨김, 나머지는 모두 표시
-  const hasFormConfig = Object.keys(inline).length > 0;
+  // ★ form_config 존재 여부 판단: 키가 하나라도 있으면 BO 설정이 적용된 것
+  const hasFormConfig = inlineFields !== null && inlineFields !== undefined;
+  console.log('[foRenderStandardPlanForm] hasFormConfig:', hasFormConfig, '| inlineFields:', JSON.stringify(inlineFields), '| 숨길 필드:', Object.keys(inline).filter(k => inline[k] === false));
 
   const isOverseas   = s.is_overseas === true || s.region === 'overseas';
   const eduType      = s.eduType || '';
@@ -1133,9 +1134,11 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
 
   const isNoBudget = curBudget?.account === '참가' || curBudget?.usesBudget === false || curBudget?.uses_budget === false;
 
-  // ★ 블랙리스트: inline[key] === false 일 때만 숨김, 그 외(true/undefined/미설정) 모두 표시
+  // ★ 화이트리스트+블랙리스트 하이브리드:
+  // - form_config가 있으면: inline[key] === false → 숨김 (BO에서 OFF한 필드)
+  // - form_config가 없으면: 모든 필드 표시 (기본 동작)
   const _shouldShow = (key, defaultShow = true) => {
-    if (inline[key] === false) return false;
+    if (hasFormConfig && inline[key] === false) return false;
     return defaultShow;
   };
 
@@ -1144,10 +1147,10 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
   const showTitle = _shouldShow('edu_name') || _shouldShow('course_name');
   const showDates = _shouldShow('start_end_date');
   const showVenue = _shouldShow('venue_type') && !isElearning;
-  const showHeadcount = _shouldShow('headcount') || _shouldShow('planned_headcount');
+  const showHeadcount = _shouldShow('headcount') && _shouldShow('planned_headcount');
   const showAmount = _shouldShow('requested_budget') && !isNoBudget;
   const showCalc = _shouldShow('calc_grounds') && !isNoBudget;
-  const showRounds = _shouldShow('planned_rounds') || _shouldShow('expected_count');
+  const showRounds = _shouldShow('planned_rounds') && _shouldShow('expected_count');
   
   const wrapSection = (title, icon, fieldsArray) => {
     const content = fieldsArray.filter(Boolean).join('\n');
@@ -1335,8 +1338,8 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
     _field('is_continuing', '전년도 계속 여부', 'boolean', ''),
     titleField,
     _field('learning_objective', '교육목표/내용/대상', 'textarea', '[교육목표]\\n\\n[교육내용]\\n\\n[교육대상]\\n\\n(내용을 작성해주세요)'),
-    _field('edu_category', '📑 필수구분 (법정/핵심 등)', 'text', '예: 법정의무교육'),
-    managerInfoField
+    hasFormConfig ? '' : _field('edu_category', '📑 필수구분 (법정/핵심 등)', 'text', '예: 법정의무교육'),
+    hasFormConfig ? '' : managerInfoField
   ];
 
   const scheduleFields = [

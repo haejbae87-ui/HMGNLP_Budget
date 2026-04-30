@@ -1566,17 +1566,18 @@ async function _updateBudgetBadges(plans) {
   }
   try {
     const fiscal = _planYear || new Date().getFullYear();
+    // ★ 실제 컬럼: id, account_code, fiscal_year, total_budget, deducted, holding, updated_at
     const { data, error } = await sb.from('account_budgets')
-      .select('account_code, total_budget, balance, used')
+      .select('account_code, total_budget, deducted, holding')
       .in('account_code', accounts)
-      .eq('fiscal_year', fiscal)
-      .eq('tenant_id', currentPersona.tenantId);
+      .eq('fiscal_year', fiscal);
     if (!error && data) {
       data.forEach(row => {
-        const balance = row.balance ?? (Number(row.total_budget||0) - Number(row.used||0));
+        const used = Number(row.deducted || 0) + Number(row.holding || 0);
+        const balance = Math.max(0, Number(row.total_budget || 0) - used);
         _budgetBadgeCache[row.account_code] = {
           total: Number(row.total_budget || 0),
-          balance: Math.max(0, balance),
+          balance,
         };
       });
     }

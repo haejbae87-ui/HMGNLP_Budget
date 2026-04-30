@@ -629,7 +629,12 @@ async function _formSave() {
     const idx = _formAccountList.findIndex(a => a.code === _formAccountCode);
     if (idx >= 0) _formAccountList[idx].form_config = formConfig;
 
-    alert('✅ 양식 설정이 저장되었습니다.');
+    // FO form_config 캐시 무효화 (fo_form_loader.js 연동)
+    if (typeof invalidateFormConfigCache === 'function') {
+      invalidateFormConfigCache(_formAccountCode, acc.tenant_id);
+    }
+
+    alert('✅ 양식 설정이 저장되었습니다.\nFO에 즉시 반영됩니다.');
   } catch(e) {
     console.error('[FormMgmt] 저장 실패:', e);
     alert('⚠️ 저장 실패: ' + (e.message || '알 수 없는 오류'));

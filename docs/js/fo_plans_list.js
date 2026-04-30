@@ -2772,3 +2772,40 @@ async function foRecallBundleAll(accountCode, dept, fiscalYear) {
   }
 }
 window.foRecallBundleAll = foRecallBundleAll;
+
+// ─── _loadFormTemplateForPlan: planState 기반 양식 비동기 로드 헬퍼 ────────────
+// fo_plans_list.js의 캠페인 진입 등에서 planState.formTemplate을 로드할 때 사용.
+// 우선순위: BO form_config → form_templates DB 폴백
+async function _loadFormTemplateForPlan(ps) {
+  if (!ps) return;
+  const budgets = currentPersona?.budgets || [];
+  const selectedBudget = budgets.find(b => b.id === ps.budgetId)
+    || (ps.contextAccountCode ? budgets.find(b => b.accountCode === ps.contextAccountCode || b.account_code === ps.contextAccountCode) : null);
+  const accCode = selectedBudget?.accountCode || selectedBudget?.account_code || ps.accountCode || ps.account_code || null;
+  const tenantId = currentPersona?.tenantId || currentPersona?.tenant_id || null;
+  const eduType = ps.subType || ps.eduType || ps.edu_type || '';
+
+  let tpl = null;
+
+  // 1) BO form_config 우선 시도
+  if (accCode && typeof loadFormConfigTemplate === 'function') {
+    tpl = await loadFormConfigTemplate(accCode, tenantId, eduType, 'plan');
+    if (tpl) {
+      console.log('[_loadFormTemplateForPlan] BO form_config 기반 양식 적용:', tpl.name);
+    }
+  }
+
+  // 2) form_templates DB 폴백 (기존 정책 기반)
+  if (!tpl && typeof getMatchedPolicyForStage === 'function') {
+    try {
+      tpl = await getMatchedPolicyForStage(currentPersona, ps.purpose?.id, accCode, 'plan');
+      if (tpl) console.log('[_loadFormTemplateForPlan] form_templates DB 방식 폴백:', tpl.name || tpl.id);
+    } catch(e) {
+      console.warn('[_loadFormTemplateForPlan] form_templates 폴백 실패:', e.message);
+    }
+  }
+
+  ps.formTemplate = tpl || null;
+}
+window._loadFormTemplateForPlan = _loadFormTemplateForPlan;
+

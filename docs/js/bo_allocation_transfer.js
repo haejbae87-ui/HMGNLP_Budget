@@ -68,6 +68,9 @@ function _allocShowTransferModal() {
   _allocLoadTransferBankbooks();
 }
 
+// ── F-E01: 통장 정책(bankbook_mode) 기반 이관 제약 캐시 ──
+let _transferPolicyCache = {};  // account_id → { bankbook_mode, individual_limit }
+
 async function _allocLoadTransferBankbooks() {
   const sb = typeof getSB === 'function' ? getSB() : null;
   if (!sb) return;
@@ -77,29 +80,72 @@ async function _allocLoadTransferBankbooks() {
   const tenantId = boCurrentPersona?.tenantId || 'HMC';
 
   try {
+    // 1. 통장 목록
     const { data: bankbooks } = await sb
       .from('org_budget_bankbooks')
-      .select('id,org_name,org_id,account_id,vorg_group_id,balance,status')
+      .select('id,org_name,org_id,account_id,vorg_group_id,template_id,balance,status,user_id')
       .eq('tenant_id', tenantId)
       .eq('status', 'active')
       .order('org_name');
 
+    // 2. 예산계정 정보
     const { data: accounts } = await sb
       .from('budget_accounts')
       .select('id,name,code')
       .eq('tenant_id', tenantId)
       .eq('active', true);
 
+    // 3. F-E01: 통장 정책(bankbook_mode) 로드
+    const { data: policies } = await sb
+      .from('budget_account_org_policy')
+      .select('budget_account_id,bankbook_mode,individual_limit');
+
+    _transferPolicyCache = {};
+    (policies || []).forEach(p => {
+      _transferPolicyCache[p.budget_account_id] = {
+        bankbook_mode: p.bankbook_mode || 'isolated',
+        individual_limit: p.individual_limit,
+      };
+    });
+
     const acctMap = {};
     (accounts || []).forEach(a => { acctMap[a.id] = a; });
 
     const bbs = (bankbooks || []).filter(b => Number(b.balance || 0) >= 0);
+
+    // 4. F-E01: 정책별 이관 가능 여부 배지 생성
     const options = bbs.map(b => {
       const acct = acctMap[b.account_id] || {};
-      return `<option value="${b.id}" data-account="${b.account_id}" data-balance="${b.balance || 0}">${b.org_name} — ${acct.name || ''} (잔액: ${Number(b.balance || 0).toLocaleString()}원)</option>`;
+      const pol = _transferPolicyCache[b.account_id] || {};
+      const mode = pol.bankbook_mode || 'isolated';
+      const isPersonal = !!b.user_id;
+      let badge = '';
+      let disabled = '';
+      if (mode === 'shared') {
+        badge = ' 🚫공유통장';
+        disabled = ' disabled';
+      } else if (mode === 'individual' && isPersonal) {
+        badge = ' 👤개인통장';
+        disabled = ' disabled';
+      }
+      return `<option value="${b.id}" data-account="${b.account_id}" data-balance="${b.balance || 0}" data-mode="${mode}" data-personal="${isPersonal ? '1' : '0'}"${disabled}>${b.org_name} — ${acct.name || ''} (잔액: ${Number(b.balance || 0).toLocaleString()}원)${badge}</option>`;
     }).join('');
 
+    // 5. F-E01: 정책 안내 메시지 생성
+    const modeSet = new Set(Object.values(_transferPolicyCache).map(p => p.bankbook_mode));
+    let policyNotice = '';
+    if (modeSet.has('shared') || modeSet.has('individual')) {
+      policyNotice = `
+      <div style="margin-bottom:14px;padding:10px 16px;border-radius:10px;background:#EFF6FF;border:1.5px solid #BFDBFE;font-size:11px;color:#1E40AF;font-weight:600">
+        💡 <strong>이관 정책 안내</strong><br>
+        ${modeSet.has('shared') ? '• <strong>공유 통장</strong>(shared): 본부 공유 예산이므로 이관이 <strong>제한</strong>됩니다.<br>' : ''}
+        ${modeSet.has('individual') ? '• <strong>개인 통장</strong>(individual): 개인 귀속 예산이므로 이관이 <strong>제한</strong>됩니다.<br>' : ''}
+        • <strong>팀별 분리 통장</strong>(isolated): 같은 계정 내 팀 간 이관이 가능합니다.
+      </div>`;
+    }
+
     body.innerHTML = `
+    ${policyNotice}
     <div style="margin-bottom:16px">
       <label style="font-size:12px;font-weight:800;color:#374151;display:block;margin-bottom:6px">📤 출금 통장 (From)</label>
       <select id="tf-from" onchange="_allocTransferCheckAccount()" style="width:100%;padding:10px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:12px">
@@ -109,13 +155,15 @@ async function _allocLoadTransferBankbooks() {
     </div>
     <div style="margin-bottom:16px">
       <label style="font-size:12px;font-weight:800;color:#374151;display:block;margin-bottom:6px">📥 입금 통장 (To)</label>
-      <select id="tf-to" style="width:100%;padding:10px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:12px">
+      <select id="tf-to" onchange="_allocTransferCheckAccount()" style="width:100%;padding:10px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:12px">
         <option value="">선택하세요</option>
         ${options}
       </select>
     </div>
     <div id="tf-account-warn" style="display:none;margin-bottom:12px;padding:8px 14px;border-radius:8px;background:#FEE2E2;color:#DC2626;font-size:11px;font-weight:700">
       ⚠️ 같은 예산계정 내에서만 이관 가능합니다.
+    </div>
+    <div id="tf-policy-warn" style="display:none;margin-bottom:12px;padding:8px 14px;border-radius:8px;background:#FEF3C7;color:#92400E;font-size:11px;font-weight:700">
     </div>
     <div style="margin-bottom:16px">
       <label style="font-size:12px;font-weight:800;color:#374151;display:block;margin-bottom:6px">💰 이관 금액</label>
@@ -128,7 +176,7 @@ async function _allocLoadTransferBankbooks() {
       <label style="font-size:12px;font-weight:800;color:#374151;display:block;margin-bottom:6px">📝 이관 사유</label>
       <input type="text" id="tf-reason" placeholder="이관 사유 입력" style="width:100%;padding:10px 12px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:12px;box-sizing:border-box">
     </div>
-    <button onclick="_allocExecuteTransfer()" style="width:100%;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#7C3AED,#4F46E5);color:white;font-size:14px;font-weight:900;cursor:pointer;box-shadow:0 4px 16px rgba(124,58,237,.3)">
+    <button id="tf-execute-btn" onclick="_allocExecuteTransfer()" style="width:100%;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#7C3AED,#4F46E5);color:white;font-size:14px;font-weight:900;cursor:pointer;box-shadow:0 4px 16px rgba(124,58,237,.3)">
       🔄 이관 실행
     </button>`;
   } catch (err) {
@@ -140,13 +188,58 @@ function _allocTransferCheckAccount() {
   const from = document.getElementById('tf-from');
   const to = document.getElementById('tf-to');
   const warn = document.getElementById('tf-account-warn');
+  const policyWarn = document.getElementById('tf-policy-warn');
+  const execBtn = document.getElementById('tf-execute-btn');
   if (!from || !to || !warn) return;
+
   const fromAcct = from.selectedOptions[0]?.dataset?.account;
   const toAcct = to.selectedOptions[0]?.dataset?.account;
+  const fromMode = from.selectedOptions[0]?.dataset?.mode || '';
+  const toMode = to.selectedOptions[0]?.dataset?.mode || '';
+  const fromPersonal = from.selectedOptions[0]?.dataset?.personal === '1';
+  const toPersonal = to.selectedOptions[0]?.dataset?.personal === '1';
+
+  // 기존 계정 불일치 체크
   if (fromAcct && toAcct && fromAcct !== toAcct) {
     warn.style.display = 'block';
   } else {
     warn.style.display = 'none';
+  }
+
+  // F-E01: 정책별 이관 제약 체크
+  let blocked = false;
+  let policyMsg = '';
+
+  if (fromMode === 'shared' || toMode === 'shared') {
+    blocked = true;
+    policyMsg = '🚫 <strong>공유 통장</strong>(shared)은 본부 단위 공유 예산이므로 통장 간 이관이 제한됩니다.<br>필요 시 총괄담당자에게 예산 재배정을 요청하세요.';
+  } else if ((fromMode === 'individual' && fromPersonal) || (toMode === 'individual' && toPersonal)) {
+    blocked = true;
+    policyMsg = '🚫 <strong>개인 통장</strong>(individual)은 개인 귀속 예산이므로 타인/타팀 통장으로 이관할 수 없습니다.<br>한도 조정은 총괄담당자가 예산계정 마스터에서 처리합니다.';
+  }
+
+  if (policyWarn) {
+    if (blocked && policyMsg) {
+      policyWarn.innerHTML = policyMsg;
+      policyWarn.style.display = 'block';
+    } else {
+      policyWarn.style.display = 'none';
+    }
+  }
+
+  // 실행 버튼 비활성화
+  if (execBtn) {
+    if (blocked) {
+      execBtn.disabled = true;
+      execBtn.style.opacity = '0.4';
+      execBtn.style.cursor = 'not-allowed';
+      execBtn.textContent = '🔒 이관 불가 (정책 제약)';
+    } else {
+      execBtn.disabled = false;
+      execBtn.style.opacity = '1';
+      execBtn.style.cursor = 'pointer';
+      execBtn.textContent = '🔄 이관 실행';
+    }
   }
 }
 
@@ -162,8 +255,10 @@ async function _allocExecuteTransfer() {
   const sb = typeof getSB === 'function' ? getSB() : null;
   if (!sb) { alert('DB 연결 필요'); return; }
 
-  const fromId = document.getElementById('tf-from')?.value;
-  const toId = document.getElementById('tf-to')?.value;
+  const fromEl = document.getElementById('tf-from');
+  const toEl = document.getElementById('tf-to');
+  const fromId = fromEl?.value;
+  const toId = toEl?.value;
   const amount = parseInt(document.getElementById('tf-amount')?.value || 0);
   const reason = document.getElementById('tf-reason')?.value || '';
 
@@ -172,9 +267,24 @@ async function _allocExecuteTransfer() {
   if (amount <= 0) { alert('이관 금액을 입력하세요.'); return; }
 
   // 같은 계정 체크
-  const fromAcct = document.getElementById('tf-from')?.selectedOptions[0]?.dataset?.account;
-  const toAcct = document.getElementById('tf-to')?.selectedOptions[0]?.dataset?.account;
+  const fromAcct = fromEl?.selectedOptions[0]?.dataset?.account;
+  const toAcct = toEl?.selectedOptions[0]?.dataset?.account;
   if (fromAcct !== toAcct) { alert('⚠️ 같은 예산계정 내에서만 이관할 수 있습니다.'); return; }
+
+  // F-E01: 정책별 이관 제약 서버사이드 검증 (이중 체크)
+  const fromMode = fromEl?.selectedOptions[0]?.dataset?.mode || '';
+  const toMode = toEl?.selectedOptions[0]?.dataset?.mode || '';
+  const fromPersonal = fromEl?.selectedOptions[0]?.dataset?.personal === '1';
+  const toPersonal = toEl?.selectedOptions[0]?.dataset?.personal === '1';
+
+  if (fromMode === 'shared' || toMode === 'shared') {
+    alert('🚫 공유 통장(shared)은 이관이 제한됩니다.\n총괄담당자에게 예산 재배정을 요청하세요.');
+    return;
+  }
+  if ((fromMode === 'individual' && fromPersonal) || (toMode === 'individual' && toPersonal)) {
+    alert('🚫 개인 통장(individual)은 개인 귀속 예산이므로 이관할 수 없습니다.\n한도 조정은 예산계정 마스터에서 처리하세요.');
+    return;
+  }
 
   const fromBal = Number(document.getElementById('tf-from')?.selectedOptions[0]?.dataset?.balance || 0);
   if (amount > fromBal) { alert(`⚠️ 출금 통장 잔액(${fromBal.toLocaleString()}원)을 초과합니다.`); return; }

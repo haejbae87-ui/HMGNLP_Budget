@@ -1345,8 +1345,8 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
   const scheduleFields = [
     datesField,
     _field('edu_days', '📆 교육일수', 'number', '0'),
-    _field('has_accommodation', '숙박여부', 'boolean', ''),
-    _field('lunch_provided', '중식제공여부', 'boolean', ''),
+    hasFormConfig ? '' : _field('has_accommodation', '숙박여부', 'boolean', ''),
+    hasFormConfig ? '' : _field('lunch_provided', '중식제공여부', 'boolean', ''),
     _field('planned_rounds', '🔄 예상 차수', 'number', '1', 'planState'),
     _field('hours_per_round', '⏳ 차수별 학습시간', 'number', '0', 'planState')
   ];
@@ -1373,7 +1373,7 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
           <input type="text" value="${(s.extra_fields||{}).elearning_url || ''}" oninput="planState.extra_fields=Object.assign(planState.extra_fields||{},{elearning_url:this.value})" placeholder="https://" class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold focus:border-accent focus:bg-white transition"/>
         </div>
       </div>` : '',
-    educationFormatField
+    hasFormConfig ? '' : educationFormatField
   ];
 
   // 커스텀 동적 필드 렌더링 (어댑터에서 넘겨준 필드들)
@@ -1399,7 +1399,7 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
   ];
 
   const costFields = [
-    _field('is_paid_education', '유료교육여부', 'boolean', ''),
+    hasFormConfig ? '' : _field('is_paid_education', '유료교육여부', 'boolean', ''),
     _field('is_ei_eligible', '고용보험 환급 여부', 'boolean', ''),
     eiRefundAmountField,
     amountField,

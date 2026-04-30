@@ -1286,6 +1286,9 @@ function renderPlans() {
       ${uniqueAccounts.map(a=>`<option value="${a}" ${_planAccountFilter===a?'selected':''}>${_accountNameCache[a] || a}</option>`).join('')}
     </select>` : ''}
     <span style="font-size:11px;color:#9CA3AF;margin-left:auto;white-space:nowrap">결과 <b style="color:#374151">${filteredPlans.length}</b>건</span>
+    ${!isBusiness && typeof foOpenBudgetRealloc === 'function' ? `<button onclick="foOpenBudgetRealloc()"
+      style="margin-left:8px;padding:5px 14px;border-radius:100px;font-size:11px;font-weight:800;cursor:pointer;border:1.5px solid #C4B5FD;background:#EDE9FE;color:#7C3AED;white-space:nowrap;transition:all .15s"
+      onmouseover="this.style.background='#DDD6FE'" onmouseout="this.style.background='#EDE9FE'">💰 예산 재배분</button>` : ''}
   </div>`;
 
   // --- Floating Action Bar (Batch Submit) ---

@@ -3340,3 +3340,173 @@ async function _obDeactivateBankbook(bbId) {
     alert("비활성화 실패: " + e.message);
   }
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// F-B01: 예산계정 마스터 — 기초/추가 배정 독립 메뉴
+// ══════════════════════════════════════════════════════════════════════════════
+function renderBudgetMaster() {
+  const ct = document.getElementById("bo-content");
+  if (!ct) return;
+
+  const persona = boCurrentPersona;
+  const isOwner = (persona.ownedAccounts || []).length > 0;
+  const role = persona.role || "";
+  const isGlobal =
+    role === "platform_admin" ||
+    role === "tenant_global_admin" ||
+    role === "budget_global_admin";
+
+  const groupBar =
+    typeof boRenderGroupContextBar === "function"
+      ? boRenderGroupContextBar()
+      : "";
+
+  // 권한 확인
+  if (!isGlobal && !isOwner) {
+    ct.innerHTML = `
+    ${groupBar}
+    <div style="max-width:700px;margin:0 auto;padding:60px 24px;text-align:center">
+      <div style="font-size:48px;margin-bottom:16px">🔒</div>
+      <div style="font-size:16px;font-weight:900;color:#374151;margin-bottom:8px">접근 권한이 없습니다</div>
+      <div style="font-size:13px;color:#6B7280">기초 및 추가 배정은 총괄담당자 권한입니다.</div>
+      <button onclick="boNavigate('allocation')" style="margin-top:24px;padding:10px 24px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:13px;font-weight:700;cursor:pointer;color:#374151">← 예산 배정으로 이동</button>
+    </div>`;
+    return;
+  }
+
+  // DB 데이터 로드
+  const sb = typeof getSB === "function" ? getSB() : null;
+  if (sb && !window._budgetMasterLoaded) {
+    window._budgetMasterLoaded = true;
+    (async () => {
+      try {
+        if (typeof _syncAllocFromDB === "function") await _syncAllocFromDB();
+      } catch (e) {
+        console.warn("[BudgetMaster] sync error:", e.message);
+      }
+      renderBudgetMaster();
+    })();
+    ct.innerHTML = `${groupBar}<div style="padding:80px;text-align:center;color:#6B7280;font-weight:600;font-size:14px">⏳ 예산계정 데이터 로딩 중...</div>`;
+    return;
+  }
+
+  const myBudgets =
+    typeof getPersonaAccountBudgets === "function"
+      ? getPersonaAccountBudgets(persona)
+      : [];
+
+  const allocYear =
+    typeof _allocYear !== "undefined" ? _allocYear : new Date().getFullYear();
+  const totalBase = myBudgets.reduce((s, b) => s + (b.baseAmount || 0), 0);
+  const totalAdded = myBudgets.reduce((s, b) => s + (b.totalAdded || 0), 0);
+  const totalBudget = totalBase + totalAdded;
+  const uninitialized = myBudgets.filter(
+    (b) => b.sourceType === "platform" && b.baseAmount === 0
+  );
+  const _fmt = (v) => Number(v || 0).toLocaleString("ko-KR");
+
+  // 계정별 상세 테이블
+  const accountRows = myBudgets
+    .map((ab) => {
+      const acct =
+        typeof ACCOUNT_MASTER !== "undefined"
+          ? ACCOUNT_MASTER.find((a) => a.code === ab.accountCode)
+          : null;
+      const total = (ab.baseAmount || 0) + (ab.totalAdded || 0);
+      const srcBadge =
+        ab.sourceType === "sap_if"
+          ? '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#EFF6FF;color:#1D4ED8;font-weight:800">🔗 SAP</span>'
+          : '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#FFF7ED;color:#C2410C;font-weight:800">📋 자체</span>';
+      return `<tr style="border-top:1px solid #F1F5F9">
+        <td style="padding:10px 12px;font-weight:700;color:#374151">${ab.accountCode}</td>
+        <td style="padding:10px 8px;color:#374151">${acct?.name || ab.accountCode}</td>
+        <td style="text-align:center;padding:10px 8px">${srcBadge}</td>
+        <td style="text-align:right;padding:10px 8px;font-weight:700">${_fmt(ab.baseAmount || 0)}원</td>
+        <td style="text-align:right;padding:10px 8px;font-weight:700;color:#059669">${ab.totalAdded > 0 ? "+" + _fmt(ab.totalAdded) + "원" : "—"}</td>
+        <td style="text-align:right;padding:10px 12px;font-weight:900;color:#7C3AED">${_fmt(total)}원</td>
+      </tr>`;
+    })
+    .join("");
+
+  // 기초/추가 배정 입력 영역 (기존 renderAllocEntry 재사용)
+  const allocEntryHtml =
+    typeof renderAllocEntry === "function" ? renderAllocEntry() : "";
+
+  ct.innerHTML = `
+  ${groupBar}
+  <div class="max-w-5xl mx-auto">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px">
+      <div>
+        <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">교육지원제도 기준정보 › 예산계정 마스터</div>
+        <h1 class="text-3xl font-black text-brand tracking-tight">🏦 예산계정 마스터</h1>
+        <p class="text-gray-500 text-sm mt-1">예산계정의 기초 예산 등록 및 연중 추가 배정을 관리합니다.</p>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="boNavigate('budget-account')"
+          style="padding:8px 18px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;cursor:pointer;color:#6B7280">
+          💳 예산계정 관리 →
+        </button>
+        <button onclick="boNavigate('allocation')"
+          style="padding:8px 18px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;cursor:pointer;color:#6B7280">
+          💰 예산 배정 →
+        </button>
+      </div>
+    </div>
+
+    <!-- 요약 카드 -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+      <div style="background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border-radius:16px;padding:18px 16px;border:1.5px solid #BFDBFE;position:relative;overflow:hidden">
+        <div style="position:absolute;top:12px;right:14px;font-size:20px;opacity:.4">💳</div>
+        <div style="font-size:10px;font-weight:700;color:#1D4ED8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">관리 계정 수</div>
+        <div style="font-size:28px;font-weight:900;color:#1D4ED8;line-height:1">${myBudgets.length}<span style="font-size:12px;font-weight:700;margin-left:2px">개</span></div>
+        <div style="font-size:10px;color:#1D4ED899;margin-top:4px">${allocYear}년 기준</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#FFF7ED,#FED7AA);border-radius:16px;padding:18px 16px;border:1.5px solid #FED7AA;position:relative;overflow:hidden">
+        <div style="position:absolute;top:12px;right:14px;font-size:20px;opacity:.4">📋</div>
+        <div style="font-size:10px;font-weight:700;color:#C2410C;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">기초 예산 합계</div>
+        <div style="font-size:28px;font-weight:900;color:#C2410C;line-height:1">${_fmt(totalBase)}<span style="font-size:12px;font-weight:700;margin-left:2px">원</span></div>
+        <div style="font-size:10px;color:#C2410C99;margin-top:4px">${uninitialized.length > 0 ? "⚠️ 미등록 " + uninitialized.length + "건" : "✅ 전체 등록 완료"}</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#ECFDF5,#D1FAE5);border-radius:16px;padding:18px 16px;border:1.5px solid #6EE7B7;position:relative;overflow:hidden">
+        <div style="position:absolute;top:12px;right:14px;font-size:20px;opacity:.4">➕</div>
+        <div style="font-size:10px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">추가 배정 합계</div>
+        <div style="font-size:28px;font-weight:900;color:#059669;line-height:1">+${_fmt(totalAdded)}<span style="font-size:12px;font-weight:700;margin-left:2px">원</span></div>
+        <div style="font-size:10px;color:#05966999;margin-top:4px">연중 증액 누계</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#F3E8FF,#DDD6FE);border-radius:16px;padding:18px 16px;border:1.5px solid #C4B5FD;position:relative;overflow:hidden">
+        <div style="position:absolute;top:12px;right:14px;font-size:20px;opacity:.4">💰</div>
+        <div style="font-size:10px;font-weight:700;color:#7C3AED;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">총 예산</div>
+        <div style="font-size:28px;font-weight:900;color:#7C3AED;line-height:1">${_fmt(totalBudget)}<span style="font-size:12px;font-weight:700;margin-left:2px">원</span></div>
+        <div style="font-size:10px;color:#7C3AED99;margin-top:4px">기초 + 추가</div>
+      </div>
+    </div>
+
+    <!-- 기초/추가 배정 입력 -->
+    ${allocEntryHtml}
+
+    <!-- 계정별 상세 현황 -->
+    ${myBudgets.length > 0 ? `
+    <div class="bo-card" style="padding:20px;margin-top:24px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+        <span style="background:#374151;color:white;font-size:10px;font-weight:900;padding:3px 10px;border-radius:6px">현황</span>
+        <div class="bo-section-title" style="margin:0">계정별 예산 현황 상세</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="background:#F8FAFC">
+            <th style="text-align:left;padding:10px 12px;font-weight:800;color:#64748B">계정코드</th>
+            <th style="text-align:left;padding:10px 8px;font-weight:800;color:#64748B">계정명</th>
+            <th style="text-align:center;padding:10px 8px;font-weight:800;color:#64748B">연동방식</th>
+            <th style="text-align:right;padding:10px 8px;font-weight:800;color:#64748B">기초 예산</th>
+            <th style="text-align:right;padding:10px 8px;font-weight:800;color:#64748B">추가 배정</th>
+            <th style="text-align:right;padding:10px 12px;font-weight:800;color:#64748B">총 예산</th>
+          </tr>
+        </thead>
+        <tbody>${accountRows}</tbody>
+      </table>
+    </div>` : ""}
+  </div>`;
+
+  window._budgetMasterLoaded = false;
+}
+

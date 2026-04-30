@@ -159,7 +159,38 @@ function renderAllocOverview(year) {
   }
   const ab = myBudgets.find((x) => x.id === _allocSelectedAbId);
 
-  // ── 연도 선택 + 계정 선택 패널 ──────────────────────────────────────────────
+  // ── 연도 선택 + 소진율 모니터링 + 계정 선택 패널 ──────────────────────────
+  // 전체 계정 소진율 요약
+  const burnRateCards = myBudgets.map(b => {
+    const a = ACCOUNT_MASTER.find(x => x.code === b.accountCode);
+    const tot = b.baseAmount + b.totalAdded;
+    const flatT = TEAM_DIST.filter(t => t.accountBudgetId === b.id);
+    const spent = flatT.reduce((s, t) => s + t.spent, 0);
+    const reserved = flatT.reduce((s, t) => s + t.reserved, 0);
+    const burnPct = tot > 0 ? Math.min(((spent + reserved) / tot) * 100, 100) : 0;
+    const burnColor = burnPct >= 95 ? '#EF4444' : burnPct >= 80 ? '#F59E0B' : '#059669';
+    const burnIcon = burnPct >= 95 ? '🔴' : burnPct >= 80 ? '🟡' : '🟢';
+    // DB에서 로드된 계정 정보에서 integration_mode 확인
+    const dbAcct = (window._baAccountList || []).find(x => x.code === b.accountCode);
+    const intMode = dbAcct?.integration_mode || (b.sourceType === 'sap_if' ? 'sap' : 'self');
+    const intBadge = intMode === 'sap'
+      ? '<span style="font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;background:#DBEAFE;color:#1D4ED8">🔗 SAP</span>'
+      : '<span style="font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;background:#FFEDD5;color:#9A3412">📋 자체</span>';
+    return `<div style="flex:1;min-width:160px;padding:12px 14px;background:white;border:1.5px solid #E5E7EB;border-radius:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:11px;font-weight:800;color:#374151">${a?.name || b.accountCode}</span>
+        ${intBadge}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="flex:1;height:6px;background:#E5E7EB;border-radius:99px;overflow:hidden">
+          <div style="height:100%;background:${burnColor};width:${burnPct.toFixed(0)}%;border-radius:99px;transition:width .3s"></div>
+        </div>
+        <span style="font-size:11px;font-weight:900;color:${burnColor};white-space:nowrap">${burnIcon} ${burnPct.toFixed(0)}%</span>
+      </div>
+      <div style="font-size:10px;color:#6B7280;margin-top:4px">총 ${boFmt(tot)}원 / 집행 ${boFmt(spent)}원</div>
+    </div>`;
+  }).join('');
+
   const topBarHtml = `
 <div style="margin-bottom:16px">
   <!-- 연도 선택 -->
@@ -174,13 +205,26 @@ function renderAllocOverview(year) {
       )
       .join("")}
   </div>
+
+  <!-- 소진율 모니터링 패널 -->
+  ${myBudgets.length > 0 ? `
+  <div style="margin-bottom:14px">
+    <div style="font-size:11px;font-weight:800;color:#475569;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+      🔥 소진율 모니터링 <span style="font-size:10px;font-weight:500;color:#9CA3AF">(집행+가점유 / 총 배정)</span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${burnRateCards}</div>
+  </div>` : ''}
+
   <!-- 계정 선택 카드 패널 -->
   <div style="display:flex;gap:8px;flex-wrap:wrap">
     ${myBudgets
       .map((b) => {
         const a = ACCOUNT_MASTER.find((x) => x.code === b.accountCode);
         const isSel = b.id === _allocSelectedAbId;
-        const isSAP = b.sourceType === "sap_if";
+        // DB에서 integration_mode 조회
+        const dbAcct = (window._baAccountList || []).find(x => x.code === b.accountCode);
+        const intMode = dbAcct?.integration_mode || (b.sourceType === 'sap_if' ? 'sap' : 'self');
+        const isSAP = intMode === 'sap';
         const tot = b.baseAmount + b.totalAdded;
         const dist = TEAM_DIST.filter((t) => t.accountBudgetId === b.id).reduce(
           (s, t) => s + t.allocAmount,
@@ -195,6 +239,7 @@ function renderAllocOverview(year) {
         box-shadow:${isSel ? "0 0 0 3px #BBF7D0" : "none"}">
         <div style="display:flex;align-items:center;gap:6px">
           <code style="font-size:10px;font-weight:900;padding:1px 6px;border-radius:5px;background:${isSAP ? "#DBEAFE" : "#FFEDD5"};color:${isSAP ? "#1E40AF" : "#9A3412"}">${b.accountCode}</code>
+          <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:${isSAP ? '#EFF6FF' : '#FFF7ED'};color:${isSAP ? '#1D4ED8' : '#C2410C'}">${isSAP ? '🔗SAP' : '📋자체'}</span>
           ${isSel ? '<span style="color:#059669;font-size:11px">✓</span>' : ""}
         </div>
         <div style="font-size:11px;font-weight:700;color:#111;white-space:nowrap">${a?.name || b.accountCode}</div>
@@ -1631,7 +1676,7 @@ async function _syncAllocFromDB(persona) {
     const acctIds = [...new Set(bankbooks.map((b) => b.account_id))];
     const { data: accts } = await sb
       .from("budget_accounts")
-      .select("id, code, uses_budget")
+      .select("id, code, uses_budget, integration_mode")
       .in("id", acctIds);
     const acctMap = {};
     (accts || []).forEach((a) => { acctMap[a.id] = a; });

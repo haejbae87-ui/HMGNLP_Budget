@@ -2192,24 +2192,43 @@ function getFormConfigAsInlineFields(formConfig, eduType, stage) {
 
   // BO 키 → FO 키 변환
   const inlineFields = {};
+  let onCount = 0;
+  let offCount = 0;
+
   for (const [boKey, isOn] of Object.entries(fieldStates)) {
     const foKey = _BO_TO_FO_KEY_MAP[boKey];
-    if (foKey === null) continue; // BO 전용 필드 (FO에서 표시 안 함)
-    if (foKey === undefined) {
-      // 매핑 없는 키는 그대로 사용
-      inlineFields[boKey] = isOn === true ? true : false;
-    } else {
-      // 이미 true로 설정된 경우 유지 (여러 BO 키가 같은 FO 키를 가리킬 수 있음)
-      if (inlineFields[foKey] !== true) {
-        inlineFields[foKey] = isOn === true ? true : false;
+    if (foKey === null) continue; // BO 전용 필드 (admin_comment, allocated_amount 등)
+
+    const mappedKey = (foKey === undefined) ? boKey : foKey;
+
+    if (isOn === true) {
+      // 여러 BO 키가 같은 FO 키를 가리킬 때 이미 true면 유지
+      if (inlineFields[mappedKey] !== true) {
+        inlineFields[mappedKey] = true;
       }
+      onCount++;
+    } else {
+      // false: 명시적으로 숨김 처리 (이미 true면 유지 - ON 우선)
+      if (inlineFields[mappedKey] !== true) {
+        inlineFields[mappedKey] = false;
+      }
+      offCount++;
     }
   }
 
-  console.log(`[fo_form_loader] form_config → inlineFields 변환 완료 (${eduType}|${stage}):`, inlineFields);
+  const totalFields = onCount + offCount;
+
+  // ★ 호환성 보장: form_config에 필드가 3개 미만이면 불완전한 이전 저장분 → null 반환 (Phase B 기본 렌더러 사용)
+  if (totalFields < 3) {
+    console.log(`[fo_form_loader] form_config 필드 수 부족 (${totalFields}개) → Phase B 기본 렌더러 사용`);
+    return null;
+  }
+
+  console.log(`[fo_form_loader] form_config → inlineFields 변환 완료 (${eduType}|${stage}): ON=${onCount}, OFF=${offCount}`, inlineFields);
   return Object.keys(inlineFields).length > 0 ? inlineFields : null;
 }
 window.getFormConfigAsInlineFields = getFormConfigAsInlineFields;
+
 
 /**
  * budget_accounts form_config를 DB에서 로드하고 inlineFields로 변환하는 통합 함수.

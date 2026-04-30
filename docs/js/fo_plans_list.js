@@ -1735,6 +1735,13 @@ function foBundleSubmitModal() {
         </tr></tfoot>
       </table>
     </div>
+    <!-- 결재라인 표시 -->
+    <div id="fo-bundle-approval-line" style="margin-bottom:16px;padding:14px 16px;border-radius:12px;background:#F0F7FF;border:1.5px solid #BFDBFE">
+      <div style="font-size:11px;font-weight:800;color:#1D4ED8;margin-bottom:10px">📋 사업계획 결재라인</div>
+      <div id="fo-bundle-approval-steps" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <div style="font-size:11px;color:#9CA3AF">결재라인 조회 중...</div>
+      </div>
+    </div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button onclick="document.getElementById('fo-bundle-modal').remove()"
         style="padding:10px 20px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:13px;font-weight:700;color:#6B7280;cursor:pointer">취소</button>
@@ -1743,6 +1750,55 @@ function foBundleSubmitModal() {
     </div>
   </div>
 </div>`);
+
+  // ★ 결재라인 비동기 로드: account_budgets에서 reviewMode 조회 후 스텝 시각화
+  const acct2 = accs[0] || null;
+  if (acct2) {
+    (async () => {
+      const sbL = typeof getSB === 'function' ? getSB() : null;
+      const stepsEl = document.getElementById('fo-bundle-approval-steps');
+      if (!sbL || !stepsEl) return;
+      try {
+        const { data: ab } = await sbL
+          .from('account_budgets')
+          .select('approval_config')
+          .eq('account_code', acct2)
+          .eq('tenant_id', currentPersona.tenantId || 'HMC')
+          .maybeSingle();
+
+        const reviewMode = ab?.approval_config?.forecast?.reviewMode || null;
+        const REVIEW_STEPS = {
+          'leader_to_admin': [
+            { label: '작성자 상신', icon: '✍️', color: '#6B7280' },
+            { label: '팀장 검토', icon: '👤', color: '#1D4ED8' },
+            { label: '총괄담당자 최종검토', icon: '🏛️', color: '#7C3AED' },
+          ],
+          'leader_to_manager_to_admin': [
+            { label: '작성자 상신', icon: '✍️', color: '#6B7280' },
+            { label: '팀장 검토', icon: '👤', color: '#1D4ED8' },
+            { label: '운영담당자 검토', icon: '👤', color: '#D97706' },
+            { label: '총괄담당자 최종검토', icon: '🏛️', color: '#7C3AED' },
+          ],
+        };
+        const steps = REVIEW_STEPS[reviewMode];
+        if (steps) {
+          stepsEl.innerHTML = steps.map((st, i) =>
+            `<div style="display:flex;align-items:center;gap:4px">
+              ${i > 0 ? '<span style="color:#9CA3AF;font-size:12px">→</span>' : ''}
+              <div style="padding:5px 10px;border-radius:20px;background:${st.color}15;border:1.5px solid ${st.color}40;display:flex;align-items:center;gap:4px">
+                <span style="font-size:12px">${st.icon}</span>
+                <span style="font-size:10px;font-weight:800;color:${st.color}">${st.label}</span>
+              </div>
+            </div>`
+          ).join('');
+        } else {
+          stepsEl.innerHTML = `<div style="font-size:11px;color:#EF4444;font-weight:700">⚠️ 사업계획 결재라인이 설정되지 않았습니다. BO에서 먼저 설정해주세요.</div>`;
+        }
+      } catch (e) {
+        if (stepsEl) stepsEl.innerHTML = `<div style="font-size:11px;color:#9CA3AF">결재라인 정보를 불러올 수 없습니다.</div>`;
+      }
+    })();
+  }
 }
 
 async function foBundleConfirmSubmit() {

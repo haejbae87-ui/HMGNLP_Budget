@@ -210,7 +210,7 @@ function _bamRenderApprovalTab(d) {
 
   const STAGES_MAP = { A:["forecast","ongoing","apply","result"], B:["ongoing","apply","result"], C:["apply","result"] };
   const stages = STAGES_MAP[d.process_pattern] || ["apply"];
-  const sLabel = { forecast:"📈 수요예측", ongoing:"📊 상시계획", apply:"📝 신청", result:"📄 결과" };
+  const sLabel = { forecast:"📋 사업계획", ongoing:"📊 상시계획", apply:"📝 신청", result:"📄 결과" };
   const sColor = { forecast:"#8B5CF6", ongoing:"#7C3AED", apply:"#1D4ED8", result:"#059669" };
   const LEVELS = [{k:"team_leader",l:"팀장"},{k:"director",l:"실장"},{k:"division_head",l:"사업부장"},{k:"center_head",l:"센터장"},{k:"hq_head",l:"본부장"}];
 
@@ -267,10 +267,8 @@ function _bamRenderApprovalTab(d) {
       <div style="border-top:1px solid #F3F4F6;padding-top:12px">
         <label style="font-size:12px;font-weight:800;color:#374151;display:block;margin-bottom:8px">🔍 결재 후 검토자</label>
         <div style="display:grid;gap:6px">
-          ${[{k:'none',l:'검토 없음',d:'결재 승인 후 별도 검토 없이 처리',i:'⏭️',c:'#9CA3AF'},
-             {k:'admin_only',l:'총괄담당자 최종검토',d:'총괄담당자가 최종 검토 후 완료 처리',i:'🏛️',c:'#1D4ED8'},
-             {k:'manager_only',l:'운영담당자 최종검토',d:'운영담당자가 최종 검토 후 완료 처리',i:'👤',c:'#D97706'},
-             {k:'both',l:'운영담당자 → 총괄담당자',d:'1차 운영담당자, 2차 총괄담당자 순서로 검토',i:'👤→🏛️',c:'#059669'}
+          ${[{k:'leader_to_admin',l:'팀장 검토 → 총괄담당자 검토',d:'팀장 1차 검토 후 총괄담당자 최종 검토',i:'👤→🏛️',c:'#1D4ED8'},
+             {k:'leader_to_manager_to_admin',l:'팀장 검토 → 운영담당자 검토 → 총괄담당자 검토',d:'팀장·운영담당자 순차 검토 후 총괄담당자 최종 승인',i:'👤→👤→🏛️',c:'#059669'}
           ].map(m => {
             const sel = (c.reviewMode||'none') === m.k;
             return `<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:2px solid ${sel?m.c:'#E5E7EB'};background:${sel?m.c+'10':'white'};cursor:pointer"

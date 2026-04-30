@@ -261,7 +261,16 @@
 
 ---
 
-## 🚀 다음 세션 시작 가이드 (2026-04-29 기준)
+### 2026-04-30 세션 (수요예측 결재라인 계정 단위 설계)
+
+- [x] **forecast_approval_lines DB 테이블 구성** — 기존 step 기반 테이블에 `budget_account_id`, `approval_type`, `thresholds`(JSONB), `review_mode` 컬럼 추가. UNIQUE(tenant_id, account_code), RLS 정책 + 인덱스 설정 완료
+- [x] **bo_budget_account.js — forecast 결재라인 동기화** — `_bamSaveAccount()` 저장 시 `approval_config.forecast` → `forecast_approval_lines` upsert 동기화 로직 추가
+- [x] **bo_budget_account.js — `getForecastApprovalLine()` 헬퍼 추가** — FO에서 계정별 결재라인 조회용 공용 함수 추가
+- [x] **fo_plans_list.js — 묶음 상신 전 결재라인 차단** — `foBundleConfirmSubmit()`: 상신 전 `forecast_approval_lines` 조회 → 미설정 시 명확한 에러 메시지 + 상신 차단 (`⛔ 결재 불가` 알림)
+
+---
+
+ (2026-04-29 기준)
 
 ### 📌 현재 완료된 워크플로우 전체 흐름
 

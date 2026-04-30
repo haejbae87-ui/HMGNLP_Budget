@@ -506,6 +506,8 @@ async function _bamSaveAccount() {
     const sb = typeof _sb === "function" ? _sb() : null;
     if (!sb) throw new Error("DB 연결이 없습니다.");
 
+    let savedAccountId = _bamEditId;
+
     if (_bamEditId) {
       const { error } = await sb.from("budget_accounts").update(payload).eq("id", _bamEditId);
       if (error) throw error;
@@ -515,6 +517,7 @@ async function _bamSaveAccount() {
       await sb.from("budget_account_org_policy").upsert(pp, { onConflict: "budget_account_id,vorg_template_id" });
     } else {
       payload.id = "BA-" + Date.now();
+      savedAccountId = payload.id;
       const { error } = await sb.from("budget_accounts").insert(payload);
       if (error) throw error;
       const np = { budget_account_id: payload.id, vorg_template_id: window._baTplId,
@@ -525,10 +528,59 @@ async function _bamSaveAccount() {
         try { await _syncBankbooksForTemplate(window._baTplId, payload.tenant_id); } catch(e) {}
       }
     }
+
+    // ── 수요예측 결재라인 forecast_approval_lines 동기화 ──────────────────
+    // approval_config.forecast 가 있으면 forecast_approval_lines 테이블에 upsert
+    const forecastCfg = (d.approval_config || {}).forecast;
+    if (forecastCfg && savedAccountId) {
+      try {
+        const falPayload = {
+          tenant_id: tenantId,
+          account_code: d.code,
+          budget_account_id: savedAccountId,
+          approval_type: forecastCfg.approvalType || 'platform',
+          thresholds: forecastCfg.thresholds || [],
+          review_mode: forecastCfg.reviewMode || 'none',
+          active: true,
+          updated_at: new Date().toISOString(),
+        };
+        await sb.from("forecast_approval_lines")
+          .upsert(falPayload, { onConflict: "tenant_id,account_code" });
+      } catch (falErr) {
+        console.warn("[수요예측 결재라인 동기화 실패]", falErr.message);
+        // 동기화 실패는 계정 저장 자체를 막지 않음
+      }
+    }
+    // ──────────────────────────────────────────────────────────────────────
+
     _bamCloseDetailView();
     _bamLoadBudgetAccountsList(window._baTplId);
   } catch (e) { alert("저장 실패: " + e.message); }
 }
+
+// ─── 수요예측 결재라인 조회 헬퍼 (FO에서 호출) ──────────────────────────────
+// 반환: { approval_type, thresholds, review_mode } or null (미설정)
+async function getForecastApprovalLine(tenantId, accountCode) {
+  try {
+    const sb = typeof _sb === "function" ? _sb() : (typeof getSB === "function" ? getSB() : null);
+    if (!sb) return null;
+    const { data, error } = await sb
+      .from("forecast_approval_lines")
+      .select("approval_type, thresholds, review_mode, active")
+      .eq("tenant_id", tenantId)
+      .eq("account_code", accountCode)
+      .eq("active", true)
+      .maybeSingle();
+    if (error || !data) return null;
+    // 결재 구간이 하나도 없으면 미설정으로 간주
+    if (!data.thresholds || data.thresholds.length === 0) return null;
+    return data;
+  } catch (e) {
+    console.warn("[getForecastApprovalLine]", e.message);
+    return null;
+  }
+}
+
 
 // ─── Tab 1: 기본정보 탭 렌더링 ─────────────────────────────────────────
 function _bamRenderBasicTab(d) {

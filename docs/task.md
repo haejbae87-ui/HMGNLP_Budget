@@ -1,14 +1,30 @@
-# 기능 단위 파일 분리 체크리스트
+# ✅ 작업 완료
 
-- [ ] js/data.js – 데이터 레이어 (PERSONAS, MOCK_HISTORY, MOCK_PLANS, applyState)
-- [ ] css/styles.css – 전역 CSS 스타일
-- [ ] js/utils.js – 공통 유틸 함수 (fmt, statusBadge, navigate, switchPersona)
-- [ ] js/gnb.js – GNB(상단 네비게이션) + Floating Budget Widget
-- [ ] js/dashboard.js – 대시보드 렌더링
-- [ ] js/plans.js – 교육계획 렌더링 + 폼 핸들러
-- [ ] js/history.js – 교육신청 목록 렌더링
-- [ ] js/apply.js – 교육신청 4단계 스텝 렌더링 + 핸들러
-- [ ] js/budget.js – 예산 관리 렌더링
-- [ ] js/mypage.js – 마이페이지 렌더링
-- [ ] js/main.js – 앱 초기화 (DOMContentLoaded)
-- [ ] index.html – 슬림화 (script/style 태그 → 외부 파일 참조)
+**작업**: 수요예측 결재라인 계정 단위 설계 (신규 DB 테이블 + FO 결재 불가 처리)
+
+---
+
+- [x] Step 0: 요구사항 확정 (신규 테이블, 기존 UI 재사용, 미설정 시 결재 불가)
+- [x] Step 1: `bo_budget_account_tabs.js`, `bo_budget_account.js` 기존 코드 분석 완료
+- [x] Step 2: DB 마이그레이션 — `forecast_approval_lines` 테이블 + 컬럼 추가 + RLS/인덱스 설정
+- [x] Step 3: `bo_budget_account.js` — 저장 시 `forecast_approval_lines` 동기화 + `getForecastApprovalLine()` 헬퍼 추가
+- [x] Step 4: `fo_plans_list.js` — 묶음 상신 전 결재라인 미설정 시 차단 로직 추가
+- [x] Step 5: Git 배포 완료
+
+---
+
+## 구현 요약
+
+### DB
+- `forecast_approval_lines` 테이블 (기존 step 기반 테이블에 컬럼 추가)
+  - `budget_account_id`, `approval_type`, `thresholds` (JSONB), `review_mode`
+  - UNIQUE(tenant_id, account_code), RLS 정책 (authenticated_rw + anon_read)
+
+### BO (`bo_budget_account.js`)
+- `_bamSaveAccount()`: 계정 저장 시 `approval_config.forecast` → `forecast_approval_lines` upsert 동기화
+- `getForecastApprovalLine(tenantId, accountCode)`: FO에서 결재라인 조회용 헬퍼 함수
+
+### FO (`fo_plans_list.js`)
+- `foBundleConfirmSubmit()`: 묶음 상신 실행 전 `forecast_approval_lines` 테이블 조회
+  - 미설정 (rows 없음 또는 thresholds 빈 배열) → 명확한 오류 메시지 + 상신 차단
+  - DB 조회 실패 → confirm으로 진행 여부 확인

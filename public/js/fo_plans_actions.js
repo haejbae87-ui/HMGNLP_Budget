@@ -176,7 +176,7 @@ async function savePlanDraft() {
       status: "draft",
       policy_id: planState.policyId || null,
       plan_type: _resolvePlanType(),
-      fiscal_year: planState.fiscal_year || new Date().getFullYear(),
+      fiscal_year: planState.fiscal_year || _planYear || new Date().getFullYear(),
       form_template_id: planState.formTemplate?.id || null,
       form_version: planState.formTemplate?.version || null,
       // 필드 표준화 (field_standardization.md PL-04, A-18~A-20)
@@ -283,7 +283,7 @@ async function savePlanSaved() {
       status: "saved",           // ← 3단계 상태 중 2단계
       policy_id: planState.policyId || null,
       plan_type: _resolvePlanType(),
-      fiscal_year: planState.fiscal_year || new Date().getFullYear(),
+      fiscal_year: planState.fiscal_year || _planYear || new Date().getFullYear(),
       form_template_id: planState.formTemplate?.id || null,
       form_version: planState.formTemplate?.version || null,
       // 필드 표준화 (field_standardization.md PL-04, A-18~A-20)
@@ -544,7 +544,7 @@ async function confirmPlan() {
         status: 'submitted',  // [S-6] pending → submitted
         policy_id: planState.policyId || null,
         plan_type: _resolvePlanType(),
-        fiscal_year: planState.fiscal_year || new Date().getFullYear(),
+        fiscal_year: planState.fiscal_year || _planYear || new Date().getFullYear(),
         form_template_id: planState.formTemplate?.id || null,
         form_version: planState.formTemplate?.version || null,
         // Phase E 정규화 컬럼 기반 저장 (이중 기록 종료)
@@ -673,6 +673,10 @@ async function resumePlanDraft(planId) {
     planState.policyId = data.policy_id || null;
     planState.region = data.detail?.region || "domestic";
     planState.accountCode = data.account_code || "";
+    // ★ fiscal_year 복원: DB에 저장된 연도를 우선 사용, 없으면 캠페인(_planYear) 기반
+    planState.fiscal_year = data.fiscal_year || _planYear || new Date().getFullYear();
+    // ★ _planYear 동기화: 목록 필터가 올바른 연도를 표시하도록
+    if (planState.fiscal_year) _planYear = planState.fiscal_year;
 
     // ★ budgetId 없을 때 account_code로 budgetId + contextAccountCode 복원
     // (캠페인 진입으로 저장된 계획은 budgetId가 null일 수 있음)

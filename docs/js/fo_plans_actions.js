@@ -78,6 +78,12 @@ function planNext() {
       // accCode/eduType은 외부 스코프(클로저)에서 참조 (42번 라인에서 이미 계산됨)
       const tenantId = currentPersona?.tenantId || currentPersona?.tenant_id || null;
 
+      // ★ 디버깅 로그 (BO→FO 양식 연동 추적)
+      console.log('[planNext:Step3] ── 양식 로드 시작 ──');
+      console.log('[planNext:Step3] accCode:', accCode, '| eduType:', eduType, '| tenantId:', tenantId);
+      console.log('[planNext:Step3] planState.budgetId:', planState.budgetId);
+      console.log('[planNext:Step3] budgets available:', (currentPersona?.budgets || []).map(b => ({ id: b.id, accountCode: b.accountCode, name: b.name })));
+
       // 세부산출근거 DB 로드 (병렬)
       const cgPromise = typeof _foLoadCalcGrounds === 'function'
         ? _foLoadCalcGrounds()
@@ -88,8 +94,12 @@ function planNext() {
       if (accCode && typeof loadFormConfigTemplate === 'function') {
         tpl = await loadFormConfigTemplate(accCode, tenantId, eduType, 'plan');
         if (tpl) {
-          console.log('[planNext] BO form_config 기반 양식 적용:', tpl.name);
+          console.log('[planNext] BO form_config 기반 양식 적용:', tpl.name, '| inlineFields:', tpl.inlineFields);
+        } else {
+          console.warn('[planNext] loadFormConfigTemplate 반환 null → 폴백 진행');
         }
+      } else {
+        console.warn('[planNext] accCode가 null이거나 loadFormConfigTemplate 미정의 → form_config 스킵');
       }
 
       // 3) form_config 없으면 기존 form_templates DB 방식으로 폴백
@@ -103,6 +113,7 @@ function planNext() {
       await cgPromise; // calc_grounds 로드 완료 대기
       planState.formTemplate = tpl || null;
       planState.formTemplateLoading = false;
+      console.log('[planNext:Step3] ── 최종 formTemplate:', tpl ? (tpl.isInline ? 'inline(form_config)' : 'dynamic(form_templates)') : 'null(폴백)' , '──');
       renderPlanWizard();
     })();
 

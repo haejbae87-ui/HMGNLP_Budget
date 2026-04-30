@@ -75,10 +75,7 @@ function planNext() {
 
     (async () => {
       // ★ 우선순위: BO 양식관리(form_config) → form_templates DB 순으로 폴백
-      // 1) 예산계정 코드 + 테넌트 ID 추출
-      const budgets = currentPersona?.budgets || [];
-      const selectedBudget = budgets.find((x) => x.id === planState.budgetId);
-      const accCode = selectedBudget?.accountCode || selectedBudget?.account_code || accCode;
+      // accCode/eduType은 외부 스코프(클로저)에서 참조 (42번 라인에서 이미 계산됨)
       const tenantId = currentPersona?.tenantId || currentPersona?.tenant_id || null;
 
       // 세부산출근거 DB 로드 (병렬)

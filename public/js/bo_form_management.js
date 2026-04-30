@@ -61,6 +61,34 @@ function _formGroupEduTypes(eduTypeIds) {
   return result;
 }
 
+// ── 필드 타입별 색상 및 배지 레이블 ─────────────────────────────────────────
+const _FORM_TYPE_COLOR = {
+  text:         '#6B7280',
+  textarea:     '#6B7280',
+  number:       '#2563EB',
+  boolean:      '#059669',
+  date:         '#7C3AED',
+  daterange:    '#7C3AED',
+  select:       '#D97706',
+  file:         '#DC2626',
+  autocomplete: '#0891B2',
+  rating:       '#F59E0B',
+  calc_grounds: '#1D4ED8',
+};
+const _FORM_TYPE_BADGE = {
+  text:         '텍스트',
+  textarea:     '장문',
+  number:       '숫자',
+  boolean:      'ON/OFF',
+  date:         '날짜',
+  daterange:    '기간',
+  select:       '선택',
+  file:         '첨부',
+  autocomplete: '검색',
+  rating:       '평점',
+  calc_grounds: '산출근거',
+};
+
 // ── 단계별 필드 카탈로그 (PRD field_standardization.md 기반 타입 적용) ────────
 // type: text | textarea | number | boolean | date | daterange | select | file | autocomplete | rating | calc_grounds
 const _FORM_FIELDS = {
@@ -756,6 +784,15 @@ function _formPreviewField(f) {
 
 // ── 미리보기 (FO 카드 기반 레이아웃) ─────────────────────────────────────────
 function _formPreview() {
+  try {
+  // 선행 조건 검증
+  if (!_formAccountCode) { alert('예산계정을 먼저 선택하세요.'); return; }
+  if (!_formSelEduType)  { alert('교육유형을 먼저 선택하세요.'); return; }
+
+  // 기존 오버레이 제거 (중복 방지)
+  const existing = document.getElementById('fm-preview-overlay');
+  if (existing) existing.remove();
+
   const stage = _formActiveStage;
   const stageM = _FORM_STAGE_META[stage];
   const cats = _FORM_FIELDS[stage] || [];
@@ -824,6 +861,10 @@ function _formPreview() {
   </div>`;
 
   document.body.appendChild(overlay);
+  } catch(e) {
+    console.error('[FormPreview] 미리보기 렌더 오류:', e);
+    alert('미리보기를 표시하는 중 오류가 발생했습니다: ' + (e.message || e));
+  }
 }
 
 // ── 미리보기 필드 렌더 (FO 카드 스타일) ──────────────────────────────────────

@@ -376,7 +376,7 @@ const PLATFORM_MENUS = [
   {
     id: "plan-mgmt",
     icon: "📋",
-    label: "교육계획 관리",
+    label: "운영계획 관리",
     section: null,
     gnb: GNB_CATE.PROGRAM,
   },
@@ -604,7 +604,7 @@ const TENANT_ADMIN_MENUS = [
   {
     id: "plan-mgmt",
     icon: "📋",
-    label: "교육계획 관리",
+    label: "운영계획 관리",
     section: null,
     gnb: GNB_CATE.PROGRAM,
   },
@@ -808,7 +808,7 @@ const BUDGET_ADMIN_MENUS = [
   {
     id: "plan-mgmt",
     icon: "📋",
-    label: "교육계획 관리",
+    label: "운영계획 관리",
     section: null,
     gnb: GNB_CATE.PROGRAM,
   },
@@ -948,7 +948,7 @@ const BUDGET_OP_MENUS = [
   {
     id: "plan-mgmt",
     icon: "📋",
-    label: "교육계획 관리",
+    label: "운영계획 관리",
     section: null,
     gnb: GNB_CATE.PROGRAM,
   },
@@ -1124,7 +1124,7 @@ const TENANT_DUAL_MENUS = [
   {
     id: "plan-mgmt",
     icon: "📋",
-    label: "교육계획 관리",
+    label: "운영계획 관리",
     section: null,
     gnb: GNB_CATE.PROGRAM,
   },
@@ -1663,7 +1663,10 @@ function boNavigate(menuId) {
   if (menuId === "forecast-period") renderForecastPeriodMgmt();
   if (menuId === "service-policy") renderFormManagement();
   // 운영 메뉴
-  if (menuId === "plan-mgmt") renderBoPlanMgmt();
+  if (menuId === "plan-mgmt") {
+    if (typeof renderBoOperationPlan === "function") renderBoOperationPlan();
+    else renderBoPlanMgmt(); // 폴백
+  }
   if (menuId === "allocation") renderOrgBudget();
   if (menuId === "budget-history") renderBudgetHistory();
   if (menuId === "budget-demand") renderBudgetDemand();

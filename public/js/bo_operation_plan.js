@@ -71,7 +71,13 @@ async function renderBoOperationPlan() {
     _opPlans = (data || []).filter(p =>
       p.plan_type === "operation" || p.plan_type === "ongoing" ||
       (p.source_forecast_plan_id && p.plan_type !== "forecast" && p.plan_type !== "business")
-    );
+    ).map(p => {
+      // detail에서 source_forecast_plan_id 추출 (상위 필드에 없으면 detail에서 가져옴)
+      if (!p.source_forecast_plan_id && p.detail?.source_forecast_plan_id) {
+        p.source_forecast_plan_id = p.detail.source_forecast_plan_id;
+      }
+      return p;
+    });
   } catch { _opPlans = []; }
 
   // Op-Manager 단일 그룹 자동 진입
@@ -120,6 +126,8 @@ function _renderOpLevel1(el, isPlatform, tenants) {
   const totalAmount = plans.reduce((s, p) => s + Number(p.allocated_amount || p.amount || 0), 0);
   const totalExec = plans.reduce((s, p) => s + Number(p.actual_amount || 0), 0);
   const execPct = totalAmount > 0 ? Math.round((totalExec / totalAmount) * 100) : 0;
+  const copiedCount = plans.filter(p => !!p.source_forecast_plan_id).length;
+  const directCount = plans.filter(p => !p.source_forecast_plan_id).length;
 
   // 조직단위별 집계
   const groupRows = _opGroups.map(g => {
@@ -147,8 +155,8 @@ function _renderOpLevel1(el, isPlatform, tenants) {
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
       ${[
         { icon:"🗂️", label:"전체 운영계획", val:`${totalCount}건`, color:"#002C5F", bg:"#EFF6FF" },
-        { icon:"✅", label:"승인완료", val:`${totalApproved}건`, color:"#059669", bg:"#F0FDF4" },
-        { icon:"💰", label:"배정 예산 합계", val:fmt(totalAmount), color:"#0369A1", bg:"#F0F9FF" },
+        { icon:"📋", label:"사업계획 복사", val:`${copiedCount}건`, color:"#92400E", bg:"#FEF3C7" },
+        { icon:"✍️", label:"상시 입력", val:`${directCount}건`, color:"#065F46", bg:"#D1FAE5" },
         { icon:"📊", label:"집행률", val:`${execPct}%`, color:"#7C3AED", bg:"#F5F3FF" },
       ].map(c => `<div style="background:${c.bg};border-radius:14px;padding:16px 18px;border:1.5px solid ${c.color}20">
         <div style="font-size:11px;font-weight:700;color:${c.color};margin-bottom:6px">${c.icon} ${c.label}</div>
@@ -312,7 +320,7 @@ function _renderOpCombined(el, isPlatform, tenants) {
         <thead><tr>
           <th>ID</th><th>계획명</th><th>신청자</th><th>계획 유형</th>
           <th style="text-align:right">배정 예산</th><th style="text-align:right">집행액</th>
-          <th>상태</th><th>사업계획 연결</th><th>일자</th>
+          <th>상태</th><th>출처</th><th>일자</th>
         </tr></thead>
         <tbody>
           ${plans.map(p => {
@@ -321,7 +329,7 @@ function _renderOpCombined(el, isPlatform, tenants) {
             const stColor = STATUS_COLOR[st] || "#6B7280";
             const amt = Number(p.allocated_amount || p.amount || 0);
             const exec = Number(p.actual_amount || 0);
-            const hasForecastLink = !!p.source_forecast_plan_id;
+            const hasForecastLink = !!(p.source_forecast_plan_id || p.detail?.source_forecast_plan_id);
             const fmt2 = v => v >= 10000 ? `${(v/10000).toFixed(0)}만원` : `${v.toLocaleString()}원`;
             const safeId = (p.id||"").replace(/'/g,"\\'");
             return `<tr>
@@ -334,8 +342,8 @@ function _renderOpCombined(el, isPlatform, tenants) {
               <td style="text-align:right;font-weight:800;color:#7C3AED">${exec>0?fmt2(exec):"-"}</td>
               <td><span style="font-size:10px;font-weight:900;padding:3px 10px;border-radius:6px;background:${stColor}18;color:${stColor}">${stLabel}</span></td>
               <td style="text-align:center">${hasForecastLink
-                ? `<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;background:#FEF3C7;color:#92400E" title="사업계획 ID: ${p.source_forecast_plan_id}">📋 사업계획 연결</span>`
-                : '<span style="font-size:10px;color:#9CA3AF">-</span>'}</td>
+                ? `<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A" title="사업계획 ID: ${p.source_forecast_plan_id || p.detail?.source_forecast_plan_id}">📋 사업계획 복사</span>`
+                : '<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;background:#D1FAE5;color:#065F46;border:1px solid #A7F3D0">✍️ 상시 입력</span>'}</td>
               <td style="font-size:11px;color:#6B7280">${(p.created_at||"").slice(0,10)}</td>
             </tr>`;
           }).join("")}

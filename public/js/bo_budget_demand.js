@@ -253,7 +253,7 @@ function _renderBdLevel1(el, isPlatform, tenants) {
   }
 
   const cards = [
-    { icon: "📋", label: "전체 계획",   val: `${totalCount}건`,      color: "#002C5F", bg: "#EFF6FF" },
+    { icon: "📋", label: "전체 사업계획",   val: `${totalCount}건`,      color: "#002C5F", bg: "#EFF6FF" },
     { icon: "📊", label: "수요 예산",   val: _bdFmt(demandTotal),    color: "#0369A1", bg: "#F0F9FF" },
     { icon: "🔵", label: "1차조정 합계", val: _bdFmt(opTotal),        color: "#0369A1", bg: "#EFF6FF" },
     { icon: "✅", label: "최종승인 합계",val: _bdFmt(finalTotal),     color: "#7C3AED", bg: "#F5F3FF" },
@@ -300,12 +300,7 @@ function _renderBdLevel1(el, isPlatform, tenants) {
         .join("")}
     </div>
 
-    <div class="bo-card" style="padding:14px 20px;margin-bottom:16px">
-      <div style="display:flex;align-items:center;gap:16px">
-        <span style="font-size:12px;font-weight:900;color:#374151;white-space:nowrap">1차조정률</span>
-        <div style="flex:1;height:10px;background:#E5E7EB;border-radius:5px;overflow:hidden">
-          <div style="width:${opPct}%;height:100%;background:linear-gradient(90deg,#0369A1,#38BDF8);border-radius:5px;transition:width .5s"></div>
-        </div>
+    
         <span style="font-size:13px;font-weight:900;color:#0369A1;white-space:nowrap">${opPct}%</span>
         <span style="font-size:11px;color:#9CA3AF">(${_bdFmt(opTotal)} / ${_bdFmt(demandTotal)})</span>
         <span style="font-size:11px;color:#7C3AED;font-weight:800;margin-left:8px">최종승인 ${_bdFmt(finalTotal)}</span>
@@ -317,12 +312,12 @@ function _renderBdLevel1(el, isPlatform, tenants) {
         ? `
     <div class="bo-card" style="overflow:hidden">
       <div style="padding:14px 20px;background:linear-gradient(135deg,#002C5F08,#0369A108);border-bottom:1px solid #F3F4F6">
-        <span style="font-size:14px;font-weight:900;color:#002C5F">🏢 조직단위별 수요 현황</span>
+        <span style="font-size:14px;font-weight:900;color:#002C5F">🏢 교육조직별 수요 현황</span>
         <span style="font-size:11px;color:#6B7280;margin-left:8px">${_bdAcctList.find((a) => a.id === _bdAccountId)?.name || "전체 계정"}</span>
       </div>
       <table class="bo-table" style="font-size:12px">
         <thead><tr>
-          <th>조직단위</th><th style="text-align:center">팀수</th><th style="text-align:center">건수</th>
+          <th>교육조직</th><th style="text-align:center">팀수</th><th style="text-align:center">건수</th>
           <th style="text-align:right">수요 예산</th><th style="text-align:right">확정 예산</th>
           <th style="text-align:right">미결</th><th style="text-align:right">반려</th>
           <th style="text-align:center">확정률</th>
@@ -338,16 +333,9 @@ function _renderBdLevel1(el, isPlatform, tenants) {
             <td style="text-align:center">${g.count}건</td>
             <td style="text-align:right;font-weight:800">${_bdFmt(g.demand)}</td>
             <td style="text-align:right;font-weight:800;color:#059669">${_bdFmt(g.confirmed)}</td>
-            <td style="text-align:right;color:#D97706">${_bdFmt(g.pending)}</td>
-            <td style="text-align:right;color:#DC2626">${_bdFmt(g.rejected)}</td>
-            <td style="text-align:center">
-              <div style="display:flex;align-items:center;gap:6px;justify-content:center">
-                <div style="width:50px;height:5px;background:#E5E7EB;border-radius:3px;overflow:hidden">
-                  <div style="width:${g.pct}%;height:100%;background:${g.pct >= 80 ? "#059669" : g.pct >= 50 ? "#D97706" : "#DC2626"};border-radius:3px"></div>
-                </div>
-                <span style="font-size:10px;font-weight:800;color:${g.pct >= 80 ? "#059669" : g.pct >= 50 ? "#D97706" : "#DC2626"}">${g.pct}%</span>
-              </div>
-            </td>
+            <td style="text-align:right;color:#D97706">${g.pending === 0 ? "0건" : _bdFmt(g.pending)}</td>
+            <td style="text-align:right;color:#DC2626">${g.rejected === 0 ? "0건" : _bdFmt(g.rejected)}</td>
+            
           </tr>`,
             )
             .join("")}
@@ -357,9 +345,9 @@ function _renderBdLevel1(el, isPlatform, tenants) {
             <td style="text-align:right">${_bdFmt(demandTotal)}</td>
             <td style="text-align:right;color:#0369A1">${_bdFmt(opTotal)}</td>
             <td style="text-align:right;color:#7C3AED">${_bdFmt(finalTotal)}</td>
-            <td style="text-align:right;color:#D97706">${_bdFmt(pendingTotal)}</td>
-            <td style="text-align:right;color:#DC2626">${_bdFmt(rejectedTotal)}</td>
-            <td style="text-align:center;font-weight:900;color:${opPct>=80?"#0369A1":opPct>=50?"#D97706":"#DC2626"}">${opPct}%</td>
+            <td style="text-align:right;color:#D97706">${pendingTotal === 0 ? "0건" : _bdFmt(pendingTotal)}</td>
+            <td style="text-align:right;color:#DC2626">${rejectedTotal === 0 ? "0건" : _bdFmt(rejectedTotal)}</td>
+            
           </tr>
         </tbody>
       </table>
@@ -468,7 +456,7 @@ function _renderBdCombined(el, isPlatform, tenants) {
     <!-- 상단 액션바 -->
     <div style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <button onclick="_bdDrillHq=null;_bdDrillOrg=null;renderBudgetDemand()"
-        style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">← 전체 조직단위 보기</button>
+        style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">← 전체 교육조직 보기</button>
       ${canEdit ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         ${isOp ? `<button onclick="_bdL3SaveOp()" id="bd-l3-save-op"
           style="padding:8px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#0369A1,#0369A1CC);color:white;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px #0369A140">💾 1차조정 일괄저장</button>` : ''}
@@ -495,7 +483,7 @@ function _renderBdCombined(el, isPlatform, tenants) {
     <div class="bo-card" style="padding:14px 20px;margin-bottom:12px;border:1.5px solid #E5E7EB">
       <div style="display:flex;gap:28px;align-items:center;flex-wrap:wrap">
         <span style="font-size:11px;font-weight:900;color:#374151">📊 확정금액 시뮬레이션</span>
-        <span style="font-size:12px">전체 계획금액 <strong style="color:#002C5F">${_bdFmt(totalDemand)}</strong></span>
+        <span style="font-size:12px">전체 사업계획금액 <strong style="color:#002C5F">${_bdFmt(totalDemand)}</strong></span>
         <span style="font-size:12px">1차조정 합계 <strong id="bd-l3-op-total" style="color:#0369A1;font-size:13px">${_bdFmt(opSum)}</strong></span>
         <span style="font-size:12px">최종승인 합계 <strong id="bd-l3-final-total" style="color:#7C3AED;font-size:13px">${_bdFmt(finalSum)}</strong></span>
       </div>
@@ -504,7 +492,7 @@ function _renderBdCombined(el, isPlatform, tenants) {
     <!-- ★ 팀별 요약 테이블 -->
     <div class="bo-card" style="overflow:hidden;margin-bottom:12px">
       <div style="padding:16px 24px;background:linear-gradient(135deg,#002C5F,#0369A1);color:white">
-        <div style="font-size:11px;opacity:.7;margin-bottom:4px">🏢 조직단위 상세</div>
+        <div style="font-size:11px;opacity:.7;margin-bottom:4px">🏢 교육조직 상세</div>
         <h2 style="margin:0;font-size:18px;font-weight:900">${hq.name}</h2>
         <div style="margin-top:6px;display:flex;gap:20px;font-size:12px;flex-wrap:wrap">
           <span>팀수 <strong>${teams.length}개</strong></span>
@@ -524,7 +512,7 @@ function _renderBdCombined(el, isPlatform, tenants) {
           <th style="text-align:center">미결</th>
           <th style="text-align:center">최종승인</th>
           <th style="text-align:center">제외</th>
-          <th style="text-align:center">1차조정률</th>
+          
           <th style="text-align:center">상신자</th>
         </tr></thead>
         <tbody>
@@ -690,13 +678,13 @@ function _renderBdLevel2(el, isPlatform, tenants) {
 
     <div style="margin-bottom:16px">
       <button onclick="_bdDrillHq=null;renderBudgetDemand()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">
-        ← 전체 조직단위 보기
+        ← 전체 교육조직 보기
       </button>
     </div>
 
     <div class="bo-card" style="overflow:hidden">
       <div style="padding:20px 24px;background:linear-gradient(135deg,#002C5F,#0369A1);color:white">
-        <div style="font-size:11px;opacity:.7;margin-bottom:4px">🏢 조직단위 상세</div>
+        <div style="font-size:11px;opacity:.7;margin-bottom:4px">🏢 교육조직 상세</div>
         <h2 style="margin:0;font-size:18px;font-weight:900">${hq.name}</h2>
         <div style="margin-top:8px;display:flex;gap:20px;font-size:12px;flex-wrap:wrap">
           <span>팀수 <strong>${teams.length}개</strong></span>
@@ -716,7 +704,7 @@ function _renderBdLevel2(el, isPlatform, tenants) {
           <th style="text-align:right">수요</th>
           <th style="text-align:right;color:#0369A1">1차조정</th>
           <th style="text-align:right;color:#7C3AED">최종승인</th>
-          <th style="text-align:right">미결</th><th style="text-align:center">1차조정률</th>
+          <th style="text-align:right">미결</th>
           <th style="text-align:center">상신자</th>
         </tr></thead>
         <tbody>
@@ -785,7 +773,7 @@ function _renderBdUnmatched(el, plans, isPlatform, tenants) {
     ${_bdFilterBar(isPlatform, tenants)}
     <div style="margin-bottom:16px">
       <button onclick="_bdDrillHq=null;renderBudgetDemand()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">
-        ← 전체 조직단위 보기
+        ← 전체 교육조직 보기
       </button>
     </div>
     <div class="bo-card" style="overflow:hidden">
@@ -971,7 +959,7 @@ function _renderBdLevel3(el) {
           <th style="text-align:center">미결</th>
           <th style="text-align:center">최종승인</th>
           <th style="text-align:center">제외</th>
-          <th style="text-align:center">1차조정률</th>
+          
         </tr></thead>
         <tbody>
           ${_l3TeamRows.map(r => `

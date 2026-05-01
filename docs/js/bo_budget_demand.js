@@ -389,13 +389,14 @@ function _renderBdCombined(el, isPlatform, tenants) {
     const demand    = tp.reduce((s,p) => s + Number(p.amount||0), 0);
     const opConf    = tp.reduce((s,p) => s + Number(p.op_confirmed_amount||0), 0);
     const finalConf = tp.reduce((s,p) => s + Number(p.final_confirmed_amount||0), 0);
+    const rejectedAmt = tp.filter(p => ['op_rejected','final_rejected'].includes(p.bo_status)).reduce((s,p) => s + Number(p.amount||0), 0);
     const pendingCnt = tp.filter(p => !['op_rejected','final_rejected','final_approved'].includes(p.bo_status || (p.status==='approved'?'op_review_pending':''))).length;
     const approvedCnt = tp.filter(p => p.bo_status === 'final_approved').length;
     const excludedCnt = tp.filter(p => ['op_rejected','final_rejected'].includes(p.bo_status)).length;
     const pct = demand > 0 ? Math.round((opConf / demand) * 100) : 0;
     const isCurrent = _bdDrillOrg &&
       (t.name === _bdDrillOrg || _bdFuzzy(t.name, _bdDrillOrg) || _bdFuzzy(_bdDrillOrg, t.name));
-    return { name: t.name, count: tp.length, demand, opConf, finalConf,
+    return { name: t.name, count: tp.length, demand, opConf, finalConf, rejectedAmt,
              pendingCnt, approvedCnt, excludedCnt, pct, isCurrent };
   });
 
@@ -503,24 +504,23 @@ function _renderBdCombined(el, isPlatform, tenants) {
         </div>
       </div>
       <table class="bo-table" style="font-size:12px">
-        <thead><tr>
-          <th>팀명</th>
-          <th style="text-align:center">건수</th>
-          <th style="text-align:right">수요</th>
-          <th style="text-align:right;color:#0369A1">1차조정</th>
-          <th style="text-align:right;color:#7C3AED">최종승인</th>
-          <th style="text-align:center">미결</th>
-          <th style="text-align:center">최종승인</th>
-          <th style="text-align:center">제외</th>
-          
-          <th style="text-align:center">상신자</th>
-        </tr></thead>
+        <thead>
+          <tr>
+            <th rowspan="2" style="vertical-align:middle">팀명</th>
+            <th colspan="3" style="text-align:center;background:#F9FAFB">건수</th>
+            <th colspan="3" style="text-align:center;background:#F0F9FF">금액</th>
+          </tr>
+          <tr>
+            <th style="text-align:center;background:#F9FAFB;font-size:11px">요청건수</th>
+            <th style="text-align:center;background:#F9FAFB;color:#059669;font-size:11px">승인건수</th>
+            <th style="text-align:center;background:#F9FAFB;color:#DC2626;font-size:11px">반려건수</th>
+            <th style="text-align:right;background:#F0F9FF;font-size:11px">요청금액</th>
+            <th style="text-align:right;background:#F0F9FF;color:#7C3AED;font-size:11px">승인금액</th>
+            <th style="text-align:right;background:#F0F9FF;color:#DC2626;font-size:11px">반려금액</th>
+          </tr>
+        </thead>
         <tbody>
           ${teamRows.map(t => {
-            const applicantList = allPlans
-              .filter(p => { const dept=p.detail?.dept||p.applicant_name||''; return dept===t.name||_bdFuzzy(dept,t.name)||_bdFuzzy(t.name,dept); })
-              .reduce((map,p) => { const n=p.applicant_name||'미상'; map[n]=(map[n]||0)+1; return map; }, {});
-            const appStr = Object.entries(applicantList).map(([n,c])=>`${n}(${c}건)`).join(', ') || '-';
             return `
           <tr onclick="_bdDrillOrg='${t.name.replace(/'/g,"\\'")}';renderBudgetDemand()"
             style="cursor:pointer;transition:background .12s;${t.isCurrent ? 'background:#EFF6FF;' : ''}"
@@ -529,34 +529,22 @@ function _renderBdCombined(el, isPlatform, tenants) {
             <td style="font-weight:${t.isCurrent ? 900 : 700};color:${t.isCurrent ? '#002C5F' : 'inherit'}">
               ${t.isCurrent ? '▶ ' : ''}${t.name}
             </td>
-            <td style="text-align:center">${t.count}건</td>
+            <td style="text-align:center;font-weight:700">${t.count}건</td>
+            <td style="text-align:center;color:#059669;font-weight:700">${t.approvedCnt}</td>
+            <td style="text-align:center;color:#DC2626;font-weight:700">${t.excludedCnt}</td>
             <td style="text-align:right;font-weight:800">${_bdFmt(t.demand)}</td>
-            <td style="text-align:right;font-weight:800;color:#0369A1">${_bdFmt(t.opConf)}</td>
             <td style="text-align:right;font-weight:800;color:#7C3AED">${_bdFmt(t.finalConf)}</td>
-            <td style="text-align:center;color:#D97706">${t.pendingCnt}</td>
-            <td style="text-align:center;color:#059669;font-weight:800">${t.approvedCnt}</td>
-            <td style="text-align:center;color:#DC2626">${t.excludedCnt}</td>
-            <td style="text-align:center">
-              <div style="display:flex;align-items:center;gap:4px;justify-content:center">
-                <div style="width:40px;height:5px;background:#E5E7EB;border-radius:3px;overflow:hidden">
-                  <div style="width:${t.pct}%;height:100%;background:${t.pct>=80?'#0369A1':t.pct>=50?'#D97706':'#DC2626'};border-radius:3px"></div>
-                </div>
-                <span style="font-size:10px;font-weight:900;color:${t.pct>=80?'#0369A1':t.pct>=50?'#D97706':'#DC2626'}">${t.pct}%</span>
-              </div>
-            </td>
-            <td style="font-size:10px;color:#6B7280;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${appStr}</td>
+            <td style="text-align:right;font-weight:800;color:#DC2626">${_bdFmt(t.rejectedAmt)}</td>
           </tr>`;
           }).join('')}
           <tr style="background:#F9FAFB;font-weight:900;border-top:2px solid #E5E7EB;font-size:11px">
             <td>소계</td>
             <td style="text-align:center">${allPlans.length}건</td>
-            <td style="text-align:right">${_bdFmt(totalDemand)}</td>
-            <td style="text-align:right;color:#0369A1">${_bdFmt(totalOpConf)}</td>
-            <td style="text-align:right;color:#7C3AED">${_bdFmt(totalFinalConf)}</td>
-            <td style="text-align:center;color:#D97706">${teamRows.reduce((s,t)=>s+t.pendingCnt,0)}</td>
             <td style="text-align:center;color:#059669">${teamRows.reduce((s,t)=>s+t.approvedCnt,0)}</td>
             <td style="text-align:center;color:#DC2626">${teamRows.reduce((s,t)=>s+t.excludedCnt,0)}</td>
-            <td></td><td></td>
+            <td style="text-align:right">${_bdFmt(totalDemand)}</td>
+            <td style="text-align:right;color:#7C3AED">${_bdFmt(totalFinalConf)}</td>
+            <td style="text-align:right;color:#DC2626">${_bdFmt(teamRows.reduce((s,t)=>s+t.rejectedAmt,0))}</td>
           </tr>
         </tbody>
       </table>
@@ -568,7 +556,7 @@ function _renderBdCombined(el, isPlatform, tenants) {
         <div>
           <div style="font-size:11px;opacity:.7;margin-bottom:4px">📋 사업계획 목록</div>
           <h3 style="margin:0;font-size:16px;font-weight:900">
-            ${_bdDrillOrg ? `▶ ${_bdDrillOrg}` : hq.name + ' 전체'} — ${_bdYear}년
+            ${_bdDrillOrg ? `▶ ${_bdDrillOrg}` : (teamRows.filter(t => t.count > 0).length === 1 ? teamRows.filter(t => t.count > 0)[0].name : hq.name + ' 전체')} — ${_bdYear}년
           </h3>
           <div style="margin-top:4px;font-size:12px;opacity:.85">
             ${plans.length}건 &nbsp;|&nbsp; 계획금액 ${_bdFmt(demandSum)} &nbsp;|&nbsp; 1차조정 ${_bdFmt(opSum)} &nbsp;|&nbsp; 최종승인 ${_bdFmt(finalSum)}
@@ -855,12 +843,13 @@ function _renderBdLevel3(el) {
     const demand = tp.reduce((s,p) => s + Number(p.amount||0), 0);
     const opConf = tp.reduce((s,p) => s + Number(p.op_confirmed_amount||0), 0);
     const finalConf = tp.reduce((s,p) => s + Number(p.final_confirmed_amount||0), 0);
+    const rejectedAmt = tp.filter(p => ['op_rejected','final_rejected'].includes(p.bo_status)).reduce((s,p) => s + Number(p.amount||0), 0);
     const pending = tp.filter(p => !['op_rejected','final_rejected','final_approved'].includes(p.bo_status || (p.status==='approved'?'op_review_pending':'')));
     const approved = tp.filter(p => p.bo_status === 'final_approved').length;
     const excluded = tp.filter(p => ['op_rejected','final_rejected'].includes(p.bo_status)).length;
     const pct = demand > 0 ? Math.round((opConf / demand) * 100) : 0;
     const isCurrent = (t.name === _bdDrillOrg || _bdFuzzy(t.name, _bdDrillOrg || '') || _bdFuzzy(_bdDrillOrg || '', t.name));
-    return { name: t.name, count: tp.length, demand, opConf, finalConf,
+    return { name: t.name, count: tp.length, demand, opConf, finalConf, rejectedAmt,
              pendingCount: pending.length, approved, excluded, pct, isCurrent };
   }).filter(r => r.count > 0 || _l3Teams.length <= 6); // 데이터 없는 팀은 팀이 많으면 생략
 
@@ -954,17 +943,21 @@ function _renderBdLevel3(el) {
         <span style="font-size:11px;color:#9CA3AF">팀 클릭 시 해당 팀 계획 목록으로 이동</span>
       </div>
       <table class="bo-table" style="font-size:12px">
-        <thead><tr>
-          <th>팀명</th>
-          <th style="text-align:center">계획건수</th>
-          <th style="text-align:right">계획금액</th>
-          <th style="text-align:right;color:#0369A1">1차조정</th>
-          <th style="text-align:right;color:#7C3AED">최종승인</th>
-          <th style="text-align:center">미결</th>
-          <th style="text-align:center">최종승인</th>
-          <th style="text-align:center">제외</th>
-          
-        </tr></thead>
+        <thead>
+          <tr>
+            <th rowspan="2" style="vertical-align:middle">팀명</th>
+            <th colspan="3" style="text-align:center;background:#F9FAFB">건수</th>
+            <th colspan="3" style="text-align:center;background:#F0F9FF">금액</th>
+          </tr>
+          <tr>
+            <th style="text-align:center;background:#F9FAFB;font-size:11px">요청건수</th>
+            <th style="text-align:center;background:#F9FAFB;color:#059669;font-size:11px">승인건수</th>
+            <th style="text-align:center;background:#F9FAFB;color:#DC2626;font-size:11px">반려건수</th>
+            <th style="text-align:right;background:#F0F9FF;font-size:11px">요청금액</th>
+            <th style="text-align:right;background:#F0F9FF;color:#7C3AED;font-size:11px">승인금액</th>
+            <th style="text-align:right;background:#F0F9FF;color:#DC2626;font-size:11px">반려금액</th>
+          </tr>
+        </thead>
         <tbody>
           ${_l3TeamRows.map(r => `
           <tr onclick="_bdDrillOrg='${r.name.replace(/'/g,"\\'")}';renderBudgetDemand()"
@@ -974,32 +967,21 @@ function _renderBdLevel3(el) {
             <td style="${r.isCurrent ? 'color:#002C5F;font-weight:900' : 'font-weight:700'}">
               ${r.isCurrent ? '▶ ' : ''}${r.name}
             </td>
-            <td style="text-align:center">${r.count}건</td>
+            <td style="text-align:center;font-weight:700">${r.count}건</td>
+            <td style="text-align:center;color:#059669;font-weight:700">${r.approved}</td>
+            <td style="text-align:center;color:#DC2626;font-weight:700">${r.excluded}</td>
             <td style="text-align:right;font-weight:800">${_bdFmt(r.demand)}</td>
-            <td style="text-align:right;font-weight:800;color:#0369A1">${_bdFmt(r.opConf)}</td>
             <td style="text-align:right;font-weight:800;color:#7C3AED">${_bdFmt(r.finalConf)}</td>
-            <td style="text-align:center;color:#D97706">${r.pendingCount}</td>
-            <td style="text-align:center;color:#059669;font-weight:800">${r.approved}</td>
-            <td style="text-align:center;color:#DC2626">${r.excluded}</td>
-            <td style="text-align:center">
-              <div style="display:flex;align-items:center;gap:4px;justify-content:center">
-                <div style="width:40px;height:5px;background:#E5E7EB;border-radius:3px;overflow:hidden">
-                  <div style="width:${r.pct}%;height:100%;background:${r.pct>=80?'#0369A1':r.pct>=50?'#D97706':'#DC2626'};border-radius:3px"></div>
-                </div>
-                <span style="font-size:10px;font-weight:900;color:${r.pct>=80?'#0369A1':r.pct>=50?'#D97706':'#DC2626'}">${r.pct}%</span>
-              </div>
-            </td>
+            <td style="text-align:right;font-weight:800;color:#DC2626">${_bdFmt(r.rejectedAmt)}</td>
           </tr>`).join('')}
           <tr style="background:#F9FAFB;font-weight:900;border-top:2px solid #E5E7EB;font-size:11px">
             <td>소계</td>
             <td style="text-align:center">${_l3TeamRows.reduce((s,r)=>s+r.count,0)}건</td>
-            <td style="text-align:right">${_bdFmt(_l3TeamRows.reduce((s,r)=>s+r.demand,0))}</td>
-            <td style="text-align:right;color:#0369A1">${_bdFmt(_l3TeamRows.reduce((s,r)=>s+r.opConf,0))}</td>
-            <td style="text-align:right;color:#7C3AED">${_bdFmt(_l3TeamRows.reduce((s,r)=>s+r.finalConf,0))}</td>
-            <td style="text-align:center;color:#D97706">${_l3TeamRows.reduce((s,r)=>s+r.pendingCount,0)}</td>
             <td style="text-align:center;color:#059669">${_l3TeamRows.reduce((s,r)=>s+r.approved,0)}</td>
             <td style="text-align:center;color:#DC2626">${_l3TeamRows.reduce((s,r)=>s+r.excluded,0)}</td>
-            <td></td>
+            <td style="text-align:right">${_bdFmt(_l3TeamRows.reduce((s,r)=>s+r.demand,0))}</td>
+            <td style="text-align:right;color:#7C3AED">${_bdFmt(_l3TeamRows.reduce((s,r)=>s+r.finalConf,0))}</td>
+            <td style="text-align:right;color:#DC2626">${_bdFmt(_l3TeamRows.reduce((s,r)=>s+r.rejectedAmt,0))}</td>
           </tr>
         </tbody>
       </table>

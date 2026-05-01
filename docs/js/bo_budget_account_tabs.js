@@ -210,15 +210,31 @@ function _bamRenderApprovalTab(d) {
 
   const STAGES_MAP = { A:["forecast","ongoing","apply","result"], B:["ongoing","apply","result"], C:["apply","result"] };
   const stages = STAGES_MAP[d.process_pattern] || ["apply"];
-  const sLabel = { forecast:"📋 사업계획", ongoing:"📊 상시계획", apply:"📝 신청", result:"📄 결과" };
+  const sLabel = { forecast:"📋 사업계획(수요예측)", ongoing:"📊 상시계획", apply:"📝 신청", result:"📄 결과" };
   const sColor = { forecast:"#8B5CF6", ongoing:"#7C3AED", apply:"#1D4ED8", result:"#059669" };
   const LEVELS = [{k:"team_leader",l:"팀장"},{k:"director",l:"실장"},{k:"division_head",l:"사업부장"},{k:"center_head",l:"센터장"},{k:"hq_head",l:"본부장"}];
 
   if (!d.approval_config) d.approval_config = {};
 
+  // 계정코드 헤더 배지
+  const acctCode = d.code || '(미지정)';
+  const acctName = d.name || '';
   let html = `<div style="display:grid;gap:16px">
+  <!-- 계정 식별 배지 -->
+  <div style="padding:14px 18px;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);border:1.5px solid #C7D2FE;border-radius:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:11px;font-weight:800;color:#6B7280">예산계정</span>
+      <code style="font-size:13px;font-weight:900;color:#1D4ED8;background:#DBEAFE;padding:3px 12px;border-radius:6px;border:1px solid #BFDBFE">${acctCode}</code>
+      <span style="font-size:13px;font-weight:700;color:#374151">${acctName}</span>
+    </div>
+    <div style="margin-left:auto;font-size:10px;color:#7C3AED;font-weight:700;background:#F5F3FF;padding:3px 10px;border-radius:6px;border:1px solid #DDD6FE">
+      📐 계정별 독립 결재라인 설정
+    </div>
+  </div>
+
   <div style="padding:12px 16px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;font-size:12px;color:#92400E">
-    💡 각 단계별 결재라인을 설정하세요. 금액 구간별 결재자를 지정할 수 있습니다.
+    💡 각 단계별 결재라인을 설정하세요. 금액 구간별 결재자를 지정하면 FO 상신 시 자동 적용됩니다.
+    <span style="font-weight:800;margin-left:4px">수요예측(사업계획) 단계의 결재라인은 forecast_approval_lines 테이블에 자동 동기화됩니다.</span>
   </div>`;
 
   stages.forEach(s => {
@@ -226,10 +242,14 @@ function _bamRenderApprovalTab(d) {
     if (!d.approval_config[s]) d.approval_config[s] = c;
     if (!c.thresholds) c.thresholds = [];
     const sc = sColor[s];
+    const isForecast = s === 'forecast';
 
     html += `<div style="border:2px solid ${sc}50;border-radius:14px;overflow:hidden">
     <div style="padding:12px 16px;background:${sc}0A;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid ${sc}30">
-      <span style="font-size:13px;font-weight:900;color:${sc}">${sLabel[s]} 결재라인</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:13px;font-weight:900;color:${sc}">${sLabel[s]} 결재라인</span>
+        ${isForecast ? '<span style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:4px;background:#8B5CF615;color:#8B5CF6;border:1px solid #8B5CF640">수요예측 핵심 결재</span>' : ''}
+      </div>
       <span style="padding:2px 9px;border-radius:20px;background:${c.thresholds.length?sc:'#F3F4F6'};color:${c.thresholds.length?'white':'#9CA3AF'};font-size:10px;font-weight:900">${c.thresholds.length?'✓ '+c.thresholds.length+'개 구간':'미설정'}</span>
     </div>
     <div style="padding:16px;background:white;display:grid;gap:14px">
@@ -246,28 +266,35 @@ function _bamRenderApprovalTab(d) {
       <!-- 금액별 결재자 -->
       <div style="border-top:1px solid #F3F4F6;padding-top:12px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <label style="font-size:12px;font-weight:800;color:#374151">💰 금액별 결재자</label>
+          <label style="font-size:12px;font-weight:800;color:#374151">💰 금액별 결재자 <span style="font-size:10px;font-weight:500;color:#9CA3AF">(축1: 총액 → 승인자 레벨 상승)</span></label>
           <button onclick="_bamAddThreshold('${s}')" style="font-size:11px;padding:5px 14px;border-radius:8px;border:1.5px solid ${sc};color:${sc};background:white;cursor:pointer;font-weight:700">+ 추가</button>
         </div>
         ${c.thresholds.length === 0
           ? `<div style="padding:16px;text-align:center;background:#F9FAFB;border-radius:10px;border:1px dashed #D1D5DB;font-size:11px;color:#9CA3AF">결재 구간이 없습니다. + 추가 버튼으로 설정하세요</div>`
           : `<div style="display:grid;gap:8px">${c.thresholds.map((t,i) => `<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;padding:12px;background:#FAFAFA;border:1.5px solid #E5E7EB;border-radius:10px">
-            <div><label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:4px">금액 (원 이하)</label>
-              <input type="number" value="${t.maxAmt||''}" placeholder="예: 1000000" onchange="_bamDetailData.approval_config['${s}'].thresholds[${i}].maxAmt=Number(this.value)"
+            <div><label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:4px">금액 상한 (원 이하)</label>
+              <input type="number" value="${t.maxAmt||''}" placeholder="예: 1000000" onchange="_bamDetailData.approval_config['${s}'].thresholds[${i}].maxAmt=Number(this.value);_bamRenderTabs()"
                 style="width:100%;border:1.5px solid #D1D5DB;border-radius:8px;padding:8px;font-size:13px;font-weight:700;box-sizing:border-box"></div>
             <div><label style="font-size:10px;font-weight:700;color:#6B7280;display:block;margin-bottom:4px">결재자</label>
-              <select onchange="_bamDetailData.approval_config['${s}'].thresholds[${i}].approverKey=this.value"
+              <select onchange="_bamDetailData.approval_config['${s}'].thresholds[${i}].approverKey=this.value;_bamRenderTabs()"
                 style="width:100%;border:1.5px solid #D1D5DB;border-radius:8px;padding:8px;font-size:13px;font-weight:700"><option value="">— 선택 —</option>
                 ${LEVELS.map(lv => `<option value="${lv.k}" ${t.approverKey===lv.k?'selected':''}>${lv.l}</option>`).join('')}</select></div>
             <button onclick="_bamRemoveThreshold('${s}',${i})" style="padding:8px 12px;border-radius:8px;border:1.5px solid #FCA5A5;color:#DC2626;background:white;cursor:pointer;font-size:11px;font-weight:700;height:36px">삭제</button>
           </div>`).join('')}</div>`}
       </div>
 
+      <!-- 구간별 결재 플로우 시각 프리뷰 -->
+      ${c.thresholds.length > 0 ? `<div style="border-top:1px solid #F3F4F6;padding-top:12px">
+        <label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:8px">🔄 결재 플로우 프리뷰</label>
+        <div style="display:grid;gap:6px">${_bamRenderFlowPreview(c, LEVELS, sc)}</div>
+      </div>` : ''}
+
       <!-- 결재 후 검토자 -->
       <div style="border-top:1px solid #F3F4F6;padding-top:12px">
-        <label style="font-size:12px;font-weight:800;color:#374151;display:block;margin-bottom:8px">🔍 결재 후 검토자</label>
+        <label style="font-size:12px;font-weight:800;color:#374151;display:block;margin-bottom:8px">🔍 결재 후 검토 모드</label>
         <div style="display:grid;gap:6px">
-          ${[{k:'leader_to_admin',l:'팀장 검토 → 총괄담당자 검토',d:'팀장 1차 검토 후 총괄담당자 최종 검토',i:'👤→🏛️',c:'#1D4ED8'},
+          ${[{k:'none',l:'검토 없음 (직접 승인만)',d:'금액 구간별 결재자가 직접 승인 처리',i:'⚡',c:'#6B7280'},
+             {k:'leader_to_admin',l:'팀장 검토 → 총괄담당자 검토',d:'팀장 1차 검토 후 총괄담당자 최종 검토',i:'👤→🏛️',c:'#1D4ED8'},
              {k:'leader_to_manager_to_admin',l:'팀장 검토 → 운영담당자 검토 → 총괄담당자 검토',d:'팀장·운영담당자 순차 검토 후 총괄담당자 최종 승인',i:'👤→👤→🏛️',c:'#059669'}
           ].map(m => {
             const sel = (c.reviewMode||'none') === m.k;
@@ -284,6 +311,41 @@ function _bamRenderApprovalTab(d) {
 
   html += `</div>`;
   return html;
+}
+
+// 구간별 결재 플로우 시각 프리뷰 렌더러
+function _bamRenderFlowPreview(stageConfig, LEVELS, stageColor) {
+  const sorted = [...(stageConfig.thresholds || [])].sort((a, b) => (a.maxAmt || Infinity) - (b.maxAmt || Infinity));
+  const reviewMode = stageConfig.reviewMode || 'none';
+  const LABELS = { team_leader:'팀장', director:'실장', division_head:'사업부장', center_head:'센터장', hq_head:'본부장' };
+
+  return sorted.map(t => {
+    const approverLabel = LABELS[t.approverKey] || t.approverKey || '미지정';
+    const amtLabel = t.maxAmt ? `${(t.maxAmt / 10000).toLocaleString()}만원 이하` : '최고 구간';
+    // 노드 배열 구성
+    const flowNodes = [];
+    flowNodes.push({ icon: '✍️', label: '기안자', color: '#6B7280' });
+    if (reviewMode === 'leader_to_admin' || reviewMode === 'leader_to_manager_to_admin') {
+      flowNodes.push({ icon: '👤', label: '팀장 검토', color: '#1D4ED8' });
+    }
+    if (reviewMode === 'leader_to_manager_to_admin') {
+      flowNodes.push({ icon: '👤', label: '운영담당자 검토', color: '#D97706' });
+    }
+    flowNodes.push({ icon: '✅', label: approverLabel + ' 승인', color: stageColor });
+    if (reviewMode && reviewMode !== 'none') {
+      flowNodes.push({ icon: '🏛️', label: '총괄담당자 최종', color: '#7C3AED' });
+    }
+
+    const nodesHtml = flowNodes.map((n, j) =>
+      `${j > 0 ? '<span style="color:#9CA3AF;font-size:10px">→</span>' : ''}` +
+      `<span style="padding:3px 8px;border-radius:12px;background:${n.color}10;border:1px solid ${n.color}30;font-size:10px;font-weight:700;color:${n.color};white-space:nowrap">${n.icon} ${n.label}</span>`
+    ).join('');
+
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#FAFAFA;border-radius:8px;border:1px solid #F0F0F0;flex-wrap:wrap">
+      <span style="font-size:10px;font-weight:800;color:${stageColor};min-width:100px">${amtLabel}</span>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">${nodesHtml}</div>
+    </div>`;
+  }).join('');
 }
 
 function _bamAddThreshold(stage) {

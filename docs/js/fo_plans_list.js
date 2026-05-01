@@ -1758,48 +1758,85 @@ function foBundleSubmitModal() {
   </div>
 </div>`);
 
-  // ★ 결재라인 비동기 로드: account_budgets에서 reviewMode 조회 후 스텝 시각화
+  // ★ 결재라인 비동기 로드: buildForecastApprovalNodes 엔진 활용
   const acct2 = accs[0] || null;
   if (acct2) {
     (async () => {
-      const sbL = typeof getSB === 'function' ? getSB() : null;
       const stepsEl = document.getElementById('fo-bundle-approval-steps');
-      if (!sbL || !stepsEl) return;
+      if (!stepsEl) return;
       try {
-        const { data: ab } = await sbL
-          .from('budget_accounts')
-          .select('approval_config')
-          .eq('code', acct2)
-          .eq('tenant_id', currentPersona.tenantId || 'HMC')
-          .maybeSingle();
+        const tenantId = currentPersona.tenantId || 'HMC';
+        // buildForecastApprovalNodesFromAccount 엔진 호출 (bo_budget_account.js)
+        const result = typeof buildForecastApprovalNodesFromAccount === 'function'
+          ? await buildForecastApprovalNodesFromAccount(tenantId, acct2, total)
+          : null;
 
-        const reviewMode = ab?.approval_config?.forecast?.reviewMode || null;
-        const REVIEW_STEPS = {
-          'leader_to_admin': [
-            { label: '작성자 상신', icon: '✍️', color: '#6B7280' },
-            { label: '팀장 검토', icon: '👤', color: '#1D4ED8' },
-            { label: '총괄담당자 최종검토', icon: '🏛️', color: '#7C3AED' },
-          ],
-          'leader_to_manager_to_admin': [
-            { label: '작성자 상신', icon: '✍️', color: '#6B7280' },
-            { label: '팀장 검토', icon: '👤', color: '#1D4ED8' },
-            { label: '운영담당자 검토', icon: '👤', color: '#D97706' },
-            { label: '총괄담당자 최종검토', icon: '🏛️', color: '#7C3AED' },
-          ],
-        };
-        const steps = REVIEW_STEPS[reviewMode];
-        if (steps) {
-          stepsEl.innerHTML = steps.map((st, i) =>
-            `<div style="display:flex;align-items:center;gap:4px">
+        if (result && result.nodes && result.nodes.length > 0) {
+          // 금액 구간 정보 표시
+          const thresholdInfo = result.thresholdLabel
+            ? `<div style="font-size:10px;color:#6B7280;margin-bottom:6px">📊 적용 구간: <strong style="color:#1D4ED8">${result.thresholdLabel}</strong> (총액 ${total.toLocaleString()}원)</div>`
+            : '';
+          const nodesHtml = result.nodes.map((n, i) => {
+            const nodeColor = n.type === 'draft' ? '#6B7280'
+              : n.type === 'review' ? '#1D4ED8'
+              : n.type === 'approval' ? '#059669'
+              : n.type === 'final_review' ? '#7C3AED'
+              : '#6B7280';
+            const nodeIcon = n.type === 'draft' ? '✍️'
+              : n.type === 'review' ? '👤'
+              : n.type === 'approval' ? '✅'
+              : n.type === 'final_review' ? '🏛️'
+              : '📋';
+            return `<div style="display:flex;align-items:center;gap:4px">
               ${i > 0 ? '<span style="color:#9CA3AF;font-size:12px">→</span>' : ''}
-              <div style="padding:5px 10px;border-radius:20px;background:${st.color}15;border:1.5px solid ${st.color}40;display:flex;align-items:center;gap:4px">
-                <span style="font-size:12px">${st.icon}</span>
-                <span style="font-size:10px;font-weight:800;color:${st.color}">${st.label}</span>
+              <div style="padding:5px 10px;border-radius:20px;background:${nodeColor}15;border:1.5px solid ${nodeColor}40;display:flex;align-items:center;gap:4px">
+                <span style="font-size:12px">${nodeIcon}</span>
+                <span style="font-size:10px;font-weight:800;color:${nodeColor}">${n.label}</span>
               </div>
-            </div>`
-          ).join('');
+            </div>`;
+          }).join('');
+          stepsEl.innerHTML = thresholdInfo + `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${nodesHtml}</div>`;
         } else {
-          stepsEl.innerHTML = `<div style="font-size:11px;color:#EF4444;font-weight:700">⚠️ 사업계획 결재라인이 설정되지 않았습니다. BO에서 먼저 설정해주세요.</div>`;
+          // 미설정: 레거시 reviewMode 폴백 시도
+          const sbL = typeof getSB === 'function' ? getSB() : null;
+          if (sbL) {
+            const { data: ab } = await sbL
+              .from('budget_accounts')
+              .select('approval_config')
+              .eq('code', acct2)
+              .eq('tenant_id', tenantId)
+              .maybeSingle();
+            const reviewMode = ab?.approval_config?.forecast?.reviewMode || null;
+            const REVIEW_STEPS = {
+              'leader_to_admin': [
+                { label: '작성자 상신', icon: '✍️', color: '#6B7280' },
+                { label: '팀장 검토', icon: '👤', color: '#1D4ED8' },
+                { label: '총괄담당자 최종검토', icon: '🏛️', color: '#7C3AED' },
+              ],
+              'leader_to_manager_to_admin': [
+                { label: '작성자 상신', icon: '✍️', color: '#6B7280' },
+                { label: '팀장 검토', icon: '👤', color: '#1D4ED8' },
+                { label: '운영담당자 검토', icon: '👤', color: '#D97706' },
+                { label: '총괄담당자 최종검토', icon: '🏛️', color: '#7C3AED' },
+              ],
+            };
+            const steps = REVIEW_STEPS[reviewMode];
+            if (steps) {
+              stepsEl.innerHTML = steps.map((st, i) =>
+                `<div style="display:flex;align-items:center;gap:4px">
+                  ${i > 0 ? '<span style="color:#9CA3AF;font-size:12px">→</span>' : ''}
+                  <div style="padding:5px 10px;border-radius:20px;background:${st.color}15;border:1.5px solid ${st.color}40;display:flex;align-items:center;gap:4px">
+                    <span style="font-size:12px">${st.icon}</span>
+                    <span style="font-size:10px;font-weight:800;color:${st.color}">${st.label}</span>
+                  </div>
+                </div>`
+              ).join('');
+            } else {
+              stepsEl.innerHTML = `<div style="font-size:11px;color:#EF4444;font-weight:700">⚠️ 사업계획 결재라인이 설정되지 않았습니다. BO > 예산계정 관리에서 결재라인을 설정해주세요.</div>`;
+            }
+          } else {
+            stepsEl.innerHTML = `<div style="font-size:11px;color:#EF4444;font-weight:700">⚠️ 사업계획 결재라인이 설정되지 않았습니다.</div>`;
+          }
         }
       } catch (e) {
         if (stepsEl) stepsEl.innerHTML = `<div style="font-size:11px;color:#9CA3AF">결재라인 정보를 불러올 수 없습니다.</div>`;
@@ -1859,6 +1896,23 @@ async function foBundleConfirmSubmit() {
   // ──────────────────────────────────────────────────────────────────────────
 
   try {
+    // ★ Q-P3-01: 동적 결재 노드 생성 (계정별 결재라인 엔진 활용)
+    let dynamicApprovalNodes = [{ order: 0, type: 'approval', label: '팀장', approverKey: 'leader', activation: 'always' }];
+    let dynamicApprovalSystem = 'platform';
+    if (acct && typeof buildForecastApprovalNodes === 'function') {
+      try {
+        const tenantId = currentPersona.tenantId || 'HMC';
+        const engineResult = await buildForecastApprovalNodes(tenantId, acct, total);
+        if (engineResult && engineResult.nodes && engineResult.nodes.length > 0) {
+          dynamicApprovalNodes = engineResult.nodes;
+          dynamicApprovalSystem = engineResult.approvalType || 'platform';
+          console.log('[Q-P3-01] 동적 결재 노드 생성:', dynamicApprovalNodes.length, '개 노드, 구간:', engineResult.thresholdLabel);
+        }
+      } catch (engineErr) {
+        console.warn('[Q-P3-01] 결재 노드 엔진 실패, 폴백 사용:', engineErr.message);
+      }
+    }
+
     const { data: doc, error: docErr } = await sb.from('submission_documents').insert({
       tenant_id: currentPersona.tenantId,
       submission_type: 'bundle_plan',
@@ -1870,8 +1924,8 @@ async function foBundleConfirmSubmit() {
       content,
       account_code: acct,
       total_amount: total,
-      approval_system: 'platform',
-      approval_nodes: [{ order: 0, type: 'approval', label: '팀장', approverKey: 'leader', activation: 'always' }],
+      approval_system: dynamicApprovalSystem,
+      approval_nodes: dynamicApprovalNodes,
       current_node_order: 0,
       doc_type: 'plan',
       status: 'submitted',

@@ -1440,9 +1440,9 @@ function _renderPlanCard(p) {
   };
 
 
-  const rawStatus = p.status || "승인완료";
+  const rawStatus = p.status || "draft";  // ★ 폴백: null이면 draft(작성중)로 처리, 전에 '승인완료' 폴백은 버그
   const status = STATUS_LABEL[rawStatus] || rawStatus;
-  const cfg = STATUS_CFG[rawStatus] || STATUS_CFG[status] || STATUS_CFG["승인대기"];
+  const cfg = STATUS_CFG[rawStatus] || STATUS_CFG[status] || STATUS_CFG["pending"];
   const authorBadge = p.author
     ? `<span style="font-size:10px;background:#F3F4F6;color:#6B7280;padding:2px 8px;border-radius:8px;margin-left:4px">👤 ${p.author}</span>`
     : "";
@@ -1495,10 +1495,15 @@ function _renderPlanCard(p) {
            </div>`
         : (rawStatus === "approved")
           ? (() => {
+              // ★ plan_type 분기: 사업계획(forecast/business)에서는 교육신청/배정액축소 불가
+              // 운영계획(operation/ongoing/null)만 이 두 액션 허용
+              const planType = p.plan_type || 'operation';
+              const isOperationPlan = planType === 'operation' || planType === 'ongoing' || (!planType);
               const hasAlloc = Number(p.allocated_amount||0) > 0;
               return `<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
-              ${hasAlloc ? btnPrimary('📝 교육 신청', `event.stopPropagation();_startApplyFromPlan('${safeId}')`) : ''}
-              ${/* btnOutline('📉 배정액 축소', `event.stopPropagation();foOpenReduceAllocation('${safeId}')`, '#D97706', '#FDE68A') */ ''}
+              ${isOperationPlan && hasAlloc ? btnPrimary('📝 교육 신청', `event.stopPropagation();_startApplyFromPlan('${safeId}')`) : ''}
+              ${isOperationPlan && hasAlloc ? btnOutline('📉 배정액 축소', `event.stopPropagation();foOpenReduceAllocation('${safeId}')`, '#D97706', '#FDE68A') : ''}
+              ${!isOperationPlan ? `<div style="font-size:10px;color:#7C3AED;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:6px;padding:4px 10px;font-weight:700">📋 운영계획으로 자동 전환 후 신청 가능</div>` : ''}
               ${btnOutline('📋 복제', `event.stopPropagation();clonePlan('${safeId}')`, '#7C3AED', '#DDD6FE')}
              </div>`;
             })()

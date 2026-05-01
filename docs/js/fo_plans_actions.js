@@ -394,7 +394,8 @@ function renderPlanConfirm() {
 function foRenderPlanUnifiedView(plan, opts = {}) {
   const { mode = 'detail', inlineFields = null } = opts;
   const STATUS_LABEL = {
-    draft: "작성중", saved: "저장완료", pending: "신청중", submitted: "결재대기",
+    draft: "작성중", saved: "저장완료", pending: "신청중", submitted: "팁장 검토 대기",
+    team_approved: "운영자 검토 중", in_review: "총괄담당자 검토 중",
     approved: "승인완료", rejected: "반려", cancelled: "취소", recalled: "회수됨",
     승인완료: "승인완료", 진행중: "진행중", 반려: "반려", 결재진행중: "결재진행중",
     신청중: "신청중", 작성중: "작성중", 저장완료: "저장완료", 취소: "취소",
@@ -414,13 +415,17 @@ function foRenderPlanUnifiedView(plan, opts = {}) {
 
   const isDraft = st === "draft" || st === "작성중";
   const isSaved = st === "saved" || st === "저장완료";
-  const isPending = st === "pending" || st === "submitted" || st === "신청중" || st === "결재진행중" || st === "결재대기";
+  const isPending = st === "pending" || st === "submitted" || st === "team_approved" || st === "in_review" || st === "신청중" || st === "결재진행중" || st === "결재대기";
   const isApproved = st === "approved" || st === "승인완료";
+  // ★ plan_type 확인: 사업계획(forecast/business)은 교육신청/배정액축소 불가
+  const planType = plan.plan_type || 'operation';
+  const isOperationPlan = planType === 'operation' || planType === 'ongoing' || !planType;
   const isExpired = (() => {
     const end = (plan.detail || {}).endDate || plan.end_date || null;
     return end && new Date(end) < new Date();
   })();
-  const canApply = isApproved && !isExpired;
+  // ★ 운영계획이고 승인이고 만료안된 경우만 교육신청 가능
+  const canApply = isApproved && isOperationPlan && !isExpired;
 
   // 연결된 교육신청
   const linkedApps = (typeof MOCK_HISTORY !== "undefined" ? MOCK_HISTORY : [])
@@ -450,7 +455,8 @@ function foRenderPlanUnifiedView(plan, opts = {}) {
       ${isSaved ? `<button onclick="_viewingPlanDetail=null;_aprSingleSubmitFromPlan('${safeId}','${safeTitle}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#059669;color:white;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">📤 상신하기</button>` : ""}
       ${isPending ? `<button onclick="foRecallPlanFromDetail('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FECACA;background:white;color:#DC2626;cursor:pointer">회수하기</button>` : ""}
       ${canApply ? `<button onclick="_viewingPlanDetail=null;startApplyFromPlan('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:linear-gradient(135deg,#059669,#10B981);color:white;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">▶ 이 계획으로 교육신청</button>` : ""}
-      ${isApproved ? `<button onclick="foOpenReduceAllocation('${safeId}')" style="padding:10px 20px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FDE68A;background:#FFFBEB;color:#B45309;cursor:pointer">📉 배정액 축소</button>` : ""}
+      ${isApproved && isOperationPlan ? `<button onclick="foOpenReduceAllocation('${safeId}')" style="padding:10px 20px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FDE68A;background:#FFFBEB;color:#B45309;cursor:pointer">📉 배정액 축소</button>` : ""}
+      ${isApproved && !isOperationPlan ? `<span style="font-size:11px;font-weight:700;color:#7C3AED;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:6px;padding:6px 12px;align-self:center">📋 사업계획 | 운영계획으로 자동 전환 후 신청 가능</span>` : ""}
       ${!isApproved && !isDraft && !isSaved && !isPending ? `<span style="font-size:11px;color:#9CA3AF;align-self:center">ℹ 승인완료 상태에서 신청 가능합니다</span>` : ""}`;
   }
 

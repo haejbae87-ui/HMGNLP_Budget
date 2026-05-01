@@ -1,6 +1,7 @@
 // ─── 📊 결재/검토 진행단계 스텝퍼 ──────────────────────────────────────────
 // 공용 컴포넌트: 계획/신청/결과 상세 뷰에서 사용
 // renderApprovalStepper(status, type) → HTML string
+// ★ Q-P3-01 수요예측 다단계 결재 중간 상태 추가 (2026-05-01)
 
 function renderApprovalStepper(status, type) {
   // type = 'plan' | 'apply' | 'result'
@@ -14,6 +15,7 @@ function renderApprovalStepper(status, type) {
       const isActive = step.state === "active";
       const isDone = step.state === "done";
       const isFailed = step.state === "failed";
+      const isActiveReview = step.state === "active_review";
       const isLast = idx === steps.length - 1;
 
       // 아이콘/색상
@@ -29,6 +31,13 @@ function renderApprovalStepper(status, type) {
         iconBorder = "#2563EB";
         iconContent = `<div style="width:8px;height:8px;background:#2563EB;border-radius:50%"></div>`;
         labelColor = "#2563EB";
+        lineColor = "#E5E7EB";
+      } else if (isActiveReview) {
+        // 검토 진행 중 (보라색) — team_approved, in_review 상태
+        iconBg = "#F5F3FF";
+        iconBorder = "#7C3AED";
+        iconContent = `<div style="width:8px;height:8px;background:#7C3AED;border-radius:50%"></div>`;
+        labelColor = "#7C3AED";
         lineColor = "#E5E7EB";
       } else if (isFailed) {
         iconBg = "#FEE2E2";
@@ -79,11 +88,7 @@ function renderApprovalStepper(status, type) {
 }
 
 function _getApprovalSteps(status, type) {
-  // 상태 → 단계 매핑
   const normalizedStatus = _normalizeStepperStatus(status);
-
-  // 기본 단계: 작성 → 상신 → 결재 → 검토 → 완료
-  // type에 따라 마지막 단계 라벨 변경
   const finalLabel = type === "result" ? "정산완료" : "승인완료";
 
   switch (normalizedStatus) {
@@ -107,15 +112,41 @@ function _getApprovalSteps(status, type) {
       return [
         { label: "작성완료", state: "done", person: "", date: "" },
         { label: "상신완료", state: "done", person: "", date: "" },
-        {
-          label: "결재대기",
-          state: "active",
-          person: "결재자 확인중",
-          date: "",
-        },
+        { label: "결재대기", state: "active", person: "결재자 확인중", date: "" },
         { label: "검토", state: "pending", person: "", date: "" },
         { label: finalLabel, state: "pending", person: "", date: "" },
       ];
+
+    // ★ 수요예측 다단계 결재 중간 상태
+    case "submitted":
+      // FO 팀 번들 상신됨 — 팀장 검토 대기 중 (plan.status = 'submitted')
+      return [
+        { label: "작성완료", state: "done", person: "", date: "" },
+        { label: "상신완료", state: "done", person: "", date: "" },
+        { label: "팀장 검토대기", state: "active", person: "팀장 결재 진행 중", date: "" },
+        { label: "운영자 검토", state: "pending", person: "", date: "" },
+        { label: finalLabel, state: "pending", person: "", date: "" },
+      ];
+    case "team_approved":
+      // 팀장 승인 완료 — 운영담당자 1차 검토 대기 중
+      return [
+        { label: "작성완료", state: "done", person: "", date: "" },
+        { label: "상신완료", state: "done", person: "", date: "" },
+        { label: "팀장 결재완료", state: "done", person: "팀장 승인됨", date: "" },
+        { label: "운영자 검토중", state: "active_review", person: "검토 대기 중", date: "" },
+        { label: finalLabel, state: "pending", person: "", date: "" },
+      ];
+    case "in_review":
+      // 운영담당자 검토 완료 — 총괄담당자 최종 검토 중
+      return [
+        { label: "작성완료", state: "done", person: "", date: "" },
+        { label: "상신완료", state: "done", person: "", date: "" },
+        { label: "결재완료", state: "done", person: "결재 완료", date: "" },
+        { label: "총괄 검토중", state: "active_review", person: "최종 검토 중", date: "" },
+        { label: finalLabel, state: "pending", person: "", date: "" },
+      ];
+
+    // 최종 완료
     case "approved":
       return [
         { label: "작성완료", state: "done", person: "", date: "" },
@@ -163,6 +194,14 @@ function _normalizeStepperStatus(st) {
     결재진행중: "pending",
     대기: "pending",
     pending_approval: "pending",
+    // ★ 수요예측 다단계 중간 상태
+    submitted: "submitted",
+    팀장검토대기: "submitted",
+    team_approved: "team_approved",
+    운영자검토중: "team_approved",
+    in_review: "in_review",
+    총괄검토중: "in_review",
+    // 최종 완료
     approved: "approved",
     승인완료: "approved",
     완료: "approved",

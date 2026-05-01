@@ -433,7 +433,7 @@ function foRenderPlanUnifiedView(plan, opts = {}) {
   const isSaved = st === "saved" || st === "저장완료";
   const isPending = st === "pending" || st === "submitted" || st === "team_approved" || st === "in_review" || st === "신청중" || st === "결재진행중" || st === "결재대기";
   const isApproved = st === "approved" || st === "승인완료";
-  // ★ plan_type 확인: 사업계획(forecast/business)은 교육신청/배정액축소 불가
+  // ★ plan_type 확인: 사업계획(forecast/business)은 교육신청/최초배정액축소 불가
   const planType = plan.plan_type || 'operation';
   const isOperationPlan = planType === 'operation' || planType === 'ongoing' || !planType;
   const isExpired = (() => {
@@ -471,7 +471,7 @@ function foRenderPlanUnifiedView(plan, opts = {}) {
       ${isSaved ? `<button onclick="_viewingPlanDetail=null;_aprSingleSubmitFromPlan('${safeId}','${safeTitle}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#059669;color:white;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">📤 상신하기</button>` : ""}
       ${isPending ? `<button onclick="foRecallPlanFromDetail('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FECACA;background:white;color:#DC2626;cursor:pointer">회수하기</button>` : ""}
       ${canApply ? `<button onclick="_viewingPlanDetail=null;startApplyFromPlan('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:linear-gradient(135deg,#059669,#10B981);color:white;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">▶ 이 계획으로 교육신청</button>` : ""}
-      ${isApproved && isOperationPlan ? `<button onclick="foOpenReduceAllocation('${safeId}')" style="padding:10px 20px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FDE68A;background:#FFFBEB;color:#B45309;cursor:pointer">📉 배정액 축소</button>` : ""}
+      ${isApproved && isOperationPlan ? `<button onclick="foOpenReduceAllocation('${safeId}')" style="padding:10px 20px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FDE68A;background:#FFFBEB;color:#B45309;cursor:pointer">📉 최초배정액 축소</button>` : ""}
       ${isApproved && !isOperationPlan ? `<span style="font-size:11px;font-weight:700;color:#7C3AED;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:6px;padding:6px 12px;align-self:center">📋 사업계획 | 운영계획으로 자동 전환 후 신청 가능</span>` : ""}
       ${!isApproved && !isDraft && !isSaved && !isPending ? `<span style="font-size:11px;color:#9CA3AF;align-self:center">ℹ 승인완료 상태에서 신청 가능합니다</span>` : ""}`;
   }
@@ -541,7 +541,7 @@ async function confirmPlan() {
       ? _getPlanAccountCode(curBudget)
       : "") ||
     "";
-  // ★ Phase F: 수시 교육계획 통장 잔액 경고
+  // ★ Phase F: 수시 교육계획 통장 가용예산 경고
   if (planState.plan_type === "ongoing" && amount > 0) {
     const ok = await _foCheckBankBalanceWarning(amount);
     if (!ok) return;
@@ -1737,12 +1737,12 @@ async function _foRenderReallocUI() {
         <button onclick="_foToggleRealloc()" style="padding:8px 18px;border-radius:10px;border:1.5px solid #7C3AED;background:#F5F3FF;color:#7C3AED;font-size:12px;font-weight:900;cursor:pointer">
           🔄 배정 재배분
         </button>
-        <span style="font-size:11px;color:#9CA3AF">승인된 교육계획의 배정액을 재조정합니다</span>
+        <span style="font-size:11px;color:#9CA3AF">승인된 교육계획의 최초배정액을 재조정합니다</span>
       </div>` : '';
     return;
   }
 
-  // 통장 잔액 조회
+  // 통장 가용예산 조회
   let bankBalance = 0;
   const sb = typeof getSB === 'function' ? getSB() : null;
   if (sb && currentPersona?.orgId) {
@@ -1763,7 +1763,7 @@ async function _foRenderReallocUI() {
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div>
           <span style="font-size:13px;font-weight:900;color:#7C3AED">🔄 배정 재배분 모드</span>
-          <span style="font-size:11px;color:#6B7280;margin-left:8px">통장 잔액: <b style="color:#059669">${bankBalance.toLocaleString()}원</b></span>
+          <span style="font-size:11px;color:#6B7280;margin-left:8px">통장 가용예산: <b style="color:#059669">${bankBalance.toLocaleString()}원</b></span>
         </div>
         <div style="display:flex;gap:6px">
           <button onclick="_foSaveRealloc()" style="padding:6px 16px;border-radius:8px;border:none;background:#7C3AED;color:white;font-size:11px;font-weight:900;cursor:pointer">💾 저장</button>
@@ -1775,7 +1775,7 @@ async function _foRenderReallocUI() {
         <tr style="background:#EDE9FE">
           <th style="padding:8px;text-align:left;font-weight:900">교육계획</th>
           <th style="padding:8px;text-align:right;font-weight:900;width:120px">계획액</th>
-          <th style="padding:8px;text-align:right;font-weight:900;width:140px">배정액 (수정)</th>
+          <th style="padding:8px;text-align:right;font-weight:900;width:140px">최초배정액 (수정)</th>
         </tr>
         ${approvedPlans.map((p,i) => `
         <tr style="border-bottom:1px solid #E5E7EB">
@@ -1816,7 +1816,7 @@ async function _foSaveRealloc() {
 
   if (changes.length === 0) { alert('변경된 항목이 없습니다.'); return; }
 
-  // 통장 잔액 검증
+  // 통장 가용예산 검증
   let bankBalance = 0;
   if (currentPersona?.orgId) {
     try {
@@ -1833,7 +1833,7 @@ async function _foSaveRealloc() {
   inputs.forEach(inp => { totalNew += Number(inp.value || 0); });
 
   if (totalNew > bankBalance && bankBalance > 0) {
-    alert(`⚠️ 재배분 합계(${totalNew.toLocaleString()}원)가 통장 잔액(${bankBalance.toLocaleString()}원)을 초과합니다.`);
+    alert(`⚠️ 재배분 합계(${totalNew.toLocaleString()}원)가 통장 가용예산(${bankBalance.toLocaleString()}원)을 초과합니다.`);
     return;
   }
 
@@ -1854,7 +1854,7 @@ async function _foSaveRealloc() {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ★ Phase F: 수시 교육계획 제출 시 통장 잔액 경고
+// ★ Phase F: 수시 교육계획 제출 시 통장 가용예산 경고
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function _foCheckBankBalanceWarning(amount) {
   const sb = typeof getSB === 'function' ? getSB() : null;
@@ -1867,7 +1867,7 @@ async function _foCheckBankBalanceWarning(amount) {
       .eq('status', 'active');
     const bal = (bks || []).reduce((s,b) => s + Number(b.current_balance || 0), 0);
     if (bal > 0 && Number(amount) > bal) {
-      return confirm(`⚠️ 팀 통장 잔액 경고\n\n계획 금액: ${Number(amount).toLocaleString()}원\n통장 잔액: ${bal.toLocaleString()}원\n\n통장 잔액을 초과하는 교육계획입니다.\n그래도 제출하시겠습니까?`);
+      return confirm(`⚠️ 팀 통장 가용예산 경고\n\n계획 금액: ${Number(amount).toLocaleString()}원\n통장 가용예산: ${bal.toLocaleString()}원\n\n통장 가용예산을 초과하는 교육계획입니다.\n그래도 제출하시겠습니까?`);
     }
   } catch(e) {}
   return true;
@@ -1924,7 +1924,7 @@ async function _autoCreateOperationPlan(sb, forecastPlan) {
       account_code: forecastPlan.account_code,
       amount: forecastPlan.amount,
       frozen_amount: 0,             // ← 이중 점유 방지
-      allocated_amount: 0,          // ← 배정액 초기화 (운영계획 결재 시 확정)
+      allocated_amount: 0,          // ← 최초배정액 초기화 (운영계획 결재 시 확정)
       applicant_id: forecastPlan.applicant_id,
       applicant_name: forecastPlan.applicant_name,
       applicant_org_id: forecastPlan.applicant_org_id || null,

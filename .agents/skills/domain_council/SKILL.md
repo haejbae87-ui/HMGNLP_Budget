@@ -28,6 +28,7 @@ description: "신규 기능이나 기획 아이디어 도입 시, 5대 비즈니
 - **체크포인트**:
   - "반려나 취소 시 예산이 100% 안전하게 환원되는가?"
   - "다차수 교육의 정산 로직이 정확한가?"
+  - "반드시 `docs/PRD/budget_terminology_standard.md`의 표준 용어와 산식(가용예산 = 최초배정액 - 약정금액 - 집행금액)을 준수하고 있는가?"
 
 ### 4. 📋 양식 필드 전문가 (Form Field Expert)
 - **관점**: BO-FO 필드 레지스트리(`docs/PRD/field_registry.md`), `_BO_TO_FO_KEY_MAP` 동기화, 교육 단계별 필드 가시성 정책, 이러닝/무예산 휴리스틱 예외 규칙

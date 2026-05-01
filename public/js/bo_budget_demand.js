@@ -255,8 +255,8 @@ function _renderBdLevel1(el, isPlatform, tenants) {
   const cards = [
     { icon: "📋", label: "전체 계획",   val: `${totalCount}건`,      color: "#002C5F", bg: "#EFF6FF" },
     { icon: "📊", label: "수요 예산",   val: _bdFmt(demandTotal),    color: "#0369A1", bg: "#F0F9FF" },
-    { icon: "🔵", label: "1차확정 합계", val: _bdFmt(opTotal),        color: "#0369A1", bg: "#EFF6FF" },
-    { icon: "✅", label: "최종확정 합계",val: _bdFmt(finalTotal),     color: "#7C3AED", bg: "#F5F3FF" },
+    { icon: "🔵", label: "1차조정 합계", val: _bdFmt(opTotal),        color: "#0369A1", bg: "#EFF6FF" },
+    { icon: "✅", label: "최종승인 합계",val: _bdFmt(finalTotal),     color: "#7C3AED", bg: "#F5F3FF" },
   ];
 
   // F-152: 역할별 시뮬레이션 버튼 분기
@@ -302,13 +302,13 @@ function _renderBdLevel1(el, isPlatform, tenants) {
 
     <div class="bo-card" style="padding:14px 20px;margin-bottom:16px">
       <div style="display:flex;align-items:center;gap:16px">
-        <span style="font-size:12px;font-weight:900;color:#374151;white-space:nowrap">1차확정률</span>
+        <span style="font-size:12px;font-weight:900;color:#374151;white-space:nowrap">1차조정률</span>
         <div style="flex:1;height:10px;background:#E5E7EB;border-radius:5px;overflow:hidden">
           <div style="width:${opPct}%;height:100%;background:linear-gradient(90deg,#0369A1,#38BDF8);border-radius:5px;transition:width .5s"></div>
         </div>
         <span style="font-size:13px;font-weight:900;color:#0369A1;white-space:nowrap">${opPct}%</span>
         <span style="font-size:11px;color:#9CA3AF">(${_bdFmt(opTotal)} / ${_bdFmt(demandTotal)})</span>
-        <span style="font-size:11px;color:#7C3AED;font-weight:800;margin-left:8px">최종확정 ${_bdFmt(finalTotal)}</span>
+        <span style="font-size:11px;color:#7C3AED;font-weight:800;margin-left:8px">최종승인 ${_bdFmt(finalTotal)}</span>
       </div>
     </div>
 
@@ -471,9 +471,9 @@ function _renderBdCombined(el, isPlatform, tenants) {
         style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">← 전체 조직단위 보기</button>
       ${canEdit ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         ${isOp ? `<button onclick="_bdL3SaveOp()" id="bd-l3-save-op"
-          style="padding:8px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#0369A1,#0369A1CC);color:white;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px #0369A140">💾 1차확정 일괄저장</button>` : ''}
+          style="padding:8px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#0369A1,#0369A1CC);color:white;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px #0369A140">💾 1차조정 일괄저장</button>` : ''}
         ${isGlobal ? `<button onclick="_bdL3SaveFinal()" id="bd-l3-save-final"
-          style="padding:8px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#7C3AED,#7C3AEDCC);color:white;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px #7C3AED40">💾 최종확정 일괄저장</button>` : ''}
+          style="padding:8px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#7C3AED,#7C3AEDCC);color:white;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px #7C3AED40">💾 최종승인 일괄저장</button>` : ''}
         <button onclick="_bdL3TempSave()" id="bd-l3-temp-save-btn"
           style="padding:8px 18px;border-radius:10px;border:1.5px solid #D97706;background:white;color:#D97706;font-size:12px;font-weight:900;cursor:pointer"
           title="DB에 저장하되 화면 유지">💾 임시저장</button>
@@ -496,8 +496,8 @@ function _renderBdCombined(el, isPlatform, tenants) {
       <div style="display:flex;gap:28px;align-items:center;flex-wrap:wrap">
         <span style="font-size:11px;font-weight:900;color:#374151">📊 확정금액 시뮬레이션</span>
         <span style="font-size:12px">전체 계획금액 <strong style="color:#002C5F">${_bdFmt(totalDemand)}</strong></span>
-        <span style="font-size:12px">1차확정 합계 <strong id="bd-l3-op-total" style="color:#0369A1;font-size:13px">${_bdFmt(opSum)}</strong></span>
-        <span style="font-size:12px">최종확정 합계 <strong id="bd-l3-final-total" style="color:#7C3AED;font-size:13px">${_bdFmt(finalSum)}</strong></span>
+        <span style="font-size:12px">1차조정 합계 <strong id="bd-l3-op-total" style="color:#0369A1;font-size:13px">${_bdFmt(opSum)}</strong></span>
+        <span style="font-size:12px">최종승인 합계 <strong id="bd-l3-final-total" style="color:#7C3AED;font-size:13px">${_bdFmt(finalSum)}</strong></span>
       </div>
     </div>` : ''}
 
@@ -510,8 +510,8 @@ function _renderBdCombined(el, isPlatform, tenants) {
           <span>팀수 <strong>${teams.length}개</strong></span>
           <span>계획 <strong>${allPlans.length}건</strong></span>
           <span>수요 <strong>${_bdFmt(totalDemand)}</strong></span>
-          <span>1차확정 <strong style="color:#93C5FD">${_bdFmt(totalOpConf)}</strong></span>
-          <span>최종확정 <strong style="color:#C4B5FD">${_bdFmt(totalFinalConf)}</strong></span>
+          <span>1차조정 <strong style="color:#93C5FD">${_bdFmt(totalOpConf)}</strong></span>
+          <span>최종승인 <strong style="color:#C4B5FD">${_bdFmt(totalFinalConf)}</strong></span>
         </div>
       </div>
       <table class="bo-table" style="font-size:12px">
@@ -519,12 +519,12 @@ function _renderBdCombined(el, isPlatform, tenants) {
           <th>팀명</th>
           <th style="text-align:center">건수</th>
           <th style="text-align:right">수요</th>
-          <th style="text-align:right;color:#0369A1">1차확정</th>
-          <th style="text-align:right;color:#7C3AED">최종확정</th>
+          <th style="text-align:right;color:#0369A1">1차조정</th>
+          <th style="text-align:right;color:#7C3AED">최종승인</th>
           <th style="text-align:center">미결</th>
           <th style="text-align:center">최종승인</th>
           <th style="text-align:center">제외</th>
-          <th style="text-align:center">1차확정률</th>
+          <th style="text-align:center">1차조정률</th>
           <th style="text-align:center">상신자</th>
         </tr></thead>
         <tbody>
@@ -583,7 +583,7 @@ function _renderBdCombined(el, isPlatform, tenants) {
             ${_bdDrillOrg ? `▶ ${_bdDrillOrg}` : hq.name + ' 전체'} — ${_bdYear}년
           </h3>
           <div style="margin-top:4px;font-size:12px;opacity:.85">
-            ${plans.length}건 &nbsp;|&nbsp; 계획금액 ${_bdFmt(demandSum)} &nbsp;|&nbsp; 1차확정 ${_bdFmt(opSum)} &nbsp;|&nbsp; 최종확정 ${_bdFmt(finalSum)}
+            ${plans.length}건 &nbsp;|&nbsp; 계획금액 ${_bdFmt(demandSum)} &nbsp;|&nbsp; 1차조정 ${_bdFmt(opSum)} &nbsp;|&nbsp; 최종승인 ${_bdFmt(finalSum)}
           </div>
         </div>
         ${_bdDrillOrg ? `<button onclick="_bdDrillOrg=null;renderBudgetDemand()"
@@ -597,8 +597,8 @@ function _renderBdCombined(el, isPlatform, tenants) {
           <th style="width:32px"><input type="checkbox" id="bd-l3-chk-all" onchange="_bdL3CheckAll(this)"></th>
           <th>ID</th><th>계획명</th><th>상신자</th><th>예산계정</th>
           <th style="text-align:right">사업계획금액</th>
-          <th style="text-align:right;background:#0369A112;color:#0369A1">1차확정금액</th>
-          <th style="text-align:right;background:#7C3AED12;color:#7C3AED">최종확정금액</th>
+          <th style="text-align:right;background:#0369A112;color:#0369A1">1차 조정액</th>
+          <th style="text-align:right;background:#7C3AED12;color:#7C3AED">최종 승인액</th>
           <th style="min-width:130px">상태</th>
           <th>제출일</th>
         </tr></thead>
@@ -701,8 +701,8 @@ function _renderBdLevel2(el, isPlatform, tenants) {
         <div style="margin-top:8px;display:flex;gap:20px;font-size:12px;flex-wrap:wrap">
           <span>팀수 <strong>${teams.length}개</strong></span>
           <span>수요 <strong>${_bdFmt(totalDemand)}</strong></span>
-          <span>1차확정 <strong style="color:#93C5FD">${_bdFmt(totalOpConf)}</strong></span>
-          <span>최종확정 <strong style="color:#C4B5FD">${_bdFmt(totalFinalConf)}</strong></span>
+          <span>1차조정 <strong style="color:#93C5FD">${_bdFmt(totalOpConf)}</strong></span>
+          <span>최종승인 <strong style="color:#C4B5FD">${_bdFmt(totalFinalConf)}</strong></span>
           <span>${totalCount}건</span>
         </div>
       </div>
@@ -714,9 +714,9 @@ function _renderBdLevel2(el, isPlatform, tenants) {
         <thead><tr>
           <th>팀</th><th style="text-align:center">건수</th>
           <th style="text-align:right">수요</th>
-          <th style="text-align:right;color:#0369A1">1차확정</th>
-          <th style="text-align:right;color:#7C3AED">최종확정</th>
-          <th style="text-align:right">미결</th><th style="text-align:center">1차확정률</th>
+          <th style="text-align:right;color:#0369A1">1차조정</th>
+          <th style="text-align:right;color:#7C3AED">최종승인</th>
+          <th style="text-align:right">미결</th><th style="text-align:center">1차조정률</th>
           <th style="text-align:center">상신자</th>
         </tr></thead>
         <tbody>
@@ -926,9 +926,9 @@ function _renderBdLevel3(el) {
         style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">← 이전으로</button>
       ${canEdit ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         ${isOp ? `<button onclick="_bdL3SaveOp()" id="bd-l3-save-op"
-          style="padding:8px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#0369A1,#0369A1CC);color:white;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px #0369A140">💾 1차확정 일괄저장</button>` : ""}
+          style="padding:8px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#0369A1,#0369A1CC);color:white;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px #0369A140">💾 1차조정 일괄저장</button>` : ""}
         ${isGlobal ? `<button onclick="_bdL3SaveFinal()" id="bd-l3-save-final"
-          style="padding:8px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#7C3AED,#7C3AEDCC);color:white;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px #7C3AED40">💾 최종확정 일괄저장</button>` : ""}
+          style="padding:8px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#7C3AED,#7C3AEDCC);color:white;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px #7C3AED40">💾 최종승인 일괄저장</button>` : ""}
         <button onclick="_bdL3TempSave()" id="bd-l3-temp-save-btn"
           style="padding:8px 18px;border-radius:10px;border:1.5px solid #D97706;background:white;color:#D97706;font-size:12px;font-weight:900;cursor:pointer"
           title="DB에 저장하되 화면 유지 — 계속 편집 가능">💾 임시저장</button>
@@ -949,8 +949,8 @@ function _renderBdLevel3(el) {
       <div style="display:flex;gap:28px;align-items:center;flex-wrap:wrap">
         <span style="font-size:11px;font-weight:900;color:#374151">📊 확정금액 시뮬레이션</span>
         <span style="font-size:12px">사업계획금액 <strong style="color:#002C5F">${_bdFmt(demandSum)}</strong></span>
-        <span style="font-size:12px">1차확정 합계 <strong id="bd-l3-op-total" style="color:#0369A1;font-size:13px">${_bdFmt(opSum)}</strong></span>
-        <span style="font-size:12px">최종확정 합계 <strong id="bd-l3-final-total" style="color:#7C3AED;font-size:13px">${_bdFmt(finalSum)}</strong></span>
+        <span style="font-size:12px">1차조정 합계 <strong id="bd-l3-op-total" style="color:#0369A1;font-size:13px">${_bdFmt(opSum)}</strong></span>
+        <span style="font-size:12px">최종승인 합계 <strong id="bd-l3-final-total" style="color:#7C3AED;font-size:13px">${_bdFmt(finalSum)}</strong></span>
       </div>
     </div>` : ""}
 
@@ -966,12 +966,12 @@ function _renderBdLevel3(el) {
           <th>팀명</th>
           <th style="text-align:center">계획건수</th>
           <th style="text-align:right">계획금액</th>
-          <th style="text-align:right;color:#0369A1">1차확정</th>
-          <th style="text-align:right;color:#7C3AED">최종확정</th>
+          <th style="text-align:right;color:#0369A1">1차조정</th>
+          <th style="text-align:right;color:#7C3AED">최종승인</th>
           <th style="text-align:center">미결</th>
           <th style="text-align:center">최종승인</th>
           <th style="text-align:center">제외</th>
-          <th style="text-align:center">1차확정률</th>
+          <th style="text-align:center">1차조정률</th>
         </tr></thead>
         <tbody>
           ${_l3TeamRows.map(r => `
@@ -1019,8 +1019,8 @@ function _renderBdLevel3(el) {
         <h2 style="margin:0;font-size:18px;font-weight:900">${_bdDrillOrg} — ${_bdYear}년 사업계획</h2>
         <div style="margin-top:6px;display:flex;gap:16px;font-size:12px;flex-wrap:wrap">
           <span>사업계획금액 <strong>${_bdFmt(demandSum)}</strong></span>
-          <span>1차확정 <strong style="color:#93C5FD">${_bdFmt(opSum)}</strong></span>
-          <span>최종확정 <strong style="color:#C4B5FD">${_bdFmt(finalSum)}</strong></span>
+          <span>1차조정 <strong style="color:#93C5FD">${_bdFmt(opSum)}</strong></span>
+          <span>최종승인 <strong style="color:#C4B5FD">${_bdFmt(finalSum)}</strong></span>
           <span>${plans.length}건</span>
         </div>
       </div>
@@ -1031,8 +1031,8 @@ function _renderBdLevel3(el) {
           <th style="width:32px"><input type="checkbox" id="bd-l3-chk-all" onchange="_bdL3CheckAll(this)"></th>
           <th>ID</th><th>계획명</th><th>상신자</th><th>예산계정</th>
           <th style="text-align:right">사업계획금액</th>
-          <th style="text-align:right;background:#0369A112;color:#0369A1">1차확정금액</th>
-          <th style="text-align:right;background:#7C3AED12;color:#7C3AED">최종확정금액</th>
+          <th style="text-align:right;background:#0369A112;color:#0369A1">1차 조정액</th>
+          <th style="text-align:right;background:#7C3AED12;color:#7C3AED">최종 승인액</th>
           <th style="min-width:130px">상태</th>
           <th>제출일</th>
         </tr></thead>
@@ -1112,9 +1112,9 @@ function _bdL3OnInput(input) {
   input.style.borderColor = (!isNaN(orig) && cur !== orig) ? '#F59E0B' : '';
 }
 
-// ── 1차확정 일괄 저장
+// ── 1차조정 일괄 저장
 async function _bdL3SaveOp() { await _bdL3Save('op', 'bd-l3-save-op', 'op_confirmed_amount'); }
-// ── 최종확정 일괄 저장
+// ── 최종승인 일괄 저장
 async function _bdL3SaveFinal() { await _bdL3Save('final', 'bd-l3-save-final', 'final_confirmed_amount'); }
 
 async function _bdL3Save(fieldKey, btnId, dbField) {
@@ -1273,8 +1273,8 @@ async function _bdShowPlanDetail(planId) {
     ['상신자', p.applicant_name || '-'],
     ['예산계정', acctName],
     ['사업계획금액', Number(p.amount||0).toLocaleString()+'원'],
-    ['1차확정금액', p.op_confirmed_amount != null ? Number(p.op_confirmed_amount).toLocaleString()+'원' : '-'],
-    ['최종확정금액', p.final_confirmed_amount != null ? Number(p.final_confirmed_amount).toLocaleString()+'원' : '-'],
+    ['1차 조정액', p.op_confirmed_amount != null ? Number(p.op_confirmed_amount).toLocaleString()+'원' : '-'],
+    ['최종 승인액', p.final_confirmed_amount != null ? Number(p.final_confirmed_amount).toLocaleString()+'원' : '-'],
     ['상태', statusStr],
     ['회계연도', p.fiscal_year || '-'],
     ['제출일', (p.created_at||'').slice(0,10)],
@@ -1719,7 +1719,7 @@ async function _bdSimConfirm() {
   msg += `배분 합계:   ${totalAlloc.toLocaleString()}원\n`;
   msg += `잔여:        ${remaining >= 0 ? '+' : ''}${remaining.toLocaleString()}원\n`;
   msg += `변경 항목:   ${editCount}건 / 전체 ${plans.length}건\n\n`;
-  msg += `확정하면 각 교육계획의 배정액(allocated_amount)이 일괄 업데이트됩니다.\n계속하시겠습니까?`;
+  msg += `확정하면 각 교육계획의 최초배정액(allocated_amount)이 일괄 업데이트됩니다.\n계속하시겠습니까?`;
   if (!confirm(msg)) return;
 
   // ── P5: 진행 Toast 표시
@@ -1727,14 +1727,14 @@ async function _bdSimConfirm() {
     if (typeof _boShowToast === 'function') _boShowToast(m, t);
     else console.log('[P5]', m);
   };
-  _toast('🔄 배정액 일괄 확정 중... (1/3) 시뮬레이션 저장');
+  _toast('🔄 최초배정액 일괄 확정 중... (1/3) 시뮬레이션 저장');
 
   try {
     // 1. 시뮬레이션 먼저 저장
     await _bdSimSaveInternal(sb, plans);
 
     // 2. plans.allocated_amount 일괄 업데이트 (50건 chunk)
-    _toast('🔄 배정액 일괄 확정 중... (2/3) 교육계획 배정액 반영');
+    _toast('🔄 최초배정액 일괄 확정 중... (2/3) 교육계획 최초배정액 반영');
     const chunk = 50;
     let updated = 0;
     const changedPlans = []; // bankbooks 연동용
@@ -1773,7 +1773,7 @@ async function _bdSimConfirm() {
     }
 
     // 4. ── P5 신규: bankbooks.current_balance 동기화
-    _toast('🔄 배정액 일괄 확정 중... (3/3) 통장 잔액 동기화');
+    _toast('🔄 최초배정액 일괄 확정 중... (3/3) 통장 가용예산 동기화');
     if (changedPlans.length > 0) {
       // orgId별로 차이 집계
       const orgDiff = {}; // { `${orgId}|${acctCode}`: diffAmount }
@@ -1811,7 +1811,7 @@ async function _bdSimConfirm() {
               balance_before: Number(bk.current_balance),
               balance_after: newBal,
               reference_type: 'simulation_confirm',
-              memo: `시뮬레이션 확정 배정액 조정 (v${_bdSimData?.version || '?'})`,
+              memo: `시뮬레이션 확정 최초배정액 조정 (v${_bdSimData?.version || '?'})`,
               performed_by: boCurrentPersona?.name || 'system',
             }).catch(e => console.warn('[P5] budget_usage_log 기록 skip:', e.message));
           }
@@ -1821,7 +1821,7 @@ async function _bdSimConfirm() {
       }
     }
 
-    _toast(`✅ ${updated}건 배정액 확정 완료!`, 'success');
+    _toast(`✅ ${updated}건 최초배정액 확정 완료!`, 'success');
     setTimeout(() => {
       _bdSimMode = false;
       _bdSimEdits = {};

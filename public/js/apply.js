@@ -684,7 +684,7 @@ function _renderApplyList() {
         ${
           h.applyStatus === '반려'
             ? `<div style="margin-top:8px;padding:8px 12px;border-radius:8px;background:#FEE2E2;border:1px solid #FECACA;font-size:11px;color:#DC2626;font-weight:700">
-                ⚠️ 반려 사유: ${h.rejectReason || '예산 잔액 부족으로 반려되었습니다. 예산 계획 수립 후 재신청 바랍니다.'}
+                ⚠️ 반려 사유: ${h.rejectReason || '예산 가용예산 부족으로 반려되었습니다. 예산 계획 수립 후 재신청 바랍니다.'}
                </div>`
             : ''
         }
@@ -1055,7 +1055,7 @@ function _renderApplyForm() {
   <span style="font-size:22px">🔗</span>
   <div style="flex:1">
     <div style="font-size:12px;font-weight:900;color:#1D4ED8">교육계획 기반 신청</div>
-    <div style="font-size:11px;color:#3B82F6;margin-top:2px">${_lpTitle} · 계획액 ${_lpAmount}원 · 예산잔액 ${_lpBudget}원</div>
+    <div style="font-size:11px;color:#3B82F6;margin-top:2px">${_lpTitle} · 계획액 ${_lpAmount}원 · 예산가용예산 ${_lpBudget}원</div>
   </div>
   <button onclick="_viewingPlanDetail=null;if(typeof viewPlanDetail==='function'){viewPlanDetail('${s.planId}');}navigate('plans');"
     style="padding:6px 14px;border-radius:8px;border:1.5px solid #BFDBFE;background:white;font-size:11px;font-weight:800;color:#1D4ED8;cursor:pointer;white-space:nowrap">
@@ -1279,7 +1279,7 @@ function _renderApplyForm() {
                   id: "none",
                   icon: "📝",
                   title: "예산 미사용 (이력만 등록)",
-                  desc: "자비 학습·무료 강의 등 예산 사용 없이 학습 이력만 등록합니다. 예산 잔액에 영향을 주지 않습니다.",
+                  desc: "자비 학습·무료 강의 등 예산 사용 없이 학습 이력만 등록합니다. 예산 가용예산에 영향을 주지 않습니다.",
                   tag: "예산 미사용",
                   tagColor: "#6B7280",
                   tagBg: "#F3F4F6",
@@ -1719,9 +1719,9 @@ ${(() => {
             ? `
         <div class="flex items-center gap-3 ${over ? "text-red-400" : "text-green-400"}">
           <span class="text-lg">${over ? "⚠️" : "✅"}</span>
-          <span class="text-sm font-black">${over ? "잔액 부족 – 집행 불가" : "잔액 내 집행 가능"}</span>
+          <span class="text-sm font-black">${over ? "가용예산 부족 – 집행 불가" : "가용예산 내 집행 가능"}</span>
         </div>
-        <div class="text-xs text-gray-500 mt-1">${curBudget.name} 잔액: ${fmt(curBudget.balance - curBudget.used)}원</div>`
+        <div class="text-xs text-gray-500 mt-1">${curBudget.name} 가용예산: ${fmt(curBudget.balance - curBudget.used)}원</div>`
             : ""
         }
       </div>`
@@ -1972,7 +1972,7 @@ async function confirmApply() {
   const appId = applyState.editId || `APP-${Date.now()}`;
 
 
-  // ★ Phase D: 교육신청 시 통장 잔액 검증
+  // ★ Phase D: 교육신청 시 통장 가용예산 검증
   const sb = typeof getSB === "function" ? getSB() : null;
   if (sb && currentPersona?.orgId) {
     try {
@@ -1984,7 +1984,7 @@ async function confirmApply() {
       if (bks && bks.length > 0) {
         const totalBal = bks.reduce((s,b) => s + Number(b.current_balance || 0), 0);
         if (totalExp > totalBal) {
-          const ok = confirm(`⚠️ 팀 통장 잔액이 부족합니다.\n\n신청 금액: ${totalExp.toLocaleString()}원\n통장 잔액: ${totalBal.toLocaleString()}원\n부족액: ${(totalExp - totalBal).toLocaleString()}원\n\n그래도 신청하시겠습니까?`);
+          const ok = confirm(`⚠️ 팀 통장 가용예산이 부족합니다.\n\n신청 금액: ${totalExp.toLocaleString()}원\n통장 가용예산: ${totalBal.toLocaleString()}원\n부족액: ${(totalExp - totalBal).toLocaleString()}원\n\n그래도 신청하시겠습니까?`);
           if (!ok) return;
         }
       }
@@ -1997,7 +1997,7 @@ async function confirmApply() {
         : null;
 
     if (edgeUrl) {
-      // Edge Function 경유: 예산 잔액 체크 + 신청 저장을 원자적 트랜잭션으로 처리
+      // Edge Function 경유: 예산 가용예산 체크 + 신청 저장을 원자적 트랜잭션으로 처리
       const res = await fetch(edgeUrl, {
         method: "POST",
         headers: {
@@ -2038,7 +2038,7 @@ async function confirmApply() {
       console.log("[confirmApply] Edge Function 결과:", result);
       if (result.budget_checked) {
         console.log(
-          `  예산 잔액: ${result.available_before?.toLocaleString()} → ${result.available_after?.toLocaleString()}원`,
+          `  예산 가용예산: ${result.available_before?.toLocaleString()} → ${result.available_after?.toLocaleString()}원`,
         );
       }
     } else {
@@ -2578,7 +2578,7 @@ function _renderPlanPickerSection(s, mode) {
         <span style="font-size:14px">${icon}</span>
         <div style="flex:1;min-width:0">
           <div style="font-size:12px;font-weight:900;color:${color}">${p.title}</div>
-          <div style="font-size:10px;color:#6B7280">📅 ${p.date || "-"} · 💰 예산 ${(p.amount || 0).toLocaleString()}원 · ✅ 잔액 ${balance.toLocaleString()}원</div>
+          <div style="font-size:10px;color:#6B7280">📅 ${p.date || "-"} · 💰 예산 ${(p.amount || 0).toLocaleString()}원 · ✅ 가용예산 ${balance.toLocaleString()}원</div>
         </div>
         <button onclick="_removePlanFromSelection('${id}');event.stopPropagation()" style="border:none;background:#FEE2E2;color:#DC2626;font-size:10px;font-weight:900;padding:3px 8px;border-radius:6px;cursor:pointer">✕</button>
       </div>`;
@@ -2680,7 +2680,7 @@ function _renderPlanPickerModalDOM() {
           ${p.applicantName && p.tenantId !== currentPersona.tenantId ? `<span>👤 ${p.applicantName}</span>` : ""}
           <span>📅 ${p.date || "-"}</span>
           <span>💰 예산 ${(p.amount || 0).toLocaleString()}원</span>
-          <span style="color:${isLow ? "#DC2626" : "#059669"}">${isLow ? "⚠️ 잔액 부족" : "✅ 잔액 " + balance.toLocaleString() + "원"}</span>
+          <span style="color:${isLow ? "#DC2626" : "#059669"}">${isLow ? "⚠️ 가용예산 부족" : "✅ 가용예산 " + balance.toLocaleString() + "원"}</span>
         </div>
       </div>
     </label>`;

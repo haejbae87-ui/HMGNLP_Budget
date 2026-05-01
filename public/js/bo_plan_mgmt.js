@@ -220,7 +220,7 @@ async function renderBoPlanMgmt() {
           : '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:4px;background:#ECFDF5;color:#065F46;margin-left:4px">🆕 신규</span>';
         const safeId = String(pl.id || "").replace(/'/g, "\\'");
 
-        // ★ 배정액 셀 — 편집모드 vs 일반모드
+        // ★ 최초배정액 셀 — 편집모드 vs 일반모드
         const isEdited = _boPlanEdits.hasOwnProperty(pl.id);
         const editVal = isEdited ? _boPlanEdits[pl.id] : allocAmt;
         const cellBg = isEdited ? 'background:#FFFBEB;' : '';
@@ -288,7 +288,7 @@ async function renderBoPlanMgmt() {
           <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap">
             <button onclick="boPlanForceRevert('${safeId}')" title="승인 취소 → 임시저장" style="border:1px solid #F59E0B;color:#B45309;background:#FFFBEB;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:800;cursor:pointer">↩ 취소</button>
             ${typeof boOpenBudgetTransfer==="function" && Number(pl.allocated_amount||0)>0
-              ? `<button onclick="boOpenBudgetTransfer('${safeId}')" title="배정액 이전 (F-007)" style="border:1px solid #0369A1;color:#0369A1;background:#EFF6FF;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:800;cursor:pointer">💸 이전</button>`
+              ? `<button onclick="boOpenBudgetTransfer('${safeId}')" title="최초배정액 이전 (F-007)" style="border:1px solid #0369A1;color:#0369A1;background:#EFF6FF;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:800;cursor:pointer">💸 이전</button>`
               : ''}
             <button onclick="boPlanSoftDelete('${safeId}')" title="삭제(복구가능)" style="border:1px solid #EF4444;color:#DC2626;background:#FEF2F2;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:800;cursor:pointer">🗑</button>
           </div>`
@@ -327,12 +327,12 @@ async function renderBoPlanMgmt() {
           <button onclick="_boPlanCancelEdit()" style="padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">
             ↩ 취소
           </button>
-          <span style="font-size:11px;color:#D97706;font-weight:700">⚡ 배정액 셀을 클릭하여 수정 · Tab으로 이동</span>
-          ${!canApprove && canRebalance ? `<span style="font-size:11px;color:#EF4444;font-weight:900;margin-left:8px">※ 총 배정액(${sumAlloc.toLocaleString()}원)을 변경할 수 없습니다 (Δ=0)</span>` : ''}
+          <span style="font-size:11px;color:#D97706;font-weight:700">⚡ 최초배정액 셀을 클릭하여 수정 · Tab으로 이동</span>
+          ${!canApprove && canRebalance ? `<span style="font-size:11px;color:#EF4444;font-weight:900;margin-left:8px">※ 총 최초배정액(${sumAlloc.toLocaleString()}원)을 변경할 수 없습니다 (Δ=0)</span>` : ''}
         ` : `
           <button onclick="_boPlanToggleEdit()" style="padding:8px 16px;border-radius:10px;border:1.5px solid #1D4ED8;background:#EFF6FF;font-size:12px;font-weight:800;color:#1D4ED8;cursor:pointer;transition:all .15s"
             onmouseover="this.style.background='#1D4ED8';this.style.color='white'" onmouseout="this.style.background='#EFF6FF';this.style.color='#1D4ED8'">
-            ✏️ 배정액 편집 모드
+            ✏️ 최초배정액 편집 모드
           </button>
           ${!canApprove && canRebalance ? `<span style="padding:4px 14px;border-radius:8px;background:#FEF3C7;color:#92400E;font-size:11px;font-weight:900;margin-left:8px">🔍 운영담당자 — 1차 조정 모드 (재배분만 가능)</span>` : ''}
         `}
@@ -353,7 +353,7 @@ async function renderBoPlanMgmt() {
             <h1 class="bo-page-title" style="margin:0">📋 교육계획 관리</h1>
             ${typeof boRoleModeBadge==="function" ? boRoleModeBadge() : ""}
           </div>
-          <p class="bo-page-sub">${canApprove ? "총괄담당자 — 최종 승인/반려 및 배정액 관리" : canReview ? "운영담당자 — 1차 검토 후 총괄담당자에게 전달" : "교육계획 수립 및 상신"}</p>
+          <p class="bo-page-sub">${canApprove ? "총괄담당자 — 최종 승인/반려 및 최초배정액 관리" : canReview ? "운영담당자 — 1차 검토 후 총괄담당자에게 전달" : "교육계획 수립 및 상신"}</p>
         </div>
 
         ${editBar}
@@ -421,7 +421,7 @@ async function renderBoPlanMgmt() {
       ${_boPlanEditMode ? `
       <div style="margin-bottom:12px;padding:10px 16px;border-radius:10px;background:#FFFBEB;border:1.5px solid #FCD34D;display:flex;align-items:center;gap:8px;font-size:12px;color:#92400E;font-weight:700">
         <span style="font-size:16px">✏️</span>
-        편집 모드 — 배정액 셀을 직접 수정하고 <strong>💾 일괄 저장</strong>을 클릭하세요. 수정된 셀은 <span style="background:#FFFBEB;border:1px solid #FCD34D;padding:1px 6px;border-radius:4px">노란색</span>으로 표시됩니다.
+        편집 모드 — 최초배정액 셀을 직접 수정하고 <strong>💾 일괄 저장</strong>을 클릭하세요. 수정된 셀은 <span style="background:#FFFBEB;border:1px solid #FCD34D;padding:1px 6px;border-radius:4px">노란색</span>으로 표시됩니다.
       </div>` : ''}
 
       <div>
@@ -439,8 +439,8 @@ async function renderBoPlanMgmt() {
         <div style="margin-bottom:20px;padding:20px;border-radius:14px;background:linear-gradient(135deg,#FFFBEB,#FEF3C7);border:2px solid #F59E0B">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
             <div>
-              <div style="font-size:14px;font-weight:900;color:#92400E">🔍 1차 확정 대기 (${reviewPending.length}건)</div>
-              <div style="font-size:11px;color:#B45309;margin-top:2px">${isPlatformBO ? '플랫폼 담당자: 1차 확정 처리 또는 최종 확정 처리 모두 가능' : '검토 완료 시 총괄담당자에게 자동 전달됩니다'}</div>
+              <div style="font-size:14px;font-weight:900;color:#92400E">🔍 1차 조정 대기 (${reviewPending.length}건)</div>
+              <div style="font-size:11px;color:#B45309;margin-top:2px">${isPlatformBO ? '플랫폼 담당자: 1차 조정 처리 또는 최종 승인 처리 모두 가능' : '검토 완료 시 총괄담당자에게 자동 전달됩니다'}</div>
             </div>
             <span style="font-size:11px;padding:4px 12px;border-radius:8px;background:${isPlatformBO ? '#7C3AED' : '#F59E0B'};color:white;font-weight:800">${isPlatformBO ? '🖥️ 플랫폼 담당자' : '운영담당자 전용'}</span>
           </div>
@@ -456,8 +456,8 @@ async function renderBoPlanMgmt() {
                 + '<div style="display:flex;gap:6px;flex-shrink:0">'
                 + '<button onclick="_openBoPlanDetail(\'' + sid + '\')" style="padding:6px 12px;border-radius:8px;background:#EFF6FF;color:#1D4ED8;font-size:11px;font-weight:800;border:1.5px solid #BFDBFE;cursor:pointer">📄 상세</button>'
                 + (isPlatformBO
-                  ? '<button onclick="boPlanOpReview(\'' + sid + '\')" style="padding:6px 14px;border-radius:8px;background:#1D4ED8;color:white;font-size:11px;font-weight:900;border:none;cursor:pointer">📤 1차 확정</button>'
-                    + '<button onclick="boPlanApprove(\'' + sid + '\')" style="padding:6px 14px;border-radius:8px;background:#7C3AED;color:white;font-size:11px;font-weight:900;border:none;cursor:pointer">✅ 최종 확정</button>'
+                  ? '<button onclick="boPlanOpReview(\'' + sid + '\')" style="padding:6px 14px;border-radius:8px;background:#1D4ED8;color:white;font-size:11px;font-weight:900;border:none;cursor:pointer">📤 1차 조정</button>'
+                    + '<button onclick="boPlanApprove(\'' + sid + '\')" style="padding:6px 14px;border-radius:8px;background:#7C3AED;color:white;font-size:11px;font-weight:900;border:none;cursor:pointer">✅ 최종 승인</button>'
                   : '<button onclick="boPlanOpReview(\'' + sid + '\')" style="padding:6px 16px;border-radius:8px;background:#F59E0B;color:white;font-size:11px;font-weight:900;border:none;cursor:pointer">🔍 1차 검토 완료</button>'
                 )
                 + '<button onclick="boPlanReject(\'' + sid + '\')" style="padding:6px 12px;border-radius:8px;background:white;color:#EF4444;font-size:11px;font-weight:800;border:1.5px solid #EF4444;cursor:pointer">❌ 반려</button>'
@@ -503,8 +503,8 @@ async function renderBoPlanMgmt() {
             <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">유형</th>
             <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">계정</th>
             <th style="padding:10px 14px;text-align:right;font-size:11px;font-weight:800;color:#6B7280">계획액</th>
-            <th style="padding:10px 14px;text-align:right;font-size:11px;font-weight:800;${_boPlanEditMode ? 'background:#EFF6FF;color:#1D4ED8' : 'color:#059669'}">배정액 ${_boPlanEditMode ? '✏️' : ''}</th>
-            <th style="padding:10px 14px;text-align:right;font-size:11px;font-weight:800;color:#6B7280">실사용액</th>
+            <th style="padding:10px 14px;text-align:right;font-size:11px;font-weight:800;${_boPlanEditMode ? 'background:#EFF6FF;color:#1D4ED8' : 'color:#059669'}">최초배정액 ${_boPlanEditMode ? '✏️' : ''}</th>
+            <th style="padding:10px 14px;text-align:right;font-size:11px;font-weight:800;color:#6B7280">집행금액</th>
             <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">제출일</th>
             <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:#6B7280">상태</th>
             ${canApprove ? '<th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:800;color:#6B7280">처리</th>' : ""}
@@ -607,7 +607,7 @@ function _renderBoPlanDetail(el, plan) {
       <!-- Q-P3-01: 계정별 결재라인 시각화 -->
       <div id="bo-plan-approval-line-panel" style="padding:0 28px 8px"></div>
 
-      <!-- [P2] 배정액 직접 수정 (approved 상태) -->
+      <!-- [P2] 최초배정액 직접 수정 (approved 상태) -->
       <div id="bo-alloc-edit-panel" style="padding:0 28px 8px"></div>
 
       <!-- 🔧 관리자 입력 필드 (back + provide) -->
@@ -654,7 +654,7 @@ function _renderBoPlanDetail(el, plan) {
   setTimeout(() => {
     _renderBoPlanApprovalLinePanel(plan);     // [Q-P3-01] 계정별 결재라인
     _renderBoAdminFieldsPanel(plan, "plans");
-    _renderBoAllocEditPanel(plan);            // [P2] 배정액 수정
+    _renderBoAllocEditPanel(plan);            // [P2] 최초배정액 수정
     _renderBoApprovalHistoryPanel(plan.id);   // [P3] 결재 이력
     _renderBoPlanApplicationsPanel(plan.id); // [P3] 연결 신청서 드릴다운
   }, 100);
@@ -1013,7 +1013,7 @@ function _buildAppDetailRows(app) {
 
 window._renderBoPlanApplicationsPanel = _renderBoPlanApplicationsPanel;
 
-// ━━━ [P2] 배정액 직접 수정 패널 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ━━━ [P2] 최초배정액 직접 수정 패널 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function _renderBoAllocEditPanel(plan) {
   const panel = document.getElementById("bo-alloc-edit-panel");
   if (!panel) return;
@@ -1029,18 +1029,18 @@ function _renderBoAllocEditPanel(plan) {
     <div style="border:2px solid #D1FAE5;border-radius:14px;overflow:hidden;margin-bottom:8px">
       <div style="padding:12px 20px;background:linear-gradient(135deg,#ECFDF5,#F0FDF4);border-bottom:1.5px solid #A7F3D0;display:flex;justify-content:space-between;align-items:center">
         <div>
-          <h3 style="margin:0;font-size:13px;font-weight:900;color:#065F46">💰 배정액 직접 수정</h3>
-          <p style="margin:2px 0 0;font-size:11px;color:#6B7280">현재 배정액을 BO에서 직접 조정합니다 (bankbooks 자동 반영)</p>
+          <h3 style="margin:0;font-size:13px;font-weight:900;color:#065F46">💰 최초배정액 직접 수정</h3>
+          <p style="margin:2px 0 0;font-size:11px;color:#6B7280">현재 최초배정액을 BO에서 직접 조정합니다 (bankbooks 자동 반영)</p>
         </div>
       </div>
       <div style="padding:16px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
         <div>
-          <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px">현재 배정액</div>
+          <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px">현재 최초배정액</div>
           <div style="font-size:20px;font-weight:900;color:#065F46">${curAlloc.toLocaleString()}<span style="font-size:12px;margin-left:2px">원</span></div>
         </div>
         <div style="font-size:18px;color:#9CA3AF">→</div>
         <div style="flex:1;min-width:160px">
-          <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:4px">새 배정액</div>
+          <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:4px">새 최초배정액</div>
           <div style="display:flex;align-items:center;gap:6px">
             <input id="bo-alloc-new-input" type="text" value="${curAlloc.toLocaleString()}"
               oninput="boAllocEditPreview(${curAlloc})"
@@ -1052,14 +1052,14 @@ function _renderBoAllocEditPanel(plan) {
         <div id="bo-alloc-diff-preview" style="font-size:12px;min-height:18px;align-self:flex-end;padding-bottom:4px"></div>
         <button onclick="_boSaveAllocAmount('${planId}', ${curAlloc})"
           style="padding:8px 20px;border-radius:8px;border:none;background:#059669;color:white;font-size:12px;font-weight:900;cursor:pointer;white-space:nowrap;align-self:flex-end">
-          💾 배정액 저장
+          💾 최초배정액 저장
         </button>
       </div>
     </div>`;
 }
 window._renderBoAllocEditPanel = _renderBoAllocEditPanel;
 
-// 배정액 변경 미리보기
+// 최초배정액 변경 미리보기
 function boAllocEditPreview(curAlloc) {
   const input = document.getElementById("bo-alloc-new-input");
   const preview = document.getElementById("bo-alloc-diff-preview");
@@ -1074,7 +1074,7 @@ function boAllocEditPreview(curAlloc) {
 }
 window.boAllocEditPreview = boAllocEditPreview;
 
-// 배정액 저장 처리
+// 최초배정액 저장 처리
 async function _boSaveAllocAmount(planId, curAlloc) {
   const sb = typeof getSB === "function" ? getSB() : null;
   if (!sb) { alert("DB 연결 필요"); return; }
@@ -1085,7 +1085,7 @@ async function _boSaveAllocAmount(planId, curAlloc) {
 
   const diff = newAmt - curAlloc;
   const action = diff > 0 ? "증액" : "감액";
-  if (!confirm(`배정액을 ${curAlloc.toLocaleString()}원 → ${newAmt.toLocaleString()}원으로 ${action}합니다.\n\n차액: ${diff > 0 ? '+' : ''}${diff.toLocaleString()}원\n계속하시겠습니까?`)) return;
+  if (!confirm(`최초배정액을 ${curAlloc.toLocaleString()}원 → ${newAmt.toLocaleString()}원으로 ${action}합니다.\n\n차액: ${diff > 0 ? '+' : ''}${diff.toLocaleString()}원\n계속하시겠습니까?`)) return;
 
   try {
     const now = new Date().toISOString();
@@ -1120,7 +1120,7 @@ async function _boSaveAllocAmount(planId, curAlloc) {
         after_amount: newAmt,
         adjusted_by: boCurrentPersona?.id || "bo_admin",
         adjusted_at: now,
-        reason: `BO 관리자 배정액 ${action}`,
+        reason: `BO 관리자 최초배정액 ${action}`,
       });
     } catch(logErr) { console.warn("[P2] 이력 저장 skip:", logErr.message); }
 
@@ -1129,10 +1129,10 @@ async function _boSaveAllocAmount(planId, curAlloc) {
     if (cached) cached.allocated_amount = newAmt;
     if (_boPlanDetailView?.id === planId) _boPlanDetailView.allocated_amount = newAmt;
 
-    alert(`✅ 배정액이 ${newAmt.toLocaleString()}원으로 수정되었습니다.`);
+    alert(`✅ 최초배정액이 ${newAmt.toLocaleString()}원으로 수정되었습니다.`);
     // 패널 갱신
     _renderBoAllocEditPanel(_boPlanDetailView);
-    // 헤더 배정액 셀 즉시 갱신
+    // 헤더 최초배정액 셀 즉시 갱신
     const allocCell = document.querySelector("[data-plan-alloc]");
     if (allocCell) allocCell.textContent = newAmt.toLocaleString() + "원";
 
@@ -1266,7 +1266,7 @@ function _toBoAdminKey(key) {
     ERP코드: "erpCode",
     검토의견: "reviewComment",
     관리자비고: "adminNote",
-    실지출액: "actualCost",
+    집행금액: "actualCost",
   };
   return map[key] || key.replace(/\s+/g, "_");
 }
@@ -1737,12 +1737,12 @@ async function _boPlanBatchSave() {
       newSum += edits[id];
     });
     if (originalSum !== newSum) {
-      alert(`⚠️ 운영담당자는 총 배정액을 변경할 수 없습니다.\n\n변경 합계: ${newSum.toLocaleString()}원\n기존 합계: ${originalSum.toLocaleString()}원\n차액: ${(newSum - originalSum).toLocaleString()}원\n\n다른 계획의 배정액을 가감하여 총액 차이를 0원으로 맞춰주세요.`);
+      alert(`⚠️ 운영담당자는 총 최초배정액을 변경할 수 없습니다.\n\n변경 합계: ${newSum.toLocaleString()}원\n기존 합계: ${originalSum.toLocaleString()}원\n차액: ${(newSum - originalSum).toLocaleString()}원\n\n다른 계획의 최초배정액을 가감하여 총액 차이를 0원으로 맞춰주세요.`);
       return;
     }
   }
 
-  // 배정액 > 계획액 경고 체크
+  // 최초배정액 > 계획액 경고 체크
   const overBudget = ids.filter(id => {
     const plan = plans.find(p => p.id === id);
     return plan && edits[id] > Number(plan.amount || 0);
@@ -1755,7 +1755,7 @@ async function _boPlanBatchSave() {
     if (!confirm(`⚠️ 계획액을 초과하여 배정하는 항목이 있습니다:\n\n${names}\n\n계속 저장하시겠습니까?`)) return;
   }
 
-  if (!confirm(`${ids.length}건의 배정액을 일괄 저장하시겠습니까?`)) return;
+  if (!confirm(`${ids.length}건의 최초배정액을 일괄 저장하시겠습니까?`)) return;
 
   try {
     let saved = 0;
@@ -1783,7 +1783,7 @@ async function _boPlanBatchSave() {
       if (cached) cached.allocated_amount = edits[id];
     });
 
-    alert(`✅ ${saved}건 배정액 일괄 저장 완료`);
+    alert(`✅ ${saved}건 최초배정액 일괄 저장 완료`);
 
     // ★ Phase E: 배정 합계 기준 통장 일괄 입금 제안
     const totalAllocated = ids.reduce((s,id) => s + Number(edits[id] || 0), 0);
@@ -1820,7 +1820,7 @@ async function _boPlanBatchSave() {
               memo: `배정 기반 일괄 입금 (${ids.length}건, ${totalAllocated.toLocaleString()}원)`,
               performed_by: boCurrentPersona?.name || "system"
             });
-            alert(`✅ ${totalAllocated.toLocaleString()}원이 팀 통장에 입금되었습니다.\n잔액: ${newBal.toLocaleString()}원`);
+            alert(`✅ ${totalAllocated.toLocaleString()}원이 팀 통장에 입금되었습니다.\n가용예산: ${newBal.toLocaleString()}원`);
           } else {
             alert("⚠️ 해당 팀의 통장이 없습니다. 예산관리 > 통장에서 먼저 생성하세요.");
           }
@@ -2271,7 +2271,7 @@ async function _renderForecastBundleDetail(el, bundle, sb) {
             <div style="font-size:14px;font-weight:900;color:#1F2937">📋 포함된 교육계획 목록</div>
             ${canEdit ? `
               <button onclick="boSaveBundleAdjustments('${sid}')" ${hasEdits?'':'disabled'} style="padding:8px 16px;border-radius:8px;border:none;background:${hasEdits?'#1D4ED8':'#9CA3AF'};color:white;font-size:12px;font-weight:900;cursor:${hasEdits?'pointer':'default'}">
-                💾 배정액 일괄 저장 (${Object.keys(_boBundleEdits).length}건 변경)
+                💾 최초배정액 일괄 저장 (${Object.keys(_boBundleEdits).length}건 변경)
               </button>
             ` : ''}
           </div>
@@ -2280,7 +2280,7 @@ async function _renderForecastBundleDetail(el, bundle, sb) {
               <tr style="background:#F9FAFB;border-top:1.5px solid #111827;border-bottom:1px solid #E5E7EB;color:#374151;font-weight:700">
                 <th style="padding:12px 10px;text-align:left">교육계획명</th>
                 <th style="padding:12px 10px;text-align:center">요청액</th>
-                <th style="padding:12px 10px;text-align:center">배정액 (조정)</th>
+                <th style="padding:12px 10px;text-align:center">최초배정액 (조정)</th>
               </tr>
             </thead>
             <tbody>

@@ -462,8 +462,8 @@ function _bhExportCSV() {
     "예산계정",
     "유형",
     "금액",
-    "이전잔액",
-    "이후잔액",
+    "이전가용예산",
+    "이후가용예산",
     "사유",
     "처리자",
   ];
@@ -531,11 +531,11 @@ async function _bhShowLifecycle() {
 
   const stages = [
     { label: '계획액', val: planTotal, color: '#1D4ED8', icon: '📝' },
-    { label: '배정액', val: allocTotal, color: '#7C3AED', icon: '💰' },
+    { label: '최초배정액', val: allocTotal, color: '#7C3AED', icon: '💰' },
     { label: '신청액', val: appTotal, color: '#0891B2', icon: '📋' },
     { label: '승인액', val: approvedTotal, color: '#059669', icon: '✅' },
-    { label: '실사용액', val: actualTotal, color: '#D97706', icon: '💳' },
-    { label: '잔액', val: remaining, color: remaining >= 0 ? '#059669' : '#DC2626', icon: remaining >= 0 ? '📦' : '⚠️' },
+    { label: '집행금액', val: actualTotal, color: '#D97706', icon: '💳' },
+    { label: '가용예산', val: remaining, color: remaining >= 0 ? '#059669' : '#DC2626', icon: remaining >= 0 ? '📦' : '⚠️' },
   ];
 
   const maxVal = Math.max(...stages.map(s => Math.abs(s.val)), 1);
@@ -574,7 +574,7 @@ async function _bhShowLifecycle() {
     <div style="padding:24px 28px;border-bottom:1px solid #F3F4F6;display:flex;justify-content:space-between;align-items:center">
       <div>
         <h2 style="margin:0;font-size:18px;font-weight:900;color:#111827">📊 ${year}년 예산 6단계 추적</h2>
-        <p style="margin:4px 0 0;font-size:12px;color:#6B7280">계획 → 배정 → 신청 → 승인 → 실사용 → 잔액</p>
+        <p style="margin:4px 0 0;font-size:12px;color:#6B7280">계획 → 배정 → 신청 → 승인 → 실사용 → 가용예산</p>
       </div>
       <button onclick="document.getElementById('bh-lifecycle-modal').remove()" style="width:32px;height:32px;border-radius:8px;border:1px solid #E5E7EB;background:white;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
     </div>
@@ -595,10 +595,10 @@ async function _bhShowLifecycle() {
         </div>
       </div>
 
-      <!-- 실사용액 동기화 버튼 -->
+      <!-- 집행금액 동기화 버튼 -->
       <div style="margin-top:20px;padding:14px 18px;border-radius:12px;background:#FFFBEB;border:1.5px solid #FCD34D;display:flex;align-items:center;justify-content:space-between">
         <div>
-          <div style="font-size:12px;font-weight:800;color:#92400E">💳 실사용액 동기화</div>
+          <div style="font-size:12px;font-weight:800;color:#92400E">💳 집행금액 동기화</div>
           <div style="font-size:11px;color:#B45309;margin-top:2px">교육결과 등록 데이터를 기준으로 plans.actual_amount를 갱신합니다</div>
         </div>
         <button onclick="_bhSyncActualAmounts()" style="padding:8px 16px;border-radius:10px;border:none;background:#D97706;color:white;font-size:12px;font-weight:900;cursor:pointer">🔄 동기화</button>
@@ -610,7 +610,7 @@ async function _bhShowLifecycle() {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ★ P10: 실사용액 자동 집계 (applications → plans.actual_amount)
+// ★ P10: 집행금액 자동 집계 (applications → plans.actual_amount)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 async function _bhSyncActualAmounts() {
@@ -619,7 +619,7 @@ async function _bhSyncActualAmounts() {
 
   const tenantId = _bhTenant || boCurrentPersona?.tenantId || 'HMC';
 
-  if (!confirm('교육결과 등록 데이터를 기반으로 실사용액을 동기화하시겠습니까?')) return;
+  if (!confirm('교육결과 등록 데이터를 기반으로 집행금액을 동기화하시겠습니까?')) return;
 
   try {
     // 1. 승인/완료 상태의 applications를 plan_id별 집계
@@ -648,7 +648,7 @@ async function _bhSyncActualAmounts() {
       if (!error) updated++;
     }
 
-    alert(`✅ ${updated}건 실사용액 동기화 완료\n(${planIds.length}개 교육계획 업데이트)`);
+    alert(`✅ ${updated}건 집행금액 동기화 완료\n(${planIds.length}개 교육계획 업데이트)`);
 
     // 모달 닫고 새로고침
     document.getElementById('bh-lifecycle-modal')?.remove();

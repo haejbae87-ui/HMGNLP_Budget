@@ -39,7 +39,7 @@ function bmToggle(checked, onChange, color = "") {
 // ═════════════════════════════════════════════════════════════════════════════
 // [Step1] 예산 계정 마스터 직접 CRUD — 테넌트 담당자가 직접 생성/편집
 // ═════════════════════════════════════════════════════════════════════════════
-let _s1EditCode = null;
+/* dedup */ _s1EditCode = null;
 
 function renderStep1() {
   const tenantId = boCurrentPersona.tenantId || "HMG";
@@ -204,11 +204,11 @@ function s1ToggleActive(code) {
 // ═════════════════════════════════════════════════════════════════════════════
 // [Step2] 조직별 예산 계정 매핑
 // ═════════════════════════════════════════════════════════════════════════════
-let _s2OrgTenant = "HMG";
-let _s2SelAccount = null; // 좌측에서 선택한 계정 코드
+/* dedup */ _s2OrgTenant = "HMG";
+/* dedup */ _s2SelAccount = null; // 좌측에서 선택한 계정 코드
 
 // 조직-계정 매핑 상태: { tenantId_accountCode: Set of virtualGroupIds }
-let ORG_ACCOUNT_MAP = {
+/* dedup */ ORG_ACCOUNT_MAP = {
   "HMG_GEN-OPS": new Set(["HQ01", "HQ02"]),
   "HMG_GEN-PART": new Set(["HQ01", "HQ02"]),
   "HMG_GEN-ETC": new Set(["HQ01", "HQ02"]),
@@ -335,8 +335,8 @@ function s2OrgToggleMap(tenantId, accountCode, groupId, active) {
 // ═════════════════════════════════════════════════════════════════════════════
 // [Step4] 조직별 신청 양식 접근 권한
 // ═════════════════════════════════════════════════════════════════════════════
-let _s2Tenant = "HMG";
-let _s4SelGroupId = null;
+/* dedup */ _s2Tenant = "HMG";
+/* dedup */ _s4SelGroupId = null;
 
 function _s2GetGroups(tid) {
   const all = [];
@@ -514,8 +514,8 @@ function s4ToggleForm(tenantId, groupId, formId, active) {
 
 // [2.3] 예산-조직-양식 통합 매핑 룰 빌더 (Top-down)
 // =============================================================================
-let _s3Tenant = "HMG";
-let _s3EditingRuleId = null;
+/* dedup */ _s3Tenant = "HMG";
+/* dedup */ _s3EditingRuleId = null;
 
 function renderStep3() {
   const tenantId = boCurrentPersona.tenantId || _s3Tenant;

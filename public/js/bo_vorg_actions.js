@@ -267,7 +267,7 @@ async function _vuAutoSaveTplMeta(tpl) {
 }
 
 // ── 총괄담당자 선택 (1단계: 역할 → 2단계: 사용자) ─────────────────────────
-const _purposeToServiceType = {
+/* dedup */ _purposeToServiceType = {
   edu_support: "edu_support",
   교육지원: "edu_support",
   cert: "cert",
@@ -277,14 +277,14 @@ const _purposeToServiceType = {
   badge: "badge",
   배지: "badge",
 };
-const _serviceColors = {
+/* dedup */ _serviceColors = {
   edu_support: "#1D4ED8",
   cert: "#C2410C",
   language: "#059669",
   badge: "#7C3AED",
   all: "#6B7280",
 };
-const _serviceLabels = {
+/* dedup */ _serviceLabels = {
   edu_support: "교육지원",
   cert: "자격증",
   language: "어학",
@@ -759,8 +759,8 @@ function _vuOrgPickerModal() {
 </div>`;
 }
 
-let _vuOrgPickerData = [];
-let _vuGlobalMappedOrgs = {}; // { orgId: "tplName > groupName" } - 다른 VOrg보에 이미 맵핑된 팀
+/* dedup */ _vuOrgPickerData = [];
+/* dedup */ _vuGlobalMappedOrgs = {}; // { orgId: "tplName > groupName" } - 다른 VOrg보에 이미 맵핑된 팀
 
 async function _vuShowOrgPicker(title) {
   document.getElementById("vu-org-picker-title").textContent = title;
@@ -870,7 +870,7 @@ function _vuFilterOrgs(q) {
   _vuRenderOrgList(q);
 }
 
-let _vuMappedOrgIds = new Set(); // 현재 그룹에 이미 맵핑된 org IDs
+/* dedup */ _vuMappedOrgIds = new Set(); // 현재 그룹에 이미 맵핑된 org IDs
 
 function _vuBuildOrgTreeHtml(nodes, depth, q) {
   let html = "";
@@ -1197,7 +1197,7 @@ function _vuUserPickerModal() {
 </div>`;
 }
 
-let _vuUserPickerData = [];
+/* dedup */ _vuUserPickerData = [];
 
 async function _vuShowUserPicker(title, roleFilter) {
   document.getElementById("vu-user-picker-title").textContent = title;
@@ -1428,8 +1428,8 @@ async function _vuConfirmUserPick() {
 
 // ═══ 드래그앤드롭 - 제도그룹 목록 순서 변경 ═══════════════════════════════════
 
-let _vuDragSrcId = null; // 드래그 시작한 제도그룹 ID
-let _vuIsDragging = false; // 드래그 중 onclick 이벤트 차단용
+/* dedup */ _vuDragSrcId = null; // 드래그 시작한 제도그룹 ID
+/* dedup */ _vuIsDragging = false; // 드래그 중 onclick 이벤트 차단용
 
 function _vuDragStart(e, tplId) {
   _vuDragSrcId = tplId;
@@ -1579,9 +1579,9 @@ function _vuRenderTplListOnly() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // ── 독립 메뉴①: 교육조직 담당자 관리 (renderVorgManagerMgmt) ────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
-let _vmgrFilterTenant = null;
-let _vmgrFilterTplId = "";
-let _vmgrFilterPurpose = "all";
+/* dedup */ _vmgrFilterTenant = null;
+/* dedup */ _vmgrFilterTplId = "";
+/* dedup */ _vmgrFilterPurpose = "all";
 
 async function renderVorgManagerMgmt() {
   const el = document.getElementById("bo-content");
@@ -1725,9 +1725,9 @@ async function _vmgrRemoveManager(tplId, gi, mi) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // ── 독립 메뉴②: 교육조직 협조처 관리 (renderVorgCoopMgmt) ──────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
-let _vcoopFilterTenant = null;
-let _vcoopFilterTplId = "";
-let _vcoopFilterPurpose = "all";
+/* dedup */ _vcoopFilterTenant = null;
+/* dedup */ _vcoopFilterTplId = "";
+/* dedup */ _vcoopFilterPurpose = "all";
 
 async function renderVorgCoopMgmt() {
   const el = document.getElementById("bo-content");
@@ -1886,3 +1886,4 @@ async function _vcoopRemove(tplId, gi, ci) {
     renderVorgCoopMgmt();
   } catch(e) { alert("삭제 실패: " + e.message); }
 }
+

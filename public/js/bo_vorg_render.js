@@ -4,11 +4,11 @@
 // 공통 탭: ① 기본정보  ② 교육조직 구성  ③ 담당자  ④ 협조처
 // 용도별:  ⑤ 예산계정(edu_support) / ⑤ 자격증 맵핑(cert)
 
-let _vuActiveTab = 0;
-let _vuTplId = null; // 선택된 제도그룹 ID
-let _vuTplList = []; // 현재 테넌트의 제도그룹 목록
-let _vuTenantId = null;
-let _vuPurposeFilter = "all"; // 용도 필터: 'all'|'edu_support'|'cert'|'badge'|'language'
+/* dedup */ _vuActiveTab = 0;
+/* dedup */ _vuTplId = null; // 선택된 제도그룹 ID
+/* dedup */ _vuTplList = []; // 현재 테넌트의 제도그룹 목록
+/* dedup */ _vuTenantId = null;
+/* dedup */ _vuPurposeFilter = "all"; // 용도 필터: 'all'|'edu_support'|'cert'|'badge'|'language'
 
 // ── 탭 정의: 용도별 동적 생성 ──────────────────────────────────────────────────
 function _vuGetTabs(purpose) {
@@ -402,8 +402,8 @@ function _vuTabInfo(tpl) {
 
 // ═══ 탭②: 교육조직 구성 (트리 체크박스 뷰) ═══════════════════════════════════
 // 전역 캐시: 조직도 트리 (탭 진입 시 한 번 로드)
-let _vuOrgTreeCache = null;
-let _vuOrgFlatCache = {};
+/* dedup */ _vuOrgTreeCache = null;
+/* dedup */ _vuOrgFlatCache = {};
 
 async function _vuEnsureOrgTree() {
   if (_vuOrgTreeCache) return;

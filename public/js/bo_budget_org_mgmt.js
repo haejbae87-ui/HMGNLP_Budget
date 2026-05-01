@@ -36,22 +36,22 @@ function renderPermissions() {
 // ═════════════════════════════════════════════════════════════════════════════
 // [예산 배정 현황 관리] — 조직별 통장 + 기간별 배정 관리 (5탭)
 // ═════════════════════════════════════════════════════════════════════════════
-let _obTenant = null;
-let _obTplId = null;
-let _obGroupId = null;
-let _obAccountId = null;
-let _obPeriodId = null;
-let _obTplList = [];
-let _obAcctList = [];
-let _obGroups = [];
-let _obPeriods = [];
-let _obBankbooks = [];
-let _obAllocations = [];
-let _obLogs = [];
-let _obTab = 0;
-let _obAllBankbooks = []; // 전체 제도그룹 통장 (교차 VOrg 이관용)
-let _obAllAllocations = []; // 전체 제도그룹 allocation
-let _obOrgStatuses = {}; // org_id → 'active'|'deprecated'
+/* dedup */ _obTenant = null;
+/* dedup */ _obTplId = null;
+/* dedup */ _obGroupId = null;
+/* dedup */ _obAccountId = null;
+/* dedup */ _obPeriodId = null;
+/* dedup */ _obTplList = [];
+/* dedup */ _obAcctList = [];
+/* dedup */ _obGroups = [];
+/* dedup */ _obPeriods = [];
+/* dedup */ _obBankbooks = [];
+/* dedup */ _obAllocations = [];
+/* dedup */ _obLogs = [];
+/* dedup */ _obTab = 0;
+/* dedup */ _obAllBankbooks = []; // 전체 제도그룹 통장 (교차 VOrg 이관용)
+/* dedup */ _obAllAllocations = []; // 전체 제도그룹 allocation
+/* dedup */ _obOrgStatuses = {}; // org_id → 'active'|'deprecated'
 
 // ── 공통 데이터 로드 ──
 async function _obLoadData() {
@@ -1304,3 +1304,4 @@ async function _obDeactivateBankbook(bbId) {
     alert("비활성화 실패: " + e.message);
   }
 }
+

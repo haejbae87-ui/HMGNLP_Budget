@@ -597,9 +597,11 @@ function _renderBdCombined(el, isPlatform, tenants) {
             const opAmt    = p.op_confirmed_amount    != null ? Number(p.op_confirmed_amount)    : null;
             const finalAmt = p.final_confirmed_amount != null ? Number(p.final_confirmed_amount) : null;
             const canOpEdit    = isOp    && !['op_rejected','final_rejected','final_approved'].includes(bst);
-            // 총괄담당자: op_approved, final_approved, op_review_pending 상태에서 수정 가능
-            // (final_revoke 후 bo_status가 op_approved로 롤백되지 않은 경우 op_review_pending으로 fallback되기 때문)
-            const canFinalEdit = isGlobal && !['final_rejected','op_rejected'].includes(bst) && (p.status === 'approved' || ['op_approved','final_approved','op_review_pending'].includes(bst));
+            // 총괄담당자: op_approved 또는 op_review_pending 상태에서만 수정 가능
+            // final_approved 후에는 읽기 전용 (수정하려면 해제 후 재승인)
+            const canFinalEdit = isGlobal
+              && !['final_approved','final_rejected','op_rejected'].includes(bst)
+              && (p.status === 'approved' || ['op_approved','op_review_pending'].includes(bst));
             return `
           <tr data-plan-id="${p.id}" data-bo-status="${bst||''}">
             <td style="text-align:center"><input type="checkbox" class="bd-l3-chk" value="${p.id}"></td>
@@ -1033,9 +1035,11 @@ function _renderBdLevel3(el) {
             const opAmt    = p.op_confirmed_amount    != null ? Number(p.op_confirmed_amount)    : null;
             const finalAmt = p.final_confirmed_amount != null ? Number(p.final_confirmed_amount) : null;
             const canOpEdit    = isOp    && !["op_rejected","final_rejected","final_approved"].includes(bst);
-            // 총괄담당자: op_approved, final_approved, op_review_pending 상태에서 수정 가능
-            // (final_revoke 후 bo_status가 op_approved로 롤백되지 않은 경우 op_review_pending으로 fallback되기 때문)
-            const canFinalEdit = isGlobal && !["final_rejected","op_rejected"].includes(bst) && (p.status === "approved" || ["op_approved","final_approved","op_review_pending"].includes(bst));
+            // 총괄담당자: op_approved 또는 op_review_pending 상태에서만 수정 가능
+            // final_approved 후에는 읽기 전용 (수정하려면 해제 후 재승인)
+            const canFinalEdit = isGlobal
+              && !["final_approved","final_rejected","op_rejected"].includes(bst)
+              && (p.status === "approved" || ["op_approved","op_review_pending"].includes(bst));
             return `
           <tr data-plan-id="${p.id}" data-bo-status="${bst||''}">
             <td style="text-align:center"><input type="checkbox" class="bd-l3-chk" value="${p.id}"></td>
@@ -1187,62 +1191,86 @@ async function _bdL3BulkAction() {
   if (!sb) return;
   const reviewer = boCurrentPersona?.name || 'admin';
   const now = new Date().toISOString();
-  const extra = action.startsWith('op_') ? { op_reviewed_by: reviewer, op_reviewed_at: now } : { final_reviewed_by: reviewer, final_reviewed_at: now };
 
-  // 1) bo_status 일괄 업데이트
-  await Promise.all(checked.map(id => sb.from('plans').update({ bo_status: action, ...extra, updated_at: now }).eq('id', id)));
-
-  // 2) [Phase 4] 총괄 승인 시 → 사업계획(forecast/business)에 한해 운영계획 자동 복사
-  if (action === 'final_approved' && typeof _autoCreateOperationPlan === 'function') {
-    try {
-      // 선택된 계획의 전체 레코드 조회
-      const { data: approvedPlans } = await sb.from('plans')
-        .select('*')
-        .in('id', checked);
-
-      if (approvedPlans && approvedPlans.length > 0) {
-        let copiedCount = 0;
-        for (const plan of approvedPlans) {
-          if (plan.plan_type === 'forecast' || plan.plan_type === 'business') {
-            const newId = await _autoCreateOperationPlan(sb, plan);
-            if (newId) copiedCount++;
-          }
-        }
-        if (copiedCount > 0) {
-          if (typeof _boShowToast === 'function') {
-            _boShowToast(`📋 운영계획 ${copiedCount}건이 자동 생성되었습니다.`, 'info');
-          }
-          console.log(`[Phase4] 수요분석 총괄승인 → 운영계획 자동복사 ${copiedCount}건 완료`);
-        }
-      }
-    } catch (e) {
-      console.warn('[Phase4] 운영계획 자동복사 실패 (비치명적):', e.message);
-    }
-  }
-
-  // ── 총괄승인 해제 (final_approved → op_approved 롤백)
+  // ── [A] 총괄승인 해제: final_approved → op_approved 롤백
   if (action === 'final_revoke') {
     const reason = prompt(`↩️ 총괄승인 해제 — 사유를 입력해주세요:\n\n선택: ${checked.length}건`);
     if (!reason) { sel.value = ''; return; }
-    const revoker = boCurrentPersona?.name || 'admin';
-    const revokeNow = new Date().toISOString();
     await Promise.all(checked.map(id => sb.from('plans').update({
       bo_status: 'op_approved',
       final_revoke_reason: reason,
-      final_revoked_by: revoker,
-      final_revoked_at: revokeNow,
-      updated_at: revokeNow,
+      final_revoked_by: reviewer,
+      final_revoked_at: now,
+      updated_at: now,
     }).eq('id', id)));
-    if (typeof _boShowToast === 'function') _boShowToast(`↩️ ${checked.length}건 총괄승인 해제 완료. 최종승인액을 수정 후 재승인하세요.`, 'warning');
+    if (typeof _boShowToast === 'function') _boShowToast(`↩️ ${checked.length}건 총괄승인 해제 완료. 최종승인액 수정 후 재승인하세요.`, 'warning');
     sel.value = '';
     _bdPlans = null; renderBudgetDemand();
     return;
   }
 
+  // ── [B] 총괄 승인: DOM 최종승인액 먼저 저장 → bo_status 변경 → 운영계획 자동 복사
+  if (action === 'final_approved') {
+    // 1) 체크된 행의 최종승인액 input 값을 DOM에서 추출해 먼저 저장
+    const tbody = document.getElementById('bd-l3-tbody');
+    const finalInputs = tbody
+      ? Array.from(tbody.querySelectorAll('input[data-field="final"]'))
+          .filter(inp => checked.includes(inp.dataset.planId) && inp.value !== '')
+      : [];
+
+    if (finalInputs.length > 0) {
+      await Promise.all(finalInputs.map(inp =>
+        sb.from('plans').update({
+          final_confirmed_amount: parseInt(inp.value) || 0,
+          updated_at: now,
+        }).eq('id', inp.dataset.planId)
+      ));
+      console.log(`[BulkApprove] 최종승인액 ${finalInputs.length}건 선저장 완료`);
+    }
+
+    // 2) bo_status → final_approved 업데이트
+    await Promise.all(checked.map(id => sb.from('plans').update({
+      bo_status: 'final_approved',
+      final_reviewed_by: reviewer,
+      final_reviewed_at: now,
+      updated_at: now,
+    }).eq('id', id)));
+
+    // 3) [Phase 4] 사업계획(forecast/business) → 운영계획 자동 복사
+    if (typeof _autoCreateOperationPlan === 'function') {
+      try {
+        const { data: approvedPlans } = await sb.from('plans').select('*').in('id', checked);
+        let copiedCount = 0;
+        for (const plan of (approvedPlans || [])) {
+          if (plan.plan_type === 'forecast' || plan.plan_type === 'business') {
+            const newId = await _autoCreateOperationPlan(sb, plan);
+            if (newId) copiedCount++;
+          }
+        }
+        if (copiedCount > 0 && typeof _boShowToast === 'function') {
+          _boShowToast(`📋 운영계획 ${copiedCount}건이 자동 생성되었습니다.`, 'info');
+        }
+      } catch (e) {
+        console.warn('[Phase4] 운영계획 자동복사 실패 (비치명적):', e.message);
+      }
+    }
+
+    if (typeof _boShowToast === 'function') _boShowToast(`✅ ${checked.length}건 총괄 승인 완료`, 'success');
+    sel.value = '';
+    _bdPlans = null; renderBudgetDemand();
+    return;
+  }
+
+  // ── [C] 기타 액션 (op_approved, op_rejected, final_rejected) 일괄 처리
+  const extra = action.startsWith('op_')
+    ? { op_reviewed_by: reviewer, op_reviewed_at: now }
+    : { final_reviewed_by: reviewer, final_reviewed_at: now };
+  await Promise.all(checked.map(id => sb.from('plans').update({ bo_status: action, ...extra, updated_at: now }).eq('id', id)));
   if (typeof _boShowToast === 'function') _boShowToast(`✅ ${checked.length}건 처리 완료`, 'success');
   sel.value = '';
   _bdPlans = null; renderBudgetDemand();
 }
+
 
 // ── bo_status 업데이트
 async function _bdUpdateBoStatus(planId, newStatus) {

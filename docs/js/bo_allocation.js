@@ -122,7 +122,12 @@ function showAllocTabByIdx(idx) {
   // 탭 2(배분) 진입 시 드릴다운 초기화
   if (idx === 2) {
     _ddLevel = 0; _ddOrgId = null; _ddOrgName = null;
-    // 운영담당자는 관할 교육조직 자동 진입
+    // _ddAbId: 현재 계정 유지, 없으면 첫 번째 계정으로 초기화
+    const _myBudgets = typeof getPersonaAccountBudgets === 'function' ? getPersonaAccountBudgets(persona) : [];
+    if (!_ddAbId || !_myBudgets.find(b => b.id === _ddAbId)) {
+      _ddAbId = _myBudgets[0]?.id || null;
+    }
+    // 운영담당자는 관할 교육조직 자동 진입 (Level 1)
     if (isOpOnly) {
       const vorg = typeof getPersonaManagedVorg === 'function' ? getPersonaManagedVorg(persona) : null;
       if (vorg) { _ddOrgId = vorg.id; _ddOrgName = vorg.name; _ddLevel = 1; }

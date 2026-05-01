@@ -1,4 +1,4 @@
-// â”€â”€â”€ ì˜ˆì‚° ë°°ë¶„ í†µí•© ë“œë¦´ë‹¤ìš´ ì—”ì§„ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ï»¿// â”€â”€â”€ ì˜ˆì‚° ë°°ë¶„ í†µí•© ë“œë¦´ë‹¤ìš´ ì—”ì§„ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // ì˜ì¡´: bo_allocation.js (_ddLevel, _ddAbId, _ddOrgId, _ddOrgName, _allocYear)
 //       ACCOUNT_BUDGETS, TEAM_DIST, VIRTUAL_EDU_ORGS, ACCOUNT_MASTER
 //       boFmt(), getDistributable(), getPersonaAccountBudgets(), boCurrentPersona
@@ -169,15 +169,15 @@ function _renderDDLevel0() {
 })();</script>`;
 }
 
-// ¦¡¦¡ Level 1: ±³À°Á¶Á÷ ¡æ ÆÀ ¹èºĞ ±×¸®µå ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+// ï¿½ï¿½ï¿½ï¿½ Level 1: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½×¸ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 function _renderDDLevel1() {
   const ab = _ddAbId ? ACCOUNT_BUDGETS.find(x => x.id === _ddAbId) : null;
-  if (!ab) return '<div style="padding:40px;text-align:center;color:#9CA3AF">°èÁ¤ Á¤º¸ ¾øÀ½</div>';
+  if (!ab) return '<div style="padding:40px;text-align:center;color:#9CA3AF">ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½</div>';
   const isRnd = ab.accountCode.includes('RND');
   const tpl = VIRTUAL_EDU_ORGS.find(t => t.tenantId === ab.tenantId && (isRnd ? t.tree.centers : t.tree.hqs));
   const vGroups = tpl ? (isRnd ? tpl.tree.centers : tpl.tree.hqs) : [];
   const vg = vGroups.find(g => g.id === _ddOrgId);
-  if (!vg) return '<div style="padding:40px;text-align:center;color:#9CA3AF">±³À°Á¶Á÷ Á¤º¸ ¾øÀ½</div>';
+  if (!vg) return '<div style="padding:40px;text-align:center;color:#9CA3AF">ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½</div>';
   const teams = vg.teams || [];
   const orgTd = TEAM_DIST.find(t => t.accountBudgetId === ab.id && t.teamName === vg.name);
   const orgAlloc = orgTd?.allocAmount || 0;
@@ -192,45 +192,45 @@ function _renderDDLevel1() {
     const currentAlloc = existing?.allocAmount || 0;
     allRows.push({ name: rt.name, inputId, existing, currentAlloc });
     tableRows += `<tr>
-      <td style="padding:8px 14px"><div style="display:flex;align-items:center;gap:6px"><span style="color:#CBD5E1;font-size:11px">¦¦¦¡</span><span style="font-size:12px;font-weight:700">${rt.name}</span><span style="font-size:10px;color:#9CA3AF">½ÇÁ¦ÆÀ</span></div></td>
-      <td style="text-align:right;font-size:11px;color:#6B7280">${currentAlloc>0?'ÇöÀç '+boFmt(currentAlloc)+'¿ø':'¹Ì¹èºĞ'}</td>
-      <td style="padding:6px 10px"><div style="position:relative"><input type="number" id="${inputId}" placeholder="0" oninput="calcDDRemain()" min="0" style="width:140px;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 36px 8px 10px;font-size:13px;font-weight:700;text-align:right"/><span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;color:#9CA3AF">¿ø</span></div></td>
+      <td style="padding:8px 14px"><div style="display:flex;align-items:center;gap:6px"><span style="color:#CBD5E1;font-size:11px">ï¿½ï¿½ï¿½ï¿½</span><span style="font-size:12px;font-weight:700">${rt.name}</span><span style="font-size:10px;color:#9CA3AF">ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½</span></div></td>
+      <td style="text-align:right;font-size:11px;color:#6B7280">${currentAlloc>0?'ï¿½ï¿½ï¿½ï¿½ '+boFmt(currentAlloc)+'ï¿½ï¿½':'ï¿½Ì¹ï¿½ï¿½'}</td>
+      <td style="padding:6px 10px"><div style="position:relative"><input type="number" id="${inputId}" placeholder="0" oninput="calcDDRemain()" min="0" style="width:140px;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 36px 8px 10px;font-size:13px;font-weight:700;text-align:right"/><span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;color:#9CA3AF">ï¿½ï¿½</span></div></td>
       <td style="font-size:11px;color:#059669;font-weight:600;white-space:nowrap" id="${inputId}-preview"></td>
     </tr>`;
   });
-  if (!teams.length) tableRows = '<tr><td colspan="4" style="padding:30px;text-align:center;color:#9CA3AF;font-size:12px">µî·ÏµÈ ÆÀÀÌ ¾ø½À´Ï´Ù.</td></tr>';
+  if (!teams.length) tableRows = '<tr><td colspan="4" style="padding:30px;text-align:center;color:#9CA3AF;font-size:12px">ï¿½ï¿½Ïµï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½.</td></tr>';
   return `<div>
   ${_ddBreadcrumb(ab)}
   <div style="padding:12px 16px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:12px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-    <div style="display:flex;align-items:center;gap:10px"><span style="font-size:22px">${isRnd?'??':'??'}</span><div><div style="font-weight:900;font-size:15px;color:#1E40AF">${vg.name}</div><div style="font-size:11px;color:#3B82F6">${acctName} ¡¤ ${_allocYear||new Date().getFullYear()}³â</div></div></div>
+    <div style="display:flex;align-items:center;gap:10px"><span style="font-size:22px">${isRnd?'??':'??'}</span><div><div style="font-weight:900;font-size:15px;color:#1E40AF">${vg.name}</div><div style="font-size:11px;color:#3B82F6">${acctName} ï¿½ï¿½ ${_allocYear||new Date().getFullYear()}ï¿½ï¿½</div></div></div>
     <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
-      <div style="text-align:center"><div style="font-size:10px;color:#6B7280">Á¶Á÷ ¹èºĞ¾×</div><div style="font-weight:900;font-size:16px;color:#1D4ED8">${boFmt(orgAlloc)}¿ø</div></div>
-      <div style="text-align:center"><div style="font-size:10px;color:#6B7280">ÆÀ ¹èºĞ ¿Ï·á</div><div style="font-weight:700;font-size:14px">${boFmt(teamsAllocated)}¿ø</div></div>
-      <div style="text-align:center"><div style="font-size:10px;color:${teamDistributable>0?'#059669':'#EF4444'}">ÆÀ ¹èºĞ °¡´É</div><div style="font-weight:900;font-size:16px;color:${teamDistributable>0?'#059669':'#EF4444'}">${boFmt(teamDistributable)}¿ø</div></div>
-      <button onclick="_showRecallModal('${ab.id}','${vg.id}','${vg.name}')" style="padding:6px 14px;background:#FEE2E2;color:#DC2626;border:1.5px solid #FECACA;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700">?? È¸¼ö</button>
+      <div style="text-align:center"><div style="font-size:10px;color:#6B7280">ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ğ¾ï¿½</div><div style="font-weight:900;font-size:16px;color:#1D4ED8">${boFmt(orgAlloc)}ï¿½ï¿½</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:#6B7280">ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½Ï·ï¿½</div><div style="font-weight:700;font-size:14px">${boFmt(teamsAllocated)}ï¿½ï¿½</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:${teamDistributable>0?'#059669':'#EF4444'}">ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½</div><div style="font-weight:900;font-size:16px;color:${teamDistributable>0?'#059669':'#EF4444'}">${boFmt(teamDistributable)}ï¿½ï¿½</div></div>
+      <button onclick="_showRecallModal('${ab.id}','${vg.id}','${vg.name}')" style="padding:6px 14px;background:#FEE2E2;color:#DC2626;border:1.5px solid #FECACA;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700">?? È¸ï¿½ï¿½</button>
     </div>
   </div>
   <div id="dd-waterfall" style="padding:14px 18px;background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:12px;margin-bottom:16px">
-    <div style="font-size:10px;font-weight:700;color:#6B7280;text-transform:uppercase;margin-bottom:10px">?? ÆÀ ¹èºĞ ÇöÈ²</div>
+    <div style="font-size:10px;font-weight:700;color:#6B7280;text-transform:uppercase;margin-bottom:10px">?? ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½È²</div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <div style="text-align:center"><div style="font-size:10px;color:#6B7280">Á¶Á÷ ¹èºĞ¾×</div><div style="font-weight:900;font-size:16px;color:#1D4ED8">${boFmt(orgAlloc)}¿ø</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:#6B7280">ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ğ¾ï¿½</div><div style="font-weight:900;font-size:16px;color:#1D4ED8">${boFmt(orgAlloc)}ï¿½ï¿½</div></div>
       <div style="color:#9CA3AF;font-size:16px">?</div>
-      <div style="text-align:center"><div style="font-size:10px;color:#6B7280">ÆÀ ¹èºĞ ¿Ï·á</div><div style="font-weight:700;font-size:14px">${boFmt(teamsAllocated)}¿ø</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:#6B7280">ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½Ï·ï¿½</div><div style="font-weight:700;font-size:14px">${boFmt(teamsAllocated)}ï¿½ï¿½</div></div>
       <div style="color:#9CA3AF;font-size:16px">?</div>
-      <div style="text-align:center"><div style="font-size:10px;color:#374151">ÀÔ·Â ÇÕ°è</div><div id="dd-input-total" style="font-weight:700;font-size:14px;color:#374151">0¿ø</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:#374151">ï¿½Ô·ï¿½ ï¿½Õ°ï¿½</div><div id="dd-input-total" style="font-weight:700;font-size:14px;color:#374151">0ï¿½ï¿½</div></div>
       <div style="color:#9CA3AF;font-size:16px">=</div>
       <div id="dd-remain-box" style="background:#D1FAE5;padding:8px 16px;border-radius:10px;border:2px solid #6EE7B7;text-align:center">
-        <div style="font-size:10px;color:#059669">¹èºĞ ÈÄ ÀÜ¾×</div>
-        <div id="dd-remain-val" style="font-weight:900;font-size:18px;color:#059669">${boFmt(teamDistributable)}¿ø</div>
+        <div style="font-size:10px;color:#059669">ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Ü¾ï¿½</div>
+        <div id="dd-remain-val" style="font-weight:900;font-size:18px;color:#059669">${boFmt(teamDistributable)}ï¿½ï¿½</div>
       </div>
     </div>
   </div>
   <div class="bo-card" style="overflow:hidden;margin-bottom:16px">
-    <div style="padding:10px 16px;background:#F9FAFB;border-bottom:1px solid #E5E7EB"><div style="font-size:11px;font-weight:800;color:#374151">?? ÆÀº° ¿¹»ê ¹èºĞ ? ${vg.name}</div></div>
-    <table class="bo-table"><thead><tr><th>ÆÀ</th><th style="text-align:right">ÇöÀç ¹èºĞ</th><th style="text-align:right">Ãß°¡ ¹èºĞ ÀÔ·Â</th><th>¹èºĞ ÈÄ</th></tr></thead><tbody>${tableRows}</tbody></table>
+    <div style="padding:10px 16px;background:#F9FAFB;border-bottom:1px solid #E5E7EB"><div style="font-size:11px;font-weight:800;color:#374151">?? ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ? ${vg.name}</div></div>
+    <table class="bo-table"><thead><tr><th>ï¿½ï¿½</th><th style="text-align:right">ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½</th><th style="text-align:right">ï¿½ß°ï¿½ ï¿½ï¿½ï¿½ ï¿½Ô·ï¿½</th><th>ï¿½ï¿½ï¿½ ï¿½ï¿½</th></tr></thead><tbody>${tableRows}</tbody></table>
   </div>
-  <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:12px;color:#92400E;margin-bottom:12px">?? ÀÔ·Â ÇÕ°è°¡ Á¶Á÷ ¹èºĞ °¡´É Àç¿øÀ» ÃÊ°úÇÒ ¼ö ¾ø½À´Ï´Ù.</div>
-  <button onclick="_showDistConfirmModal()" class="bo-btn-primary" style="width:100%;padding:14px;font-size:14px">?? ¹èºĞ ³»¿ª È®ÀÎ ¹× ÀÌ°ü È®Á¤</button>
+  <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:12px;color:#92400E;margin-bottom:12px">?? ï¿½Ô·ï¿½ ï¿½Õ°è°¡ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ê°ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½.</div>
+  <button onclick="_showDistConfirmModal()" class="bo-btn-primary" style="width:100%;padding:14px;font-size:14px">?? ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ È®ï¿½ï¿½ ï¿½ï¿½ ï¿½Ì°ï¿½ È®ï¿½ï¿½</button>
 </div>
 <script>(function(){
   window._ddRows = ${JSON.stringify(allRows)};
@@ -240,7 +240,7 @@ function _renderDDLevel1() {
 })();</script>`;
 }
 
-// ¦¡¦¡ ¿öÅÍÆú ÀÜ¾× ½Ç½Ã°£ °è»ê ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ü¾ï¿½ ï¿½Ç½Ã°ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 function calcDDRemain() {
   const rows = window._ddRows || [];
   let total = 0;
@@ -249,17 +249,17 @@ function calcDDRemain() {
   const el = document.getElementById('dd-input-total');
   const rv = document.getElementById('dd-remain-val');
   const rb = document.getElementById('dd-remain-box');
-  if (el) el.textContent = boFmt(total) + '¿ø';
-  if (rv) { rv.textContent = boFmt(remain) + '¿ø'; rv.style.color = remain < 0 ? '#EF4444' : '#059669'; }
+  if (el) el.textContent = boFmt(total) + 'ï¿½ï¿½';
+  if (rv) { rv.textContent = boFmt(remain) + 'ï¿½ï¿½'; rv.style.color = remain < 0 ? '#EF4444' : '#059669'; }
   if (rb) { rb.style.background = remain < 0 ? '#FEE2E2' : '#D1FAE5'; rb.style.borderColor = remain < 0 ? '#FCA5A5' : '#6EE7B7'; }
   rows.forEach(r => {
     const v = Number(document.getElementById(r.inputId)?.value || 0);
     const pv = document.getElementById(r.inputId + '-preview');
-    if (pv) pv.textContent = v > 0 ? '¡æ ' + boFmt((r.currentAlloc||0) + v) + '¿ø' : '';
+    if (pv) pv.textContent = v > 0 ? 'ï¿½ï¿½ ' + boFmt((r.currentAlloc||0) + v) + 'ï¿½ï¿½' : '';
   });
 }
 
-// ¦¡¦¡ È®Á¤ È®ÀÎ ¸ğ´Ş ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+// ï¿½ï¿½ï¿½ï¿½ È®ï¿½ï¿½ È®ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 function _showDistConfirmModal() {
   const rows = window._ddRows || [];
   const maxAmt = window._ddMaxAmount || 0;
@@ -271,33 +271,33 @@ function _showDistConfirmModal() {
     const v = Number(document.getElementById(r.inputId)?.value || 0);
     if (v > 0) { total += v; lines.push({ name: r.name, v, after: (r.currentAlloc||0)+v }); }
   });
-  if (total === 0) { alert('¹èºĞ ±İ¾×À» 1°³ ÀÌ»ó ÀÔ·ÂÇÏ¼¼¿ä.'); return; }
-  if (total > maxAmt) { alert(`ÀÔ·Â ÇÕ°è(${boFmt(total)}¿ø)°¡ ¹èºĞ °¡´É Àç¿ø(${boFmt(maxAmt)}¿ø)À» ÃÊ°úÇÕ´Ï´Ù.`); return; }
+  if (total === 0) { alert('ï¿½ï¿½ï¿½ ï¿½İ¾ï¿½ï¿½ï¿½ 1ï¿½ï¿½ ï¿½Ì»ï¿½ ï¿½Ô·ï¿½ï¿½Ï¼ï¿½ï¿½ï¿½.'); return; }
+  if (total > maxAmt) { alert(`ï¿½Ô·ï¿½ ï¿½Õ°ï¿½(${boFmt(total)}ï¿½ï¿½)ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½(${boFmt(maxAmt)}ï¿½ï¿½)ï¿½ï¿½ ï¿½Ê°ï¿½ï¿½Õ´Ï´ï¿½.`); return; }
   const acctName = ACCOUNT_MASTER.find(a => a.code === ab?.accountCode)?.name || ab?.accountCode || '';
-  const lineHtml = lines.map(l => `<tr><td style="padding:6px 14px;font-size:12px;font-weight:700">${l.name}</td><td style="text-align:right;color:#059669;font-weight:700;font-size:12px">+${boFmt(l.v)}¿ø</td><td style="text-align:right;font-size:12px;color:#1D4ED8;font-weight:900">${boFmt(l.after)}¿ø</td></tr>`).join('');
+  const lineHtml = lines.map(l => `<tr><td style="padding:6px 14px;font-size:12px;font-weight:700">${l.name}</td><td style="text-align:right;color:#059669;font-weight:700;font-size:12px">+${boFmt(l.v)}ï¿½ï¿½</td><td style="text-align:right;font-size:12px;color:#1D4ED8;font-weight:900">${boFmt(l.after)}ï¿½ï¿½</td></tr>`).join('');
   const overlay = document.createElement('div');
   overlay.id = 'dd-confirm-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center';
   overlay.innerHTML = `<div style="background:white;border-radius:16px;padding:28px;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3)">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
       <span style="font-size:24px">??</span>
-      <div><div style="font-weight:900;font-size:16px">¹èºĞ ÀÌ°ü È®Á¤</div><div style="font-size:11px;color:#6B7280">°èÁ¤: ${acctName}</div></div>
+      <div><div style="font-weight:900;font-size:16px">ï¿½ï¿½ï¿½ ï¿½Ì°ï¿½ È®ï¿½ï¿½</div><div style="font-size:11px;color:#6B7280">ï¿½ï¿½ï¿½ï¿½: ${acctName}</div></div>
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
-      <thead><tr style="background:#F9FAFB"><th style="padding:6px 14px;text-align:left;font-size:11px;color:#6B7280">´ë»ó</th><th style="text-align:right;font-size:11px;color:#6B7280">Ãß°¡ ¹èºĞ</th><th style="text-align:right;font-size:11px;color:#6B7280">¹èºĞ ÈÄ ÃÑ¾×</th></tr></thead>
+      <thead><tr style="background:#F9FAFB"><th style="padding:6px 14px;text-align:left;font-size:11px;color:#6B7280">ï¿½ï¿½ï¿½</th><th style="text-align:right;font-size:11px;color:#6B7280">ï¿½ß°ï¿½ ï¿½ï¿½ï¿½</th><th style="text-align:right;font-size:11px;color:#6B7280">ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Ñ¾ï¿½</th></tr></thead>
       <tbody>${lineHtml}</tbody>
-      <tfoot><tr style="background:#F0FDF4;border-top:2px solid #BBF7D0"><td style="padding:8px 14px;font-weight:900;font-size:12px">ÇÕ°è</td><td style="text-align:right;font-weight:900;color:#059669;font-size:14px">+${boFmt(total)}¿ø</td><td style="text-align:right;font-size:12px;color:#6B7280">ÀÜ¿©: ${boFmt(maxAmt-total)}¿ø</td></tr></tfoot>
+      <tfoot><tr style="background:#F0FDF4;border-top:2px solid #BBF7D0"><td style="padding:8px 14px;font-weight:900;font-size:12px">ï¿½Õ°ï¿½</td><td style="text-align:right;font-weight:900;color:#059669;font-size:14px">+${boFmt(total)}ï¿½ï¿½</td><td style="text-align:right;font-size:12px;color:#6B7280">ï¿½Ü¿ï¿½: ${boFmt(maxAmt-total)}ï¿½ï¿½</td></tr></tfoot>
     </table>
-    <div style="background:#FEF3C7;border-radius:10px;padding:10px 14px;font-size:12px;color:#92400E;margin-bottom:16px">?? ÀÌ°ü È®Á¤ ÈÄ¿¡´Â È¸¼ö ±â´ÉÀ¸·Î¸¸ ¼öÁ¤ °¡´ÉÇÕ´Ï´Ù.</div>
+    <div style="background:#FEF3C7;border-radius:10px;padding:10px 14px;font-size:12px;color:#92400E;margin-bottom:16px">?? ï¿½Ì°ï¿½ È®ï¿½ï¿½ ï¿½Ä¿ï¿½ï¿½ï¿½ È¸ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î¸ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Õ´Ï´ï¿½.</div>
     <div style="display:flex;gap:10px">
-      <button onclick="document.getElementById('dd-confirm-overlay').remove()" style="flex:1;padding:12px;border:1.5px solid #E5E7EB;border-radius:10px;background:white;cursor:pointer;font-weight:700;font-size:13px">Ãë¼Ò</button>
-      <button onclick="_submitDDDist()" class="bo-btn-primary" style="flex:2;padding:12px;font-size:13px">? ÀÌ°ü È®Á¤</button>
+      <button onclick="document.getElementById('dd-confirm-overlay').remove()" style="flex:1;padding:12px;border:1.5px solid #E5E7EB;border-radius:10px;background:white;cursor:pointer;font-weight:700;font-size:13px">ï¿½ï¿½ï¿½</button>
+      <button onclick="_submitDDDist()" class="bo-btn-primary" style="flex:2;padding:12px;font-size:13px">? ï¿½Ì°ï¿½ È®ï¿½ï¿½</button>
     </div>
   </div>`;
   document.body.appendChild(overlay);
 }
 
-// ¦¡¦¡ DB ÀúÀå (submitBulkDist ÆĞÅÏ Àç»ç¿ë) ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+// ï¿½ï¿½ï¿½ï¿½ DB ï¿½ï¿½ï¿½ï¿½ (submitBulkDist ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½) ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 async function _submitDDDist() {
   const overlay = document.getElementById('dd-confirm-overlay');
   if (overlay) overlay.remove();
@@ -328,51 +328,51 @@ async function _submitDDDist() {
         }
         const td = TEAM_DIST.find(t => t.accountBudgetId === abId && t.teamName === r.name);
         if (td) { td.allocAmount += v; } else { TEAM_DIST.push({ id: `TD${Date.now()}_${Math.random().toString(36).slice(2)}`, accountBudgetId: abId, teamName: r.name, allocAmount: v, spent: 0, reserved: 0 }); }
-        lines.push(`${r.name}: +${boFmt(v)}¿ø${bb?'':' (?DB¹Ì¹İ¿µ)'}`);
+        lines.push(`${r.name}: +${boFmt(v)}ï¿½ï¿½${bb?'':' (?DBï¿½Ì¹İ¿ï¿½)'}`);
       }
-    } catch(e) { console.error('[DD¹èºĞ] DB¿À·ù:', e.message); }
+    } catch(e) { console.error('[DDï¿½ï¿½ï¿½] DBï¿½ï¿½ï¿½ï¿½:', e.message); }
   } else {
     rows.forEach(r => {
       const v = Number(document.getElementById(r.inputId)?.value || 0);
       if (v <= 0) return;
       const td = TEAM_DIST.find(t => t.accountBudgetId === abId && t.teamName === r.name);
       if (td) { td.allocAmount += v; } else { TEAM_DIST.push({ id: `TD${Date.now()}`, accountBudgetId: abId, teamName: r.name, allocAmount: v, spent: 0, reserved: 0 }); }
-      lines.push(`${r.name}: +${boFmt(v)}¿ø`);
+      lines.push(`${r.name}: +${boFmt(v)}ï¿½ï¿½`);
     });
   }
-  let msg = `? ¹èºĞ ¿Ï·á!\n\n${lines.join('\n')}\n\nÃÑ ¹èºĞ: ${boFmt(total)}¿ø`;
-  if (errors.length) msg += `\n\n? ÅëÀå ¹Ì¸ÅÄª: ${errors.join(', ')}`;
+  let msg = `? ï¿½ï¿½ï¿½ ï¿½Ï·ï¿½!\n\n${lines.join('\n')}\n\nï¿½ï¿½ ï¿½ï¿½ï¿½: ${boFmt(total)}ï¿½ï¿½`;
+  if (errors.length) msg += `\n\n? ï¿½ï¿½ï¿½ï¿½ ï¿½Ì¸ï¿½Äª: ${errors.join(', ')}`;
   alert(msg);
   _ddLevel = 0;
   showAllocTabByIdx(0);
 }
 
-// ¦¡¦¡ È¸¼ö ¸ğ´Ş ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+// ï¿½ï¿½ï¿½ï¿½ È¸ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 function _showRecallModal(abId, orgId, orgName) {
   const ab = ACCOUNT_BUDGETS.find(x => x.id === abId);
   const orgTd = TEAM_DIST.find(t => t.accountBudgetId === abId && t.teamName === orgName);
-  if (!orgTd || orgTd.allocAmount <= 0) { alert('È¸¼öÇÒ ¹èºĞ ±İ¾×ÀÌ ¾ø½À´Ï´Ù.'); return; }
+  if (!orgTd || orgTd.allocAmount <= 0) { alert('È¸ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½İ¾ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½.'); return; }
   const minKeep = (orgTd.spent||0) + (orgTd.reserved||0);
   const maxRecall = orgTd.allocAmount - minKeep;
-  if (maxRecall <= 0) { alert(`ÁıÇà/°¡Á¡À¯ ±İ¾×(${boFmt(minKeep)}¿ø) ÀÌ»óÀ¸·Î È¸¼öÇÒ ¼ö ¾ø½À´Ï´Ù.`); return; }
+  if (maxRecall <= 0) { alert(`ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½İ¾ï¿½(${boFmt(minKeep)}ï¿½ï¿½) ï¿½Ì»ï¿½ï¿½ï¿½ï¿½ï¿½ È¸ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½.`); return; }
   const overlay = document.createElement('div');
   overlay.id = 'dd-recall-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center';
   overlay.innerHTML = `<div style="background:white;border-radius:16px;padding:28px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3)">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px"><span style="font-size:24px">??</span><div><div style="font-weight:900;font-size:16px;color:#DC2626">¿¹»ê È¸¼ö</div><div style="font-size:11px;color:#6B7280">${orgName}</div></div></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px"><span style="font-size:24px">??</span><div><div style="font-weight:900;font-size:16px;color:#DC2626">ï¿½ï¿½ï¿½ï¿½ È¸ï¿½ï¿½</div><div style="font-size:11px;color:#6B7280">${orgName}</div></div></div>
     <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#991B1B">
-      <div>ÇöÀç ¹èºĞ: <b>${boFmt(orgTd.allocAmount)}¿ø</b></div>
-      <div>ÁıÇà+°¡Á¡À¯: <b>${boFmt(minKeep)}¿ø</b> (È¸¼ö ºÒ°¡)</div>
-      <div style="margin-top:4px;font-weight:900">ÃÖ´ë È¸¼ö °¡´É: <span style="color:#DC2626">${boFmt(maxRecall)}¿ø</span></div>
+      <div>ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½: <b>${boFmt(orgTd.allocAmount)}ï¿½ï¿½</b></div>
+      <div>ï¿½ï¿½ï¿½ï¿½+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: <b>${boFmt(minKeep)}ï¿½ï¿½</b> (È¸ï¿½ï¿½ ï¿½Ò°ï¿½)</div>
+      <div style="margin-top:4px;font-weight:900">ï¿½Ö´ï¿½ È¸ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½: <span style="color:#DC2626">${boFmt(maxRecall)}ï¿½ï¿½</span></div>
     </div>
     <div style="margin-bottom:16px">
-      <label style="font-size:11px;font-weight:700;color:#6B7280;display:block;margin-bottom:6px">È¸¼ö ±İ¾× *</label>
-      <div style="position:relative"><input type="number" id="dd-recall-amt" placeholder="0" max="${maxRecall}" min="1" oninput="previewAmt('dd-recall-amt','dd-recall-preview')" style="width:100%;border:1.5px solid #FECACA;border-radius:10px;padding:12px 40px 12px 14px;font-size:18px;font-weight:900"/><span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#9CA3AF;font-weight:700">¿ø</span></div>
+      <label style="font-size:11px;font-weight:700;color:#6B7280;display:block;margin-bottom:6px">È¸ï¿½ï¿½ ï¿½İ¾ï¿½ *</label>
+      <div style="position:relative"><input type="number" id="dd-recall-amt" placeholder="0" max="${maxRecall}" min="1" oninput="previewAmt('dd-recall-amt','dd-recall-preview')" style="width:100%;border:1.5px solid #FECACA;border-radius:10px;padding:12px 40px 12px 14px;font-size:18px;font-weight:900"/><span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#9CA3AF;font-weight:700">ï¿½ï¿½</span></div>
       <div id="dd-recall-preview" style="font-size:12px;color:#DC2626;font-weight:700;margin-top:4px;text-align:right"></div>
     </div>
     <div style="display:flex;gap:10px">
-      <button onclick="document.getElementById('dd-recall-overlay').remove()" style="flex:1;padding:12px;border:1.5px solid #E5E7EB;border-radius:10px;background:white;cursor:pointer;font-weight:700">Ãë¼Ò</button>
-      <button onclick="_submitDDRecall('${abId}','${orgName}',${maxRecall})" style="flex:2;padding:12px;background:#DC2626;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:900;font-size:13px">?? È¸¼ö È®Á¤</button>
+      <button onclick="document.getElementById('dd-recall-overlay').remove()" style="flex:1;padding:12px;border:1.5px solid #E5E7EB;border-radius:10px;background:white;cursor:pointer;font-weight:700">ï¿½ï¿½ï¿½</button>
+      <button onclick="_submitDDRecall('${abId}','${orgName}',${maxRecall})" style="flex:2;padding:12px;background:#DC2626;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:900;font-size:13px">?? È¸ï¿½ï¿½ È®ï¿½ï¿½</button>
     </div>
   </div>`;
   document.body.appendChild(overlay);
@@ -380,7 +380,7 @@ function _showRecallModal(abId, orgId, orgName) {
 
 async function _submitDDRecall(abId, orgName, maxRecall) {
   const amt = Number(document.getElementById('dd-recall-amt')?.value || 0);
-  if (amt <= 0 || amt > maxRecall) { alert(`1¿ø ÀÌ»ó ${boFmt(maxRecall)}¿ø ÀÌÇÏ·Î ÀÔ·ÂÇÏ¼¼¿ä.`); return; }
+  if (amt <= 0 || amt > maxRecall) { alert(`1ï¿½ï¿½ ï¿½Ì»ï¿½ ${boFmt(maxRecall)}ï¿½ï¿½ ï¿½ï¿½ï¿½Ï·ï¿½ ï¿½Ô·ï¿½ï¿½Ï¼ï¿½ï¿½ï¿½.`); return; }
   const overlay = document.getElementById('dd-recall-overlay');
   if (overlay) overlay.remove();
   const td = TEAM_DIST.find(t => t.accountBudgetId === abId && t.teamName === orgName);
@@ -398,8 +398,12 @@ async function _submitDDRecall(abId, orgName, maxRecall) {
         const ex = existing?.[0];
         if (ex) await sb.from('budget_allocations').update({ allocated_amount: Math.max(0, Number(ex.allocated_amount)-amt), updated_at: new Date().toISOString() }).eq('id', ex.id);
       }
-    } catch(e) { console.error('[DDÈ¸¼ö] DB¿À·ù:', e.message); }
+    } catch(e) { console.error('[DDÈ¸ï¿½ï¿½] DBï¿½ï¿½ï¿½ï¿½:', e.message); }
+      // Bug 2 Fix: account_budgets.balance ì¬ê³„ì‚°
+      const newTotal = ab.baseAmount + ab.totalAdded;
+      await _syncBudgetAllocations(sb, ab, newTotal, ab.usedAmount || 0, ab.fiscalYear || new Date().getFullYear());
   }
-  alert(`? È¸¼ö ¿Ï·á!\n${orgName}¿¡¼­ ${boFmt(amt)}¿ø È¸¼öµÊ`);
+  alert(`? È¸ï¿½ï¿½ ï¿½Ï·ï¿½!\n${orgName}ï¿½ï¿½ï¿½ï¿½ ${boFmt(amt)}ï¿½ï¿½ È¸ï¿½ï¿½ï¿½ï¿½`);
   showAllocTabByIdx(2);
 }
+

@@ -1238,17 +1238,28 @@ async function _bdL3BulkAction() {
 
   // ── [A] 총괄승인 해제: final_approved → op_approved 롤백
   if (action === 'final_revoke') {
-    const rawReason = prompt(`↩️ 총괄승인 해제 — 사유를 입력하세요 (선택):\n\n선택: ${checked.length}건\n(\uc785력없이 확인 시 기본 사유 적용)`);
-    // null = 취소, 빈 문자열 = 기본 사유 사용
+    const rawReason = prompt(`↩️ 총괄승인 해제 — 사유를 입력하세요 (선택):\n\n선택: ${checked.length}건\n(입력없이 확인 시 기본 사유 적용)`);
     if (rawReason === null) { sel.value = ''; return; }
-    const reason = rawReason.trim() || '총괄승인 해제 (정정)';
-    await Promise.all(checked.map(id => sb.from('plans').update({
-      bo_status: 'op_approved',
-      final_revoke_reason: reason,
-      final_revoked_by: reviewer,
-      final_revoked_at: now,
-      updated_at: now,
-    }).eq('id', id)));
+
+    // �심: bo_status와 updated_at만 업데이트 (없는 컨럼 작성 방지)
+    let failCount = 0;
+    for (const id of checked) {
+      const { error } = await sb.from('plans').update({
+        bo_status: 'op_approved',
+        updated_at: now,
+      }).eq('id', id);
+      if (error) {
+        console.error('[final_revoke] 업데이트 실패 id=' + id + ':', error.message);
+        failCount++;
+      }
+    }
+
+    if (failCount > 0) {
+      alert(`❌ ${failCount}건 업데이트 실패\n오류: 콘솔 F12 확인 후 관리자에게 문의해주세요.`);
+      sel.value = '';
+      return;
+    }
+
     if (typeof _boShowToast === 'function') _boShowToast(`↩️ ${checked.length}건 총괄승인 해제 완료. 최종승인액 수정 후 재승인하세요.`, 'warning');
     sel.value = '';
     _bdPlans = null; renderBudgetDemand();

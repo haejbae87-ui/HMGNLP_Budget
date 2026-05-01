@@ -1162,6 +1162,68 @@ function _bdL3CheckAll(cb) {
   document.querySelectorAll('.bd-l3-chk').forEach(c => c.checked = cb.checked);
 }
 
+// ── [Phase 4] 사업계획 → 운영계획 자동 복사 (BO 전용 내장본)
+// fo_plans_actions.js가 BO 컨텍스트에서 로드되지 않으므로 여기에 직접 정의
+async function _bdAutoCreateOperationPlan(sb, forecastPlan) {
+  if (!sb || !forecastPlan) return null;
+  if (forecastPlan.plan_type !== 'forecast' && forecastPlan.plan_type !== 'business') return null;
+
+  try {
+    // 중복 방지: 이미 복사된 운영계획 존재 여부 확인
+    const { data: existing } = await sb.from('plans')
+      .select('id')
+      .eq('plan_type', 'operation')
+      .eq('tenant_id', forecastPlan.tenant_id)
+      .contains('detail', { source_forecast_plan_id: String(forecastPlan.id) })
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      console.log('[Phase4-BO] 운영계획 이미 존재 — 스킵:', existing[0].id);
+      return null;
+    }
+
+    // 복사본 생성
+    const now = new Date().toISOString();
+    const newId = 'PLAN-' + Date.now();
+    const newDetail = {
+      ...(forecastPlan.detail || {}),
+      source_forecast_plan_id: String(forecastPlan.id),
+      auto_copied_at: now,
+      copy_trigger: 'forecast_approved',
+    };
+
+    const insertData = {
+      id: newId,
+      edu_name: forecastPlan.edu_name,
+      plan_type: 'operation',
+      status: 'saved',
+      fiscal_year: forecastPlan.fiscal_year,
+      account_code: forecastPlan.account_code,
+      amount: forecastPlan.final_confirmed_amount || forecastPlan.op_confirmed_amount || forecastPlan.amount,
+      frozen_amount: 0,
+      allocated_amount: 0,
+      applicant_id: forecastPlan.applicant_id,
+      applicant_name: forecastPlan.applicant_name,
+      applicant_org_id: forecastPlan.applicant_org_id || null,
+      dept: forecastPlan.dept || null,
+      tenant_id: forecastPlan.tenant_id,
+      edu_type: forecastPlan.edu_type || null,
+      detail: newDetail,
+      created_at: now,
+      updated_at: now,
+    };
+
+    const { data: newPlan, error: insertErr } = await sb.from('plans').insert(insertData).select('id').single();
+    if (insertErr) throw insertErr;
+
+    console.log('[Phase4-BO] 운영계획 자동 생성 완료:', newPlan?.id, '← 원본:', forecastPlan.id);
+    return newPlan?.id || null;
+  } catch (err) {
+    console.error('[Phase4-BO _bdAutoCreateOperationPlan] 실패:', err.message);
+    return null;
+  }
+}
+
 // ── 선택 일괄 상태 처리
 async function _bdL3BulkAction() {
   const sel = document.getElementById('bd-l3-bulk-action');
@@ -1221,22 +1283,22 @@ async function _bdL3BulkAction() {
     }).eq('id', id)));
 
     // 3) [Phase 4] 사업계획(forecast/business) → 운영계획 자동 복사
-    if (typeof _autoCreateOperationPlan === 'function') {
-      try {
-        const { data: approvedPlans } = await sb.from('plans').select('*').in('id', checked);
-        let copiedCount = 0;
-        for (const plan of (approvedPlans || [])) {
-          if (plan.plan_type === 'forecast' || plan.plan_type === 'business') {
-            const newId = await _autoCreateOperationPlan(sb, plan);
-            if (newId) copiedCount++;
-          }
+    try {
+      const { data: approvedPlans } = await sb.from('plans').select('*').in('id', checked);
+      let copiedCount = 0;
+      for (const plan of (approvedPlans || [])) {
+        if (plan.plan_type === 'forecast' || plan.plan_type === 'business') {
+          const newId = await _bdAutoCreateOperationPlan(sb, plan);
+          if (newId) copiedCount++;
         }
-        if (copiedCount > 0 && typeof _boShowToast === 'function') {
-          _boShowToast(`📋 운영계획 ${copiedCount}건이 자동 생성되었습니다.`, 'info');
-        }
-      } catch (e) {
-        console.warn('[Phase4] 운영계획 자동복사 실패 (비치명적):', e.message);
       }
+      if (copiedCount > 0 && typeof _boShowToast === 'function') {
+        _boShowToast(`📋 운영계획 ${copiedCount}건이 자동 생성되었습니다.`, 'info');
+      } else if (copiedCount === 0 && typeof _boShowToast === 'function') {
+        _boShowToast(`ℹ️ 운영계획 복사 대상 없음 (이미 복사되었거나 사업계획이 아님)`, 'warning');
+      }
+    } catch (e) {
+      console.warn('[Phase4] 운영계획 자동복사 실패 (비치명적):', e.message);
     }
 
     if (typeof _boShowToast === 'function') _boShowToast(`✅ ${checked.length}건 총괄 승인 완료`, 'success');

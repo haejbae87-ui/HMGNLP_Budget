@@ -1,4 +1,4 @@
-// ─── bo_budget_account_mgmt.js — 예산계정 관리 (REFACTOR-1: bo_budget_master.js 분리) ───
+﻿// ─── bo_budget_account_mgmt.js — 예산계정 관리 (REFACTOR-1: bo_budget_master.js 분리) ───
 // BM_TABS, _bmActiveTab, REAL_ORG_TREE, virtualOrgState 는 bo_budget_master.js에 선언됨 (중복 제거)
 
 
@@ -588,7 +588,7 @@ function _baRenderContent() {
 // ─────────────────────────────────────────────────────────────────────────────
 // 예산 계정 CRUD (budget_accounts 테이블 기반)
 // ─────────────────────────────────────────────────────────────────────────────
-let _s1EditId = null; // 수정 시 budget_accounts.id
+/* dedup */ _s1EditId = null; // 수정 시 budget_accounts.id
 
 function _s1GenCode() {
   const seq = String(Date.now()).slice(-4);
@@ -941,4 +941,5 @@ function arOpenNewModalForAccount(accountCode) {
     };
   }
 }
+
 

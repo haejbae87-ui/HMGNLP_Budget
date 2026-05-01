@@ -1317,6 +1317,23 @@ async function boPlanApprove(id) {
 
     // E-6: 알림 — 1차검토 완료 상태에서 승인된 경우 신청자에게 알림 기록
     await _boNotifyPlanStatus(sb, id, plan, 'approved', boCurrentPersona);
+
+    // ★ Phase4: 사업계획(forecast/business) 승인 시 → 운영계획 자동 복사
+    if (typeof _autoCreateOperationPlan === 'function') {
+      try {
+        // DB에서 전체 레코드 재조회 (detail 포함)
+        const { data: fullPlan } = await sb.from('plans').select('*').eq('id', id).single();
+        if (fullPlan && (fullPlan.plan_type === 'forecast' || fullPlan.plan_type === 'business')) {
+          const newId = await _autoCreateOperationPlan(sb, fullPlan);
+          if (newId) {
+            _boShowToast(`📋 운영계획이 자동 생성되었습니다.`, 'info');
+            console.log('[Phase4] 사업계획관리 승인 → 운영계획 자동복사 완료:', newId);
+          }
+        }
+      } catch (e) {
+        console.warn('[Phase4] 운영계획 자동복사 실패 (비치명적):', e.message);
+      }
+    }
   }
   _boPlanMgmtData = null;
   _boPlanDetailView = null;

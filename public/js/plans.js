@@ -297,7 +297,17 @@ window._togglePlanSelection = function(e, id, account) {
   renderPlans();
 };
 
-function _mapDbStatus(s) {
+function _mapDbStatus(s, boStatus) {
+  if (s === "approved" && boStatus) {
+    const boMap = {
+      op_review_pending: "운영담당자 검토대기",
+      op_rejected: "운영 검토 제외(반려)",
+      op_approved: "총괄검토 대기",
+      final_approved: "최종 승인완료",
+      final_rejected: "총괄 검토 제외(반려)"
+    };
+    if (boMap[boStatus]) return boMap[boStatus];
+  }
   const m = {
     draft: "작성중",
     pending: "신청중",
@@ -378,7 +388,7 @@ function renderPlans() {
           title: d.edu_name,
           type: d.edu_type || "",
           amount: Number(d.amount || 0),
-          status: _mapDbStatus(d.status),
+          status: _mapDbStatus(d.status, d.bo_status),
           account: d.account_code,
           date: d.created_at?.slice(0, 10) || "",
           budgetId: d.detail?.budgetId || null,
@@ -433,7 +443,7 @@ function renderPlans() {
             title: d.edu_name,
             type: d.edu_type || "",
             amount: Number(d.amount || 0),
-            status: _mapDbStatus(d.status),
+            status: _mapDbStatus(d.status, d.bo_status),
             account: d.account_code,
             date: d.created_at?.slice(0, 10) || "",
             author: d.applicant_name || "-",
@@ -459,9 +469,9 @@ function renderPlans() {
     // 상태 필터 매치
     const statusMatch = _planStatusFilter === 'all' ||
       ((_planStatusFilter === 'saved') && (rawSt === 'saved' || rawSt === '저장완료')) ||
-      ((_planStatusFilter === 'pending') && (rawSt === 'pending' || rawSt === 'submitted' || rawSt === 'in_review' || rawSt === '신청중' || rawSt === '결재진행중')) ||
-      ((_planStatusFilter === 'approved') && (rawSt === 'approved' || rawSt === '승인완료')) ||
-      ((_planStatusFilter === 'rejected') && (rawSt === 'rejected' || rawSt === '반려'));
+      ((_planStatusFilter === 'pending') && (rawSt === 'pending' || rawSt === 'submitted' || rawSt === 'in_review' || rawSt === '신청중' || rawSt === '결재진행중' || rawSt === '운영담당자 검토대기' || rawSt === '총괄검토 대기')) ||
+      ((_planStatusFilter === 'approved') && (rawSt === 'approved' || rawSt === '승인완료' || rawSt === '최종 승인완료')) ||
+      ((_planStatusFilter === 'rejected') && (rawSt === 'rejected' || rawSt === '반려' || rawSt === '운영 검토 제외(반려)' || rawSt === '총괄 검토 제외(반려)'));
     const accountMatch = !_planAccountFilter || p.account === _planAccountFilter;
     return statusMatch && accountMatch;
   });
@@ -474,12 +484,15 @@ function renderPlans() {
       (p) =>
         p.status === "승인완료" ||
         p.status === "approved" ||
+        p.status === "최종 승인완료" ||
         p.status === "신청중" ||
         p.status === "진행중" ||
-        p.status === "결재진행중",
+        p.status === "결재진행중" ||
+        p.status === "운영담당자 검토대기" ||
+        p.status === "총괄검토 대기",
     ).length,
     done: typeFilteredPlans.filter((p) => p.status === "완료").length,
-    rejected: typeFilteredPlans.filter((p) => p.status === "반려" || p.status === "rejected").length,
+    rejected: typeFilteredPlans.filter((p) => p.status === "반려" || p.status === "rejected" || p.status === "운영 검토 제외(반려)" || p.status === "총괄 검토 제외(반려)").length,
     draft: typeFilteredPlans.filter((p) => p.status === "작성중" || p.status === "draft").length,
   };
 

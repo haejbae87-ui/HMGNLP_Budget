@@ -469,7 +469,7 @@ function _renderBdCombined(el, isPlatform, tenants) {
           <select id="bd-l3-bulk-action" style="padding:8px 12px;border-radius:8px;border:1.5px solid #E5E7EB;font-size:12px;font-weight:700;background:white;cursor:pointer">
             <option value="">선택 항목 처리...</option>
             ${isOp ? `<option value="op_approved">✅ 운영 승인</option><option value="op_rejected">❌ 검토 제외 (반려)</option>` : ''}
-            ${isGlobal ? `<option value="final_approved">✅ 총괄 승인</option><option value="final_rejected">❌ 총괄 제외 (반려)</option>` : ''}
+            ${isGlobal ? `<option value="final_approved">✅ 총괄 승인</option><option value="final_rejected">❌ 총괄 제외 (반려)</option><option value="final_revoke">↩️ 총괄승인 해제 (재검토)</option>` : ''}
           </select>
           <button onclick="_bdL3BulkAction()" style="padding:8px 16px;border-radius:8px;border:none;background:#374151;color:white;font-size:12px;font-weight:700;cursor:pointer">적용</button>
         </div>
@@ -597,7 +597,7 @@ function _renderBdCombined(el, isPlatform, tenants) {
             const opAmt    = p.op_confirmed_amount    != null ? Number(p.op_confirmed_amount)    : null;
             const finalAmt = p.final_confirmed_amount != null ? Number(p.final_confirmed_amount) : null;
             const canOpEdit    = isOp    && !['op_rejected','final_rejected','final_approved'].includes(bst);
-            const canFinalEdit = isGlobal && bst === 'op_approved';
+            const canFinalEdit = isGlobal && ['op_approved','final_approved'].includes(bst);
             return `
           <tr data-plan-id="${p.id}" data-bo-status="${bst||''}">
             <td style="text-align:center"><input type="checkbox" class="bd-l3-chk" value="${p.id}"></td>
@@ -924,7 +924,7 @@ function _renderBdLevel3(el) {
           <select id="bd-l3-bulk-action" style="padding:8px 12px;border-radius:8px;border:1.5px solid #E5E7EB;font-size:12px;font-weight:700;background:white;cursor:pointer">
             <option value="">선택 항목 처리...</option>
             ${isOp ? `<option value="op_approved">✅ 운영 승인</option><option value="op_rejected">❌ 검토 제외 (반려)</option>` : ""}
-            ${isGlobal ? `<option value="final_approved">✅ 총괄 승인</option><option value="final_rejected">❌ 총괄 제외 (반려)</option>` : ""}
+            ${isGlobal ? `<option value="final_approved">✅ 총괄 승인</option><option value="final_rejected">❌ 총괄 제외 (반려)</option><option value="final_revoke">↩️ 총괄승인 해제 (재검토)</option>` : ""}
           </select>
           <button onclick="_bdL3BulkAction()" style="padding:8px 16px;border-radius:8px;border:none;background:#374151;color:white;font-size:12px;font-weight:700;cursor:pointer">적용</button>
         </div>
@@ -1031,7 +1031,7 @@ function _renderBdLevel3(el) {
             const opAmt    = p.op_confirmed_amount    != null ? Number(p.op_confirmed_amount)    : null;
             const finalAmt = p.final_confirmed_amount != null ? Number(p.final_confirmed_amount) : null;
             const canOpEdit    = isOp    && !["op_rejected","final_rejected","final_approved"].includes(bst);
-            const canFinalEdit = isGlobal && bst === "op_approved";
+            const canFinalEdit = isGlobal && ["op_approved","final_approved"].includes(bst);
             return `
           <tr data-plan-id="${p.id}" data-bo-status="${bst||''}">
             <td style="text-align:center"><input type="checkbox" class="bd-l3-chk" value="${p.id}"></td>
@@ -1214,6 +1214,25 @@ async function _bdL3BulkAction() {
     } catch (e) {
       console.warn('[Phase4] 운영계획 자동복사 실패 (비치명적):', e.message);
     }
+  }
+
+  // ── 총괄승인 해제 (final_approved → op_approved 롤백)
+  if (action === 'final_revoke') {
+    const reason = prompt(`↩️ 총괄승인 해제 — 사유를 입력해주세요:\n\n선택: ${checked.length}건`);
+    if (!reason) { sel.value = ''; return; }
+    const revoker = boCurrentPersona?.name || 'admin';
+    const revokeNow = new Date().toISOString();
+    await Promise.all(checked.map(id => sb.from('plans').update({
+      bo_status: 'op_approved',
+      final_revoke_reason: reason,
+      final_revoked_by: revoker,
+      final_revoked_at: revokeNow,
+      updated_at: revokeNow,
+    }).eq('id', id)));
+    if (typeof _boShowToast === 'function') _boShowToast(`↩️ ${checked.length}건 총괄승인 해제 완료. 최종승인액을 수정 후 재승인하세요.`, 'warning');
+    sel.value = '';
+    _bdPlans = null; renderBudgetDemand();
+    return;
   }
 
   if (typeof _boShowToast === 'function') _boShowToast(`✅ ${checked.length}건 처리 완료`, 'success');

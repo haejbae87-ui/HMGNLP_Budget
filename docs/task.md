@@ -1,14 +1,14 @@
-# 📋 예산 거버넌스 리팩토링 — 작업 현황
+# 기능 단위 파일 분리 체크리스트
 
-> **마지막 세션**: 2026-05-01 08:57 | **상태**: 🟡 진행 중
-
-## ✅ 완료된 작업
-- [x] F-B01: 기초·추가 배정 → 예산계정 마스터 분리
-- [x] F-E01: 이관 정책별 제약 (bankbook_mode: shared/individual 차단)
-- [x] F-G01: 회계연도 마감/이월/개시 (bankbook_fiscal_periods 연동)
-- [x] F-C02+: 소진율 월별 트렌드 SVG 차트 (총괄 대시보드)
-- [x] F-D04: 개인 통장 자동 생성 트리거 (**이미 구현 확인** — fo_persona_loader.js L528-601)
-
-## 🔜 다음 작업 (우선순위순)
-- [ ] F-H01: 예산 이력 대시보드 고도화 (budget_usage_log 필터+차트)
-- [ ] Q-P3-01: 수요예측 결재라인 계정 분리 (설계만 완료, 구현 미착수)
+- [ ] js/data.js – 데이터 레이어 (PERSONAS, MOCK_HISTORY, MOCK_PLANS, applyState)
+- [ ] css/styles.css – 전역 CSS 스타일
+- [ ] js/utils.js – 공통 유틸 함수 (fmt, statusBadge, navigate, switchPersona)
+- [ ] js/gnb.js – GNB(상단 네비게이션) + Floating Budget Widget
+- [ ] js/dashboard.js – 대시보드 렌더링
+- [ ] js/plans.js – 교육계획 렌더링 + 폼 핸들러
+- [ ] js/history.js – 교육신청 목록 렌더링
+- [ ] js/apply.js – 교육신청 4단계 스텝 렌더링 + 핸들러
+- [ ] js/budget.js – 예산 관리 렌더링
+- [ ] js/mypage.js – 마이페이지 렌더링
+- [ ] js/main.js – 앱 초기화 (DOMContentLoaded)
+- [ ] index.html – 슬림화 (script/style 태그 → 외부 파일 참조)

@@ -426,7 +426,7 @@ function _renderBdCombined(el, isPlatform, tenants) {
   // ── 상태 레이블
   const boStatusLabel = {
     op_review_pending:'운영담당자 검토대기', op_rejected:'검토 제외',
-    op_approved:'총괄 대기', final_approved:'총괄 승인', final_rejected:'총괄 제외',
+    op_approved:'총괄 검토중', final_approved:'총괄 승인', final_rejected:'총괄 제외',
   };
   const boStatusColor = {
     op_review_pending:'#0369A1', op_rejected:'#6B7280',
@@ -857,7 +857,7 @@ function _renderBdLevel3(el) {
   const boStatusLabel = {
     op_review_pending: "운영담당자 검토대기",
     op_rejected:       "검토 제외",
-    op_approved:       "총괄 대기",
+    op_approved:       "총괄 검토중",
     final_approved:    "총괄 승인",
     final_rejected:    "총괄 제외",
   };
@@ -1176,8 +1176,10 @@ async function _bdL3BulkAction() {
 
   // ── [A] 총괄승인 해제: final_approved → op_approved 롤백
   if (action === 'final_revoke') {
-    const reason = prompt(`↩️ 총괄승인 해제 — 사유를 입력해주세요:\n\n선택: ${checked.length}건`);
-    if (!reason) { sel.value = ''; return; }
+    const rawReason = prompt(`↩️ 총괄승인 해제 — 사유를 입력하세요 (선택):\n\n선택: ${checked.length}건\n(\uc785력없이 확인 시 기본 사유 적용)`);
+    // null = 취소, 빈 문자열 = 기본 사유 사용
+    if (rawReason === null) { sel.value = ''; return; }
+    const reason = rawReason.trim() || '총괄승인 해제 (정정)';
     await Promise.all(checked.map(id => sb.from('plans').update({
       bo_status: 'op_approved',
       final_revoke_reason: reason,

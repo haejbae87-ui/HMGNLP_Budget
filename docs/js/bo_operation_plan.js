@@ -57,28 +57,33 @@ async function renderBoOperationPlan() {
     ? boGetMyGroups(allHqs) : allHqs;
   const tplAcctCodes = _opAcctList.filter(a => a.virtual_org_template_id === _opTplId).map(a => a.code);
 
-  // ── 3. 운영계획 로드 (plan_type=operation OR source_forecast_plan_id 있는 것) ──
+  // ── 3. 운영계획 로드 ──────────────────────────────────────────────────────
+  // account_code 필터: budget_accounts에 계정이 없는 경우 전체 조회로 fallback
   try {
     let q = sb.from("plans").select("*")
       .eq("tenant_id", _opTenant)
       .eq("fiscal_year", _opYear)
       .neq("status", "draft")
       .order("created_at", { ascending: false });
+    // 계정 코드가 있으면 해당 계정만 조회, 없으면 전체 (계정 미등록 환경 허용)
     if (tplAcctCodes.length > 0) q = q.in("account_code", tplAcctCodes);
-    else q = q.eq("account_code", "__NONE__");
     const { data } = await q;
-    // 운영계획: plan_type이 operation/ongoing이거나, source_forecast_plan_id가 있는 것
-    _opPlans = (data || []).filter(p =>
-      p.plan_type === "operation" || p.plan_type === "ongoing" ||
-      (p.source_forecast_plan_id && p.plan_type !== "forecast" && p.plan_type !== "business")
-    ).map(p => {
-      // detail에서 source_forecast_plan_id 추출 (상위 필드에 없으면 detail에서 가져옴)
+
+    // 1단계: detail에서 source_forecast_plan_id 먼저 추출
+    const rows = (data || []).map(p => {
       if (!p.source_forecast_plan_id && p.detail?.source_forecast_plan_id) {
         p.source_forecast_plan_id = p.detail.source_forecast_plan_id;
       }
       return p;
     });
-  } catch { _opPlans = []; }
+
+    // 2단계: 운영계획만 남기기
+    // plan_type이 operation/ongoing이거나, 사업계획에서 자동 복사된 것
+    _opPlans = rows.filter(p =>
+      p.plan_type === "operation" || p.plan_type === "ongoing" ||
+      (p.source_forecast_plan_id && p.plan_type !== "forecast" && p.plan_type !== "business")
+    );
+  } catch (e) { console.error('[운영계획 로드 실패]', e.message); _opPlans = []; }
 
   // Op-Manager 단일 그룹 자동 진입
   if (_isOpMgr && _opGroups.length === 1 && !_opDrillHq)

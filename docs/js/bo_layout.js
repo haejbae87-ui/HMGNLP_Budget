@@ -1,5 +1,11 @@
 // ─── VOrg(가상교육조직) 컨텍스트 전역 상태 ─────────────────────────────────
 let _boActiveVorgId = null; // 현재 선택된 VOrg ID
+
+// LNB 사이드바 토글
+function boToggleSidebar() {
+  const sb = document.getElementById("bo-sidebar");
+  if (sb) sb.classList.toggle("collapsed");
+}
 let _boPlatformSelectedTenantId = null; // 플랫폼 총괄: 선택된 테넌트
 
 // 현재 페르소나의 담당 VOrg 목록 반환
@@ -1579,6 +1585,10 @@ function renderBoHeader() {
 
   document.getElementById("bo-header").innerHTML = `
 <div style="display:flex;align-items:center;height:100%;padding:0 20px">
+  <!-- Sidebar Toggle Button -->
+  <button onclick="boToggleSidebar()" style="background:transparent;border:none;cursor:pointer;margin-right:12px;color:var(--brand);font-size:20px;display:flex;align-items:center;padding:4px;line-height:1">
+    ☰
+  </button>
   <!-- Left: Logo -->
   <a href="#" onclick="boNavigate('dashboard')" style="display:flex;align-items:center;gap:8px;text-decoration:none;flex-shrink:0">
     <div style="background:var(--brand);color:white;border-radius:8px;padding:4px 7px;font-size:13px">🏢</div>

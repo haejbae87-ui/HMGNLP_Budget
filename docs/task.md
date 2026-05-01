@@ -1,14 +1,22 @@
-# 기능 단위 파일 분리 체크리스트
+# ✅ 예산 배분 드릴다운 엔진 — 배포 완료
 
-- [ ] js/data.js – 데이터 레이어 (PERSONAS, MOCK_HISTORY, MOCK_PLANS, applyState)
-- [ ] css/styles.css – 전역 CSS 스타일
-- [ ] js/utils.js – 공통 유틸 함수 (fmt, statusBadge, navigate, switchPersona)
-- [ ] js/gnb.js – GNB(상단 네비게이션) + Floating Budget Widget
-- [ ] js/dashboard.js – 대시보드 렌더링
-- [ ] js/plans.js – 교육계획 렌더링 + 폼 핸들러
-- [ ] js/history.js – 교육신청 목록 렌더링
-- [ ] js/apply.js – 교육신청 4단계 스텝 렌더링 + 핸들러
-- [ ] js/budget.js – 예산 관리 렌더링
-- [ ] js/mypage.js – 마이페이지 렌더링
-- [ ] js/main.js – 앱 초기화 (DOMContentLoaded)
-- [ ] index.html – 슬림화 (script/style 태그 → 외부 파일 참조)
+**커밋**: `67a8d04` feat: 예산 배분 통합 드릴다운 엔진 구현
+
+## 완료된 작업
+
+- [x] Step 0: pre_dev 체크
+- [x] Step 1: PRD 생성 (`docs/PRD/budget_distribution_drilldown.md`)
+- [x] Step 2-A: `bo_allocation.js` 탭 구조 변경 (3탭, _ddLevel/_ddAbId/_ddOrgId)
+- [x] Step 2-B: `bo_alloc_drilldown.js` 신규 파일 생성 ✅
+  - renderInitialAlloc() — renderAllocEntry() 래핑
+  - renderBudgetDistribution() — _ddLevel 분기
+  - _renderDDLevel0() — 계정→교육조직 배분 그리드 + 워터폴 잔액바
+  - _renderDDLevel1() — 교육조직→팀 배분 그리드
+  - calcDDRemain() — 실시간 워터폴 계산
+  - _showDistConfirmModal() — 이관 확정 모달
+  - _submitDDDist() — Supabase upsert + 인메모리 동기화
+  - _showRecallModal() / _submitDDRecall() — 회수 기능
+  - ddNavTo() / ddSelectAccount() — 브레드크럼 내비게이션
+- [x] Step 3: `backoffice.html` script 태그 추가
+- [x] Step 4: node --check 문법 검증 통과
+- [x] Step 5: git add → commit → push 완료 (SHA: 67a8d04)

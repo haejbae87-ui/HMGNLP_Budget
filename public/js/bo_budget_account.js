@@ -582,6 +582,130 @@ async function getForecastApprovalLine(tenantId, accountCode) {
 }
 
 
+// ─── 수요예측 결재라인 빌딩 엔진 (FO+BO 공용) ─────────────────────────────
+// thresholds 금액 구간 매칭 → approverKey 노드 매핑 → reviewMode 검토 단계 추가
+// 반환: { nodes: [{order, type, label, approverKey, activation}], reviewMode, approvalType }
+//       or null (미설정)
+
+const _FORECAST_APPROVER_LABELS = {
+  team_leader:    '팀장',
+  director:       '실장',
+  division_head:  '사업부장',
+  center_head:    '센터장',
+  hq_head:        '본부장',
+};
+
+// 금액 구간 매칭 헬퍼: thresholds 배열에서 amount에 해당하는 구간 찾기
+// thresholds: [{maxAmt, approverKey}, ...] (maxAmt 오름차순 정렬 가정)
+function _matchForecastThreshold(thresholds, amount) {
+  if (!thresholds || thresholds.length === 0) return null;
+  // maxAmt 오름차순 정렬
+  const sorted = [...thresholds].sort((a, b) => (a.maxAmt || Infinity) - (b.maxAmt || Infinity));
+  for (const t of sorted) {
+    if (!t.maxAmt || amount <= t.maxAmt) return t;
+  }
+  // 모든 구간 초과 시 마지막(최고 구간) 적용
+  return sorted[sorted.length - 1];
+}
+
+// 수요예측 결재 노드 빌딩 (동기 - approval_config에서)
+// d: approval_config.forecast 객체 { thresholds, approvalType, reviewMode }
+// amount: 신청 총액
+function buildForecastApprovalNodesFromConfig(forecastConfig, amount) {
+  if (!forecastConfig) return null;
+  const thresholds = forecastConfig.thresholds || [];
+  const reviewMode = forecastConfig.reviewMode || 'none';
+  const approvalType = forecastConfig.approvalType || 'platform';
+  if (thresholds.length === 0) return null;
+
+  // 1) 금액 구간 매칭 → 결재자 레벨 결정
+  const matched = _matchForecastThreshold(thresholds, amount);
+  if (!matched || !matched.approverKey) return null;
+
+  // 2) 결재 노드 배열 구성
+  const nodes = [];
+  let order = 0;
+
+  // 기안자 (자동)
+  nodes.push({ order: order++, type: 'draft', label: '기안자', activation: 'always' });
+
+  // reviewMode에 따른 검토 단계 삽입
+  if (reviewMode === 'leader_to_admin' || reviewMode === 'leader_to_manager_to_admin') {
+    nodes.push({
+      order: order++, type: 'review', label: '팀장 검토',
+      approverKey: 'team_leader', activation: 'always'
+    });
+  }
+  if (reviewMode === 'leader_to_manager_to_admin') {
+    nodes.push({
+      order: order++, type: 'review', label: '운영담당자 검토',
+      approverKey: 'op_manager', activation: 'always'
+    });
+  }
+
+  // 금액 구간별 최종 결재자 (승인 노드)
+  const approverLabel = _FORECAST_APPROVER_LABELS[matched.approverKey] || matched.approverKey;
+  nodes.push({
+    order: order++, type: 'approval', label: approverLabel + ' 승인',
+    approverKey: matched.approverKey, activation: 'always', final: true
+  });
+
+  // 총괄담당자 최종 검토 (reviewMode가 있을 경우)
+  if (reviewMode && reviewMode !== 'none') {
+    nodes.push({
+      order: order++, type: 'final_review', label: '총괄담당자 최종검토',
+      approverKey: 'global_admin', activation: 'always'
+    });
+  }
+
+  return {
+    nodes,
+    reviewMode,
+    approvalType,
+    matchedThreshold: matched,
+    thresholdLabel: matched.maxAmt
+      ? `${(matched.maxAmt / 10000).toLocaleString()}만원 이하`
+      : '최고 구간',
+  };
+}
+
+// 수요예측 결재 노드 빌딩 (비동기 - DB에서 직접 조회)
+// tenantId, accountCode: 예산계정 식별
+// amount: 신청 총액 (원)
+async function buildForecastApprovalNodes(tenantId, accountCode, amount) {
+  // 1) forecast_approval_lines 테이블 조회
+  const fal = await getForecastApprovalLine(tenantId, accountCode);
+  if (!fal) return null;
+
+  return buildForecastApprovalNodesFromConfig({
+    thresholds: fal.thresholds,
+    approvalType: fal.approval_type,
+    reviewMode: fal.review_mode,
+  }, amount);
+}
+
+// 수요예측 결재 노드 빌딩 (비동기 - budget_accounts.approval_config에서)
+// 예산계정 상세의 approval_config.forecast를 직접 조회
+async function buildForecastApprovalNodesFromAccount(tenantId, accountCode, amount) {
+  try {
+    const sb = typeof _sb === "function" ? _sb() : (typeof getSB === "function" ? getSB() : null);
+    if (!sb) return null;
+    const { data, error } = await sb
+      .from("budget_accounts")
+      .select("approval_config")
+      .eq("tenant_id", tenantId)
+      .eq("code", accountCode)
+      .maybeSingle();
+    if (error || !data) return null;
+    const forecastCfg = (data.approval_config || {}).forecast;
+    return buildForecastApprovalNodesFromConfig(forecastCfg, amount);
+  } catch (e) {
+    console.warn("[buildForecastApprovalNodesFromAccount]", e.message);
+    return null;
+  }
+}
+
+
 // ─── Tab 1: 기본정보 탭 렌더링 ─────────────────────────────────────────
 function _bamRenderBasicTab(d) {
   const _r = (id, v) => `oninput="_bamDetailData.${id}=this.value"`;

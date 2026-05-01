@@ -1,10 +1,10 @@
 # 결재라인 고도화 — 3단계 결재 방식 × 2축 에스컬레이션 요구사항 정의서 (PRD)
 
 > **도메인**: 서비스 정책 — 결재라인 자동 구성
-> **관련 파일**: `bo_approval_routing.js`, `bo_data.js`, `bo_virtual_org_unified.js`, `approval.js`
+> **관련 파일**: `bo_approval_routing.js`, `bo_data.js`, `bo_budget_account.js`, `bo_budget_account_tabs.js`, `bo_plan_mgmt.js`, `fo_plans_list.js`
 > **최초 작성**: 2026-04-15
-> **최종 갱신**: 2026-04-15
-> **상태**: 🟡 구현 중
+> **최종 갱신**: 2026-05-01
+> **상태**: ✅ 구현 완료 (수요예측 파트)
 
 ---
 
@@ -234,3 +234,4 @@ operator === 'AND': 모든 조건이 true → 활성화
 |---|---|---|
 | 2026-04-15 | 최초 작성 — 현행 분석 + 결재 규칙 빌더 설계안 | AI |
 | 2026-04-15 | 3단계 결재방식(외부/자체/통합) × 2축 에스컬레이션 확정. D1~D6 결정 반영. 전면 nodes 전환. 계정별 결재방식. 룰빌더 UI. | AI |
+| 2026-05-01 | **Q-P3-01 수요예측 결재라인 계정 분리 구현 완료**. `buildForecastApprovalNodes()` 엔진 추가(bo_budget_account.js), 결재라인 탭 UI 고도화(계정코드 배지+플로우 프리뷰+none 모드), FO 상신 시 동적 노드 생성, BO 계획 상세에 결재라인 시각화 패널 추가 | AI |

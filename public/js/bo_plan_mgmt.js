@@ -604,6 +604,9 @@ function _renderBoPlanDetail(el, plan) {
       ${typeof renderApprovalStepper === "function" ? renderApprovalStepper(status, "plan") : ""}
       <!-- 산출근거는 boRenderPlanDetailInfo 내 포함됨 (Phase D) -->
 
+      <!-- Q-P3-01: 계정별 결재라인 시각화 -->
+      <div id="bo-plan-approval-line-panel" style="padding:0 28px 8px"></div>
+
       <!-- [P2] 배정액 직접 수정 (approved 상태) -->
       <div id="bo-alloc-edit-panel" style="padding:0 28px 8px"></div>
 
@@ -649,12 +652,77 @@ function _renderBoPlanDetail(el, plan) {
 
   // 비동기 패널 렌더링
   setTimeout(() => {
+    _renderBoPlanApprovalLinePanel(plan);     // [Q-P3-01] 계정별 결재라인
     _renderBoAdminFieldsPanel(plan, "plans");
     _renderBoAllocEditPanel(plan);            // [P2] 배정액 수정
     _renderBoApprovalHistoryPanel(plan.id);   // [P3] 결재 이력
     _renderBoPlanApplicationsPanel(plan.id); // [P3] 연결 신청서 드릴다운
   }, 100);
 }
+
+// ━━━ [Q-P3-01] 계정별 결재라인 시각화 패널 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function _renderBoPlanApprovalLinePanel(plan) {
+  const panel = document.getElementById('bo-plan-approval-line-panel');
+  if (!panel) return;
+  const accountCode = plan.account_code || plan.account || '';
+  const tenantId = plan.tenant_id || boCurrentPersona?.tenantId || 'HMC';
+  const amount = Number(plan.amount || 0);
+  if (!accountCode) { panel.innerHTML = ''; return; }
+
+  panel.innerHTML = `<div style="color:#9CA3AF;font-size:12px;padding:8px 0">결재라인 조회 중...</div>`;
+
+  // buildForecastApprovalNodesFromAccount 엔진 호출
+  let result = null;
+  try {
+    if (typeof buildForecastApprovalNodesFromAccount === 'function') {
+      result = await buildForecastApprovalNodesFromAccount(tenantId, accountCode, amount);
+    }
+  } catch (e) {
+    console.warn('[Q-P3-01] 결재라인 패널 로드 실패:', e.message);
+  }
+
+  if (!result || !result.nodes || result.nodes.length === 0) {
+    panel.innerHTML = `
+      <div style="border:1.5px dashed #FDE68A;border-radius:12px;padding:16px;background:#FFFBEB;text-align:center">
+        <div style="font-size:11px;font-weight:700;color:#B45309">⚠️ 예산계정 [${accountCode}]에 수요예측 결재라인이 설정되지 않았습니다</div>
+        <div style="font-size:10px;color:#92400E;margin-top:4px">예산계정 관리 > 결재라인 탭에서 설정 후 적용됩니다</div>
+      </div>`;
+    return;
+  }
+
+  // 노드 플로우 시각화
+  const nodeColors = { draft: '#6B7280', review: '#1D4ED8', approval: '#059669', final_review: '#7C3AED' };
+  const nodeIcons = { draft: '✍️', review: '👤', approval: '✅', final_review: '🏛️' };
+
+  const nodesHtml = result.nodes.map((n, i) => {
+    const c = nodeColors[n.type] || '#6B7280';
+    const ic = nodeIcons[n.type] || '📋';
+    return `${i > 0 ? '<span style="color:#9CA3AF;font-size:14px">→</span>' : ''}` +
+      `<div style="padding:6px 14px;border-radius:20px;background:${c}12;border:1.5px solid ${c}35;display:flex;align-items:center;gap:5px">
+        <span style="font-size:14px">${ic}</span>
+        <span style="font-size:11px;font-weight:800;color:${c}">${n.label}</span>
+      </div>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div style="border:2px solid #C7D2FE;border-radius:14px;overflow:hidden">
+      <div style="padding:12px 18px;background:linear-gradient(135deg,#EEF2FF,#E0E7FF);display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px;font-weight:900;color:#3730A3">📐 계정별 수요예측 결재라인</span>
+          <code style="font-size:11px;font-weight:800;color:#1D4ED8;background:#DBEAFE;padding:2px 8px;border-radius:4px;border:1px solid #BFDBFE">${accountCode}</code>
+        </div>
+        <span style="font-size:10px;font-weight:800;color:#7C3AED;background:#F5F3FF;padding:3px 10px;border-radius:6px;border:1px solid #DDD6FE">📊 ${result.thresholdLabel || '구간 미정'}</span>
+      </div>
+      <div style="padding:16px 18px;background:white">
+        <div style="font-size:10px;color:#6B7280;margin-bottom:10px">총액 <strong style="color:#1D4ED8">${amount.toLocaleString()}원</strong> 기준 결재 플로우</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${nodesHtml}</div>
+        ${result.reviewMode && result.reviewMode !== 'none' ? `<div style="margin-top:10px;font-size:10px;color:#6B7280;background:#F9FAFB;padding:8px 12px;border-radius:8px;border:1px solid #F0F0F0">
+          🔍 검토 모드: <strong>${result.reviewMode === 'leader_to_admin' ? '팀장→총괄담당자' : '팀장→운영담당자→총괄담당자'}</strong>
+        </div>` : ''}
+      </div>
+    </div>`;
+}
+window._renderBoPlanApprovalLinePanel = _renderBoPlanApprovalLinePanel;
 
 // ━━━ 관리자 입력 필드 패널 (back + provide) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function _renderBoAdminFieldsPanel(record, tableName) {

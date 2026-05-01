@@ -597,7 +597,9 @@ function _renderBdCombined(el, isPlatform, tenants) {
             const opAmt    = p.op_confirmed_amount    != null ? Number(p.op_confirmed_amount)    : null;
             const finalAmt = p.final_confirmed_amount != null ? Number(p.final_confirmed_amount) : null;
             const canOpEdit    = isOp    && !['op_rejected','final_rejected','final_approved'].includes(bst);
-            const canFinalEdit = isGlobal && ['op_approved','final_approved'].includes(bst);
+            // 총괄담당자: op_approved, final_approved, op_review_pending 상태에서 수정 가능
+            // (final_revoke 후 bo_status가 op_approved로 롤백되지 않은 경우 op_review_pending으로 fallback되기 때문)
+            const canFinalEdit = isGlobal && !['final_rejected','op_rejected'].includes(bst) && (p.status === 'approved' || ['op_approved','final_approved','op_review_pending'].includes(bst));
             return `
           <tr data-plan-id="${p.id}" data-bo-status="${bst||''}">
             <td style="text-align:center"><input type="checkbox" class="bd-l3-chk" value="${p.id}"></td>
@@ -1031,7 +1033,9 @@ function _renderBdLevel3(el) {
             const opAmt    = p.op_confirmed_amount    != null ? Number(p.op_confirmed_amount)    : null;
             const finalAmt = p.final_confirmed_amount != null ? Number(p.final_confirmed_amount) : null;
             const canOpEdit    = isOp    && !["op_rejected","final_rejected","final_approved"].includes(bst);
-            const canFinalEdit = isGlobal && ["op_approved","final_approved"].includes(bst);
+            // 총괄담당자: op_approved, final_approved, op_review_pending 상태에서 수정 가능
+            // (final_revoke 후 bo_status가 op_approved로 롤백되지 않은 경우 op_review_pending으로 fallback되기 때문)
+            const canFinalEdit = isGlobal && !["final_rejected","op_rejected"].includes(bst) && (p.status === "approved" || ["op_approved","final_approved","op_review_pending"].includes(bst));
             return `
           <tr data-plan-id="${p.id}" data-bo-status="${bst||''}">
             <td style="text-align:center"><input type="checkbox" class="bd-l3-chk" value="${p.id}"></td>

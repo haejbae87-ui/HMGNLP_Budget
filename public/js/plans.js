@@ -692,15 +692,15 @@ function _renderPlanCard(p) {
     cancelled: "취소",
   };
 
-  const rawStatus = p.status || "승인완료";
+  const rawStatus = p.status || "draft";  // ★ 폴백 버그 수정: null이면 draft로 처리
   const status = STATUS_LABEL[rawStatus] || rawStatus; // 화면 표시용 한글 라벨
-  const cfg = STATUS_CFG[rawStatus] || STATUS_CFG[status] || STATUS_CFG["승인대기"];
+  const cfg = STATUS_CFG[rawStatus] || STATUS_CFG[status] || STATUS_CFG["pending"];
   const authorBadge = p.author
     ? `<span style="font-size:10px;background:#E5E7EB;color:#374151;padding:2px 8px;border-radius:10px;margin-left:6px">👤 ${p.author}</span>`
     : "";
   const isDraft = rawStatus === "draft" || rawStatus === "작성중";
   const isSaved = rawStatus === "saved"; // S-5: 저장완료 상태
-  const isPending = rawStatus === "pending" || rawStatus === "submitted" || rawStatus === "신청중" || rawStatus === "결재진행중";
+  const isPending = rawStatus === "pending" || rawStatus === "submitted" || rawStatus === "team_approved" || rawStatus === "in_review" || rawStatus === "신청중" || rawStatus === "결재진행중";
   const safeId = String(p.id || "").replace(/'/g, "\\'");
   const safeTitle = (p.title || "").replace(/'/g, "");
 
@@ -720,10 +720,20 @@ function _renderPlanCard(p) {
         ? `<div style="margin-top:8px">
           <button onclick="cancelPlan('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#DC2626;border:1.5px solid #FECACA;cursor:pointer">취소 요청</button>
          </div>`
-        : ((rawStatus === "승인" || rawStatus === "approved") && Number(p.allocated_amount||0) > 0)
-          ? `<div style="display:flex;gap:6px;margin-top:8px">
-              <button onclick="event.stopPropagation();_startApplyFromPlan('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.2)">📝 교육 신청</button>
-             </div>`
+        : ((rawStatus === "승인" || rawStatus === "approved"))
+          ? (() => {
+              // ★ plan_type 분기: 사업계획(forecast/business)에서는 교육신청 불가 (운영계획만 가능)
+              const planType = p.plan_type || 'operation';
+              const isOperationPlan = planType === 'operation' || planType === 'ongoing' || (!planType);
+              const hasAlloc = Number(p.allocated_amount||0) > 0;
+              return isOperationPlan && hasAlloc
+                ? `<div style="display:flex;gap:6px;margin-top:8px">
+                    <button onclick="event.stopPropagation();_startApplyFromPlan('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.2)">📝 교육 신청</button>
+                   </div>`
+                : !isOperationPlan
+                  ? `<div style="font-size:10px;color:#7C3AED;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:6px;padding:4px 10px;font-weight:700;margin-top:8px">📋 운영계획 전환 후 신청 가능</div>`
+                  : '';
+            })()
           : "";
 
   return `

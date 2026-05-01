@@ -222,7 +222,19 @@
 
 ---
 
-### 2026-04-29 세션 (Phase 3 완성 + Phase 4 운영계획 자동복사)
+### 2026-05-01 세션 (Q-P3-01 결재라인 계정 분리 + 상태 표시 개선)
+
+- [x] **Q-P3-01 수요예측 결재라인 계정 분리 구현**
+  - `bo_budget_account.js`: `buildForecastApprovalNodes()` 엔진 (금액구간 매칭 + 동적 노드 생성)
+  - `bo_budget_account_tabs.js`: 결재라인 탭 UI — 계정코드 배지 + 구간별 플로우 프리뷰
+  - `fo_plans_list.js`: 묶음 상신 시 동적 approval_nodes 생성 (엔진 기반)
+  - `bo_plan_mgmt.js`: BO 계획 상세에 `_renderBoPlanApprovalLinePanel()` 추가
+- [x] **FO 사업계획 상태 표시 오류 수정**
+  - `approval_stepper.js`: `team_approved`(팀장결재완료→운영자검토중), `in_review`(총괄검토중), `submitted`(팀장검토대기) 중간 단계 스텝 추가. `active_review`(보라색) 신규 상태 도입
+  - `fo_plans_list.js`: 카드 상태 폴백 버그 수정(`null→draft`), `approved` 카드에 `plan_type` 분기 추가 (운영계획만 신청/배정축소 허용)
+  - `plans.js`: 동일 버그 수정 + `plan_type` 분기 + `isPending`에 `team_approved`, `in_review` 포함
+  - `fo_plans_actions.js`: `foRenderPlanUnifiedView` 상세뷰 — `canApply`/배정액축소에 `isOperationPlan` 조건 추가, `isPending`에 중간 상태 포함, STATUS_LABEL에 `team_approved`/`in_review` 추가
+
 
 - [x] **Phase 3 완성 — _teamForecastBoTransfer() / _teamForecastReject() 구현 (approval.js)**
   - BO 전달: submission_documents.status 'submitted' → 'team_approved' + approval_history 기록

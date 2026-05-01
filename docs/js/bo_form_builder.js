@@ -201,7 +201,7 @@ var ADVANCED_FIELDS = [
 
   // ── 그룹 7: 결과 (result 단계 FO 입력) ──────────────────────────────────
   { key:"수료여부", icon:"🎓", required:false, locked:false, scope:"front", category:"결과", order:21, fieldType:"boolean", hint:"교육 수료 여부", canonicalKey:"is_completed", layer:"L1" },
-  { key:"실지출액", icon:"🧾", required:false, locked:false, scope:"front", category:"결과", order:22, fieldType:"number", hint:"교육 완료 후 실제 지출 금액 (FO 결과 단계 입력)", canonicalKey:"actual_cost", layer:"L1" },
+  { key:"집행금액", icon:"🧾", required:false, locked:false, scope:"front", category:"결과", order:22, fieldType:"number", hint:"교육 완료 후 실제 지출 금액 (FO 결과 단계 입력)", canonicalKey:"actual_cost", layer:"L1" },
   { key:"업무적용계획", icon:"💼", required:false, locked:false, scope:"front", category:"결과", order:23, fieldType:"textarea", hint:"교육 내용을 업무에 어떻게 적용할지", canonicalKey:"work_application_plan", layer:"L1" },
   { key:"교육소감", icon:"💬", required:false, locked:false, scope:"front", category:"결과", order:24, fieldType:"textarea", hint:"교육 후 소감 및 결과 요약", canonicalKey:"review_comment", layer:"L1" },
 
@@ -1879,7 +1879,7 @@ function _fbFieldInput(fld, poolField, viewType) {
   if (ft === "number" || ft === "budget-linked") {
     const prefix =
       ft === "budget-linked"
-        ? `<div style="padding:8px 12px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;font-size:11px;color:#1D4ED8;font-weight:800;margin-bottom:8px">💼 조직 잔액: <b>실시간 조회</b> (연동 예정)</div>`
+        ? `<div style="padding:8px 12px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;font-size:11px;color:#1D4ED8;font-weight:800;margin-bottom:8px">💼 조직 가용예산: <b>실시간 조회</b> (연동 예정)</div>`
         : "";
     return (
       prefix +

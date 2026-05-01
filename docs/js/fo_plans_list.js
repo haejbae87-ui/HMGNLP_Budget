@@ -858,7 +858,7 @@ async function _renderAccountHub() {
       ${balance > 0 ? `
       <div style="margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-          <span style="font-size:11px;color:#6B7280;font-weight:700">잔액</span>
+          <span style="font-size:11px;color:#6B7280;font-weight:700">가용예산</span>
           <span style="font-size:11px;font-weight:900;color:${barColor}">${remaining.toLocaleString()}원 (${pct}%)</span>
         </div>
         <div style="height:6px;border-radius:3px;background:#F3F4F6;overflow:hidden">
@@ -977,7 +977,7 @@ function renderPlans() {
           title: d.edu_name,
           type: d.edu_type || "",
           amount: Number(d.amount || 0),
-          allocated_amount: Number(d.allocated_amount || 0), // ★ 배정액
+          allocated_amount: Number(d.allocated_amount || 0), // ★ 최초배정액
           status: _mapDbStatus(d.status, d.bo_status),
           account: d.account_code,
           date: d.created_at?.slice(0, 10) || "",
@@ -987,7 +987,7 @@ function renderPlans() {
           fiscalYear: d.fiscal_year,
           plan_type: d.plan_type || 'operation', // ★ plan_type 포함 (사업계획/운영계획 분리 필수)
           source_forecast_plan_id: d.detail?.source_forecast_plan_id || null, // Phase4: 복사본 판별
-          final_confirmed_amount: d.final_confirmed_amount != null ? Number(d.final_confirmed_amount) : null, // ★ 최종확정금액 (BO→FO 읽기전용)
+          final_confirmed_amount: d.final_confirmed_amount != null ? Number(d.final_confirmed_amount) : null, // ★ 최종 승인액 (BO→FO 읽기전용)
         }));
         _plansDbCache = data;
       }
@@ -1042,7 +1042,7 @@ function renderPlans() {
             title: d.edu_name,
             type: d.edu_type || "",
             amount: Number(d.amount || 0),
-            allocated_amount: Number(d.allocated_amount || 0), // ★ 배정액
+            allocated_amount: Number(d.allocated_amount || 0), // ★ 최초배정액
             status: _mapDbStatus(d.status, d.bo_status),
             account: d.account_code,
             account_code: d.account_code,
@@ -1229,7 +1229,7 @@ function renderPlans() {
         icon: '💰', grad: 'linear-gradient(135deg,#FFFBEB,#FEF3C7)', color: '#D97706', border: '#FDE68A',
       },
       {
-        label: '승인 배정액', val: fmtAmt(bAllocated), unit: '원',
+        label: '승인 최초배정액', val: fmtAmt(bAllocated), unit: '원',
         sub: bAllocated > 0
           ? `요청 대비 ${bAmount > 0 ? Math.round(bAllocated / bAmount * 100) : 0}% 배정 · ${bAllocated.toLocaleString()}원`
           : '배정 대기 중',
@@ -1508,14 +1508,14 @@ function _renderPlanCard(p) {
            </div>`
         : (rawStatus === "approved")
           ? (() => {
-              // ★ plan_type 분기: 사업계획(forecast/business)에서는 교육신청/배정액축소 불가
+              // ★ plan_type 분기: 사업계획(forecast/business)에서는 교육신청/최초배정액축소 불가
               // 운영계획(operation/ongoing/null)만 이 두 액션 허용
               const planType = p.plan_type || 'operation';
               const isOperationPlan = planType === 'operation' || planType === 'ongoing' || (!planType);
               const hasAlloc = Number(p.allocated_amount||0) > 0;
               return `<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
               ${isOperationPlan && hasAlloc ? btnPrimary('📝 교육 신청', `event.stopPropagation();_startApplyFromPlan('${safeId}')`) : ''}
-              ${isOperationPlan && hasAlloc ? btnOutline('📉 배정액 축소', `event.stopPropagation();foOpenReduceAllocation('${safeId}')`, '#D97706', '#FDE68A') : ''}
+              ${isOperationPlan && hasAlloc ? btnOutline('📉 최초배정액 축소', `event.stopPropagation();foOpenReduceAllocation('${safeId}')`, '#D97706', '#FDE68A') : ''}
               ${!isOperationPlan ? `<div style="font-size:10px;color:#7C3AED;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:6px;padding:4px 10px;font-weight:700">📋 운영계획으로 자동 전환 후 신청 가능</div>` : ''}
               ${btnOutline('📋 복제', `event.stopPropagation();clonePlan('${safeId}')`, '#7C3AED', '#DDD6FE')}
              </div>`;
@@ -1564,7 +1564,7 @@ function _renderPlanCard(p) {
           ${(() => { const fca = p.final_confirmed_amount != null ? p.final_confirmed_amount : ((_plansDbCache||[]).find(d=>d.id===p.id)||{}).final_confirmed_amount; return fca != null && fca > 0 ? `<span style="font-weight:800;color:#1D4ED8;background:#EFF6FF;padding:2px 8px;border-radius:6px;border:1px solid #BFDBFE">🏷️ 확정 ${Number(fca).toLocaleString()}원</span>` : ''; })()}
           ${Number(p.allocated_amount||0)>0 ? `<span style="font-weight:800;color:#059669;background:#F0FDF4;padding:2px 8px;border-radius:6px">✅ 배정 ${Number(p.allocated_amount).toLocaleString()}원</span>` : `<span style="color:#D1D5DB;font-size:10px">미배정</span>`}
           <!-- B-1: 잔여예산 뱃지 (비동기 로드) -->
-          ${p.account ? `<span id="budget-badge-${safeId}" style="font-size:10px;padding:2px 8px;border-radius:6px;background:#F3F4F6;color:#9CA3AF">잔액 확인중...</span>` : ''}
+          ${p.account ? `<span id="budget-badge-${safeId}" style="font-size:10px;padding:2px 8px;border-radius:6px;background:#F3F4F6;color:#9CA3AF">가용예산 확인중...</span>` : ''}
         </div>
         ${actionBtns}
       </div>
@@ -1620,7 +1620,7 @@ function _applyBudgetBadges(plans) {
     if (!el) return;
     const info = _budgetBadgeCache[ac];
     if (!info) {
-      el.textContent = '잔액 정보 없음';
+      el.textContent = '가용예산 정보 없음';
       return;
     }
     const bal = info.balance;
@@ -1631,8 +1631,8 @@ function _applyBudgetBadges(plans) {
     el.style.color = color;
     el.style.fontWeight = '800';
     el.textContent = bal <= 0
-      ? '🔴 잔액 없음'
-      : `🟢 잔액 ${bal.toLocaleString()}원`;
+      ? '🔴 가용예산 없음'
+      : `🟢 가용예산 ${bal.toLocaleString()}원`;
   });
 }
 
@@ -2132,7 +2132,7 @@ async function clonePlan(planId) {
 window.clonePlan = clonePlan;
 
 
-// ─── [S-11] 배정액 축소 + 예산 환불 ──────────────────────────────────────────
+// ─── [S-11] 최초배정액 축소 + 예산 환불 ──────────────────────────────────────────
 // PRD: allocation_reduce_refund.md
 // 승인(approved)된 계획의 allocated_amount를 하향 조정하고,
 // 줄어든 금액만큼 bankbooks.used_amount를 환불 처리한다.
@@ -2155,7 +2155,7 @@ async function foOpenReduceAllocation(planId) {
   }
 
   if (!plan || plan.status !== "approved") {
-    alert("승인된 계획만 배정액 축소가 가능합니다.");
+    alert("승인된 계획만 최초배정액 축소가 가능합니다.");
     return;
   }
 
@@ -2173,16 +2173,16 @@ async function foOpenReduceAllocation(planId) {
     <div style="background:white;border-radius:20px;width:480px;max-width:95vw;padding:32px;box-shadow:0 24px 60px rgba(0,0,0,.3);animation:boSlideUp .25s ease">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
         <div>
-          <div style="font-size:11px;font-weight:800;color:#B45309;margin-bottom:4px">📉 배정액 축소</div>
+          <div style="font-size:11px;font-weight:800;color:#B45309;margin-bottom:4px">📉 최초배정액 축소</div>
           <h2 style="font-size:17px;font-weight:900;color:#111827;margin:0;line-height:1.4">${planTitle}</h2>
         </div>
         <button onclick="document.getElementById('fo-reduce-alloc-modal').remove()"
           style="background:none;border:none;font-size:20px;cursor:pointer;color:#9CA3AF;line-height:1">✕</button>
       </div>
 
-      <!-- 현재 배정액 표시 -->
+      <!-- 현재 최초배정액 표시 -->
       <div style="background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:12px;padding:14px 18px;margin-bottom:20px">
-        <div style="font-size:11px;font-weight:700;color:#B45309;margin-bottom:4px">현재 배정액</div>
+        <div style="font-size:11px;font-weight:700;color:#B45309;margin-bottom:4px">현재 최초배정액</div>
         <div style="font-size:24px;font-weight:900;color:#92400E">${curAlloc.toLocaleString()}<span style="font-size:13px;margin-left:2px">원</span></div>
         <div style="font-size:10px;color:#9CA3AF;margin-top:4px">최초 신청액: ${Number(plan.amount||0).toLocaleString()}원</div>
       </div>
@@ -2190,8 +2190,8 @@ async function foOpenReduceAllocation(planId) {
       <!-- 새 금액 입력 -->
       <div style="margin-bottom:20px">
         <label style="font-size:12px;font-weight:800;color:#374151;display:block;margin-bottom:8px">
-          축소 후 새 배정액 <span style="color:#EF4444">*</span>
-          <span style="font-size:10px;font-weight:400;color:#9CA3AF"> (현재 배정액보다 낮아야 함)</span>
+          축소 후 새 최초배정액 <span style="color:#EF4444">*</span>
+          <span style="font-size:10px;font-weight:400;color:#9CA3AF"> (현재 최초배정액보다 낮아야 함)</span>
         </label>
         <div style="display:flex;align-items:center;gap:8px">
           <input id="fo-reduce-new-amount" type="text"
@@ -2215,7 +2215,7 @@ async function foOpenReduceAllocation(planId) {
 
       <!-- 경고 안내 -->
       <div style="background:#FEF3C7;border-radius:8px;padding:10px 14px;margin-bottom:20px;font-size:11px;color:#78350F;line-height:1.6">
-        ⚠️ <strong>주의:</strong> 배정액 축소 후에는 원래 금액으로 되돌릴 수 없습니다.<br>
+        ⚠️ <strong>주의:</strong> 최초배정액 축소 후에는 원래 금액으로 되돌릴 수 없습니다.<br>
         증액이 필요하면 새로운 교육계획을 상신하거나 BO 담당자에게 문의하세요.
       </div>
 
@@ -2248,7 +2248,7 @@ function foReduceAllocPreview(curAlloc) {
   if (!raw) { preview.innerHTML = ""; return; }
   const refund = curAlloc - newAmt;
   if (newAmt >= curAlloc) {
-    preview.innerHTML = `<span style="color:#EF4444">⚠️ 새 금액은 현재 배정액(${curAlloc.toLocaleString()}원)보다 작아야 합니다</span>`;
+    preview.innerHTML = `<span style="color:#EF4444">⚠️ 새 금액은 현재 최초배정액(${curAlloc.toLocaleString()}원)보다 작아야 합니다</span>`;
   } else if (newAmt < 0) {
     preview.innerHTML = `<span style="color:#EF4444">⚠️ 0원 이상이어야 합니다</span>`;
   } else {
@@ -2257,7 +2257,7 @@ function foReduceAllocPreview(curAlloc) {
 }
 window.foReduceAllocPreview = foReduceAllocPreview;
 
-// 배정액 축소 확정 처리
+// 최초배정액 축소 확정 처리
 async function foConfirmReduceAllocation(planId, curAlloc) {
   const sb = typeof getSB === "function" ? getSB() : null;
   if (!sb) { alert("DB 연결 실패"); return; }
@@ -2273,13 +2273,13 @@ async function foConfirmReduceAllocation(planId, curAlloc) {
     return;
   }
   if (newAmt >= curAlloc) {
-    alert(`새 배정액(${newAmt.toLocaleString()}원)은 현재 배정액(${curAlloc.toLocaleString()}원)보다 작아야 합니다.`);
+    alert(`새 최초배정액(${newAmt.toLocaleString()}원)은 현재 최초배정액(${curAlloc.toLocaleString()}원)보다 작아야 합니다.`);
     input?.focus();
     return;
   }
 
   const refundAmt = curAlloc - newAmt;
-  if (!confirm(`배정액을 ${curAlloc.toLocaleString()}원 → ${newAmt.toLocaleString()}원으로 축소합니다.\n\n💰 환불 예정액: ${refundAmt.toLocaleString()}원\n\n이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?`)) return;
+  if (!confirm(`최초배정액을 ${curAlloc.toLocaleString()}원 → ${newAmt.toLocaleString()}원으로 축소합니다.\n\n💰 환불 예정액: ${refundAmt.toLocaleString()}원\n\n이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?`)) return;
 
   // 버튼 비활성화 (중복 클릭 방지)
   const btn = document.getElementById("fo-reduce-confirm-btn");
@@ -2307,7 +2307,7 @@ async function foConfirmReduceAllocation(planId, curAlloc) {
         tenantId: planData.tenant_id,
         accountCode: planData.account_code,
         refundAmt,
-        reason: reason || "FO 배정액 축소",
+        reason: reason || "FO 최초배정액 축소",
         adjustedBy: currentPersona?.id || planData.applicant_id || "system",
       });
     } catch(bkErr) {
@@ -2323,7 +2323,7 @@ async function foConfirmReduceAllocation(planId, curAlloc) {
         after_amount: newAmt,
         adjusted_by: currentPersona?.id || "system",
         adjusted_at: now,
-        reason: reason || "FO 배정액 축소",
+        reason: reason || "FO 최초배정액 축소",
       });
     } catch(logErr) {
       console.warn("[S-11] 이력 저장 실패 (비치명적):", logErr.message);
@@ -2332,8 +2332,8 @@ async function foConfirmReduceAllocation(planId, curAlloc) {
     document.getElementById("fo-reduce-alloc-modal")?.remove();
 
     const msg = budgetRefundOk
-      ? `✅ 배정액 축소 완료!\n\n${newAmt.toLocaleString()}원으로 변경되었습니다.\n💰 ${refundAmt.toLocaleString()}원이 예산 통장에 환불되었습니다.`
-      : `✅ 배정액 축소 완료!\n\n${newAmt.toLocaleString()}원으로 변경되었습니다.\n⚠️ 예산 통장 환불은 관리자에게 문의하세요.`;
+      ? `✅ 최초배정액 축소 완료!\n\n${newAmt.toLocaleString()}원으로 변경되었습니다.\n💰 ${refundAmt.toLocaleString()}원이 예산 통장에 환불되었습니다.`
+      : `✅ 최초배정액 축소 완료!\n\n${newAmt.toLocaleString()}원으로 변경되었습니다.\n⚠️ 예산 통장 환불은 관리자에게 문의하세요.`;
     alert(msg);
 
     // 목록 새로고침

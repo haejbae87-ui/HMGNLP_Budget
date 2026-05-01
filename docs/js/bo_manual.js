@@ -228,7 +228,7 @@ function _manPersonas() {
         {
           i: "🖥️",
           t: "전사 모니터링",
-          d: "테넌트별 예산 집행률·잔액·계획·신청 건수 실시간 확인.",
+          d: "테넌트별 예산 집행률·가용예산·계획·신청 건수 실시간 확인.",
         },
       ],
       menus: ["대시보드", "플랫폼 모니터링", "관리자 권한 매핑", "리포트"],
@@ -371,7 +371,7 @@ function _manPersonas() {
           t: "나의 운영 업무",
           d: "계획 승인 대기·신청 승인 대기·결과 정산 대기 3탭. 내 담당 정책 건만 자동 표시.",
         },
-        { i: "💰", t: "조직예산 현황", d: "본부 배정 잔액·집행률 확인." },
+        { i: "💰", t: "조직예산 현황", d: "본부 배정 가용예산·집행률 확인." },
       ],
       menus: ["대시보드", "나의운영업무", "조직예산현황", "리포트"],
     },
@@ -621,13 +621,13 @@ function _manDataFlow() {
   return `<div style="display:flex;flex-direction:column;gap:20px">
 
   <div class="bo-card" style="padding:20px">
-    <h3 style="font-size:13px;font-weight:800;color:#111827;margin:0 0 14px">예산 잔액 계산 공식</h3>
+    <h3 style="font-size:13px;font-weight:800;color:#111827;margin:0 0 14px">예산 가용예산 계산 공식</h3>
     <div style="padding:16px;background:#F0F9FF;border-radius:10px;border:1px solid #BAE6FD;font-family:monospace;font-size:12px;color:#0C4A6E;line-height:2.2">
-      <strong>배정 예산 (Allocated)</strong> = 총괄 배정액<br>
+      <strong>배정 예산 (Allocated)</strong> = 총괄 최초배정액<br>
       <strong>홀딩 (Holding)</strong>      = Σ 신청 제출 후 결재 미완료 금액<br>
-      <strong>집행 (Executed)</strong>      = Σ 정산 완료 실지출액<br>
-      <strong>가용 잔액</strong>             = 배정 − 홀딩 − 집행<br><br>
-      ⚠ 신청액 &gt; 실지출 → 차액 <strong>자동 복구</strong> (가용 잔액 증가)<br>
+      <strong>집행 (Executed)</strong>      = Σ 정산 완료 집행금액<br>
+      <strong>가용 가용예산</strong>             = 배정 − 홀딩 − 집행<br><br>
+      ⚠ 신청액 &gt; 실지출 → 차액 <strong>자동 복구</strong> (가용 가용예산 증가)<br>
       ⚠ 신청액 &lt; 실지출 → <strong>추가 예산 승인</strong> 또는 이관 프로세스 필요
     </div>
   </div>
@@ -771,7 +771,7 @@ function _manTech() {
       ${[
         {
           item: "SAP ERP",
-          desc: "예산 잔액 실시간 동기화, 정산 결과 송신 (RFC/API Gateway)",
+          desc: "예산 가용예산 실시간 동기화, 정산 결과 송신 (RFC/API Gateway)",
         },
         {
           item: "결재 워크플로우",
@@ -783,7 +783,7 @@ function _manTech() {
         },
         {
           item: "알림 서비스",
-          desc: "이메일·SMS·슬랙 알림 (미결건, 결재완료, 잔액경보)",
+          desc: "이메일·SMS·슬랙 알림 (미결건, 결재완료, 가용예산경보)",
         },
         {
           item: "파일 스토리지",
@@ -890,7 +890,7 @@ function _manDevPlan() {
         },
         {
           task: "알림 서비스",
-          detail: "이메일/슬랙 미결건 알림, 결재완료 알림, 잔액경보",
+          detail: "이메일/슬랙 미결건 알림, 결재완료 알림, 가용예산경보",
           days: 3,
         },
       ],
@@ -923,7 +923,7 @@ function _manDevPlan() {
         },
         {
           task: "대시보드 & 예산 위젯",
-          detail: "잔액·집행률·진행중 신청 실시간 표시",
+          detail: "가용예산·집행률·진행중 신청 실시간 표시",
           days: 3,
         },
       ],
@@ -935,7 +935,7 @@ function _manDevPlan() {
       color: "#D97706",
       items: [
         {
-          task: "SAP ERP 예산 잔액 동기화",
+          task: "SAP ERP 예산 가용예산 동기화",
           detail: "RFC/API Gateway, 가점유·실차감 이벤트 송신",
           days: 7,
         },
@@ -1041,7 +1041,7 @@ function _manDevPlan() {
         },
         {
           p: "P2 · 1달내",
-          t: "결재 라우팅 실 연동 + SAP ERP 잔액 동기화",
+          t: "결재 라우팅 실 연동 + SAP ERP 가용예산 동기화",
           c: "#1D4ED8",
         },
         {

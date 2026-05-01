@@ -408,8 +408,24 @@ function foRenderPlanUnifiedView(plan, opts = {}) {
   };
 
   const st = plan.status || "saved";
-  const stLabel = STATUS_LABEL[st] || st;
-  const stColor = STATUS_COLOR[st] || "#6B7280";
+  const boSt = plan.bo_status || "";
+  let stLabel = STATUS_LABEL[st] || st;
+  let stColor = STATUS_COLOR[st] || "#6B7280";
+
+  // ★ 사업계획 결재 상태 매핑
+  if (st === "approved" && boSt) {
+    const boMap = {
+      op_review_pending: { label: "운영담당자 검토대기", color: "#D97706" },
+      op_rejected: { label: "운영 검토 제외(반려)", color: "#DC2626" },
+      op_approved: { label: "총괄검토 대기", color: "#7C3AED" },
+      final_approved: { label: "최종 승인완료", color: "#059669" },
+      final_rejected: { label: "총괄 검토 제외(반려)", color: "#DC2626" }
+    };
+    if (boMap[boSt]) {
+      stLabel = boMap[boSt].label;
+      stColor = boMap[boSt].color;
+    }
+  }
   const amount = Number(plan.amount || plan.planAmount || 0);
   const safeId = String(plan.id || "").replace(/'/g, "\\'");
 
@@ -485,7 +501,7 @@ function foRenderPlanUnifiedView(plan, opts = {}) {
         ${mode === 'confirm' ? `<div style="margin-top:20px;padding:12px 16px;background:#FEF3C7;border-radius:10px;border:1.5px solid #FDE68A;font-size:12px;color:#92400E">⚠️ 제출 후에는 결재라인이 자동 구성되며, 상위 승인자가 취소하기 전까지 취소가 불가합니다.</div>` : ''}
       </div>
       <!-- ★ 결재/검토 진행현황 -->
-      ${typeof renderApprovalStepper === 'function' ? renderApprovalStepper(st, 'plan') : ''}
+      ${typeof renderApprovalStepper === 'function' ? renderApprovalStepper((st === 'approved' && boSt) ? boSt : st, 'plan') : ''}
       <!-- ★ 연결된 교육신청 -->
       <div style="padding:16px 28px;border-top:1px solid #F3F4F6">
         <div style="font-size:12px;font-weight:800;color:#6B7280;margin-bottom:10px">🔗 연결된 교육신청</div>

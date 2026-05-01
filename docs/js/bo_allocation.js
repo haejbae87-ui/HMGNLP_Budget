@@ -1,11 +1,14 @@
-// ─── 예산 배정 및 관리 ────────────────────────────────────────────────────────
-// 계층 구조:  계정 총액 (ACCOUNT_BUDGETS)
-//              └─ 팀 배분 (TEAM_DIST)
-//
-// 추가 배정 = 계정에 예산 추가 (계정 총액 증가)
-// 팀 배분   = 계정 잔여 재원을 팀으로 분배
+// ─── 예산 배정 및 관리 (v2 — 통합 드릴다운) ──────────────────────────────────
+// 계층: 예산 계정(마스터) → 교육조직 → 팀 → (개인)
+// 탭:   현황 | 최초 할당(총괄) | 예산 배분(드릴다운) | 변경 이력
 
 let _allocTab = 0;
+
+// ── 드릴다운 상태 ──────────────────────────────────────────────────────────
+let _ddLevel = 0;           // 0=계정선택, 1=교육조직배분, 2=팀배분
+let _ddAbId = null;         // 선택된 계정예산 ID
+let _ddOrgId = null;        // 선택된 교육조직 ID
+let _ddOrgName = null;      // 선택된 교육조직 이름
 
 // ─── 진입점 ──────────────────────────────────────────────────────────────────
 function renderBoAllocation() {
@@ -20,11 +23,11 @@ function renderBoAllocation() {
   // 운영담당자 = 정의된 역할이 budget_op_manager이거나 managedVorgId만 있고 ownedAccounts는 없는 사람
   const isOpOnly = isOp && !isGlobal;
 
-  // 탭 목록: 기초·추가배정은 '예산계정 마스터' 메뉴로 분리 (F-B01)
+  // 탭 목록: 3탭 구조 (v2 드릴다운)
   const allTabs = [
-    { label: "📊 계정 예산 현황", fn: "renderAllocOverview", idx: 0 },
-    { label: "📋 팀 배분", fn: "renderTeamDist", idx: 1 },
-    { label: "↔ 이관", fn: "renderAllocTransfer", idx: 2, globalOnly: true },
+    { label: "📊 배정 현황", fn: "renderAllocOverview", idx: 0 },
+    { label: "🏦 최초 예산 할당", fn: "renderInitialAlloc", idx: 1, globalOnly: true },
+    { label: "📤 예산 배분", fn: "renderBudgetDistribution", idx: 2 },
     { label: "📜 변경 이력", fn: "renderAllocHistory", idx: 3 },
   ];
   const visibleTabs = isOpOnly ? allTabs.filter(t => !t.globalOnly) : allTabs;
@@ -95,37 +98,45 @@ function showAllocTab(idx) {
   showAllocTabByIdx(idx);
 }
 
-// E-2: idx 기반 탭 전환 (역할 서리 주치대상)
+// v2: 탭 전환
 function showAllocTabByIdx(idx) {
   const persona = typeof boCurrentPersona !== 'undefined' ? boCurrentPersona : null;
   const isGlobal = typeof boIsGlobalAdmin === 'function' ? boIsGlobalAdmin() : isGlobalAdmin(persona);
   const isOp = typeof boIsOpManager === 'function' ? boIsOpManager() : isOpManager(persona);
   const isOpOnly = isOp && !isGlobal;
 
-  // 운영담당자가 globalOnly 탭(탭1: 기초/추가배정, 탭3: 이관) 접근 시돈 경우 차단
-  const globalOnlyIdxs = [1, 3];
-  if (isOpOnly && globalOnlyIdxs.includes(idx)) {
-    alert('총괄담당자만 사용할 수 있는 메뉴입니다.\n\n기초 및 추가 배정은 총괄담당자에게 요청하세요.');
+  // 운영담당자: 총괄 전용 탭 차단
+  if (isOpOnly && idx === 1) {
+    alert('총괄담당자만 사용할 수 있는 메뉴입니다.');
     return;
   }
 
   _allocTab = idx;
-  // 탭 스타일 업데이트 (0~4 모두)
-  [0, 1, 2, 3, 4].forEach((i) => {
+  [0, 1, 2, 3].forEach(i => {
     const t = document.getElementById(`alloc-tab-${i}`);
     if (!t) return;
-    t.style.color = i === idx ? "#059669" : "#9CA3AF";
-    t.style.borderBottom =
-      i === idx ? "3px solid #059669" : "3px solid transparent";
+    t.style.color = i === idx ? '#059669' : '#9CA3AF';
+    t.style.borderBottom = i === idx ? '3px solid #059669' : '3px solid transparent';
   });
+
+  // 탭 2(배분) 진입 시 드릴다운 초기화
+  if (idx === 2) {
+    _ddLevel = 0; _ddOrgId = null; _ddOrgName = null;
+    // 운영담당자는 관할 교육조직 자동 진입
+    if (isOpOnly) {
+      const vorg = typeof getPersonaManagedVorg === 'function' ? getPersonaManagedVorg(persona) : null;
+      if (vorg) { _ddOrgId = vorg.id; _ddOrgName = vorg.name; _ddLevel = 1; }
+    }
+  }
+
   const fns = [
     renderAllocOverview,
-    renderAllocEntry,
-    renderTeamDist,
-    renderAllocTransfer,
+    renderInitialAlloc,
+    renderBudgetDistribution,
     renderAllocHistory,
   ];
-  document.getElementById("alloc-content").innerHTML = fns[idx]();
+  const fn = fns[idx];
+  if (fn) document.getElementById('alloc-content').innerHTML = fn();
 }
 
 // ─── 탭 1: 계정 예산 현황 (연도별 + 계정 선택 탭 + 교육조직 그룹핑) ──────────────

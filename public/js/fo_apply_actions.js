@@ -1005,6 +1005,75 @@ function _removePlanFromSelection(id) {
   renderApply();
 }
 
+// ── 교육계획 추가 팝업 (Step 4 multiPlanSection 용) ──
+function _showPlanPickerPopup() {
+  const s = applyState;
+  const plans = typeof _dbApprovedPlans !== "undefined" ? _dbApprovedPlans : [];
+  // 같은 예산계정의 승인된 계획만 필터
+  const available = plans.filter(p => {
+    if (s.budgetChoice === "rnd") return true; // R&D는 전체
+    return !s.budgetId || p.budgetId === s.budgetId;
+  });
+
+  if (available.length === 0) {
+    alert("선택 가능한 승인된 교육계획이 없습니다.\n먼저 교육계획을 수립하고 승인받아 주세요.");
+    return;
+  }
+
+  const selectedIds = s.planIds || [];
+
+  // 팝업 오버레이 생성
+  const overlay = document.createElement("div");
+  overlay.id = "_planPickerOverlay";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;";
+
+  const listHtml = available.map(pl => {
+    const checked = selectedIds.includes(pl.id) ? "checked" : "";
+    const amount = Number(pl.amount || 0).toLocaleString();
+    return `
+      <label class="flex items-start gap-3 p-4 bg-white border border-gray-200 rounded-xl cursor-pointer hover:bg-blue-50 transition shadow-sm">
+        <input type="checkbox" value="${pl.id}" ${checked} class="_ppCb" style="margin-top:3px;width:18px;height:18px;accent-color:#2563eb;">
+        <div class="flex-1">
+          <div class="font-bold text-gray-800">${pl.title || pl.edu_name || '-'}</div>
+          <div class="text-xs text-gray-500 mt-1">${pl.id} · ${pl.edu_type || '-'} · 예산 ${amount}원</div>
+        </div>
+      </label>`;
+  }).join("\n");
+
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:20px;padding:0;max-width:480px;width:92%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <div style="padding:20px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-size:16px;font-weight:800;color:#1e40af;">📋 승인된 교육계획 선택</div>
+        <button id="_ppClose" style="font-size:22px;color:#9ca3af;background:none;border:none;cursor:pointer;padding:4px 8px;">✕</button>
+      </div>
+      <div style="padding:16px 24px;overflow-y:auto;flex:1;display:grid;gap:10px;">
+        ${listHtml}
+      </div>
+      <div style="padding:16px 24px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:10px;">
+        <button id="_ppCancel" style="padding:10px 20px;border-radius:12px;border:2px solid #e5e7eb;background:#fff;font-weight:700;font-size:13px;cursor:pointer;color:#6b7280;">취소</button>
+        <button id="_ppConfirm" style="padding:10px 20px;border-radius:12px;border:none;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-weight:700;font-size:13px;cursor:pointer;box-shadow:0 4px 12px rgba(37,99,235,0.3);">확인</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  // 이벤트
+  const close = () => { overlay.remove(); };
+  overlay.querySelector("#_ppClose").onclick = close;
+  overlay.querySelector("#_ppCancel").onclick = close;
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+
+  overlay.querySelector("#_ppConfirm").onclick = () => {
+    const checks = overlay.querySelectorAll("._ppCb");
+    const newIds = [];
+    checks.forEach(cb => { if (cb.checked) newIds.push(cb.value); });
+    applyState.planIds = newIds;
+    applyState.planId = newIds[0] || "";
+    close();
+    renderApply();
+  };
+}
+
 // 레거시 호환: selectRndPlan은 _togglePlanPickerItem으로 리다이렉트
 function selectRndPlan(id) {
   if (!applyState.planIds) applyState.planIds = [];

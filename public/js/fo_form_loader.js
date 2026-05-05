@@ -1711,37 +1711,43 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
       ✅ <span>표준 입력 양식 (Phase B) — 7단계 카테고리 적용</span>
     </div>`;
 
-  const multiPlanSection = (inline.multi_plan_link === true) ? `
+  const multiPlanSection = (inline.multi_plan_link === true) ? (() => {
+    const planIds = (typeof applyState !== "undefined" ? applyState.planIds : null) || [];
+    const plans = (typeof _dbApprovedPlans !== "undefined" ? _dbApprovedPlans : []);
+    const selectedPlans = planIds.map(pid => plans.find(p => p.id === pid)).filter(Boolean);
+    const plansHtml = selectedPlans.length > 0 ? selectedPlans.map((pl, idx) => {
+      const amount = Number(pl.amount || 0).toLocaleString();
+      const detail = pl.detail || {};
+      const rounds = detail.rounds || 1;
+      const participants = detail.participants || '-';
+      return `
+        <div class="p-4 bg-white border border-gray-200 rounded-xl flex justify-between items-center shadow-sm">
+          <div>
+            <div class="text-xs font-bold text-gray-500 mb-1">계획번호: ${pl.id || '-'}</div>
+            <div class="font-bold text-gray-800">${pl.title || pl.edu_name || '-'}</div>
+            <div class="text-xs text-gray-500 mt-1">${rounds}차수 (${participants}명) | ${pl.edu_type || '-'}</div>
+          </div>
+          <div class="text-right">
+            <div class="font-black text-blue-600">${amount} 원</div>
+            <button type="button" onclick="_removePlanFromSelection('${pl.id}')" class="text-xs text-red-500 mt-2 font-bold hover:underline">삭제</button>
+          </div>
+        </div>`;
+    }).join('\n') : `
+        <div class="p-4 bg-white border border-dashed border-gray-300 rounded-xl text-center text-gray-400 text-sm">
+          아래 [+ 교육계획 추가] 버튼을 눌러 승인된 교육계획을 선택하세요.
+        </div>`;
+
+    return `
     <div class="mb-6 bg-blue-50 border-2 border-blue-200 rounded-2xl overflow-hidden shadow-sm">
       <div class="px-5 py-3 bg-blue-100 border-b border-blue-200 font-bold text-blue-800 flex items-center justify-between">
         <div class="flex items-center gap-2"><span>🔗</span> 승인된 교육계획 선택 및 구성</div>
-        <button type="button" class="px-3 py-1 bg-white text-blue-600 text-xs font-bold rounded-lg shadow-sm border border-blue-200 hover:bg-blue-50 transition">+ 교육계획 추가</button>
+        <button type="button" onclick="_showPlanPickerPopup()" class="px-3 py-1 bg-white text-blue-600 text-xs font-bold rounded-lg shadow-sm border border-blue-200 hover:bg-blue-50 transition">+ 교육계획 추가</button>
       </div>
       <div class="p-5 grid gap-3">
-        <div class="p-4 bg-white border border-gray-200 rounded-xl flex justify-between items-center shadow-sm">
-          <div>
-            <div class="text-xs font-bold text-gray-500 mb-1">계획번호: PLN-2026-001</div>
-            <div class="font-bold text-gray-800">파이썬 데이터 분석 기초</div>
-            <div class="text-xs text-gray-500 mt-1">1차수 (20명) | H-교육 / 해당없음</div>
-          </div>
-          <div class="text-right">
-            <div class="font-black text-blue-600">1,200,000 원</div>
-            <button type="button" class="text-xs text-red-500 mt-2 font-bold hover:underline">삭제</button>
-          </div>
-        </div>
-        <div class="p-4 bg-white border border-gray-200 rounded-xl flex justify-between items-center shadow-sm">
-          <div>
-            <div class="text-xs font-bold text-gray-500 mb-1">계획번호: PLN-2026-002</div>
-            <div class="font-bold text-gray-800">사내 챗봇 활용 워크숍</div>
-            <div class="text-xs text-gray-500 mt-1">1차수 (10명) | H-교육 / 해당없음</div>
-          </div>
-          <div class="text-right">
-            <div class="font-black text-blue-600">500,000 원</div>
-            <button type="button" class="text-xs text-red-500 mt-2 font-bold hover:underline">삭제</button>
-          </div>
-        </div>
+        ${plansHtml}
       </div>
-    </div>` : '';
+    </div>`;
+  })() : '';
 
   return phaseBBadge + '\n' +
     multiPlanSection + '\n' +

@@ -3340,11 +3340,21 @@ function canAccessAccount(persona, accountCode) {
 }
 
 // 테넌트+격리그룹 기준으로 필터된 계정 목록 반환
-function getPersonaAccounts(persona) {
-  const all = getTenantAccounts(persona.tenantId);
-  if (!persona.allowedAccounts || persona.allowedAccounts.includes("*"))
-    return all;
-  return all.filter((a) => persona.allowedAccounts.includes(a.code));
+function getPersonaAccountBudgets(persona) {
+  const allowed = persona.allowedAccounts || [];
+  const isSystem = allowed.includes("*");
+  // platform_admin(tenantId=null): 테넌트 필터 없이 전체 반환
+  // 상위 렌더러(renderAllocOverview 등)에서 _allocFilterTenant로 범위 제한
+  if (!persona.tenantId) {
+    return ACCOUNT_BUDGETS.filter(
+      (ab) => isSystem || allowed.includes(ab.accountCode)
+    );
+  }
+  return ACCOUNT_BUDGETS.filter(
+    (ab) =>
+      ab.tenantId === persona.tenantId &&
+      (isSystem || allowed.includes(ab.accountCode)),
+  );
 }
 
 // 두 페르소나가 동일한 격리 그룹인지 확인 (데이터 공유 가능 여부)
@@ -3856,6 +3866,12 @@ function getDistributable(ab) {
 function getPersonaAccountBudgets(persona) {
   const allowed = persona.allowedAccounts || [];
   const isSystem = allowed.includes("*");
+  // platform_admin(tenantId=null): 테넌트 필터 없이 전체 반환 (필터는 상위 렌더러에서 처리)
+  if (!persona.tenantId) {
+    return ACCOUNT_BUDGETS.filter(
+      (ab) => isSystem || allowed.includes(ab.accountCode)
+    );
+  }
   return ACCOUNT_BUDGETS.filter(
     (ab) =>
       ab.tenantId === persona.tenantId &&

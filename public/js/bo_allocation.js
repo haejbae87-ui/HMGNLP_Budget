@@ -297,7 +297,16 @@ function renderAllocOverview(year) {
     return renderVorgManagerOverview();
   }
 
-  const allBudgets = getPersonaAccountBudgets(persona);
+  const allBudgets = (() => {
+    const raw = getPersonaAccountBudgets(persona);
+    // platform_admin (tenantId=null): 필터 테넌트로 범위 결정
+    if (!persona.tenantId) {
+      const tid = _allocFilterTenant ||
+        (typeof TENANTS !== 'undefined' ? TENANTS.find(t => t.id !== 'SYSTEM')?.id : null) || 'HMC';
+      return raw.filter(ab => ab.tenantId === tid);
+    }
+    return raw;
+  })();
   const availableYears = [
     ...new Set(allBudgets.map((ab) => ab.fiscalYear || 2026)),
   ].sort((a, b) => b - a);

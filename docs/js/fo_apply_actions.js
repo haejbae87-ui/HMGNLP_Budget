@@ -54,7 +54,88 @@ function toggleOperPlan(id) {
   renderApply();
 }
 function applyNext() {
-  applyState.step = Math.min(applyState.step + 1, 4);
+  const nextStep = Math.min(applyState.step + 1, 4);
+  applyState.step = nextStep;
+
+  // ★ Step 4 진입 시: BO 양식관리(form_config) → form_templates DB 순으로 양식 로드
+  // planNext() (fo_plans_actions.js)와 동일한 패턴
+  if (nextStep === 4) {
+    applyState.formTemplateLoading = true;
+    applyState.formTemplate = null; // 이전 캐시 무효화
+    renderApply();
+
+    // 매칭 정책 찾기
+    const policies =
+      typeof _getActivePolicies === "function"
+        ? _getActivePolicies(currentPersona)?.policies || []
+        : [];
+    const purposeId = applyState.purpose?.id;
+    const eduType = applyState.subType || applyState.eduType || "";
+    const accCode = (() => {
+      const budgets = currentPersona?.budgets || [];
+      const b = budgets.find((x) => x.id === applyState.budgetId);
+      if (b?.accountCode || b?.account_code) return b.accountCode || b.account_code;
+      // 폴백: pre-wizard 선택 계정
+      if (typeof _applySelectedAccountCode !== 'undefined' && _applySelectedAccountCode) return _applySelectedAccountCode;
+      return null;
+    })();
+
+    // purpose + account 기준 최적 정책 선택
+    const boPurposeKeys =
+      typeof _FO_TO_BO_PURPOSE !== "undefined" && purposeId
+        ? _FO_TO_BO_PURPOSE[purposeId] || [purposeId]
+        : [purposeId];
+    const _purposeMatch = (pPurpose) =>
+      !purposeId || boPurposeKeys.includes(pPurpose);
+    const matched =
+      policies.find((p) => {
+        const acc = p.account_codes || p.accountCodes || [];
+        const accountOk = !accCode || acc.includes(accCode);
+        return _purposeMatch(p.purpose) && accountOk;
+      }) ||
+      policies.find((p) => {
+        const acc = p.account_codes || p.accountCodes || [];
+        return !accCode || acc.includes(accCode);
+      }) ||
+      policies[0] ||
+      null;
+
+    (async () => {
+      const tenantId = currentPersona?.tenantId || currentPersona?.tenant_id || null;
+      console.log('[applyNext:Step4] ── 양식 로드 시작 ──');
+      console.log('[applyNext:Step4] accCode:', accCode, '| eduType:', eduType, '| tenantId:', tenantId);
+
+      // 세부산출근거 DB 로드 (병렬)
+      const cgPromise = typeof _foLoadCalcGrounds === 'function'
+        ? _foLoadCalcGrounds()
+        : Promise.resolve([]);
+
+      // 1순위: form_config (BO 양식관리 연동)
+      let tpl = null;
+      if (accCode && typeof loadFormConfigTemplate === 'function') {
+        tpl = await loadFormConfigTemplate(accCode, tenantId, eduType, 'apply');
+        if (tpl) {
+          console.log('[applyNext] BO form_config 기반 양식 적용:', tpl.name, '| inlineFields:', tpl.inlineFields);
+        }
+      }
+
+      // 2순위: form_templates DB 폴백
+      if (!tpl && matched && typeof getFoFormTemplate === 'function') {
+        tpl = await getFoFormTemplate(matched, 'apply', eduType);
+        if (tpl) {
+          console.log('[applyNext] form_templates DB 방식 폴백:', tpl.name || tpl.id);
+        }
+      }
+
+      await cgPromise;
+      applyState.formTemplate = tpl || null;
+      applyState.formTemplateLoading = false;
+      console.log('[applyNext:Step4] ── 최종 formTemplate:', tpl ? (tpl.isInline ? 'inline(form_config)' : 'dynamic(form_templates)') : 'null(폴백)', '──');
+      renderApply();
+    })();
+
+    return;
+  }
   renderApply();
 }
 function applyPrev() {

@@ -18,8 +18,6 @@ const _FORM_PATTERN_STAGES = {
   A: ['forecast','operation','apply','result'],
   B: ['apply','result'],
   C: ['apply','result'],
-  D: ['operation','apply'],
-  E: ['forecast','operation'],
 };
 const _FORM_STAGE_META = {
   forecast:  { icon:'📊', label:'사업계획 양식', color:'#7C3AED' },

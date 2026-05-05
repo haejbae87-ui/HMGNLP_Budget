@@ -1,10 +1,20 @@
 # HMGNLP_Budget 전체 작업 현황 (active_tasks.md)
 
-> 최종 갱신: 2026-05-01
+> 최종 갱신: 2026-05-05
 
 ---
 
 ## ✅ 완료된 작업 이력
+
+### 2026-05-05 — 프로세스 패턴 3종 표준화 (A~E → A~C)
+
+- [x] **PRD 전수 갱신** — 5가지 패턴(A~E) → 3가지(A, B, C) 단순화
+  - service_policy.md: §3 파이프라인, §11 DB, §14 결재흐름 전면 갱신
+  - edu_result.md: 패턴 C/D 통합→C, 패턴 E 제거, uses_budget 전환
+  - form_simplification.md: 패턴 D/E 양식 구조 제거, A~C만 유지
+  - multi_plan_application.md: 패턴 A/D→A 통합, uses_budget 기반 전환
+- [x] **코드 동기화** — bo_form_management.js `_FORM_PATTERN_STAGES`에서 D, E 완전 제거
+- [x] **설계 원칙 변경** — 예산 유무를 패턴 기반에서 계정의 `uses_budget` 속성 기반으로 전환
 
 ### 2026-05-01 — 예산 배분 드릴다운 엔진 + 프리미엄 UI
 

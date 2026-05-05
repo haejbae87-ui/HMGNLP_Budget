@@ -2271,6 +2271,9 @@ async function confirmApply() {
             serviceId: applyState.serviceId || null,
             applyMode: svc?.applyMode || null,
             courseSessionLinks: applyState.courseSessionLinks || [],
+            linkedCourses: applyState.linkedCourses || [],
+            planIds: applyState.planIds || [],
+            budgetChoice: applyState.budgetChoice || "",
           },
         }),
       });
@@ -2324,6 +2327,7 @@ async function confirmApply() {
             courseSessionLinks: applyState.courseSessionLinks || [],
             linkedCourses: applyState.linkedCourses || [],
             planIds: applyState.planIds || [],
+            budgetChoice: applyState.budgetChoice || "",
             _form_snapshot: _fSnap,
           },
         };
@@ -2451,6 +2455,7 @@ async function saveApplyDraft() {
         courseSessionLinks: applyState.courseSessionLinks || [],
         linkedCourses: applyState.linkedCourses || [],
         planIds: applyState.planIds || [],
+        budgetChoice: applyState.budgetChoice || "",
         _form_snapshot: _fSnapDraft,
       },
     };

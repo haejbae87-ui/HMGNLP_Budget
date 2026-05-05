@@ -208,7 +208,7 @@ function _bamRenderApprovalTab(d) {
       <div style="font-size:13px;font-weight:700;color:#6B7280">먼저 '서비스 정책·프로세스' 탭에서 프로세스 패턴을 선택해주세요.</div></div>`;
   }
 
-  const STAGES_MAP = { A:["forecast","ongoing","apply","result"], B:["ongoing","apply","result"], C:["apply","result"] };
+  const STAGES_MAP = { A:["forecast","ongoing","apply","result"], B:["apply","result"], C:["apply","result"] };
   const stages = STAGES_MAP[d.process_pattern] || ["apply"];
   const sLabel = { forecast:"📋 사업계획(수요예측)", ongoing:"📊 상시계획", apply:"📝 신청", result:"📄 결과" };
   const sColor = { forecast:"#8B5CF6", ongoing:"#7C3AED", apply:"#1D4ED8", result:"#059669" };

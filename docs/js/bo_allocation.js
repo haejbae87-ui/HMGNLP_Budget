@@ -8,6 +8,7 @@ let _allocTab = 0;
 let _allocFilterTenant = '';        // 선택된 테넌트 (빈 문자열=현재 페르소나)
 let _allocFilterTplId = null;       // 선택된 VOrg 제도그룹 ID
 let _allocFilterAccountCode = null; // 선택된 예산계정 code (null=전체)
+let _allocFilterAccountName = null; // 선택된 예산계정 name (code 매칭 보완용)
 let _allocFilterYear = new Date().getFullYear(); // 선택된 연도
 let _allocFilterLoaded = false;     // 필터 데이터 로드 여부
 let _allocFilterTplList = [];       // 제도그룹 목록 (DB)
@@ -232,7 +233,7 @@ function _allocFilterBarContent(persona) {
     ? _allocFilterAcctList.filter(a => a.virtual_org_template_id === _allocFilterTplId)
     : _allocFilterAcctList;
   const acctSel = filteredAccts.length > 0
-    ? `<select onchange="_allocFilterAccountCode=this.value||null;_allocSelectedAbId=null;showAllocTabByIdx(_allocTab)" style="${selStyle}">
+    ? `<select onchange="_allocFilterAccountCode=this.value||null;_allocFilterAccountName=this.options[this.selectedIndex]?.text||null;_allocSelectedAbId=null;showAllocTabByIdx(_allocTab)" style="${selStyle}">
         <option value="">전체 계정</option>
         ${filteredAccts.map(a =>
           `<option value="${a.code}" ${a.code === _allocFilterAccountCode ? 'selected' : ''}>${a.name}</option>`
@@ -256,12 +257,34 @@ function _allocFilterBarContent(persona) {
       <label style="font-size:10px;font-weight:700;color:#6B7280">VOrg</label> ${tplSel}
       <label style="font-size:10px;font-weight:700;color:#6B7280">계정</label> ${acctSel}
       ${yearSel}
-      <button onclick="_allocFilterLoaded=false;renderBoAllocation()" class="bo-btn-primary" style="margin-left:auto">🔄 새로고침</button>
+      <button onclick="_allocRefresh()" class="bo-btn-primary" style="margin-left:auto">🔄 새로고침</button>
     </div>
   </div>`;
 }
 
-// ─── 탭 1: 계정 예산 현황 (연도별 + 계정 선택 탭 + 교육조직 그룹핑) ──────────────
+// ─── 새로고침: 계정 선택 유지 + DB 재로드 ─────────────────────────────────────
+async function _allocRefresh() {
+  const persona = boCurrentPersona;
+  // DB 재동기화 (TEAM_DIST 갱신)
+  if (typeof _syncAllocFromDB === 'function') {
+    await _syncAllocFromDB(persona);
+  }
+  // 필터 데이터 재로드
+  _allocFilterLoaded = false;
+  await _allocLoadFilterData(persona);
+  // 필터바 갱신
+  const filterEl = document.getElementById('alloc-filter-bar');
+  if (filterEl) filterEl.innerHTML = _allocFilterBarContent(persona);
+  // 현재 탭 재렌더 (_allocSelectedAbId 유지)
+  const contentEl = document.getElementById('alloc-content');
+  if (contentEl) {
+    const fns = [renderAllocOverview, renderInitialAlloc, renderBudgetDistribution, renderAllocHistory];
+    const fn = fns[_allocTab];
+    if (fn) contentEl.innerHTML = fn();
+  }
+}
+
+
 let _allocYear = new Date().getFullYear();
 let _allocSelectedAbId = null;
 
@@ -281,14 +304,25 @@ function renderAllocOverview(year) {
   let myBudgets = allBudgets.filter(
     (ab) => (ab.fiscalYear || 2026) === _allocYear,
   );
-  // 필터: 계정 코드 필터 적용 (hard-filter 대신 auto-select)
-  // DB 코드와 메모리 코드가 다를 수 있으므로 부분 매칭 포함
+  // 필터: 계정 코드 필터 적용 (auto-select 방식)
+  // 1) DB code 직접 매칭 → 2) 부분 매칭 → 3) 계정명 매칭 → 4) DB 목록 교차매칭 순으로 시도
   if (_allocFilterAccountCode) {
     const exactMatch = myBudgets.find(ab => ab.accountCode === _allocFilterAccountCode);
     const partialMatch = !exactMatch ? myBudgets.find(ab =>
-      ab.accountCode.includes(_allocFilterAccountCode) || _allocFilterAccountCode.includes(ab.accountCode)
+      (ab.accountCode || '').includes(_allocFilterAccountCode) || _allocFilterAccountCode.includes(ab.accountCode || '')
     ) : null;
-    const matched = exactMatch || partialMatch;
+    // 계정명 매칭 (DB name vs 메모리 accountCode 또는 ACCOUNT_MASTER.name)
+    const nameMatch = (!exactMatch && !partialMatch && _allocFilterAccountName) ? myBudgets.find(ab => {
+      const masterName = (typeof ACCOUNT_MASTER !== 'undefined' ? ACCOUNT_MASTER : []).find(x => x.code === ab.accountCode)?.name || '';
+      return masterName && (masterName.includes(_allocFilterAccountName) || _allocFilterAccountName.includes(masterName));
+    }) : null;
+    // DB 목록 교차매칭: _allocFilterAcctList의 code → 메모리 accountCode
+    const dbAcct = _allocFilterAcctList.find(a => a.code === _allocFilterAccountCode);
+    const dbCrossMatch = (!exactMatch && !partialMatch && !nameMatch && dbAcct) ? myBudgets.find(ab => {
+      // DB의 name이 메모리 accountCode를 포함하거나 그 반대
+      return (dbAcct.name || '').includes(ab.accountCode || '') || (ab.accountCode || '').includes((dbAcct.name || ''));
+    }) : null;
+    const matched = exactMatch || partialMatch || nameMatch || dbCrossMatch;
     if (matched) {
       _allocSelectedAbId = matched.id;
     }

@@ -1,4 +1,4 @@
-﻿// ─── 📝 교육 양식관리 ─────────────────────────────────────────────────────
+// ─── 📝 교육 양식관리 ─────────────────────────────────────────────────────
 // 제도그룹별 예산계정의 교육유형에 맞는 양식(필드 on/off)을 관리합니다.
 // 4단계: 사업계획(forecast) · 운영계획(operation) · 신청(apply) · 결과(result)
 // PRD: field_standardization.md 기반 필드 타입 표준화 적용
@@ -16,7 +16,7 @@ let _formFieldStates = {}; // { "elearning|forecast": { venue_type: true, ... } 
 // ── 패턴 → 활성 단계 매핑 ──────────────────────────────────────────────────
 const _FORM_PATTERN_STAGES = {
   A: ['forecast','operation','apply','result'],
-  B: ['operation','apply','result'],
+  B: ['apply','result'],
   C: ['apply','result'],
   D: ['operation','apply'],
   E: ['forecast','operation'],

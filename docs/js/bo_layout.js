@@ -1677,7 +1677,7 @@ function boNavigate(menuId) {
     if (typeof renderBoOperationPlan === "function") renderBoOperationPlan();
     else renderBoPlanMgmt(); // 폴백
   }
-  if (menuId === "allocation") renderOrgBudget();
+  if (menuId === "allocation") renderBoAllocation();
   if (menuId === "budget-history") renderBudgetHistory();
   if (menuId === "budget-demand") renderBudgetDemand();
   if (menuId === "budget-carryover") renderBudgetCarryover();

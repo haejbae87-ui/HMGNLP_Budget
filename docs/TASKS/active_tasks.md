@@ -6,6 +6,14 @@
 
 ## ✅ 완료된 작업 이력
 
+### 2026-05-05 — FO 교육신청·교육결과 BO 양식 동기화
+
+- [x] **fo_apply_actions.js** — `applyNext()` Step 3→4 전환 시 `loadFormConfigTemplate(accCode, tenantId, eduType, 'apply')` 비동기 로드 추가
+- [x] **result.js** — `_resultNext()` Step 4 진입 시 `loadFormConfigTemplate(accCode, tenantId, eduType, 'result')` 비동기 로드 추가
+- [x] **result.js** — `_resetResultWizardState()`에 `formTemplate`, `formTemplateLoading` 필드 추가
+- [x] **result.js** — `_renderStep4DirectInfo()`, `_renderStep4ResultForm()`에 `_shouldShow` 조건부 렌더링 적용
+- [x] **결과**: BO 양식관리에서 설정한 필드 ON/OFF가 FO 교육신청 Step 4, 교육결과 Step 4에 반영됨
+
 ### 2026-05-05 — 프로세스 패턴 3종 표준화 (A~E → A~C)
 
 - [x] **PRD 전수 갱신** — 5가지 패턴(A~E) → 3가지(A, B, C) 단순화

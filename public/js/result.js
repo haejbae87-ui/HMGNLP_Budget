@@ -1,6 +1,6 @@
 // ─── RESULT (교육결과 등록) — 교육신청과 통일된 4단계 위저드 ────────────────────
 // Step 1: 교육 목적 선택
-// Step 2: 예산 계정 선택 (패턴 감지: A/B=신청기반, C/D=직접등록)
+// Step 2: 예산 계정 선택 (패턴 감지: A/B=신청기반, C=직접등록/사후정산)
 // Step 3: 교육유형 선택
 // Step 4: 세부정보 + 결과 작성
 
@@ -45,11 +45,28 @@ function _resetResultWizardState() {
     actualCost: 0,
     satisfaction: 5,
     feedback: "",
+    // ★ BO 양식 동기화
+    formTemplate: null,
+    formTemplateLoading: false,
   };
 }
 
 // ─── 메인 렌더러 ──────────────────────────────────────────────────────────
 function renderResult() {
+  // ★ Phase 0: Pre-Wizard 라우팅 (사업계획과 동일한 제도그룹→예산계정→목록 흐름)
+  // 위저드 진입 상태가 아닐 때만 pre-wizard 체크
+  if (!_resultWizardState) {
+    if (!_resultSelectedAccountCode) {
+      if (!_resultSelectedVorgId) {
+        _renderResultVorgHub();
+        return;
+      }
+      _renderResultAccountHub();
+      return;
+    }
+  }
+
+  // Phase 1: 기존 위저드/목록 렌더링
   if (_resultWizardState) {
     _renderResultWizard();
   } else {
@@ -267,11 +284,42 @@ function _renderResultWizard() {
     },
   };
   const categorized = {};
-  allPurposes.forEach((p) => {
+
+  // ★ Pre-Wizard 계정 기반 목적 필터: 선택된 계정의 정책에 연결된 목적만 표시
+  let filteredPurposes = allPurposes;
+  if (_resultSelectedAccountCode && typeof SERVICE_POLICIES !== 'undefined') {
+    const relevantPolicies = SERVICE_POLICIES.filter(p => {
+      if (p.status && p.status !== 'active') return false;
+      const codes = p.account_codes || p.accountCodes || [];
+      return codes.includes(_resultSelectedAccountCode);
+    });
+    if (relevantPolicies.length > 0) {
+      const allowedPurposeKeys = new Set();
+      relevantPolicies.forEach(p => { if (p.purpose) allowedPurposeKeys.add(p.purpose); });
+      const _FO_TO_BO_PURPOSE = typeof window._FO_TO_BO_PURPOSE !== 'undefined' ? window._FO_TO_BO_PURPOSE : {};
+      filteredPurposes = allPurposes.filter(p => {
+        const boPurposeKeys = _FO_TO_BO_PURPOSE[p.id] || [p.id];
+        return boPurposeKeys.some(bk => allowedPurposeKeys.has(bk));
+      });
+      if (filteredPurposes.length === 0) filteredPurposes = allPurposes;
+    }
+  }
+
+  filteredPurposes.forEach((p) => {
     const cat = p.category || "edu-operation";
     if (!categorized[cat]) categorized[cat] = [];
     categorized[cat].push(p);
   });
+
+  // ★ Pre-Wizard에서 계정이 이미 선택된 경우 예산 자동 세팅
+  if (_resultSelectedAccountCode && !s.budgetId) {
+    const allBudgets = currentPersona?.budgets || [];
+    const matched = allBudgets.find(b => b.accountCode === _resultSelectedAccountCode);
+    if (matched) {
+      s.budgetId = matched.id;
+      s.useBudget = true;
+    }
+  }
 
   // 예산 계정 정보
   const availBudgets = s.purpose
@@ -295,7 +343,7 @@ function _renderResultWizard() {
   const detectedPattern = _processInfo?.pattern || null;
 
   // Step 라벨
-  const stepLabels = ["목적 선택", "예산 선택", "교육유형 선택", "결과 등록"];
+  const stepLabels = ["목적 선택", _resultSelectedAccountCode ? "예산 확인" : "예산 선택", "교육유형 선택", "결과 등록"];
   const stepper = [1, 2, 3, 4]
     .map(
       (n) => `
@@ -314,6 +362,14 @@ function _renderResultWizard() {
   // ═══════════════════════════════════════════════════════════════════
   if (s.step === 1) {
     bodyHtml = `
+    ${_resultSelectedAccountCode ? `
+    <div style="margin-bottom:20px;padding:12px 16px;background:linear-gradient(135deg,#F0F9FF,#EFF6FF);border:1.5px solid #BAE6FD;border-radius:12px;display:flex;align-items:center;gap:12px">
+      <span style="font-size:18px">💳</span>
+      <div style="flex:1">
+        <div style="font-size:10px;font-weight:900;color:#0369A1;text-transform:uppercase;letter-spacing:0.5px">선택된 예산계정</div>
+        <div style="font-size:13px;font-weight:900;color:#111827;margin-top:2px">${_resultSelectedAccountName || _resultSelectedAccountCode}${_resultSelectedVorgName && _resultSelectedVorgName !== '기본 제도그룹' ? ` <span style="font-size:11px;padding:2px 6px;border-radius:4px;background:#E0E7FF;color:#4338CA;font-weight:800">${_resultSelectedVorgName}</span>` : ''}</div>
+      </div>
+    </div>` : ''}
     <h3 class="text-base font-black text-gray-800 mb-5">01. 교육 목적 선택</h3>
     <p class="text-sm text-gray-400 mb-5">결과를 등록할 교육의 목적을 선택하세요.</p>
     ${["self-learning", "edu-operation"]
@@ -504,7 +560,24 @@ function _renderResultWizard() {
   // Step 4: 세부정보 + 결과 작성
   // ═══════════════════════════════════════════════════════════════════
   if (s.step === 4) {
+    // ★ 양식 로딩 중
+    if (s.formTemplateLoading) {
+      bodyHtml = `<div style="padding:32px;text-align:center;color:#6B7280;font-size:14px;font-weight:600"><div style="font-size:28px;margin-bottom:8px">⌛</div>양식 로딩 중...</div>`;
+    } else {
     const isAppBased = s.mode === "from_application" && s.selectedApp;
+    // ★ BO 양식 배지
+    const tplBadge = s.formTemplate && s.formTemplate.name
+      ? `<div style="margin-bottom:16px;padding:8px 14px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;font-size:11px;font-weight:700;color:#1D4ED8">📋 양식: ${s.formTemplate.name}</div>`
+      : "";
+    // ★ inlineFields 기반 필드 가시성 헬퍼
+    const inline = (s.formTemplate && s.formTemplate.isInline && s.formTemplate.inlineFields) || {};
+    const inlineKeys = Object.keys(inline);
+    const hasExplicitFields = inlineKeys.length > 0;
+    const _shouldShow = (key, defaultShow = true) => {
+      if (inline[key] === false) return false;
+      if (hasExplicitFields) return inline[key] !== undefined && inline[key] !== false;
+      return defaultShow;
+    };
     const selectedInfo = `
     <div style="margin-bottom:20px;padding:14px 18px;background:linear-gradient(135deg,#EFF6FF,#F5F3FF);border:1.5px solid #BFDBFE;border-radius:12px">
       <div style="font-size:10px;font-weight:900;color:#1D4ED8;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">📋 선택 정보</div>
@@ -519,17 +592,18 @@ function _renderResultWizard() {
       // 패턴 A/B: 신청 기반 → 결과만 작성
       bodyHtml = `
       <h3 class="text-base font-black text-gray-800 mb-4">04. 교육 결과 작성</h3>
-      ${selectedInfo}
-      ${_renderStep4ResultForm(s)}`;
+      ${tplBadge}${selectedInfo}
+      ${_renderStep4ResultForm(s, _shouldShow)}`;
     } else {
-      // 패턴 C/D: 직접 입력 → 교육정보 + 결과 작성
+      // 패턴 C: 직접 입력 (사후 정산) → 교육정보 + 결과 작성
       bodyHtml = `
       <h3 class="text-base font-black text-gray-800 mb-4">04. 교육 정보 및 결과 작성</h3>
-      ${selectedInfo}
-      ${_renderStep4DirectInfo(s)}
+      ${tplBadge}${selectedInfo}
+      ${_renderStep4DirectInfo(s, _shouldShow)}
       <div style="margin:24px 0;border-top:2px solid #E5E7EB"></div>
       <h3 class="text-base font-black text-gray-800 mb-4">교육 결과</h3>
-      ${_renderStep4ResultForm(s)}`;
+      ${_renderStep4ResultForm(s, _shouldShow)}`;
+    }
     }
   }
 
@@ -798,15 +872,22 @@ function _renderResultAppBasedSection(s) {
 }
 
 // ─── Step 4: 직접 입력 교육정보 ──────────────────────────────────────────
-function _renderStep4DirectInfo(s) {
-  return `
-  <div style="display:grid;gap:14px">
+function _renderStep4DirectInfo(s, _shouldShow) {
+  const show = _shouldShow || (() => true);
+  const fields = [];
+  // 교육과정명
+  if (show('course_name', true) || show('edu_name', true)) {
+    fields.push(`
     <div>
       <label style="font-size:11px;font-weight:800;color:#374151;margin-bottom:4px;display:block">교육과정명 <span style="color:#EF4444">*</span></label>
       <input value="${s.title}" onchange="_resultWizardState.title=this.value"
         style="width:100%;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;box-sizing:border-box"
         placeholder="예: AWS 솔루션스 아키텍트 자격증 과정">
-    </div>
+    </div>`);
+  }
+  // 교육 시작일/종료일
+  if (show('start_end_date', true)) {
+    fields.push(`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div>
         <label style="font-size:11px;font-weight:800;color:#374151;margin-bottom:4px;display:block">교육 시작일 <span style="color:#EF4444">*</span></label>
@@ -818,27 +899,36 @@ function _renderStep4DirectInfo(s) {
         <input type="date" value="${s.endDate}" onchange="_resultWizardState.endDate=this.value"
           style="width:100%;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;box-sizing:border-box">
       </div>
-    </div>
+    </div>`);
+  }
+  // 학습시간 + 교육기관
+  const showHours = show('actual_hours', true) || show('hours_per_round', true);
+  const showOrg = show('edu_org', true) || show('institution_name', true);
+  if (showHours || showOrg) {
+    fields.push(`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div>
+      ${showHours ? `<div>
         <label style="font-size:11px;font-weight:800;color:#374151;margin-bottom:4px;display:block">학습 시간(H)</label>
         <input type="number" value="${s.hours}" onchange="_resultWizardState.hours=this.value"
           style="width:100%;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;box-sizing:border-box" placeholder="8">
-      </div>
-      <div>
+      </div>` : '<div></div>'}
+      ${showOrg ? `<div>
         <label style="font-size:11px;font-weight:800;color:#374151;margin-bottom:4px;display:block">교육기관</label>
         <input value="${s.provider}" onchange="_resultWizardState.provider=this.value"
           style="width:100%;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;box-sizing:border-box" placeholder="교육기관명">
-      </div>
-    </div>
-  </div>`;
+      </div>` : '<div></div>'}
+    </div>`);
+  }
+  return `<div style="display:grid;gap:14px">${fields.join('')}</div>`;
 }
 
 // ─── Step 4: 결과 작성 폼 ────────────────────────────────────────────────
-function _renderStep4ResultForm(s) {
-  return `
-  <div style="display:grid;gap:20px">
-    <!-- 수료여부 -->
+function _renderStep4ResultForm(s, _shouldShow) {
+  const show = _shouldShow || (() => true);
+  const fields = [];
+  // 수료여부
+  if (show('is_completed', true)) {
+    fields.push(`
     <div>
       <label style="font-size:13px;font-weight:800;color:#374151;display:block;margin-bottom:8px">수료여부 <span style="color:#EF4444">*</span></label>
       <div style="display:flex;gap:10px">
@@ -855,17 +945,21 @@ function _renderStep4ResultForm(s) {
           )
           .join("")}
       </div>
-    </div>
-
-    <!-- 실참석시간 -->
+    </div>`);
+  }
+  // 실참석시간
+  if (show('actual_hours', true)) {
+    fields.push(`
     <div>
       <label style="font-size:13px;font-weight:800;color:#374151;display:block;margin-bottom:8px">실 참석시간 (시간)</label>
       <input type="number" value="${s.actualHours}" placeholder="예: 16"
         oninput="_resultWizardState.actualHours=this.value"
         style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px">
-    </div>
-
-    <!-- 만족도 -->
+    </div>`);
+  }
+  // 만족도
+  if (show('satisfaction_rating', true)) {
+    fields.push(`
     <div>
       <label style="font-size:13px;font-weight:800;color:#374151;display:block;margin-bottom:8px">만족도 (1~5)</label>
       <div style="display:flex;gap:8px">
@@ -879,22 +973,27 @@ function _renderStep4ResultForm(s) {
           )
           .join("")}
       </div>
-    </div>
-
-    <!-- 소감 -->
+    </div>`);
+  }
+  // 소감
+  if (show('review_comment', true) || show('remarks', true)) {
+    fields.push(`
     <div>
       <label style="font-size:13px;font-weight:800;color:#374151;display:block;margin-bottom:8px">교육 소감</label>
       <textarea oninput="_resultWizardState.feedback=this.value" rows="4"
         placeholder="교육의 유익한 점, 실무 적용 계획 등을 작성해주세요."
         style="width:100%;box-sizing:border-box;padding:12px 14px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;resize:vertical">${s.feedback}</textarea>
-    </div>
-
-    <!-- 첨부파일 -->
+    </div>`);
+  }
+  // 첨부파일
+  if (show('supporting_docs', true)) {
+    fields.push(`
     <div style="padding:20px;background:#F9FAFB;border-radius:12px;border:1.5px dashed #D1D5DB">
       <div style="font-size:12px;font-weight:800;color:#374151;margin-bottom:8px">📎 첨부파일 (수료증, 영수증 등)</div>
       <div style="font-size:11px;color:#9CA3AF">파일 업로드 기능은 추후 제공 예정입니다.</div>
-    </div>
-  </div>`;
+    </div>`);
+  }
+  return `<div style="display:grid;gap:20px">${fields.join('')}</div>`;
 }
 
 // ─── 이벤트 핸들러 ────────────────────────────────────────────────────────
@@ -1016,11 +1115,81 @@ function _resultNext() {
   }
   // Step 2 → Step 3: A/B 패턴 + 신청 선택 완료 → Step 3 건너뛰고 Step 4
   if (s.step === 2 && s.mode === "from_application" && s.selectedAppId) {
-    s.step = 4; // 신청 기반: 교육유형 이미 정해져 있으므로 건너뜀
-    renderResult();
+    s.step = 4;
+    _resultLoadFormTemplate(s); // ★ BO 양식 비동기 로드
     return;
   }
-  s.step = Math.min(s.step + 1, 4);
+  const nextStep = Math.min(s.step + 1, 4);
+  s.step = nextStep;
+
+  // ★ Step 4 진입 시: BO 양식관리(form_config) → form_templates DB 순으로 양식 로드
+  if (nextStep === 4) {
+    _resultLoadFormTemplate(s);
+    return;
+  }
+  renderResult();
+}
+
+// ★ 교육결과 위저드 Step 4 진입 시 BO 양식 비동기 로드
+// planNext() (fo_plans_actions.js)와 동일한 패턴
+async function _resultLoadFormTemplate(s) {
+  s.formTemplateLoading = true;
+  s.formTemplate = null;
+  renderResult();
+
+  const policies =
+    typeof _getActivePolicies === "function"
+      ? _getActivePolicies(currentPersona)?.policies || []
+      : [];
+  const purposeId = s.purpose?.id;
+  const eduType = s.learningType || s.eduType || "";
+  const accCode = (() => {
+    const budgets = currentPersona?.budgets || [];
+    const b = budgets.find((x) => x.id === s.budgetId);
+    if (b?.accountCode || b?.account_code) return b.accountCode || b.account_code;
+    if (typeof _resultSelectedAccountCode !== 'undefined' && _resultSelectedAccountCode) return _resultSelectedAccountCode;
+    return null;
+  })();
+
+  // purpose + account 기준 최적 정책 선택
+  const boPurposeKeys =
+    typeof _FO_TO_BO_PURPOSE !== "undefined" && purposeId
+      ? _FO_TO_BO_PURPOSE[purposeId] || [purposeId]
+      : [purposeId];
+  const _purposeMatch = (pPurpose) =>
+    !purposeId || boPurposeKeys.includes(pPurpose);
+  const matched =
+    policies.find((p) => {
+      const acc = p.account_codes || p.accountCodes || [];
+      return _purposeMatch(p.purpose) && (!accCode || acc.includes(accCode));
+    }) ||
+    policies[0] ||
+    null;
+
+  const tenantId = currentPersona?.tenantId || currentPersona?.tenant_id || null;
+  console.log('[resultNext:Step4] ── 양식 로드 시작 ──');
+  console.log('[resultNext:Step4] accCode:', accCode, '| eduType:', eduType, '| tenantId:', tenantId);
+
+  let tpl = null;
+  // 1순위: form_config (BO 양식관리 연동)
+  if (accCode && typeof loadFormConfigTemplate === 'function') {
+    tpl = await loadFormConfigTemplate(accCode, tenantId, eduType, 'result');
+    if (tpl) {
+      console.log('[resultNext] BO form_config 기반 양식 적용:', tpl.name, '| inlineFields:', tpl.inlineFields);
+    }
+  }
+
+  // 2순위: form_templates DB 폴백
+  if (!tpl && matched && typeof getFoFormTemplate === 'function') {
+    tpl = await getFoFormTemplate(matched, 'result', eduType);
+    if (tpl) {
+      console.log('[resultNext] form_templates DB 방식 폴백:', tpl.name || tpl.id);
+    }
+  }
+
+  s.formTemplate = tpl || null;
+  s.formTemplateLoading = false;
+  console.log('[resultNext:Step4] ── 최종 formTemplate:', tpl ? (tpl.isInline ? 'inline(form_config)' : 'dynamic(form_templates)') : 'null(폴백)', '──');
   renderResult();
 }
 
@@ -1078,7 +1247,7 @@ async function _submitResultRegistration() {
         .eq("id", s.selectedAppId);
       if (error) throw error;
     } else {
-      // 패턴 C/D: 신규 application INSERT
+      // 패턴 C: 신규 application INSERT (사후 정산 직접 등록)
       const appId = `RES-${Date.now()}`;
       const totalCost = s.expenses.reduce(
         (sum, e) => sum + (Number(e.price) || 0) * (Number(e.qty) || 1),

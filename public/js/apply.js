@@ -80,7 +80,7 @@ function _resetResultState() {
 }
 
 function renderApply() {
-  // ★ Phase C: 교육계획에서 넘어온 경우 plan_id 자동 세팅
+  // ★ Phase C: 교육계획에서 넘어온 경우 plan_id 자동 세팅 → pre-wizard 스킵
   const _planLink = sessionStorage.getItem("_applyFromPlan");
   if (_planLink) {
     try {
@@ -91,10 +91,30 @@ function renderApply() {
       applyState.title = pl.title;
       applyState.eduName = pl.title;
       applyViewMode = "form";
+      // 교육계획에서 넘어온 경우 계정정보를 자동 세팅
+      if (pl.account_code) {
+        _applySelectedAccountCode = _applySelectedAccountCode || pl.account_code;
+        _applySelectedVorgId = _applySelectedVorgId || 'auto';
+      }
       console.log("[Apply] Linked from plan:", pl.plan_id, pl.title);
     } catch(e) { sessionStorage.removeItem("_applyFromPlan"); }
   }
   if (typeof applyViewMode === "undefined") applyViewMode = "list";
+
+  // ★ Phase 0: Pre-Wizard 라우팅 (사업계획과 동일한 제도그룹→예산계정→목록 흐름)
+  // 위저드 진입(form) 모드가 아니고, 계정이 미선택이면 pre-wizard 표시
+  if (applyViewMode !== "form" && !(applyState && applyState.confirmMode)) {
+    if (!_applySelectedAccountCode) {
+      if (!_applySelectedVorgId) {
+        _renderApplyVorgHub();
+        return;
+      }
+      _renderApplyAccountHub();
+      return;
+    }
+  }
+
+  // Phase 1: 기존 위저드/목록 렌더링
   if (applyState && applyState.confirmMode) {
     _renderApplyConfirm();
   } else if (applyViewMode === "form") {
@@ -106,11 +126,11 @@ function renderApply() {
 }
 
 // ─── 정책 기반 스마트 버튼 ─────────────────────────────────────────────────
-// 패턴 A·B·E → 교육 신청 버튼 / 패턴 C·D → 교육결과 등록 버튼
+// 패턴 A·B → 교육 신청 버튼 / 패턴 C → 교육결과 등록 버튼
 function _applySmartButtons() {
   // SERVICE_POLICIES에서 현재 페르소나의 정책 확인
-  let hasApplyPatterns = false; // A, B, E
-  let hasResultOnlyPatterns = false; // C, D
+  let hasApplyPatterns = false; // A, B
+  let hasResultOnlyPatterns = false; // C
 
   if (typeof SERVICE_POLICIES !== "undefined" && SERVICE_POLICIES.length > 0) {
     const policies = SERVICE_POLICIES.filter((p) => {
@@ -121,8 +141,8 @@ function _applySmartButtons() {
     });
     policies.forEach((p) => {
       const pattern = p.process_pattern || p.processPattern || "";
-      if (["A", "B", "E"].includes(pattern)) hasApplyPatterns = true;
-      if (["C", "D"].includes(pattern)) hasResultOnlyPatterns = true;
+      if (["A", "B"].includes(pattern)) hasApplyPatterns = true;
+      if (pattern === "C") hasResultOnlyPatterns = true;
       // flow 기반 fallback
       if (!pattern) {
         if (["plan-apply-result", "apply-result"].includes(p.flow))
@@ -132,7 +152,7 @@ function _applySmartButtons() {
     });
   }
 
-  // 정책이 전혀 없으면 기본: 신청 버튼만 표시 (결과등록은 C/D 정책 있을 때만)
+  // 정책이 전혀 없으면 기본: 신청 버튼만 표시 (결과등록은 C 정책 있을 때만)
   if (!hasApplyPatterns && !hasResultOnlyPatterns) {
     hasApplyPatterns = true;
   }
@@ -159,7 +179,7 @@ function _applySmartButtons() {
   return btns;
 }
 
-// ─── 결과 전용 위저드 (패턴 C·D) ─────────────────────────────────────────────
+// ─── 결과 전용 위저드 (패턴 C) ───────────────────────────────────────────────
 function _renderResultForm() {
   const s = _resultState || _resetResultState();
   _resultState = s;
@@ -404,7 +424,7 @@ function _renderResultForm() {
 let _applyListTab = "mine"; // 'mine' | 'team'
 let _applyYear = new Date().getFullYear(); // 연도 필터
 
-// ─── 결과 등록 제출 (패턴 C/D) → DB 저장 ───────────────────────────────────
+// ─── 결과 등록 제출 (패턴 C) → DB 저장 ─────────────────────────────────────
 async function submitResult() {
   const rs = _resultState || {};
   const sb = typeof getSB === "function" ? getSB() : null;
@@ -957,11 +977,46 @@ function _renderApplyForm() {
           },
         };
   const categorized = {};
-  allPurposes.forEach((p) => {
+
+  // ★ Pre-Wizard 계정 기반 목적 필터: 선택된 계정의 정책에 연결된 목적만 표시
+  let filteredPurposes = allPurposes;
+  if (_applySelectedAccountCode && matchedPolicies.length > 0) {
+    const acctCode = _applySelectedAccountCode;
+    const relevantPolicies = matchedPolicies.filter(p => {
+      const codes = p.account_codes || p.accountCodes || [];
+      return codes.includes(acctCode);
+    });
+    if (relevantPolicies.length > 0) {
+      const allowedPurposeKeys = new Set();
+      relevantPolicies.forEach(p => {
+        if (p.purpose) allowedPurposeKeys.add(p.purpose);
+      });
+      // FO→BO 목적 키 매핑 역추적
+      const _FO_TO_BO_PURPOSE = typeof window._FO_TO_BO_PURPOSE !== 'undefined' ? window._FO_TO_BO_PURPOSE : {};
+      filteredPurposes = allPurposes.filter(p => {
+        const boPurposeKeys = _FO_TO_BO_PURPOSE[p.id] || [p.id];
+        return boPurposeKeys.some(bk => allowedPurposeKeys.has(bk));
+      });
+      // 필터 결과가 0건이면 전체 표시 (안전장치)
+      if (filteredPurposes.length === 0) filteredPurposes = allPurposes;
+    }
+  }
+
+  filteredPurposes.forEach((p) => {
     const cat = p.category || "edu-operation";
     if (!categorized[cat]) categorized[cat] = [];
     categorized[cat].push(p);
   });
+
+  // ★ Pre-Wizard에서 계정이 이미 선택된 경우 예산 자동 세팅
+  if (_applySelectedAccountCode && !s.budgetId) {
+    const allBudgets = currentPersona?.budgets || [];
+    const matched = allBudgets.find(b => b.accountCode === _applySelectedAccountCode);
+    if (matched) {
+      s.budgetId = matched.id;
+      s.useBudget = true;
+    }
+  }
 
   const availBudgets = s.purpose
     ? getPersonaBudgets(currentPersona, s.purpose.id)
@@ -1075,7 +1130,7 @@ function _renderApplyForm() {
           (n) => `
       <div class="step-item flex items-center gap-2 ${s.step > n ? "done" : s.step === n ? "active" : ""}">
         <div class="step-circle w-8 h-8 rounded-full flex items-center justify-center text-sm font-black transition-all">${s.step > n ? "✓" : n}</div>
-        <span class="text-xs font-bold ${s.step === n ? "text-brand" : "text-gray-400"} hidden sm:block">${["목적 선택", "예산 선택", _isPatternA(s) ? "세부산출근거" : "교육유형 선택", "신청 정보"][n - 1]}</span>
+        <span class="text-xs font-bold ${s.step === n ? "text-brand" : "text-gray-400"} hidden sm:block">${["목적 선택", _applySelectedAccountCode ? "예산 확인" : "예산 선택", _isPatternA(s) ? "세부산출근거" : "교육유형 선택", "신청 정보"][n - 1]}</span>
         ${n < 4 ? '<div class="h-px flex-1 bg-gray-200 mx-2 w-8"></div>' : ""}
       </div>`,
         )
@@ -1085,6 +1140,14 @@ function _renderApplyForm() {
 
   <!--Step 1: Purpose (개선3: 행위 기반 카테고리)-->
   <div class="card p-8 ${s.step === 1 ? "" : "hidden"}">
+    ${_applySelectedAccountCode ? `
+    <div style="margin-bottom:20px;padding:12px 16px;background:linear-gradient(135deg,#F0F9FF,#EFF6FF);border:1.5px solid #BAE6FD;border-radius:12px;display:flex;align-items:center;gap:12px">
+      <span style="font-size:18px">💳</span>
+      <div style="flex:1">
+        <div style="font-size:10px;font-weight:900;color:#0369A1;text-transform:uppercase;letter-spacing:0.5px">선택된 예산계정</div>
+        <div style="font-size:13px;font-weight:900;color:#111827;margin-top:2px">${_applySelectedAccountName || _applySelectedAccountCode}${_applySelectedVorgName && _applySelectedVorgName !== '기본 제도그룹' ? ` <span style="font-size:11px;padding:2px 6px;border-radius:4px;background:#E0E7FF;color:#4338CA;font-weight:800">${_applySelectedVorgName}</span>` : ''}</div>
+      </div>
+    </div>` : ''}
     <h2 class="text-lg font-black text-gray-800 mb-6">01. 교육 목적 선택</h2>
 
     ${["self-learning", "edu-operation"]
@@ -1151,7 +1214,7 @@ function _renderApplyForm() {
         const hasFree = allowed.includes("COMMON-FREE"); // 예산 미사용 정책 여부
 
         // ── 일반계정 카드 태그: 교육지원 운영 규칙 process_pattern 기반 동적 결정 ──────
-        // Pattern B: 신청→결과(즉시 예산 차감), Pattern C/D: 후정산, A/E: 신청→결과
+        // Pattern B: 신청→결과(즉시 예산 차감), Pattern C: 후정산(사후 정산)
         function _getGeneralCardTag() {
           if (typeof SERVICE_POLICIES !== "undefined") {
             const pol = SERVICE_POLICIES.find(
@@ -1169,13 +1232,13 @@ function _renderApplyForm() {
                   tagColor: "#B45309",
                   tagBg: "#FFFBEB",
                 };
-              if (pt === "C" || pt === "D")
+              if (pt === "C")
                 return {
                   tag: "후정산형",
                   tagColor: "#D97706",
                   tagBg: "#FEF3C7",
                 };
-              if (pt === "A" || pt === "E")
+              if (pt === "A")
                 return {
                   tag: "신청→결과",
                   tagColor: "#059669",

@@ -4,6 +4,15 @@
 
 let _allocTab = 0;
 
+// ── 필터 상태 (사업계획관리 _bdFilterBar 패턴 차용) ──────────────────────────
+let _allocFilterTenant = '';        // 선택된 테넌트 (빈 문자열=현재 페르소나)
+let _allocFilterTplId = null;       // 선택된 VOrg 제도그룹 ID
+let _allocFilterAccountCode = null; // 선택된 예산계정 code (null=전체)
+let _allocFilterYear = new Date().getFullYear(); // 선택된 연도
+let _allocFilterLoaded = false;     // 필터 데이터 로드 여부
+let _allocFilterTplList = [];       // 제도그룹 목록 (DB)
+let _allocFilterAcctList = [];      // 예산계정 목록 (DB)
+
 // ── 드릴다운 상태 ──────────────────────────────────────────────────────────
 let _ddLevel = 0;           // 0=계정선택, 1=교육조직배분, 2=팀배분
 let _ddAbId = null;         // 선택된 계정예산 ID
@@ -38,6 +47,16 @@ function renderBoAllocation() {
     ? `<span style="background:#DBEAFE;color:#1D4ED8;font-size:10px;font-weight:800;padding:3px 10px;border-radius:6px">👤 ${roleLabel} — 조회전용</span>`
     : `<span style="background:#D1FAE5;color:#065F46;font-size:10px;font-weight:800;padding:3px 10px;border-radius:6px">📊 ${roleLabel} — 전체 관리</span>`;
 
+  // ── 필터 초기화 ─────────────────────────────────────────────────────────
+  if (!_allocFilterTenant) _allocFilterTenant = persona.tenantId || 'HMC';
+  _allocFilterYear = _allocYear || _allocFilterYear; // 기존 연도 상태 동기화
+
+  // ── DB에서 제도그룹/계정 로드 (비동기 — 렌더 후 업데이트) ──
+  _allocLoadFilterData(persona).then(() => {
+    const filterEl = document.getElementById('alloc-filter-bar');
+    if (filterEl) filterEl.innerHTML = _allocFilterBarContent(persona);
+  });
+
   el.innerHTML = `
 <div class="bo-fade">
   <div style="margin-bottom:20px">
@@ -49,6 +68,9 @@ function renderBoAllocation() {
     </div>
     <p class="bo-page-sub">예산 흐름: 계정 총액 관리 → 팀 배분 → 실시간 원장 조회</p>
   </div>
+
+  <!-- 🔍 조회 필터바 -->
+  <div id="alloc-filter-bar">${_allocFilterBarContent(persona)}</div>
 
   <!-- 예산 흐름 안내 -->
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:20px;padding:10px 16px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;font-size:12px;color:#065F46;font-weight:600;flex-wrap:wrap">
@@ -144,6 +166,101 @@ function showAllocTabByIdx(idx) {
   if (fn) document.getElementById('alloc-content').innerHTML = fn();
 }
 
+// ─── 조회 필터바 함수 (사업계획관리 _bdFilterBar 패턴 차용) ──────────────────
+async function _allocLoadFilterData(persona) {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) return;
+  const tenant = _allocFilterTenant || persona.tenantId || 'HMC';
+  try {
+    // 1. 예산계정 로드
+    const { data: accts } = await sb
+      .from('budget_accounts')
+      .select('id,name,code,virtual_org_template_id')
+      .eq('tenant_id', tenant)
+      .eq('active', true)
+      .eq('uses_budget', true);
+    _allocFilterAcctList = accts || [];
+
+    // 2. 제도그룹 로드 (예산계정이 연결된 것만)
+    const tplIds = [...new Set((_allocFilterAcctList).map(a => a.virtual_org_template_id).filter(Boolean))];
+    if (tplIds.length > 0) {
+      const { data: tpls } = await sb
+        .from('virtual_org_templates')
+        .select('id,name')
+        .eq('tenant_id', tenant)
+        .in('id', tplIds);
+      _allocFilterTplList = tpls || [];
+    } else {
+      _allocFilterTplList = [];
+    }
+
+    // 선택값 초기화
+    if (!_allocFilterTplId || !_allocFilterTplList.find(t => t.id === _allocFilterTplId)) {
+      _allocFilterTplId = _allocFilterTplList[0]?.id || null;
+    }
+    _allocFilterLoaded = true;
+  } catch (e) {
+    console.warn('[allocFilter] DB load error:', e);
+  }
+}
+
+function _allocFilterBarContent(persona) {
+  const selStyle = 'border:1.5px solid #E5E7EB;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;min-width:130px;cursor:pointer';
+  const isPlatform = persona.role === 'platform_admin' || persona.role === 'tenant_global_admin';
+  const tenants = typeof TENANTS !== 'undefined' ? TENANTS : [];
+
+  // 테넌트 셀렉트
+  const tenantSel = isPlatform
+    ? `<select onchange="_allocFilterTenant=this.value;_allocFilterTplId=null;_allocFilterAccountCode=null;_allocFilterLoaded=false;renderBoAllocation()" style="${selStyle}">
+        ${tenants.filter(t => t.id !== 'SYSTEM').map(t =>
+          `<option value="${t.id}" ${t.id === _allocFilterTenant ? 'selected' : ''}>${t.name}</option>`
+        ).join('')}
+      </select>`
+    : `<span style="font-size:12px;font-weight:800;color:#374151;padding:6px 10px;background:#F3F4F6;border-radius:8px">${tenants.find(t => t.id === _allocFilterTenant)?.name || _allocFilterTenant}</span>`;
+
+  // VOrg 제도그룹 셀렉트
+  const tplSel = _allocFilterTplList.length > 0
+    ? `<select onchange="_allocFilterTplId=this.value;_allocFilterAccountCode=null;renderBoAllocation()" style="${selStyle}">
+        ${_allocFilterTplList.map(t =>
+          `<option value="${t.id}" ${t.id === _allocFilterTplId ? 'selected' : ''}>${t.name}</option>`
+        ).join('')}
+      </select>`
+    : '<span style="font-size:11px;color:#9CA3AF">로딩 중...</span>';
+
+  // 예산계정 셀렉트 (선택된 VOrg에 속한 계정만)
+  const filteredAccts = _allocFilterTplId
+    ? _allocFilterAcctList.filter(a => a.virtual_org_template_id === _allocFilterTplId)
+    : _allocFilterAcctList;
+  const acctSel = filteredAccts.length > 0
+    ? `<select onchange="_allocFilterAccountCode=this.value||null;_allocSelectedAbId=null;showAllocTabByIdx(_allocTab)" style="${selStyle}">
+        <option value="">전체 계정</option>
+        ${filteredAccts.map(a =>
+          `<option value="${a.code}" ${a.code === _allocFilterAccountCode ? 'selected' : ''}>${a.name}</option>`
+        ).join('')}
+      </select>`
+    : '';
+
+  // 연도 셀렉트
+  const curY = _allocFilterYear;
+  const yearSel = `<select onchange="_allocFilterYear=Number(this.value);_allocYear=_allocFilterYear;_allocSelectedAbId=null;showAllocTabByIdx(_allocTab)" style="${selStyle}">
+    ${[curY + 1, curY, curY - 1, curY - 2].map(y =>
+      `<option value="${y}" ${curY === y ? 'selected' : ''}>${y}년</option>`
+    ).join('')}
+  </select>`;
+
+  return `
+  <div class="bo-card" style="padding:14px 18px;margin-bottom:16px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <span style="font-size:11px;font-weight:900;color:#374151;margin-right:4px">🔍 데이터 범위</span>
+      <label style="font-size:10px;font-weight:700;color:#6B7280">테넌트(회사)</label> ${tenantSel}
+      <label style="font-size:10px;font-weight:700;color:#6B7280">VOrg</label> ${tplSel}
+      <label style="font-size:10px;font-weight:700;color:#6B7280">계정</label> ${acctSel}
+      ${yearSel}
+      <button onclick="_allocFilterLoaded=false;renderBoAllocation()" class="bo-btn-primary" style="margin-left:auto">🔄 새로고침</button>
+    </div>
+  </div>`;
+}
+
 // ─── 탭 1: 계정 예산 현황 (연도별 + 계정 선택 탭 + 교육조직 그룹핑) ──────────────
 let _allocYear = new Date().getFullYear();
 let _allocSelectedAbId = null;
@@ -161,9 +278,13 @@ function renderAllocOverview(year) {
   const availableYears = [
     ...new Set(allBudgets.map((ab) => ab.fiscalYear || 2026)),
   ].sort((a, b) => b - a);
-  const myBudgets = allBudgets.filter(
+  let myBudgets = allBudgets.filter(
     (ab) => (ab.fiscalYear || 2026) === _allocYear,
   );
+  // 필터: 계정 코드 필터 적용
+  if (_allocFilterAccountCode) {
+    myBudgets = myBudgets.filter(ab => ab.accountCode === _allocFilterAccountCode);
+  }
 
   // 선택 계정 초기값: 첫 번째 계정
   if (

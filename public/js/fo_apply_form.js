@@ -671,8 +671,8 @@ ${
 
       <!-- ★ 패턴A 전용: 운영계획 연결 + 과정-차수 맵핑 -->
       ${(() => {
-        if (!_isPatternA) return "";
-        const isPatA = typeof _isPatternA === "function" ? _isPatternA(s) : false;
+        if (typeof _isPatternA !== "function") return "";
+        const isPatA = _isPatternA(s);
         if (!isPatA) return "";
         return `
       <div style="border-left:4px solid #7C3AED;border-radius:16px;background:white;border:2px solid #EDE9FE;padding:24px;margin-bottom:24px">

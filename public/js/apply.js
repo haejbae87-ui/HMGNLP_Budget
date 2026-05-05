@@ -871,32 +871,165 @@ function _isPatternA(s) {
 }
 
 function _renderLineItemsStep(s) {
-  if (!s.lineItems || s.lineItems.length === 0) return `<div class="text-gray-500 text-sm font-bold">선택된 교육계획이 없습니다.</div>`;
-  
-  return s.lineItems.map((li, index) => {
-    const fields = typeof getLineItemFieldConfig === 'function' ? getLineItemFieldConfig(li.eduType) : [];
-    const dynamicHtml = typeof renderDynamicFormFields === 'function' 
-      ? renderDynamicFormFields(fields, li, `applyState.lineItems[${index}]`)
-      : '';
-      
+  // ── 1 운영계획 → N 과정 연결 (Step 4 과정-차수 피커) ──
+  const courses = s.linkedCourses || [];
+
+  // 실제 교육과정운영 데이터 (Next Learning BO 기반)
+  if (typeof window._mockChannels === 'undefined') {
+    window._mockChannels = [
+      { id: 'CH-0776233093890', name: '프라임 채널', tenant: 'HMC', managers: ['조O정', '허O호'], courseCount: 1 },
+    ];
+    window._mockCourses = {
+      'CH-0776233093890': [
+        { id: 'CR-001', name: '리더십 집합교육', channel: '프라임 채널', eduType: '집합교육', status: '운영', sessions: [
+          { id: 'SS-001', no: 1, name: '리더십 1차', period: '2026-04-04 ~ 04-06', capacity: 30, enrolled: 2, used: false,
+            learners: [
+              { name: '류O정', dept: '연구개발성장지원팀', role: '관리자', status: '수강중', enrollDate: '2026-04-03' },
+              { name: '박보검', dept: '미경족산업', role: '관리자', status: '수강중', enrollDate: '2026-04-03' },
+            ]
+          },
+        ]},
+      ],
+    };
+  }
+
+  const coursesHtml = courses.map((c, idx) => {
+    const channelOptions = (window._mockChannels || []).map(ch =>
+      `<option value="${ch.id}" ${c.channelId === ch.id ? 'selected' : ''}>${ch.name}</option>`
+    ).join('');
+
+    const courseList = c.channelId ? (window._mockCourses[c.channelId] || []) : [];
+    const courseOptions = courseList.map(cr =>
+      `<option value="${cr.id}" ${c.courseId === cr.id ? 'selected' : ''}>${cr.name}</option>`
+    ).join('');
+
+    const selectedCourse = courseList.find(cr => cr.id === c.courseId);
+    const sessionsHtml = selectedCourse ? selectedCourse.sessions.map(ss => {
+      const isSelected = (c.selectedSessions || []).includes(ss.id);
+      const isUsed = ss.used;
+      const capacityInfo = ss.capacity ? `${ss.enrolled || 0}/${ss.capacity}명` : '';
+      return `
+        <label style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:${isUsed ? 'not-allowed' : 'pointer'};
+          background:${isUsed ? '#F3F4F6' : isSelected ? '#EFF6FF' : '#fff'};
+          border:1.5px solid ${isUsed ? '#E5E7EB' : isSelected ? '#3B82F6' : '#D1D5DB'};
+          color:${isUsed ? '#9CA3AF' : isSelected ? '#1D4ED8' : '#374151'}">
+          <input type="checkbox" ${isSelected ? 'checked' : ''} ${isUsed ? 'disabled' : ''}
+            onchange="_toggleCourseSession(${idx}, '${ss.id}')"
+            style="accent-color:#3B82F6;width:14px;height:14px">
+          ${ss.name} <span style="font-weight:400;color:#9CA3AF">(${ss.period})</span>
+          ${capacityInfo ? `<span style="font-size:9px;font-weight:800;color:${(ss.enrolled || 0) >= ss.capacity ? '#EF4444' : '#10B981'};margin-left:2px">${capacityInfo}</span>` : ''}
+          ${isUsed ? '<span style="color:#EF4444;font-size:9px;font-weight:800;margin-left:2px">기신청</span>' : ''}
+        </label>`;
+    }).join('') : '';
+
     return `
-      <div class="mb-6 p-6 rounded-2xl border-2 border-violet-200 bg-white shadow-sm">
-        <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
+      <div style="border:2px solid #DBEAFE;border-left:4px solid #3B82F6;border-radius:12px;padding:16px;margin-bottom:12px;background:#FAFBFF">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="font-size:13px;font-weight:900;color:#111827">과정 ⓛ${idx + 1}</div>
+          ${courses.length > 1 ? `<button onclick="_removeCourseLink(${idx})" style="font-size:11px;color:#EF4444;font-weight:700;cursor:pointer;border:1px solid #FCA5A5;border-radius:6px;padding:2px 10px;background:#FEF2F2">삭제</button>` : ''}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
           <div>
-            <div class="text-[10px] font-black text-violet-500 uppercase tracking-wider mb-1">연동된 교육계획</div>
-            <div class="font-black text-gray-900 text-base">${li.title}</div>
-            <div class="text-xs text-gray-500 mt-1">교육유형: ${li.eduType || '-'}</div>
+            <div style="font-size:10px;font-weight:800;color:#6B7280;margin-bottom:4px;text-transform:uppercase">채널</div>
+            <select onchange="_onChannelChange(${idx}, this.value)"
+              style="width:100%;padding:8px 10px;border:1.5px solid #D1D5DB;border-radius:8px;font-size:12px;font-weight:600">
+              <option value="">채널 선택...</option>
+              ${channelOptions}
+            </select>
           </div>
-          <div class="text-right">
-            <div class="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1">계획 예산</div>
-            <div class="font-black text-violet-600 text-lg">${(li.subtotal||0).toLocaleString()}원</div>
+          <div>
+            <div style="font-size:10px;font-weight:800;color:#6B7280;margin-bottom:4px;text-transform:uppercase">과정</div>
+            <select onchange="_onCourseChange(${idx}, this.value)"
+              style="width:100%;padding:8px 10px;border:1.5px solid #D1D5DB;border-radius:8px;font-size:12px;font-weight:600"
+              ${!c.channelId ? 'disabled' : ''}>
+              <option value="">과정 선택...</option>
+              ${courseOptions}
+            </select>
           </div>
         </div>
-        ${dynamicHtml}
-      </div>
-    `;
+        ${c.courseId && sessionsHtml ? `
+          <div style="margin-top:8px">
+            <div style="font-size:10px;font-weight:800;color:#6B7280;margin-bottom:6px;text-transform:uppercase">차수 선택</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">${sessionsHtml}</div>
+          </div>
+        ` : ''}
+        ${c.courseId ? `
+          <div style="margin-top:12px;padding-top:10px;border-top:1px solid #E5E7EB;text-align:right">
+            <span style="font-size:11px;color:#6B7280;font-weight:600">산출근거 소계: </span>
+            <span style="font-size:14px;font-weight:900;color:#7C3AED">${(c.subtotal || 0).toLocaleString()}원</span>
+          </div>
+        ` : ''}
+      </div>`;
   }).join('');
+
+  const totalAmount = courses.reduce((sum, c) => sum + (c.subtotal || 0), 0);
+
+  return `
+    ${courses.length === 0 ? `
+      <div style="text-align:center;padding:20px;color:#6B7280;font-size:13px;font-weight:600">
+        <div style="font-size:24px;margin-bottom:6px">📺</div>
+        아래 버튼을 눌러 운영할 과정을 추가하세요.
+      </div>
+    ` : coursesHtml}
+    <button onclick="_addCourseLink()" type="button"
+      style="width:100%;padding:12px;border:2px dashed #D1D5DB;border-radius:12px;color:#6B7280;font-size:13px;font-weight:700;cursor:pointer;background:transparent;transition:all 0.2s"
+      onmouseover="this.style.borderColor='#3B82F6';this.style.color='#3B82F6'"
+      onmouseout="this.style.borderColor='#D1D5DB';this.style.color='#6B7280'">
+      + 과정 추가
+    </button>
+    ${totalAmount > 0 ? `
+      <div style="margin-top:12px;text-align:right;font-size:12px;color:#374151;font-weight:700">
+        총 신청금액: <span style="font-size:16px;font-weight:900;color:#002C5F">${totalAmount.toLocaleString()}원</span>
+      </div>
+    ` : ''}
+  `;
 }
+
+// ── 과정-차수 연결 핸들러 (linkedCourses 상태 관리) ──
+function _addCourseLink() {
+  if (!applyState.linkedCourses) applyState.linkedCourses = [];
+  applyState.linkedCourses.push({ channelId: '', channelName: '', courseId: '', courseName: '', selectedSessions: [], subtotal: 0 });
+  _renderApplyForm();
+}
+
+function _removeCourseLink(idx) {
+  if (!applyState.linkedCourses) return;
+  applyState.linkedCourses.splice(idx, 1);
+  _renderApplyForm();
+}
+
+function _onChannelChange(idx, channelId) {
+  if (!applyState.linkedCourses || !applyState.linkedCourses[idx]) return;
+  const c = applyState.linkedCourses[idx];
+  c.channelId = channelId;
+  c.channelName = (window._mockChannels || []).find(ch => ch.id === channelId)?.name || '';
+  c.courseId = '';
+  c.courseName = '';
+  c.selectedSessions = [];
+  _renderApplyForm();
+}
+
+function _onCourseChange(idx, courseId) {
+  if (!applyState.linkedCourses || !applyState.linkedCourses[idx]) return;
+  const c = applyState.linkedCourses[idx];
+  const courseList = window._mockCourses?.[c.channelId] || [];
+  const course = courseList.find(cr => cr.id === courseId);
+  c.courseId = courseId;
+  c.courseName = course?.name || '';
+  c.selectedSessions = [];
+  _renderApplyForm();
+}
+
+function _toggleCourseSession(idx, sessionId) {
+  if (!applyState.linkedCourses || !applyState.linkedCourses[idx]) return;
+  const c = applyState.linkedCourses[idx];
+  if (!c.selectedSessions) c.selectedSessions = [];
+  const i = c.selectedSessions.indexOf(sessionId);
+  if (i >= 0) c.selectedSessions.splice(i, 1);
+  else c.selectedSessions.push(sessionId);
+  _renderApplyForm();
+}
+
 
 function _renderApplyForm() {
   // ── SERVICE_POLICIES 로딩 게이트 (근본 수정) ──────────────────────────────

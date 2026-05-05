@@ -17,6 +17,9 @@
 - [x] **fo_apply_form.js** — Step 2 다음 버튼 단순화 (apply.js 동일)
 - [x] **fo_apply_form.js** — Step 4 패턴A 전용 운영계획 섹션 추가 (apply.js 동일)
 - [x] **설계 확정**: 1 운영계획 → N 과정, 프로세스 패턴 자동 제어 (form_config 대상 아님)
+- [x] **apply.js** — `_renderLineItemsStep()` 리팩토링: 1 Plan → N Courses 과정-차수 피커 UI 구현
+- [x] **apply.js** — 과정 추가/삭제/채널변경/과정변경/차수토글 핸들러 5종 구현 (`linkedCourses` 상태관리)
+- [x] **apply.js** — 실제 교육과정운영 데이터 적용 (프라임 채널, 리더십 집합교육, 리더십 1차, 수강 2/30명)
 
 ### 2026-05-05 — FO 교육신청·교육결과 BO 양식 동기화
 

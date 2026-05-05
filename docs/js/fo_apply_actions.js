@@ -579,6 +579,12 @@ async function resumeApplyDraft(appId) {
     ];
     applyState.policyId = data.policy_id || null;
     if (data.detail?.purpose) applyState.purpose = { id: data.detail.purpose };
+    // ★ Phase 3+4: 교육계획/과정-차수 매핑 데이터 복원
+    applyState.planIds = data.detail?.planIds || [];
+    applyState.planId = applyState.planIds[0] || data.plan_id || "";
+    applyState.linkedCourses = data.detail?.linkedCourses || [];
+    applyState.courseSessionLinks = data.detail?.courseSessionLinks || [];
+    applyState.budgetChoice = data.detail?.budgetChoice || "";
     applyState.step = 3;
     applyViewMode = "form";
     renderApply();

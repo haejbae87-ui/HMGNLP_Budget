@@ -164,7 +164,6 @@ function renderMyOperations() {
       : currentDocs.map(renderSubDocCard).join("");
 
     el.innerHTML = `<div class="bo-fade">
-      ${typeof boIsolationGroupBanner==="function" ? boIsolationGroupBanner() : ""}
       <div style="margin-bottom:24px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
           <h1 class="bo-page-title" style="margin:0">📥 나의 운영 업무</h1>
@@ -174,6 +173,8 @@ function renderMyOperations() {
           ? "운영담당자 — 1차 검토 처리 후 총괄담당자에게 전달됩니다"
           : "총괄담당자 — 최종 승인/반려 권한을 가집니다"}</p>
       </div>
+      <!-- 데이터 범위 필터 (사업계획관리 스타일) -->
+      ${typeof boIsolationGroupBanner==="function" ? boIsolationGroupBanner() : ""}
       <!-- P12: 문서 타입 필터 -->
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${docFilterHtml}</div>
       <div style="display:flex;gap:8px;margin-bottom:16px">${tabHtml}</div>

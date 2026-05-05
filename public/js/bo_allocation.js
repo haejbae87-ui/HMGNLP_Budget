@@ -281,9 +281,17 @@ function renderAllocOverview(year) {
   let myBudgets = allBudgets.filter(
     (ab) => (ab.fiscalYear || 2026) === _allocYear,
   );
-  // 필터: 계정 코드 필터 적용
+  // 필터: 계정 코드 필터 적용 (hard-filter 대신 auto-select)
+  // DB 코드와 메모리 코드가 다를 수 있으므로 부분 매칭 포함
   if (_allocFilterAccountCode) {
-    myBudgets = myBudgets.filter(ab => ab.accountCode === _allocFilterAccountCode);
+    const exactMatch = myBudgets.find(ab => ab.accountCode === _allocFilterAccountCode);
+    const partialMatch = !exactMatch ? myBudgets.find(ab =>
+      ab.accountCode.includes(_allocFilterAccountCode) || _allocFilterAccountCode.includes(ab.accountCode)
+    ) : null;
+    const matched = exactMatch || partialMatch;
+    if (matched) {
+      _allocSelectedAbId = matched.id;
+    }
   }
 
   // 선택 계정 초기값: 첫 번째 계정

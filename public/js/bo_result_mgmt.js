@@ -91,7 +91,6 @@ async function renderResultMgmt() {
 
     el.innerHTML = `
 <div class="bo-fade">
-  ${typeof boIsolationGroupBanner === "function" ? boIsolationGroupBanner() : ""}
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
     <div>
       <h1 class="bo-page-title">📄 교육결과 관리</h1>
@@ -100,7 +99,7 @@ async function renderResultMgmt() {
     <button onclick="_resultMgmtData=null;_resultMgmtPending=null;renderResultMgmt()" class="bo-btn-primary">🔄 새로고침</button>
   </div>
 
-  ${_boEduFilterBar("renderResultMgmt")}
+  ${typeof boIsolationGroupBanner === "function" ? boIsolationGroupBanner() : ""}
 
   <!-- 검토 대기 섹션 -->
   <div style="margin-bottom:32px">

@@ -1015,54 +1015,27 @@ function selectRndPlan(id) {
   renderApply();
 }
 
-// ─── Step 이동 (패턴A 시 교육계획 필수 + 교육유형 건너뜀) ─────────────────────
+// ─── Step 이동 (운영계획은 Step 4로 이동됨 — 위저드 구조 통일) ─────────────────────
 function applyNext() {
   const s = applyState;
-  const hasPlanSelected = s.planId || (s.planIds && s.planIds.length > 0);
 
-  // Step 2: 패턴A(R&D 또는 교육운영) 교육계획 미선택 시 진행 차단
-  const isRndPatA = s.step === 2 && s.budgetChoice === "rnd";
-  const isOperPatA =
-    s.step === 2 &&
-    s.purpose?.id !== "external_personal" &&
-    s.budgetId &&
-    (() => {
-      const avail =
-        typeof getPersonaBudgets !== "undefined"
-          ? getPersonaBudgets(currentPersona, s.purpose?.id)
-          : [];
-      const cb = avail.find((b) => b.id === s.budgetId);
-      const pi =
-        cb && typeof getProcessPatternInfo !== "undefined"
-          ? getProcessPatternInfo(currentPersona, s.purpose?.id, cb.accountCode)
-          : null;
-      return pi?.pattern === "A";
-    })();
+  // Step 2→3: 교육유형 선택 (모든 패턴 공통)
+  // Step 3→4: 세부정보 + 패턴A 시 운영계획-과정-차수 연결
+  s.step = Math.min(s.step + 1, 4);
 
-  if ((isRndPatA || isOperPatA) && !hasPlanSelected) {
-    alert("❗ 패턴A 정책입니다. 승인된 교육계획을 먼저 선택해주세요.");
-    return;
-  }
-  if (s.step === 2 && (isRndPatA || isOperPatA) && hasPlanSelected) {
-    s.step = 4; // 패턴A: 교육유형 건너뜀 → 바로 세부정보
-
-    // ★ 패턴A: 계획 데이터 자동 연동 ★
+  // Step 3→4 진입 시: 패턴A 계획 데이터 자동 연동 (planId가 이미 있는 경우)
+  if (s.step === 4) {
     const planId = s.planId || (s.planIds && s.planIds[0]) || "";
     if (planId) {
-      const linkedPlan = _dbApprovedPlans.find((p) => p.id === planId);
-      const rawPlan = (
-        typeof _plansDbCache !== "undefined" ? _plansDbCache : []
-      ).find((p) => p.id === planId);
+      const linkedPlan = (typeof _dbApprovedPlans !== "undefined" ? _dbApprovedPlans : []).find((p) => p.id === planId);
+      const rawPlan = (typeof _plansDbCache !== "undefined" ? _plansDbCache : []).find((p) => p.id === planId);
       if (linkedPlan) {
-        // 교육유형 자동 설정
         if (linkedPlan.edu_type && !s.eduType) s.eduType = linkedPlan.edu_type;
         if (!s.subType && linkedPlan.edu_type) s.subType = linkedPlan.edu_type;
       }
       if (rawPlan) {
         const d = rawPlan.detail || {};
-        // 계획 상세 데이터 → 신청 필드 자동 채우기
-        if (!s.title && (rawPlan.edu_name || d.title))
-          s.title = rawPlan.edu_name || d.title || "";
+        if (!s.title && (rawPlan.edu_name || d.title)) s.title = rawPlan.edu_name || d.title || "";
         if (!s.startDate && d.startDate) s.startDate = d.startDate;
         if (!s.endDate && d.endDate) s.endDate = d.endDate;
         if (!s.institution && d.institution) s.institution = d.institution;
@@ -1073,8 +1046,6 @@ function applyNext() {
         if (!s.purpose_text && d.purpose_text) s.purpose_text = d.purpose_text;
       }
     }
-  } else {
-    s.step = Math.min(s.step + 1, 4);
   }
   // Step4 진입 시 BO form_template 항상 최신 로드
   const nextStep = s.step;

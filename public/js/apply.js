@@ -858,6 +858,61 @@ function _applySelectionBanner(s, currentStep) {
 
 // ─── 교육신청 폼 뷰 (기존 renderApply 로직) ──────────────────────────────────
 
+// ── application_plan_items 행 빌더 (submit + saveDraft 공유) ──
+function _buildPlanItems(applicationId) {
+  const items = [];
+  const s = applyState;
+
+  // 1) linkedCourses가 있으면 우선 사용 (Phase 2 과정-차수 피커 데이터)
+  const linkedCourses = s.linkedCourses || [];
+  if (linkedCourses.length > 0) {
+    const planId = s.planId || null;
+    linkedCourses.forEach((c, idx) => {
+      if (!c.courseId) return; // 과정 미선택은 스킵
+      // 선택된 차수 정보 수집
+      const courseList = window._mockCourses?.[c.channelId] || [];
+      const course = courseList.find(cr => cr.id === c.courseId);
+      const linkedSessions = (c.selectedSessions || []).map(sid => {
+        const ss = (course?.sessions || []).find(s => s.id === sid);
+        return ss ? { session_id: ss.id, session_no: ss.no, name: ss.name, period: ss.period } : null;
+      }).filter(Boolean);
+
+      items.push({
+        application_id: applicationId,
+        plan_id: planId,
+        course_name: c.courseName || course?.name || null,
+        edu_type: course?.eduType || s.eduType || null,
+        channel_id: c.channelId || null,
+        course_id: c.courseId || null,
+        linked_sessions: linkedSessions,
+        subtotal: c.subtotal || 0,
+        sort_order: idx,
+      });
+    });
+  }
+
+  // 2) linkedCourses가 없으면 기존 planIds 기반 매핑 (하위 호환)
+  if (items.length === 0) {
+    const planIds = s.planIds && s.planIds.length > 0 ? s.planIds : (s.planId ? [s.planId] : []);
+    planIds.forEach((pid, idx) => {
+      const pl = (typeof _plansDbCache !== "undefined" ? _plansDbCache : []).find(p => p.id === pid) || {};
+      items.push({
+        application_id: applicationId,
+        plan_id: pid,
+        course_name: pl.edu_name || pl.title || null,
+        institution_name: pl.detail?.institution || null,
+        start_date: pl.detail?.startDate || null,
+        end_date: pl.detail?.endDate || null,
+        edu_type: pl.edu_type || null,
+        subtotal: pl.amount || 0,
+        sort_order: idx,
+      });
+    });
+  }
+
+  return items;
+}
+
 function _isPatternA(s) {
   if (!s) return false;
   if (s.budgetChoice === "rnd") return true;
@@ -1592,7 +1647,6 @@ ${
 </div>`
     : ""
 }
-// ★ 운영계획 선택은 Step 4로 이동 (위저드 구조 통일)
 `;
     })()}
 
@@ -2268,6 +2322,7 @@ async function confirmApply() {
             purpose: applyState.purpose?.id || null,
             expenses: applyState.expenses,
             courseSessionLinks: applyState.courseSessionLinks || [],
+            linkedCourses: applyState.linkedCourses || [],
             planIds: applyState.planIds || [],
             _form_snapshot: _fSnap,
           },
@@ -2279,25 +2334,11 @@ async function confirmApply() {
       }
     }
 
-    // ★ application_plan_items (다중 계획 합산 신청 매핑)
+    // ★ application_plan_items (다중 계획 합산 신청 매핑 + linkedCourses 과정-차수 연동)
     const sb = typeof getSB === "function" ? getSB() : null;
     if (sb) {
-      const planIds = applyState.planIds && applyState.planIds.length > 0 ? applyState.planIds : (applyState.planId ? [applyState.planId] : []);
-      if (planIds.length > 0) {
-        const planItems = planIds.map((pid, idx) => {
-          const pl = (_plansDbCache || []).find((p) => p.id === pid) || {};
-          return {
-            application_id: appId,
-            plan_id: pid,
-            course_name: pl.edu_name || pl.title || null,
-            institution_name: pl.detail?.institution || null,
-            start_date: pl.detail?.startDate || null,
-            end_date: pl.detail?.endDate || null,
-            edu_type: pl.edu_type || null,
-            subtotal: pl.amount || 0,
-            sort_order: idx
-          };
-        });
+      const planItems = _buildPlanItems(appId);
+      if (planItems.length > 0) {
         await sb.from("application_plan_items").delete().eq("application_id", appId);
         await sb.from("application_plan_items").insert(planItems);
       }
@@ -2408,6 +2449,7 @@ async function saveApplyDraft() {
         budgetId: applyState.budgetId || null,
         expenses: applyState.expenses,
         courseSessionLinks: applyState.courseSessionLinks || [],
+        linkedCourses: applyState.linkedCourses || [],
         planIds: applyState.planIds || [],
         _form_snapshot: _fSnapDraft,
       },
@@ -2417,23 +2459,9 @@ async function saveApplyDraft() {
       .upsert(row, { onConflict: "id" });
     if (error) throw error;
     
-    // ★ application_plan_items (임시저장 시 매핑 보존)
-    const planIds = applyState.planIds && applyState.planIds.length > 0 ? applyState.planIds : (applyState.planId ? [applyState.planId] : []);
-    if (planIds.length > 0) {
-      const planItems = planIds.map((pid, idx) => {
-        const pl = (_plansDbCache || []).find((p) => p.id === pid) || {};
-        return {
-          application_id: appId,
-          plan_id: pid,
-          course_name: pl.edu_name || pl.title || null,
-          institution_name: pl.detail?.institution || null,
-          start_date: pl.detail?.startDate || null,
-          end_date: pl.detail?.endDate || null,
-          edu_type: pl.edu_type || null,
-          subtotal: pl.amount || 0,
-          sort_order: idx
-        };
-      });
+    // ★ application_plan_items (임시저장 시 매핑 보존 + linkedCourses 과정-차수 연동)
+    const planItems = _buildPlanItems(appId);
+    if (planItems.length > 0) {
       await sb.from("application_plan_items").delete().eq("application_id", appId);
       await sb.from("application_plan_items").insert(planItems);
     }
@@ -2990,54 +3018,27 @@ function selectRndPlan(id) {
   renderApply();
 }
 
-// ─── Step 이동 (패턴A 시 교육계획 필수 + 교육유형 건너뜀) ─────────────────────
+// ─── Step 이동 (운영계획은 Step 4로 이동됨 — 위저드 구조 통일) ─────────────────────
 function applyNext() {
   const s = applyState;
-  const hasPlanSelected = s.planId || (s.planIds && s.planIds.length > 0);
 
-  // Step 2: 패턴A(R&D 또는 교육운영) 교육계획 미선택 시 진행 차단
-  const isRndPatA = s.step === 2 && s.budgetChoice === "rnd";
-  const isOperPatA =
-    s.step === 2 &&
-    s.purpose?.id !== "external_personal" &&
-    s.budgetId &&
-    (() => {
-      const avail =
-        typeof getPersonaBudgets !== "undefined"
-          ? getPersonaBudgets(currentPersona, s.purpose?.id)
-          : [];
-      const cb = avail.find((b) => b.id === s.budgetId);
-      const pi =
-        cb && typeof getProcessPatternInfo !== "undefined"
-          ? getProcessPatternInfo(currentPersona, s.purpose?.id, cb.accountCode)
-          : null;
-      return pi?.pattern === "A";
-    })();
+  // Step 2→3: 교육유형 선택 (모든 패턴 공통)
+  // Step 3→4: 세부정보 + 패턴A 시 운영계획-과정-차수 연결
+  s.step = Math.min(s.step + 1, 4);
 
-  if ((isRndPatA || isOperPatA) && !hasPlanSelected) {
-    alert("❗ 패턴A 정책입니다. 승인된 교육계획을 먼저 선택해주세요.");
-    return;
-  }
-  if (s.step === 2 && (isRndPatA || isOperPatA) && hasPlanSelected) {
-    s.step = 4; // 패턴A: 교육유형 건너뜀 → 바로 세부정보
-
-    // ★ 패턴A: 계획 데이터 자동 연동 ★
+  // Step 3→4 진입 시: 패턴A 계획 데이터 자동 연동 (planId가 이미 있는 경우)
+  if (s.step === 4) {
     const planId = s.planId || (s.planIds && s.planIds[0]) || "";
     if (planId) {
-      const linkedPlan = _dbApprovedPlans.find((p) => p.id === planId);
-      const rawPlan = (
-        typeof _plansDbCache !== "undefined" ? _plansDbCache : []
-      ).find((p) => p.id === planId);
+      const linkedPlan = (typeof _dbApprovedPlans !== "undefined" ? _dbApprovedPlans : []).find((p) => p.id === planId);
+      const rawPlan = (typeof _plansDbCache !== "undefined" ? _plansDbCache : []).find((p) => p.id === planId);
       if (linkedPlan) {
-        // 교육유형 자동 설정
         if (linkedPlan.edu_type && !s.eduType) s.eduType = linkedPlan.edu_type;
         if (!s.subType && linkedPlan.edu_type) s.subType = linkedPlan.edu_type;
       }
       if (rawPlan) {
         const d = rawPlan.detail || {};
-        // 계획 상세 데이터 → 신청 필드 자동 채우기
-        if (!s.title && (rawPlan.edu_name || d.title))
-          s.title = rawPlan.edu_name || d.title || "";
+        if (!s.title && (rawPlan.edu_name || d.title)) s.title = rawPlan.edu_name || d.title || "";
         if (!s.startDate && d.startDate) s.startDate = d.startDate;
         if (!s.endDate && d.endDate) s.endDate = d.endDate;
         if (!s.institution && d.institution) s.institution = d.institution;
@@ -3048,8 +3049,6 @@ function applyNext() {
         if (!s.purpose_text && d.purpose_text) s.purpose_text = d.purpose_text;
       }
     }
-  } else {
-    s.step = Math.min(s.step + 1, 4);
   }
   // Step4 진입 시 BO form_template 항상 최신 로드
   const nextStep = s.step;

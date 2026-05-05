@@ -1,10 +1,22 @@
 # HMGNLP_Budget 전체 작업 현황 (active_tasks.md)
 
-> 최종 갱신: 2026-05-05
+> 최종 갱신: 2026-05-06
 
 ---
 
 ## ✅ 완료된 작업 이력
+
+### 2026-05-06 — 교육신청 위저드 4단계 구조 통일 (Phase 1)
+
+- [x] **apply.js** — Stepper 라벨 통일: 패턴A "세부산출근거" → 항상 "교육유형 선택"
+- [x] **apply.js** — Step 2에서 운영계획 선택 영역(`_renderPlanPickerSection`) 제거
+- [x] **apply.js** — Step 2 다음 버튼: 패턴A 운영계획 필수체크 제거 (예산 계정 선택만 확인)
+- [x] **apply.js** — Step 3: `_isPatternA` 분기 제거 → 항상 교육유형 선택 렌더링
+- [x] **apply.js** — Step 4: 패턴A 전용 운영계획 연결 + 과정-차수 맵핑 독립 섹션 추가
+- [x] **fo_apply_form.js** — Step 2 운영계획 선택 제거 (apply.js 동일)
+- [x] **fo_apply_form.js** — Step 2 다음 버튼 단순화 (apply.js 동일)
+- [x] **fo_apply_form.js** — Step 4 패턴A 전용 운영계획 섹션 추가 (apply.js 동일)
+- [x] **설계 확정**: 1 운영계획 → N 과정, 프로세스 패턴 자동 제어 (form_config 대상 아님)
 
 ### 2026-05-05 — FO 교육신청·교육결과 BO 양식 동기화
 

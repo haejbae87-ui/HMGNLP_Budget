@@ -517,40 +517,18 @@ ${
 </div>`
     : ""
 }
-${(() => {
-  // ★ 교육운영 패턴A: 교육계획 선택 영역 추가
-  if (!s.budgetId || s.purpose?.id === "external_personal") return "";
-  const _pi =
-    typeof getProcessPatternInfo !== "undefined" && curBudget
-      ? getProcessPatternInfo(
-          currentPersona,
-          s.purpose?.id,
-          curBudget.accountCode,
-        )
-      : null;
-  if (_pi?.pattern !== "A") return "";
-  return _renderPlanPickerSection(s, "operator");
-})()}`;
+// ★ 운영계획 선택은 Step 4로 이동 (위저드 구조 통일)
+`;
     })()}
 
     <div class="flex justify-between mt-6">
       <button onclick="applyPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
       ${(() => {
         const isInd = s.purpose?.id === "external_personal";
-        // ★ 패턴A 교육계획 필수 체크: R&D 또는 교육운영 패턴A
-        const _pi2 =
-          !isInd && curBudget && typeof getProcessPatternInfo !== "undefined"
-            ? getProcessPatternInfo(
-                currentPersona,
-                s.purpose?.id,
-                curBudget?.accountCode,
-              )
-            : null;
-        const isPatA = _pi2?.pattern === "A";
-        const hasPlanSelected = s.planId || (s.planIds && s.planIds.length > 0);
+        // ★ Step 2: 예산 계정 선택만 확인 (운영계획은 Step 4에서)
         const ok = isInd
-          ? s.budgetChoice && (s.budgetChoice !== "rnd" || hasPlanSelected)
-          : s.budgetId && (!isPatA || hasPlanSelected);
+          ? s.budgetChoice && (s.budgetChoice !== "rnd" || (s.planId || (s.planIds && s.planIds.length > 0)))
+          : s.budgetId;
         return `<button onclick="applyNext()" ${!ok ? "disabled" : ""}
           class="px-8 py-3 rounded-xl font-black text-sm transition ${!ok ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-brand text-white hover:bg-blue-900 shadow-lg"}">
           다음 →
@@ -690,6 +668,32 @@ ${(() => {
   <!--Step 4: Detail-->
     <div class="card p-8 ${s.step === 4 ? "" : "hidden"}">
       <h2 class="text-lg font-black text-gray-800 mb-4">04. 세부 정보 입력</h2>
+
+      <!-- ★ 패턴A 전용: 운영계획 연결 + 과정-차수 맵핑 -->
+      ${(() => {
+        if (!_isPatternA) return "";
+        const isPatA = typeof _isPatternA === "function" ? _isPatternA(s) : false;
+        if (!isPatA) return "";
+        return `
+      <div style="border-left:4px solid #7C3AED;border-radius:16px;background:white;border:2px solid #EDE9FE;padding:24px;margin-bottom:24px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="font-size:16px">📋</span>
+          <span style="font-size:15px;font-weight:900;color:#111827">연결된 운영계획</span>
+          <span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;background:#F3E8FF;color:#7C3AED">패턴 A</span>
+        </div>
+        <p style="font-size:12px;color:#6B7280;margin:0 0 16px">이 교육신청과 연결할 승인된 운영계획을 선택하고, 운영할 과정과 차수를 지정하세요.</p>
+        ${typeof _renderPlanPickerSection === "function" ? _renderPlanPickerSection(s, "operator") : ""}
+        ${s.planId && typeof _renderLineItemsStep === "function" ? `
+          <div style="margin-top:16px;padding-top:16px;border-top:1px solid #E5E7EB">
+            <div style="font-size:13px;font-weight:900;color:#1D4ED8;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+              <span style="font-size:14px">📺</span> 연결 과정 목록
+            </div>
+            <div style="font-size:11px;color:#6B7280;margin-bottom:12px">이 운영계획으로 운영할 과정과 차수를 선택하세요.</div>
+            ${_renderLineItemsStep(s)}
+          </div>
+        ` : ""}
+      </div>`;
+      })()}
 
       <!-- 이전 단계 선택 요약 배너 -->
       <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 mb-6">

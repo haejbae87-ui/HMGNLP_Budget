@@ -351,55 +351,30 @@ function renderAllocOverview(year) {
   let myBudgets = allBudgets.filter(
     (ab) => (ab.fiscalYear || 2026) === _allocYear,
   );
-  // 필터: 계정 코드 필터 적용 (auto-select 방식)
-  // DB code(예: RAD-통합관리) → 메모리 accountCode(예: HMC-RND) 역매핑 포함
-  if (_allocFilterAccountCode) {
-    // 1) 직접 매칭: DB code == 메모리 accountCode
-    const exactMatch = myBudgets.find(ab => ab.accountCode === _allocFilterAccountCode);
 
-    // 2) 부분 매칭
-    const partialMatch = !exactMatch ? myBudgets.find(ab =>
-      (ab.accountCode || '').includes(_allocFilterAccountCode) || _allocFilterAccountCode.includes(ab.accountCode || '')
-    ) : null;
+  // ── 디버그 로그 (문제 진단용) ──
+  console.log('[renderAllocOverview] ACCOUNT_BUDGETS:', ACCOUNT_BUDGETS.length,
+    'allBudgets:', allBudgets.length, 'myBudgets:', myBudgets.length,
+    'filter:', _allocFilterAccountCode, 'tenant:', _allocFilterTenant, 'year:', _allocYear);
 
-    // 3) 계정명 매칭 (DB name vs ACCOUNT_MASTER.name)
-    const nameMatch = (!exactMatch && !partialMatch && _allocFilterAccountName) ? myBudgets.find(ab => {
-      const masterName = (typeof ACCOUNT_MASTER !== 'undefined' ? ACCOUNT_MASTER : []).find(x => x.code === ab.accountCode)?.name || '';
-      return masterName && (masterName.includes(_allocFilterAccountName) || _allocFilterAccountName.includes(masterName));
-    }) : null;
-
-    // 4) DB budget_accounts → 메모리 ACCOUNT_BUDGETS 역매핑
-    //    DB의 code(RAD-통합관리)로 DB목록에서 budget_account를 찾고,
-    //    그 budget_account의 virtual_org_template_id로 메모리 accountCode를 추정
-    const dbAcct = _allocFilterAcctList.find(a => a.code === _allocFilterAccountCode);
-    const dbCrossMatch = (!exactMatch && !partialMatch && !nameMatch && dbAcct) ? myBudgets.find(ab => {
-      // DB의 name이 메모리 accountCode를 포함하거나 그 반대
-      return (dbAcct.name || '').includes(ab.accountCode || '') || (ab.accountCode || '').includes((dbAcct.name || ''));
-    }) : null;
-
-    // 5) ★ DB id 기반 최종 역매핑: _syncAllocFromDB가 DB code를 메모리에 반영했을 수 있음
-    //    _allocFilterAcctList에서 선택 계정의 DB id를 가져오고,
-    //    ACCOUNT_BUDGETS에서 dbAccountId가 일치하는 항목을 찾음
-    let dbIdMatch = null;
-    if (!exactMatch && !partialMatch && !nameMatch && !dbCrossMatch && dbAcct) {
-      dbIdMatch = myBudgets.find(ab => ab.dbAccountId === dbAcct.id);
-      // 없으면 index 순서 기반 폴백: 같은 VOrg 내에서 순서 매칭
-      if (!dbIdMatch && _allocFilterTplId) {
-        const tplAccts = _allocFilterAcctList.filter(a => a.virtual_org_template_id === _allocFilterTplId);
-        const selectedIdx = tplAccts.findIndex(a => a.code === _allocFilterAccountCode);
-        if (selectedIdx >= 0 && selectedIdx < myBudgets.length) {
-          dbIdMatch = myBudgets[selectedIdx];
-        }
-      }
-    }
-
-    // 6) 선택된 계정이 하나뿐이면 그냥 첫번째를 선택 (확실한 폴백)
-    const singleMatch = (!exactMatch && !partialMatch && !nameMatch && !dbCrossMatch && !dbIdMatch && myBudgets.length === 1)
-      ? myBudgets[0] : null;
-
-    const matched = exactMatch || partialMatch || nameMatch || dbCrossMatch || dbIdMatch || singleMatch;
-    if (matched) {
-      _allocSelectedAbId = matched.id;
+  // ── 필터 계정 코드 매칭 (단순화) ──────────────────────────────────────────
+  if (_allocFilterAccountCode && myBudgets.length > 0) {
+    // 직접 매칭 (DB code == memory accountCode)
+    const match = myBudgets.find(ab => ab.accountCode === _allocFilterAccountCode)
+      // 부분 매칭
+      || myBudgets.find(ab => (ab.accountCode || '').includes(_allocFilterAccountCode) || _allocFilterAccountCode.includes(ab.accountCode || ''))
+      // DB id 매칭
+      || (() => { const da = _allocFilterAcctList.find(a => a.code === _allocFilterAccountCode); return da ? myBudgets.find(ab => ab.dbAccountId === da.id) : null; })()
+      // 계정명 매칭
+      || (() => {
+           if (!_allocFilterAccountName) return null;
+           return myBudgets.find(ab => {
+             const mn = (typeof ACCOUNT_MASTER !== 'undefined' ? ACCOUNT_MASTER : []).find(x => x.code === ab.accountCode)?.name || '';
+             return mn && (mn.includes(_allocFilterAccountName) || _allocFilterAccountName.includes(mn));
+           });
+         })();
+    if (match) {
+      _allocSelectedAbId = match.id;
     }
   }
 
@@ -411,6 +386,8 @@ function renderAllocOverview(year) {
     _allocSelectedAbId = myBudgets[0]?.id || null;
   }
   const ab = myBudgets.find((x) => x.id === _allocSelectedAbId);
+
+  console.log('[renderAllocOverview] selected:', _allocSelectedAbId, 'ab found:', !!ab, 'myBudgets codes:', myBudgets.map(b => b.accountCode));
 
   // ── 연도 선택 + 소진율 모니터링 + 계정 선택 패널 ──────────────────────────
   // 전체 계정 소진율 요약
@@ -503,11 +480,22 @@ function renderAllocOverview(year) {
   </div>
 </div>`;
 
-  if (!ab)
+  if (!ab) {
+    // 계정이 아직 로드되지 않았거나 없는 경우 — DB 로딩 대기 안내
+    if (myBudgets.length === 0) {
+      return topBarHtml + `
+      <div style="padding:40px;text-align:center">
+        <div style="font-size:28px;margin-bottom:8px">⏳</div>
+        <div style="color:#6B7280;font-size:13px;font-weight:700">예산 계정 데이터를 로드 중입니다...</div>
+        <div style="color:#9CA3AF;font-size:11px;margin-top:6px">DB에서 계정 정보를 가져오는 중입니다. 잠시 후 자동으로 갱신됩니다.</div>
+        <button onclick="_allocRefresh()" style="margin-top:14px;padding:8px 20px;border-radius:10px;border:2px solid #059669;background:#F0FDF4;color:#059669;font-weight:800;font-size:12px;cursor:pointer">🔄 수동 새로고침</button>
+      </div>`;
+    }
     return (
       topBarHtml +
       `<div style="padding:40px;text-align:center;color:#9CA3AF">계정을 선택하세요.</div>`
     );
+  }
 
   return topBarHtml + renderAbDetail(ab);
 }

@@ -3519,7 +3519,19 @@ function renderBudgetMaster() {
       } catch (e) { console.warn("[BudgetMaster] sync:", e.message); }
       renderBudgetMaster();
     })();
-    ct.innerHTML = _bmFilterBarHtml() + '<div style="padding:80px;text-align:center;color:#6B7280;font-weight:600;font-size:14px">⏳ 예산계정 데이터 로딩 중...</div>';
+    ct.innerHTML = `
+      <div class="max-w-5xl mx-auto">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:16px">
+          <div>
+            <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">교육지원제도 기준정보 › 예산계정 마스터</div>
+            <h1 class="text-3xl font-black text-brand tracking-tight">🏦 예산계정 마스터</h1>
+            <p class="text-gray-500 text-sm mt-1">예산계정의 기초 예산 등록 및 연중 추가 배정을 관리합니다.</p>
+          </div>
+        </div>
+        ${_bmFilterBarHtml()}
+        <div style="padding:80px;text-align:center;color:#6B7280;font-weight:600;font-size:14px">⏳ 예산계정 데이터 로딩 중...</div>
+      </div>
+    `;
     return;
   }
 
@@ -3715,7 +3727,6 @@ function renderBudgetMaster() {
   }
 
   ct.innerHTML = `
-  ${_bmFilterBarHtml()}
   <div class="max-w-5xl mx-auto">
     <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:16px">
       <div>
@@ -3728,6 +3739,9 @@ function renderBudgetMaster() {
         <button onclick="boNavigate('allocation')" style="padding:8px 18px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;cursor:pointer;color:#6B7280">💰 예산 배정 →</button>
       </div>
     </div>
+    
+    ${_bmFilterBarHtml()}
+
     <!-- ★ 연도 오픈/마감 컨트롤 바 -->
     ${(() => {
       const yr = allocYear;

@@ -377,10 +377,9 @@ function renderBudgetMaster() {
 
   // renderAllocEntry는 기존 ACCOUNT_BUDGETS 기반 — myAcctData를 통해 보완
   // _bmFilterAcctCode가 선택됐을 때 해당 계정의 ab가 ACCOUNT_BUDGETS에 없으면 자동 생성
-  if (_bmFilterAcctCode && myAcctData.length > 0) {
-    const d = myAcctData[0];
+    // myAcctData 중 ACCOUNT_BUDGETS에 없는 항목 자동 생성 (전체 계정 대상)
+  myAcctData.forEach(d => {
     if (!d.abRef) {
-      // ACCOUNT_BUDGETS에 없으면 임시 항목 생성 (renderAllocEntry, submitAddBudget에서 사용)
       const newId = 'AB_BM_' + d.acct.code;
       if (!(typeof ACCOUNT_BUDGETS !== 'undefined' && ACCOUNT_BUDGETS.find(x => x.id === newId))) {
         (typeof ACCOUNT_BUDGETS !== 'undefined' ? ACCOUNT_BUDGETS : []).push({
@@ -395,14 +394,12 @@ function renderBudgetMaster() {
           status: 'confirmed',
           _fromDb: true,
         });
-        console.log('[renderBudgetMaster] ACCOUNT_BUDGETS 임시 항목 생성:', d.acct.code, newId);
       } else {
-        // 기존 항목의 금액 갱신
         const existing = ACCOUNT_BUDGETS.find(x => x.id === newId);
         if (existing) { existing.baseAmount = d.baseAmount; existing.totalAdded = d.totalAdded; }
       }
     }
-  }
+  });
 
   const allocEntryHtml = typeof renderAllocEntry === 'function' ? renderAllocEntry() : '';
   const acctLabel = _bmFilterAcctCode ? (_bmFilterAcctList.find(a => a.code === _bmFilterAcctCode)?.name || _bmFilterAcctCode) : '전체 계정';

@@ -318,14 +318,14 @@ _syncAllocFromDB()는 페르소나 로드 시에만 실행됨
 ```
 
 **해결 방향**: `renderBudgetMaster()` 내에서 DB의 `account_budgets` 테이블을
-직접 조회하여 요약 카드와 배정 폼을 채워야 함.
+직접 조회하여 요약 카드와 배정 폼을 채워야 함. **(✅ 2026-05-06 해결 완료)**
 
 ### 🟡 중요 갭: 기초 등록 폼의 계정 선택 문제
 
 **현상**: `_acctFixedLabel`이 표시되면 `<select id="init-ab">` DOM이 없음.
 → `submitInitBudget()`에서 `abId = ''` (빈 값) → 즉시 return.
 
-**해결 방향**: `submitInitBudget()`에서 `_bmFilterAcctCode`를 fallback으로 사용.
+**해결 방향**: `submitInitBudget()`에서 `_bmFilterAcctCode`를 fallback으로 사용 및 `add-ab` DOM 참조 추가. **(✅ 2026-05-06 해결 완료)**
 
 ### 🟢 개선 완료 항목
 
@@ -371,8 +371,8 @@ Step 4. [교육제도 > 예산 배정 및 관리] 에서
 
 | 우선순위 | 과제 | 영향도 |
 |---------|------|:---:|
-| P1 🔴 | `renderBudgetMaster()`에서 DB `account_budgets` 직접 조회하여 요약카드/배정폼 구성 | 기초 등록 불가 해소 |
-| P2 🔴 | `submitInitBudget()`에서 `_bmFilterAcctCode` fallback 처리 | 고정 라벨 상태에서 기초 등록 가능 |
+| P1 ✅ | `renderBudgetMaster()`에서 DB `account_budgets` 직접 조회하여 요약카드/배정폼 구성 | 기초 등록 불가 해소 (수정 완료) |
+| P2 ✅ | `submitInitBudget()`에서 `_bmFilterAcctCode` fallback 처리 | 고정 라벨 상태에서 기초 등록 가능 (수정 완료) |
 | P3 🟡 | "0개지만 모두 등록됨" 배너 표시 조건 수정 (`myBudgets.length > 0 && ...`) | 잘못된 OK 신호 제거 |
 | P4 🟡 | 기초 등록 완료 후 팀 배분 화면으로 안내 버튼 추가 | 워크플로우 연속성 |
 

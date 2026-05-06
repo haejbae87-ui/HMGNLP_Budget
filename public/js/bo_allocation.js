@@ -359,64 +359,71 @@ function renderAllocOverview(year) {
     return renderVorgManagerOverview();
   }
 
-  const allBudgets = (() => {
-    const raw = getPersonaAccountBudgets(persona);
-    // platform_admin (tenantId=null): 필터 테넌트로 범위 결정
-    if (!persona.tenantId) {
-      // _allocFilterTenant 우선, 없으면 _bmFilterTenant, 없으면 _allocFilterAcctList에서 첫 번째 테넌트, 없으면 'HMC'
-      const tid = _allocFilterTenant
-        || (typeof _bmFilterTenant !== 'undefined' ? _bmFilterTenant : null)
-        || (typeof TENANTS !== 'undefined' ? TENANTS.find(t => t.id !== 'SYSTEM')?.id : null)
-        || 'HMC';
-      const filtered = raw.filter(ab => ab.tenantId === tid);
-      // platform_admin인데 ACCOUNT_BUDGETS에 해당 테넌트 데이터가 없으면 전체 반환 (강제 로드 후 재필터)
-      if (filtered.length === 0 && raw.length > 0) {
-        console.log('[renderAllocOverview] platform_admin: tenant filter yielded empty, returning all raw:', raw.length, 'tid:', tid);
-        return raw;
-      }
-      return filtered;
-    }
-    return raw;
-  })();
-  const availableYears = [
-    ...new Set(allBudgets.map((ab) => ab.fiscalYear || 2026)),
-  ].sort((a, b) => b - a);
-  let myBudgets = allBudgets.filter(
-    (ab) => {
-      const fy = ab.fiscalYear || _allocYear;
-      if (ab._fromDb) return fy === _allocYear;
-      // mock 계정: DB 동기화된 동일 코드가 있으면 제외
-      const hasDbEntry = allBudgets.some(x => x._fromDb && x.accountCode === ab.accountCode && x.tenantId === ab.tenantId);
-      if (hasDbEntry) return false;
-      return fy === _allocYear;
-    }
+  // ── DB-first: _allocFilterAcctList 기준으로 myBudgets 구성 ───────────────
+  // _allocFilterAcctList = DB에서 로드한 계정 목록 (tenant+active+uses_budget 필터 적용)
+  // 이 목록을 기반으로 ACCOUNT_BUDGETS에서 매칭하거나 신규 생성
+  const resolvedTenantId = _allocFilterTenant
+    || persona.tenantId
+    || (typeof _bmFilterTenant !== 'undefined' ? _bmFilterTenant : null)
+    || 'HMC';
+
+  // 권한 필터: persona.allowedAccounts 기반
+  const personaAllowed = persona.allowedAccounts || [];
+  const isPersonaSystem = personaAllowed.includes('*') || !persona.tenantId;
+  const isPlatformOrTenantGlobal = persona.role === 'platform_admin' || persona.role === 'tenant_global_admin';
+
+  // DB 계정 목록(_allocFilterAcctList)에서 권한에 맞는 항목 필터
+  const visibleDbAccts = (_allocFilterAcctList || []).filter(a =>
+    isPlatformOrTenantGlobal || isPersonaSystem || personaAllowed.includes(a.code)
   );
-  // myBudgets가 비어있으면: 연도 필터 레거시 폴백 (fiscalYear 하드코딩된 mock)
-  if (myBudgets.length === 0 && allBudgets.length > 0) {
-    myBudgets = allBudgets;
+
+  // visibleDbAccts → ACCOUNT_BUDGETS 매칭하여 myBudgets 구성
+  let myBudgets = visibleDbAccts.map(dbAcct => {
+    // DB-synced 엔트리 우선 (_fromDb=true)
+    let ab = ACCOUNT_BUDGETS.find(x =>
+      x.accountCode === dbAcct.code && x.tenantId === resolvedTenantId && x._fromDb
+    );
+    // _fromDb 없으면 mock 엔트리 사용
+    if (!ab) ab = ACCOUNT_BUDGETS.find(x =>
+      x.accountCode === dbAcct.code && x.tenantId === resolvedTenantId
+    );
+    // 그것도 없으면 임시 객체 생성 (DB에서 계정은 있지만 예산 미등록 상태)
+    if (!ab) {
+      ab = {
+        id: 'AB_VIRTUAL_' + dbAcct.code,
+        tenantId: resolvedTenantId,
+        accountCode: dbAcct.code,
+        fiscalYear: _allocYear,
+        baseAmount: 0,
+        totalAdded: 0,
+        status: 'open',
+        _virtual: true,
+      };
+    }
+    return ab;
+  });
+
+  // DB 계정 목록이 비어있으면 ACCOUNT_BUDGETS 인메모리 fallback (테넌트 필터 적용)
+  if (myBudgets.length === 0) {
+    const raw = getPersonaAccountBudgets(persona);
+    const tenantFiltered = persona.tenantId
+      ? raw
+      : raw.filter(ab => ab.tenantId === resolvedTenantId);
+    myBudgets = (tenantFiltered.length > 0 ? tenantFiltered : raw).filter(
+      ab => (ab.fiscalYear || _allocYear) === _allocYear
+    );
+    if (myBudgets.length === 0) myBudgets = tenantFiltered.length > 0 ? tenantFiltered : raw;
   }
 
-  // ── 디버그 로그 (문제 진단용) ──
+  // ── 디버그 로그 ──
   console.log('[renderAllocOverview] ACCOUNT_BUDGETS:', ACCOUNT_BUDGETS.length,
-    'allBudgets:', allBudgets.length, 'myBudgets:', myBudgets.length,
-    'filter:', _allocFilterAccountCode, 'tenant:', _allocFilterTenant, 'year:', _allocYear);
+    'dbAccts:', visibleDbAccts.length, 'myBudgets:', myBudgets.length,
+    'filter:', _allocFilterAccountCode, 'tenant:', resolvedTenantId, 'year:', _allocYear);
 
-  // ── 필터 계정 코드 매칭 (단순화) ──────────────────────────────────────────
+  // ── 필터 계정 코드 매칭 ──────────────────────────────────────────
   if (_allocFilterAccountCode && myBudgets.length > 0) {
-    // 직접 매칭 (DB code == memory accountCode)
     const match = myBudgets.find(ab => ab.accountCode === _allocFilterAccountCode)
-      // 부분 매칭
-      || myBudgets.find(ab => (ab.accountCode || '').includes(_allocFilterAccountCode) || _allocFilterAccountCode.includes(ab.accountCode || ''))
-      // DB id 매칭
-      || (() => { const da = _allocFilterAcctList.find(a => a.code === _allocFilterAccountCode); return da ? myBudgets.find(ab => ab.dbAccountId === da.id) : null; })()
-      // 계정명 매칭
-      || (() => {
-           if (!_allocFilterAccountName) return null;
-           return myBudgets.find(ab => {
-             const mn = (typeof ACCOUNT_MASTER !== 'undefined' ? ACCOUNT_MASTER : []).find(x => x.code === ab.accountCode)?.name || '';
-             return mn && (mn.includes(_allocFilterAccountName) || _allocFilterAccountName.includes(mn));
-           });
-         })();
+      || myBudgets.find(ab => (ab.accountCode || '').includes(_allocFilterAccountCode) || _allocFilterAccountCode.includes(ab.accountCode || ''));
     if (match) {
       _allocSelectedAbId = match.id;
     }

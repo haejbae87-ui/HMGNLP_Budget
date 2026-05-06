@@ -512,7 +512,7 @@ async function _bamSaveAccount() {
       const { error } = await sb.from("budget_accounts").update(payload).eq("id", _bamEditId);
       if (error) throw error;
       const pp = { budget_account_id: _bamEditId, vorg_template_id: window._baTplId,
-        bankbook_mode: d.bankbook_mode || 'isolated', bankbook_level: "team", updated_at: new Date().toISOString(),
+        bankbook_mode: d.bankbook_mode || 'team', bankbook_level: (d.bankbook_mode === 'bulk' ? 'org' : d.bankbook_mode === 'individual' ? 'individual' : 'team'), updated_at: new Date().toISOString(),
         individual_limit: d.bankbook_mode === "individual" && d.individual_limit ? Number(d.individual_limit) : null };
       await sb.from("budget_account_org_policy").upsert(pp, { onConflict: "budget_account_id,vorg_template_id" });
     } else {
@@ -755,7 +755,7 @@ ${d.uses_budget ? `
   <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px">통장 생성 정책</label>
   <div style="font-size:10px;color:#9CA3AF;margin-bottom:8px">가상교육조직에 상위 조직을 맵핑했을 때 통장 생성 방식</div>
   <div style="display:flex;gap:10px;flex-wrap:wrap">
-    ${[{v:'isolated',c:'#7C3AED',l:'팀별 분리 통장',s:'하위 팀마다 개별 통장'},{v:'shared',c:'#D97706',l:'상위 조직 공유 통장',s:'본부단위 통장 1개, 하위 팀 공유'},{v:'individual',c:'#059669',l:'👤 개인별 분리 통장',s:'팀원 1인당 개별 통장'}]
+    ${[{v:'bulk',c:'#D97706',l:'🏦 일괄 통장 (교육조직)',s:'교육조직 통장까지만 배분. 팀 드릴다운 없음'},{v:'team',c:'#059669',l:'🏅 팀별 통장',s:'교육조직 → 팀 단계별 드릴다운 배분'},{v:'individual',c:'#7C3AED',l:'👤 개인별 통장',s:'교육조직 → 개인 직접 배분 (팀 단계 없음)'}]
       .map(o=>`<label style="display:flex;align-items:flex-start;gap:8px;padding:12px 14px;border:1.5px solid ${d.bankbook_mode===o.v?o.c:'#E5E7EB'};border-radius:10px;cursor:pointer;background:${d.bankbook_mode===o.v?o.c+'15':'#fff'};flex:1;min-width:140px"
         onclick="_bamDetailData.bankbook_mode='${o.v}';_bamRenderTabs()"><input type="radio" name="bam-bm" ${d.bankbook_mode===o.v?'checked':''} style="accent-color:${o.c};margin-top:2px">
         <div><div style="font-size:11px;font-weight:800;color:${o.c}">${o.l}</div><div style="font-size:10px;color:#6B7280;margin-top:2px">${o.s}</div></div></label>`).join('')}

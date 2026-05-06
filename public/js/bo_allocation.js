@@ -1219,7 +1219,7 @@ async function submitInitBudget() {
       console.log(`[BO] initBudget saved: ${ab.accountCode} ${amount}`);
       // ★ Audit Trail: account_budget_adjustments 저장
       try {
-        await sb.from('account_budget_adjustments').insert({
+        const { error: auditErr } = await sb.from('account_budget_adjustments').insert({
           account_code: ab.accountCode,
           fiscal_year: year,
           type: '기초입력',
@@ -1228,9 +1228,11 @@ async function submitInitBudget() {
           performed_by: boCurrentPersona?.name || '',
           tenant_id: ab.tenantId || _bmFilterTenant || '',
         });
+        if (auditErr) throw auditErr;
         console.log('[BO] Audit Trail 저장 완료 (기초입력)');
       } catch (auditErr) {
-        console.warn('[BO] Audit Trail 저장 실패 (non-critical):', auditErr.message);
+        console.warn('[BO] Audit Trail 저장 실패:', auditErr.message);
+        alert(`⚠️ 변경 이력(Audit Trail) 저장에 실패했습니다.\n사유: ${auditErr.message}`);
       }
       // #13-P2: sync budget_allocations so FO balance reflects new total
       await _syncBudgetAllocations(sb, ab, amount, 0, _allocYear || new Date().getFullYear());
@@ -1324,7 +1326,7 @@ async function submitAddBudget() {
       // ★ Audit Trail: account_budget_adjustments 저장
       try {
         const adjYear = _allocYear || new Date().getFullYear();
-        await sb.from('account_budget_adjustments').insert({
+        const { error: auditErr } = await sb.from('account_budget_adjustments').insert({
           account_code: ab.accountCode,
           fiscal_year: adjYear,
           type: '추가배정',
@@ -1333,9 +1335,11 @@ async function submitAddBudget() {
           performed_by: boCurrentPersona?.name || '',
           tenant_id: ab.tenantId || (typeof _bmFilterTenant !== 'undefined' ? _bmFilterTenant : '') || '',
         });
+        if (auditErr) throw auditErr;
         console.log('[BO] Audit Trail 저장 완료 (추가배정)');
       } catch (auditErr) {
-        console.warn('[BO] Audit Trail 저장 실패 (non-critical):', auditErr.message);
+        console.warn('[BO] Audit Trail 저장 실패:', auditErr.message);
+        alert(`⚠️ 변경 이력(Audit Trail) 저장에 실패했습니다.\n사유: ${auditErr.message}`);
       }
       // #13-P2: sync budget_allocations so FO balance reflects new total
       await _syncBudgetAllocations(sb, ab, newTotal, ab.usedAmount || 0, _allocYear || new Date().getFullYear());
@@ -1424,13 +1428,17 @@ async function submitRecallBudget() {
 
     // Audit Trail 저장
     try {
-      await sb.from('account_budget_adjustments').insert({
+      const { error: auditErr } = await sb.from('account_budget_adjustments').insert({
         account_code: ab.accountCode, fiscal_year: year,
         type: '회수', amount, reason,
         performed_by: boCurrentPersona?.name || '',
         tenant_id: ab.tenantId || (typeof _bmFilterTenant !== 'undefined' ? _bmFilterTenant : '') || '',
       });
-    } catch (e2) { console.warn('[recall] Audit Trail 저장 실패:', e2.message); }
+      if (auditErr) throw auditErr;
+    } catch (e2) {
+      console.warn('[recall] Audit Trail 저장 실패:', e2.message);
+      alert(`⚠️ 변경 이력(Audit Trail) 저장에 실패했습니다.\n사유: ${e2.message}`);
+    }
 
     alert(`✅ 회수 완료!\n\n계정: ${acctName}\n-${boFmt(amount)}원 회수\n새 총예산: ${boFmt(newTotal)}원`);
     if (typeof boCurrentMenu !== 'undefined' && boCurrentMenu === 'budget-master') renderBudgetMaster();

@@ -1,4 +1,4 @@
-// ─── 예산 배정 및 관리 (v2 — 통합 드릴다운) ──────────────────────────────────
+﻿// ─── 예산 배정 및 관리 (v2 — 통합 드릴다운) ──────────────────────────────────
 // 계층: 예산 계정(마스터) → 교육조직 → 팀 → (개인)
 // 탭:   현황 | 최초 할당(총괄) | 예산 배분(드릴다운) | 변경 이력
 
@@ -1724,10 +1724,11 @@ async function _syncAllocFromDB(persona) {
     const acctIds = [...new Set(bankbooks.map((b) => b.account_id))];
     const { data: accts } = await sb
       .from("budget_accounts")
-      .select("id, code, uses_budget, integration_mode")
-      .in("id", acctIds);
+      .select("id, code, uses_budget, integration_mode, virtual_org_template_id")
+      .eq("tenant_id", tenantId).eq("active", true).eq("uses_budget", true);
     const acctMap = {};
-    (accts || []).forEach((a) => { acctMap[a.id] = a; });
+    const acctCodeMap = {}; // code -> acct (BA-CODE-TPL_xxx 복합키 bankbook 매칭용)
+    (accts || []).forEach((a) => { acctMap[a.id] = a; acctCodeMap[a.code] = a; });
 
     // 3-b. 통장 정책 캐시 로드 (bankbook_mode 기반 UI 분기용)
     try {
@@ -1760,11 +1761,23 @@ async function _syncAllocFromDB(persona) {
       }
     });
 
-    // 5. TEAM_DIST ����
+    // 5. TEAM_DIST 구성 (bankbook → allocation → ACCOUNT_BUDGET 매핑)
     let syncCount = 0;
     for (const bb of bankbooks) {
-      const acct = acctMap[bb.account_id];
-      if (!acct || !acct.uses_budget) continue;
+      // Bug Fix: account_id = 'BA-HMC-RND-TPL_xxx' 복합키에서 accountCode 추출
+      // 형식: BA-{accountCode}-TPL_{tplId} 또는 UUID
+      let acct = acctMap[bb.account_id]; // UUID 직접 매칭 (구형 레코드 호환)
+      if (!acct) {
+        // 복합키에서 accountCode 추출: 'BA-HMC-RND-TPL_...' → 'HMC-RND'
+        const codeFromId = bb.account_id?.replace(/^BA-/, '').replace(/-TPL_.*$/, '');
+        acct = codeFromId ? acctCodeMap[codeFromId] : null;
+        if (!acct && bb.template_id) {
+          // template_id 기반 fallback: 같은 templateId를 가진 계정 찾기
+          acct = (accts || []).find(a => a.virtual_org_template_id === bb.template_id);
+        }
+        if (!acct) { console.warn('[BO Alloc Sync] bankbook acct 매칭 실패:', bb.account_id); continue; }
+      }
+      if (!acct.uses_budget) continue;
 
       const alloc = allocMap[bb.id];
       if (!alloc) continue;

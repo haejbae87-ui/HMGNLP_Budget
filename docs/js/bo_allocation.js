@@ -427,6 +427,11 @@ function renderAllocOverview(year) {
     ),
   ].sort((a, b) => b - a);
 
+  // ⭐ 필터링 로직 추가: _allocFilterAccountCode가 있으면 해당 계정만 남기기
+  if (_allocFilterAccountCode) {
+    myBudgets = myBudgets.filter(ab => ab.accountCode === _allocFilterAccountCode);
+  }
+
   if (_allocFilterAccountCode && myBudgets.length > 0) {
     const match = myBudgets.find(ab => ab.accountCode === _allocFilterAccountCode)
       || myBudgets.find(ab => (ab.accountCode || '').includes(_allocFilterAccountCode) || _allocFilterAccountCode.includes(ab.accountCode || ''));
@@ -493,47 +498,54 @@ function renderAllocOverview(year) {
       .join("")}
   </div>
 
-  <!-- 소진율 모니터링 패널 -->
-  ${myBudgets.length > 0 ? `
-  <div style="margin-bottom:14px">
-    <div style="font-size:11px;font-weight:800;color:#475569;margin-bottom:8px;display:flex;align-items:center;gap:6px">
-      🔥 소진율 모니터링 <span style="font-size:10px;font-weight:500;color:#9CA3AF">(집행+가점유 / 총 배정)</span>
+  <div style="display:flex;gap:16px;flex-wrap:wrap">
+    <!-- 계정 선택 카드 패널 -->
+    <div style="flex:1;min-width:300px">
+      <div style="font-size:11px;font-weight:800;color:#475569;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        💰 배분가능 금액 (계정 선택)
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${myBudgets
+          .map((b) => {
+            const a = ACCOUNT_MASTER.find((x) => x.code === b.accountCode);
+            const isSel = b.id === _allocSelectedAbId;
+            // DB에서 integration_mode 조회
+            const dbAcct = (window._baAccountList || []).find(x => x.code === b.accountCode);
+            const intMode = dbAcct?.integration_mode || (b.sourceType === 'sap_if' ? 'sap' : 'self');
+            const isSAP = intMode === 'sap';
+            const tot = b.baseAmount + b.totalAdded;
+            const dist = TEAM_DIST.filter((t) => t.accountBudgetId === b.id).reduce(
+              (s, t) => s + t.allocAmount,
+              0,
+            );
+            const distrib = tot - dist;
+            return `<button onclick="selectAllocAb('${b.id}')" style="
+            display:flex;flex-direction:column;align-items:flex-start;gap:2px;
+            padding:10px 14px;border-radius:10px;cursor:pointer;flex:1;
+            border:2px solid ${isSel ? "#059669" : "#E5E7EB"};
+            background:${isSel ? "#F0FDF4" : "white"};
+            box-shadow:${isSel ? "0 0 0 3px #BBF7D0" : "none"}">
+            <div style="display:flex;align-items:center;gap:6px">
+              <code style="font-size:10px;font-weight:900;padding:1px 6px;border-radius:5px;background:${isSAP ? "#DBEAFE" : "#FFEDD5"};color:${isSAP ? "#1E40AF" : "#9A3412"}">${b.accountCode}</code>
+              <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:${isSAP ? '#EFF6FF' : '#FFF7ED'};color:${isSAP ? '#1D4ED8' : '#C2410C'}">${isSAP ? '🔗SAP' : '📋자체'}</span>
+              ${isSel ? '<span style="color:#059669;font-size:11px">✓</span>' : ""}
+            </div>
+            <div style="font-size:11px;font-weight:700;color:#111;white-space:nowrap">${a?.name || b.accountCode}</div>
+            <div style="font-size:10px;color:${distrib > 0 ? "#059669" : "#9CA3AF"};font-weight:600">${distrib > 0 ? "📦 " + boFmt(distrib) + "원 배분가능" : "완전 배분"}</div>
+          </button>`;
+          })
+          .join("")}
+      </div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">${burnRateCards}</div>
-  </div>` : ''}
 
-  <!-- 계정 선택 카드 패널 -->
-  <div style="display:flex;gap:8px;flex-wrap:wrap">
-    ${myBudgets
-      .map((b) => {
-        const a = ACCOUNT_MASTER.find((x) => x.code === b.accountCode);
-        const isSel = b.id === _allocSelectedAbId;
-        // DB에서 integration_mode 조회
-        const dbAcct = (window._baAccountList || []).find(x => x.code === b.accountCode);
-        const intMode = dbAcct?.integration_mode || (b.sourceType === 'sap_if' ? 'sap' : 'self');
-        const isSAP = intMode === 'sap';
-        const tot = b.baseAmount + b.totalAdded;
-        const dist = TEAM_DIST.filter((t) => t.accountBudgetId === b.id).reduce(
-          (s, t) => s + t.allocAmount,
-          0,
-        );
-        const distrib = tot - dist;
-        return `<button onclick="selectAllocAb('${b.id}')" style="
-        display:flex;flex-direction:column;align-items:flex-start;gap:2px;
-        padding:10px 14px;border-radius:10px;cursor:pointer;
-        border:2px solid ${isSel ? "#059669" : "#E5E7EB"};
-        background:${isSel ? "#F0FDF4" : "white"};
-        box-shadow:${isSel ? "0 0 0 3px #BBF7D0" : "none"}">
-        <div style="display:flex;align-items:center;gap:6px">
-          <code style="font-size:10px;font-weight:900;padding:1px 6px;border-radius:5px;background:${isSAP ? "#DBEAFE" : "#FFEDD5"};color:${isSAP ? "#1E40AF" : "#9A3412"}">${b.accountCode}</code>
-          <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:${isSAP ? '#EFF6FF' : '#FFF7ED'};color:${isSAP ? '#1D4ED8' : '#C2410C'}">${isSAP ? '🔗SAP' : '📋자체'}</span>
-          ${isSel ? '<span style="color:#059669;font-size:11px">✓</span>' : ""}
-        </div>
-        <div style="font-size:11px;font-weight:700;color:#111;white-space:nowrap">${a?.name || b.accountCode}</div>
-        <div style="font-size:10px;color:${distrib > 0 ? "#059669" : "#9CA3AF"};font-weight:600">${distrib > 0 ? "📦 " + boFmt(distrib) + "원 배분가능" : "완전 배분"}</div>
-      </button>`;
-      })
-      .join("")}
+    <!-- 소진율 모니터링 패널 -->
+    ${`
+    <div style="flex:1;min-width:300px">
+      <div style="font-size:11px;font-weight:800;color:#475569;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        🔥 소진율 모니터링 <span style="font-size:10px;font-weight:500;color:#9CA3AF">(집행+가점유 / 총 배정)</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${burnRateCards}</div>
+    </div>`}
   </div>
 </div>`;
 

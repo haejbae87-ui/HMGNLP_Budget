@@ -356,6 +356,16 @@ async function boApproveSubDoc(docId) {
           // submission_items.final_status → 'approved'
           await sb.from("submission_items").update({ final_status: "approved" }).eq("id", it.id);
 
+          // ── application_plan_items 상태 동기화 (교육신청 Line Items) ──
+          if (it.item_type === "application") {
+            try {
+              await sb.from("application_plan_items").update({
+                result_status: "approved",
+                updated_at: now
+              }).eq("application_id", it.item_id);
+            } catch(piErr) { console.warn("[boApproveSubDoc] plan_items 업데이트 skip:", piErr.message); }
+          }
+
           // 교육계획: allocated_amount 자동 배정 및 운영계획 복사
           if (it.item_type === "plan") {
             const { data: plan } = await sb.from("plans").select("*").eq("id", it.item_id).single();
@@ -458,6 +468,16 @@ async function boRejectSubDoc(docId) {
         await sb.from(table).update({ status: "saved", updated_at: now }).eq("id", it.item_id);
         // submission_items.final_status → 'rejected'
         await sb.from("submission_items").update({ final_status: "rejected" }).eq("id", it.id);
+
+        // ── application_plan_items 상태 동기화 (반려 시 pending 복귀) ──
+        if (it.item_type === "application") {
+          try {
+            await sb.from("application_plan_items").update({
+              result_status: "pending",
+              updated_at: now
+            }).eq("application_id", it.item_id);
+          } catch(piErr) { console.warn("[boRejectSubDoc] plan_items 업데이트 skip:", piErr.message); }
+        }
       }
 
       // 4) frozen_amount 해제
@@ -499,6 +519,64 @@ async function _boShowSubDocDetail(docId) {
     const { data } = await sb.from("approval_history")
       .select("*").eq("submission_id", docId).order("action_at");
     history = data || [];
+  }
+
+  // ── N-Line Items: 교육신청(application) 문서 → application_plan_items 조회 ──
+  let planItemsHtml = "";
+  if (doc.doc_type === "application" && sb) {
+    // submission_items에서 item_id(= application id)를 추출
+    const appIds = (doc.submission_items || []).filter(si => si.item_type === "application").map(si => si.item_id).filter(Boolean);
+    let allPlanItems = [];
+    for (const appId of appIds) {
+      const { data: piData } = await sb.from("application_plan_items")
+        .select("*").eq("application_id", appId).order("sort_order");
+      if (piData && piData.length > 0) allPlanItems = allPlanItems.concat(piData);
+    }
+    if (allPlanItems.length > 0) {
+      const piTotal = allPlanItems.reduce((s, pi) => s + Number(pi.subtotal || 0), 0);
+      planItemsHtml = `
+        <div style="margin-bottom:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase">📚 교육 과정-차수 상세 (${allPlanItems.length}건)</div>
+            <div style="font-size:12px;font-weight:900;color:#002C5F">${piTotal.toLocaleString()}원</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+          ${allPlanItems.map((pi, idx) => {
+            const sessions = pi.linked_sessions || [];
+            const sessionsLabel = sessions.length > 0
+              ? sessions.map(s => s.name || s.session_no || '차수').join(', ')
+              : '차수 미연결';
+            const eduTypeLabel = pi.edu_type || '-';
+            const eduTypeBg = pi.edu_type === '이러닝' ? '#DBEAFE' : pi.edu_type === '집합' ? '#FEF3C7' : '#F3F4F6';
+            const eduTypeColor = pi.edu_type === '이러닝' ? '#1E40AF' : pi.edu_type === '집합' ? '#92400E' : '#6B7280';
+            return `
+            <div style="border:1px solid #E5E7EB;border-radius:10px;overflow:hidden;background:white">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:linear-gradient(135deg,#F9FAFB,#EFF6FF);border-bottom:1px solid #E5E7EB">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:13px;font-weight:900;color:#111827">${idx + 1}. ${pi.course_name || '과정명 미지정'}</span>
+                  <span style="font-size:10px;padding:2px 8px;border-radius:4px;background:${eduTypeBg};color:${eduTypeColor};font-weight:700">${eduTypeLabel}</span>
+                </div>
+                <span style="font-size:13px;font-weight:900;color:#002C5F">${Number(pi.subtotal || 0).toLocaleString()}원</span>
+              </div>
+              <div style="padding:10px 14px;display:grid;grid-template-columns:1fr 1fr;gap:6px 16px">
+                ${pi.institution_name ? `<div style="font-size:11px;color:#6B7280">🏫 <span style="font-weight:600;color:#374151">${pi.institution_name}</span></div>` : ''}
+                ${pi.plan_id ? `<div style="font-size:11px;color:#6B7280">📋 <span style="font-weight:600;color:#374151">${pi.plan_id.substring(0,8)}...</span></div>` : ''}
+                ${(pi.start_date || pi.end_date) ? `<div style="font-size:11px;color:#6B7280">📅 <span style="font-weight:600;color:#374151">${pi.start_date || ''}${pi.end_date ? ' ~ ' + pi.end_date : ''}</span></div>` : ''}
+                ${pi.budget_usage_type ? `<div style="font-size:11px;color:#6B7280">💳 <span style="font-weight:600;color:#374151">${pi.budget_usage_type}</span></div>` : ''}
+                ${pi.settlement_method ? `<div style="font-size:11px;color:#6B7280">⚖️ <span style="font-weight:600;color:#374151">${pi.settlement_method}</span></div>` : ''}
+              </div>
+              ${sessions.length > 0 ? `
+              <div style="padding:6px 14px 10px;border-top:1px solid #F3F4F6">
+                <div style="font-size:10px;font-weight:700;color:#9CA3AF;margin-bottom:4px">🎯 LMS 차수</div>
+                <div style="display:flex;flex-wrap:wrap;gap:4px">
+                  ${sessions.map(s => `<span style="font-size:10px;padding:3px 8px;border-radius:4px;background:#EDE9FE;color:#7C3AED;font-weight:600">${s.name || s.session_no || '차수'}</span>`).join('')}
+                </div>
+              </div>` : ''}
+            </div>`;
+          }).join('')}
+          </div>
+        </div>`;
+    }
   }
 
   let itemsHtml = "";
@@ -587,6 +665,8 @@ async function _boShowSubDocDetail(docId) {
           </div>`
         : ""
       }
+
+      ${planItemsHtml}
 
       <div style="margin-bottom:16px">
         <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:8px;text-transform:uppercase">첨부 건 목록</div>

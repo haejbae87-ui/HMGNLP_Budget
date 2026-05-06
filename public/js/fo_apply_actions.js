@@ -1073,6 +1073,22 @@ function _showPlanPickerPopup() {
     const checks = overlay.querySelectorAll("._ppCb");
     const newIds = [];
     checks.forEach(cb => { if (cb.checked) newIds.push(cb.value); });
+
+    // ── EC-07: 교육유형 불일치 검증 (같은 교육유형만 묶기 허용) ──
+    if (newIds.length > 1) {
+      const plans = typeof _dbApprovedPlans !== "undefined" ? _dbApprovedPlans : [];
+      const eduTypes = new Set();
+      newIds.forEach(id => {
+        const pl = plans.find(p => p.id === id);
+        if (pl && pl.edu_type) eduTypes.add(pl.edu_type);
+      });
+      if (eduTypes.size > 1) {
+        const typeList = Array.from(eduTypes).join(", ");
+        alert(`⚠️ 교육유형 불일치\n\n선택한 교육계획의 교육유형이 서로 다릅니다:\n→ ${typeList}\n\n같은 교육유형의 계획만 하나의 신청서에 묶을 수 있습니다.\n교육유형이 다른 계획은 별도 신청서로 나누어 주세요.`);
+        return;
+      }
+    }
+
     applyState.planIds = newIds;
     applyState.planId = newIds[0] || "";
     close();

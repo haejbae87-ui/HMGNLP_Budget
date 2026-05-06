@@ -1737,12 +1737,32 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
           아래 [+ 교육계획 추가] 버튼을 눌러 승인된 교육계획을 선택하세요.
         </div>`;
 
+    // ── EC-07: 교육유형 불일치 실시간 경고 ──
+    let eduTypeMismatchBanner = '';
+    if (selectedPlans.length > 1) {
+      const eduTypesSet = new Set();
+      selectedPlans.forEach(pl => { if (pl.edu_type) eduTypesSet.add(pl.edu_type); });
+      if (eduTypesSet.size > 1) {
+        const typeList = Array.from(eduTypesSet).join(', ');
+        eduTypeMismatchBanner = `
+          <div class="mx-5 mt-3 px-4 py-3 bg-red-50 border-2 border-red-300 rounded-xl text-xs font-bold text-red-700 flex items-start gap-2" style="animation:pulse 2s infinite">
+            <span style="font-size:16px;flex-shrink:0">⚠️</span>
+            <div>
+              <div class="font-black text-sm mb-1">교육유형 불일치 감지</div>
+              <div class="font-semibold text-red-600">선택된 계획의 교육유형: ${typeList}</div>
+              <div class="mt-1 text-red-500 font-normal">같은 교육유형의 계획만 하나의 신청서에 묶을 수 있습니다. 교육유형이 다른 계획을 삭제해 주세요.</div>
+            </div>
+          </div>`;
+      }
+    }
+
     return `
     <div class="mb-6 bg-blue-50 border-2 border-blue-200 rounded-2xl overflow-hidden shadow-sm">
       <div class="px-5 py-3 bg-blue-100 border-b border-blue-200 font-bold text-blue-800 flex items-center justify-between">
         <div class="flex items-center gap-2"><span>🔗</span> 승인된 교육계획 선택 및 구성</div>
         <button type="button" onclick="_showPlanPickerPopup()" class="px-3 py-1 bg-white text-blue-600 text-xs font-bold rounded-lg shadow-sm border border-blue-200 hover:bg-blue-50 transition">+ 교육계획 추가</button>
       </div>
+      ${eduTypeMismatchBanner}
       <div class="p-5 grid gap-3">
         ${plansHtml}
       </div>

@@ -6,6 +6,23 @@
 
 ## ✅ 완료된 작업 이력
 
+### 2026-05-06 — BO 결재문서 N-Line Items 렌더링 + 교육유형 불일치 경고
+
+- [x] **bo_approval.js** — `_boShowSubDocDetail()` 교육신청 상세 모달에 `application_plan_items` 조회 및 과정-차수 카드 렌더링 추가
+  - 교육신청(`doc_type === "application"`) 문서 → `submission_items.item_id`로 application ID 추출
+  - `application_plan_items` 테이블에서 과정명, 교육유형, LMS 차수, 소계 금액 등 조회
+  - 카드형 UI: 과정별 그라디언트 헤더 + 메타정보(교육기관, 기간, 예산구분, 정산방식) 그리드 + LMS 차수 태그
+  - 첨부 건 목록 상단에 계층적 Line Items 섹션 삽입
+- [x] **EC-07: 교육유형 불일치 경고** — 복수 교육계획 선택 시 edu_type 불일치 검증
+  - fo_apply_actions.js — `_showPlanPickerPopup()` 확인 시 edu_type 불일치 차단 (alert)
+  - apply.js — `_togglePlanPickerItem()` 선택 시 차단 (기존 코드, 이미 구현됨)
+  - apply.js — `submitApply()` 제출 전 최종 검증 (방어 로직)
+  - apply.js — `_renderPlanPickerSection()` 빨간색 경고 배너 실시간 표시
+  - fo_form_loader.js — `multiPlanSection` 빨간색 경고 배너 실시간 표시
+- [x] **BO 승인/반려 → `application_plan_items` 상태 동기화**
+  - `boApproveSubDoc()` — 최종 승인 시 `application_plan_items.result_status = 'approved'`
+  - `boRejectSubDoc()` — 반려 시 `application_plan_items.result_status = 'pending'` (재상신 대비)
+
 ### 2026-05-06 — 교육신청 위저드 4단계 구조 통일 (Phase 1~4 완료)
 
 - [x] **Phase 1: 위저드 구조 통일**

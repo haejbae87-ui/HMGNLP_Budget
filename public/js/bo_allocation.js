@@ -949,9 +949,15 @@ function renderAllocEntry() {
   // ★ 상단 필터 연동: 예산계정 마스터에서 계정을 선택했으면 해당 계정만 표시
   const filterAcct = typeof _bmFilterAcctCode !== 'undefined' ? _bmFilterAcctCode : null;
   if (filterAcct) myBudgets = myBudgets.filter(ab => ab.accountCode === filterAcct);
-  const platformBudgets = myBudgets.filter(
-    (ab) => ab.sourceType === "platform",
-  );
+  // ★ integration_mode는 DB에서 갓 로드된 _bmFilterAcctList/_allocFilterAcctList를 우선 참조
+  //    (ACCOUNT_BUDGETS.sourceType이 캐시된 구값일 수 있음)
+  const _liveAcctList = (typeof _bmFilterAcctList !== 'undefined' ? _bmFilterAcctList : [])
+    .concat(typeof _allocFilterAcctList !== 'undefined' ? _allocFilterAcctList : []);
+  const platformBudgets = myBudgets.filter(ab => {
+    const liveAcct = _liveAcctList.find(a => a.code === ab.accountCode);
+    if (liveAcct) return liveAcct.integration_mode !== 'sap';
+    return ab.sourceType === 'platform'; // fallback
+  });
 
   // ★ 상단 필터에서 계정이 선택된 경우 — 드롭다운 대신 고정 라벨 표시
   const _filterAcctName = filterAcct && typeof _bmFilterAcctList !== 'undefined'

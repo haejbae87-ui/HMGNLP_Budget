@@ -3427,14 +3427,18 @@ async function _bmSyncAccountBudgets(sb, tenantId) {
   if (!sb || !tenantId) return;
   try {
     const year = typeof _allocYear !== 'undefined' ? _allocYear : new Date().getFullYear();
-    const { data: rows, error } = await sb
-      .from('account_budgets')
-      .select('account_code, total_budget, fiscal_year, tenant_id')
-      .eq('tenant_id', tenantId)
-      .eq('fiscal_year', year);
-    if (error) throw error;
+    // account_code 목록으로 필터 (tenant_id 컬럼이 없는 경우에도 동작하도록)
+    const acctCodes = (typeof _bmFilterAcctList !== 'undefined' ? _bmFilterAcctList : []).map(a => a.code).filter(Boolean);
+    if (acctCodes.length === 0) return;
+
+    let query = sb.from('account_budgets').select('account_code, total_budget, fiscal_year').eq('fiscal_year', year).in('account_code', acctCodes);
+    const { data: rows, error } = await query;
+    if (error) {
+      console.warn('[_bmSyncAccountBudgets] 쿼리 실패:', error.message, '— baseAmount 동기화 건너뜀');
+      return;
+    }
     if (!rows || rows.length === 0) {
-      console.log('[_bmSyncAccountBudgets] account_budgets 레코드 없음 (tenant:', tenantId, 'year:', year, ')');
+      console.log('[_bmSyncAccountBudgets] account_budgets 레코드 없음 (year:', year, 'codes:', acctCodes, ')');
       return;
     }
     rows.forEach(row => {

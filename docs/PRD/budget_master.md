@@ -1,10 +1,10 @@
 # 예산계정 마스터 요구사항 정의서 (PRD)
 
 > **도메인**: 예산관리 — 계정별 기초/추가 배정
-> **관련 파일**: `bo_budget_master.js`, `bo_allocation.js`, `bo_budget_account.js`
+> **관련 파일**: `bo_budget_master.js`, `bo_allocation.js`
 > **최초 작성**: 2026-05-06
 > **최종 갱신**: 2026-05-06
-> **상태**: 🟡 구현 갭 있음 (기초 배정 UI 존재, 데이터 동기화 단절)
+> **상태**: 🟡 구현 갭 있음 (회수·마감·변경이력 조회 미구현)
 
 ---
 
@@ -34,72 +34,133 @@
 
 ---
 
-## 3. 화면 구조
+## 3. DB 테이블 구조 (`account_budgets`)
+
+| 컬럼 | 타입 | 설명 | 상태 |
+|------|------|------|------|
+| `id` | uuid | PK | ✅ |
+| `account_code` | text | 예산계정 코드 (FK → budget_accounts) | ✅ |
+| `fiscal_year` | int | 회계연도 | ✅ |
+| `total_budget` | numeric | 기초+추가 합산 총예산 | ✅ |
+| `base_budget` | numeric | **기초 예산** (최초 등록액) | ⚠️ DB에 컬럼 추가 필요 |
+| `added_budget` | numeric | **추가 배정 누적액** | ⚠️ DB에 컬럼 추가 필요 |
+| `updated_at` | timestamp | 최종 수정 | ✅ |
+
+> [!WARNING]
+> `base_budget`, `added_budget` 컬럼이 DB에 없으면 코드는 `total_budget`만 저장하고,
+> 화면에서 기초/추가를 분리하여 표시할 수 없습니다.
+> **Supabase에서 두 컬럼을 추가해야 기초/추가 합계가 올바르게 표시됩니다.**
+
+---
+
+## 4. 화면 구조 및 기능 요구사항
 
 ```
-[상단 3단 필터] 회사 → 제도그룹(edu_support 유형만) → 예산계정 → [조회]
-      ↓ 조회 후
-[요약 카드 4개]  관리 계정 수 / 기초 예산 합계 / 추가 배정 합계 / 총 예산
+[상단 3단 필터] 회사 → 제도그룹(edu_support) → 예산계정 → [조회]
       ↓
-[기초 예산 등록 섹션]  ← baseAmount=0인 계정이 있을 때만 표시
-   대상 계정: [드롭다운 or 필터 고정 라벨]
-   연간 기초 예산 총액: [숫자 입력]
-   [📋 기초 예산 등록 확정]
-      ↓ 모든 계정 등록 완료 시 → 녹색 배너로 대체
-[추가 배정 섹션]  ← 항상 표시
-   추가 배정 계정: [드롭다운 or 필터 고정 라벨]
-   추가할 금액: [숫자 입력]
-   변경 사유 (Audit Trail 필수): [텍스트 입력]
-   [✅ 추가 배정 확정]
+[요약 카드]  기초 예산 합계 / 추가 배정 합계 / 총 예산
+      ↓
+[기초 예산 등록 섹션]  ← base_budget=0인 계정이 있을 때만 표시
+[추가 배정 섹션]       ← 항상 표시
+[배정 변경 이력]       ← ❌ 미구현 (변경사유 DB 미저장)
+[회수 섹션]            ← ❌ 미구현
+[마감 섹션]            ← ❌ 미구현
+```
+
+| 기능 | 구현 상태 | 비고 |
+|------|-----------|------|
+| 기초 예산 최초 등록 | ✅ | submitInitBudget() |
+| 추가 배정 | ✅ | submitAddBudget() |
+| 기초/추가 분리 표시 | ⚠️ | DB 컬럼 추가 필요 |
+| 변경 사유(Audit Trail) DB 저장 | ❌ | 인메모리에만 저장됨 |
+| 배정 변경 이력 조회 | ❌ | 미구현 |
+| 예산 회수 | ❌ | 미구현 |
+| 연도 마감 | ❌ | 미구현 |
+
+---
+
+## 5. 핵심 비즈니스 로직
+
+### 5.1 기초 예산 등록 (1회성)
+
+```javascript
+// 조건: DB account_budgets에 해당 account_code+fiscal_year 레코드 없거나 total_budget=0
+// 저장 방식: select → update or insert (upsert 불가 — unique constraint 없음)
+// 저장 컬럼: total_budget=amount, base_budget=amount, added_budget=0
+// fallback: base_budget 컬럼 없으면 total_budget만 저장
+```
+
+### 5.2 추가 배정 (연중 증액)
+
+```javascript
+// 조회: 기존 레코드에서 base_budget, added_budget 읽기
+// 계산: newAdded = prevAdded + amount
+//       newTotal = base_budget + newAdded
+// 저장: total_budget=newTotal, added_budget=newAdded
+// 변경 사유: ❌ 현재 인메모리(ACCOUNT_ADJUST_HISTORY)에만 저장
+//           → account_budget_adjustments 테이블 별도 구축 필요
+```
+
+### 5.3 렌더링 (DB 직접 조회 방식)
+
+```javascript
+// 계정 목록: _bmFilterAcctList (budget_accounts DB 쿼리)
+// 예산 금액: _bmDbBudgetData (account_budgets DB 쿼리)
+// ACCOUNT_BUDGETS 인메모리 mock 의존 없음
+// fallback: DB 레코드 없으면 ACCOUNT_BUDGETS 인메모리 참조
 ```
 
 ---
 
-## 4. 핵심 비즈니스 로직
+## 6. 미구현 기능 — 개발 계획
 
-### 4.1 기초 예산 등록 (1회성)
+### 6.1 변경 이력(Audit Trail) DB 저장 ❌
 
-```javascript
-// 조건: ACCOUNT_BUDGETS[i].sourceType === 'platform' && baseAmount === 0
-// 저장: account_budgets 테이블 upsert
-{
-  account_code, fiscal_year, total_budget: amount,
-  deducted: 0, holding: 0, tenant_id
-}
-// 추가: budget_allocations 동기화 (_syncBudgetAllocations)
-// 완료 후: renderBudgetMaster() 재렌더
+**필요 테이블**: `account_budget_adjustments`
+```sql
+CREATE TABLE account_budget_adjustments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_code text NOT NULL,
+  fiscal_year int NOT NULL,
+  type text NOT NULL,  -- '기초입력' | '추가배정' | '회수' | '마감'
+  amount numeric NOT NULL,
+  reason text NOT NULL,  -- Audit Trail 필수
+  performed_by text,
+  created_at timestamptz DEFAULT now()
+);
 ```
 
-**전제 조건**: `ACCOUNT_BUDGETS` 인메모리 배열에 해당 계정 데이터가 있어야 함.
-→ `_syncAllocFromDB()`가 성공적으로 호출되어야 함.
+### 6.2 예산 회수 ❌
 
-### 4.2 추가 배정 (연중 증액)
+- 추가 배정한 금액 중 미사용분을 다시 차감하는 기능
+- `added_budget -= 회수액`, `total_budget -= 회수액`
+- 단, `total_budget < (deducted + holding)`인 경우 회수 불가 (가용예산 초과)
 
-```javascript
-// ACCOUNT_BUDGETS[i].totalAdded += amount
-// account_budgets upsert: total_budget = baseAmount + totalAdded
-// budget_adjust_logs 저장: type='추가배정', Audit Trail reason 필수
-// budget_allocations 동기화
-```
+### 6.3 연도 마감 ❌
 
-### 4.3 3단 필터 캐스케이드
+- 해당 연도의 예산을 동결하여 더 이상 추가 배정/회수 불가 상태로 전환
+- `status = 'closed'` 컬럼 필요
 
-| 단계 | DB 테이블 | 필터 조건 |
-|------|----------|----------|
-| 1. 회사(Tenant) | 드롭다운 고정 | 현재 로그인 테넌트 |
-| 2. 제도그룹 | `virtual_org_templates` | `tenant_id = ?` AND **`purpose = 'edu_support'`** |
-| 3. 예산계정 | `budget_accounts` | `template_id = 선택된 제도그룹` |
+---
 
-> [!IMPORTANT]
-> 제도그룹은 **`purpose = 'edu_support'`** 조건으로 필터링.
-> 자격증(cert), 뱃지(badge), 어학(language) 제도그룹은 이 화면에서 조회 불가.
+## 7. 접근 권한
 
-### 4.4 상단 필터 → 배정 폼 자동 연동
+| 역할 | 기초 등록 | 추가 배정 | 조회 |
+|------|-----------|-----------|------|
+| `platform_admin` | ✅ | ✅ | 전사 |
+| `tenant_global_admin` | ✅ | ✅ | 해당 테넌트 |
+| `budget_global_admin` | ✅ | ✅ | 담당 계정 |
+| 일반 관리자 | ❌ | ❌ | ❌ |
 
-- `_bmFilterAcctCode` (전역 변수) 가 설정되면:
-  - `renderAllocEntry()` 내에서 `_bmFilterAcctList`에서 계정명 조회
-  - 드롭다운 대신 **고정 라벨** (`💳 계정명 | 상단 필터에서 선택됨`)로 대체
-  - `submitInitBudget()` / `submitAddBudget()` 호출 시 해당 계정 자동 사용
+---
+
+## 8. 변경 이력
+
+| 날짜 | 내용 | 작성자 |
+|------|------|--------|
+| 2026-05-06 | 최초 PRD 작성 | AI |
+| 2026-05-06 | DB 직접 조회 방식 전환, base/added 분리 로직 추가 | AI |
+---
 
 ---
 

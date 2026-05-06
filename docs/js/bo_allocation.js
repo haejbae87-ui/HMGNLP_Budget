@@ -1,4 +1,4 @@
-﻿// ─── 예산 배정 및 관리 (v2 — 통합 드릴다운) ──────────────────────────────────
+// ─── 예산 배정 및 관리 (v2 — 통합 드릴다운) ──────────────────────────────────
 // 계층: 예산 계정(마스터) → 교육조직 → 팀 → (개인)
 // 탭:   현황 | 최초 할당(총괄) | 예산 배분(드릴다운) | 변경 이력
 
@@ -356,9 +356,18 @@ function renderAllocOverview(year) {
     const raw = getPersonaAccountBudgets(persona);
     // platform_admin (tenantId=null): 필터 테넌트로 범위 결정
     if (!persona.tenantId) {
-      const tid = _allocFilterTenant ||
-        (typeof TENANTS !== 'undefined' ? TENANTS.find(t => t.id !== 'SYSTEM')?.id : null) || 'HMC';
-      return raw.filter(ab => ab.tenantId === tid);
+      // _allocFilterTenant 우선, 없으면 _bmFilterTenant, 없으면 _allocFilterAcctList에서 첫 번째 테넌트, 없으면 'HMC'
+      const tid = _allocFilterTenant
+        || (typeof _bmFilterTenant !== 'undefined' ? _bmFilterTenant : null)
+        || (typeof TENANTS !== 'undefined' ? TENANTS.find(t => t.id !== 'SYSTEM')?.id : null)
+        || 'HMC';
+      const filtered = raw.filter(ab => ab.tenantId === tid);
+      // platform_admin인데 ACCOUNT_BUDGETS에 해당 테넌트 데이터가 없으면 전체 반환 (강제 로드 후 재필터)
+      if (filtered.length === 0 && raw.length > 0) {
+        console.log('[renderAllocOverview] platform_admin: tenant filter yielded empty, returning all raw:', raw.length, 'tid:', tid);
+        return raw;
+      }
+      return filtered;
     }
     return raw;
   })();

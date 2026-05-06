@@ -6,6 +6,18 @@
 
 ## ✅ 완료된 작업 이력
 
+### 2026-05-06 — P10 실사용액 자동 집계 + Q-MP5 결과 분리 등록
+
+- [x] **P10: 실사용액 자동 집계 (application_plan_items 기반 정밀 업그레이드)**
+  - bo_budget_history.js — `_bhSyncActualAmounts()` → application_plan_items.subtotal 기반 plan_id별 정밀 집계, applications 폴백 유지
+  - bo_budget_history.js — 미사용 plan의 actual_amount=0 자동 리셋 (50건 청크 업데이트)
+  - bo_approval.js — `boApproveSubDoc()` 최종 승인 시 P10 자동 동기화 트리거 (application_plan_items → plans.actual_amount 실시간 갱신)
+- [x] **Q-MP5: 교육결과 분리 등록 (Line Item별 결과 입력 UI)**
+  - result.js — `_renderLineItemResultSection()` 신규: application_plan_items 비동기 로드 + 아코디언 UI
+  - result.js — 각 Line Item별 수료여부/만족도(1~5)/실참석시간/비고 개별 입력 폼
+  - result.js — `_submitResultRegistration()` 확장: Line Item별 result_status, result_detail DB 저장
+  - result.js — `_updateLineItemResult()` 실시간 상태 반영 + 신청 변경 시 캐시 리셋
+
 ### 2026-05-06 — BO 결재문서 N-Line Items 렌더링 + 교육유형 불일치 경고
 
 - [x] **bo_approval.js** — `_boShowSubDocDetail()` 교육신청 상세 모달에 `application_plan_items` 조회 및 과정-차수 카드 렌더링 추가

@@ -589,10 +589,11 @@ function _renderResultWizard() {
     </div>`;
 
     if (isAppBased) {
-      // 패턴 A/B: 신청 기반 → 결과만 작성
+      // 패턴 A/B: 신청 기반 → Q-MP5 Line Items 결과 분리 등록 + 결과 작성
       bodyHtml = `
       <h3 class="text-base font-black text-gray-800 mb-4">04. 교육 결과 작성</h3>
       ${tplBadge}${selectedInfo}
+      ${_renderLineItemResultSection(s)}
       ${_renderStep4ResultForm(s, _shouldShow)}`;
     } else {
       // 패턴 C: 직접 입력 (사후 정산) → 교육정보 + 결과 작성
@@ -922,6 +923,142 @@ function _renderStep4DirectInfo(s, _shouldShow) {
   return `<div style="display:grid;gap:14px">${fields.join('')}</div>`;
 }
 
+// ─── Q-MP5: Line Item별 결과 분리 등록 ─────────────────────────────────────
+let _resultLineItems = [];
+let _resultLineItemsLoading = false;
+let _resultLineItemsLoadedForApp = null;
+
+function _renderLineItemResultSection(s) {
+  if (!s.selectedApp || !s.selectedAppId) return '';
+
+  // 비동기 로드 (1회만)
+  if (_resultLineItemsLoadedForApp !== s.selectedAppId) {
+    if (!_resultLineItemsLoading) {
+      _resultLineItemsLoading = true;
+      const sb = typeof getSB === 'function' ? getSB() : null;
+      if (sb) {
+        sb.from('application_plan_items')
+          .select('id, plan_id, plan_title, subtotal, result_status')
+          .eq('application_id', s.selectedAppId)
+          .order('created_at', { ascending: true })
+          .then(({ data, error }) => {
+            _resultLineItemsLoading = false;
+            _resultLineItemsLoadedForApp = s.selectedAppId;
+            if (!error && data && data.length > 0) {
+              _resultLineItems = data.map(item => ({
+                ...item,
+                // 결과 입력 필드 초기값
+                _completed: item.result_status === 'approved' ? 'yes' : 'pending',
+                _satisfaction: 5,
+                _feedback: '',
+                _actualHours: '',
+              }));
+              // 위저드 상태에 연동
+              s.lineItemResults = _resultLineItems;
+            } else {
+              _resultLineItems = [];
+              s.lineItemResults = [];
+            }
+            renderResult();
+          });
+      }
+    }
+    return '<div style="margin-bottom:20px;padding:20px;text-align:center;color:#6B7280;font-size:13px"><div style="font-size:24px;margin-bottom:6px">⏳</div>교육계획 Line Items 로딩 중...</div>';
+  }
+
+  // Line Items가 없으면 (레거시 단건 신청) → 빈 문자열 반환, 기존 폼만 사용
+  if (_resultLineItems.length === 0) return '';
+
+  const fmt = n => Number(n || 0).toLocaleString();
+  const totalSub = _resultLineItems.reduce((s, it) => s + Number(it.subtotal || 0), 0);
+
+  return `
+  <div style="margin-bottom:24px;border-radius:16px;border:2px solid #BFDBFE;overflow:hidden">
+    <div style="padding:14px 18px;background:linear-gradient(135deg,#EFF6FF,#DBEAFE);display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:13px;font-weight:900;color:#1D4ED8;display:flex;align-items:center;gap:6px">
+          📋 교육계획별 결과 등록 <span style="font-size:10px;padding:2px 8px;background:#DBEAFE;border-radius:6px;font-weight:800">Q-MP5</span>
+        </div>
+        <div style="font-size:11px;color:#6B7280;margin-top:3px">각 교육계획별로 수료여부와 만족도를 개별 입력할 수 있습니다.</div>
+      </div>
+      <div style="font-size:12px;font-weight:900;color:#1D4ED8">${_resultLineItems.length}건 · ${fmt(totalSub)}원</div>
+    </div>
+    <div style="padding:0">
+      ${_resultLineItems.map((item, idx) => {
+        const completed = s.lineItemResults?.[idx]?._completed || 'pending';
+        const satisfaction = s.lineItemResults?.[idx]?._satisfaction ?? 5;
+        const feedback = s.lineItemResults?.[idx]?._feedback || '';
+        const actualHours = s.lineItemResults?.[idx]?._actualHours || '';
+        const statusColor = completed === 'yes' ? '#059669' : completed === 'no' ? '#DC2626' : '#D97706';
+        const statusLabel = completed === 'yes' ? '✅ 수료' : completed === 'no' ? '❌ 미수료' : '⏳ 미입력';
+        const statusBg = completed === 'yes' ? '#F0FDF4' : completed === 'no' ? '#FEF2F2' : '#FFFBEB';
+        return `
+      <div style="border-top:1px solid #E5E7EB">
+        <div style="padding:14px 18px;display:flex;align-items:flex-start;gap:14px;background:${statusBg}">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+              <span style="font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;background:#E0E7FF;color:#4338CA">#${idx + 1}</span>
+              <span style="font-size:13px;font-weight:900;color:#111827">${item.plan_title || '교육계획'}</span>
+              <span style="font-size:10px;font-weight:800;padding:2px 7px;border-radius:5px;background:${statusColor}15;color:${statusColor}">${statusLabel}</span>
+            </div>
+            <div style="font-size:11px;color:#6B7280;margin-bottom:10px">
+              💰 ${fmt(item.subtotal)}원
+              ${item.result_status ? ' · 현재 상태: ' + item.result_status : ''}
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label style="font-size:10px;font-weight:800;color:#374151;display:block;margin-bottom:3px">수료여부</label>
+                <div style="display:flex;gap:4px">
+                  ${['yes', 'no'].map(v => `
+                  <button onclick="_updateLineItemResult(${idx},'_completed','${v}')"
+                    style="flex:1;padding:7px;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;
+                    border:1.5px solid ${completed === v ? (v === 'yes' ? '#059669' : '#DC2626') : '#E5E7EB'};
+                    background:${completed === v ? (v === 'yes' ? '#F0FDF4' : '#FEF2F2') : 'white'};
+                    color:${completed === v ? (v === 'yes' ? '#059669' : '#DC2626') : '#9CA3AF'}">${v === 'yes' ? '✅ 수료' : '❌ 미수료'}</button>`).join('')}
+                </div>
+              </div>
+              <div>
+                <label style="font-size:10px;font-weight:800;color:#374151;display:block;margin-bottom:3px">만족도 (1~5)</label>
+                <div style="display:flex;gap:3px">
+                  ${[1,2,3,4,5].map(n => `
+                  <button onclick="_updateLineItemResult(${idx},'_satisfaction',${n})"
+                    style="width:28px;height:28px;border-radius:6px;font-size:12px;cursor:pointer;
+                    border:1.5px solid ${satisfaction >= n ? '#F59E0B' : '#E5E7EB'};
+                    background:${satisfaction >= n ? '#FEF3C7' : 'white'};
+                    color:${satisfaction >= n ? '#D97706' : '#D1D5DB'}">${n <= satisfaction ? '★' : '☆'}</button>`).join('')}
+                </div>
+              </div>
+            </div>
+            <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label style="font-size:10px;font-weight:800;color:#374151;display:block;margin-bottom:3px">실참석시간(H)</label>
+                <input type="number" value="${actualHours}" placeholder="8"
+                  onchange="_updateLineItemResult(${idx},'_actualHours',this.value)"
+                  style="width:100%;padding:6px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;box-sizing:border-box">
+              </div>
+              <div>
+                <label style="font-size:10px;font-weight:800;color:#374151;display:block;margin-bottom:3px">비고</label>
+                <input value="${feedback}" placeholder="특이사항 입력"
+                  onchange="_updateLineItemResult(${idx},'_feedback',this.value)"
+                  style="width:100%;padding:6px 10px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:12px;box-sizing:border-box">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+function _updateLineItemResult(idx, field, value) {
+  if (!_resultWizardState || !_resultWizardState.lineItemResults) return;
+  if (_resultWizardState.lineItemResults[idx]) {
+    _resultWizardState.lineItemResults[idx][field] = value;
+    renderResult();
+  }
+}
+
 // ─── Step 4: 결과 작성 폼 ────────────────────────────────────────────────
 function _renderStep4ResultForm(s, _shouldShow) {
   const show = _shouldShow || (() => true);
@@ -1093,6 +1230,10 @@ function _resultSelectApp(id, appData) {
   _resultWizardState.selectedApp =
     typeof appData === "string" ? JSON.parse(appData) : appData;
   _resultWizardState.mode = "from_application";
+  // Q-MP5: 신청 변경 시 Line Items 캐시 리셋
+  _resultLineItemsLoadedForApp = null;
+  _resultLineItems = [];
+  _resultWizardState.lineItemResults = [];
   renderResult();
 }
 
@@ -1246,6 +1387,29 @@ async function _submitResultRegistration() {
         })
         .eq("id", s.selectedAppId);
       if (error) throw error;
+
+      // ── Q-MP5: Line Item별 결과 개별 저장 ──
+      if (s.lineItemResults && s.lineItemResults.length > 0) {
+        for (const item of s.lineItemResults) {
+          if (!item.id) continue;
+          const resultStatus = item._completed === 'yes' ? 'completed'
+            : item._completed === 'no' ? 'failed'
+            : 'pending';
+          try {
+            await sb.from('application_plan_items').update({
+              result_status: resultStatus,
+              result_detail: {
+                completed: item._completed === 'yes',
+                satisfaction: item._satisfaction || 0,
+                actual_hours: Number(item._actualHours) || 0,
+                feedback: item._feedback || '',
+                submitted_at: new Date().toISOString(),
+                submitted_by: currentPersona.name,
+              },
+            }).eq('id', item.id);
+          } catch(piErr) { console.warn('[Q-MP5] Line item result save skip:', piErr.message); }
+        }
+      }
     } else {
       // 패턴 C: 신규 application INSERT (사후 정산 직접 등록)
       const appId = `RES-${Date.now()}`;

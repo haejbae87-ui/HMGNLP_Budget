@@ -406,6 +406,32 @@ async function boApproveSubDoc(docId) {
           }
         }
       }
+
+      // ── P10: 최종 승인 시 plans.actual_amount 자동 동기화 ──
+      if (isFinal) {
+        try {
+          const appItems = items.filter(it => it.item_type === 'application');
+          for (const it of appItems) {
+            // application_plan_items에서 이 application의 plan_id별 subtotal 집계
+            const { data: piRows } = await sb.from('application_plan_items')
+              .select('plan_id, subtotal')
+              .eq('application_id', it.item_id)
+              .in('result_status', ['approved', 'completed']);
+            if (piRows && piRows.length > 0) {
+              // plan_id별로 전체 approved subtotal 재계산
+              const planIds = [...new Set(piRows.map(r => r.plan_id).filter(Boolean))];
+              for (const pid of planIds) {
+                const { data: allPi } = await sb.from('application_plan_items')
+                  .select('subtotal')
+                  .eq('plan_id', pid)
+                  .in('result_status', ['approved', 'completed']);
+                const totalActual = (allPi || []).reduce((s, r) => s + Number(r.subtotal || 0), 0);
+                await sb.from('plans').update({ actual_amount: totalActual, updated_at: now }).eq('id', pid);
+              }
+            }
+          }
+        } catch(p10Err) { console.warn('[P10] 실사용액 자동집계 skip:', p10Err.message); }
+      }
     }
 
     // 메모리 갱신

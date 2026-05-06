@@ -237,7 +237,7 @@ function _renderDDLevel0() {
     });
   }
 
-  return `<div>
+  const html_l0 = `<div>
   ${_ddBreadcrumb(ab)}
   <!-- 계정 선택 탭 -->
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">${acctTabs}</div>
@@ -335,12 +335,13 @@ function _renderDDLevel0() {
       </button>`
   }
 </div>
-<script>(function(){
-  window._ddRows = ${JSON.stringify(allRows)};
-  window._ddAbId = '${ab.id}';
-  window._ddMaxAmount = ${distributable};
+`;
+  // Bug1 Fix: innerHTML <script> 미실행 방지 → return 직전 직접 할당
+  window._ddRows = allRows;
+  window._ddAbId = ab.id;
+  window._ddMaxAmount = distributable;
   window._ddCurrentLevel = 0;
-})();</script>`;
+  return html_l0;
 }
 
 // ── Level 1: Organization Bankbook + 팀별 배분 ───────────────────────────────
@@ -354,8 +355,13 @@ function _renderDDLevel1() {
   const tpl = (_tplIdToUse2 ? VIRTUAL_EDU_ORGS.find(t => t.id === _tplIdToUse2) : null)
     || VIRTUAL_EDU_ORGS.find(t => t.tenantId === ab.tenantId && (t.tree?.hqs?.length > 0 || t.tree?.centers?.length > 0));
   const vGroups = tpl ? (tpl.tree?.hqs || tpl.tree?.centers || []) : [];
-  const vg = vGroups.find(g => g.id === _ddOrgId);
-  if (!vg) return '<div style="padding:40px;text-align:center;color:#9CA3AF">교육조직 정보를 찾을 수 없습니다.</div>';
+  // Bug2 Fix: vg ID 타입 불일치 방어 - String() 변환 + name fallback
+  const vg = vGroups.find(g => String(g.id) === String(_ddOrgId))
+    || vGroups.find(g => g.name === _ddOrgName);
+  if (!vg) {
+    console.warn('[DD Level1] vg 조회 실패: _ddOrgId=', _ddOrgId, '_ddOrgName=', _ddOrgName, 'vGroups:', vGroups.map(g=>g.id+'/'+g.name));
+    return '<div style="padding:40px;text-align:center;color:#9CA3AF">교육조직 정보를 찾을 수 없습니다. (vg ID 불일치 — console 확인)</div>';
+  }
 
   const teams = vg.teams || [];
   const orgTd = TEAM_DIST.find(t => t.accountBudgetId === ab.id && t.teamName === vg.name);
@@ -434,7 +440,7 @@ function _renderDDLevel1() {
   const inputPct = 0; // 초기 0, calcDDRemain으로 동적 업데이트
   const remainPct = Math.max(0, 100 - distributedPct - inputPct);
 
-  return `<div>
+  const html_l1 = `<div>
   ${_ddBreadcrumb(ab, vg.name)}
 
   <!-- Organization Bankbook 카드 -->
@@ -524,14 +530,15 @@ function _renderDDLevel1() {
     📋 배분 내역 확인 및 이관 확정
   </button>
 </div>
-<script>(function(){
-  window._ddRows = ${JSON.stringify(allRows)};
-  window._ddAbId = '${ab.id}';
-  window._ddMaxAmount = ${teamDistributable};
+`;
+  // Bug1 Fix: innerHTML <script> 미실행 방지 → return 직전 직접 할당
+  window._ddRows = allRows;
+  window._ddAbId = ab.id;
+  window._ddMaxAmount = teamDistributable;
   window._ddCurrentLevel = 1;
-  window._ddOrgAlloc = ${orgAlloc};
-  window._ddTeamsAllocated = ${teamsAllocated};
-})();</script>`;
+  window._ddOrgAlloc = orgAlloc;
+  window._ddTeamsAllocated = teamsAllocated;
+  return html_l1;
 }
 
 // ── 워터폴 실시간 계산 ────────────────────────────────────────────────────────
@@ -916,7 +923,9 @@ function _renderDDLevel2Individual() {
   const tpl = (_tplId ? VIRTUAL_EDU_ORGS.find(t => t.id === _tplId) : null)
     || VIRTUAL_EDU_ORGS.find(t => t.tenantId === ab.tenantId && (t.tree?.hqs?.length > 0 || t.tree?.centers?.length > 0));
   const vGroups = tpl ? (tpl.tree?.hqs || tpl.tree?.centers || []) : [];
-  const vg = vGroups.find(g => g.id === _ddOrgId);
+  // Bug2 Fix: vg ID 타입 불일치 방어
+  const vg = vGroups.find(g => String(g.id) === String(_ddOrgId))
+    || vGroups.find(g => g.name === _ddOrgName);
   if (!vg) return '<div style="padding:40px;text-align:center;color:#9CA3AF">교육조직 정보를 찾을 수 없습니다.</div>';
 
   // 교육조직 통장 배분액
@@ -995,7 +1004,7 @@ function _renderDDLevel2Individual() {
     });
   }
 
-  return `<div>
+  const html_l2 = `<div>
   ${_ddBreadcrumb(ab, vg.name + ' · 개인배분')}
 
   <!-- 교육조직 카드 (개인배분 정책) -->
@@ -1054,12 +1063,13 @@ function _renderDDLevel2Individual() {
     📋 개인 배분 내역 확인 및 확정
   </button>
 </div>
-<script>(function(){
-  window._ddRows = ${JSON.stringify(allRows)};
-  window._ddAbId = '${ab.id}';
-  window._ddMaxAmount = ${distributable};
+`;
+  // Bug1 Fix: innerHTML <script> 미실행 방지 → return 직전 직접 할당
+  window._ddRows = allRows;
+  window._ddAbId = ab.id;
+  window._ddMaxAmount = distributable;
   window._ddCurrentLevel = 2;
-  window._ddOrgAlloc = ${orgAlloc};
-  window._ddTeamsAllocated = ${memberDisted};
-})();</script>`;
+  window._ddOrgAlloc = orgAlloc;
+  window._ddTeamsAllocated = memberDisted;
+  return html_l2;
 }

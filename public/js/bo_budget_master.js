@@ -3422,6 +3422,36 @@ function _bmFilterBarHtml() {
   '</div>';
 }
 
+// ── account_budgets 테이블에서 실제 배정액(total_budget)을 읽어 ACCOUNT_BUDGETS 동기화 ──
+async function _bmSyncAccountBudgets(sb, tenantId) {
+  if (!sb || !tenantId) return;
+  try {
+    const year = typeof _allocYear !== 'undefined' ? _allocYear : new Date().getFullYear();
+    const { data: rows, error } = await sb
+      .from('account_budgets')
+      .select('account_code, total_budget, fiscal_year, tenant_id')
+      .eq('tenant_id', tenantId)
+      .eq('fiscal_year', year);
+    if (error) throw error;
+    if (!rows || rows.length === 0) {
+      console.log('[_bmSyncAccountBudgets] account_budgets 레코드 없음 (tenant:', tenantId, 'year:', year, ')');
+      return;
+    }
+    rows.forEach(row => {
+      const ab = (typeof ACCOUNT_BUDGETS !== 'undefined' ? ACCOUNT_BUDGETS : []).find(
+        x => x.accountCode === row.account_code && x.tenantId === tenantId
+      );
+      if (ab) {
+        ab.baseAmount = Number(row.total_budget || 0);
+        ab.fiscalYear = row.fiscal_year;
+        console.log('[_bmSyncAccountBudgets] 갱신:', row.account_code, '→', ab.baseAmount);
+      }
+    });
+  } catch (e) {
+    console.warn('[_bmSyncAccountBudgets] 오류:', e.message);
+  }
+}
+
 function renderBudgetMaster() {
   const ct = document.getElementById("bo-content");
   if (!ct) return;
@@ -3445,13 +3475,15 @@ function renderBudgetMaster() {
     (async () => {
       try {
         await _bmLoadFilterData(_bmFilterTenant);
-        if (typeof _syncAllocFromDB === "function") await _syncAllocFromDB();
         if (typeof _allocLoadFilterData === 'function') {
           const prev = typeof _allocFilterTenant !== 'undefined' ? _allocFilterTenant : null;
           if (typeof _allocFilterTenant !== 'undefined') _allocFilterTenant = _bmFilterTenant;
           await _allocLoadFilterData(persona);
           if (prev !== null && typeof _allocFilterTenant !== 'undefined') _allocFilterTenant = prev;
         }
+        // ★ account_budgets DB에서 actual total_budget 로드 → ACCOUNT_BUDGETS.baseAmount 갱신
+        await _bmSyncAccountBudgets(sb, _bmFilterTenant);
+        if (typeof _syncAllocFromDB === 'function') await _syncAllocFromDB(persona);
       } catch (e) { console.warn("[BudgetMaster] sync:", e.message); }
       renderBudgetMaster();
     })();

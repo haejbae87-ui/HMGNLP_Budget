@@ -128,10 +128,11 @@ function _renderDDLevel0() {
   const burnPct = totalBudget > 0 ? Math.min((allDist / totalBudget) * 100, 100) : 0;
   const isSAP = ab.sourceType === 'sap_if';
   const isRnd = ab.accountCode.includes('RND');
-  // templateId가 있으면 우선 찾고, 없으면 fallback으로 tenantId와 isRnd로 찾음
-  const tpl = (ab.templateId ? VIRTUAL_EDU_ORGS.find(t => t.id === ab.templateId) : null) 
-    || VIRTUAL_EDU_ORGS.find(t => t.tenantId === ab.tenantId && (isRnd ? t.tree?.centers : t.tree?.hqs));
-  const vGroups = tpl ? (tpl.tree?.centers || tpl.tree?.hqs || []) : [];
+  // Bug Fix: templateId 기반 정확한 매핑을 우선 시도, fallback으로 tenantId 몤안 검색
+  const tpl = (ab.templateId ? VIRTUAL_EDU_ORGS.find(t => t.id === ab.templateId) : null)
+    || VIRTUAL_EDU_ORGS.find(t => t.tenantId === ab.tenantId && (t.tree?.hqs?.length || t.tree?.centers?.length));
+  // Bug Fix: DB tree_data는 hqs를 사용 (스크맰샷 확인). centers가 없으면 hqs, 둘 다 없으면 빈 배열
+  const vGroups = tpl ? (tpl.tree?.hqs || tpl.tree?.centers || []) : [];
 
   // 교육조직 테이블 행
   let tableRows = '';
@@ -314,10 +315,11 @@ function _renderDDLevel1() {
   const ab = _ddAbId ? ACCOUNT_BUDGETS.find(x => x.id === _ddAbId) : null;
   if (!ab) return '<div style="padding:40px;text-align:center;color:#9CA3AF">계정 정보를 찾을 수 없습니다.</div>';
   const isRnd = ab.accountCode.includes('RND');
-  // templateId가 있으면 우선 찾고, 없으면 fallback으로 tenantId와 isRnd로 찾음
-  const tpl = (ab.templateId ? VIRTUAL_EDU_ORGS.find(t => t.id === ab.templateId) : null) 
-    || VIRTUAL_EDU_ORGS.find(t => t.tenantId === ab.tenantId && (isRnd ? t.tree?.centers : t.tree?.hqs));
-  const vGroups = tpl ? (tpl.tree?.centers || tpl.tree?.hqs || []) : [];
+  // Bug Fix: templateId 기반 정확한 매핑을 우선 시도, fallback으로 tenantId 몤안 검색
+  const tpl = (ab.templateId ? VIRTUAL_EDU_ORGS.find(t => t.id === ab.templateId) : null)
+    || VIRTUAL_EDU_ORGS.find(t => t.tenantId === ab.tenantId && (t.tree?.hqs?.length || t.tree?.centers?.length));
+  // Bug Fix: DB tree_data는 hqs를 사용. centers가 없으면 hqs, 둘 다 없으면 빈 배열
+  const vGroups = tpl ? (tpl.tree?.hqs || tpl.tree?.centers || []) : [];
   const vg = vGroups.find(g => g.id === _ddOrgId);
   if (!vg) return '<div style="padding:40px;text-align:center;color:#9CA3AF">교육조직 정보를 찾을 수 없습니다.</div>';
 

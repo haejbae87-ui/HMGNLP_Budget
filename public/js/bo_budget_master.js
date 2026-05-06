@@ -3353,9 +3353,15 @@ let _bmFilterTplList = [];
 let _bmFilterAcctList = [];
 // ★ DB 직접 조회 데이터 맵
 let _bmDbBudgetData = {};
-// ★ 배정 변경 이력 (account_budget_adjustments DB에서 로드)
+// ── 배정 변경 이력 (account_budget_adjustments DB에서 로드)
 let _bmAdjustHistory = [];
+// ── 4-Tab 상태 (0: 배정, 1: 회수, 2: 현황, 3: 이력)
+let _bmCurrentTab = 2;
 
+window.setbmTab = function(idx) {
+  _bmCurrentTab = idx;
+  renderBudgetMaster();
+};
 async function _bmLoadFilterData(tenantId) {
   const sb = typeof getSB === 'function' ? getSB() : null;
   if (!sb || !tenantId) return;
@@ -3597,6 +3603,117 @@ function renderBudgetMaster() {
 
   console.log('[renderBudgetMaster] DB기반 렌더: accts=', dbAcctList.map(a => a.code), 'totalBase=', totalBase);
 
+  // 4-Tab UI 구성
+  const tabsHtml = `
+    <div style="display:flex;gap:4px;margin-bottom:20px;border-bottom:2px solid #E5E7EB;padding-bottom:1px">
+      <button onclick="setbmTab(0)" style="padding:10px 18px;font-size:13px;font-weight:800;border:none;background:transparent;cursor:pointer;color:${_bmCurrentTab===0?'#4F46E5':'#6B7280'};border-bottom:${_bmCurrentTab===0?'3px solid #4F46E5':'3px solid transparent'};margin-bottom:-3px;transition:all .2s">1. 예산 배정</button>
+      <button onclick="setbmTab(1)" style="padding:10px 18px;font-size:13px;font-weight:800;border:none;background:transparent;cursor:pointer;color:${_bmCurrentTab===1?'#4F46E5':'#6B7280'};border-bottom:${_bmCurrentTab===1?'3px solid #4F46E5':'3px solid transparent'};margin-bottom:-3px;transition:all .2s">2. 예산 회수</button>
+      <button onclick="setbmTab(2)" style="padding:10px 18px;font-size:13px;font-weight:800;border:none;background:transparent;cursor:pointer;color:${_bmCurrentTab===2?'#4F46E5':'#6B7280'};border-bottom:${_bmCurrentTab===2?'3px solid #4F46E5':'3px solid transparent'};margin-bottom:-3px;transition:all .2s">3. 예산 현황</button>
+      <button onclick="setbmTab(3)" style="padding:10px 18px;font-size:13px;font-weight:800;border:none;background:transparent;cursor:pointer;color:${_bmCurrentTab===3?'#4F46E5':'#6B7280'};border-bottom:${_bmCurrentTab===3?'3px solid #4F46E5':'3px solid transparent'};margin-bottom:-3px;transition:all .2s">4. 변경 이력</button>
+    </div>
+  `;
+
+  // Tab 3: 현황
+  const statusHtml = (myAcctData.length > 0 && _bmFilterAcctCode) ? `
+    <div class="bo-card" style="padding:20px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+        <span style="background:#374151;color:white;font-size:10px;font-weight:900;padding:3px 10px;border-radius:6px">현황</span>
+        <div class="bo-section-title" style="margin:0">계정별 예산 현황 상세${_bmFilterAcctCode ? ' — ' + acctLabel : ''}</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:#F8FAFC">
+          <th style="text-align:left;padding:10px 12px;font-weight:800;color:#64748B">계정코드</th>
+          <th style="text-align:left;padding:10px 8px;font-weight:800;color:#64748B">계정명</th>
+          <th style="text-align:center;padding:10px 8px;font-weight:800;color:#64748B">연동방식</th>
+          <th style="text-align:right;padding:10px 8px;font-weight:800;color:#64748B">기초 예산</th>
+          <th style="text-align:right;padding:10px 8px;font-weight:800;color:#64748B">추가 배정</th>
+          <th style="text-align:right;padding:10px 12px;font-weight:800;color:#64748B">총 예산</th>
+        </tr></thead>
+        <tbody>${accountRows}</tbody>
+      </table>
+    </div>
+  ` : '<div style="padding:40px;text-align:center;color:#9CA3AF"><div style="font-size:32px;margin-bottom:8px">💳</div><div style="font-weight:700">조회 조건을 선택하고 [조회]를 클릭하세요.</div></div>';
+
+  // Tab 4: 변경 이력
+  let historyHtml = '';
+  if (_bmCurrentTab === 3) {
+    historyHtml = `
+      <div id="bm-history-container" class="bo-card" style="padding:40px;text-align:center">
+        <div style="font-size:28px;margin-bottom:8px;animation:pulse 1.5s infinite">⏳</div>
+        <div style="color:#6B7280;font-size:12px;font-weight:700">변경이력을 DB에서 조회 중입니다...</div>
+      </div>
+    `;
+
+    // 비동기 DB 조회 시작
+    setTimeout(async () => {
+      const sb = typeof getSB === 'function' ? getSB() : null;
+      const el = document.getElementById('bm-history-container');
+      if (!sb || !el) return;
+
+      try {
+        const year = typeof _allocYear !== 'undefined' ? _allocYear : new Date().getFullYear();
+        const acctCodes = _bmFilterAcctCode ? [_bmFilterAcctCode] : (_bmFilterAcctList || []).map(a => a.code).filter(Boolean);
+        
+        if (acctCodes.length === 0) {
+          el.innerHTML = '<div style="font-size:32px;margin-bottom:8px">💳</div><div style="font-weight:700;color:#9CA3AF">조회 조건을 선택해주세요.</div>';
+          return;
+        }
+
+        const { data: rows, error } = await sb
+          .from('account_budget_adjustments')
+          .select('account_code, fiscal_year, type, amount, reason, performed_by, created_at')
+          .eq('fiscal_year', year)
+          .in('account_code', acctCodes)
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        if (error) throw error;
+
+        if (!rows || rows.length === 0) {
+          el.outerHTML = '<div class="bo-card" style="padding:40px;text-align:center;color:#9CA3AF;background:#F9FAFB;border-radius:12px;border:1px dashed #E5E7EB"><div style="font-size:32px;margin-bottom:8px">📊</div><div style="font-weight:700">배정 변경 이력이 없습니다</div></div>';
+          return;
+        }
+
+        const typeColors = { '기초입력': '#1D4ED8', '추가배정': '#059669', '회수': '#DC2626', '마감': '#6B7280' };
+        const rowsHtml = rows.map(h => {
+          const clr = typeColors[h.type] || '#374151';
+          const bg = h.type === '기초입력' ? '#EFF6FF' : h.type === '추가배정' ? '#ECFDF5' : h.type === '회수' ? '#FEF2F2' : '#F9FAFB';
+          const date = h.created_at ? new Date(h.created_at).toLocaleDateString('ko-KR', {year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+          const sign = h.type === '회수' ? '-' : '+';
+          return `<tr style="border-top:1px solid #F1F5F9">
+            <td style="padding:9px 12px;font-size:11px;color:#6B7280">${date}</td>
+            <td style="padding:9px 8px;text-align:center"><span style="font-size:10px;padding:2px 7px;border-radius:4px;background:${bg};color:${clr};font-weight:800">${h.type}</span></td>
+            <td style="padding:9px 8px;text-align:right;font-weight:700;color:${clr}">${h.type === '기초입력' ? '' : sign}${Number(h.amount||0).toLocaleString('ko-KR')}원</td>
+            <td style="padding:9px 8px;font-size:11px;color:#374151;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h.reason || ''}</td>
+            <td style="padding:9px 12px;font-size:11px;color:#9CA3AF">${h.performed_by || ''}</td>
+          </tr>`;
+        }).join('');
+
+        el.outerHTML = `
+        <div class="bo-card" style="padding:20px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+            <span style="background:#6366F1;color:white;font-size:10px;font-weight:900;padding:3px 10px;border-radius:6px">이력</span>
+            <div class="bo-section-title" style="margin:0">배정 변경 이력 (Audit Trail)</div>
+            <span style="margin-left:auto;font-size:11px;color:#6B7280">총 ${rows.length}건</span>
+          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead><tr style="background:#F8FAFC">
+              <th style="text-align:left;padding:8px 12px;font-weight:800;color:#64748B;white-space:nowrap">일시</th>
+              <th style="text-align:center;padding:8px 8px;font-weight:800;color:#64748B">구분</th>
+              <th style="text-align:right;padding:8px 8px;font-weight:800;color:#64748B">금액</th>
+              <th style="text-align:left;padding:8px 8px;font-weight:800;color:#64748B">변경 사유</th>
+              <th style="text-align:left;padding:8px 12px;font-weight:800;color:#64748B">작성자</th>
+            </tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>`;
+      } catch (err) {
+        console.warn('[_bmLoadAdjustHistory async] DB 조회 실패:', err.message);
+        el.innerHTML = `<div style="color:#DC2626">변경이력 조회 중 오류가 발생했습니다.</div>`;
+      }
+    }, 0);
+  }
+
   ct.innerHTML = `
   ${_bmFilterBarHtml()}
   <div class="max-w-5xl mx-auto">
@@ -3654,63 +3771,15 @@ function renderBudgetMaster() {
         <div style="font-size:10px;color:#7C3AED99;margin-top:4px">기초 + 추가</div>
       </div>
     </div>
-    ${allocEntryHtml}
-    ${(myAcctData.length > 0 && _bmFilterAcctCode) ? `
-    <div class="bo-card" style="padding:20px;margin-top:24px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-        <span style="background:#374151;color:white;font-size:10px;font-weight:900;padding:3px 10px;border-radius:6px">현황</span>
-        <div class="bo-section-title" style="margin:0">계정별 예산 현황 상세${_bmFilterAcctCode ? ' — ' + acctLabel : ''}</div>
-      </div>
-      <table style="width:100%;border-collapse:collapse;font-size:12px">
-        <thead><tr style="background:#F8FAFC">
-          <th style="text-align:left;padding:10px 12px;font-weight:800;color:#64748B">계정코드</th>
-          <th style="text-align:left;padding:10px 8px;font-weight:800;color:#64748B">계정명</th>
-          <th style="text-align:center;padding:10px 8px;font-weight:800;color:#64748B">연동방식</th>
-          <th style="text-align:right;padding:10px 8px;font-weight:800;color:#64748B">기초 예산</th>
-          <th style="text-align:right;padding:10px 8px;font-weight:800;color:#64748B">추가 배정</th>
-          <th style="text-align:right;padding:10px 12px;font-weight:800;color:#64748B">총 예산</th>
-        </tr></thead>
-        <tbody>${accountRows}</tbody>
-      </table>
-    </div>
-    ${(() => {
-      const hist = _bmAdjustHistory.filter(h => _bmFilterAcctCode ? h.account_code === _bmFilterAcctCode : true);
-      if (hist.length === 0) return '<div style="margin-top:24px;padding:24px;text-align:center;color:#9CA3AF;background:#F9FAFB;border-radius:12px;border:1px dashed #E5E7EB"><div style="font-size:20px;margin-bottom:6px">📊</div><div style="font-size:12px;font-weight:600">배정 변경 이력이 없습니다</div></div>';
-      const typeColors = { '기초입력': '#1D4ED8', '추가배정': '#059669', '회수': '#DC2626', '마감': '#6B7280' };
-      const rows = hist.map(h => {
-        const clr = typeColors[h.type] || '#374151';
-        const bg = h.type === '기초입력' ? '#EFF6FF' : h.type === '추가배정' ? '#ECFDF5' : h.type === '회수' ? '#FEF2F2' : '#F9FAFB';
-        const date = h.created_at ? new Date(h.created_at).toLocaleDateString('ko-KR', {year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
-        const sign = h.type === '회수' ? '-' : '+';
-        return `<tr style="border-top:1px solid #F1F5F9">
-          <td style="padding:9px 12px;font-size:11px;color:#6B7280">${date}</td>
-          <td style="padding:9px 8px;text-align:center"><span style="font-size:10px;padding:2px 7px;border-radius:4px;background:${bg};color:${clr};font-weight:800">${h.type}</span></td>
-          <td style="padding:9px 8px;text-align:right;font-weight:700;color:${clr}">${h.type === '기초입력' ? '' : sign}${Number(h.amount||0).toLocaleString('ko-KR')}원</td>
-          <td style="padding:9px 8px;font-size:11px;color:#374151;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h.reason || ''}</td>
-          <td style="padding:9px 12px;font-size:11px;color:#9CA3AF">${h.performed_by || ''}</td>
-        </tr>`;
-      }).join('');
-      return `
-      <div class="bo-card" style="padding:20px;margin-top:16px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-          <span style="background:#6366F1;color:white;font-size:10px;font-weight:900;padding:3px 10px;border-radius:6px">이력</span>
-          <div class="bo-section-title" style="margin:0">배정 변경 이력 (Audit Trail)</div>
-          <span style="margin-left:auto;font-size:11px;color:#6B7280">총 ${hist.length}건</span>
-        </div>
-        <table style="width:100%;border-collapse:collapse;font-size:12px">
-          <thead><tr style="background:#F8FAFC">
-            <th style="text-align:left;padding:8px 12px;font-weight:800;color:#64748B;white-space:nowrap">일시</th>
-            <th style="text-align:center;padding:8px 8px;font-weight:800;color:#64748B">구분</th>
-            <th style="text-align:right;padding:8px 8px;font-weight:800;color:#64748B">금액</th>
-            <th style="text-align:left;padding:8px 8px;font-weight:800;color:#64748B">변경 사유</th>
-            <th style="text-align:left;padding:8px 12px;font-weight:800;color:#64748B">작성자</th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>`;
-    })()}
-    ` : '<div style="padding:40px;text-align:center;color:#9CA3AF"><div style="font-size:32px;margin-bottom:8px">💳</div><div style="font-weight:700">조회 조건을 선택하고 [조회]를 클릭하세요.</div></div>'}
+
+    ${tabsHtml}
+
+    ${_bmCurrentTab === 0 ? `<div class="bm-tab-alloc">${allocEntryHtml}</div><style>.bm-tab-alloc > div > div:last-child { display: none !important; }</style>` : ''}
+    ${_bmCurrentTab === 1 ? `<div class="bm-tab-recall">${allocEntryHtml}</div><style>.bm-tab-recall > div > div:not(:last-child) { display: none !important; }</style>` : ''}
+    ${_bmCurrentTab === 2 ? statusHtml : ''}
+    ${_bmCurrentTab === 3 ? historyHtml : ''}
   </div>`;
+
   window._budgetMasterLoaded = false;
 }
 

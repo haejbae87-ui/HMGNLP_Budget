@@ -38,9 +38,10 @@
   - `bo_alloc_drilldown.js`, `bo_allocation.js`: 예산 계정의 하드코딩된 R&D 여부(`isRnd`) 대신 `template_id`를 기반으로 가상조직(VOrg)을 우선 동적 참조하도록 리팩토링
   - `virtual_org_templates`의 `tree_data` 스키마를 프론트엔드의 `tree` 객체로 매핑
 - [x] **예산 배분 탭 UI/UX 고도화 및 버그 수정**
-  - `bo_alloc_drilldown.js`: 예산 계정 미선택 시 배정 현황(Overview)과 동일하게 "계정을 선택해주세요" 안내 UI(Placeholder) 렌더링
-  - `bo_data_mock.js`: `getPersonaAccountBudgets`에서 총괄 관리자(`tenantId` null) 조회 불가 버그 패치
   - 데이터 범위 필터 연동(`_allocFilterTenant`, `_allocYear`, `_allocFilterAccountCode`) 적용으로 선택된 데이터만 정확히 스코핑
+- [x] **UI 렌더링 및 통신 에러 핫픽스**
+  - `bo_budget_master.js`: 탭 UI 스위칭 함수(`setbmTab`) ReferenceError 미정의 버그 수정 (`window.setbmTab` 전역 등록)
+  - `bo_allocation.js`: 파서 충돌을 유발했던 `try-catch` 블록 문법 에러(SyntaxError) 수정으로 "예산 배정 및 관리" 메뉴 진입 불가 장애 해결
 
 ### 2026-05-06 — BO 결재문서 N-Line Items 렌더링 + 교육유형 불일치 경고
 

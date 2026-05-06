@@ -1796,8 +1796,7 @@ async function _syncAllocFromDB(persona) {
         if (!ab.templateId) ab.templateId = bb.template_id || (acct.id.includes('TPL_') ? 'TPL_' + acct.id.split('TPL_')[1] : null);
       }
       var abRef = ab;
-        if (!abRef) continue;
-      }
+      if (!abRef) continue;
       const abFinal = ab || ACCOUNT_BUDGETS.find(x => x.accountCode === acct.code && x.tenantId === tenantId);
 
       const existingIdx = TEAM_DIST.findIndex(

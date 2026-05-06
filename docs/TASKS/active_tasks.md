@@ -130,8 +130,9 @@
 ## 🔵 다음 개발 예정
 
 ### 단기 (F-151, Audit Trail)
-- [ ] F-151: 운영담당자 Δ=0 제약 (관할 교육조직 총액 내 팀간 재배분, 총액 변경 불가)
-- [ ] Audit Trail: _submitDDDist에 budget_usage_log 기록 추가
+- [x] F-151: 운영담당자 Δ=0 제약 (관할 교육조직 총액 내 팀간 재배분, 총액 변경 불가)
+- [x] Audit Trail: _submitDDDist 및 _submitDDRecall에 account_budget_adjustments 기록 추가 (budget_usage_log 대신 마스터 일원화)
+- [x] 예산 배정 현황 Mock 데이터(ACCOUNT_BUDGETS, TEAM_DIST) 완전 제거
 
 ### 중기
 - [ ] P10: applications 연동 실사용액 자동 집계

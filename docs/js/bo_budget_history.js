@@ -619,25 +619,47 @@ async function _bhSyncActualAmounts() {
 
   const tenantId = _bhTenant || boCurrentPersona?.tenantId || 'HMC';
 
-  if (!confirm('교육결과 등록 데이터를 기반으로 집행금액을 동기화하시겠습니까?')) return;
+  if (!confirm('교육결과 등록 데이터를 기반으로 집행금액을 동기화하시겠습니까?\n\n① application_plan_items (정밀)\n② applications (폴백)\n우선순위로 집계합니다.')) return;
 
   try {
-    // 1. 승인/완료 상태의 applications를 plan_id별 집계
-    const { data: apps, error: appErr } = await sb
-      .from('applications')
-      .select('plan_id,amount,status')
-      .eq('tenant_id', tenantId)
-      .in('status', ['approved', 'completed']);
-    if (appErr) throw appErr;
-
-    // plan_id별 합산
     const planActuals = {};
-    (apps || []).forEach(a => {
-      if (!a.plan_id) return;
-      planActuals[a.plan_id] = (planActuals[a.plan_id] || 0) + Number(a.amount || 0);
-    });
+    let source = 'application_plan_items';
 
-    // 2. plans.actual_amount 일괄 업데이트
+    // ── 1차: application_plan_items 기반 정밀 집계 ──
+    // 승인된(approved/completed) 신청의 plan_items에서 subtotal을 plan_id별 합산
+    try {
+      const { data: items, error: piErr } = await sb
+        .from('application_plan_items')
+        .select('plan_id, subtotal, result_status, application_id')
+        .in('result_status', ['approved', 'completed']);
+      if (piErr) throw piErr;
+
+      if (items && items.length > 0) {
+        items.forEach(it => {
+          if (!it.plan_id) return;
+          planActuals[it.plan_id] = (planActuals[it.plan_id] || 0) + Number(it.subtotal || 0);
+        });
+      } else {
+        throw new Error('application_plan_items 데이터 없음 — 폴백');
+      }
+    } catch (piErr) {
+      // ── 2차 폴백: applications 테이블 집계 (레거시 호환) ──
+      console.warn('[P10] plan_items 집계 실패, applications 폴백:', piErr.message);
+      source = 'applications (fallback)';
+      const { data: apps, error: appErr } = await sb
+        .from('applications')
+        .select('plan_id,amount,status')
+        .eq('tenant_id', tenantId)
+        .in('status', ['approved', 'completed']);
+      if (appErr) throw appErr;
+
+      (apps || []).forEach(a => {
+        if (!a.plan_id) return;
+        planActuals[a.plan_id] = (planActuals[a.plan_id] || 0) + Number(a.amount || 0);
+      });
+    }
+
+    // ── plans.actual_amount 일괄 업데이트 ──
     const planIds = Object.keys(planActuals);
     let updated = 0;
     for (const pid of planIds) {
@@ -648,7 +670,22 @@ async function _bhSyncActualAmounts() {
       if (!error) updated++;
     }
 
-    alert(`✅ ${updated}건 집행금액 동기화 완료\n(${planIds.length}개 교육계획 업데이트)`);
+    // ── plan_id 없는 교육계획은 actual_amount=0으로 리셋 ──
+    try {
+      const { data: allPlans } = await sb.from('plans').select('id')
+        .eq('tenant_id', tenantId).is('deleted_at', null);
+      const zeroPids = (allPlans || []).filter(p => !planActuals[p.id]).map(p => p.id);
+      if (zeroPids.length > 0) {
+        // 청크로 나눠서 업데이트 (50건씩)
+        for (let i = 0; i < zeroPids.length; i += 50) {
+          const chunk = zeroPids.slice(i, i + 50);
+          await sb.from('plans').update({ actual_amount: 0, updated_at: new Date().toISOString() })
+            .in('id', chunk).gt('actual_amount', 0);
+        }
+      }
+    } catch(e) { console.warn('[P10] 제로 리셋 skip:', e.message); }
+
+    alert(`✅ ${updated}건 집행금액 동기화 완료\n(${planIds.length}개 교육계획 업데이트)\n\n소스: ${source}`);
 
     // 모달 닫고 새로고침
     document.getElementById('bh-lifecycle-modal')?.remove();

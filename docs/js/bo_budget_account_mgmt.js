@@ -1,4 +1,4 @@
-﻿// ─── bo_budget_account_mgmt.js — 예산계정 관리 (REFACTOR-1: bo_budget_master.js 분리) ───
+// ─── bo_budget_account_mgmt.js — 예산계정 관리 (REFACTOR-1: bo_budget_master.js 분리) ───
 // BM_TABS, _bmActiveTab, REAL_ORG_TREE, virtualOrgState 는 bo_budget_master.js에 선언됨 (중복 제거)
 
 
@@ -414,8 +414,8 @@ function _baRenderDetailPanel(a, canEdit) {
         연동 방식 <span style="font-size:10px;color:#9CA3AF;cursor:help" title="SAP ERP 연동 또는 자체관리">ⓘ</span>
       </label>
       <div style="display:flex;gap:8px">
-        <button id="ba-d-int-sap" onclick="_baDToggle('int','sap')" style="padding:7px 16px;border:1.5px solid ${isSap ? "#1D4ED8" : "#E5E7EB"};border-radius:8px;font-size:11px;font-weight:700;background:${isSap ? "#EFF6FF" : "white"};color:${isSap ? "#1D4ED8" : "#9CA3AF"};cursor:pointer">● SAP 연동</button>
-        <button id="ba-d-int-sa" onclick="_baDToggle('int','standalone')" style="padding:7px 16px;border:1.5px solid ${!isSap ? "#059669" : "#E5E7EB"};border-radius:8px;font-size:11px;font-weight:700;background:${!isSap ? "#F0FDF4" : "white"};color:${!isSap ? "#059669" : "#9CA3AF"};cursor:pointer">● 자체관리 (미연동)</button>
+        <button id="ba-d-int-sap" onclick="_baDToggle('int','sap')" data-selected="${isSap ? 'yes' : 'no'}" style="padding:7px 16px;border:1.5px solid ${isSap ? "#1D4ED8" : "#E5E7EB"};border-radius:8px;font-size:11px;font-weight:700;background:${isSap ? "#EFF6FF" : "white"};color:${isSap ? "#1D4ED8" : "#9CA3AF"};cursor:pointer">● SAP 연동</button>
+        <button id="ba-d-int-sa" onclick="_baDToggle('int','standalone')" data-selected="${!isSap ? 'yes' : 'no'}" style="padding:7px 16px;border:1.5px solid ${!isSap ? "#059669" : "#E5E7EB"};border-radius:8px;font-size:11px;font-weight:700;background:${!isSap ? "#F0FDF4" : "white"};color:${!isSap ? "#059669" : "#9CA3AF"};cursor:pointer">● 자체관리 (미연동)</button>
       </div>
       <div id="ba-d-sap-code-wrap" style="margin-top:8px;${isSap ? "" : "display:none"}">
         <label style="font-size:11px;font-weight:600;color:#1D4ED8;display:block;margin-bottom:3px">SAP 연동 코드</label>
@@ -470,11 +470,13 @@ function _baDToggle(type, val) {
       s.style.borderColor = isSap ? "#1D4ED8" : "#E5E7EB";
       s.style.background = isSap ? "#EFF6FF" : "white";
       s.style.color = isSap ? "#1D4ED8" : "#9CA3AF";
+      s.setAttribute("data-selected", isSap ? "yes" : "no");
     }
     if (a) {
       a.style.borderColor = !isSap ? "#059669" : "#E5E7EB";
       a.style.background = !isSap ? "#F0FDF4" : "white";
       a.style.color = !isSap ? "#059669" : "#9CA3AF";
+      a.setAttribute("data-selected", !isSap ? "yes" : "no");
     }
     const w = document.getElementById("ba-d-sap-code-wrap");
     if (w) w.style.display = isSap ? "" : "none";
@@ -505,16 +507,9 @@ async function _baInlineSave(id) {
     return;
   }
   const desc = document.getElementById("ba-d-desc")?.value.trim();
-  const isSap =
-    document
-      .getElementById("ba-d-int-sap")
-      ?.style.borderColor?.includes("30") ||
-    document.getElementById("ba-d-int-sap")?.style.color?.includes("30");
-  const intType = document
-    .getElementById("ba-d-int-sa")
-    ?.style.color?.includes("059669")
-    ? "standalone"
-    : "sap";
+  // data-selected 속성 기반으로 연동방식 판별 (색상 기반 판별은 불안정)
+  const _intSaBtn = document.getElementById("ba-d-int-sa");
+  const intType = (_intSaBtn?.getAttribute("data-selected") === "yes") ? "standalone" : "sap";
   const sapCode =
     intType === "sap"
       ? document.getElementById("ba-d-sap-code")?.value.trim()

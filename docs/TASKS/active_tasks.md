@@ -31,6 +31,17 @@
   - result.js — `_submitResultRegistration()` 확장: Line Item별 result_status, result_detail DB 저장
   - result.js — `_updateLineItemResult()` 실시간 상태 반영 + 신청 변경 시 캐시 리셋
 
+### 2026-05-06 — VOrg DB 연동 및 드릴다운 데이터 분리 필터 구현
+
+- [x] **VOrg DB Fallback 제거 및 테이블 매핑 교체**
+  - `supabase_client.js`: `virtual_edu_orgs` (미존재) 테이블 참조를 `virtual_org_templates` 테이블로 수정
+  - `bo_alloc_drilldown.js`, `bo_allocation.js`: 예산 계정의 하드코딩된 R&D 여부(`isRnd`) 대신 `template_id`를 기반으로 가상조직(VOrg)을 우선 동적 참조하도록 리팩토링
+  - `virtual_org_templates`의 `tree_data` 스키마를 프론트엔드의 `tree` 객체로 매핑
+- [x] **예산 배분 탭 UI/UX 고도화 및 버그 수정**
+  - `bo_alloc_drilldown.js`: 예산 계정 미선택 시 배정 현황(Overview)과 동일하게 "계정을 선택해주세요" 안내 UI(Placeholder) 렌더링
+  - `bo_data_mock.js`: `getPersonaAccountBudgets`에서 총괄 관리자(`tenantId` null) 조회 불가 버그 패치
+  - 데이터 범위 필터 연동(`_allocFilterTenant`, `_allocYear`, `_allocFilterAccountCode`) 적용으로 선택된 데이터만 정확히 스코핑
+
 ### 2026-05-06 — BO 결재문서 N-Line Items 렌더링 + 교육유형 불일치 경고
 
 - [x] **bo_approval.js** — `_boShowSubDocDetail()` 교육신청 상세 모달에 `application_plan_items` 조회 및 과정-차수 카드 렌더링 추가

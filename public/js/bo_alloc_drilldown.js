@@ -128,8 +128,10 @@ function _renderDDLevel0() {
   const burnPct = totalBudget > 0 ? Math.min((allDist / totalBudget) * 100, 100) : 0;
   const isSAP = ab.sourceType === 'sap_if';
   const isRnd = ab.accountCode.includes('RND');
-  const tpl = VIRTUAL_EDU_ORGS.find(t => t.tenantId === ab.tenantId && (isRnd ? t.tree.centers : t.tree.hqs));
-  const vGroups = tpl ? (isRnd ? tpl.tree.centers : tpl.tree.hqs) : [];
+  // templateId가 있으면 우선 찾고, 없으면 fallback으로 tenantId와 isRnd로 찾음
+  const tpl = (ab.templateId ? VIRTUAL_EDU_ORGS.find(t => t.id === ab.templateId) : null) 
+    || VIRTUAL_EDU_ORGS.find(t => t.tenantId === ab.tenantId && (isRnd ? t.tree?.centers : t.tree?.hqs));
+  const vGroups = tpl ? (tpl.tree?.centers || tpl.tree?.hqs || []) : [];
 
   // 교육조직 테이블 행
   let tableRows = '';
@@ -312,8 +314,10 @@ function _renderDDLevel1() {
   const ab = _ddAbId ? ACCOUNT_BUDGETS.find(x => x.id === _ddAbId) : null;
   if (!ab) return '<div style="padding:40px;text-align:center;color:#9CA3AF">계정 정보를 찾을 수 없습니다.</div>';
   const isRnd = ab.accountCode.includes('RND');
-  const tpl = VIRTUAL_EDU_ORGS.find(t => t.tenantId === ab.tenantId && (isRnd ? t.tree.centers : t.tree.hqs));
-  const vGroups = tpl ? (isRnd ? tpl.tree.centers : tpl.tree.hqs) : [];
+  // templateId가 있으면 우선 찾고, 없으면 fallback으로 tenantId와 isRnd로 찾음
+  const tpl = (ab.templateId ? VIRTUAL_EDU_ORGS.find(t => t.id === ab.templateId) : null) 
+    || VIRTUAL_EDU_ORGS.find(t => t.tenantId === ab.tenantId && (isRnd ? t.tree?.centers : t.tree?.hqs));
+  const vGroups = tpl ? (tpl.tree?.centers || tpl.tree?.hqs || []) : [];
   const vg = vGroups.find(g => g.id === _ddOrgId);
   if (!vg) return '<div style="padding:40px;text-align:center;color:#9CA3AF">교육조직 정보를 찾을 수 없습니다.</div>';
 

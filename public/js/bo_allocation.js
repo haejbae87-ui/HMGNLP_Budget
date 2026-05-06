@@ -839,10 +839,9 @@ function renderAbDetail(ab) {
   const alertColor = pct >= 95 ? "#EF4444" : pct >= 80 ? "#F59E0B" : "#059669";
 
   const isRnd = ab.accountCode.includes("RND");
-  const tpl = VIRTUAL_EDU_ORGS.find(
-    (t) => t.tenantId === ab.tenantId && (isRnd ? t.tree.centers : t.tree.hqs),
-  );
-  const vGroups = tpl ? (isRnd ? tpl.tree.centers : tpl.tree.hqs) : [];
+  const tpl = (ab.templateId ? VIRTUAL_EDU_ORGS.find(t => t.id === ab.templateId) : null) 
+    || VIRTUAL_EDU_ORGS.find(t => t.tenantId === ab.tenantId && (isRnd ? t.tree?.centers : t.tree?.hqs));
+  const vGroups = tpl ? (tpl.tree?.centers || tpl.tree?.hqs || []) : [];
   const groupedRows = [];
   const usedTdIds = new Set();
 
@@ -1696,7 +1695,7 @@ async function _syncAllocFromDB(persona) {
     // 1. 해당 테넌트의 통장 목록 조회
     const { data: bankbooks, error: bbErr } = await sb
       .from("org_budget_bankbooks")
-      .select("id, org_name, account_id, tenant_id")
+      .select("id, org_name, account_id, tenant_id, template_id")
       .eq("tenant_id", tenantId)
       .or("bb_status.eq.active,bb_status.is.null")
       .is("user_id", null);
@@ -1761,7 +1760,7 @@ async function _syncAllocFromDB(persona) {
       const alloc = allocMap[bb.id];
       if (!alloc) continue;
 
-      const ab = ACCOUNT_BUDGETS.find(
+      let ab = ACCOUNT_BUDGETS.find(
         (x) => x.accountCode === acct.code && x.tenantId === tenantId
       );
       if (!ab) {
@@ -1774,6 +1773,7 @@ async function _syncAllocFromDB(persona) {
             tenantId: tenantId,
             accountCode: acct.code,
             dbAccountId: acct.id,
+            templateId: bb.template_id || (acct.id.includes('TPL_') ? 'TPL_' + acct.id.split('TPL_')[1] : null),
             sourceType: acct.integration_mode === 'sap' ? 'sap_if' : 'platform',
             fiscalYear: _allocFilterYear || new Date().getFullYear(),
             baseAmount: 0,
@@ -1791,7 +1791,11 @@ async function _syncAllocFromDB(persona) {
           console.log('[BO Alloc Sync] DB 전용 계정 자동 생성:', acct.code, newAbId);
         }
         // 새로 생성된 ab로 계속 진행
-        var abRef = ACCOUNT_BUDGETS.find(x => x.id === newAbId);
+        ab = ACCOUNT_BUDGETS.find(x => x.id === newAbId);
+      } else {
+        if (!ab.templateId) ab.templateId = bb.template_id || (acct.id.includes('TPL_') ? 'TPL_' + acct.id.split('TPL_')[1] : null);
+      }
+      var abRef = ab;
         if (!abRef) continue;
       }
       const abFinal = ab || ACCOUNT_BUDGETS.find(x => x.accountCode === acct.code && x.tenantId === tenantId);

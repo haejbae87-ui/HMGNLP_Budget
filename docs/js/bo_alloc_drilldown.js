@@ -3,11 +3,25 @@
 //       ACCOUNT_BUDGETS, TEAM_DIST, VIRTUAL_EDU_ORGS, ACCOUNT_MASTER
 //       boFmt(), getDistributable(), getPersonaAccountBudgets(), boCurrentPersona
 
-// ── 탭 1: 최초 예산 할당 (총괄 전용) ──────────────────────────────────────────
+// ── 탭 1: 최초 예산 할당 → 예산계정 마스터로 이동 안내 (PRD F-B01) ─────────
 function renderInitialAlloc() {
-  return typeof renderAllocEntry === 'function'
-    ? renderAllocEntry()
-    : '<div style="padding:40px;text-align:center;color:#9CA3AF">최초 할당 모듈을 불러올 수 없습니다.</div>';
+  return `
+  <div style="padding:40px;text-align:center">
+    <div style="font-size:48px;margin-bottom:16px">🏦</div>
+    <h3 style="font-weight:900;color:#111827;margin-bottom:8px">기초/추가 예산 배정은 예산계정 마스터에서 관리합니다</h3>
+    <p style="color:#6B7280;font-size:13px;margin-bottom:24px;max-width:480px;margin-left:auto;margin-right:auto">
+      기초 예산 등록, 연중 추가 배정, 통장 목록 관리는 <b>예산계정 마스터</b> 화면에서 통합 관리됩니다.
+    </p>
+    <button onclick="if(typeof navigateBoMenu==='function'){navigateBoMenu('budget-master')}else{document.querySelectorAll('[data-menu]').forEach(m=>{if(m.dataset.menu==='budget-master')m.click()})}"
+      style="padding:12px 32px;border-radius:12px;border:2px solid #059669;background:#F0FDF4;color:#059669;font-weight:800;font-size:14px;cursor:pointer;transition:all .15s"
+      onmouseover="this.style.background='#059669';this.style.color='white'"
+      onmouseout="this.style.background='#F0FDF4';this.style.color='#059669'">
+      🏦 예산계정 마스터로 이동 →
+    </button>
+    <div style="margin-top:20px;padding:12px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;display:inline-block">
+      <div style="font-size:11px;color:#92400E;font-weight:600">💡 예산계정 마스터 메뉴 위치: 좌측 사이드바 → 교육지원제도 기준정보 → 예산계정 마스터</div>
+    </div>
+  </div>`;
 }
 
 // ── 탭 2: 예산 배분 진입점 ────────────────────────────────────────────────────

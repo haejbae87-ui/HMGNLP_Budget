@@ -155,6 +155,11 @@ let _bmDbBudgetData = {};
 let _bmAdjustHistory = [];
 let _bmCurrentTab = 2;
 
+window.setbmTab = function(idx) {
+  _bmCurrentTab = idx;
+  renderBudgetMaster();
+};
+
 // ─── DB: account_master + edu_support_domains 로드 후 ACCOUNT_MASTER 갱신 ───────
 async function _bmLoadFilterData(tenantId) {
   const sb = typeof getSB === 'function' ? getSB() : null;

@@ -968,11 +968,13 @@ function renderAllocEntry() {
     return ab.sourceType === 'platform'; // fallback
   });
 
-  // ★ 상단 필터에서 계정이 선택된 경우 — 드롭다운 대신 고정 라벨 표시
+  // ★ 상단 필터에서 계정이 선택된 경우 — 드롭다운 대신 고정 라벨 표시 + hidden input
   const _filterAcctName = filterAcct && typeof _bmFilterAcctList !== 'undefined'
     ? (_bmFilterAcctList.find(a => a.code === filterAcct) || {}).name || filterAcct : null;
+  // 고정 라벨 사용 시 해당 계정의 ACCOUNT_BUDGETS id를 hidden input으로 전달
+  const _fixedAbId = filterAcct ? (myBudgets.find(ab => ab.accountCode === filterAcct) || {}).id || '' : '';
   const _acctFixedLabel = _filterAcctName
-    ? '<div style="padding:10px 14px;border-radius:10px;border:1.5px solid #BFDBFE;background:#EFF6FF;font-size:13px;font-weight:800;color:#1D4ED8;display:flex;align-items:center;gap:8px"><span style="font-size:16px">💳</span> ' + _filterAcctName + '<span style="font-size:10px;color:#60A5FA;font-weight:600;margin-left:auto">상단 필터에서 선택됨</span></div>' : null;
+    ? '<input type="hidden" id="add-ab" value="' + _fixedAbId + '"/><div style="padding:10px 14px;border-radius:10px;border:1.5px solid #BFDBFE;background:#EFF6FF;font-size:13px;font-weight:800;color:#1D4ED8;display:flex;align-items:center;gap:8px"><span style="font-size:16px">💳</span> ' + _filterAcctName + '<span style="font-size:10px;color:#60A5FA;font-weight:600;margin-left:auto">상단 필터에서 선택됨</span></div>' : null;
 
   return `
 <div style="display:grid;gap:20px;max-width:700px">
@@ -1155,7 +1157,13 @@ async function submitInitBudget() {
 }
 
 async function submitAddBudget() {
-  const abId = document.getElementById("add-ab")?.value;
+  // add-ab DOM이 없거나 빈 값이면(고정 라벨 모드) _bmFilterAcctCode로 계정 특정
+  let abId = document.getElementById("add-ab")?.value;
+  if (!abId && typeof _bmFilterAcctCode !== "undefined" && _bmFilterAcctCode) {
+    const _tid = (typeof boCurrentPersona !== "undefined" && boCurrentPersona.tenantId) || _bmFilterTenant;
+    const _matchAb = ACCOUNT_BUDGETS.find(x => x.accountCode === _bmFilterAcctCode && x.tenantId === _tid);
+    if (_matchAb) abId = _matchAb.id;
+  }
   const amount = Number(document.getElementById("add-amount")?.value);
   const reason = document.getElementById("add-reason")?.value;
   if (!abId || !amount || !reason) {

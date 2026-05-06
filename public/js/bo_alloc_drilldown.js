@@ -703,7 +703,12 @@ async function _submitDDDist() {
       for (const r of rows) {
         const v = Number(document.getElementById(r.inputId)?.value || 0);
         if (v <= 0) continue;
-        const bb = (bankbooks || []).find(b => (b.org_name === r.name || b.org_name?.includes(r.name) || r.name?.includes(b.org_name)) && (dbAccountId ? b.account_id === dbAccountId : true));
+        // Bug Fix: account_id가 UUID가 아닌 'BA-HMC-RND-TPL_xxx' 복합키 형식임
+        // dbAccountId(UUID) 비교 대신 account_id에 accountCode 포함 여부로 매칭
+        const bb = (bankbooks || []).find(b =>
+          (b.org_name === r.name || b.org_name?.includes(r.name) || r.name?.includes(b.org_name)) &&
+          (b.account_id?.includes(ab.accountCode) || b.template_id === ab.templateId || !ab.accountCode)
+        );
         if (!bb) { errors.push(r.name); }
         else {
           const { data: existing } = await sb.from('budget_allocations').select('id,allocated_amount').eq('bankbook_id', bb.id).order('updated_at', { ascending: false }).limit(1);

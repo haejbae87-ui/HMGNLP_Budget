@@ -184,19 +184,19 @@ async function sbLoadApplications(filters = {}) {
 // ─── 교육조직 템플릿 로더 ─────────────────────────────────────────────────────
 async function sbLoadVirtualOrgTemplates(filters = {}) {
   try {
-    let q = getSB().from("virtual_edu_orgs").select("*");
+    let q = getSB().from("virtual_org_templates").select("id, tenant_id, purpose, tree_data, name");
     if (filters.tenantId) q = q.eq("tenant_id", filters.tenantId);
     if (filters.domainId) q = q.eq("domain_id", filters.domainId);
-    const { data, error } = await q.order("created_at");
+    const { data, error } = await q;
     if (error) throw error;
-    // DB 컬럼(snake_case) → JS mock 형식(camelCase) 정규화
     return (data || []).map((t) => ({
       ...t,
       tenantId: t.tenant_id,
-      domainId: t.domain_id,
+      domainId: t.purpose,
+      tree: t.tree_data,
     }));
   } catch (e) {
-    console.warn("[Supabase] virtual_edu_orgs fallback:", e.message);
+    console.warn("[Supabase] virtual_org_templates fallback:", e.message);
     return typeof VIRTUAL_EDU_ORGS !== "undefined" ? VIRTUAL_EDU_ORGS : [];
   }
 }
@@ -207,12 +207,12 @@ async function sbSaveVirtualOrgTemplate(tplObj) {
     const row = {
       id: tplObj.id,
       tenant_id: tplObj.tenantId,
-      domain_id: tplObj.domainId || null,
+      purpose: tplObj.domainId || null,
       name: tplObj.name,
-      tree: tplObj.tree,
+      tree_data: tplObj.tree,
     };
     // JS SDK 대신 fetch 직접 호출 (getSB() 초기화 타이밍 문제 우회)
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/virtual_edu_orgs`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/virtual_org_templates`, {
       method: "POST",
       headers: {
         apikey: SUPABASE_ANON,
@@ -228,7 +228,7 @@ async function sbSaveVirtualOrgTemplate(tplObj) {
     }
     return true;
   } catch (e) {
-    console.error("[Supabase] virtual_edu_orgs 저장 실패:", e.message);
+    console.error("[Supabase] virtual_org_templates 저장 실패:", e.message);
     return false;
   }
 }
@@ -237,13 +237,13 @@ window.sbSaveVirtualOrgTemplate = sbSaveVirtualOrgTemplate;
 async function sbDeleteVirtualOrgTemplate(id) {
   try {
     const { error } = await getSB()
-      .from("virtual_edu_orgs")
+      .from("virtual_org_templates")
       .delete()
       .eq("id", id);
     if (error) throw error;
     return true;
   } catch (e) {
-    console.error("[Supabase] virtual_edu_orgs 삭제 실패:", e.message);
+    console.error("[Supabase] virtual_org_templates 삭제 실패:", e.message);
     return false;
   }
 }

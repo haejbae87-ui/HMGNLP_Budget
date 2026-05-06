@@ -2270,7 +2270,43 @@ async function _syncAllocFromDB(persona) {
       || 'HMC';
     if (!tenantId) return;
 
-    // 1. �ش� �׳�Ʈ�� �� ���� + allocation ���� ��ȸ
+    // ── STEP 0: account_budgets 총액 DB 동기화 (mock baseAmount/totalAdded 덮어쓰기) ──
+    try {
+      const year = _allocFilterYear || _allocYear || new Date().getFullYear();
+      const acctCodesForSync = (_allocFilterAcctList || []).map(a => a.code).filter(Boolean);
+      if (acctCodesForSync.length > 0) {
+        const { data: abRows } = await sb
+          .from('account_budgets')
+          .select('account_code, total_budget, base_budget, added_budget, fiscal_year, status')
+          .eq('fiscal_year', year)
+          .in('account_code', acctCodesForSync);
+        (abRows || []).forEach(row => {
+          const dbBase = Number(row.base_budget || row.total_budget || 0);
+          const dbAdded = Number(row.added_budget || 0);
+          if (dbBase === 0 && dbAdded === 0) return; // DB가 0이면 mock 유지
+          let ab = ACCOUNT_BUDGETS.find(x => x.accountCode === row.account_code && x.tenantId === tenantId);
+          if (!ab) {
+            const newId = 'AB_DB_' + row.account_code;
+            ab = { id: newId, tenantId, accountCode: row.account_code, sourceType: 'platform', _fromDb: true };
+            if (!ACCOUNT_BUDGETS.find(x => x.id === newId)) ACCOUNT_BUDGETS.push(ab);
+            ab = ACCOUNT_BUDGETS.find(x => x.id === newId);
+          }
+          if (ab) {
+            ab.baseAmount = dbBase;
+            ab.totalAdded = dbAdded;
+            ab.fiscalYear = row.fiscal_year || year;
+            ab._fromDb = true;
+            if (row.status) { ab.status = row.status; }
+            if (row.status === 'closed' && typeof window !== 'undefined') window._bmYearStatus = 'closed';
+          }
+        });
+        console.log('[BO Alloc Sync] account_budgets 총액 동기화:', year + '년', (abRows||[]).length + '건');
+      }
+    } catch (abErr) {
+      console.warn('[BO Alloc Sync] account_budgets 동기화 실패 (non-critical):', abErr.message);
+    }
+
+    // 1. 해당 테넌트의 통장 목록 조회
     const { data: bankbooks, error: bbErr } = await sb
       .from("org_budget_bankbooks")
       .select("id, org_name, account_id, tenant_id")

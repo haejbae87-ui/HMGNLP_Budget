@@ -197,12 +197,17 @@ async function _allocLoadFilterData(persona) {
       const existsInMemory = ACCOUNT_BUDGETS.find(
         ab => ab.accountCode === dbAcct.code && ab.tenantId === tenant && (ab.fiscalYear || 2026) === year
       );
-      // ★ DB integration_mode 변경 시 인메모리 sourceType도 동기화
+      // ★ DB integration_mode / templateId 변경 시 인메모리 동기화
       if (existsInMemory) {
         const newSrcType = dbAcct.integration_mode === 'sap' ? 'sap_if' : 'platform';
         if (existsInMemory.sourceType !== newSrcType) {
           console.log('[_allocLoadFilterData] sourceType 동기화:', dbAcct.code, existsInMemory.sourceType, '->', newSrcType);
           existsInMemory.sourceType = newSrcType;
+        }
+        // Bug Fix: 기존 인메모리 항목에도 templateId 동기화 (드릴다운 VOrg 매핑에 필수)
+        if (dbAcct.virtual_org_template_id && existsInMemory.templateId !== dbAcct.virtual_org_template_id) {
+          existsInMemory.templateId = dbAcct.virtual_org_template_id;
+          console.log('[_allocLoadFilterData] templateId 동기화:', dbAcct.code, '->', dbAcct.virtual_org_template_id);
         }
       }
       if (!existsInMemory) {
@@ -213,6 +218,8 @@ async function _allocLoadFilterData(persona) {
             tenantId: tenant,
             accountCode: dbAcct.code,
             dbAccountId: dbAcct.id,
+            // Bug Fix: templateId 추가 — 드릴다운 Level0에서 VOrg 매핑에 필수
+            templateId: dbAcct.virtual_org_template_id || null,
             sourceType: (dbAcct.integration_mode === 'sap') ? 'sap_if' : 'platform',
             fiscalYear: year,
             baseAmount: 0,
@@ -839,9 +846,11 @@ function renderAbDetail(ab) {
   const alertColor = pct >= 95 ? "#EF4444" : pct >= 80 ? "#F59E0B" : "#059669";
 
   const isRnd = ab.accountCode.includes("RND");
-  const tpl = (ab.templateId ? VIRTUAL_EDU_ORGS.find(t => t.id === ab.templateId) : null) 
-    || VIRTUAL_EDU_ORGS.find(t => t.tenantId === ab.tenantId && (isRnd ? t.tree?.centers : t.tree?.hqs));
-  const vGroups = tpl ? (tpl.tree?.centers || tpl.tree?.hqs || []) : [];
+  // Bug Fix: templateId 기반 정확한 매핑 우선, fallback으로 tenantId + 비어있지 않은 tree 검색
+  const tpl = (ab.templateId ? VIRTUAL_EDU_ORGS.find(t => t.id === ab.templateId) : null)
+    || VIRTUAL_EDU_ORGS.find(t => t.tenantId === ab.tenantId && (t.tree?.hqs?.length || t.tree?.centers?.length));
+  // Bug Fix: DB tree_data는 hqs 사용. hqs 우선, 없으면 centers
+  const vGroups = tpl ? (tpl.tree?.hqs || tpl.tree?.centers || []) : [];
   const groupedRows = [];
   const usedTdIds = new Set();
 

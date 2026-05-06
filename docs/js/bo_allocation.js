@@ -945,6 +945,12 @@ function renderAllocEntry() {
     (ab) => ab.sourceType === "platform",
   );
 
+  // ★ 상단 필터에서 계정이 선택된 경우 — 드롭다운 대신 고정 라벨 표시
+  const _filterAcctName = filterAcct && typeof _bmFilterAcctList !== 'undefined'
+    ? (_bmFilterAcctList.find(a => a.code === filterAcct) || {}).name || filterAcct : null;
+  const _acctFixedLabel = _filterAcctName
+    ? '<div style="padding:10px 14px;border-radius:10px;border:1.5px solid #BFDBFE;background:#EFF6FF;font-size:13px;font-weight:800;color:#1D4ED8;display:flex;align-items:center;gap:8px"><span style="font-size:16px">💳</span> ' + _filterAcctName + '<span style="font-size:10px;color:#60A5FA;font-weight:600;margin-left:auto">상단 필터에서 선택됨</span></div>' : null;
+
   return `
 <div style="display:grid;gap:20px;max-width:700px">
 
@@ -964,16 +970,7 @@ function renderAllocEntry() {
     <div style="display:grid;gap:14px">
       <div>
         <label style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;display:block;margin-bottom:6px">대상 계정 <span style="color:#EF4444">*</span></label>
-        <select id="init-ab" style="width:100%;border:1.5px solid #FED7AA;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700">
-          <option value="">— 계정 선택 —</option>
-          ${platformBudgets
-            .filter((ab) => ab.baseAmount === 0)
-            .map(
-              (ab) =>
-                `<option value="${ab.id}" ${filterAcct && ab.accountCode === filterAcct ? 'selected' : ''}>${ACCOUNT_MASTER.find((a) => a.code === ab.accountCode)?.name || ab.accountCode}</option>`,
-            )
-            .join("")}
-        </select>
+        ${_acctFixedLabel || ('<select id="init-ab" style="width:100%;border:1.5px solid #FED7AA;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700"><option value="">— 계정 선택 —</option>' + platformBudgets.filter(function(ab){return ab.baseAmount===0}).map(function(ab){return '<option value="'+ab.id+'">'+((ACCOUNT_MASTER.find(function(a){return a.code===ab.accountCode})||{}).name||ab.accountCode)+'</option>'}).join('') + '</select>')}
       </div>
       <div>
         <label style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;display:block;margin-bottom:6px">연간 기초 예산 총액 <span style="color:#EF4444">*</span></label>
@@ -1015,20 +1012,7 @@ function renderAllocEntry() {
     <div style="display:grid;gap:14px">
       <div>
         <label style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;display:block;margin-bottom:6px">추가 배정 계정 <span style="color:#EF4444">*</span></label>
-        <select id="add-ab" onchange="showAddSrcBadge()" style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700">
-          ${myBudgets.length === 1 ? '' : '<option value="">— 계정 선택 —</option>'}
-          ${myBudgets
-            .map((ab) => {
-              const acct = ACCOUNT_MASTER.find(
-                (a) => a.code === ab.accountCode,
-              );
-              const total = ab.baseAmount + ab.totalAdded;
-              const autoSel = (filterAcct && ab.accountCode === filterAcct) || myBudgets.length === 1;
-              return `<option value="${ab.id}" data-src="${ab.sourceType}" ${autoSel ? 'selected' : ''}>${acct?.name || ab.accountCode} (현재 총액: ${boFmt(total)}원)</option>`;
-            })
-            .join("")}
-        </select>
-        ${filterAcct ? '<div style="font-size:10px;color:#059669;font-weight:600;margin-top:4px">✅ 상단 필터에서 선택한 계정이 자동 적용되었습니다</div>' : ''}
+        ${_acctFixedLabel || ('<select id="add-ab" onchange="showAddSrcBadge()" style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700">' + (myBudgets.length===1 ? '' : '<option value="">— 계정 선택 —</option>') + myBudgets.map(function(ab){var acct=ACCOUNT_MASTER.find(function(a){return a.code===ab.accountCode});var total=ab.baseAmount+ab.totalAdded;var autoSel=(filterAcct&&ab.accountCode===filterAcct)||myBudgets.length===1;return '<option value="'+ab.id+'" data-src="'+ab.sourceType+'"'+(autoSel?' selected':'')+'>'+(acct&&acct.name||ab.accountCode)+' (현재 총액: '+boFmt(total)+'원)</option>'}).join('') + '</select>')}
         <div id="add-src-badge" style="margin-top:6px"></div>
       </div>
       <div>

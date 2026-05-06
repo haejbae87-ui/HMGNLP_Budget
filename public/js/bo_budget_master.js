@@ -3351,8 +3351,10 @@ let _bmFilterTplId = null;
 let _bmFilterAcctCode = null;
 let _bmFilterTplList = [];
 let _bmFilterAcctList = [];
-// ★ DB 직접 조회 데이터 맵 {accountCode: {totalBudget, addedBudget, fiscalYear}}
+// ★ DB 직접 조회 데이터 맵
 let _bmDbBudgetData = {};
+// ★ 배정 변경 이력 (account_budget_adjustments DB에서 로드)
+let _bmAdjustHistory = [];
 
 async function _bmLoadFilterData(tenantId) {
   const sb = typeof getSB === 'function' ? getSB() : null;
@@ -3503,8 +3505,10 @@ function renderBudgetMaster() {
           await _allocLoadFilterData(persona);
           if (prev !== null && typeof _allocFilterTenant !== 'undefined') _allocFilterTenant = prev;
         }
-        // ★ account_budgets DB에서 actual total_budget 로드 → ACCOUNT_BUDGETS.baseAmount 갱신
+        // ★ account_budgets DB에서 actual total_budget 로드
         await _bmSyncAccountBudgets(sb, _bmFilterTenant);
+        // ★ 배정 변경 이력 로드
+        await _bmLoadAdjustHistory(sb);
         if (typeof _syncAllocFromDB === 'function') await _syncAllocFromDB(persona);
       } catch (e) { console.warn("[BudgetMaster] sync:", e.message); }
       renderBudgetMaster();
@@ -3645,9 +3649,67 @@ function renderBudgetMaster() {
         </tr></thead>
         <tbody>${accountRows}</tbody>
       </table>
-    </div>` : '<div style="padding:40px;text-align:center;color:#9CA3AF"><div style="font-size:32px;margin-bottom:8px">💳</div><div style="font-weight:700">조회 조건을 선택하고 [조회]를 클릭하세요.</div></div>'}
+    </div>
+    ${(() => {
+      const hist = _bmAdjustHistory.filter(h => _bmFilterAcctCode ? h.account_code === _bmFilterAcctCode : true);
+      if (hist.length === 0) return '<div style="margin-top:24px;padding:24px;text-align:center;color:#9CA3AF;background:#F9FAFB;border-radius:12px;border:1px dashed #E5E7EB"><div style="font-size:20px;margin-bottom:6px">📊</div><div style="font-size:12px;font-weight:600">배정 변경 이력이 없습니다</div></div>';
+      const typeColors = { '기초입력': '#1D4ED8', '추가배정': '#059669', '회수': '#DC2626', '마감': '#6B7280' };
+      const rows = hist.map(h => {
+        const clr = typeColors[h.type] || '#374151';
+        const bg = h.type === '기초입력' ? '#EFF6FF' : h.type === '추가배정' ? '#ECFDF5' : h.type === '회수' ? '#FEF2F2' : '#F9FAFB';
+        const date = h.created_at ? new Date(h.created_at).toLocaleDateString('ko-KR', {year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+        const sign = h.type === '회수' ? '-' : '+';
+        return `<tr style="border-top:1px solid #F1F5F9">
+          <td style="padding:9px 12px;font-size:11px;color:#6B7280">${date}</td>
+          <td style="padding:9px 8px;text-align:center"><span style="font-size:10px;padding:2px 7px;border-radius:4px;background:${bg};color:${clr};font-weight:800">${h.type}</span></td>
+          <td style="padding:9px 8px;text-align:right;font-weight:700;color:${clr}">${h.type === '기초입력' ? '' : sign}${Number(h.amount||0).toLocaleString('ko-KR')}원</td>
+          <td style="padding:9px 8px;font-size:11px;color:#374151;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h.reason || ''}</td>
+          <td style="padding:9px 12px;font-size:11px;color:#9CA3AF">${h.performed_by || ''}</td>
+        </tr>`;
+      }).join('');
+      return `
+      <div class="bo-card" style="padding:20px;margin-top:16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+          <span style="background:#6366F1;color:white;font-size:10px;font-weight:900;padding:3px 10px;border-radius:6px">이력</span>
+          <div class="bo-section-title" style="margin:0">배정 변경 이력 (Audit Trail)</div>
+          <span style="margin-left:auto;font-size:11px;color:#6B7280">총 ${hist.length}건</span>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="background:#F8FAFC">
+            <th style="text-align:left;padding:8px 12px;font-weight:800;color:#64748B;white-space:nowrap">일시</th>
+            <th style="text-align:center;padding:8px 8px;font-weight:800;color:#64748B">구분</th>
+            <th style="text-align:right;padding:8px 8px;font-weight:800;color:#64748B">금액</th>
+            <th style="text-align:left;padding:8px 8px;font-weight:800;color:#64748B">변경 사유</th>
+            <th style="text-align:left;padding:8px 12px;font-weight:800;color:#64748B">작성자</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+    })()}
+    ` : '<div style="padding:40px;text-align:center;color:#9CA3AF"><div style="font-size:32px;margin-bottom:8px">💳</div><div style="font-weight:700">조회 조건을 선택하고 [조회]를 클릭하세요.</div></div>'}
   </div>`;
   window._budgetMasterLoaded = false;
 }
 
-
+// ── 배정 변경 이력 DB 로드 ──
+async function _bmLoadAdjustHistory(sb) {
+  _bmAdjustHistory = [];
+  if (!sb) return;
+  try {
+    const year = typeof _allocYear !== 'undefined' ? _allocYear : new Date().getFullYear();
+    const acctCodes = (_bmFilterAcctList || []).map(a => a.code).filter(Boolean);
+    if (acctCodes.length === 0) return;
+    const { data, error } = await sb
+      .from('account_budget_adjustments')
+      .select('account_code, fiscal_year, type, amount, reason, performed_by, created_at')
+      .eq('fiscal_year', year)
+      .in('account_code', acctCodes)
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (error) { console.warn('[_bmLoadAdjustHistory] 쿼리 실패:', error.message); return; }
+    _bmAdjustHistory = data || [];
+    console.log('[_bmLoadAdjustHistory] 로드 완료:', _bmAdjustHistory.length, '건');
+  } catch (e) {
+    console.warn('[_bmLoadAdjustHistory] 오류:', e.message);
+  }
+}

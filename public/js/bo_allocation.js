@@ -59,9 +59,12 @@ function renderBoAllocation() {
     // DB 계정이 ACCOUNT_BUDGETS에 추가된 후 sync + 재렌더
     return _syncAllocFromDB(persona);
   }).then(() => {
+    // ★ 초기 로드 완료 — 반드시 현재 탭을 재렌더
     const contentEl = document.getElementById("alloc-content");
-    if (contentEl && _allocTab === 0) {
-      contentEl.innerHTML = renderAllocOverview();
+    if (contentEl) {
+      const fns = [renderAllocOverview, renderInitialAlloc, renderBudgetDistribution, renderAllocHistory];
+      const fn = fns[_allocTab];
+      if (fn) contentEl.innerHTML = fn();
     }
   }).catch(e => console.warn('[BO Alloc Init]', e));
 
@@ -112,7 +115,13 @@ function renderBoAllocation() {
       ${t.label}
     </button>`).join('')}
   </div>
-  <div id="alloc-content">${renderAllocOverview()}</div>
+  <div id="alloc-content">
+    <div style="padding:60px;text-align:center">
+      <div style="font-size:32px;margin-bottom:12px;animation:pulse 1.5s infinite">⏳</div>
+      <div style="color:#6B7280;font-size:13px;font-weight:700">예산 계정 데이터를 불러오는 중...</div>
+      <div style="color:#9CA3AF;font-size:11px;margin-top:4px">DB에서 계정 및 배분 정보를 로드하고 있습니다.</div>
+    </div>
+  </div>
 </div>`;
 }
 

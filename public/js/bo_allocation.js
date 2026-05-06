@@ -430,6 +430,28 @@ function renderAllocOverview(year) {
   // ⭐ 필터링 로직 추가: _allocFilterAccountCode가 있으면 해당 계정만 남기기
   if (_allocFilterAccountCode) {
     myBudgets = myBudgets.filter(ab => ab.accountCode === _allocFilterAccountCode);
+  } else {
+    // 계정이 선택되지 않았을 때 (데이터 범위 선택 전) 배정 현황 숨김 처리
+    return `
+<div style="margin-bottom:16px">
+  <!-- 연도 선택 -->
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    <span style="font-size:11px;font-weight:700;color:#6B7280">📅 연도:</span>
+    ${availableYears
+      .map(
+        (y) => `<button onclick="switchAllocYear(${y})"
+      style="padding:4px 14px;border-radius:8px;border:2px solid ${y === _allocYear ? "#059669" : "#E5E7EB"};
+      background:${y === _allocYear ? "#059669" : "white"};color:${y === _allocYear ? "white" : "#374151"};
+      font-weight:700;font-size:12px;cursor:pointer">${y}년</button>`,
+      )
+      .join("")}
+  </div>
+  <div style="padding:60px 20px;text-align:center;color:#6B7280;background:white;border-radius:12px;border:1.5px dashed #E5E7EB">
+    <div style="font-size:40px;margin-bottom:12px">🎯</div>
+    <div style="font-size:16px;font-weight:800;color:#374151;margin-bottom:8px">예산 계정을 선택해주세요</div>
+    <div style="font-size:13px">상단 데이터 범위 필터에서 조회를 원하는 <b>예산 계정</b>을 선택해야 배정 현황을 확인할 수 있습니다.</div>
+  </div>
+</div>`;
   }
 
   if (_allocFilterAccountCode && myBudgets.length > 0) {

@@ -1,4 +1,4 @@
-﻿// ─── 예산 배정 및 관리 (v2 — 통합 드릴다운) ──────────────────────────────────
+// ─── 예산 배정 및 관리 (v2 — 통합 드릴다운) ──────────────────────────────────
 // 계층: 예산 계정(마스터) → 교육조직 → 팀 → (개인)
 // 탭:   현황 | 최초 할당(총괄) | 예산 배분(드릴다운) | 변경 이력
 
@@ -421,6 +421,12 @@ function renderAllocOverview(year) {
     'filter:', _allocFilterAccountCode, 'tenant:', resolvedTenantId, 'year:', _allocYear);
 
   // ── 필터 계정 코드 매칭 ──────────────────────────────────────────
+  const availableYears = [
+    ...new Set(
+      getPersonaAccountBudgets(persona).map((ab) => ab.fiscalYear || 2026),
+    ),
+  ].sort((a, b) => b - a);
+
   if (_allocFilterAccountCode && myBudgets.length > 0) {
     const match = myBudgets.find(ab => ab.accountCode === _allocFilterAccountCode)
       || myBudgets.find(ab => (ab.accountCode || '').includes(_allocFilterAccountCode) || _allocFilterAccountCode.includes(ab.accountCode || ''));

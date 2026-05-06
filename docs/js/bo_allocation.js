@@ -1,4 +1,4 @@
-// ─── 예산 배정 및 관리 (v2 — 통합 드릴다운) ──────────────────────────────────
+﻿// ─── 예산 배정 및 관리 (v2 — 통합 드릴다운) ──────────────────────────────────
 // 계층: 예산 계정(마스터) → 교육조직 → 팀 → (개인)
 // 탭:   현황 | 최초 할당(총괄) | 예산 배분(드릴다운) | 변경 이력
 
@@ -1059,10 +1059,15 @@ function showAddSrcBadge() {
 }
 
 async function submitInitBudget() {
-  const abId = document.getElementById("init-ab")?.value;
+  // init-ab DOM이 없으면(고정 라벨 모드) _bmFilterAcctCode로 계정 특정
+  let abId = document.getElementById("init-ab")?.value;
+  if (!abId && typeof _bmFilterAcctCode !== "undefined" && _bmFilterAcctCode) {
+    const _tid = (typeof boCurrentPersona !== "undefined" && boCurrentPersona.tenantId) || _bmFilterTenant;
+    const _matchAb = ACCOUNT_BUDGETS.find(x => x.accountCode === _bmFilterAcctCode && x.tenantId === _tid);
+    if (_matchAb) abId = _matchAb.id;
+  }
   const amount = Number(document.getElementById("init-amount")?.value);
-  const note =
-    document.getElementById("init-note")?.value || "연간 기초 예산 최초 등록";
+  const note = document.getElementById("init-note")?.value || "연간 기초 예산 최초 등록";
   if (!abId || !amount) {
     alert("계정과 금액을 입력하세요.");
     return;

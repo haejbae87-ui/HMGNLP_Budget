@@ -3503,7 +3503,13 @@ function renderBudgetMaster() {
   const totalBase = myBudgets.reduce((s, b) => s + (b.baseAmount || 0), 0);
   const totalAdded = myBudgets.reduce((s, b) => s + (b.totalAdded || 0), 0);
   const totalBudget = totalBase + totalAdded;
-  const uninitialized = myBudgets.filter(b => b.sourceType === "platform" && b.baseAmount === 0);
+  const _liveAccts = typeof _bmFilterAcctList !== 'undefined' ? _bmFilterAcctList : [];
+  const uninitialized = myBudgets.filter(b => {
+    // live acct list에서 integration_mode 조회 (캐시된 sourceType보다 신뢰성 높음)
+    const liveAcct = _liveAccts.find(a => a.code === b.accountCode);
+    const isPlatform = liveAcct ? liveAcct.integration_mode !== 'sap' : b.sourceType === 'platform';
+    return isPlatform && b.baseAmount === 0;
+  });
   const _fmt = (v) => Number(v || 0).toLocaleString("ko-KR");
 
   const accountRows = myBudgets.map(ab => {

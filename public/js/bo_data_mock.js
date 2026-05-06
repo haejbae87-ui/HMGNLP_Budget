@@ -1,4 +1,4 @@
-﻿// ─── bo_data_mock.js — MOCK 계획/신청/원장/계정마스터/Form (REFACTOR-3) ───
+// ─── bo_data_mock.js — MOCK 계획/신청/원장/계정마스터/Form (REFACTOR-3) ───
 const VIRTUAL_ORG = {
   general: VIRTUAL_EDU_ORGS.find((t) => t.tree.hqs)?.tree || { hqs: [] },
   rnd: VIRTUAL_EDU_ORGS.find((t) => t.tree.centers)?.tree || { centers: [] },
@@ -971,7 +971,7 @@ function getPersonaAccountBudgets(persona) {
   const isSystem = allowed.includes("*");
   return ACCOUNT_BUDGETS.filter(
     (ab) =>
-      ab.tenantId === persona.tenantId &&
+      (!persona.tenantId || ab.tenantId === persona.tenantId) &&
       (isSystem || allowed.includes(ab.accountCode)),
   );
 }

@@ -314,24 +314,52 @@ function renderAllocOverview(year) {
     (ab) => (ab.fiscalYear || 2026) === _allocYear,
   );
   // 필터: 계정 코드 필터 적용 (auto-select 방식)
-  // 1) DB code 직접 매칭 → 2) 부분 매칭 → 3) 계정명 매칭 → 4) DB 목록 교차매칭 순으로 시도
+  // DB code(예: RAD-통합관리) → 메모리 accountCode(예: HMC-RND) 역매핑 포함
   if (_allocFilterAccountCode) {
+    // 1) 직접 매칭: DB code == 메모리 accountCode
     const exactMatch = myBudgets.find(ab => ab.accountCode === _allocFilterAccountCode);
+
+    // 2) 부분 매칭
     const partialMatch = !exactMatch ? myBudgets.find(ab =>
       (ab.accountCode || '').includes(_allocFilterAccountCode) || _allocFilterAccountCode.includes(ab.accountCode || '')
     ) : null;
-    // 계정명 매칭 (DB name vs 메모리 accountCode 또는 ACCOUNT_MASTER.name)
+
+    // 3) 계정명 매칭 (DB name vs ACCOUNT_MASTER.name)
     const nameMatch = (!exactMatch && !partialMatch && _allocFilterAccountName) ? myBudgets.find(ab => {
       const masterName = (typeof ACCOUNT_MASTER !== 'undefined' ? ACCOUNT_MASTER : []).find(x => x.code === ab.accountCode)?.name || '';
       return masterName && (masterName.includes(_allocFilterAccountName) || _allocFilterAccountName.includes(masterName));
     }) : null;
-    // DB 목록 교차매칭: _allocFilterAcctList의 code → 메모리 accountCode
+
+    // 4) DB budget_accounts → 메모리 ACCOUNT_BUDGETS 역매핑
+    //    DB의 code(RAD-통합관리)로 DB목록에서 budget_account를 찾고,
+    //    그 budget_account의 virtual_org_template_id로 메모리 accountCode를 추정
     const dbAcct = _allocFilterAcctList.find(a => a.code === _allocFilterAccountCode);
     const dbCrossMatch = (!exactMatch && !partialMatch && !nameMatch && dbAcct) ? myBudgets.find(ab => {
       // DB의 name이 메모리 accountCode를 포함하거나 그 반대
       return (dbAcct.name || '').includes(ab.accountCode || '') || (ab.accountCode || '').includes((dbAcct.name || ''));
     }) : null;
-    const matched = exactMatch || partialMatch || nameMatch || dbCrossMatch;
+
+    // 5) ★ DB id 기반 최종 역매핑: _syncAllocFromDB가 DB code를 메모리에 반영했을 수 있음
+    //    _allocFilterAcctList에서 선택 계정의 DB id를 가져오고,
+    //    ACCOUNT_BUDGETS에서 dbAccountId가 일치하는 항목을 찾음
+    let dbIdMatch = null;
+    if (!exactMatch && !partialMatch && !nameMatch && !dbCrossMatch && dbAcct) {
+      dbIdMatch = myBudgets.find(ab => ab.dbAccountId === dbAcct.id);
+      // 없으면 index 순서 기반 폴백: 같은 VOrg 내에서 순서 매칭
+      if (!dbIdMatch && _allocFilterTplId) {
+        const tplAccts = _allocFilterAcctList.filter(a => a.virtual_org_template_id === _allocFilterTplId);
+        const selectedIdx = tplAccts.findIndex(a => a.code === _allocFilterAccountCode);
+        if (selectedIdx >= 0 && selectedIdx < myBudgets.length) {
+          dbIdMatch = myBudgets[selectedIdx];
+        }
+      }
+    }
+
+    // 6) 선택된 계정이 하나뿐이면 그냥 첫번째를 선택 (확실한 폴백)
+    const singleMatch = (!exactMatch && !partialMatch && !nameMatch && !dbCrossMatch && !dbIdMatch && myBudgets.length === 1)
+      ? myBudgets[0] : null;
+
+    const matched = exactMatch || partialMatch || nameMatch || dbCrossMatch || dbIdMatch || singleMatch;
     if (matched) {
       _allocSelectedAbId = matched.id;
     }
@@ -1930,7 +1958,7 @@ async function _syncAllocFromDB(persona) {
   if (!sb) return;
 
   try {
-    const tenantId = persona?.tenantId;
+    const tenantId = persona?.tenantId || _allocFilterTenant || 'HMC';
     if (!tenantId) return;
 
     // 1. �ش� �׳�Ʈ�� �� ���� + allocation ���� ��ȸ
@@ -2004,10 +2032,40 @@ async function _syncAllocFromDB(persona) {
       const ab = ACCOUNT_BUDGETS.find(
         (x) => x.accountCode === acct.code && x.tenantId === tenantId
       );
-      if (!ab) continue;
+      if (!ab) {
+        // ★ DB에만 존재하는 계정 → ACCOUNT_BUDGETS에 자동 생성
+        const newAbId = 'AB_DB_' + acct.id;
+        // 동일 계정이 이미 다른 코드로 추가되었는지 확인
+        if (!ACCOUNT_BUDGETS.find(x => x.id === newAbId)) {
+          ACCOUNT_BUDGETS.push({
+            id: newAbId,
+            tenantId: tenantId,
+            accountCode: acct.code,
+            dbAccountId: acct.id,
+            sourceType: acct.integration_mode === 'sap' ? 'sap_if' : 'platform',
+            fiscalYear: _allocFilterYear || new Date().getFullYear(),
+            baseAmount: 0,
+            totalAdded: 0,
+            status: 'confirmed',
+            _fromDb: true,
+          });
+          // ACCOUNT_MASTER에도 없으면 추가
+          if (typeof ACCOUNT_MASTER !== 'undefined') {
+            const existMaster = ACCOUNT_MASTER.find(x => x.code === acct.code);
+            if (!existMaster) {
+              ACCOUNT_MASTER.push({ code: acct.code, name: acct.code, type: 'custom' });
+            }
+          }
+          console.log('[BO Alloc Sync] DB 전용 계정 자동 생성:', acct.code, newAbId);
+        }
+        // 새로 생성된 ab로 계속 진행
+        var abRef = ACCOUNT_BUDGETS.find(x => x.id === newAbId);
+        if (!abRef) continue;
+      }
+      const abFinal = ab || ACCOUNT_BUDGETS.find(x => x.accountCode === acct.code && x.tenantId === tenantId);
 
       const existingIdx = TEAM_DIST.findIndex(
-        (td) => td.accountBudgetId === ab.id && td.teamName === bb.org_name
+        (td) => td.accountBudgetId === abFinal.id && td.teamName === bb.org_name
       );
 
       const newAmt = Number(alloc.allocated_amount || 0);
@@ -2023,7 +2081,7 @@ async function _syncAllocFromDB(persona) {
       } else if (newAmt > 0) {
         TEAM_DIST.push({
           id: "TD_DB_" + bb.id,
-          accountBudgetId: ab.id,
+          accountBudgetId: abFinal.id,
           teamName: bb.org_name,
           allocAmount: newAmt,
           spent: newSpent,

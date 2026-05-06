@@ -3446,9 +3446,15 @@ async function _bmSyncAccountBudgets(sb, tenantId) {
         x => x.accountCode === row.account_code && x.tenantId === tenantId
       );
       if (ab) {
-        ab.baseAmount = Number(row.total_budget || 0);
+        const dbAmount = Number(row.total_budget || 0);
+        // DB 값이 0이고 기존 mock 데이터가 0보다 크면 → mock 데이터 보존 (아직 DB에 기초예산 미등록)
+        if (dbAmount === 0 && ab.baseAmount > 0 && !ab._fromDb) {
+          console.log('[_bmSyncAccountBudgets] DB=0, mock 보존:', row.account_code, ab.baseAmount);
+        } else {
+          ab.baseAmount = dbAmount;
+          console.log('[_bmSyncAccountBudgets] 갱신:', row.account_code, '→', ab.baseAmount);
+        }
         ab.fiscalYear = row.fiscal_year;
-        console.log('[_bmSyncAccountBudgets] 갱신:', row.account_code, '→', ab.baseAmount);
       }
     });
   } catch (e) {
@@ -3496,8 +3502,15 @@ function renderBudgetMaster() {
   }
 
   let myBudgets = typeof getPersonaAccountBudgets === "function" ? getPersonaAccountBudgets(persona) : [];
-  if (!persona.tenantId) myBudgets = myBudgets.filter(ab => ab.tenantId === _bmFilterTenant);
-  if (_bmFilterAcctCode) myBudgets = myBudgets.filter(ab => ab.accountCode === _bmFilterAcctCode);
+  console.log('[renderBudgetMaster] 1) getPersonaAccountBudgets:', myBudgets.length, 'entries, persona.tenantId:', persona.tenantId);
+  if (!persona.tenantId) {
+    myBudgets = myBudgets.filter(ab => ab.tenantId === _bmFilterTenant);
+    console.log('[renderBudgetMaster] 2) after tenant filter (' + _bmFilterTenant + '):', myBudgets.length, myBudgets.map(b => b.accountCode + '/' + b.baseAmount));
+  }
+  if (_bmFilterAcctCode) {
+    myBudgets = myBudgets.filter(ab => ab.accountCode === _bmFilterAcctCode);
+    console.log('[renderBudgetMaster] 3) after acct filter (' + _bmFilterAcctCode + '):', myBudgets.length, myBudgets.map(b => b.accountCode + '/' + b.baseAmount));
+  }
 
   const allocYear = typeof _allocYear !== "undefined" ? _allocYear : new Date().getFullYear();
   const totalBase = myBudgets.reduce((s, b) => s + (b.baseAmount || 0), 0);

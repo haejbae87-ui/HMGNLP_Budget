@@ -558,12 +558,25 @@ function _showDistConfirmModal() {
   const ab = ACCOUNT_BUDGETS.find(x => x.id === abId);
   const isL1 = window._ddCurrentLevel === 1;
 
-  // ── F-151: 운영담당자 Δ=0 제약 ──
+  // ── F-151: 운영담당자 Δ=0 제약 (해석 B: orgAlloc 초과 차단) ──
   // 운영담당자는 Level 0(교육조직 총액)을 변경할 수 없고, Level 1(팀간 재배분)만 가능
   const isOp = typeof boIsOpManager === 'function' && boIsOpManager();
   if (isOp && !isL1) {
     alert('⚠️ 운영담당자는 교육조직 총액을 변경할 수 없습니다.\n\n관할 교육조직으로 드릴다운하여 팀 간 재배분만 가능합니다.\n교육조직 총액 변경은 총괄담당자에게 요청하세요.');
     return;
+  }
+
+  // ── F-151 (Level 1 추가 검증): 운영담당자 팀 배분 시 orgAlloc 초과 차단 ──
+  // 해석 B: orgAlloc 범위 내 자유 배분 허용, 단 총액(orgAlloc) 초과 불가
+  if (isOp && isL1) {
+    const inputTotal = rows.reduce((s, r) => s + Number(document.getElementById(r.inputId)?.value || 0), 0);
+    const orgAlloc = window._ddOrgAlloc || 0;
+    const teamsAllocated = window._ddTeamsAllocated || 0;
+    const newTeamsTotal = teamsAllocated + inputTotal;
+    if (newTeamsTotal > orgAlloc) {
+      alert(`⚠️ F-151 정책 위반\n\n운영담당자는 교육조직 배분 총액을 초과하여 팀에 배분할 수 없습니다.\n\n교육조직 배분 총액: ${boFmt(orgAlloc)}원\n이미 배분된 금액: ${boFmt(teamsAllocated)}원\n추가 입력 합계: ${boFmt(inputTotal)}원\n배분 후 합계: ${boFmt(newTeamsTotal)}원 (초과 ${boFmt(newTeamsTotal - orgAlloc)}원)\n\n배분 가능 잔액(${boFmt(orgAlloc - teamsAllocated)}원) 이내로 입력하세요.`);
+      return;
+    }
   }
 
   let total = 0;
@@ -694,31 +707,35 @@ async function _submitDDDist() {
           else { await sb.from('budget_allocations').insert({ bankbook_id: bb.id, allocated_amount: v, used_amount: 0, frozen_amount: 0 }); }
         }
         const td = TEAM_DIST.find(t => t.accountBudgetId === abId && t.teamName === r.name);
+        const afterAmt = (td ? td.allocAmount : 0) + v;
         if (td) { td.allocAmount += v; } else { TEAM_DIST.push({ id: `TD${Date.now()}_${Math.random().toString(36).slice(2)}`, accountBudgetId: abId, teamName: r.name, allocAmount: v, spent: 0, reserved: 0 }); }
-        lines.push(`${r.name}: +${boFmt(v)}원${bb ? '' : ' (⚠DB미반영)'}`);
+        // Bug Fix: lines를 객체로 push (Audit Trail에서 l.v, l.name, l.after 접근 필요)
+        lines.push({ name: r.name, v, after: afterAmt, dbMatched: !!bb });
       }
     } catch (e) { console.error('[DD배분] DB오류:', e.message); }
   } else {
+    // DB 미연결 (오프라인) 모드: 인메모리 TEAM_DIST만 업데이트
     rows.forEach(r => {
       const v = Number(document.getElementById(r.inputId)?.value || 0);
       if (v <= 0) return;
       const td = TEAM_DIST.find(t => t.accountBudgetId === abId && t.teamName === r.name);
+      const afterAmt = (td ? td.allocAmount : 0) + v;
       if (td) { td.allocAmount += v; } else { TEAM_DIST.push({ id: `TD${Date.now()}`, accountBudgetId: abId, teamName: r.name, allocAmount: v, spent: 0, reserved: 0 }); }
-      lines.push(`${r.name}: +${boFmt(v)}원`);
+      // Bug Fix: 오프라인 모드도 객체 push
+      lines.push({ name: r.name, v, after: afterAmt, dbMatched: false });
     });
   }
-  // ── Audit Trail: budget_usage_log 기록 ──
+  // ── Audit Trail: account_budget_adjustments 기록 (마스터 일원화) ──
   if (sb && ab) {
     try {
       const isL1 = window._ddCurrentLevel === 1;
       const actorName = boCurrentPersona?.name || 'BO담당자';
-      const actorId = boCurrentPersona?.id || 'system';
-      const acctName = ACCOUNT_MASTER.find(a => a.code === ab.accountCode)?.name || ab.accountCode;
+      // Bug Fix: l.v, l.name, l.after가 올바른 숫자/문자열값으로 삽입됨 (lines가 객체 배열이므로)
       for (const l of lines) {
         await sb.from('account_budget_adjustments').insert({
           account_code: ab.accountCode,
           fiscal_year: ab.fiscalYear || new Date().getFullYear(),
-          type: '배분',
+          type: isL1 ? '팀 배분' : '조직 배분',
           amount: l.v,
           reason: `[${isL1 ? '팀 배분' : '조직 배분'}] ${l.name}에게 ${boFmt(l.v)}원 배분 (배분 후 ${boFmt(l.after)}원)`,
           performed_by: actorName,
@@ -728,9 +745,11 @@ async function _submitDDDist() {
     } catch(logErr) { console.warn('[DD배분] Audit 로그 skip:', logErr.message); }
   }
 
-  let msg = `✅ 배분 완료!\n\n${lines.join('\n')}\n\n총 배분: ${boFmt(total)}원`;
+  // Bug Fix: lines가 객체 배열이므로 map으로 문자열 변환
+  let msg = `✅ 배분 완료!\n\n${lines.map(l => `${l.name}: +${boFmt(l.v)}원${l.dbMatched ? '' : ' (⚠DB미반영)'}`).join('\n')}\n\n총 배분: ${boFmt(total)}원`;
   if (errors.length) msg += `\n\n⚠ 통장 미매칭 (DB 미반영): ${errors.join(', ')}`;
   alert(msg);
+  // 배분 완료 후 Level 0(계정 선택)으로 복귀하여 전체 현황 확인
   _ddLevel = 0;
   showAllocTabByIdx(0);
 }
@@ -839,5 +858,9 @@ async function _submitDDRecall(abId, orgName, maxRecall) {
   }
 
   alert(`✅ 회수 완료!\n${orgName}에서 ${boFmt(amt)}원 회수됨`);
-  showAllocTabByIdx(2);
+  // Bug Fix: 회수 후 Level 0으로 날리지 않고 Level 1(같은 교육조직)으로 복귀
+  // _ddOrgId, _ddOrgName, _ddAbId 상태는 회수 전과 동일하므로 그대로 renderBudgetDistribution 재호출
+  _ddLevel = 1;
+  const contentEl = document.getElementById('alloc-content');
+  if (contentEl) contentEl.innerHTML = renderBudgetDistribution();
 }

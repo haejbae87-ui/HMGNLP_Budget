@@ -338,7 +338,7 @@ async function _bamShowDetailView(id) {
     name: a?.name || '',
     description: a?.description || '',
     uses_budget: a?.uses_budget !== false,
-    integration_type: a?.integration_mode || 'self',
+    integration_type: (a?.integration_mode === 'self' ? 'standalone' : (a?.integration_mode || 'standalone')),
     sap_code: a?.sap_code || '',
     bankbook_mode: policy?.bankbook_mode || 'isolated',
     individual_limit: policy?.individual_limit || '',

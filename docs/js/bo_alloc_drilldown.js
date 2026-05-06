@@ -128,11 +128,14 @@ function _renderDDLevel0() {
   const burnPct = totalBudget > 0 ? Math.min((allDist / totalBudget) * 100, 100) : 0;
   const isSAP = ab.sourceType === 'sap_if';
   const isRnd = ab.accountCode.includes('RND');
-  // Bug Fix: templateId 기반 정확한 매핑을 우선 시도, fallback으로 tenantId 몤안 검색
-  const tpl = (ab.templateId ? VIRTUAL_EDU_ORGS.find(t => t.id === ab.templateId) : null)
-    || VIRTUAL_EDU_ORGS.find(t => t.tenantId === ab.tenantId && (t.tree?.hqs?.length || t.tree?.centers?.length));
-  // Bug Fix: DB tree_data는 hqs를 사용 (스크맰샷 확인). centers가 없으면 hqs, 둘 다 없으면 빈 배열
+  // 수정: (1) ab.templateId 우선, (2) 필터에서 선택된 _allocFilterTplId 보조 fallback (타이밍 문제 방어)
+  // (3) tenantId + 비어있지 않은 tree 기반 마지막 fallback
+  const _tplIdToUse = ab.templateId || (typeof _allocFilterTplId !== 'undefined' ? _allocFilterTplId : null);
+  const tpl = (_tplIdToUse ? VIRTUAL_EDU_ORGS.find(t => t.id === _tplIdToUse) : null)
+    || VIRTUAL_EDU_ORGS.find(t => t.tenantId === ab.tenantId && (t.tree?.hqs?.length > 0 || t.tree?.centers?.length > 0));
   const vGroups = tpl ? (tpl.tree?.hqs || tpl.tree?.centers || []) : [];
+  // 디버그: 테널릿 매칭 결과 로깅
+  if (window._ddDebug) console.log('[DDLevel0] tplIdToUse:', _tplIdToUse, '| tpl:', tpl?.id, '| vGroups:', vGroups.length);
 
   // 교육조직 테이블 행
   let tableRows = '';
@@ -315,10 +318,10 @@ function _renderDDLevel1() {
   const ab = _ddAbId ? ACCOUNT_BUDGETS.find(x => x.id === _ddAbId) : null;
   if (!ab) return '<div style="padding:40px;text-align:center;color:#9CA3AF">계정 정보를 찾을 수 없습니다.</div>';
   const isRnd = ab.accountCode.includes('RND');
-  // Bug Fix: templateId 기반 정확한 매핑을 우선 시도, fallback으로 tenantId 몤안 검색
-  const tpl = (ab.templateId ? VIRTUAL_EDU_ORGS.find(t => t.id === ab.templateId) : null)
-    || VIRTUAL_EDU_ORGS.find(t => t.tenantId === ab.tenantId && (t.tree?.hqs?.length || t.tree?.centers?.length));
-  // Bug Fix: DB tree_data는 hqs를 사용. centers가 없으면 hqs, 둘 다 없으면 빈 배열
+  // 수정: (1) ab.templateId 우선, (2) _allocFilterTplId 보조 fallback
+  const _tplIdToUse2 = ab.templateId || (typeof _allocFilterTplId !== 'undefined' ? _allocFilterTplId : null);
+  const tpl = (_tplIdToUse2 ? VIRTUAL_EDU_ORGS.find(t => t.id === _tplIdToUse2) : null)
+    || VIRTUAL_EDU_ORGS.find(t => t.tenantId === ab.tenantId && (t.tree?.hqs?.length > 0 || t.tree?.centers?.length > 0));
   const vGroups = tpl ? (tpl.tree?.hqs || tpl.tree?.centers || []) : [];
   const vg = vGroups.find(g => g.id === _ddOrgId);
   if (!vg) return '<div style="padding:40px;text-align:center;color:#9CA3AF">교육조직 정보를 찾을 수 없습니다.</div>';

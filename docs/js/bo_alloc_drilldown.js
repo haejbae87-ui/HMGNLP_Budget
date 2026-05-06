@@ -691,20 +691,14 @@ async function _submitDDDist() {
       const actorId = boCurrentPersona?.id || 'system';
       const acctName = ACCOUNT_MASTER.find(a => a.code === ab.accountCode)?.name || ab.accountCode;
       for (const l of lines) {
-        await sb.from('budget_usage_log').insert({
-          tenant_id: ab.tenantId,
-          action: 'distribution',
-          target_type: isL1 ? 'team' : 'org',
-          target_name: l.name,
+        await sb.from('account_budget_adjustments').insert({
           account_code: ab.accountCode,
-          account_name: acctName,
+          fiscal_year: ab.fiscalYear || new Date().getFullYear(),
+          type: '배분',
           amount: l.v,
-          balance_after: l.after,
-          actor_id: actorId,
-          actor_name: actorName,
-          parent_org: isL1 ? (_ddOrgName || null) : null,
-          note: `${isL1 ? '팀별' : '조직별'} 배분: ${l.name}에 ${boFmt(l.v)}원 추가 (배분 후 ${boFmt(l.after)}원)`,
-          created_at: new Date().toISOString()
+          reason: `[${isL1 ? '팀 배분' : '조직 배분'}] ${l.name}에게 ${boFmt(l.v)}원 배분 (배분 후 ${boFmt(l.after)}원)`,
+          performed_by: actorName,
+          tenant_id: ab.tenantId || ''
         });
       }
     } catch(logErr) { console.warn('[DD배분] Audit 로그 skip:', logErr.message); }
@@ -808,20 +802,14 @@ async function _submitDDRecall(abId, orgName, maxRecall) {
       const actorId = boCurrentPersona?.id || 'system';
       const acctName = ACCOUNT_MASTER.find(a => a.code === ab.accountCode)?.name || ab.accountCode;
       const afterAmt = td ? td.allocAmount : 0;
-      await sb.from('budget_usage_log').insert({
-        tenant_id: ab.tenantId,
-        action: 'recall',
-        target_type: 'team',
-        target_name: orgName,
+      await sb.from('account_budget_adjustments').insert({
         account_code: ab.accountCode,
-        account_name: acctName,
-        amount: -amt,
-        balance_after: afterAmt,
-        actor_id: actorId,
-        actor_name: actorName,
-        parent_org: _ddOrgName || null,
-        note: `예산 회수: ${orgName}에서 ${boFmt(amt)}원 회수 (회수 후 ${boFmt(afterAmt)}원)`,
-        created_at: new Date().toISOString()
+        fiscal_year: ab.fiscalYear || new Date().getFullYear(),
+        type: '배분 회수',
+        amount: amt,
+        reason: `[배분 회수] ${orgName}에서 ${boFmt(amt)}원 회수 (회수 후 ${boFmt(afterAmt)}원)`,
+        performed_by: actorName,
+        tenant_id: ab.tenantId || ''
       });
     } catch(logErr) { console.warn('[DD회수] Audit 로그 skip:', logErr.message); }
   }

@@ -1619,6 +1619,10 @@ async function _syncAllocFromDB(persona) {
       || 'HMC';
     if (!tenantId) return;
 
+    // ■ STEP 0.5: Mock 데이터 잔재 및 중복 방지를 위한 초기화
+    ACCOUNT_BUDGETS.length = 0;
+    TEAM_DIST.length = 0;
+
     // ── STEP 0: account_budgets 총액 DB 동기화 (mock baseAmount/totalAdded 덮어쓰기) ──
     try {
       const year = _allocFilterYear || _allocYear || new Date().getFullYear();

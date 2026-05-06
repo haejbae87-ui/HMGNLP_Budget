@@ -65,8 +65,28 @@ function _ddBreadcrumb(ab, extra) {
 
 // ── Level 0: Master Bankbook Dashboard ────────────────────────────────────────
 function _renderDDLevel0() {
+  if (typeof _allocFilterAccountCode === 'undefined' || !_allocFilterAccountCode) {
+    return `
+      <div style="padding:60px 20px;text-align:center;color:#6B7280;background:white;border-radius:12px;border:1.5px dashed #E5E7EB;margin-top:16px">
+        <div style="font-size:40px;margin-bottom:12px">🎯</div>
+        <div style="font-size:16px;font-weight:800;color:#374151;margin-bottom:8px">예산 계정을 선택해주세요</div>
+        <div style="font-size:13px">상단 데이터 범위 필터에서 조회를 원하는 <b>예산 계정</b>을 선택해야 예산 배분을 진행할 수 있습니다.</div>
+      </div>
+    `;
+  }
   const persona = boCurrentPersona;
-  const myBudgets = getPersonaAccountBudgets(persona);
+  let myBudgets = getPersonaAccountBudgets(persona);
+  
+  // 상단 필터 연동 (테넌트, 연도, 계정코드)
+  if (typeof _allocFilterTenant !== 'undefined' && _allocFilterTenant) {
+    myBudgets = myBudgets.filter(b => b.tenantId === _allocFilterTenant);
+  }
+  if (typeof _allocYear !== 'undefined' && _allocYear) {
+    myBudgets = myBudgets.filter(b => b.fiscalYear === _allocYear);
+  }
+  if (typeof _allocFilterAccountCode !== 'undefined' && _allocFilterAccountCode) {
+    myBudgets = myBudgets.filter(b => b.accountCode === _allocFilterAccountCode);
+  }
   if (!_ddAbId || !myBudgets.find(b => b.id === _ddAbId)) {
     _ddAbId = myBudgets[0]?.id || null;
   }

@@ -3342,98 +3342,148 @@ async function _obDeactivateBankbook(bbId) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// F-B01: 예산계정 마스터 — 기초/추가 배정 독립 메뉴
+// F-B01: 예산계정 마스터 — 기초/추가 배정 독립 메뉴 (3단 필터 개편)
 // ══════════════════════════════════════════════════════════════════════════════
+
+// ── 전용 필터 상태 ──
+let _bmFilterTenant = null;
+let _bmFilterTplId = null;
+let _bmFilterAcctCode = null;
+let _bmFilterTplList = [];
+let _bmFilterAcctList = [];
+
+async function _bmLoadFilterData(tenantId) {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb || !tenantId) return;
+  try {
+    const { data: tpls } = await sb.from('virtual_org_templates').select('id,name').eq('tenant_id', tenantId);
+    _bmFilterTplList = tpls || [];
+    if (!_bmFilterTplId || !_bmFilterTplList.find(t => t.id === _bmFilterTplId)) {
+      _bmFilterTplId = _bmFilterTplList[0]?.id || null;
+    }
+    await _bmRefreshAcctList();
+  } catch (e) { console.warn('[BM Filter]', e); }
+}
+
+async function _bmRefreshAcctList() {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (sb && _bmFilterTenant && _bmFilterTplId) {
+    const { data: accts } = await sb.from('budget_accounts')
+      .select('id,name,code,integration_mode')
+      .eq('tenant_id', _bmFilterTenant)
+      .eq('virtual_org_template_id', _bmFilterTplId)
+      .eq('active', true).eq('uses_budget', true);
+    _bmFilterAcctList = accts || [];
+  } else { _bmFilterAcctList = []; }
+  if (_bmFilterAcctCode && !_bmFilterAcctList.find(a => a.code === _bmFilterAcctCode)) {
+    _bmFilterAcctCode = null;
+  }
+}
+
+async function _bmOnTplChange(tplId) {
+  _bmFilterTplId = tplId; _bmFilterAcctCode = null;
+  await _bmRefreshAcctList();
+  const el = document.getElementById('bm-acct-select');
+  if (el) el.innerHTML = '<option value="">예산계정 선택</option>' +
+    _bmFilterAcctList.map(a => '<option value="' + a.code + '">' + a.name + '</option>').join('');
+}
+
+function _bmApplyFilter() {
+  const t = document.getElementById('bm-tenant-select');
+  const g = document.getElementById('bm-group-select');
+  const a = document.getElementById('bm-acct-select');
+  if (t) _bmFilterTenant = t.value;
+  if (g) _bmFilterTplId = g.value || null;
+  if (a) _bmFilterAcctCode = a.value || null;
+  window._budgetMasterLoaded = false;
+  renderBudgetMaster();
+}
+
+function _bmFilterBarHtml() {
+  const tenants = typeof TENANTS !== 'undefined' ? TENANTS.filter(t => t.id !== 'SYSTEM') : [];
+  const ss = 'padding:6px 10px;border:1.5px solid #DBEAFE;border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;color:#1D4ED8;min-width:120px';
+  return '<div style="display:flex;align-items:center;gap:10px;padding:12px 18px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:12px;margin-bottom:20px;flex-wrap:wrap">' +
+    '<span style="font-size:11px;font-weight:900;color:#1D4ED8;white-space:nowrap">🔍 데이터 범위</span>' +
+    '<label style="font-size:10px;font-weight:700;color:#6B7280">회사</label>' +
+    '<select id="bm-tenant-select" style="' + ss + '" onchange="_bmFilterTenant=this.value;_bmFilterTplId=null;_bmFilterAcctCode=null;_bmLoadFilterData(this.value).then(function(){var g=document.getElementById(\'bm-group-select\');if(g){g.innerHTML=_bmFilterTplList.map(function(t){return\'<option value=\\\'\'+t.id+\'\\\'>\'+ t.name+\'</option>\'}).join(\'\')};_bmOnTplChange(_bmFilterTplList[0]&&_bmFilterTplList[0].id||null)})">' +
+      tenants.map(t => '<option value="' + t.id + '"' + (t.id === _bmFilterTenant ? ' selected' : '') + '>' + t.name + ' (' + t.id + ')</option>').join('') +
+    '</select>' +
+    '<label style="font-size:10px;font-weight:700;color:#6B7280">🏷️ 제도그룹</label>' +
+    '<select id="bm-group-select" style="' + ss + '" onchange="_bmOnTplChange(this.value)">' +
+      (_bmFilterTplList.length > 0 ? _bmFilterTplList.map(t => '<option value="' + t.id + '"' + (t.id === _bmFilterTplId ? ' selected' : '') + '>' + t.name + '</option>').join('') : '<option value="">로딩 중...</option>') +
+    '</select>' +
+    '<label style="font-size:10px;font-weight:700;color:#6B7280">💳 예산계정</label>' +
+    '<select id="bm-acct-select" style="' + ss + '">' +
+      '<option value="">예산계정 선택</option>' +
+      _bmFilterAcctList.map(a => '<option value="' + a.code + '"' + (a.code === _bmFilterAcctCode ? ' selected' : '') + '>' + a.name + '</option>').join('') +
+    '</select>' +
+    '<button onclick="_bmApplyFilter()" style="padding:6px 18px;background:#1D4ED8;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap" onmouseover="this.style.background=\'#1E40AF\'" onmouseout="this.style.background=\'#1D4ED8\'">조회</button>' +
+    '<div style="font-size:10px;color:#60A5FA;font-weight:600;margin-left:4px">ℹ 회사 → 제도그룹 → 예산계정을 순서대로 선택하면 관리할 수 있습니다.</div>' +
+  '</div>';
+}
+
 function renderBudgetMaster() {
   const ct = document.getElementById("bo-content");
   if (!ct) return;
-
   const persona = boCurrentPersona;
   const isOwner = (persona.ownedAccounts || []).length > 0;
   const role = persona.role || "";
-  const isGlobal =
-    role === "platform_admin" ||
-    role === "tenant_global_admin" ||
-    role === "budget_global_admin";
+  const isGlobal = role === "platform_admin" || role === "tenant_global_admin" || role === "budget_global_admin";
 
-  const groupBar =
-    typeof boRenderGroupContextBar === "function"
-      ? boRenderGroupContextBar()
-      : "";
-
-  // 권한 확인
   if (!isGlobal && !isOwner) {
-    ct.innerHTML = `
-    ${groupBar}
-    <div style="max-width:700px;margin:0 auto;padding:60px 24px;text-align:center">
-      <div style="font-size:48px;margin-bottom:16px">🔒</div>
-      <div style="font-size:16px;font-weight:900;color:#374151;margin-bottom:8px">접근 권한이 없습니다</div>
-      <div style="font-size:13px;color:#6B7280">기초 및 추가 배정은 총괄담당자 권한입니다.</div>
-      <button onclick="boNavigate('allocation')" style="margin-top:24px;padding:10px 24px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:13px;font-weight:700;cursor:pointer;color:#374151">← 예산 배정으로 이동</button>
-    </div>`;
+    ct.innerHTML = '<div style="max-width:700px;margin:0 auto;padding:60px 24px;text-align:center"><div style="font-size:48px;margin-bottom:16px">🔒</div><div style="font-size:16px;font-weight:900;color:#374151;margin-bottom:8px">접근 권한이 없습니다</div><div style="font-size:13px;color:#6B7280">기초 및 추가 배정은 총괄담당자 권한입니다.</div></div>';
     return;
   }
 
-  // DB 데이터 로드
+  if (!_bmFilterTenant) {
+    _bmFilterTenant = persona.tenantId || (typeof TENANTS !== 'undefined' ? TENANTS.find(t => t.id !== 'SYSTEM')?.id : null) || 'HMC';
+  }
+
   const sb = typeof getSB === "function" ? getSB() : null;
   if (sb && !window._budgetMasterLoaded) {
     window._budgetMasterLoaded = true;
     (async () => {
       try {
+        await _bmLoadFilterData(_bmFilterTenant);
         if (typeof _syncAllocFromDB === "function") await _syncAllocFromDB();
-      } catch (e) {
-        console.warn("[BudgetMaster] sync error:", e.message);
-      }
+        if (typeof _allocLoadFilterData === 'function') {
+          const prev = typeof _allocFilterTenant !== 'undefined' ? _allocFilterTenant : null;
+          if (typeof _allocFilterTenant !== 'undefined') _allocFilterTenant = _bmFilterTenant;
+          await _allocLoadFilterData(persona);
+          if (prev !== null && typeof _allocFilterTenant !== 'undefined') _allocFilterTenant = prev;
+        }
+      } catch (e) { console.warn("[BudgetMaster] sync:", e.message); }
       renderBudgetMaster();
     })();
-    ct.innerHTML = `${groupBar}<div style="padding:80px;text-align:center;color:#6B7280;font-weight:600;font-size:14px">⏳ 예산계정 데이터 로딩 중...</div>`;
+    ct.innerHTML = _bmFilterBarHtml() + '<div style="padding:80px;text-align:center;color:#6B7280;font-weight:600;font-size:14px">⏳ 예산계정 데이터 로딩 중...</div>';
     return;
   }
 
-  const myBudgets =
-    typeof getPersonaAccountBudgets === "function"
-      ? getPersonaAccountBudgets(persona)
-      : [];
+  let myBudgets = typeof getPersonaAccountBudgets === "function" ? getPersonaAccountBudgets(persona) : [];
+  if (!persona.tenantId) myBudgets = myBudgets.filter(ab => ab.tenantId === _bmFilterTenant);
+  if (_bmFilterAcctCode) myBudgets = myBudgets.filter(ab => ab.accountCode === _bmFilterAcctCode);
 
-  const allocYear =
-    typeof _allocYear !== "undefined" ? _allocYear : new Date().getFullYear();
+  const allocYear = typeof _allocYear !== "undefined" ? _allocYear : new Date().getFullYear();
   const totalBase = myBudgets.reduce((s, b) => s + (b.baseAmount || 0), 0);
   const totalAdded = myBudgets.reduce((s, b) => s + (b.totalAdded || 0), 0);
   const totalBudget = totalBase + totalAdded;
-  const uninitialized = myBudgets.filter(
-    (b) => b.sourceType === "platform" && b.baseAmount === 0
-  );
+  const uninitialized = myBudgets.filter(b => b.sourceType === "platform" && b.baseAmount === 0);
   const _fmt = (v) => Number(v || 0).toLocaleString("ko-KR");
 
-  // 계정별 상세 테이블
-  const accountRows = myBudgets
-    .map((ab) => {
-      const acct =
-        typeof ACCOUNT_MASTER !== "undefined"
-          ? ACCOUNT_MASTER.find((a) => a.code === ab.accountCode)
-          : null;
-      const total = (ab.baseAmount || 0) + (ab.totalAdded || 0);
-      const srcBadge =
-        ab.sourceType === "sap_if"
-          ? '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#EFF6FF;color:#1D4ED8;font-weight:800">🔗 SAP</span>'
-          : '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#FFF7ED;color:#C2410C;font-weight:800">📋 자체</span>';
-      return `<tr style="border-top:1px solid #F1F5F9">
-        <td style="padding:10px 12px;font-weight:700;color:#374151">${ab.accountCode}</td>
-        <td style="padding:10px 8px;color:#374151">${acct?.name || ab.accountCode}</td>
-        <td style="text-align:center;padding:10px 8px">${srcBadge}</td>
-        <td style="text-align:right;padding:10px 8px;font-weight:700">${_fmt(ab.baseAmount || 0)}원</td>
-        <td style="text-align:right;padding:10px 8px;font-weight:700;color:#059669">${ab.totalAdded > 0 ? "+" + _fmt(ab.totalAdded) + "원" : "—"}</td>
-        <td style="text-align:right;padding:10px 12px;font-weight:900;color:#7C3AED">${_fmt(total)}원</td>
-      </tr>`;
-    })
-    .join("");
+  const accountRows = myBudgets.map(ab => {
+    const acct = typeof ACCOUNT_MASTER !== "undefined" ? ACCOUNT_MASTER.find(a => a.code === ab.accountCode) : null;
+    const total = (ab.baseAmount || 0) + (ab.totalAdded || 0);
+    const srcBadge = ab.sourceType === "sap_if"
+      ? '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#EFF6FF;color:#1D4ED8;font-weight:800">🔗 SAP</span>'
+      : '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#FFF7ED;color:#C2410C;font-weight:800">📋 자체</span>';
+    return '<tr style="border-top:1px solid #F1F5F9"><td style="padding:10px 12px;font-weight:700;color:#374151">' + ab.accountCode + '</td><td style="padding:10px 8px;color:#374151">' + (acct?.name || ab.accountCode) + '</td><td style="text-align:center;padding:10px 8px">' + srcBadge + '</td><td style="text-align:right;padding:10px 8px;font-weight:700">' + _fmt(ab.baseAmount || 0) + '원</td><td style="text-align:right;padding:10px 8px;font-weight:700;color:#059669">' + (ab.totalAdded > 0 ? "+" + _fmt(ab.totalAdded) + "원" : "—") + '</td><td style="text-align:right;padding:10px 12px;font-weight:900;color:#7C3AED">' + _fmt(total) + '원</td></tr>';
+  }).join("");
 
-  // 기초/추가 배정 입력 영역 (기존 renderAllocEntry 재사용)
-  const allocEntryHtml =
-    typeof renderAllocEntry === "function" ? renderAllocEntry() : "";
+  const allocEntryHtml = typeof renderAllocEntry === "function" ? renderAllocEntry() : "";
+  const acctLabel = _bmFilterAcctCode ? (_bmFilterAcctList.find(a => a.code === _bmFilterAcctCode)?.name || _bmFilterAcctCode) : '전체 계정';
 
   ct.innerHTML = `
-  ${groupBar}
+  ${_bmFilterBarHtml()}
   <div class="max-w-5xl mx-auto">
     <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px">
       <div>
@@ -3442,18 +3492,10 @@ function renderBudgetMaster() {
         <p class="text-gray-500 text-sm mt-1">예산계정의 기초 예산 등록 및 연중 추가 배정을 관리합니다.</p>
       </div>
       <div style="display:flex;gap:8px">
-        <button onclick="boNavigate('budget-account')"
-          style="padding:8px 18px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;cursor:pointer;color:#6B7280">
-          💳 예산계정 관리 →
-        </button>
-        <button onclick="boNavigate('allocation')"
-          style="padding:8px 18px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;cursor:pointer;color:#6B7280">
-          💰 예산 배정 →
-        </button>
+        <button onclick="boNavigate('budget-account')" style="padding:8px 18px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;cursor:pointer;color:#6B7280">💳 예산계정 관리 →</button>
+        <button onclick="boNavigate('allocation')" style="padding:8px 18px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;cursor:pointer;color:#6B7280">💰 예산 배정 →</button>
       </div>
     </div>
-
-    <!-- 요약 카드 -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
       <div style="background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border-radius:16px;padding:18px 16px;border:1.5px solid #BFDBFE;position:relative;overflow:hidden">
         <div style="position:absolute;top:12px;right:14px;font-size:20px;opacity:.4">💳</div>
@@ -3480,33 +3522,27 @@ function renderBudgetMaster() {
         <div style="font-size:10px;color:#7C3AED99;margin-top:4px">기초 + 추가</div>
       </div>
     </div>
-
-    <!-- 기초/추가 배정 입력 -->
     ${allocEntryHtml}
-
-    <!-- 계정별 상세 현황 -->
     ${myBudgets.length > 0 ? `
     <div class="bo-card" style="padding:20px;margin-top:24px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
         <span style="background:#374151;color:white;font-size:10px;font-weight:900;padding:3px 10px;border-radius:6px">현황</span>
-        <div class="bo-section-title" style="margin:0">계정별 예산 현황 상세</div>
+        <div class="bo-section-title" style="margin:0">계정별 예산 현황 상세${_bmFilterAcctCode ? ' — ' + acctLabel : ''}</div>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:12px">
-        <thead>
-          <tr style="background:#F8FAFC">
-            <th style="text-align:left;padding:10px 12px;font-weight:800;color:#64748B">계정코드</th>
-            <th style="text-align:left;padding:10px 8px;font-weight:800;color:#64748B">계정명</th>
-            <th style="text-align:center;padding:10px 8px;font-weight:800;color:#64748B">연동방식</th>
-            <th style="text-align:right;padding:10px 8px;font-weight:800;color:#64748B">기초 예산</th>
-            <th style="text-align:right;padding:10px 8px;font-weight:800;color:#64748B">추가 배정</th>
-            <th style="text-align:right;padding:10px 12px;font-weight:800;color:#64748B">총 예산</th>
-          </tr>
-        </thead>
+        <thead><tr style="background:#F8FAFC">
+          <th style="text-align:left;padding:10px 12px;font-weight:800;color:#64748B">계정코드</th>
+          <th style="text-align:left;padding:10px 8px;font-weight:800;color:#64748B">계정명</th>
+          <th style="text-align:center;padding:10px 8px;font-weight:800;color:#64748B">연동방식</th>
+          <th style="text-align:right;padding:10px 8px;font-weight:800;color:#64748B">기초 예산</th>
+          <th style="text-align:right;padding:10px 8px;font-weight:800;color:#64748B">추가 배정</th>
+          <th style="text-align:right;padding:10px 12px;font-weight:800;color:#64748B">총 예산</th>
+        </tr></thead>
         <tbody>${accountRows}</tbody>
       </table>
-    </div>` : ""}
+    </div>` : '<div style="padding:40px;text-align:center;color:#9CA3AF"><div style="font-size:32px;margin-bottom:8px">💳</div><div style="font-weight:700">조회 조건을 선택하고 [조회]를 클릭하세요.</div></div>'}
   </div>`;
-
   window._budgetMasterLoaded = false;
 }
+
 

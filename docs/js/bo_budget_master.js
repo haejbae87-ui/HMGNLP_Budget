@@ -3496,29 +3496,23 @@ function renderBudgetMaster() {
         <button onclick="boNavigate('allocation')" style="padding:8px 18px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;cursor:pointer;color:#6B7280">💰 예산 배정 →</button>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
-      <div style="background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border-radius:16px;padding:18px 16px;border:1.5px solid #BFDBFE;position:relative;overflow:hidden">
-        <div style="position:absolute;top:12px;right:14px;font-size:20px;opacity:.4">💳</div>
-        <div style="font-size:10px;font-weight:700;color:#1D4ED8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">관리 계정 수</div>
-        <div style="font-size:28px;font-weight:900;color:#1D4ED8;line-height:1">${myBudgets.length}<span style="font-size:12px;font-weight:700;margin-left:2px">개</span></div>
-        <div style="font-size:10px;color:#1D4ED899;margin-top:4px">${allocYear}년 기준</div>
-      </div>
-      <div style="background:linear-gradient(135deg,#FFF7ED,#FED7AA);border-radius:16px;padding:18px 16px;border:1.5px solid #FED7AA;position:relative;overflow:hidden">
-        <div style="position:absolute;top:12px;right:14px;font-size:20px;opacity:.4">📋</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px">
+      <div style="background:linear-gradient(135deg,#FFF7ED,#FED7AA);border-radius:16px;padding:20px 18px;border:1.5px solid #FED7AA;position:relative;overflow:hidden">
+        <div style="position:absolute;top:12px;right:14px;font-size:22px;opacity:.4">📋</div>
         <div style="font-size:10px;font-weight:700;color:#C2410C;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">기초 예산 합계</div>
-        <div style="font-size:28px;font-weight:900;color:#C2410C;line-height:1">${_fmt(totalBase)}<span style="font-size:12px;font-weight:700;margin-left:2px">원</span></div>
+        <div style="font-size:30px;font-weight:900;color:#C2410C;line-height:1">${_fmt(totalBase)}<span style="font-size:13px;font-weight:700;margin-left:2px">원</span></div>
         <div style="font-size:10px;color:#C2410C99;margin-top:4px">${uninitialized.length > 0 ? "⚠️ 미등록 " + uninitialized.length + "건" : "✅ 전체 등록 완료"}</div>
       </div>
-      <div style="background:linear-gradient(135deg,#ECFDF5,#D1FAE5);border-radius:16px;padding:18px 16px;border:1.5px solid #6EE7B7;position:relative;overflow:hidden">
-        <div style="position:absolute;top:12px;right:14px;font-size:20px;opacity:.4">➕</div>
+      <div style="background:linear-gradient(135deg,#ECFDF5,#D1FAE5);border-radius:16px;padding:20px 18px;border:1.5px solid #6EE7B7;position:relative;overflow:hidden">
+        <div style="position:absolute;top:12px;right:14px;font-size:22px;opacity:.4">➕</div>
         <div style="font-size:10px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">추가 배정 합계</div>
-        <div style="font-size:28px;font-weight:900;color:#059669;line-height:1">+${_fmt(totalAdded)}<span style="font-size:12px;font-weight:700;margin-left:2px">원</span></div>
+        <div style="font-size:30px;font-weight:900;color:#059669;line-height:1">+${_fmt(totalAdded)}<span style="font-size:13px;font-weight:700;margin-left:2px">원</span></div>
         <div style="font-size:10px;color:#05966999;margin-top:4px">연중 증액 누계</div>
       </div>
-      <div style="background:linear-gradient(135deg,#F3E8FF,#DDD6FE);border-radius:16px;padding:18px 16px;border:1.5px solid #C4B5FD;position:relative;overflow:hidden">
-        <div style="position:absolute;top:12px;right:14px;font-size:20px;opacity:.4">💰</div>
+      <div style="background:linear-gradient(135deg,#F3E8FF,#DDD6FE);border-radius:16px;padding:20px 18px;border:1.5px solid #C4B5FD;position:relative;overflow:hidden">
+        <div style="position:absolute;top:12px;right:14px;font-size:22px;opacity:.4">💰</div>
         <div style="font-size:10px;font-weight:700;color:#7C3AED;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">총 예산</div>
-        <div style="font-size:28px;font-weight:900;color:#7C3AED;line-height:1">${_fmt(totalBudget)}<span style="font-size:12px;font-weight:700;margin-left:2px">원</span></div>
+        <div style="font-size:30px;font-weight:900;color:#7C3AED;line-height:1">${_fmt(totalBudget)}<span style="font-size:13px;font-weight:700;margin-left:2px">원</span></div>
         <div style="font-size:10px;color:#7C3AED99;margin-top:4px">기초 + 추가</div>
       </div>
     </div>

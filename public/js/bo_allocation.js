@@ -375,8 +375,23 @@ function renderAllocOverview(year) {
     ...new Set(allBudgets.map((ab) => ab.fiscalYear || 2026)),
   ].sort((a, b) => b - a);
   let myBudgets = allBudgets.filter(
-    (ab) => (ab.fiscalYear || 2026) === _allocYear,
+    (ab) => {
+      // DB에서 자동 생성된 계정(_fromDb=true)은 fiscalYear가 정확히 매칭됨
+      // mock 데이터는 fiscalYear가 2026으로 하드코딩 → _allocYear와 불일치 가능
+      // → _fromDb 계정은 fiscalYear 정확 매칭, mock은 연도 무관 포함 (DB 데이터가 우선)
+      const fy = ab.fiscalYear || _allocYear;
+      if (ab._fromDb) return fy === _allocYear;
+      // mock 계정: DB 동기화된 동일 코드가 있으면 mock은 제외
+      const hasDbEntry = allBudgets.some(x => x._fromDb && x.accountCode === ab.accountCode && x.tenantId === ab.tenantId);
+      if (hasDbEntry) return false; // DB 우선, mock 제외
+      return fy === _allocYear;
+    }
   );
+  // myBudgets가 없으면 mock fallback (fiscalYear 무시)
+  if (myBudgets.length === 0 && allBudgets.length > 0) {
+    myBudgets = allBudgets.filter(ab => !allBudgets.some(x => x._fromDb && x.accountCode === ab.accountCode && x.tenantId === ab.tenantId));
+    if (myBudgets.length === 0) myBudgets = allBudgets; // 최후 fallback
+  }
 
   // ── 디버그 로그 (문제 진단용) ──
   console.log('[renderAllocOverview] ACCOUNT_BUDGETS:', ACCOUNT_BUDGETS.length,
@@ -2244,7 +2259,12 @@ async function _syncAllocFromDB(persona) {
   if (!sb) return;
 
   try {
-    const tenantId = persona?.tenantId || _allocFilterTenant || 'HMC';
+    // platform_admin(tenantId=null): _allocFilterTenant → _bmFilterTenant → 'HMC' 순으로 결정
+    const tenantId = persona?.tenantId
+      || _allocFilterTenant
+      || (typeof _bmFilterTenant !== 'undefined' ? _bmFilterTenant : null)
+      || (typeof TENANTS !== 'undefined' ? TENANTS.find(t => t.id !== 'SYSTEM')?.id : null)
+      || 'HMC';
     if (!tenantId) return;
 
     // 1. �ش� �׳�Ʈ�� �� ���� + allocation ���� ��ȸ

@@ -1738,7 +1738,9 @@ async function _syncAllocFromDB(persona) {
         .in("budget_account_id", acctIds);
       const cache = {};
       (policies || []).forEach(p => {
-        const acct = acctMap[p.budget_account_id];
+        // Bug3 Fix: p.budget_account_id = 'BA-CODE-TPL_xxx' 복합키 → code 추출 후 acctCodeMap 매칭
+        const codeFromPId = p.budget_account_id?.replace(/^BA-/, '').replace(/-TPL_.*$/, '');
+        const acct = acctCodeMap[codeFromPId] || acctMap[p.budget_account_id];
         if (acct) {
           cache[acct.code] = {
             bankbook_mode: p.bankbook_mode || 'isolated',

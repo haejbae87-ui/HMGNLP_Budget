@@ -1,10 +1,24 @@
 # HMGNLP_Budget 전체 작업 현황 (active_tasks.md)
 
-> 최종 갱신: 2026-05-06
+> 최종 갱신: 2026-05-07
 
 ---
 
 ## ✅ 완료된 작업 이력
+
+### 2026-05-07 — 예산 배분 드릴다운 버그 수정 (Audit Trail, F-151, 회수 UX)
+
+- [x] **Bug Fix 1: `_submitDDDist` lines 배열 구조 불일치 수정** — Audit Trail 데이터 오염 해결
+  - `bo_alloc_drilldown.js` — `lines.push(문자열)` → `lines.push({ name, v, after, dbMatched })` 객체화
+  - Audit Trail `account_budget_adjustments` insert 시 `amount: l.v`, `reason: ... ${boFmt(l.v)}원` 올바른 값 저장
+  - alert 메시지도 `lines.map(l => ...)` 방식으로 수정
+- [x] **Bug Fix 2: F-151 Δ=0 제약 강화 (해석 B)** — Level 1에서 orgAlloc 초과 배분 차단 추가
+  - `_showDistConfirmModal`: 운영담당자 + Level 1 조건에서 `teamsAllocated + inputTotal > orgAlloc` 시 차단 alert
+  - 초과 금액 상세 메시지(교육조직 배분 총액, 이미 배분된 금액, 초과분) 표시
+- [x] **Bug Fix 3: 회수 완료 후 Level 1 복귀 처리** — Level 0 리셋 대신 Level 1 유지
+  - `_submitDDRecall` 완료 시 `showAllocTabByIdx(2)` → `_ddLevel = 1; renderBudgetDistribution()` 교체
+  - `_ddOrgId`, `_ddOrgName` 상태 유지로 회수 후 같은 교육조직 화면으로 자연스럽게 복귀
+- [x] **Audit Trail type 표준화** — `type: '배분'` → `isL1 ? '팀 배분' : '조직 배분'` 분리 저장
 
 ### 2026-05-06 — 예산계정 마스터 3단필터 개편 + 예산배정현황 근본수정
 

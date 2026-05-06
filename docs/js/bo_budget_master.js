@@ -3356,7 +3356,7 @@ async function _bmLoadFilterData(tenantId) {
   const sb = typeof getSB === 'function' ? getSB() : null;
   if (!sb || !tenantId) return;
   try {
-    const { data: tpls } = await sb.from('virtual_org_templates').select('id,name').eq('tenant_id', tenantId);
+    const { data: tpls } = await sb.from('virtual_org_templates').select('id,name').eq('tenant_id', tenantId).eq('purpose', 'edu_support');
     _bmFilterTplList = tpls || [];
     if (!_bmFilterTplId || !_bmFilterTplList.find(t => t.id === _bmFilterTplId)) {
       _bmFilterTplId = _bmFilterTplList[0]?.id || null;

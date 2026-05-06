@@ -1123,15 +1123,22 @@ async function submitInitBudget() {
   const sb = typeof getSB === "function" ? getSB() : null;
   if (sb) {
     try {
-      const { error } = await sb.from("account_budgets").upsert({
-        account_code: ab.accountCode,
-        fiscal_year: _allocYear || new Date().getFullYear(),
-        total_budget: amount,
-        deducted: 0,
-        holding: 0,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'account_code,fiscal_year' });
-      if (error) throw error;
+      // account_budgets: upsert 대신 select → update or insert
+      const year = _allocYear || new Date().getFullYear();
+      const { data: existing } = await sb.from('account_budgets')
+        .select('id').eq('account_code', ab.accountCode).eq('fiscal_year', year).maybeSingle();
+      if (existing) {
+        const { error } = await sb.from('account_budgets').update({
+          total_budget: amount, deducted: 0, holding: 0, updated_at: new Date().toISOString(),
+        }).eq('id', existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await sb.from('account_budgets').insert({
+          account_code: ab.accountCode, fiscal_year: year,
+          total_budget: amount, deducted: 0, holding: 0, updated_at: new Date().toISOString(),
+        });
+        if (error) throw error;
+      }
       console.log(`[BO] initBudget saved: ${ab.accountCode} ${amount}`);
       // #13-P2: sync budget_allocations so FO balance reflects new total
       await _syncBudgetAllocations(sb, ab, amount, 0, _allocYear || new Date().getFullYear());
@@ -1189,13 +1196,22 @@ async function submitAddBudget() {
   if (sb) {
     try {
       const newTotal = ab.baseAmount + ab.totalAdded;
-      const { error } = await sb.from("account_budgets").upsert({
-        account_code: ab.accountCode,
-        fiscal_year: _allocYear || new Date().getFullYear(),
-        total_budget: newTotal,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'account_code,fiscal_year' });
-      if (error) throw error;
+      // account_budgets: upsert 대신 select → update or insert
+      const year2 = _allocYear || new Date().getFullYear();
+      const { data: existing2 } = await sb.from('account_budgets')
+        .select('id').eq('account_code', ab.accountCode).eq('fiscal_year', year2).maybeSingle();
+      if (existing2) {
+        const { error } = await sb.from('account_budgets').update({
+          total_budget: newTotal, updated_at: new Date().toISOString(),
+        }).eq('id', existing2.id);
+        if (error) throw error;
+      } else {
+        const { error } = await sb.from('account_budgets').insert({
+          account_code: ab.accountCode, fiscal_year: year2,
+          total_budget: newTotal, updated_at: new Date().toISOString(),
+        });
+        if (error) throw error;
+      }
       console.log(`[BO] addBudget saved: ${ab.accountCode} +${amount}, total=${newTotal}`);
       // #13-P2: sync budget_allocations so FO balance reflects new total
       await _syncBudgetAllocations(sb, ab, newTotal, ab.usedAmount || 0, _allocYear || new Date().getFullYear());

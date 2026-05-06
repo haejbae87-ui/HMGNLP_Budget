@@ -52,11 +52,18 @@ function renderBoAllocation() {
   if (!_allocFilterTenant) _allocFilterTenant = persona.tenantId || 'HMC';
   _allocFilterYear = _allocYear || _allocFilterYear; // 기존 연도 상태 동기화
 
-  // ── DB에서 제도그룹/계정 로드 (비동기 — 렌더 후 업데이트) ──
+  // ── DB에서 제도그룹/계정 로드 → ACCOUNT_BUDGETS 동기화 → 컨텐츠 재렌더 ──
   _allocLoadFilterData(persona).then(() => {
     const filterEl = document.getElementById('alloc-filter-bar');
     if (filterEl) filterEl.innerHTML = _allocFilterBarContent(persona);
-  });
+    // DB 계정이 ACCOUNT_BUDGETS에 추가된 후 sync + 재렌더
+    return _syncAllocFromDB(persona);
+  }).then(() => {
+    const contentEl = document.getElementById("alloc-content");
+    if (contentEl && _allocTab === 0) {
+      contentEl.innerHTML = renderAllocOverview();
+    }
+  }).catch(e => console.warn('[BO Alloc Init]', e));
 
   el.innerHTML = `
 <div class="bo-fade">
@@ -107,14 +114,6 @@ function renderBoAllocation() {
   </div>
   <div id="alloc-content">${renderAllocOverview()}</div>
 </div>`;
-
-  // DB에서 배정 데이터 동기화 (비동기 — 화면 렌더 후 백그라운드)
-  _syncAllocFromDB(persona).then(() => {
-    const contentEl = document.getElementById("alloc-content");
-    if (contentEl && _allocTab === 0) {
-      contentEl.innerHTML = renderAllocOverview();
-    }
-  });
 }
 
 function showAllocTab(idx) {
@@ -176,11 +175,43 @@ async function _allocLoadFilterData(persona) {
     // 1. 예산계정 로드
     const { data: accts } = await sb
       .from('budget_accounts')
-      .select('id,name,code,virtual_org_template_id')
+      .select('id,name,code,virtual_org_template_id,integration_mode')
       .eq('tenant_id', tenant)
       .eq('active', true)
       .eq('uses_budget', true);
     _allocFilterAcctList = accts || [];
+
+    // ★ DB 계정 → ACCOUNT_BUDGETS 자동 동기화
+    // bankbook/allocation 존재 여부와 무관하게 DB 계정을 메모리에 반영
+    const year = _allocFilterYear || new Date().getFullYear();
+    _allocFilterAcctList.forEach(dbAcct => {
+      const existsInMemory = ACCOUNT_BUDGETS.find(
+        ab => ab.accountCode === dbAcct.code && ab.tenantId === tenant && (ab.fiscalYear || 2026) === year
+      );
+      if (!existsInMemory) {
+        const newAbId = 'AB_DB_' + dbAcct.id;
+        if (!ACCOUNT_BUDGETS.find(ab => ab.id === newAbId)) {
+          ACCOUNT_BUDGETS.push({
+            id: newAbId,
+            tenantId: tenant,
+            accountCode: dbAcct.code,
+            dbAccountId: dbAcct.id,
+            sourceType: (dbAcct.integration_mode === 'sap') ? 'sap_if' : 'platform',
+            fiscalYear: year,
+            baseAmount: 0,
+            totalAdded: 0,
+            status: 'confirmed',
+            _fromDb: true,
+          });
+        }
+        // ACCOUNT_MASTER에도 없으면 추가
+        if (typeof ACCOUNT_MASTER !== 'undefined') {
+          if (!ACCOUNT_MASTER.find(m => m.code === dbAcct.code)) {
+            ACCOUNT_MASTER.push({ code: dbAcct.code, name: dbAcct.name || dbAcct.code, type: 'custom' });
+          }
+        }
+      }
+    });
 
     // 2. 제도그룹 로드 (예산계정이 연결된 것만)
     const tplIds = [...new Set((_allocFilterAcctList).map(a => a.virtual_org_template_id).filter(Boolean))];
@@ -265,22 +296,29 @@ function _allocFilterBarContent(persona) {
 // ─── 새로고침: 계정 선택 유지 + DB 재로드 ─────────────────────────────────────
 async function _allocRefresh() {
   const persona = boCurrentPersona;
-  // DB 재동기화 (TEAM_DIST 갱신)
-  if (typeof _syncAllocFromDB === 'function') {
-    await _syncAllocFromDB(persona);
-  }
-  // 필터 데이터 재로드
-  _allocFilterLoaded = false;
-  await _allocLoadFilterData(persona);
-  // 필터바 갱신
-  const filterEl = document.getElementById('alloc-filter-bar');
-  if (filterEl) filterEl.innerHTML = _allocFilterBarContent(persona);
-  // 현재 탭 재렌더 (_allocSelectedAbId 유지)
-  const contentEl = document.getElementById('alloc-content');
-  if (contentEl) {
-    const fns = [renderAllocOverview, renderInitialAlloc, renderBudgetDistribution, renderAllocHistory];
-    const fn = fns[_allocTab];
-    if (fn) contentEl.innerHTML = fn();
+  try {
+    // 1) 필터 데이터 재로드 → DB 계정 → ACCOUNT_BUDGETS 자동 동기화
+    _allocFilterLoaded = false;
+    await _allocLoadFilterData(persona);
+
+    // 2) DB sync (TEAM_DIST 갱신 — 이 시점에 ACCOUNT_BUDGETS가 이미 채워져 있음)
+    if (typeof _syncAllocFromDB === 'function') {
+      await _syncAllocFromDB(persona);
+    }
+
+    // 3) 필터바 갱신
+    const filterEl = document.getElementById('alloc-filter-bar');
+    if (filterEl) filterEl.innerHTML = _allocFilterBarContent(persona);
+
+    // 4) 현재 탭 재렌더
+    const contentEl = document.getElementById('alloc-content');
+    if (contentEl) {
+      const fns = [renderAllocOverview, renderInitialAlloc, renderBudgetDistribution, renderAllocHistory];
+      const fn = fns[_allocTab];
+      if (fn) contentEl.innerHTML = fn();
+    }
+  } catch (err) {
+    console.error('[_allocRefresh] error:', err);
   }
 }
 

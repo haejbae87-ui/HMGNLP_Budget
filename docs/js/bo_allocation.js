@@ -276,10 +276,17 @@ function _allocFilterBarContent(persona) {
       </select>`
     : '<span style="font-size:11px;color:#9CA3AF">로딩 중...</span>';
 
-  // 예산계정 셀렉트 (선택된 VOrg에 속한 계정만)
-  const filteredAccts = _allocFilterTplId
+  // 예산계정 셀렉트 (선택된 VOrg에 속한 계정 × persona 권한내)
+  const isPlatformOrTenantGlobal = persona.role === 'platform_admin' || persona.role === 'tenant_global_admin';
+  const personaAllowed = persona.allowedAccounts || [];
+  const isPersonaSystem = personaAllowed.includes('*');
+
+  // 필터링: VOrg 필터 + 권한 필터 동시 적용
+  const filteredAccts = (_allocFilterTplId
     ? _allocFilterAcctList.filter(a => a.virtual_org_template_id === _allocFilterTplId)
-    : _allocFilterAcctList;
+    : _allocFilterAcctList
+  ).filter(a => isPlatformOrTenantGlobal || isPersonaSystem || personaAllowed.includes(a.code));
+
   const acctSel = filteredAccts.length > 0
     ? `<select onchange="_allocFilterAccountCode=this.value||null;_allocFilterAccountName=this.options[this.selectedIndex]?.text||null;_allocSelectedAbId=null;showAllocTabByIdx(_allocTab)" style="${selStyle}">
         <option value="">전체 계정</option>
@@ -376,21 +383,17 @@ function renderAllocOverview(year) {
   ].sort((a, b) => b - a);
   let myBudgets = allBudgets.filter(
     (ab) => {
-      // DB에서 자동 생성된 계정(_fromDb=true)은 fiscalYear가 정확히 매칭됨
-      // mock 데이터는 fiscalYear가 2026으로 하드코딩 → _allocYear와 불일치 가능
-      // → _fromDb 계정은 fiscalYear 정확 매칭, mock은 연도 무관 포함 (DB 데이터가 우선)
       const fy = ab.fiscalYear || _allocYear;
       if (ab._fromDb) return fy === _allocYear;
-      // mock 계정: DB 동기화된 동일 코드가 있으면 mock은 제외
+      // mock 계정: DB 동기화된 동일 코드가 있으면 제외
       const hasDbEntry = allBudgets.some(x => x._fromDb && x.accountCode === ab.accountCode && x.tenantId === ab.tenantId);
-      if (hasDbEntry) return false; // DB 우선, mock 제외
+      if (hasDbEntry) return false;
       return fy === _allocYear;
     }
   );
-  // myBudgets가 없으면 mock fallback (fiscalYear 무시)
+  // myBudgets가 비어있으면: 연도 필터 레거시 폴백 (fiscalYear 하드코딩된 mock)
   if (myBudgets.length === 0 && allBudgets.length > 0) {
-    myBudgets = allBudgets.filter(ab => !allBudgets.some(x => x._fromDb && x.accountCode === ab.accountCode && x.tenantId === ab.tenantId));
-    if (myBudgets.length === 0) myBudgets = allBudgets; // 최후 fallback
+    myBudgets = allBudgets;
   }
 
   // ── 디버그 로그 (문제 진단용) ──

@@ -1,4 +1,4 @@
-// ─── 예산 배분 통합 드릴다운 엔진 v2 (프리미엄 UI) ────────────────────────────
+﻿// ─── 예산 배분 통합 드릴다운 엔진 v2 (프리미엄 UI) ────────────────────────────
 // 의존: bo_allocation.js (_ddLevel, _ddAbId, _ddOrgId, _ddOrgName, _allocYear)
 //       ACCOUNT_BUDGETS, TEAM_DIST, VIRTUAL_EDU_ORGS, ACCOUNT_MASTER
 //       boFmt(), getDistributable(), getPersonaAccountBudgets(), boCurrentPersona
@@ -26,8 +26,20 @@ function renderInitialAlloc() {
 
 // ── 탭 2: 예산 배분 진입점 ────────────────────────────────────────────────────
 function renderBudgetDistribution() {
+  if (_ddLevel === 2) return _renderDDLevel2Individual(); // P2: individual policy
   if (_ddLevel === 1) return _renderDDLevel1();
   return _renderDDLevel0();
+}
+
+// P2: bankbook creation policy helper
+// mode: 'bulk' = org only | 'team' = team drilldown | 'individual' = direct to person
+function _getDDPolicy(ab) {
+  if (!ab) return { bankbook_mode: 'team' };
+  const cache = window._baPolicyCache || {};
+  const policy = cache[ab.accountCode];
+  if (policy) return policy;
+  const m = ab.bankbook_mode || 'team';
+  return { bankbook_mode: m === 'individual' ? 'individual' : (m === 'bulk' ? 'bulk' : 'team') };
 }
 
 // ── 내비게이션 ────────────────────────────────────────────────────────────────
@@ -191,16 +203,35 @@ function _renderDDLevel0() {
           </div>` : '<span style="font-size:11px;color:#D1D5DB">—</span>'}
         </td>
         <td style="padding:10px 16px;text-align:center">
-          ${currentAlloc > 0
-            ? `<button onclick="ddNavTo(1,'${ab.id}','${vg.id}','${vg.name}')"
+          ${(() => {
+            const pol = _getDDPolicy(ab);
+            const mode = pol?.bankbook_mode || pol?.bankbook_level || 'team';
+            if (currentAlloc <= 0) return '<span style="font-size:11px;color:#D1D5DB;font-weight:600">미배분</span>';
+            if (mode === 'bulk') {
+              // bulk: 교육조직까지만 배분, 드릴다운 없음
+              return `<span style="font-size:10px;padding:3px 8px;border-radius:6px;background:#FEF3C7;color:#92400E;font-weight:700">🏦 교육조직 통장</span>`;
+            } else if (mode === 'individual') {
+              // individual: 교육조직 → 개인 직접
+              return `<button onclick="ddNavTo(2,'${ab.id}','${vg.id}','${vg.name}')"
+                style="padding:7px 14px;background:white;color:#7C3AED;border:1.5px solid #7C3AED;
+                       border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;
+                       transition:all .15s;white-space:nowrap"
+                onmouseover="this.style.background='#7C3AED';this.style.color='white'"
+                onmouseout="this.style.background='white';this.style.color='#7C3AED'">
+                → 개인배분
+              </button>`;
+            } else {
+              // team (기본): 팀 드릴다운
+              return `<button onclick="ddNavTo(1,'${ab.id}','${vg.id}','${vg.name}')"
                 style="padding:7px 14px;background:white;color:#059669;border:1.5px solid #059669;
                        border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;
                        transition:all .15s;white-space:nowrap"
                 onmouseover="this.style.background='#059669';this.style.color='white'"
                 onmouseout="this.style.background='white';this.style.color='#059669'">
                 → 드릴다운
-              </button>`
-            : '<span style="font-size:11px;color:#D1D5DB;font-weight:600">미배분</span>'}
+              </button>`;
+            }
+          })()}
         </td>
       </tr>`;
     });
@@ -873,4 +904,162 @@ async function _submitDDRecall(abId, orgName, maxRecall) {
   _ddLevel = 1;
   const contentEl = document.getElementById('alloc-content');
   if (contentEl) contentEl.innerHTML = renderBudgetDistribution();
+}
+
+// ── P2: Level 2 — 교육조직 → 개인 직접 배분 (individual 정책) ─────────────────
+function _renderDDLevel2Individual() {
+  const persona = boCurrentPersona;
+  const ab = _ddAbId ? ACCOUNT_BUDGETS.find(x => x.id === _ddAbId) : null;
+  if (!ab) return '<div style="padding:40px;text-align:center;color:#9CA3AF">계정 정보를 찾을 수 없습니다.</div>';
+
+  const _tplId = ab.templateId || (typeof _allocFilterTplId !== 'undefined' ? _allocFilterTplId : null);
+  const tpl = (_tplId ? VIRTUAL_EDU_ORGS.find(t => t.id === _tplId) : null)
+    || VIRTUAL_EDU_ORGS.find(t => t.tenantId === ab.tenantId && (t.tree?.hqs?.length > 0 || t.tree?.centers?.length > 0));
+  const vGroups = tpl ? (tpl.tree?.hqs || tpl.tree?.centers || []) : [];
+  const vg = vGroups.find(g => g.id === _ddOrgId);
+  if (!vg) return '<div style="padding:40px;text-align:center;color:#9CA3AF">교육조직 정보를 찾을 수 없습니다.</div>';
+
+  // 교육조직 통장 배분액
+  const orgTd = TEAM_DIST.find(t => t.accountBudgetId === ab.id && t.teamName === vg.name);
+  const orgAlloc = orgTd?.allocAmount || 0;
+
+  // 교육조직 소속 팀 멤버 목록 (tree.hqs[n].teams 내 members)
+  const allMembers = [];
+  (vg.teams || []).forEach(team => {
+    (team.members || []).forEach(m => {
+      allMembers.push({ ...m, teamName: team.name });
+    });
+  });
+
+  // 이미 개인에게 배분된 금액 합계
+  const memberDisted = allMembers.reduce((s, m) => {
+    const td = TEAM_DIST.find(t => t.accountBudgetId === ab.id && t.teamName === m.name + '_IND');
+    return s + (td?.allocAmount || 0);
+  }, 0);
+  const distributable = Math.max(0, orgAlloc - memberDisted);
+
+  let tableRows = '';
+  let inputIdx = 0;
+  const allRows = [];
+
+  if (!allMembers.length) {
+    tableRows = `<tr><td colspan="7" style="padding:40px;text-align:center;color:#9CA3AF;font-size:13px">
+      이 교육조직에 등록된 구성원이 없습니다. 가상조직 관리에서 팀 멤버를 추가하세요.
+    </td></tr>`;
+  } else {
+    allMembers.forEach(m => {
+      const inputId = `dd2-input-${inputIdx++}`;
+      const existing = TEAM_DIST.find(t => t.accountBudgetId === ab.id && t.teamName === m.name + '_IND');
+      const currentAlloc = existing?.allocAmount || 0;
+      const spent = existing?.spent || 0;
+      allRows.push({ name: m.name + '_IND', displayName: m.name, teamName: m.teamName, inputId, currentAlloc });
+      tableRows += `<tr style="border-bottom:1px solid #F3F4F6;transition:background .15s" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='white'">
+        <td style="padding:12px 16px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:32px;height:32px;background:#EDE9FE;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">👤</div>
+            <div>
+              <div style="font-size:13px;font-weight:800;color:#374151">${m.name}</div>
+              <div style="font-size:10px;color:#9CA3AF">${m.teamName} · ${m.position || '구성원'}</div>
+            </div>
+          </div>
+        </td>
+        <td style="text-align:right;padding:12px 16px;font-size:13px;font-weight:700;color:${currentAlloc > 0 ? '#1D4ED8' : '#9CA3AF'}">
+          ${currentAlloc > 0 ? boFmt(currentAlloc) + '원' : '—'}
+        </td>
+        <td style="padding:8px 10px">
+          <div style="position:relative">
+            <input type="number" id="${inputId}" placeholder="0" oninput="calcDDRemain()" min="0"
+              style="width:120px;border:1.5px solid #E5E7EB;border-radius:8px;
+                     padding:8px 28px 8px 10px;font-size:13px;font-weight:800;text-align:right;
+                     background:#F5F3FF;transition:all .2s"
+              onfocus="this.style.borderColor='#7C3AED';this.style.boxShadow='0 0 0 3px #DDD6FE'"
+              onblur="this.style.borderColor='#E5E7EB';this.style.boxShadow='none'"/>
+            <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:#9CA3AF;font-weight:600">원</span>
+          </div>
+        </td>
+        <td style="padding:12px 10px;font-size:12px;color:#7C3AED;font-weight:700;white-space:nowrap" id="${inputId}-preview"></td>
+        <td style="text-align:right;padding:12px 16px;font-size:12px;color:#EF4444;font-weight:600">${spent > 0 ? boFmt(spent) : '—'}</td>
+        <td style="padding:8px 12px;text-align:center">
+          ${currentAlloc > 0
+            ? `<button onclick="_showRecallModal('${ab.id}','${vg.id}','${m.name}_IND')"
+                style="padding:5px 10px;background:#FEE2E2;color:#DC2626;border:1.5px solid #FECACA;
+                       border-radius:7px;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;
+                       transition:all .15s"
+                onmouseover="this.style.background='#DC2626';this.style.color='white'"
+                onmouseout="this.style.background='#FEE2E2';this.style.color='#DC2626'">
+                ↩ 회수
+              </button>`
+            : '<span style="font-size:10px;color:#D1D5DB">—</span>'}
+        </td>
+      </tr>`;
+    });
+  }
+
+  return `<div>
+  ${_ddBreadcrumb(ab, vg.name + ' · 개인배분')}
+
+  <!-- 교육조직 카드 (개인배분 정책) -->
+  <div style="background:linear-gradient(135deg,#7C3AED,#5B21B6);border-radius:16px;padding:20px 24px;margin-bottom:20px;color:white;box-shadow:0 8px 24px rgba(124,58,237,.3)">
+    <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px">Individual Bankbook Policy</div>
+    <div style="font-size:18px;font-weight:900;margin-bottom:12px">${vg.name} — 👤 개인 통장 배분</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      <div style="background:rgba(255,255,255,.12);border-radius:10px;padding:12px">
+        <div style="font-size:10px;color:rgba(255,255,255,.6);margin-bottom:4px">교육조직 배정액</div>
+        <div style="font-size:16px;font-weight:900">${boFmt(orgAlloc)}원</div>
+      </div>
+      <div style="background:rgba(255,255,255,.12);border-radius:10px;padding:12px">
+        <div style="font-size:10px;color:rgba(255,255,255,.6);margin-bottom:4px">개인 배분 합계</div>
+        <div style="font-size:16px;font-weight:900">${boFmt(memberDisted)}원</div>
+      </div>
+      <div style="background:rgba(255,255,255,.15);border-radius:10px;padding:12px;border:1.5px solid rgba(255,255,255,.3)">
+        <div style="font-size:10px;color:rgba(255,255,255,.7);margin-bottom:4px;font-weight:700">배분 가능</div>
+        <div style="font-size:16px;font-weight:900">${boFmt(distributable)}원</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 구성원 배분 테이블 -->
+  <div style="background:white;border-radius:16px;border:1.5px solid #E5E7EB;overflow:hidden;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.04)">
+    <div style="padding:14px 20px;border-bottom:1.5px solid #F3F4F6;display:flex;align-items:center;gap:10px">
+      <span style="font-size:18px">👥</span>
+      <div>
+        <div style="font-size:14px;font-weight:900;color:#111">구성원별 개인 통장 배분</div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:1px">교육조직 → 개인 직접 배분 (팀 단계 없음)</div>
+      </div>
+      <span style="margin-left:auto;font-size:10px;padding:3px 10px;border-radius:20px;background:#EDE9FE;color:#7C3AED;font-weight:800">👤 개인배분 정책</span>
+    </div>
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr style="background:#F9FAFB">
+          <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#6B7280">구성원</th>
+          <th style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#6B7280">현재 배정</th>
+          <th style="padding:10px 10px;text-align:right;font-size:11px;font-weight:700;color:#6B7280">추가 배분</th>
+          <th style="padding:10px 10px;font-size:11px;font-weight:700;color:#6B7280">배분 후</th>
+          <th style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#EF4444">집행</th>
+          <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;color:#6B7280">회수</th>
+        </tr>
+      </thead>
+      <tbody>${tableRows}</tbody>
+    </table>
+  </div>
+
+  <div style="background:#F5F3FF;border:1px solid #DDD6FE;border-radius:10px;padding:10px 16px;font-size:12px;color:#5B21B6;margin-bottom:12px">
+    👤 개인 통장 정책: 팀 단계 없이 교육조직에서 구성원 개인에게 직접 예산 배분합니다.
+    배분 합계가 교육조직 배분액(${boFmt(orgAlloc)}원)을 초과할 수 없습니다.
+  </div>
+  <div id="dd-remain-disp" style="text-align:right;font-size:13px;font-weight:800;color:#059669;margin-bottom:8px">배분 가능: ${boFmt(distributable)}원</div>
+  <button onclick="_showDistConfirmModal()" class="bo-btn-primary"
+    style="width:100%;padding:16px;font-size:14px;font-weight:800;border-radius:12px;
+           display:flex;align-items:center;justify-content:center;gap:8px">
+    📋 개인 배분 내역 확인 및 확정
+  </button>
+</div>
+<script>(function(){
+  window._ddRows = ${JSON.stringify(allRows)};
+  window._ddAbId = '${ab.id}';
+  window._ddMaxAmount = ${distributable};
+  window._ddCurrentLevel = 2;
+  window._ddOrgAlloc = ${orgAlloc};
+  window._ddTeamsAllocated = ${memberDisted};
+})();</script>`;
 }

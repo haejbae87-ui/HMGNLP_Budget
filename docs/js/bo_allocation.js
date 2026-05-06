@@ -1129,9 +1129,8 @@ async function submitInitBudget() {
         total_budget: amount,
         deducted: 0,
         holding: 0,
-        tenant_id: ab.tenantId,
         updated_at: new Date().toISOString(),
-      }, { onConflict: 'account_code,fiscal_year,tenant_id' });
+      }, { onConflict: 'account_code,fiscal_year' });
       if (error) throw error;
       console.log(`[BO] initBudget saved: ${ab.accountCode} ${amount}`);
       // #13-P2: sync budget_allocations so FO balance reflects new total
@@ -1194,9 +1193,8 @@ async function submitAddBudget() {
         account_code: ab.accountCode,
         fiscal_year: _allocYear || new Date().getFullYear(),
         total_budget: newTotal,
-        tenant_id: ab.tenantId,
         updated_at: new Date().toISOString(),
-      }, { onConflict: 'account_code,fiscal_year,tenant_id' });
+      }, { onConflict: 'account_code,fiscal_year' });
       if (error) throw error;
       console.log(`[BO] addBudget saved: ${ab.accountCode} +${amount}, total=${newTotal}`);
       // #13-P2: sync budget_allocations so FO balance reflects new total

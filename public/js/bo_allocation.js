@@ -197,6 +197,14 @@ async function _allocLoadFilterData(persona) {
       const existsInMemory = ACCOUNT_BUDGETS.find(
         ab => ab.accountCode === dbAcct.code && ab.tenantId === tenant && (ab.fiscalYear || 2026) === year
       );
+      // ★ DB integration_mode 변경 시 인메모리 sourceType도 동기화
+      if (existsInMemory) {
+        const newSrcType = dbAcct.integration_mode === 'sap' ? 'sap_if' : 'platform';
+        if (existsInMemory.sourceType !== newSrcType) {
+          console.log('[_allocLoadFilterData] sourceType 동기화:', dbAcct.code, existsInMemory.sourceType, '->', newSrcType);
+          existsInMemory.sourceType = newSrcType;
+        }
+      }
       if (!existsInMemory) {
         const newAbId = 'AB_DB_' + dbAcct.id;
         if (!ACCOUNT_BUDGETS.find(ab => ab.id === newAbId)) {

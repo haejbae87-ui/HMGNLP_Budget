@@ -160,7 +160,97 @@ CREATE TABLE account_budget_adjustments (
 |------|------|--------|
 | 2026-05-06 | 최초 PRD 작성 | AI |
 | 2026-05-06 | DB 직접 조회 방식 전환, base/added 분리 로직 추가 | AI |
+| 2026-05-06 | 미구현 기능(회수/마감/이력) 명시, DB 스키마 컬럼 추가 필요사항 문서화 | AI |
+| 2026-05-06 | **회계연도 라이프사이클 정책 추가 (Domain Council 결과)** | AI |
+
 ---
+
+## 9. 회계연도 라이프사이클 정책 (신규 기획 필요)
+
+> [!IMPORTANT]
+> 이 섹션은 **현재 미구현** 상태이며, 기획 확정 후 개발이 필요합니다.
+
+### 9.1 핵심 질문과 답변
+
+| 질문 | 현재 시스템 동작 | 권장 정책 |
+|------|----------------|-----------|
+| 최초 배정은 1회만 가능한가? | ✅ 같은 `fiscal_year` 내 1회만 가능 | 유지 |
+| 마감 후 같은 연도에서 재시작? | ❌ 불가 (마감 = 동결) | 불가로 유지 |
+| 다음 연도에서 최초 배정 가능? | ✅ 새 `fiscal_year` 레코드 → 자동 가능 | 명시적 연도 오픈 필요 |
+| 회수하면 재시작 가능? | ❌ 회수는 추가분만 취소, 기초 배정은 유지 | 유지 |
+
+### 9.2 올바른 연도 사이클
+
+```
+[n년 연도 오픈]
+       ↓
+[최초 배정 등록] ← 1회만 가능
+       ↓
+[추가 배정 / 회수] ← 연중 반복 가능
+       ↓
+[n년 마감] ← 이후 모든 쓰기 차단
+       ↓
+[n+1년 연도 오픈] ← 새 최초 배정 가능 상태로 전환
+```
+
+### 9.3 현재 시스템의 위험성
+
+> [!WARNING]
+> **`_allocYear = new Date().getFullYear()` 자동 설정 방식**은 아래 위험이 있습니다:
+> - 12월 31일 자정에 시스템이 자동으로 새 연도로 전환
+> - 이전 연도 미결 신청/예산 처리 정책 없음
+> - 관리자가 의도적으로 연도를 통제할 수 없음
+
+### 9.4 필요 DB 구조
+
+```sql
+-- 회계연도 관리 테이블 (신규 필요) ❌ 미구현
+CREATE TABLE budget_fiscal_periods (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id text NOT NULL,
+  fiscal_year integer NOT NULL,
+  status text DEFAULT 'open' CHECK (status IN ('open', 'closed')),
+  open_date date NOT NULL,
+  close_date date,
+  opened_by text,
+  closed_by text,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(tenant_id, fiscal_year)
+);
+
+-- account_budgets에 상태 컬럼 추가 ❌ 미구현
+ALTER TABLE account_budgets
+ADD COLUMN IF NOT EXISTS status text DEFAULT 'open'
+  CHECK (status IN ('open', 'closed'));
+```
+
+### 9.5 연도 오픈/마감 권한 정책
+
+| 역할 | 연도 오픈 | 연도 마감 | 비고 |
+|------|----------|----------|------|
+| `platform_admin` | ✅ | ✅ | 전사 |
+| `tenant_global_admin` | ✅ | ✅ | 자사만 |
+| `budget_global_admin` | ❌ | ❌ | 마감 권한 없음 |
+
+### 9.6 마감 처리 시 체크리스트 (미구현)
+
+마감 전 아래 조건이 모두 충족되어야 합니다:
+- [ ] 진행 중인 교육 신청이 모두 확정/거절 처리됨
+- [ ] `holding(가점유)` 금액이 0
+- [ ] 미정산 실지출이 없음
+
+### 9.7 결론: 4순위(회수) + 5순위(마감)의 역할
+
+```
+회수(4순위): 추가 배정 일부 취소 → 기초 배정 유지 → 재시작 ❌
+마감(5순위): 해당 연도 동결 → 쓰기 차단 → 동일 연도 재시작 ❌
+연도 오픈(신규 6순위): 새 fiscal_year 레코드 생성 → 최초 배정 가능 ✅
+```
+
+> [!IMPORTANT]
+> **4·5순위를 완료해도 같은 연도에서 재시작은 불가합니다.**
+> "마감 후 재시작"은 **새 회계연도를 열어야만 가능**하며,
+> 이를 위한 **6순위: 연도 오픈/마감 관리 화면**이 별도로 필요합니다.
 
 ---
 

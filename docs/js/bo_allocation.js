@@ -1060,6 +1060,39 @@ function renderAllocEntry() {
       <button onclick="submitAddBudget()" class="bo-btn-primary" style="padding:14px">✅ 추가 배정 확정 (계정에 예산 추가)</button>
     </div>
   </div>
+
+  <!-- 예산 회수 (추가 배정 취소) -->
+  <div class="bo-card" style="padding:24px;border-left:4px solid #DC2626">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <span style="background:#DC2626;color:white;font-size:10px;font-weight:900;padding:3px 10px;border-radius:6px">회수</span>
+      <div class="bo-section-title" style="margin:0">예산 회수 — 추가 배정 금액 일부 반납</div>
+    </div>
+    <p style="font-size:12px;color:#6B7280;margin-bottom:16px">
+      추가 배정된 금액 중 <b>미사용 가용 잔액</b>만 회수 가능합니다.<br>
+      기초 예산은 회수 불가 / 이미 집행·가점유된 금액은 회수 불가
+    </p>
+    <div style="display:grid;gap:14px">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;display:block;margin-bottom:6px">회수 계정 <span style="color:#EF4444">*</span></label>
+        ${_acctFixedLabel || ('<select id="recall-ab" style="width:100%;border:1.5px solid #FECACA;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700"><option value="">— 계정 선택 —</option>' + myBudgets.filter(function(ab){return ab.totalAdded>0}).map(function(ab){var acct=ACCOUNT_MASTER.find(function(a){return a.code===ab.accountCode});return '<option value="'+ab.id+'">'+((acct&&acct.name)||ab.accountCode)+' (추가배정: '+boFmt(ab.totalAdded)+'원)</option>'}).join('') + '</select>')}
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;display:block;margin-bottom:6px">회수할 금액 <span style="color:#EF4444">*</span></label>
+        <div style="position:relative">
+          <input type="number" id="recall-amount" placeholder="회수할 금액 입력" oninput="previewAmt('recall-amount','recall-preview')"
+            style="width:100%;border:1.5px solid #FECACA;border-radius:10px;padding:12px 50px 12px 16px;font-size:18px;font-weight:900"/>
+          <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:13px;font-weight:700;color:#9CA3AF">원</span>
+        </div>
+        <div id="recall-preview" style="font-size:12px;color:#DC2626;font-weight:700;margin-top:4px;text-align:right"></div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;display:block;margin-bottom:6px">회수 사유 (필수) <span style="color:#EF4444">*</span></label>
+        <textarea id="recall-reason" rows="2" placeholder="예) 2분기 교육 취소로 추가 배정분 일부 반납"
+          style="width:100%;border:1.5px solid #FECACA;border-radius:10px;padding:10px 14px;font-size:13px;resize:none;font-family:inherit"></textarea>
+      </div>
+      <button onclick="submitRecallBudget()" style="padding:14px;background:#DC2626;color:white;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer">🔄 회수 확정</button>
+    </div>
+  </div>
 </div>`;
 }
 
@@ -1084,6 +1117,11 @@ function showAddSrcBadge() {
 }
 
 async function submitInitBudget() {
+  // 마감된 연도 차단
+  if (window._bmYearStatus === 'closed') {
+    alert('⛔ 이 연도는 마감됐습니다. 수정이 불가합니다.');
+    return;
+  }
   // init-ab DOM이 없으면(고정 라벨 모드) _bmFilterAcctCode로 계정 특정
   let abId = document.getElementById("init-ab")?.value;
   if (!abId && typeof _bmFilterAcctCode !== "undefined" && _bmFilterAcctCode) {
@@ -1192,6 +1230,11 @@ async function submitInitBudget() {
 }
 
 async function submitAddBudget() {
+  // 마감된 연도 차단
+  if (window._bmYearStatus === 'closed') {
+    alert('⛔ 이 연도는 마감됐습니다. 추가 배정이 불가합니다.');
+    return;
+  }
   // add-ab DOM이 없거나 빈 값이면(고정 라벨 모드) _bmFilterAcctCode로 계정 특정
   let abId = document.getElementById("add-ab")?.value;
   if (!abId && typeof _bmFilterAcctCode !== "undefined" && _bmFilterAcctCode) {
@@ -1289,6 +1332,119 @@ async function submitAddBudget() {
   } else {
     showAllocTab(0);
   }
+}
+
+// ── 4순위: 예산 회수 ──────────────────────────────────────────────────────────
+async function submitRecallBudget() {
+  if (window._bmYearStatus === 'closed') {
+    alert('⛔ 이 연도는 마감됐습니다. 회수가 불가합니다.');
+    return;
+  }
+  let abId = document.getElementById('recall-ab')?.value;
+  if (!abId && typeof _bmFilterAcctCode !== 'undefined' && _bmFilterAcctCode) {
+    const _tid = (typeof boCurrentPersona !== 'undefined' && boCurrentPersona.tenantId) || _bmFilterTenant;
+    const _m = ACCOUNT_BUDGETS.find(x => x.accountCode === _bmFilterAcctCode && x.tenantId === _tid);
+    if (_m) abId = _m.id;
+  }
+  const amount = Number(document.getElementById('recall-amount')?.value);
+  const reason = document.getElementById('recall-reason')?.value?.trim();
+  if (!abId || !amount || amount <= 0 || !reason) {
+    alert('회수 계정, 금액, 사유를 모두 입력하세요.');
+    return;
+  }
+  const ab = ACCOUNT_BUDGETS.find(x => x.id === abId);
+  if (!ab) return;
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) { alert('데이터베이스 연결 실패'); return; }
+
+  // DB에서 실제 잔액 확인
+  const year = _allocYear || new Date().getFullYear();
+  const { data: dbRec } = await sb.from('account_budgets')
+    .select('id, total_budget, base_budget, added_budget, deducted, holding')
+    .eq('account_code', ab.accountCode).eq('fiscal_year', year).maybeSingle();
+  if (!dbRec) { alert('해당 계정의 DB 레코드가 없습니다.'); return; }
+
+  const base = Number(dbRec.base_budget || 0);
+  const added = Number(dbRec.added_budget || 0);
+  const deducted = Number(dbRec.deducted || 0);
+  const holding = Number(dbRec.holding || 0);
+  const total = Number(dbRec.total_budget || 0);
+
+  // 가용 잔액 = 총예산 - 집행 - 가점유
+  const available = total - deducted - holding;
+  // 회수 가능 최대 = 추가배정 누적액과 가용잔액 중 작은 값 (기초 예산 회수 불가)
+  const maxRecall = Math.min(added, available);
+
+  if (amount > maxRecall) {
+    alert(`⚠️ 회수 가능 최대 금액은 ${boFmt(maxRecall)}원입니다.\n\n추가배정: ${boFmt(added)}원\n가용잔액: ${boFmt(available)}원\n(집행: ${boFmt(deducted)}원, 가점유: ${boFmt(holding)}원)`);
+    return;
+  }
+
+  const acctName = ACCOUNT_MASTER.find(a => a.code === ab.accountCode)?.name || ab.accountCode;
+  if (!confirm(`회수 확인\n\n계정: ${acctName}\n금액: -${boFmt(amount)}원\n사유: ${reason}\n\n회수 후 취소가 불가합니다. 계속하시겠습니까?`)) return;
+
+  try {
+    const newAdded = added - amount;
+    const newTotal = base + newAdded;
+    const { error } = await sb.from('account_budgets').update({
+      added_budget: newAdded,
+      total_budget: newTotal,
+      updated_at: new Date().toISOString(),
+    }).eq('id', dbRec.id);
+    if (error) throw error;
+
+    // 인메모리 동기화
+    ab.totalAdded = Math.max(0, (ab.totalAdded || 0) - amount);
+
+    // Audit Trail 저장
+    try {
+      await sb.from('account_budget_adjustments').insert({
+        account_code: ab.accountCode, fiscal_year: year,
+        type: '회수', amount, reason,
+        performed_by: boCurrentPersona?.name || '',
+        tenant_id: ab.tenantId || (typeof _bmFilterTenant !== 'undefined' ? _bmFilterTenant : '') || '',
+      });
+    } catch (e2) { console.warn('[recall] Audit Trail 저장 실패:', e2.message); }
+
+    alert(`✅ 회수 완료!\n\n계정: ${acctName}\n-${boFmt(amount)}원 회수\n새 총예산: ${boFmt(newTotal)}원`);
+    if (typeof boCurrentMenu !== 'undefined' && boCurrentMenu === 'budget-master') renderBudgetMaster();
+    else showAllocTab(0);
+  } catch (e) {
+    console.error('[recall] 오류:', e.message);
+    alert(`⚠ 회수 실패: ${e.message}`);
+  }
+}
+
+// ── 5순위: 연도 오픈/마감 ─────────────────────────────────────────────────────
+async function openBudgetYear(year) {
+  if (!confirm(`${year}년 연도를 오픈합니다.\n\n이전 연도 데이터는 건드리지 않고, ${year}년 예산은 0원에서 시작합니다.\n계속하시겠습니까?`)) return;
+  if (typeof _allocYear !== 'undefined') _allocYear = year;
+  window._bmYearStatus = 'open';
+  window._budgetMasterLoaded = false;
+  alert(`✅ ${year}년도가 오픈되었습니다. 이제 기초 예산을 등록하세요.`);
+  renderBudgetMaster();
+}
+
+async function closeBudgetYear(year) {
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (sb) {
+    // 가점유 잔액 점검
+    const { data: rows } = await sb.from('account_budgets')
+      .select('account_code, holding').eq('fiscal_year', year).gt('holding', 0);
+    if (rows && rows.length > 0) {
+      const codes = rows.map(r => r.account_code).join(', ');
+      if (!confirm(`⚠️ 다음 계정에 가점유 잔액이 남아있습니다:\n${codes}\n\n미승인 신청이 있을 수 있습니다. 그래도 마감하시겠습니까?`)) return;
+    }
+    // 모든 해당 연도 계정을 closed로 업데이트
+    const { error } = await sb.from('account_budgets')
+      .update({ status: 'closed', updated_at: new Date().toISOString() })
+      .eq('fiscal_year', year);
+    if (error) { alert(`마감 실패: ${error.message}`); return; }
+  }
+  window._bmYearStatus = 'closed';
+  alert(`🔒 ${year}년도가 마감되었습니다. 이 연도의 예산은 수정할 수 없습니다.`);
+  renderBudgetMaster();
 }
 
 // ─── 탭 3: 팀 배분 (계정 재원 → 팀) ─────────────────────────────────────────

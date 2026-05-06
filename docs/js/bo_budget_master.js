@@ -3600,7 +3600,7 @@ function renderBudgetMaster() {
   ct.innerHTML = `
   ${_bmFilterBarHtml()}
   <div class="max-w-5xl mx-auto">
-    <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:16px">
       <div>
         <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">교육지원제도 기준정보 › 예산계정 마스터</div>
         <h1 class="text-3xl font-black text-brand tracking-tight">🏦 예산계정 마스터</h1>
@@ -3611,6 +3611,29 @@ function renderBudgetMaster() {
         <button onclick="boNavigate('allocation')" style="padding:8px 18px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;cursor:pointer;color:#6B7280">💰 예산 배정 →</button>
       </div>
     </div>
+    <!-- ★ 연도 오픈/마감 컨트롤 바 -->
+    ${(() => {
+      const yr = allocYear;
+      const isClosed = window._bmYearStatus === 'closed';
+      const prevYr = yr - 1;
+      const nextYr = yr + 1;
+      const statusBadge = isClosed
+        ? '<span style="background:#FEE2E2;color:#DC2626;font-size:11px;font-weight:800;padding:3px 10px;border-radius:6px;border:1px solid #FECACA">🔒 마감됨</span>'
+        : '<span style="background:#D1FAE5;color:#059669;font-size:11px;font-weight:800;padding:3px 10px;border-radius:6px;border:1px solid #6EE7B7">🟢 운영중</span>';
+      return `
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 18px;background:#F8FAFC;border-radius:12px;border:1.5px solid #E5E7EB;margin-bottom:20px">
+        <button onclick="openBudgetYear(${prevYr})" style="padding:6px 12px;border-radius:8px;border:1px solid #E5E7EB;background:white;font-size:11px;font-weight:700;cursor:pointer;color:#6B7280">← ${prevYr}년</button>
+        <div style="flex:1;text-align:center">
+          <span style="font-size:16px;font-weight:900;color:#1E293B">${yr}년도</span>
+          <span style="margin-left:8px">${statusBadge}</span>
+        </div>
+        <button onclick="openBudgetYear(${nextYr})" style="padding:6px 12px;border-radius:8px;border:1px solid #E5E7EB;background:white;font-size:11px;font-weight:700;cursor:pointer;color:#6B7280">${nextYr}년 →</button>
+        ${isClosed
+          ? `<button onclick="openBudgetYear(${yr})" style="padding:6px 14px;border-radius:8px;border:none;background:#059669;color:white;font-size:11px;font-weight:800;cursor:pointer">📂 재오픈</button>`
+          : `<button onclick="closeBudgetYear(${yr})" style="padding:6px 14px;border-radius:8px;border:none;background:#DC2626;color:white;font-size:11px;font-weight:800;cursor:pointer">🔒 ${yr}년 마감</button>`
+        }
+      </div>`;
+    })()}
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px">
       <div style="background:linear-gradient(135deg,#FFF7ED,#FED7AA);border-radius:16px;padding:20px 18px;border:1.5px solid #FED7AA;position:relative;overflow:hidden">
         <div style="position:absolute;top:12px;right:14px;font-size:22px;opacity:.4">📋</div>

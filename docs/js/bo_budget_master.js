@@ -3351,6 +3351,8 @@ let _bmFilterTplId = null;
 let _bmFilterAcctCode = null;
 let _bmFilterTplList = [];
 let _bmFilterAcctList = [];
+// ★ DB 직접 조회 데이터 맵 {accountCode: {totalBudget, addedBudget, fiscalYear}}
+let _bmDbBudgetData = {};
 
 async function _bmLoadFilterData(tenantId) {
   const sb = typeof getSB === 'function' ? getSB() : null;
@@ -3422,43 +3424,49 @@ function _bmFilterBarHtml() {
   '</div>';
 }
 
-// ── account_budgets 테이블에서 실제 배정액(total_budget)을 읽어 ACCOUNT_BUDGETS 동기화 ──
+// ── account_budgets 테이블에서 실제 배정액(total_budget)을 읽어 _bmDbBudgetData에 저장 ──
 async function _bmSyncAccountBudgets(sb, tenantId) {
   if (!sb || !tenantId) return;
   try {
     const year = typeof _allocYear !== 'undefined' ? _allocYear : new Date().getFullYear();
-    // account_code 목록으로 필터 (tenant_id 컬럼이 없는 경우에도 동작하도록)
-    const acctCodes = (typeof _bmFilterAcctList !== 'undefined' ? _bmFilterAcctList : []).map(a => a.code).filter(Boolean);
-    if (acctCodes.length === 0) return;
+    const acctCodes = (_bmFilterAcctList || []).map(a => a.code).filter(Boolean);
+    if (acctCodes.length === 0) { _bmDbBudgetData = {}; return; }
 
-    let query = sb.from('account_budgets').select('account_code, total_budget, fiscal_year').eq('fiscal_year', year).in('account_code', acctCodes);
-    const { data: rows, error } = await query;
+    // account_budgets에서 total_budget 조회
+    const { data: rows, error } = await sb
+      .from('account_budgets')
+      .select('account_code, total_budget, fiscal_year')
+      .eq('fiscal_year', year)
+      .in('account_code', acctCodes);
+
     if (error) {
-      console.warn('[_bmSyncAccountBudgets] 쿼리 실패:', error.message, '— baseAmount 동기화 건너뜀');
-      return;
+      console.warn('[_bmSyncAccountBudgets] 쿼리 실패:', error.message);
+      _bmDbBudgetData = {};
+    } else {
+      // DB 데이터를 맵으로 저장
+      _bmDbBudgetData = {};
+      (rows || []).forEach(row => {
+        _bmDbBudgetData[row.account_code] = {
+          totalBudget: Number(row.total_budget || 0),
+          fiscalYear: row.fiscal_year,
+        };
+        console.log('[_bmSyncAccountBudgets] DB 로드:', row.account_code, '→', row.total_budget);
+      });
+      console.log('[_bmSyncAccountBudgets] 완료: codes=' + acctCodes + ', DB rows=' + (rows||[]).length);
     }
-    if (!rows || rows.length === 0) {
-      console.log('[_bmSyncAccountBudgets] account_budgets 레코드 없음 (year:', year, 'codes:', acctCodes, ')');
-      return;
-    }
-    rows.forEach(row => {
+
+    // ACCOUNT_BUDGETS 인메모리도 동기화 (하위 호환 유지)
+    (rows || []).forEach(row => {
+      const dbAmount = Number(row.total_budget || 0);
+      if (dbAmount === 0) return; // DB=0이면 mock 유지
       const ab = (typeof ACCOUNT_BUDGETS !== 'undefined' ? ACCOUNT_BUDGETS : []).find(
         x => x.accountCode === row.account_code && x.tenantId === tenantId
       );
-      if (ab) {
-        const dbAmount = Number(row.total_budget || 0);
-        // DB 값이 0이고 기존 mock 데이터가 0보다 크면 → mock 데이터 보존 (아직 DB에 기초예산 미등록)
-        if (dbAmount === 0 && ab.baseAmount > 0 && !ab._fromDb) {
-          console.log('[_bmSyncAccountBudgets] DB=0, mock 보존:', row.account_code, ab.baseAmount);
-        } else {
-          ab.baseAmount = dbAmount;
-          console.log('[_bmSyncAccountBudgets] 갱신:', row.account_code, '→', ab.baseAmount);
-        }
-        ab.fiscalYear = row.fiscal_year;
-      }
+      if (ab) { ab.baseAmount = dbAmount; ab.fiscalYear = row.fiscal_year; }
     });
   } catch (e) {
     console.warn('[_bmSyncAccountBudgets] 오류:', e.message);
+    _bmDbBudgetData = {};
   }
 }
 
@@ -3501,41 +3509,80 @@ function renderBudgetMaster() {
     return;
   }
 
-  let myBudgets = typeof getPersonaAccountBudgets === "function" ? getPersonaAccountBudgets(persona) : [];
-  console.log('[renderBudgetMaster] 1) getPersonaAccountBudgets:', myBudgets.length, 'entries, persona.tenantId:', persona.tenantId);
-  if (!persona.tenantId) {
-    myBudgets = myBudgets.filter(ab => ab.tenantId === _bmFilterTenant);
-    console.log('[renderBudgetMaster] 2) after tenant filter (' + _bmFilterTenant + '):', myBudgets.length, myBudgets.map(b => b.accountCode + '/' + b.baseAmount));
-  }
-  if (_bmFilterAcctCode) {
-    myBudgets = myBudgets.filter(ab => ab.accountCode === _bmFilterAcctCode);
-    console.log('[renderBudgetMaster] 3) after acct filter (' + _bmFilterAcctCode + '):', myBudgets.length, myBudgets.map(b => b.accountCode + '/' + b.baseAmount));
-  }
+  // ★★ DB 직접 조회 방식: _bmFilterAcctList(DB 계정) + _bmDbBudgetData(DB 예산)를 기준으로 렌더링
+  //    ACCOUNT_BUDGETS mock 데이터 의존도 제거
+  const dbAcctList = (_bmFilterAcctList || []).filter(a => _bmFilterAcctCode ? a.code === _bmFilterAcctCode : true);
+  const allocYear = typeof _allocYear !== 'undefined' ? _allocYear : new Date().getFullYear();
+  const _fmt = (v) => Number(v || 0).toLocaleString('ko-KR');
 
-  const allocYear = typeof _allocYear !== "undefined" ? _allocYear : new Date().getFullYear();
-  const totalBase = myBudgets.reduce((s, b) => s + (b.baseAmount || 0), 0);
-  const totalAdded = myBudgets.reduce((s, b) => s + (b.totalAdded || 0), 0);
+  // DB 예산 데이터가 없는 경우 ACCOUNT_BUDGETS 인메모리 fallback 사용
+  const _getBudgetData = (acctCode) => {
+    // 1순위: DB account_budgets 테이블 (실제 데이터)
+    if (_bmDbBudgetData[acctCode] && _bmDbBudgetData[acctCode].totalBudget > 0) {
+      return { baseAmount: _bmDbBudgetData[acctCode].totalBudget, totalAdded: 0, fromDb: true };
+    }
+    // 2순위: ACCOUNT_BUDGETS 인메모리 (mock or AB_DB_xxxx)
+    const tid = _bmFilterTenant;
+    const ab = (typeof ACCOUNT_BUDGETS !== 'undefined' ? ACCOUNT_BUDGETS : []).find(
+      x => x.accountCode === acctCode && x.tenantId === tid
+    );
+    if (ab) return { baseAmount: ab.baseAmount || 0, totalAdded: ab.totalAdded || 0, fromDb: false, abRef: ab };
+    return { baseAmount: 0, totalAdded: 0, fromDb: false };
+  };
+
+  // 계정별 예산 데이터 빌드
+  const myAcctData = dbAcctList.map(a => ({
+    acct: a,
+    ...( _getBudgetData(a.code) ),
+  }));
+
+  const totalBase = myAcctData.reduce((s, d) => s + d.baseAmount, 0);
+  const totalAdded = myAcctData.reduce((s, d) => s + d.totalAdded, 0);
   const totalBudget = totalBase + totalAdded;
-  const _liveAccts = typeof _bmFilterAcctList !== 'undefined' ? _bmFilterAcctList : [];
-  const uninitialized = myBudgets.filter(b => {
-    // live acct list에서 integration_mode 조회 (캐시된 sourceType보다 신뢰성 높음)
-    const liveAcct = _liveAccts.find(a => a.code === b.accountCode);
-    const isPlatform = liveAcct ? liveAcct.integration_mode !== 'sap' : b.sourceType === 'platform';
-    return isPlatform && b.baseAmount === 0;
-  });
-  const _fmt = (v) => Number(v || 0).toLocaleString("ko-KR");
 
-  const accountRows = myBudgets.map(ab => {
-    const acct = typeof ACCOUNT_MASTER !== "undefined" ? ACCOUNT_MASTER.find(a => a.code === ab.accountCode) : null;
-    const total = (ab.baseAmount || 0) + (ab.totalAdded || 0);
-    const srcBadge = ab.sourceType === "sap_if"
+  const uninitialized = myAcctData.filter(d => d.acct.integration_mode !== 'sap' && d.baseAmount === 0);
+
+  const accountRows = myAcctData.map(d => {
+    const total = d.baseAmount + d.totalAdded;
+    const srcBadge = d.acct.integration_mode === 'sap'
       ? '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#EFF6FF;color:#1D4ED8;font-weight:800">🔗 SAP</span>'
       : '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#FFF7ED;color:#C2410C;font-weight:800">📋 자체</span>';
-    return '<tr style="border-top:1px solid #F1F5F9"><td style="padding:10px 12px;font-weight:700;color:#374151">' + ab.accountCode + '</td><td style="padding:10px 8px;color:#374151">' + (acct?.name || ab.accountCode) + '</td><td style="text-align:center;padding:10px 8px">' + srcBadge + '</td><td style="text-align:right;padding:10px 8px;font-weight:700">' + _fmt(ab.baseAmount || 0) + '원</td><td style="text-align:right;padding:10px 8px;font-weight:700;color:#059669">' + (ab.totalAdded > 0 ? "+" + _fmt(ab.totalAdded) + "원" : "—") + '</td><td style="text-align:right;padding:10px 12px;font-weight:900;color:#7C3AED">' + _fmt(total) + '원</td></tr>';
-  }).join("");
+    return '<tr style="border-top:1px solid #F1F5F9"><td style="padding:10px 12px;font-weight:700;color:#374151">' + d.acct.code + '</td><td style="padding:10px 8px;color:#374151">' + d.acct.name + '</td><td style="text-align:center;padding:10px 8px">' + srcBadge + '</td><td style="text-align:right;padding:10px 8px;font-weight:700">' + _fmt(d.baseAmount) + '원</td><td style="text-align:right;padding:10px 8px;font-weight:700;color:#059669">' + (d.totalAdded > 0 ? '+' + _fmt(d.totalAdded) + '원' : '—') + '</td><td style="text-align:right;padding:10px 12px;font-weight:900;color:#7C3AED">' + _fmt(total) + '원</td></tr>';
+  }).join('');
 
-  const allocEntryHtml = typeof renderAllocEntry === "function" ? renderAllocEntry() : "";
+  // renderAllocEntry는 기존 ACCOUNT_BUDGETS 기반 — myAcctData를 통해 보완
+  // _bmFilterAcctCode가 선택됐을 때 해당 계정의 ab가 ACCOUNT_BUDGETS에 없으면 자동 생성
+  if (_bmFilterAcctCode && myAcctData.length > 0) {
+    const d = myAcctData[0];
+    if (!d.abRef) {
+      // ACCOUNT_BUDGETS에 없으면 임시 항목 생성 (renderAllocEntry, submitAddBudget에서 사용)
+      const newId = 'AB_BM_' + d.acct.code;
+      if (!(typeof ACCOUNT_BUDGETS !== 'undefined' && ACCOUNT_BUDGETS.find(x => x.id === newId))) {
+        (typeof ACCOUNT_BUDGETS !== 'undefined' ? ACCOUNT_BUDGETS : []).push({
+          id: newId,
+          tenantId: _bmFilterTenant,
+          accountCode: d.acct.code,
+          dbAccountId: d.acct.id,
+          sourceType: d.acct.integration_mode === 'sap' ? 'sap_if' : 'platform',
+          fiscalYear: allocYear,
+          baseAmount: d.baseAmount,
+          totalAdded: d.totalAdded,
+          status: 'confirmed',
+          _fromDb: true,
+        });
+        console.log('[renderBudgetMaster] ACCOUNT_BUDGETS 임시 항목 생성:', d.acct.code, newId);
+      } else {
+        // 기존 항목의 금액 갱신
+        const existing = ACCOUNT_BUDGETS.find(x => x.id === newId);
+        if (existing) { existing.baseAmount = d.baseAmount; existing.totalAdded = d.totalAdded; }
+      }
+    }
+  }
+
+  const allocEntryHtml = typeof renderAllocEntry === 'function' ? renderAllocEntry() : '';
   const acctLabel = _bmFilterAcctCode ? (_bmFilterAcctList.find(a => a.code === _bmFilterAcctCode)?.name || _bmFilterAcctCode) : '전체 계정';
+
+  console.log('[renderBudgetMaster] DB기반 렌더: accts=', dbAcctList.map(a => a.code), 'totalBase=', totalBase);
 
   ct.innerHTML = `
   ${_bmFilterBarHtml()}
@@ -3572,7 +3619,7 @@ function renderBudgetMaster() {
       </div>
     </div>
     ${allocEntryHtml}
-    ${myBudgets.length > 0 ? `
+    ${(myAcctData.length > 0 && _bmFilterAcctCode) ? `
     <div class="bo-card" style="padding:20px;margin-top:24px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
         <span style="background:#374151;color:white;font-size:10px;font-weight:900;padding:3px 10px;border-radius:6px">현황</span>

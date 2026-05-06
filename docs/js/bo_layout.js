@@ -420,6 +420,7 @@ const PLATFORM_MENUS = [
     label: "예산 이관/이월",
     section: null,
     gnb: GNB_CATE.PROGRAM,
+    hidden: true, // [2026-05-07] bankbook_fiscal_periods 테이블이 현행 예산 흐름(budget_allocations)과 단절 확인 — 추후 연계 설계 시 재활성화
   },
   // 자격증 지원관리
   {

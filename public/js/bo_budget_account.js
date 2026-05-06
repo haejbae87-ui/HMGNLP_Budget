@@ -1,4 +1,4 @@
-// bo_budget_account.js
+﻿// bo_budget_account.js
 // 예산계정 관리 독립 메뉴 화면 (기존 통합 화면의 4번 탭에서 분리)
 
 let _bamTemplates = []; // 로드된 교육지원 제도그룹 목록
@@ -487,8 +487,8 @@ async function _bamSaveAccount() {
     tenant_id: tenantId,
     virtual_org_template_id: window._baTplId,
     code: d.code, name: d.name,
-    integration_mode: d.integration_type || 'self',
-    sap_code: d.integration_type === 'sap' ? (d.sap_code || null) : null,
+    integration_mode: (d.integration_type === 'standalone' || d.integration_type === 'self') ? 'self' : (d.integration_type || 'self'),
+    sap_code: (d.integration_type === 'sap') ? (d.sap_code || null) : null,
     description: d.description || '',
     active: true,
     uses_budget: d.uses_budget !== false,

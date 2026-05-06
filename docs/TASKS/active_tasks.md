@@ -143,3 +143,4 @@
 - [x] 예산계정 마스터 4-Tab UI 구조 개편 및 변경이력 DB 적재 자동화
 - [x] 예산계정 마스터 UI: 데이터 범위 조회 필터를 타이틀 영역 하단으로 이동
 - [x] bo_allocation.js: 예산 변경 이력(Audit Trail) 저장 실패 시 사용자에게 명시적인 에러 Alert 노출 처리 추가
+- [x] bo_budget_master.js 및 bo_allocation.js: 파일 비대화 및 리팩토링 진행 (미사용 데드코드 약 4,000줄 삭제로 파일 크기 최적화)

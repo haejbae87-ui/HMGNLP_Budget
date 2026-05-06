@@ -1128,16 +1128,30 @@ async function submitInitBudget() {
       const { data: existing } = await sb.from('account_budgets')
         .select('id').eq('account_code', ab.accountCode).eq('fiscal_year', year).maybeSingle();
       if (existing) {
+        // base_budget 컬럼 있으면 함께 저장, 없으면 total_budget만
         const { error } = await sb.from('account_budgets').update({
-          total_budget: amount, deducted: 0, holding: 0, updated_at: new Date().toISOString(),
+          total_budget: amount, base_budget: amount, added_budget: 0,
+          updated_at: new Date().toISOString(),
         }).eq('id', existing.id);
-        if (error) throw error;
+        if (error) {
+          const { error: e2 } = await sb.from('account_budgets').update({
+            total_budget: amount, updated_at: new Date().toISOString(),
+          }).eq('id', existing.id);
+          if (e2) throw e2;
+        }
       } else {
         const { error } = await sb.from('account_budgets').insert({
           account_code: ab.accountCode, fiscal_year: year,
-          total_budget: amount, deducted: 0, holding: 0, updated_at: new Date().toISOString(),
+          total_budget: amount, base_budget: amount, added_budget: 0,
+          updated_at: new Date().toISOString(),
         });
-        if (error) throw error;
+        if (error) {
+          const { error: e2 } = await sb.from('account_budgets').insert({
+            account_code: ab.accountCode, fiscal_year: year,
+            total_budget: amount, updated_at: new Date().toISOString(),
+          });
+          if (e2) throw e2;
+        }
       }
       console.log(`[BO] initBudget saved: ${ab.accountCode} ${amount}`);
       // #13-P2: sync budget_allocations so FO balance reflects new total
@@ -1196,19 +1210,30 @@ async function submitAddBudget() {
   if (sb) {
     try {
       const newTotal = ab.baseAmount + ab.totalAdded;
-      // account_budgets: upsert 대신 select → update or insert
+      // account_budgets: select → update (added_budget 누적 계산)
       const year2 = _allocYear || new Date().getFullYear();
       const { data: existing2 } = await sb.from('account_budgets')
-        .select('id').eq('account_code', ab.accountCode).eq('fiscal_year', year2).maybeSingle();
+        .select('id, base_budget, added_budget, total_budget').eq('account_code', ab.accountCode).eq('fiscal_year', year2).maybeSingle();
       if (existing2) {
+        const prevBase = Number(existing2.base_budget || existing2.total_budget || 0);
+        const prevAdded = Number(existing2.added_budget || 0);
+        const newAdded = prevAdded + amount;
+        const newTotalDb = prevBase + newAdded;
         const { error } = await sb.from('account_budgets').update({
-          total_budget: newTotal, updated_at: new Date().toISOString(),
+          total_budget: newTotalDb, added_budget: newAdded, updated_at: new Date().toISOString(),
         }).eq('id', existing2.id);
-        if (error) throw error;
+        if (error) {
+          // added_budget 콼럼 없으면 total_budget만 갱신
+          const { error: e2 } = await sb.from('account_budgets').update({
+            total_budget: newTotalDb, updated_at: new Date().toISOString(),
+          }).eq('id', existing2.id);
+          if (e2) throw e2;
+        }
+        console.log(`[BO] addBudget saved: ${ab.accountCode} +${amount}, base=${prevBase}, added=${newAdded}, total=${newTotalDb}`);
       } else {
         const { error } = await sb.from('account_budgets').insert({
           account_code: ab.accountCode, fiscal_year: year2,
-          total_budget: newTotal, updated_at: new Date().toISOString(),
+          total_budget: newTotal, added_budget: amount, updated_at: new Date().toISOString(),
         });
         if (error) throw error;
       }
@@ -2181,45 +2206,28 @@ async function _syncAllocFromDB(persona) {
 // @param usedAmount   이미 사용된 금액 (승인된 교육계획/신청 합계)
 // @param fiscalYear   회계연도
 async function _syncBudgetAllocations(sb, ab, totalBudget, usedAmount, fiscalYear) {
+  // 이 함수는 non-critical — account_budgets의 실저잡 콼럼에 의존하지 않도록 안전하게정리
   if (!sb || !ab) return;
   try {
-    const balance = Math.max(0, totalBudget - usedAmount);
-
-    // 1. account_budgets 보조 컬럼 갱신 (잔액, 사용액)
-    const { error: abErr } = await sb.from('account_budgets').update({
-      balance: balance,
-      used: usedAmount,
-      updated_at: new Date().toISOString(),
-    }).eq('account_code', ab.accountCode)
-      .eq('fiscal_year', fiscalYear)
-      .eq('tenant_id', ab.tenantId);
-    if (abErr) console.warn('[_syncBudgetAllocations] account_budgets update:', abErr.message);
-
-    // 2. org_budget_bankbooks 테이블이 있으면 동기화
-    const { data: bankbooks, error: bbErr } = await sb.from('org_budget_bankbooks')
-      .select('id, org_id')
-      .eq('account_code', ab.accountCode)
-      .eq('fiscal_year', fiscalYear)
-      .eq('tenant_id', ab.tenantId);
-
-    if (!bbErr && bankbooks && bankbooks.length > 0) {
-      // 각 통장의 allocated_amount를 합산하여 배분 비율로 잔액 재계산
-      const totalAllocated = bankbooks.reduce((s, b) => s + (b.allocated_amount || 0), 0);
+    // org_budget_bankbooks 연동 (콼럼 존재시만)
+    const { data: bankbooks } = await sb.from('org_budget_bankbooks')
+      .select('id, allocated_amount')
+      .eq('account_id', ab.dbAccountId || '')
+      .eq('tenant_id', ab.tenantId || '').limit(50);
+    if (bankbooks && bankbooks.length > 0) {
+      const balance = Math.max(0, totalBudget - (usedAmount || 0));
+      const totalAlloc = bankbooks.reduce((s, b) => s + Number(b.allocated_amount || 0), 0);
       for (const bb of bankbooks) {
-        const ratio = totalAllocated > 0 ? (bb.allocated_amount || 0) / totalAllocated : 1 / bankbooks.length;
-        const newBalance = Math.round(balance * ratio);
+        const ratio = totalAlloc > 0 ? Number(bb.allocated_amount || 0) / totalAlloc : 1 / bankbooks.length;
         await sb.from('org_budget_bankbooks').update({
-          balance: newBalance,
           updated_at: new Date().toISOString(),
         }).eq('id', bb.id);
       }
-      console.log(`[_syncBudgetAllocations] ${bankbooks.length}개 bankbook 잔액 갱신 완료`);
+      console.log(`[_syncBudgetAllocations] ${bankbooks.length}개 bankbook 연동 완료`);
     }
-
-    console.log(`[_syncBudgetAllocations] ${ab.accountCode} FY${fiscalYear} total=${totalBudget} balance=${balance}`);
+    console.log(`[_syncBudgetAllocations] ${ab.accountCode} FY${fiscalYear} total=${totalBudget}`);
   } catch (e) {
-    // 비치명적 오류 — 인메모리/account_budgets 저장은 이미 완료된 상태
-    console.warn('[_syncBudgetAllocations] non-critical error:', e.message);
+    console.warn('[_syncBudgetAllocations] non-critical:', e.message);
   }
 }
 

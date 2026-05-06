@@ -3432,10 +3432,10 @@ async function _bmSyncAccountBudgets(sb, tenantId) {
     const acctCodes = (_bmFilterAcctList || []).map(a => a.code).filter(Boolean);
     if (acctCodes.length === 0) { _bmDbBudgetData = {}; return; }
 
-    // account_budgets에서 total_budget 조회
+    // account_budgets에서 total_budget 조회 (base_budget/added_budget 있으면 분리 조회)
     const { data: rows, error } = await sb
       .from('account_budgets')
-      .select('account_code, total_budget, fiscal_year')
+      .select('account_code, total_budget, base_budget, added_budget, fiscal_year')
       .eq('fiscal_year', year)
       .in('account_code', acctCodes);
 
@@ -3443,14 +3443,18 @@ async function _bmSyncAccountBudgets(sb, tenantId) {
       console.warn('[_bmSyncAccountBudgets] 쿼리 실패:', error.message);
       _bmDbBudgetData = {};
     } else {
-      // DB 데이터를 맵으로 저장
+      // DB 데이터를 맵으로 저장 (base_budget/added_budget 분리)
       _bmDbBudgetData = {};
       (rows || []).forEach(row => {
+        const base = Number(row.base_budget || row.total_budget || 0);
+        const added = Number(row.added_budget || (row.total_budget - (row.base_budget || row.total_budget)) || 0);
         _bmDbBudgetData[row.account_code] = {
           totalBudget: Number(row.total_budget || 0),
+          baseBudget: base,
+          addedBudget: added,
           fiscalYear: row.fiscal_year,
         };
-        console.log('[_bmSyncAccountBudgets] DB 로드:', row.account_code, '→', row.total_budget);
+        console.log('[_bmSyncAccountBudgets] DB 로드:', row.account_code, '→ base=', base, 'added=', added, 'total=', row.total_budget);
       });
       console.log('[_bmSyncAccountBudgets] 완료: codes=' + acctCodes + ', DB rows=' + (rows||[]).length);
     }
@@ -3519,7 +3523,12 @@ function renderBudgetMaster() {
   const _getBudgetData = (acctCode) => {
     // 1순위: DB account_budgets 테이블 (실제 데이터)
     if (_bmDbBudgetData[acctCode] && _bmDbBudgetData[acctCode].totalBudget > 0) {
-      return { baseAmount: _bmDbBudgetData[acctCode].totalBudget, totalAdded: 0, fromDb: true };
+      const d = _bmDbBudgetData[acctCode];
+      return {
+        baseAmount: d.baseBudget || d.totalBudget,   // base_budget 컬럼 없으면 total 전체를 기초로
+        totalAdded: d.addedBudget || 0,
+        fromDb: true,
+      };
     }
     // 2순위: ACCOUNT_BUDGETS 인메모리 (mock or AB_DB_xxxx)
     const tid = _bmFilterTenant;

@@ -1154,6 +1154,21 @@ async function submitInitBudget() {
         }
       }
       console.log(`[BO] initBudget saved: ${ab.accountCode} ${amount}`);
+      // ★ Audit Trail: account_budget_adjustments 저장
+      try {
+        await sb.from('account_budget_adjustments').insert({
+          account_code: ab.accountCode,
+          fiscal_year: year,
+          type: '기초입력',
+          amount: amount,
+          reason: note || '기초 예산 등록',
+          performed_by: boCurrentPersona?.name || '',
+          tenant_id: ab.tenantId || _bmFilterTenant || '',
+        });
+        console.log('[BO] Audit Trail 저장 완료 (기초입력)');
+      } catch (auditErr) {
+        console.warn('[BO] Audit Trail 저장 실패 (non-critical):', auditErr.message);
+      }
       // #13-P2: sync budget_allocations so FO balance reflects new total
       await _syncBudgetAllocations(sb, ab, amount, 0, _allocYear || new Date().getFullYear());
     } catch (e) {
@@ -1238,6 +1253,22 @@ async function submitAddBudget() {
         if (error) throw error;
       }
       console.log(`[BO] addBudget saved: ${ab.accountCode} +${amount}, total=${newTotal}`);
+      // ★ Audit Trail: account_budget_adjustments 저장
+      try {
+        const adjYear = _allocYear || new Date().getFullYear();
+        await sb.from('account_budget_adjustments').insert({
+          account_code: ab.accountCode,
+          fiscal_year: adjYear,
+          type: '추가배정',
+          amount: amount,
+          reason: reason || '',
+          performed_by: boCurrentPersona?.name || '',
+          tenant_id: ab.tenantId || (typeof _bmFilterTenant !== 'undefined' ? _bmFilterTenant : '') || '',
+        });
+        console.log('[BO] Audit Trail 저장 완료 (추가배정)');
+      } catch (auditErr) {
+        console.warn('[BO] Audit Trail 저장 실패 (non-critical):', auditErr.message);
+      }
       // #13-P2: sync budget_allocations so FO balance reflects new total
       await _syncBudgetAllocations(sb, ab, newTotal, ab.usedAmount || 0, _allocYear || new Date().getFullYear());
     } catch (e) {

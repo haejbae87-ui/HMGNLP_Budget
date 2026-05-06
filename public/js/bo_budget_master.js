@@ -1,4 +1,4 @@
-﻿// ─── Tenant Admin: 예산 기초 관리 (7탭) ──────────────────────────────────────
+// ─── Tenant Admin: 예산 기초 관리 (7탭) ──────────────────────────────────────
 // Step1:계정마스터CRUD  Step2:조직-계정매핑  Step3:양식빌더(FORM_MASTER)
 // Step4:양식접근권한    Step5:양식-예산-계획룰  Step6:공지관리  +교육조직+권한
 
@@ -144,6 +144,16 @@ let virtualOrgState = JSON.parse(JSON.stringify(VIRTUAL_ORG));
 let _baTenantId = null; // 플랫폼총괄: 선택된 테넌트
 let _baGroupId = null; // 선택된 격리그룹 ID
 let _baExpandedAR = {}; // 결재라인 펼침 상태 { accountCode: bool }
+
+// 상태 변수
+let _bmFilterTenant = null;
+let _bmFilterTplId = null;
+let _bmFilterAcctCode = null;
+let _bmFilterTplList = [];
+let _bmFilterAcctList = [];
+let _bmDbBudgetData = {};
+let _bmAdjustHistory = [];
+let _bmCurrentTab = 2;
 
 // ─── DB: account_master + edu_support_domains 로드 후 ACCOUNT_MASTER 갱신 ───────
 async function _bmLoadFilterData(tenantId) {

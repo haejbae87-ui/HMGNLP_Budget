@@ -2117,6 +2117,24 @@ async function submitApply() {
       return;
     }
   }
+
+  // ── EC-07: 교육유형 불일치 최종 검증 ──
+  const _planIds = applyState.planIds && applyState.planIds.length > 0
+    ? applyState.planIds : (applyState.planId ? [applyState.planId] : []);
+  if (_planIds.length > 1) {
+    const _plans = typeof _dbApprovedPlans !== "undefined" ? _dbApprovedPlans : [];
+    const _eduTypes = new Set();
+    _planIds.forEach(id => {
+      const pl = _plans.find(p => p.id === id);
+      if (pl && pl.edu_type) _eduTypes.add(pl.edu_type);
+    });
+    if (_eduTypes.size > 1) {
+      const typeList = Array.from(_eduTypes).join(", ");
+      alert(`⚠️ 교육유형 불일치\n\n선택된 교육계획의 교육유형이 서로 다릅니다:\n→ ${typeList}\n\n같은 교육유형의 계획만 하나의 신청서에 묶을 수 있습니다.\n Step 2에서 교육계획을 수정해 주세요.`);
+      return;
+    }
+  }
+
   applyState.confirmMode = true;
   renderApply();
 }
@@ -2808,7 +2826,25 @@ function _renderPlanPickerSection(s, mode) {
     <div style="padding:8px 14px;background:${color}15;border-radius:8px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div style="font-size:12px;font-weight:800;color:${color}">📋 선택된 교육계획 ${selected.length}건</div>
       <div style="font-size:14px;font-weight:900;color:${color}">${totalAmt.toLocaleString()}원</div>
-    </div>`
+    </div>
+    ${(() => {
+      // ── EC-07: 교육유형 불일치 실시간 경고 배너 ──
+      if (selected.length < 2) return '';
+      const eduTypesSet = new Set();
+      selected.forEach(id => {
+        const p = plans.find(x => x.id === id);
+        if (p && p.edu_type) eduTypesSet.add(p.edu_type);
+      });
+      if (eduTypesSet.size <= 1) return '';
+      const typeList = Array.from(eduTypesSet).join(', ');
+      return '<div style="padding:10px 14px;background:#FEF2F2;border:2px solid #FCA5A5;border-radius:10px;margin-bottom:12px;display:flex;align-items:flex-start;gap:8px">'
+        + '<span style="font-size:16px;flex-shrink:0">⚠️</span>'
+        + '<div style="font-size:11px">'
+        + '<div style="font-weight:900;color:#DC2626;margin-bottom:2px">교육유형 불일치 감지</div>'
+        + '<div style="color:#EF4444;font-weight:700">선택된 계획의 교육유형: ' + typeList + '</div>'
+        + '<div style="color:#9CA3AF;margin-top:2px">같은 교육유형의 계획만 묶을 수 있습니다. 교육유형이 다른 계획을 삭제해 주세요.</div>'
+        + '</div></div>';
+    })()}`
         : `
     <div style="padding:20px;text-align:center;background:white;border-radius:10px;border:2px dashed ${borderLight};margin-bottom:12px">
       <div style="font-size:24px;margin-bottom:6px">📭</div>

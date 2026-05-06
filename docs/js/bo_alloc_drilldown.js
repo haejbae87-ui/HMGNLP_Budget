@@ -252,11 +252,17 @@ function _renderDDLevel0() {
   <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:10px 16px;font-size:12px;color:#92400E;margin-bottom:12px">
     ⚠️ 입력 합계가 배분 가능 재원을 초과할 수 없습니다. 배분 확정 후 수정 시 회수 기능을 이용하세요.
   </div>
-  <button onclick="_showDistConfirmModal()" class="bo-btn-primary"
-    style="width:100%;padding:16px;font-size:14px;font-weight:800;border-radius:12px;
-           display:flex;align-items:center;justify-content:center;gap:8px">
-    📋 배분 내역 확인 및 이관 확정
-  </button>
+  ${(typeof boIsOpManager === 'function' && boIsOpManager())
+    ? `<div style="padding:16px;background:#FEF2F2;border:2px solid #FECACA;border-radius:12px;text-align:center">
+        <div style="font-size:14px;font-weight:900;color:#DC2626;margin-bottom:4px">🔒 교육조직 총액 변경 불가</div>
+        <div style="font-size:12px;color:#991B1B">운영담당자는 교육조직 총액을 변경할 수 없습니다. 위 테이블에서 관할 교육조직으로 드릴다운하여 팀 간 재배분을 진행하세요.</div>
+      </div>`
+    : `<button onclick="_showDistConfirmModal()" class="bo-btn-primary"
+        style="width:100%;padding:16px;font-size:14px;font-weight:800;border-radius:12px;
+               display:flex;align-items:center;justify-content:center;gap:8px">
+        📋 배분 내역 확인 및 이관 확정
+      </button>`
+  }
 </div>
 <script>(function(){
   window._ddRows = ${JSON.stringify(allRows)};
@@ -513,6 +519,15 @@ function _showDistConfirmModal() {
   const abId = window._ddAbId;
   const ab = ACCOUNT_BUDGETS.find(x => x.id === abId);
   const isL1 = window._ddCurrentLevel === 1;
+
+  // ── F-151: 운영담당자 Δ=0 제약 ──
+  // 운영담당자는 Level 0(교육조직 총액)을 변경할 수 없고, Level 1(팀간 재배분)만 가능
+  const isOp = typeof boIsOpManager === 'function' && boIsOpManager();
+  if (isOp && !isL1) {
+    alert('⚠️ 운영담당자는 교육조직 총액을 변경할 수 없습니다.\n\n관할 교육조직으로 드릴다운하여 팀 간 재배분만 가능합니다.\n교육조직 총액 변경은 총괄담당자에게 요청하세요.');
+    return;
+  }
+
   let total = 0;
   const lines = [];
   rows.forEach(r => {
@@ -654,6 +669,33 @@ async function _submitDDDist() {
       lines.push(`${r.name}: +${boFmt(v)}원`);
     });
   }
+  // ── Audit Trail: budget_usage_log 기록 ──
+  if (sb && ab) {
+    try {
+      const isL1 = window._ddCurrentLevel === 1;
+      const actorName = boCurrentPersona?.name || 'BO담당자';
+      const actorId = boCurrentPersona?.id || 'system';
+      const acctName = ACCOUNT_MASTER.find(a => a.code === ab.accountCode)?.name || ab.accountCode;
+      for (const l of lines) {
+        await sb.from('budget_usage_log').insert({
+          tenant_id: ab.tenantId,
+          action: 'distribution',
+          target_type: isL1 ? 'team' : 'org',
+          target_name: l.name,
+          account_code: ab.accountCode,
+          account_name: acctName,
+          amount: l.v,
+          balance_after: l.after,
+          actor_id: actorId,
+          actor_name: actorName,
+          parent_org: isL1 ? (_ddOrgName || null) : null,
+          note: `${isL1 ? '팀별' : '조직별'} 배분: ${l.name}에 ${boFmt(l.v)}원 추가 (배분 후 ${boFmt(l.after)}원)`,
+          created_at: new Date().toISOString()
+        });
+      }
+    } catch(logErr) { console.warn('[DD배분] Audit 로그 skip:', logErr.message); }
+  }
+
   let msg = `✅ 배분 완료!\n\n${lines.join('\n')}\n\n총 배분: ${boFmt(total)}원`;
   if (errors.length) msg += `\n\n⚠ 통장 미매칭 (DB 미반영): ${errors.join(', ')}`;
   alert(msg);
@@ -745,6 +787,31 @@ async function _submitDDRecall(abId, orgName, maxRecall) {
       await _syncBudgetAllocations(sb, ab, newTotal, ab.usedAmount || 0, ab.fiscalYear || new Date().getFullYear());
     } catch (e) { console.error('[DD회수] DB오류:', e.message); }
   }
+  // ── Audit Trail: budget_usage_log 기록 (회수) ──
+  if (sb && ab) {
+    try {
+      const actorName = boCurrentPersona?.name || 'BO담당자';
+      const actorId = boCurrentPersona?.id || 'system';
+      const acctName = ACCOUNT_MASTER.find(a => a.code === ab.accountCode)?.name || ab.accountCode;
+      const afterAmt = td ? td.allocAmount : 0;
+      await sb.from('budget_usage_log').insert({
+        tenant_id: ab.tenantId,
+        action: 'recall',
+        target_type: 'team',
+        target_name: orgName,
+        account_code: ab.accountCode,
+        account_name: acctName,
+        amount: -amt,
+        balance_after: afterAmt,
+        actor_id: actorId,
+        actor_name: actorName,
+        parent_org: _ddOrgName || null,
+        note: `예산 회수: ${orgName}에서 ${boFmt(amt)}원 회수 (회수 후 ${boFmt(afterAmt)}원)`,
+        created_at: new Date().toISOString()
+      });
+    } catch(logErr) { console.warn('[DD회수] Audit 로그 skip:', logErr.message); }
+  }
+
   alert(`✅ 회수 완료!\n${orgName}에서 ${boFmt(amt)}원 회수됨`);
   showAllocTabByIdx(2);
 }

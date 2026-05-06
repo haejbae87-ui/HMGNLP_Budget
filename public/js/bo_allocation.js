@@ -2218,45 +2218,114 @@ async function submitTransfer() {
 // ─── 탭 5: 변경 이력 (Audit Trail) ───────────────────────────────────────────
 function renderAllocHistory() {
   const persona = boCurrentPersona;
-  const myAbIds = getPersonaAccountBudgets(persona).map((ab) => ab.id);
-  const history = ACCOUNT_ADJUST_HISTORY.filter((h) =>
-    myAbIds.includes(h.accountBudgetId),
-  ).sort((a, b) => b.date.localeCompare(a.date));
+  const resolvedTenantId = _allocFilterTenant || persona.tenantId || 'HMC';
+  const year = _allocFilterYear || _allocYear || new Date().getFullYear();
 
-  const typeStyle = {
-    SAP_IF: { bg: "#DBEAFE", c: "#1E40AF" },
-    기초입력: { bg: "#E0E7FF", c: "#4338CA" },
-    확정: { bg: "#D1FAE5", c: "#065F46" },
-    추가배정: { bg: "#FEF3C7", c: "#92400E" },
-    이관출처: { bg: "#FEE2E2", c: "#991B1B" },
-    이관수신: { bg: "#F0FDF4", c: "#166534" },
-  };
+  // 비동기 DB 조회 후 화면 갱신
+  const containerEl = document.getElementById('alloc-content');
 
-  return `
+  // 즉시 스피너 표시
+  const spinnerHtml = `
 <div class="bo-card" style="overflow:hidden">
   <div style="padding:14px 20px;border-bottom:1px solid #F3F4F6;font-weight:800;font-size:13px">변경 이력 — Audit Trail</div>
+  <div style="padding:60px;text-align:center">
+    <div style="font-size:28px;margin-bottom:8px;animation:pulse 1.5s infinite">⏳</div>
+    <div style="color:#6B7280;font-size:12px;font-weight:700">변경이력을 DB에서 조회 중입니다...</div>
+  </div>
+</div>`;
+
+  // 권한 내 계정 코드 목록
+  const personaAllowed = persona.allowedAccounts || [];
+  const isSystem = personaAllowed.includes('*') || !persona.tenantId;
+  const isPlatformOrTenantGlobal = persona.role === 'platform_admin' || persona.role === 'tenant_global_admin';
+  const acctCodes = (_allocFilterAcctList || []).filter(a =>
+    isPlatformOrTenantGlobal || isSystem || personaAllowed.includes(a.code)
+  ).map(a => a.code);
+
+  // 특정 계정 필터 적용
+  const targetCodes = _allocFilterAccountCode
+    ? [_allocFilterAccountCode]
+    : (acctCodes.length > 0 ? acctCodes : null);
+
+  const typeStyle = {
+    SAP_IF: { bg: '#DBEAFE', c: '#1E40AF' },
+    기초입력: { bg: '#E0E7FF', c: '#4338CA' },
+    확정: { bg: '#D1FAE5', c: '#065F46' },
+    추가배정: { bg: '#FEF3C7', c: '#92400E' },
+    회수: { bg: '#FEE2E2', c: '#991B1B' },
+    이관출처: { bg: '#FEE2E2', c: '#991B1B' },
+    이관수신: { bg: '#F0FDF4', c: '#166534' },
+    마감: { bg: '#F3F4F6', c: '#374151' },
+  };
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb || !targetCodes || targetCodes.length === 0) {
+    return spinnerHtml.replace('변경이력을 DB에서 조회 중입니다...', '조회 조건을 먼저 설정해주세요.');
+  }
+
+  // 비동기 DB 조회 시작
+  (async () => {
+    try {
+      const { data: rows, error } = await sb
+        .from('account_budget_adjustments')
+        .select('account_code, fiscal_year, type, amount, reason, performed_by, created_at, tenant_id')
+        .eq('fiscal_year', year)
+        .in('account_code', targetCodes)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      const el = document.getElementById('alloc-content');
+      if (!el) return;
+
+      if (!rows || rows.length === 0) {
+        el.innerHTML = `
+<div class="bo-card" style="overflow:hidden">
+  <div style="padding:14px 20px;border-bottom:1px solid #F3F4F6;font-weight:800;font-size:13px">변경 이력 — Audit Trail</div>
+  <div style="padding:40px;text-align:center;color:#9CA3AF">
+    <div style="font-size:32px;margin-bottom:8px">📋</div>
+    <div style="font-size:13px;font-weight:700">${year}년 변경이력이 없습니다.</div>
+    <div style="font-size:11px;margin-top:4px">기초 예산 등록 또는 추가 배정 시 이력이 자동 저장됩니다.</div>
+  </div>
+</div>`;
+        return;
+      }
+
+      const rowsHtml = rows.map(h => {
+        const s = typeStyle[h.type] || { bg: '#F3F4F6', c: '#374151' };
+        const amt = Number(h.amount || 0);
+        const ac = amt > 0 ? '#059669' : amt < 0 ? '#EF4444' : '#9CA3AF';
+        const dateStr = h.created_at ? h.created_at.substring(0, 10) : '—';
+        return `<tr>
+          <td style="font-size:12px;color:#6B7280;white-space:nowrap">${dateStr}</td>
+          <td><code style="background:#F3F4F6;padding:1px 7px;border-radius:5px;font-size:11px;font-weight:700">${h.account_code || '—'}</code></td>
+          <td style="text-align:center"><span style="font-size:10px;font-weight:900;background:${s.bg};color:${s.c};padding:2px 8px;border-radius:6px">${h.type}</span></td>
+          <td style="text-align:right;font-weight:900;color:${ac}">${amt !== 0 ? (amt > 0 ? '+' : '') + boFmt(amt) + '원' : '—'}</td>
+          <td style="font-size:12px;color:#374151">${h.reason || ''}</td>
+          <td style="font-size:11px;color:#9CA3AF">${h.performed_by || ''}</td>
+        </tr>`;
+      }).join('');
+
+      el.innerHTML = `
+<div class="bo-card" style="overflow:hidden">
+  <div style="padding:14px 20px;border-bottom:1px solid #F3F4F6;display:flex;justify-content:space-between;align-items:center">
+    <span style="font-weight:800;font-size:13px">변경 이력 — Audit Trail</span>
+    <span style="font-size:11px;color:#6B7280">${year}년 · ${targetCodes.join(', ')} · 총 ${rows.length}건</span>
+  </div>
   <table class="bo-table">
     <thead><tr><th>일자</th><th>계정</th><th style="text-align:center">유형</th><th style="text-align:right">금액</th><th>내용</th><th>처리자</th></tr></thead>
-    <tbody>
-      ${history
-        .map((h) => {
-          const ab = ACCOUNT_BUDGETS.find((x) => x.id === h.accountBudgetId);
-          const s = typeStyle[h.type] || { bg: "#F3F4F6", c: "#374151" };
-          const ac =
-            h.amount > 0 ? "#059669" : h.amount < 0 ? "#EF4444" : "#9CA3AF";
-          return `<tr>
-          <td style="font-size:12px;color:#6B7280;white-space:nowrap">${h.date}</td>
-          <td><code style="background:#F3F4F6;padding:1px 7px;border-radius:5px;font-size:11px;font-weight:700">${ab?.accountCode || "—"}</code></td>
-          <td style="text-align:center"><span style="font-size:10px;font-weight:900;background:${s.bg};color:${s.c};padding:2px 8px;border-radius:6px">${h.type}</span></td>
-          <td style="text-align:right;font-weight:900;color:${ac}">${h.amount !== 0 ? (h.amount > 0 ? "+" : "") + boFmt(h.amount) + "원" : "—"}</td>
-          <td style="font-size:12px;color:#374151">${h.note}</td>
-          <td style="font-size:11px;color:#9CA3AF">${h.by}</td>
-        </tr>`;
-        })
-        .join("")}
-    </tbody>
+    <tbody>${rowsHtml}</tbody>
   </table>
 </div>`;
+    } catch (err) {
+      console.warn('[renderAllocHistory] DB 조회 실패:', err.message);
+      const el = document.getElementById('alloc-content');
+      if (el) el.innerHTML = `<div class="bo-card" style="padding:20px;color:#DC2626">변경이력 조회 중 오류가 발생했습니다: ${err.message}</div>`;
+    }
+  })();
+
+  return spinnerHtml;
 }
 
 // ������ DB ���� ������ ����ȭ ��������������������������������������������������������������������������������������������������������
@@ -2445,9 +2514,23 @@ async function _syncAllocFromDB(persona) {
       syncCount++;
     }
 
-    console.log("[BO Alloc Sync] " + tenantId + " ���� DB ����ȭ �Ϸ� (" + syncCount + "��)");
+    console.log('[BO Alloc Sync] ' + tenantId + ' 팀배분 DB 동기화 완료 (' + syncCount + '건)');
+
+    // ── Phase 1: DB-synced 계정의 mock TEAM_DIST 항목 제거 ────────────────
+    // _bbId가 없는 항목 = mock 데이터. DB에서 로드된 계정에 속한 것만 제거.
+    const dbSyncedAbIds = new Set(ACCOUNT_BUDGETS.filter(x => x._fromDb && x.tenantId === tenantId).map(x => x.id));
+    if (dbSyncedAbIds.size > 0) {
+      const beforeLen = TEAM_DIST.length;
+      // mock 항목(no _bbId)이 DB-synced 계정에 속하면 제거
+      for (let i = TEAM_DIST.length - 1; i >= 0; i--) {
+        if (dbSyncedAbIds.has(TEAM_DIST[i].accountBudgetId) && !TEAM_DIST[i]._bbId) {
+          TEAM_DIST.splice(i, 1);
+        }
+      }
+      console.log('[BO Alloc Sync] mock TEAM_DIST 제거:', (beforeLen - TEAM_DIST.length) + '건 삭제');
+    }
   } catch (e) {
-    console.warn("[BO Alloc Sync] DB error (non-critical):", e.message);
+    console.warn('[BO Alloc Sync] DB error (non-critical):', e.message);
   }
 }
 

@@ -6,6 +6,19 @@
 
 ## ✅ 완료된 작업 이력
 
+### 2026-05-06 — 예산계정 마스터 3단필터 개편 + 예산배정현황 근본수정
+
+- [x] **예산배정현황 조회 버그 근본수정** — 초기렌더에서 DB로드 완료 전 renderAllocOverview 호출 제거
+  - bo_allocation.js — 동기 `${renderAllocOverview()}` → 로딩 placeholder + 비동기 완료 후 재렌더
+  - bo_allocation.js — 비동기 재렌더 조건부(`_allocTab===0`) → 모든 탭 대응
+- [x] **PRD F-B01: 최초 예산 할당 탭 → 예산계정 마스터 바로가기 통합**
+  - bo_alloc_drilldown.js — `renderInitialAlloc()` → 예산계정 마스터 이동 안내 화면으로 교체
+- [x] **예산계정 마스터 3단 캐스케이드 필터** — 회사→제도그룹→예산계정 (교육양식관리 패턴 적용)
+  - bo_budget_master.js — `_bmFilterBarHtml()`, `_bmLoadFilterData()`, `_bmOnTplChange()`, `_bmApplyFilter()` 신규
+  - bo_budget_master.js — 기존 `boRenderGroupContextBar()` 의존 제거, DB 실시간 캐스케이드 전환
+- [x] **상단 필터 → 배정 드롭다운 자동 연동**
+  - bo_allocation.js — `renderAllocEntry()` 필터 `_bmFilterAcctCode` 연동: 계정 자동 선택 + 안내 메시지
+
 ### 2026-05-06 — P10 실사용액 자동 집계 + Q-MP5 결과 분리 등록
 
 - [x] **P10: 실사용액 자동 집계 (application_plan_items 기반 정밀 업그레이드)**

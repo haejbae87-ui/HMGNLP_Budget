@@ -937,7 +937,10 @@ function renderAllocEntry() {
   if (!isOwner)
     return `<div style="padding:40px;text-align:center"><div style="font-size:40px">🔒</div><div style="font-weight:900;color:#374151">계정 오너만 사용 가능합니다</div></div>`;
 
-  const myBudgets = getPersonaAccountBudgets(persona);
+  let myBudgets = getPersonaAccountBudgets(persona);
+  // ★ 상단 필터 연동: 예산계정 마스터에서 계정을 선택했으면 해당 계정만 표시
+  const filterAcct = typeof _bmFilterAcctCode !== 'undefined' ? _bmFilterAcctCode : null;
+  if (filterAcct) myBudgets = myBudgets.filter(ab => ab.accountCode === filterAcct);
   const platformBudgets = myBudgets.filter(
     (ab) => ab.sourceType === "platform",
   );
@@ -967,7 +970,7 @@ function renderAllocEntry() {
             .filter((ab) => ab.baseAmount === 0)
             .map(
               (ab) =>
-                `<option value="${ab.id}">${ACCOUNT_MASTER.find((a) => a.code === ab.accountCode)?.name || ab.accountCode}</option>`,
+                `<option value="${ab.id}" ${filterAcct && ab.accountCode === filterAcct ? 'selected' : ''}>${ACCOUNT_MASTER.find((a) => a.code === ab.accountCode)?.name || ab.accountCode}</option>`,
             )
             .join("")}
         </select>
@@ -1013,17 +1016,19 @@ function renderAllocEntry() {
       <div>
         <label style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;display:block;margin-bottom:6px">추가 배정 계정 <span style="color:#EF4444">*</span></label>
         <select id="add-ab" onchange="showAddSrcBadge()" style="width:100%;border:1.5px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700">
-          <option value="">— 계정 선택 —</option>
+          ${myBudgets.length === 1 ? '' : '<option value="">— 계정 선택 —</option>'}
           ${myBudgets
             .map((ab) => {
               const acct = ACCOUNT_MASTER.find(
                 (a) => a.code === ab.accountCode,
               );
               const total = ab.baseAmount + ab.totalAdded;
-              return `<option value="${ab.id}" data-src="${ab.sourceType}">${acct?.name || ab.accountCode} (현재 총액: ${boFmt(total)}원)</option>`;
+              const autoSel = (filterAcct && ab.accountCode === filterAcct) || myBudgets.length === 1;
+              return `<option value="${ab.id}" data-src="${ab.sourceType}" ${autoSel ? 'selected' : ''}>${acct?.name || ab.accountCode} (현재 총액: ${boFmt(total)}원)</option>`;
             })
             .join("")}
         </select>
+        ${filterAcct ? '<div style="font-size:10px;color:#059669;font-weight:600;margin-top:4px">✅ 상단 필터에서 선택한 계정이 자동 적용되었습니다</div>' : ''}
         <div id="add-src-badge" style="margin-top:6px"></div>
       </div>
       <div>

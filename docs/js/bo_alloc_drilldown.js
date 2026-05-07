@@ -735,7 +735,8 @@ async function _submitDDDist() {
   const lines = [], errors = [];
   if (sb && ab) {
     try {
-      const { data: bankbooks } = await sb.from('org_budget_bankbooks').select('id,org_id,org_name,account_id,template_id').eq('tenant_id', ab.tenantId).or('bb_status.eq.active,bb_status.is.null');
+      // is_org_level=true: 교육조직 단위 통장만 매칭 (팀 단위 통장 제외)
+      const { data: bankbooks } = await sb.from('org_budget_bankbooks').select('id,org_id,org_name,account_id,template_id').eq('tenant_id', ab.tenantId).or('bb_status.eq.active,bb_status.is.null').eq('is_org_level', true);
       // DB에서 budget_accounts.id (UUID) 조회 - account_id와 정확 비교에 사용
       const { data: accts } = await sb.from('budget_accounts').select('id,code').eq('code', ab.accountCode).eq('tenant_id', ab.tenantId).limit(1);
       const dbAccountId = accts?.[0]?.id;
@@ -752,10 +753,11 @@ async function _submitDDDist() {
             || b.org_name === r.name
             || b.org_name?.includes(r.name)
             || r.name?.includes(b.org_name);
-          // 2순위: account_id(UUID) 정확 비교 우선, template_id 폴백
+          // 2순위: account_id 정확 비교 (budget_accounts.id가 복합키인 경우 포함) → template_id 폴백
           const acctMatch = (dbAccountId && b.account_id === dbAccountId)
+            || (ab.accountCode && b.account_id?.includes(ab.accountCode))
             || (ab.templateId && b.template_id === ab.templateId)
-            || (!dbAccountId && !ab.templateId); // 둘 다 없으면 org 매칭만으로 허용
+            || (!dbAccountId && !ab.templateId && !ab.accountCode); // 모두 없으면 org 매칭만으로 허용
           return orgMatch && acctMatch;
         });
         console.log(`[DD배분] '${r.name}' → bb: ${bb ? bb.id + '|' + bb.org_name : 'NOT FOUND'}`);
@@ -764,7 +766,8 @@ async function _submitDDDist() {
           const { data: existing } = await sb.from('budget_allocations').select('id,allocated_amount').eq('bankbook_id', bb.id).order('updated_at', { ascending: false }).limit(1);
           const ex = existing?.[0];
           if (ex) { await sb.from('budget_allocations').update({ allocated_amount: Number(ex.allocated_amount) + v, updated_at: new Date().toISOString() }).eq('id', ex.id); }
-          else { await sb.from('budget_allocations').insert({ bankbook_id: bb.id, allocated_amount: v, used_amount: 0, frozen_amount: 0 }); }
+          // tenant_id 추가: NOT NULL 제약 또는 RLS 정책 충족을 위해 필수
+          else { await sb.from('budget_allocations').insert({ bankbook_id: bb.id, tenant_id: ab.tenantId, allocated_amount: v, used_amount: 0, frozen_amount: 0 }); }
         }
         const td = TEAM_DIST.find(t => t.accountBudgetId === abId && t.teamName === r.name);
         const afterAmt = (td ? td.allocAmount : 0) + v;

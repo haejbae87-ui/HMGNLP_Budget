@@ -781,10 +781,12 @@ async function _submitDDDist() {
                 template_id: ab.templateId || null,
                 vorg_group_id: r.vgId || ab.templateId || '', // NOT NULL 제약
                 bb_status: 'active',
-                user_id: null, // 교육조직 단위 통장 (개인 통장 아님)
+                status: 'active',   // 이중 상태 필드 대응
+                balance: 0,         // NOT NULL 기본값
+                user_id: null,      // 교육조직 단위 통장 (개인 통장 아님)
               }).select('id,org_name').single();
               if (bbCreateErr) {
-                console.error('[DD배분] bankbook 자동생성 실패:', bbCreateErr.message);
+                console.error('[DD배분] bankbook 자동생성 실패:', bbCreateErr.message, '| code:', bbCreateErr.code, '| details:', bbCreateErr.details, '| hint:', bbCreateErr.hint);
                 errors.push(r.name);
               } else {
                 activeBb = newBb;

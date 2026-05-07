@@ -805,8 +805,8 @@ async function _submitDDDist() {
           const { data: existing } = await sb.from('budget_allocations').select('id,allocated_amount').eq('bankbook_id', activeBb.id).order('updated_at', { ascending: false }).limit(1);
           const ex = existing?.[0];
           if (ex) { await sb.from('budget_allocations').update({ allocated_amount: Number(ex.allocated_amount) + v, updated_at: new Date().toISOString() }).eq('id', ex.id); }
-          // tenant_id 추가: NOT NULL 제약 또는 RLS 정책 충족을 위해 필수
-          else { await sb.from('budget_allocations').insert({ bankbook_id: activeBb.id, tenant_id: ab.tenantId, allocated_amount: v, used_amount: 0, frozen_amount: 0 }); }
+          // budget_allocations 테이블에는 tenant_id 컬럼이 없음 (bankbook_id를 통해 식별)
+          else { await sb.from('budget_allocations').insert({ bankbook_id: activeBb.id, allocated_amount: v, used_amount: 0, frozen_amount: 0 }); }
         }
         const td = TEAM_DIST.find(t => t.accountBudgetId === abId && t.teamName === r.name);
         const afterAmt = (td ? td.allocAmount : 0) + v;

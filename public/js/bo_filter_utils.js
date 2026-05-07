@@ -56,7 +56,7 @@ async function _loadAdvFilterDependencies() {
   if (!sb) return;
 
   if (!_boAdvFilterState.accountsCache) {
-    const { data } = await sb.from("budget_accounts").select("id, code, name, tenant_id, dist_type").eq("active", true);
+    const { data } = await sb.from("budget_accounts").select("id, code, name, tenant_id, dist_type, virtual_org_template_id").eq("active", true);
     _boAdvFilterState.accountsCache = data || [];
   }
   
@@ -79,9 +79,13 @@ async function renderAdvancedEduFilterBar(containerId, onChangeCallback) {
   }
 
   const filteredVorgs = _boAdvFilter.tenantId ? vorgTemplates.filter(v => (v.tenant_id || v.tenantId) === _boAdvFilter.tenantId) : vorgTemplates;
-  const filteredAccounts = _boAdvFilter.tenantId && _boAdvFilterState.accountsCache 
-    ? _boAdvFilterState.accountsCache.filter(a => a.tenant_id === _boAdvFilter.tenantId) 
-    : (_boAdvFilterState.accountsCache || []);
+  
+  const filteredAccounts = _boAdvFilterState.accountsCache ? _boAdvFilterState.accountsCache.filter(a => {
+    let match = true;
+    if (_boAdvFilter.tenantId) match = match && a.tenant_id === _boAdvFilter.tenantId;
+    if (_boAdvFilter.vorgId) match = match && a.virtual_org_template_id === _boAdvFilter.vorgId;
+    return match;
+  }) : [];
 
   // 선택된 계정 확인
   const selectedAccount = filteredAccounts.find(a => a.code === _boAdvFilter.accountCode);

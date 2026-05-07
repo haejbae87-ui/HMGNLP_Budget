@@ -841,7 +841,7 @@ async function _submitDDDist() {
         await sb.from('account_budget_adjustments').insert({
           account_code: ab.accountCode,
           fiscal_year: ab.fiscalYear || new Date().getFullYear(),
-          type: '팀 배분', // constraint는 '팀 배분'만 허용함
+          type: '추가배정',
           amount: l.v,
           reason: `[${isL1 ? '팀 배분' : '조직 배분'}] ${l.name}에게 ${boFmt(l.v)}원 배분 (배분 후 ${boFmt(l.after)}원)`,
           performed_by: actorName,
@@ -954,7 +954,7 @@ async function _submitDDRecall(abId, orgName, maxRecall) {
       await sb.from('account_budget_adjustments').insert({
         account_code: ab.accountCode,
         fiscal_year: ab.fiscalYear || new Date().getFullYear(),
-        type: '배분 회수',
+        type: '회수',
         amount: amt,
         reason: `[배분 회수] ${orgName}에서 ${boFmt(amt)}원 회수 (회수 후 ${boFmt(afterAmt)}원)`,
         performed_by: actorName,

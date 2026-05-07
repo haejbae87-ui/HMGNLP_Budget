@@ -735,8 +735,13 @@ async function _submitDDDist() {
   const lines = [], errors = [];
   if (sb && ab) {
     try {
-      // is_org_level=true: 교육조직 단위 통장만 매칭 (팀 단위 통장 제외)
-      const { data: bankbooks } = await sb.from('org_budget_bankbooks').select('id,org_id,org_name,account_id,template_id').eq('tenant_id', ab.tenantId).or('bb_status.eq.active,bb_status.is.null').eq('is_org_level', true);
+      // account_id에 accountCode 포함 여부로 교육조직 통장 필터 (is_org_level 컬럼 미존재 대응)
+      const { data: bankbooks } = await sb.from('org_budget_bankbooks')
+        .select('id,org_id,org_name,account_id,template_id')
+        .eq('tenant_id', ab.tenantId)
+        .or('bb_status.eq.active,bb_status.is.null')
+        .is('user_id', null); // 개인 통장 제외, 조직/팀 통장만
+
       // DB에서 budget_accounts.id (UUID) 조회 - account_id와 정확 비교에 사용
       const { data: accts } = await sb.from('budget_accounts').select('id,code').eq('code', ab.accountCode).eq('tenant_id', ab.tenantId).limit(1);
       const dbAccountId = accts?.[0]?.id;

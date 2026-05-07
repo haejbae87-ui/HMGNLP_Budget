@@ -862,18 +862,31 @@ function renderAbDetail(ab) {
     ? vGroups.filter((vg) => vg.id === _myVorgId)
     : vGroups;
   _filteredGroups.forEach((vg) => {
+    // vg(모빌리티 센터 등 L0) 자체의 배분내역 매칭
     const matchedTds = flatTeams.filter(
       (td) => td.teamName.includes(vg.name) || vg.name.includes(td.teamName),
     );
-    if (!matchedTds.length) return;
+    
+    // 산하 팀(L1)들의 배분내역 찾기
+    const childTds = [];
+    (vg.teams || []).forEach(rt => {
+      const ctd = flatTeams.find(td => td.teamName === rt.name);
+      if (ctd) childTds.push(ctd);
+    });
+
+    if (!matchedTds.length && !childTds.length) return;
+    
     matchedTds.forEach((td) => usedTdIds.add(td.id));
+    childTds.forEach((td) => usedTdIds.add(td.id));
+
+    // L0 자체의 예산 (L0 통장에 직배정된 금액)
     const vgAlloc = matchedTds.reduce((s, t) => s + t.allocAmount, 0);
     const vgSpent = matchedTds.reduce((s, t) => s + t.spent, 0);
     const vgRes = matchedTds.reduce((s, t) => s + t.reserved, 0);
     const vgBal = vgAlloc - vgSpent - vgRes;
-    const vgPct =
-      vgAlloc > 0 ? Math.min(((vgSpent + vgRes) / vgAlloc) * 100, 100) : 0;
+    const vgPct = vgAlloc > 0 ? Math.min(((vgSpent + vgRes) / vgAlloc) * 100, 100) : 0;
     const vgC = vgPct >= 95 ? "#EF4444" : vgPct >= 80 ? "#F59E0B" : "#059669";
+    
     groupedRows.push(`
     <tr style="background:#F1F5F9;border-top:2px solid #CBD5E1">
       <td style="padding:10px 16px">
@@ -882,34 +895,33 @@ function renderAbDetail(ab) {
           <div><div style="font-weight:900;font-size:13px">${vg.name}</div><div style="font-size:10px;color:#64748B">교육조직 소계 · ${vg.manager || "—"}</div></div>
         </div>
       </td>
-      <td style="text-align:right;font-weight:900;font-size:13px;color:#1D4ED8">${boFmt(vgAlloc)}</td>
-      <td style="text-align:right;color:#EF4444;font-weight:700">${boFmt(vgSpent)}</td>
-      <td style="text-align:right;color:#B45309;font-weight:700">${boFmt(vgRes)}</td>
-      <td style="text-align:right;font-weight:900;color:${vgC};font-size:13px">${boFmt(vgBal)}</td>
+      <td style="text-align:right;font-weight:900;font-size:13px;color:#1D4ED8">${vgAlloc > 0 ? boFmt(vgAlloc) : "—"}</td>
+      <td style="text-align:right;color:#EF4444;font-weight:700">${vgSpent > 0 ? boFmt(vgSpent) : "—"}</td>
+      <td style="text-align:right;color:#B45309;font-weight:700">${vgRes > 0 ? boFmt(vgRes) : "—"}</td>
+      <td style="text-align:right;font-weight:900;color:${vgC};font-size:13px">${vgAlloc > 0 ? boFmt(vgBal) : "—"}</td>
       <td style="text-align:center">
-        <div style="height:7px;background:#E2E8F0;border-radius:99px;overflow:hidden;width:70px;margin:0 auto 2px"><div style="height:100%;background:${vgC};width:${vgPct.toFixed(0)}%"></div></div>
-        <span style="font-size:10px;color:${vgC};font-weight:700">${vgPct.toFixed(0)}%</span>
+        ${vgAlloc > 0 ? `<div style="height:7px;background:#E2E8F0;border-radius:99px;overflow:hidden;width:70px;margin:0 auto 2px"><div style="height:100%;background:${vgC};width:${vgPct.toFixed(0)}%"></div></div>
+        <span style="font-size:10px;color:${vgC};font-weight:700">${vgPct.toFixed(0)}%</span>` : '<span style="font-size:10px;color:#D1D5DB">—</span>'}
       </td>
     </tr>`);
-    vg.teams.forEach((rt) => {
-      const rb = rt.budget || {};
-      const ra = rb.allocated || 0,
-        rs = rb.deducted || 0,
-        rr = rb.holding || 0;
-      const rBal = ra - rs - rr,
-        rPct = ra > 0 ? Math.min(((rs + rr) / ra) * 100, 100) : 0;
+    
+    // 하위 팀 렌더링
+    (vg.teams || []).forEach((rt) => {
+      // flatTeams에서 팀 데이터 매칭
+      const ctd = flatTeams.find(td => td.teamName === rt.name);
+      // 만약 분배액이 0이고, ctd도 없으면 표시하지 않거나 빈값으로 표기 (사용자 요청: 팀들이 나와야함)
+      const ra = ctd ? ctd.allocAmount : 0;
+      const rs = ctd ? ctd.spent : 0;
+      const rr = ctd ? ctd.reserved : 0;
+      
+      const rBal = ra - rs - rr;
+      const rPct = ra > 0 ? Math.min(((rs + rr) / ra) * 100, 100) : 0;
       const rC = rPct >= 95 ? "#EF4444" : rPct >= 80 ? "#F59E0B" : "#059669";
-      const rtPctBar = ra
-        ? '<div style="height:5px;background:#E5E7EB;border-radius:99px;overflow:hidden;width:60px;margin:0 auto 2px"><div style="height:100%;background:' +
-          rC +
-          ";width:" +
-          rPct.toFixed(0) +
-          '%"></div></div><span style="font-size:10px;color:' +
-          rC +
-          '">' +
-          rPct.toFixed(0) +
-          "%</span>"
+      
+      const rtPctBar = ra > 0
+        ? '<div style="height:5px;background:#E5E7EB;border-radius:99px;overflow:hidden;width:60px;margin:0 auto 2px"><div style="height:100%;background:' + rC + ";width:" + rPct.toFixed(0) + '%"></div></div><span style="font-size:10px;color:' + rC + '">' + rPct.toFixed(0) + "%</span>"
         : '<span style="font-size:10px;color:#D1D5DB">—</span>';
+        
       groupedRows.push(`
       <tr style="background:white;border-top:1px solid #F1F5F9">
         <td style="padding:8px 16px 8px 40px">

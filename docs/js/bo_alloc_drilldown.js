@@ -838,7 +838,7 @@ async function _submitDDDist() {
         await sb.from('account_budget_adjustments').insert({
           account_code: ab.accountCode,
           fiscal_year: ab.fiscalYear || new Date().getFullYear(),
-          type: isL1 ? '팀 배분' : '조직 배분',
+          type: '팀 배분', // constraint는 '팀 배분'만 허용함
           amount: l.v,
           reason: `[${isL1 ? '팀 배분' : '조직 배분'}] ${l.name}에게 ${boFmt(l.v)}원 배분 (배분 후 ${boFmt(l.after)}원)`,
           performed_by: actorName,

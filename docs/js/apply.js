@@ -3138,8 +3138,7 @@ function applyNext() {
     (async () => {
       let tpl = null;
       if (matched && typeof getFoFormTemplate === "function") {
-        // eduType 영문 코드 직접 전달 (DB form_templates.edu_type 영문 표준화 완료)
-        tpl = await getFoFormTemplate(matched, "apply", eduType);
+        tpl = await getFoFormTemplate(matched, "apply", eduType, accCode);
       }
       s.formTemplate = tpl || null;
       s.formTemplateLoading = false;

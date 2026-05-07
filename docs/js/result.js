@@ -1322,7 +1322,8 @@ async function _resultLoadFormTemplate(s) {
 
   // 2순위: form_templates DB 폴백
   if (!tpl && matched && typeof getFoFormTemplate === 'function') {
-    tpl = await getFoFormTemplate(matched, 'result', eduType);
+    // eduType 영문 코드 직접 전달 (DB form_templates.edu_type 영문 표준화 완료)
+    tpl = await getFoFormTemplate(matched, 'result', eduType, accCode);
     if (tpl) {
       console.log('[resultNext] form_templates DB 방식 폴백:', tpl.name || tpl.id);
     }

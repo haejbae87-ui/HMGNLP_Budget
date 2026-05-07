@@ -1708,7 +1708,7 @@ function planNext() {
       // 양식 로드 + 세부산출근거 DB 로드 병렬 수행
       const tplPromise =
         matched && typeof getFoFormTemplate === "function"
-          ? getFoFormTemplate(matched, "plan", eduType)
+          ? getFoFormTemplate(matched, "plan", eduType, accCode)
           : Promise.resolve(null);
       const cgPromise =
         typeof _foLoadCalcGrounds === "function"

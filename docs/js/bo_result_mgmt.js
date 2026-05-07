@@ -11,7 +11,12 @@ async function renderResultMgmt() {
   const el = document.getElementById("bo-content");
   try {
     const sb = typeof getSB === "function" ? getSB() : null;
-    const tenantId = boCurrentPersona?.tenantId || "HMC";
+    
+    // 기본 필터 세팅
+    if (typeof _boAdvFilter === 'undefined') {
+      console.warn("bo_filter_utils.js가 로드되지 않았습니다.");
+    }
+    const tenantId = (typeof _boAdvFilter !== 'undefined' && _boAdvFilter.tenantId) ? _boAdvFilter.tenantId : (boCurrentPersona?.tenantId || "HMC");
 
     // DB 로드 (pending + completed 동시)
     if (!_resultMgmtData && sb) {
@@ -36,8 +41,24 @@ async function renderResultMgmt() {
       }
     }
 
-    const pending   = _boApplyEduFilter(_resultMgmtPending || []);
-    const completed = _boApplyEduFilter(_resultMgmtData    || []);
+    // 필터 적용
+    let pending = _resultMgmtPending || [];
+    let completed = _resultMgmtData || [];
+
+    if (typeof _boAdvFilter !== 'undefined') {
+      if (_boAdvFilter.tenantId) {
+        pending = pending.filter(d => d.tenant_id === _boAdvFilter.tenantId);
+        completed = completed.filter(d => d.tenant_id === _boAdvFilter.tenantId);
+      }
+      if (_boAdvFilter.accountCode) {
+        pending = pending.filter(d => d.account_code === _boAdvFilter.accountCode);
+        completed = completed.filter(d => d.account_code === _boAdvFilter.accountCode);
+      }
+      if (_boAdvFilter.orgName) {
+        pending = pending.filter(d => d.dept && d.dept.includes(_boAdvFilter.orgName));
+        completed = completed.filter(d => d.dept && d.dept.includes(_boAdvFilter.orgName));
+      }
+    }
 
     // ── 검토 대기 (result_pending) 테이블 ──────────────────────────────
     const pendingRows = pending.map((r) => {
@@ -46,60 +67,75 @@ async function renderResultMgmt() {
       const isAppBased  = r.detail?.resultType === "from_application";
       const satisfaction = r.detail?.result?.satisfaction || "-";
       const hours   = r.detail?.result?.actual_hours || r.detail?.hours || "-";
-      return `
-    <tr id="result-row-${r.id}">
-      <td style="font-weight:700">${r.applicant_name || ""}</td>
-      <td>${r.dept || ""}</td>
-      <td style="font-weight:700;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.edu_name || ""}</td>
-      <td>${r.account_code || "-"}</td>
-      <td style="text-align:right;font-weight:900;color:#111">${actual.toLocaleString()}원</td>
-      <td style="text-align:center">${hours}H</td>
-      <td style="text-align:center">⭐${satisfaction}</td>
-      <td style="font-size:11px;color:#6B7280">${r.created_at?.slice(0,10)||""}</td>
-      <td>
-        <div style="display:flex;gap:6px">
-          <button onclick="_confirmResult('${r.id}',${actual},'${r.account_code||""}')"
-            style="padding:4px 12px;border-radius:6px;background:#059669;color:white;font-size:11px;font-weight:800;border:none;cursor:pointer">
-            ✅ 확인
-          </button>
-          <button onclick="_rejectResult('${r.id}')"
-            style="padding:4px 10px;border-radius:6px;background:#EF4444;color:white;font-size:11px;font-weight:800;border:none;cursor:pointer">
-            ✕ 반려
-          </button>
+      const safeId = String(r.id).replace(/'/g,"\\'");
+      
+      const actionHtml = `
+        <div style="display:flex;align-items:center;gap:4px">
+          <button onclick="alert('교육신청 모달 표시(준비중)');" style="padding:4px 10px;border-radius:6px;border:1px solid #7C3AED;background:#F5F3FF;color:#7C3AED;font-size:11px;font-weight:700;cursor:pointer">📄 교육신청 보기</button>
+          <button onclick="_confirmResult('${safeId}',${actual},'${r.account_code||""}')"
+            style="padding:4px 12px;border-radius:6px;background:#059669;color:white;font-size:11px;font-weight:800;border:none;cursor:pointer">✅ 확인</button>
+          <button onclick="_rejectResult('${safeId}')"
+            style="padding:4px 10px;border-radius:6px;background:#EF4444;color:white;font-size:11px;font-weight:800;border:none;cursor:pointer">✕ 반려</button>
         </div>
-      </td>
+      `;
+
+      return `
+    <tr id="result-row-${r.id}" style="border-bottom:1px solid #F3F4F6;cursor:pointer;transition:background .12s" onmouseover="this.style.background='#F8FAFF'" onmouseout="this.style.background=''">
+      <td style="padding:12px 14px;color:#6B7280;font-size:11px">${r.id.substring(0,8)}</td>
+      <td style="padding:12px 14px;font-weight:700;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.edu_name || "제목없음"}</td>
+      <td style="padding:12px 14px;color:#374151">${r.dept || ""}</td>
+      <td style="padding:12px 14px;font-weight:600;color:#111827">${r.applicant_name || ""}</td>
+      <td style="padding:12px 14px;text-align:right;color:#6B7280">${amt.toLocaleString()}원</td>
+      <td style="padding:12px 14px;text-align:right;color:#6B7280">${amt.toLocaleString()}원</td>
+      <td style="padding:12px 14px;text-align:right;font-weight:900;color:#002C5F">${actual.toLocaleString()}원</td>
+      <td style="padding:12px 14px;text-align:center"><span style="font-size:10px;padding:4px 8px;border-radius:6px;background:#FEF3C7;color:#92400E;font-weight:800">정산대기</span></td>
+      <td style="padding:12px 14px;text-align:center;color:#6B7280;font-size:11px">${r.created_at?.slice(0,10)||"-"}</td>
+      <td style="padding:12px 14px;">${actionHtml}</td>
     </tr>`;
     }).join("");
 
     // ── 완료된 이력 (completed) 테이블 ────────────────────────────────
     const completedRows = completed.map((r) => {
       const amt = Number(r.amount || 0);
+      const actual = Number(r.detail?.result?.actual_cost || amt);
+      const safeId = String(r.id).replace(/'/g,"\\'");
+      
+      const actionHtml = `
+        <button onclick="alert('교육신청 모달 표시(준비중)');" style="padding:4px 10px;border-radius:6px;border:1px solid #7C3AED;background:#F5F3FF;color:#7C3AED;font-size:11px;font-weight:700;cursor:pointer">📄 교육신청 보기</button>
+      `;
+
       return `
-    <tr>
-      <td style="font-weight:700">${r.applicant_name || ""}</td>
-      <td>${r.dept || ""}</td>
-      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.edu_name || ""}</td>
-      <td>${r.account_code || "-"}</td>
-      <td style="text-align:right;font-weight:900">${amt.toLocaleString()}원</td>
-      <td style="font-size:11px;color:#6B7280">${r.created_at?.slice(0,10)||""}</td>
-      <td><span style="font-size:10px;padding:2px 8px;border-radius:6px;background:#D1FAE5;color:#059669;font-weight:800">정산완료</span></td>
+    <tr style="border-bottom:1px solid #F3F4F6;cursor:pointer;transition:background .12s" onmouseover="this.style.background='#F8FAFF'" onmouseout="this.style.background=''">
+      <td style="padding:12px 14px;color:#6B7280;font-size:11px">${r.id.substring(0,8)}</td>
+      <td style="padding:12px 14px;font-weight:700;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.edu_name || "제목없음"}</td>
+      <td style="padding:12px 14px;color:#374151">${r.dept || ""}</td>
+      <td style="padding:12px 14px;font-weight:600;color:#111827">${r.applicant_name || ""}</td>
+      <td style="padding:12px 14px;text-align:right;color:#6B7280">${amt.toLocaleString()}원</td>
+      <td style="padding:12px 14px;text-align:right;color:#6B7280">${amt.toLocaleString()}원</td>
+      <td style="padding:12px 14px;text-align:right;font-weight:900;color:#065F46">${actual.toLocaleString()}원</td>
+      <td style="padding:12px 14px;text-align:center"><span style="font-size:10px;padding:4px 8px;border-radius:6px;background:#D1FAE5;color:#065F46;font-weight:800">정산완료</span></td>
+      <td style="padding:12px 14px;text-align:center;color:#6B7280;font-size:11px">${r.created_at?.slice(0,10)||"-"}</td>
+      <td style="padding:12px 14px;">${actionHtml}</td>
     </tr>`;
     }).join("");
 
-    const colH = (txt) => `<th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:800;color:#6B7280;white-space:nowrap">${txt}</th>`;
-    const colHR = (txt) => `<th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:800;color:#6B7280;white-space:nowrap">${txt}</th>`;
+    const colH = (txt) => `<th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:800;color:#6B7280;white-space:nowrap;background:#F9FAFB;border-bottom:2px solid #E5E7EB">${txt}</th>`;
+    const colHR = (txt) => `<th style="padding:10px 14px;text-align:right;font-size:12px;font-weight:800;color:#6B7280;white-space:nowrap;background:#F9FAFB;border-bottom:2px solid #E5E7EB">${txt}</th>`;
+    const colHC = (txt) => `<th style="padding:10px 14px;text-align:center;font-size:12px;font-weight:800;color:#6B7280;white-space:nowrap;background:#F9FAFB;border-bottom:2px solid #E5E7EB">${txt}</th>`;
 
     el.innerHTML = `
 <div class="bo-fade">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
     <div>
-      <h1 class="bo-page-title">📄 교육결과 관리</h1>
+      <h1 class="bo-page-title" style="margin:0">📄 교육결과 관리</h1>
       <p class="bo-page-sub">FO 등록 결과를 검토하고 정산 처리합니다</p>
     </div>
     <button onclick="_resultMgmtData=null;_resultMgmtPending=null;renderResultMgmt()" class="bo-btn-primary">🔄 새로고침</button>
   </div>
 
   ${typeof boIsolationGroupBanner === "function" ? boIsolationGroupBanner() : ""}
+
+  <div id="bo-filter-container-target" style="margin-bottom:16px;"></div>
 
   <!-- 검토 대기 섹션 -->
   <div style="margin-bottom:32px">
@@ -109,15 +145,14 @@ async function renderResultMgmt() {
     </div>
     ${pending.length > 0 ? `
     <div class="bo-table-container">
-      <table class="bo-table" style="width:100%">
+      <table class="bo-table" style="width:100%;border-collapse:collapse;font-size:13px">
         <thead><tr>
-          ${colH("신청자")}${colH("부서")}${colH("교육명")}${colH("계정")}
-          ${colHR("실비용")}${colH("이수시간")}${colH("만족도")}${colH("등록일")}${colH("처리")}
+          ${colH("ID")}${colH("교육명")}${colH("조직")}${colH("신청자")}${colHR("신청액")}${colHR("승인액")}${colHR("실제집행액")}${colHC("상태")}${colHC("등록일")}${colH("액션")}
         </tr></thead>
         <tbody>${pendingRows}</tbody>
       </table>
     </div>` : `
-    <div class="bo-table-container" style="padding:36px;text-align:center;color:#9CA3AF">
+    <div class="bo-table-container" style="padding:36px;text-align:center;color:#9CA3AF;background:white;border-radius:12px;border:1px solid #E5E7EB">
       <div style="font-size:32px;margin-bottom:8px">✅</div>
       <div style="font-weight:700">검토 대기 건수가 없습니다</div>
     </div>`}
@@ -131,20 +166,24 @@ async function renderResultMgmt() {
     </div>
     ${completed.length > 0 ? `
     <div class="bo-table-container">
-      <table class="bo-table" style="width:100%">
+      <table class="bo-table" style="width:100%;border-collapse:collapse;font-size:13px">
         <thead><tr>
-          ${colH("신청자")}${colH("부서")}${colH("교육명")}${colH("계정")}
-          ${colHR("금액")}${colH("등록일")}${colH("상태")}
+          ${colH("ID")}${colH("교육명")}${colH("조직")}${colH("신청자")}${colHR("신청액")}${colHR("승인액")}${colHR("실제집행액")}${colHC("상태")}${colHC("등록일")}${colH("액션")}
         </tr></thead>
         <tbody>${completedRows}</tbody>
       </table>
     </div>` : `
-    <div class="bo-table-container" style="padding:36px;text-align:center;color:#9CA3AF">
+    <div class="bo-table-container" style="padding:36px;text-align:center;color:#9CA3AF;background:white;border-radius:12px;border:1px solid #E5E7EB">
       <div style="font-size:32px;margin-bottom:8px">📭</div>
       <div style="font-weight:700">정산 완료된 이력이 없습니다</div>
     </div>`}
   </div>
 </div>`;
+
+    if (typeof renderAdvancedEduFilterBar === 'function') {
+      renderAdvancedEduFilterBar('bo-filter-container-target', 'renderResultMgmt');
+    }
+
   } catch (err) {
     console.error("[renderResultMgmt] 렌더링 에러:", err);
     el.innerHTML = `<div class="bo-fade" style="padding:40px;text-align:center;color:#EF4444">

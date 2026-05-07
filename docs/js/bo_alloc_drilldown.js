@@ -1,4 +1,4 @@
-﻿// ─── 예산 배분 통합 드릴다운 엔진 v2 (프리미엄 UI) ────────────────────────────
+// ─── 예산 배분 통합 드릴다운 엔진 v2 (프리미엄 UI) ────────────────────────────
 // 의존: bo_allocation.js (_ddLevel, _ddAbId, _ddOrgId, _ddOrgName, _allocYear)
 //       ACCOUNT_BUDGETS, TEAM_DIST, VIRTUAL_EDU_ORGS, ACCOUNT_MASTER
 //       boFmt(), getDistributable(), getPersonaAccountBudgets(), boCurrentPersona
@@ -735,18 +735,30 @@ async function _submitDDDist() {
   const lines = [], errors = [];
   if (sb && ab) {
     try {
-      const { data: bankbooks } = await sb.from('org_budget_bankbooks').select('id,org_id,org_name,account_id').eq('tenant_id', ab.tenantId).or('bb_status.eq.active,bb_status.is.null');
-      const { data: accts } = await sb.from('budget_accounts').select('id,code').eq('code', ab.accountCode).eq('tenant_id', ab.tenantId).eq('active', true).limit(1);
+      const { data: bankbooks } = await sb.from('org_budget_bankbooks').select('id,org_id,org_name,account_id,template_id').eq('tenant_id', ab.tenantId).or('bb_status.eq.active,bb_status.is.null');
+      // DB에서 budget_accounts.id (UUID) 조회 - account_id와 정확 비교에 사용
+      const { data: accts } = await sb.from('budget_accounts').select('id,code').eq('code', ab.accountCode).eq('tenant_id', ab.tenantId).limit(1);
       const dbAccountId = accts?.[0]?.id;
+      console.log('[DD배분] dbAccountId:', dbAccountId, '| accountCode:', ab.accountCode, '| templateId:', ab.templateId);
+      console.log('[DD배분] bankbooks 수:', (bankbooks||[]).length, (bankbooks||[]).map(b=>b.org_name+'|'+b.account_id).join(', '));
       for (const r of rows) {
         const v = Number(document.getElementById(r.inputId)?.value || 0);
         if (v <= 0) continue;
-        // Bug Fix: account_id가 UUID가 아닌 'BA-HMC-RND-TPL_xxx' 복합키 형식임
-        // dbAccountId(UUID) 비교 대신 account_id에 accountCode 포함 여부로 매칭
-        const bb = (bankbooks || []).find(b =>
-          (b.org_name === r.name || b.org_name?.includes(r.name) || r.name?.includes(b.org_name)) &&
-          (b.account_id?.includes(ab.accountCode) || b.template_id === ab.templateId || !ab.accountCode)
-        );
+        // Fix: account_id(UUID) 정확 비교 우선 → template_id 비교 → org_name 매칭으로 보완
+        // r.vgId: Level0 allRows에 담긴 vg.id (교육조직 ID)
+        const bb = (bankbooks || []).find(b => {
+          // 1순위: org_id ↔ vgId 매칭 (가장 정확)
+          const orgMatch = (r.vgId && b.org_id && (String(b.org_id) === String(r.vgId)))
+            || b.org_name === r.name
+            || b.org_name?.includes(r.name)
+            || r.name?.includes(b.org_name);
+          // 2순위: account_id(UUID) 정확 비교 우선, template_id 폴백
+          const acctMatch = (dbAccountId && b.account_id === dbAccountId)
+            || (ab.templateId && b.template_id === ab.templateId)
+            || (!dbAccountId && !ab.templateId); // 둘 다 없으면 org 매칭만으로 허용
+          return orgMatch && acctMatch;
+        });
+        console.log(`[DD배분] '${r.name}' → bb: ${bb ? bb.id + '|' + bb.org_name : 'NOT FOUND'}`);
         if (!bb) { errors.push(r.name); }
         else {
           const { data: existing } = await sb.from('budget_allocations').select('id,allocated_amount').eq('bankbook_id', bb.id).order('updated_at', { ascending: false }).limit(1);
@@ -757,10 +769,9 @@ async function _submitDDDist() {
         const td = TEAM_DIST.find(t => t.accountBudgetId === abId && t.teamName === r.name);
         const afterAmt = (td ? td.allocAmount : 0) + v;
         if (td) { td.allocAmount += v; } else { TEAM_DIST.push({ id: `TD${Date.now()}_${Math.random().toString(36).slice(2)}`, accountBudgetId: abId, teamName: r.name, allocAmount: v, spent: 0, reserved: 0 }); }
-        // Bug Fix: lines를 객체로 push (Audit Trail에서 l.v, l.name, l.after 접근 필요)
         lines.push({ name: r.name, v, after: afterAmt, dbMatched: !!bb });
       }
-    } catch (e) { console.error('[DD배분] DB오류:', e.message); }
+    } catch (e) { console.error('[DD배분] DB오류:', e.message, e); }
   } else {
     // DB 미연결 (오프라인) 모드: 인메모리 TEAM_DIST만 업데이트
     rows.forEach(r => {

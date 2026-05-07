@@ -328,13 +328,6 @@ const PLATFORM_MENUS = [
     gnb: GNB_CATE.PROGRAM,
   },
   {
-    id: "budget-master",
-    icon: "🏦",
-    label: "예산계정 마스터",
-    section: null,
-    gnb: GNB_CATE.PROGRAM,
-  },
-  {
     id: "form-builder",
     icon: "📝",
     label: "교육양식 마법사",
@@ -398,6 +391,13 @@ const PLATFORM_MENUS = [
     icon: "📄",
     label: "교육결과 관리",
     section: null,
+    gnb: GNB_CATE.PROGRAM,
+  },
+  {
+    id: "budget-master",
+    icon: "🏦",
+    label: "예산계정 마스터",
+    section: "교육지원제도 예산관리",
     gnb: GNB_CATE.PROGRAM,
   },
   {

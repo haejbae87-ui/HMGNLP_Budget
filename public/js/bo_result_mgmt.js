@@ -6,6 +6,7 @@
 // ─── 교육결과 관리 화면 (정산 검토 포함) ─────────────────────────────────────
 let _resultMgmtData = null;
 let _resultMgmtPending = null; // result_pending 별도 캐시
+let _resultMgmtTab = 'pending'; // 탭 상태
 
 async function renderResultMgmt() {
   const el = document.getElementById("bo-content");
@@ -123,6 +124,28 @@ async function renderResultMgmt() {
     const colHR = (txt) => `<th style="padding:10px 14px;text-align:right;font-size:12px;font-weight:800;color:#6B7280;white-space:nowrap;background:#F9FAFB;border-bottom:2px solid #E5E7EB">${txt}</th>`;
     const colHC = (txt) => `<th style="padding:10px 14px;text-align:center;font-size:12px;font-weight:800;color:#6B7280;white-space:nowrap;background:#F9FAFB;border-bottom:2px solid #E5E7EB">${txt}</th>`;
 
+    const tabHtml = [
+      { id:"pending", label:"📥 정산 대기", count: pending.length, color:"#1D4ED8" },
+      { id:"done",    label:"✅ 처리 완료", count: completed.length, color:"#059669" }
+    ].map(t => {
+      const active = _resultMgmtTab === t.id;
+      return `<div onclick="_resultMgmtTab='${t.id}';renderResultMgmt()"
+        style="padding:10px 18px;border-radius:10px;border:1.5px solid ${active?t.color:"#E5E7EB"};
+        background:${active?t.color:"white"};color:${active?"white":"#6B7280"};
+        font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px">
+        ${t.label}
+        ${t.count !== null ? `<span style="background:${active?"rgba(255,255,255,.25)":"#F3F4F6"};color:${active?"white":"#374151"};
+          padding:2px 8px;border-radius:99px;font-size:11px;font-weight:900">${t.count}</span>` : ""}
+      </div>`;
+    }).join("");
+
+    const currentRows = _resultMgmtTab === 'pending' ? pendingRows : completedRows;
+    const currentLength = _resultMgmtTab === 'pending' ? pending.length : completed.length;
+    
+    const emptyMsg = _resultMgmtTab === 'pending' 
+      ? '<div style="font-size:32px;margin-bottom:8px">✅</div><div style="font-weight:700">검토 대기 건수가 없습니다</div>'
+      : '<div style="font-size:32px;margin-bottom:8px">📭</div><div style="font-weight:700">정산 완료된 이력이 없습니다</div>';
+
     el.innerHTML = `
 <div class="bo-fade">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
@@ -134,47 +157,24 @@ async function renderResultMgmt() {
   </div>
   <div id="bo-filter-container-target" style="margin-bottom:16px;"></div>
 
-  <!-- 검토 대기 섹션 -->
-  <div style="margin-bottom:32px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-      <h2 style="font-size:15px;font-weight:900;color:#D97706;margin:0">⏳ 정산 검토 대기</h2>
-      <span style="font-size:11px;font-weight:900;padding:2px 10px;border-radius:20px;background:#FEF3C7;color:#D97706">${pending.length}건</span>
-    </div>
-    ${pending.length > 0 ? `
-    <div class="bo-table-container">
-      <table class="bo-table" style="width:100%;border-collapse:collapse;font-size:13px">
-        <thead><tr>
-          ${colH("ID")}${colH("교육명")}${colH("조직")}${colH("신청자")}${colHR("신청액")}${colHR("승인액")}${colHR("실제집행액")}${colHC("상태")}${colHC("등록일")}${colH("액션")}
-        </tr></thead>
-        <tbody>${pendingRows}</tbody>
-      </table>
-    </div>` : `
-    <div class="bo-table-container" style="padding:36px;text-align:center;color:#9CA3AF;background:white;border-radius:12px;border:1px solid #E5E7EB">
-      <div style="font-size:32px;margin-bottom:8px">✅</div>
-      <div style="font-weight:700">검토 대기 건수가 없습니다</div>
-    </div>`}
+  <!-- 탭 영역 -->
+  <div style="display:flex;gap:10px;margin-bottom:24px">
+    ${tabHtml}
   </div>
 
-  <!-- 정산 완료 이력 -->
-  <div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-      <h2 style="font-size:15px;font-weight:900;color:#374151;margin:0">✅ 정산 완료 이력</h2>
-      <span style="font-size:11px;font-weight:900;padding:2px 10px;border-radius:20px;background:#D1FAE5;color:#059669">${completed.length}건</span>
-    </div>
-    ${completed.length > 0 ? `
-    <div class="bo-table-container">
-      <table class="bo-table" style="width:100%;border-collapse:collapse;font-size:13px">
-        <thead><tr>
-          ${colH("ID")}${colH("교육명")}${colH("조직")}${colH("신청자")}${colHR("신청액")}${colHR("승인액")}${colHR("실제집행액")}${colHC("상태")}${colHC("등록일")}${colH("액션")}
-        </tr></thead>
-        <tbody>${completedRows}</tbody>
-      </table>
-    </div>` : `
-    <div class="bo-table-container" style="padding:36px;text-align:center;color:#9CA3AF;background:white;border-radius:12px;border:1px solid #E5E7EB">
-      <div style="font-size:32px;margin-bottom:8px">📭</div>
-      <div style="font-weight:700">정산 완료된 이력이 없습니다</div>
-    </div>`}
-  </div>
+  <!-- 테이블 영역 -->
+  ${currentLength > 0 ? `
+  <div class="bo-table-container">
+    <table class="bo-table" style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr>
+        ${colH("ID")}${colH("교육명")}${colH("조직")}${colH("신청자")}${colHR("신청액")}${colHR("승인액")}${colHR("실제집행액")}${colHC("상태")}${colHC("등록일")}${colH("액션")}
+      </tr></thead>
+      <tbody>${currentRows}</tbody>
+    </table>
+  </div>` : `
+  <div class="bo-table-container" style="padding:60px;text-align:center;color:#9CA3AF;background:white;border-radius:12px;border:1px solid #E5E7EB">
+    ${emptyMsg}
+  </div>`}
 </div>`;
 
     if (typeof renderAdvancedEduFilterBar === 'function') {

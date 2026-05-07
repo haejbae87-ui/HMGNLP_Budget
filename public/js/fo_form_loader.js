@@ -2230,7 +2230,7 @@ function getFormConfigAsInlineFields(formConfig, eduType, stage) {
       for (const s of targetStages) {
         if (formConfig[etKey][s] && Object.keys(formConfig[etKey][s]).length > 0) {
           fieldStates = formConfig[etKey][s];
-          console.log(`[fo_form_loader] form_config 폴백 사용: ${etKey}|${s}`);
+          console.log(`[fo_form_loader] form_config 폴백 사용: ${etKey}|${s} (요청: ${eduType})`);
           break;
         }
       }

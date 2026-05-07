@@ -56,19 +56,19 @@ async function _loadAdvFilterDependencies() {
   if (!sb) return;
 
   if (!_boAdvFilterState.accountsCache) {
-    const { data } = await sb.from("budget_accounts").select("id, code, name, tenant_id, dist_type, virtual_org_template_id").eq("active", true);
+    const { data } = await sb.from("budget_accounts").select("id, code, name, tenant_id, virtual_org_template_id").eq("active", true);
     _boAdvFilterState.accountsCache = data || [];
   }
   
   if (!_boAdvFilterState.teamsCache) {
     // 모든 팀(org) 목록 또는 DB 기반으로 조회 (현재는 dummy로 예시하거나, org_budget_bankbooks를 사용)
-    const { data } = await sb.from("org_budget_bankbooks").select("org_name, tenant_id").neq("dist_type", "dist_org");
+    const { data } = await sb.from("org_budget_bankbooks").select("org_name, tenant_id");
     _boAdvFilterState.teamsCache = data || [];
   }
 }
 
 // 필터 UI 렌더링
-async function renderAdvancedEduFilterBar(containerId, onChangeCallback) {
+async function renderAdvancedEduFilterBar(containerId, onChangeCallback, options = {}) {
   await _loadAdvFilterDependencies();
 
   const tenants = (typeof TENANTS !== "undefined" && Array.isArray(TENANTS)) ? TENANTS : [];
@@ -86,13 +86,6 @@ async function renderAdvancedEduFilterBar(containerId, onChangeCallback) {
     if (_boAdvFilter.vorgId) match = match && a.virtual_org_template_id === _boAdvFilter.vorgId;
     return match;
   }) : [];
-
-  // 선택된 계정 확인
-  const selectedAccount = filteredAccounts.find(a => a.code === _boAdvFilter.accountCode);
-  const showTeamFilter = selectedAccount && selectedAccount.dist_type === 'dist_team';
-
-  // 고유 조직 추출 (간이)
-  const uniqueOrgs = ["모빌리티기술센터", "역량혁신팀", "Autoland사업부", "연구개발본부"]; // 실제 데이터는 API 연동 필요
 
   let html = `
   <div class="bo-filter-bar">
@@ -123,20 +116,14 @@ async function renderAdvancedEduFilterBar(containerId, onChangeCallback) {
         ${filteredAccounts.map(a => `<option value="${a.code}" ${_boAdvFilter.accountCode === a.code ? 'selected' : ''}>${a.name}</option>`).join('')}
       </select>
     </div>
-    <div class="bo-filter-divider"></div>
-    
-    <div style="display:flex;align-items:center;gap:8px">
-      <span class="bo-filter-label">교육조직</span>
-      <input type="text" class="bo-filter-select" placeholder="조직명 검색" value="${_boAdvFilter.orgName}" onchange="_advFilterChange('orgName', this.value, '${onChangeCallback}')" style="width:120px;">
-    </div>
   `;
 
-  if (showTeamFilter) {
+  if (!options.hideOrg) {
     html += `
     <div class="bo-filter-divider"></div>
     <div style="display:flex;align-items:center;gap:8px">
-      <span class="bo-filter-label">팀</span>
-      <input type="text" class="bo-filter-select" placeholder="팀명 검색" value="${_boAdvFilter.teamName}" onchange="_advFilterChange('teamName', this.value, '${onChangeCallback}')" style="width:120px;">
+      <span class="bo-filter-label">교육조직</span>
+      <input type="text" class="bo-filter-select" placeholder="조직명 검색" value="${_boAdvFilter.orgName}" onchange="_advFilterChange('orgName', this.value, '${onChangeCallback}')" style="width:120px;">
     </div>
     `;
   }

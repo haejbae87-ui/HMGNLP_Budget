@@ -113,7 +113,9 @@ function applyNext() {
       // 1순위: form_config (BO 양식관리 연동)
       let tpl = null;
       if (accCode && typeof loadFormConfigTemplate === 'function') {
-        tpl = await loadFormConfigTemplate(accCode, tenantId, eduType, 'apply');
+        // BO form_config는 주로 상위 eduType(regular 등) 기준으로 저장되므로 applyState.eduType을 우선 전달
+        const reqEduType = applyState.eduType || eduType;
+        tpl = await loadFormConfigTemplate(accCode, tenantId, reqEduType, 'apply');
         if (tpl) {
           console.log('[applyNext] BO form_config 기반 양식 적용:', tpl.name, '| inlineFields:', tpl.inlineFields);
         }
@@ -121,7 +123,8 @@ function applyNext() {
 
       // 2순위: form_templates DB 폴백
       if (!tpl && matched && typeof getFoFormTemplate === 'function') {
-        tpl = await getFoFormTemplate(matched, 'apply', eduType);
+        // accCode 파라미터를 추가하여 엉뚱한 양식 매칭(R&D 등) 방지
+        tpl = await getFoFormTemplate(matched, 'apply', eduType, accCode);
         if (tpl) {
           console.log('[applyNext] form_templates DB 방식 폴백:', tpl.name || tpl.id);
         }
@@ -1186,7 +1189,7 @@ function applyNext() {
       let tpl = null;
       if (matched && typeof getFoFormTemplate === "function") {
         // eduType 영문 코드 직접 전달 (DB form_templates.edu_type 영문 표준화 완료)
-        tpl = await getFoFormTemplate(matched, "apply", eduType);
+        tpl = await getFoFormTemplate(matched, "apply", eduType, accCode);
       }
       s.formTemplate = tpl || null;
       s.formTemplateLoading = false;

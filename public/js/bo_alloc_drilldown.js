@@ -775,15 +775,15 @@ async function _submitDDDist() {
             try {
               const { data: newBb, error: bbCreateErr } = await sb.from('org_budget_bankbooks').insert({
                 tenant_id: ab.tenantId,
-                org_id: r.vgId || null,
+                org_id: r.vgId || '',
                 org_name: r.name,
                 account_id: autoAccountId,
-                template_id: ab.templateId || null,
-                vorg_group_id: r.vgId || ab.templateId || '', // NOT NULL 제약
+                template_id: ab.templateId || '',
+                vorg_group_id: r.vgId || ab.templateId || '',
                 bb_status: 'active',
-                status: 'active',   // 이중 상태 필드 대응
-                balance: 0,         // NOT NULL 기본값
-                user_id: null,      // 교육조직 단위 통장 (개인 통장 아님)
+                status: 'active',
+                is_org_level: true,  // 교육조직 단위 통장 (NOT NULL)
+                user_id: null,
               }).select('id,org_name').single();
               if (bbCreateErr) {
                 console.error('[DD배분] bankbook 자동생성 실패:', bbCreateErr.message, '| code:', bbCreateErr.code, '| details:', bbCreateErr.details, '| hint:', bbCreateErr.hint);

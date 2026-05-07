@@ -778,3 +778,10 @@ plans.js와 동일 패턴 적용.
   - op_approved -> 총괄검토 대기
   - final_approved -> 최종 승인완료
   - final_rejected -> 총괄 검토 제외(반려)
+# #   B O   A p p r o v a l   &   R e s u l t   M g m t   R e d e s i g n   ( 2 0 2 6 - 0 5 - 0 7 ) 
+ -   R e m o v e d   C a r d   U I ;   I m p l e m e n t e d   u n i f i e d   s t a n d a r d   T a b u l a r   L i s t   V i e w   ( . b o - t a b l e ) 
+ -   I n t r o d u c e d   A d v a n c e d   H i e r a r c h i c a l   F i l t e r   ( T e n a n t   >   G r o u p   >   A c c o u n t   >   O r g   >   [ T e a m ]   >   Y e a r ) 
+ -   C o n s o l i d a t e d   B u s i n e s s   P l a n   b u n d l e   l o g i c   t o   B O   P l a n   M a n a g e m e n t   ( r e m o v e d   f r o m   B O   A p p r o v a l ) 
+ -   A d d e d   ' V i e w   O p e r a t i o n   P l a n '   b u t t o n   f o r   P a t t e r n   A   a p p l i c a t i o n s . 
+ -   A d d e d   ' V i e w   E d u c a t i o n   A p p l i c a t i o n '   b u t t o n   f o r   R e s u l t   M a n a g e m e n t .  
+ 

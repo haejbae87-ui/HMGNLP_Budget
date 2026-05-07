@@ -132,9 +132,6 @@ async function renderResultMgmt() {
     </div>
     <button onclick="_resultMgmtData=null;_resultMgmtPending=null;renderResultMgmt()" class="bo-btn-primary">🔄 새로고침</button>
   </div>
-
-  ${typeof boIsolationGroupBanner === "function" ? boIsolationGroupBanner() : ""}
-
   <div id="bo-filter-container-target" style="margin-bottom:16px;"></div>
 
   <!-- 검토 대기 섹션 -->

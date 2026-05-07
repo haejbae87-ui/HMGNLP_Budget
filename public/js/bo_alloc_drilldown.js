@@ -765,19 +765,50 @@ async function _submitDDDist() {
             || (!dbAccountId && !ab.templateId && !ab.accountCode); // 모두 없으면 org 매칭만으로 허용
           return orgMatch && acctMatch;
         });
-        console.log(`[DD배분] '${r.name}' → bb: ${bb ? bb.id + '|' + bb.org_name : 'NOT FOUND'}`);
-        if (!bb) { errors.push(r.name); }
-        else {
-          const { data: existing } = await sb.from('budget_allocations').select('id,allocated_amount').eq('bankbook_id', bb.id).order('updated_at', { ascending: false }).limit(1);
+        console.log(`[DD배분] '${r.name}' → bb: ${bb ? bb.id + '|' + bb.org_name : 'NOT FOUND → 자동생성 시도'}`);
+        let activeBb = bb;
+        if (!activeBb) {
+          // 방향 A: 교육조직 bankbook이 없으면 자동 생성
+          // dbAccountId: budget_accounts.id (복합키 or UUID)
+          const autoAccountId = dbAccountId || (ab.templateId ? `BA-${ab.accountCode}-${ab.templateId}` : null);
+          if (autoAccountId && ab.tenantId) {
+            try {
+              const { data: newBb, error: bbCreateErr } = await sb.from('org_budget_bankbooks').insert({
+                tenant_id: ab.tenantId,
+                org_id: r.vgId || null,
+                org_name: r.name,
+                account_id: autoAccountId,
+                template_id: ab.templateId || null,
+                bb_status: 'active',
+                user_id: null, // 교육조직 단위 통장 (개인 통장 아님)
+              }).select('id,org_name').single();
+              if (bbCreateErr) {
+                console.error('[DD배분] bankbook 자동생성 실패:', bbCreateErr.message);
+                errors.push(r.name);
+              } else {
+                activeBb = newBb;
+                console.log(`[DD배분] '${r.name}' bankbook 자동생성 완료:`, newBb.id);
+              }
+            } catch (createErr) {
+              console.error('[DD배분] bankbook 자동생성 예외:', createErr.message);
+              errors.push(r.name);
+            }
+          } else {
+            console.warn(`[DD배분] '${r.name}' 자동생성 불가 - accountId/tenantId 없음`);
+            errors.push(r.name);
+          }
+        }
+        if (activeBb) {
+          const { data: existing } = await sb.from('budget_allocations').select('id,allocated_amount').eq('bankbook_id', activeBb.id).order('updated_at', { ascending: false }).limit(1);
           const ex = existing?.[0];
           if (ex) { await sb.from('budget_allocations').update({ allocated_amount: Number(ex.allocated_amount) + v, updated_at: new Date().toISOString() }).eq('id', ex.id); }
           // tenant_id 추가: NOT NULL 제약 또는 RLS 정책 충족을 위해 필수
-          else { await sb.from('budget_allocations').insert({ bankbook_id: bb.id, tenant_id: ab.tenantId, allocated_amount: v, used_amount: 0, frozen_amount: 0 }); }
+          else { await sb.from('budget_allocations').insert({ bankbook_id: activeBb.id, tenant_id: ab.tenantId, allocated_amount: v, used_amount: 0, frozen_amount: 0 }); }
         }
         const td = TEAM_DIST.find(t => t.accountBudgetId === abId && t.teamName === r.name);
         const afterAmt = (td ? td.allocAmount : 0) + v;
         if (td) { td.allocAmount += v; } else { TEAM_DIST.push({ id: `TD${Date.now()}_${Math.random().toString(36).slice(2)}`, accountBudgetId: abId, teamName: r.name, allocAmount: v, spent: 0, reserved: 0 }); }
-        lines.push({ name: r.name, v, after: afterAmt, dbMatched: !!bb });
+        lines.push({ name: r.name, v, after: afterAmt, dbMatched: !!activeBb });
       }
     } catch (e) { console.error('[DD배분] DB오류:', e.message, e); }
   } else {

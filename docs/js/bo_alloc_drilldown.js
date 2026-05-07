@@ -779,6 +779,7 @@ async function _submitDDDist() {
                 org_name: r.name,
                 account_id: autoAccountId,
                 template_id: ab.templateId || null,
+                vorg_group_id: r.vgId || ab.templateId || '', // NOT NULL 제약
                 bb_status: 'active',
                 user_id: null, // 교육조직 단위 통장 (개인 통장 아님)
               }).select('id,org_name').single();

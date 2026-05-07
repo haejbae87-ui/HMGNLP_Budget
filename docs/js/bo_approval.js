@@ -184,9 +184,6 @@ function renderMyOperations() {
           <p class="bo-page-sub">${typeof boIsOpManager==="function" && boIsOpManager() ? "운영담당자 — 1차 검토 처리 후 총괄담당자에게 전달됩니다" : "총괄담당자 — 최종 승인/반려 권한을 가집니다"}</p>
         </div>
       </div>
-      
-      ${typeof boIsolationGroupBanner==="function" ? boIsolationGroupBanner() : ""}
-      
       <!-- 공통 계층형 필터 렌더링 영역 -->
       <div id="bo-filter-container-target" style="margin-bottom:16px;"></div>
 

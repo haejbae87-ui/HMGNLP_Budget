@@ -735,12 +735,12 @@ async function _submitDDDist() {
   const lines = [], errors = [];
   if (sb && ab) {
     try {
-      // account_id에 accountCode 포함 여부로 교육조직 통장 필터 (is_org_level 컬럼 미존재 대응)
+      // user_id IS NULL 필터 제거: 교육조직 통장도 user_id가 있을 수 있음
+      // accountCode 포함 여부로 account_id 필터링하여 해당 계정 통장만 조회
       const { data: bankbooks } = await sb.from('org_budget_bankbooks')
         .select('id,org_id,org_name,account_id,template_id')
         .eq('tenant_id', ab.tenantId)
-        .or('bb_status.eq.active,bb_status.is.null')
-        .is('user_id', null); // 개인 통장 제외, 조직/팀 통장만
+        .or('bb_status.eq.active,bb_status.is.null');
 
       // DB에서 budget_accounts.id (UUID) 조회 - account_id와 정확 비교에 사용
       const { data: accts } = await sb.from('budget_accounts').select('id,code').eq('code', ab.accountCode).eq('tenant_id', ab.tenantId).limit(1);

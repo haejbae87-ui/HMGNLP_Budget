@@ -1,4 +1,4 @@
-﻿// ─── 예산 배정 및 관리 (v2 — 통합 드릴다운) ──────────────────────────────────
+// ─── 예산 배정 및 관리 (v2 — 통합 드릴다운) ──────────────────────────────────
 // 계층: 예산 계정(마스터) → 교육조직 → 팀 → (개인)
 // 탭:   현황 | 최초 할당(총괄) | 예산 배분(드릴다운) | 변경 이력
 
@@ -1782,7 +1782,8 @@ async function _syncAllocFromDB(persona) {
       if (!acct.uses_budget) continue;
 
       const alloc = allocMap[bb.id];
-      if (!alloc) continue;
+      // alloc이 없으면 skip하지 말고 0원 엔트리로 추가 (신규 배분 예정 통장 지원)
+      // if (!alloc) continue; ← 이 로직이 초기화 원인: DB save 후 재로드 시 alloc이 없으면 TEAM_DIST가 비워짐
 
       let ab = ACCOUNT_BUDGETS.find(
         (x) => x.accountCode === acct.code && x.tenantId === tenantId
@@ -1827,17 +1828,18 @@ async function _syncAllocFromDB(persona) {
         (td) => td.accountBudgetId === abFinal.id && td.teamName === bb.org_name
       );
 
-      const newAmt = Number(alloc.allocated_amount || 0);
-      const newSpent = Number(alloc.used_amount || 0);
-      const newFrozen = Number(alloc.frozen_amount || 0);
+      const newAmt = Number(alloc?.allocated_amount || 0);
+      const newSpent = Number(alloc?.used_amount || 0);
+      const newFrozen = Number(alloc?.frozen_amount || 0);
 
       if (existingIdx >= 0) {
         TEAM_DIST[existingIdx].allocAmount = newAmt;
         TEAM_DIST[existingIdx].spent = newSpent;
         TEAM_DIST[existingIdx].reserved = newFrozen;
         TEAM_DIST[existingIdx]._bbId = bb.id;
-        TEAM_DIST[existingIdx]._allocId = alloc.id;
-      } else if (newAmt > 0) {
+        if (alloc) TEAM_DIST[existingIdx]._allocId = alloc.id;
+      } else if (newAmt > 0 || alloc) {
+        // alloc 레코드가 있거나 금액이 0 초과인 경우에만 추가
         TEAM_DIST.push({
           id: "TD_DB_" + bb.id,
           accountBudgetId: abFinal.id,
@@ -1846,13 +1848,14 @@ async function _syncAllocFromDB(persona) {
           spent: newSpent,
           reserved: newFrozen,
           _bbId: bb.id,
-          _allocId: alloc.id,
+          _allocId: alloc?.id,
         });
       }
       syncCount++;
     }
 
     console.log('[BO Alloc Sync] ' + tenantId + ' 팀배분 DB 동기화 완료 (' + syncCount + '건)');
+
 
     // ── Phase 1: DB-synced 계정의 mock TEAM_DIST 항목 제거 ────────────────
     // _bbId가 없는 항목 = mock 데이터. DB에서 로드된 계정에 속한 것만 제거.

@@ -797,8 +797,10 @@ async function _submitDDDist() {
     try {
       const isL1 = window._ddCurrentLevel === 1;
       const actorName = boCurrentPersona?.name || 'BO담당자';
-      // Bug Fix: l.v, l.name, l.after가 올바른 숫자/문자열값으로 삽입됨 (lines가 객체 배열이므로)
-      for (const l of lines) {
+      const auditTenantId = boCurrentPersona?.tenantId || ab.tenantId || null;
+      // Bug Fix: lines 중 dbMatched=true인 항목만 Audit Trail 기록 (bb 미매칭은 DB 저장 안됐으므로 제외)
+      const dbMatchedLines = lines.filter(l => l.dbMatched);
+      for (const l of dbMatchedLines) {
         await sb.from('account_budget_adjustments').insert({
           account_code: ab.accountCode,
           fiscal_year: ab.fiscalYear || new Date().getFullYear(),
@@ -806,7 +808,7 @@ async function _submitDDDist() {
           amount: l.v,
           reason: `[${isL1 ? '팀 배분' : '조직 배분'}] ${l.name}에게 ${boFmt(l.v)}원 배분 (배분 후 ${boFmt(l.after)}원)`,
           performed_by: actorName,
-          tenant_id: ab.tenantId || ''
+          ...(auditTenantId ? { tenant_id: auditTenantId } : {})
         });
       }
     } catch(logErr) { console.warn('[DD배분] Audit 로그 skip:', logErr.message); }

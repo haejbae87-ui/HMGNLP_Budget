@@ -1701,13 +1701,12 @@ async function _syncAllocFromDB(persona) {
       console.warn('[BO Alloc Sync] account_budgets 동기화 실패 (non-critical):', abErr.message);
     }
 
-    // 1. 해당 테넌트의 통장 목록 조회
+    // 1. 해당 테넌트의 통장 목록 조회 (user_id IS NULL 제거: 교육조직 통장도 user_id가 있을 수 있음)
     const { data: bankbooks, error: bbErr } = await sb
       .from("org_budget_bankbooks")
       .select("id, org_name, account_id, tenant_id, template_id")
       .eq("tenant_id", tenantId)
-      .or("bb_status.eq.active,bb_status.is.null")
-      .is("user_id", null);
+      .or("bb_status.eq.active,bb_status.is.null");
     if (bbErr) throw bbErr;
 
     if (!bankbooks || bankbooks.length === 0) return;

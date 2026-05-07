@@ -161,10 +161,12 @@ function _renderDDLevel0() {
   } else {
     vGroups.forEach(vg => {
       const inputId = `dd0-input-${inputIdx++}`;
-      const existing = TEAM_DIST.find(t => t.accountBudgetId === ab.id && t.teamName === vg.name);
-      const currentAlloc = existing?.allocAmount || 0;
-      const orgSpent = existing?.spent || 0;
-      const orgReserved = existing?.reserved || 0;
+      // 중복 생성된 통장들을 모두 찾아서 합산 처리 (대시보드와 정합성 일치)
+      const existings = TEAM_DIST.filter(t => t.accountBudgetId === ab.id && t.teamName === vg.name);
+      const existing = existings.length > 0 ? existings[0] : null; // 가장 첫 번째 레코드를 기준(id 참조용)으로 유지
+      const currentAlloc = existings.reduce((s, t) => s + (t.allocAmount || 0), 0);
+      const orgSpent = existings.reduce((s, t) => s + (t.spent || 0), 0);
+      const orgReserved = existings.reduce((s, t) => s + (t.reserved || 0), 0);
       const orgBurnPct = currentAlloc > 0 ? Math.min(((orgSpent + orgReserved) / currentAlloc) * 100, 100) : 0;
       const orgBurnColor = orgBurnPct >= 90 ? '#EF4444' : orgBurnPct >= 70 ? '#F59E0B' : '#059669';
       allRows.push({ name: vg.name, inputId, existing, currentAlloc, vgId: vg.id });
@@ -364,15 +366,15 @@ function _renderDDLevel1() {
   }
 
   const teams = vg.teams || [];
-  const orgTd = TEAM_DIST.find(t => t.accountBudgetId === ab.id && t.teamName === vg.name);
-  const orgAlloc = orgTd?.allocAmount || 0;
-  const orgSpent = orgTd?.spent || 0;
-  const orgReserved = orgTd?.reserved || 0;
+  const orgTds = TEAM_DIST.filter(t => t.accountBudgetId === ab.id && t.teamName === vg.name);
+  const orgAlloc = orgTds.reduce((s, t) => s + (t.allocAmount || 0), 0);
+  const orgSpent = orgTds.reduce((s, t) => s + (t.spent || 0), 0);
+  const orgReserved = orgTds.reduce((s, t) => s + (t.reserved || 0), 0);
   const orgBurnPct = orgAlloc > 0 ? Math.min(((orgSpent + orgReserved) / orgAlloc) * 100, 100) : 0;
   const orgBurnColor = orgBurnPct >= 90 ? '#EF4444' : orgBurnPct >= 70 ? '#F59E0B' : '#10B981';
   const teamsAllocated = teams.reduce((s, rt) => {
-    const td = TEAM_DIST.find(t => t.accountBudgetId === ab.id && t.teamName === rt.name);
-    return s + (td?.allocAmount || 0);
+    const tds = TEAM_DIST.filter(t => t.accountBudgetId === ab.id && t.teamName === rt.name);
+    return s + tds.reduce((ss, tt) => ss + (tt.allocAmount || 0), 0);
   }, 0);
   const teamDistributable = Math.max(0, orgAlloc - teamsAllocated);
 
@@ -382,10 +384,11 @@ function _renderDDLevel1() {
   const allRows = [];
   teams.forEach(rt => {
     const inputId = `dd1-input-${inputIdx++}`;
-    const existing = TEAM_DIST.find(t => t.accountBudgetId === ab.id && t.teamName === rt.name);
-    const currentAlloc = existing?.allocAmount || 0;
-    const reserved = existing?.reserved || 0;
-    const spent = existing?.spent || 0;
+    const existings = TEAM_DIST.filter(t => t.accountBudgetId === ab.id && t.teamName === rt.name);
+    const existing = existings.length > 0 ? existings[0] : null;
+    const currentAlloc = existings.reduce((s, t) => s + (t.allocAmount || 0), 0);
+    const reserved = existings.reduce((s, t) => s + (t.reserved || 0), 0);
+    const spent = existings.reduce((s, t) => s + (t.spent || 0), 0);
     const avail = currentAlloc - reserved - spent;
     allRows.push({ name: rt.name, inputId, existing, currentAlloc });
     tableRows += `<tr style="border-bottom:1px solid #F3F4F6;transition:background .15s" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='white'">

@@ -6,6 +6,12 @@
 
 ## ✅ 완료된 작업 이력
 
+### 2026-05-07 — 예산 배분 드릴다운 UI 버그 및 DB 중복 데이터 처리 로직 개선
+
+- [x] **Bug Fix 4: 드릴다운 UI(L0/L1)에서 DB 중복 통장 데이터 합산 표기 로직 추가**
+  - 기존 `.find()` 방식으로 인한 단일 0원짜리 쓰레기 통장 노출 버그(잔액 `—` 표기 현상) 수정
+  - `bo_alloc_drilldown.js`의 `_renderDDLevel0`, `_renderDDLevel1` 내부 로직을 대시보드와 동일하게 `.filter().reduce()`로 전면 교체하여 동일 조직의 모든 통장 잔액을 정상 합산 처리
+
 ### 2026-05-07 — 예산 배분 드릴다운 버그 수정 (Audit Trail, F-151, 회수 UX)
 
 - [x] **Bug Fix 1: `_submitDDDist` lines 배열 구조 불일치 수정** — Audit Trail 데이터 오염 해결

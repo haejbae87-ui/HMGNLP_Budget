@@ -2138,7 +2138,7 @@ const _BO_TO_FO_KEY_MAP = {
 
 // budget_accounts.form_config 캐시 (TTL 기반)
 let _FORM_CONFIG_CACHE = {};  // { 'tenantId|accountCode': { data, loadedAt } }
-const _FORM_CONFIG_TTL = 60_000; // 60초
+const _FORM_CONFIG_TTL = 5_000; // 5초
 
 /**
  * budget_accounts 테이블에서 form_config를 로드합니다.

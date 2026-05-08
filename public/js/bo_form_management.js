@@ -95,7 +95,9 @@ const _FORM_FIELDS = {
     { cat:'기본정보', icon:'📋', fields:[
       {key:'edu_purpose',  label:'교육목적',   type:'select'},
       {key:'edu_type',     label:'교육유형',   type:'select'},
+      {key:'edu_category', label:'필수구분',   type:'text'},
       {key:'course_name',  label:'교육과정명', type:'text', locked:true},
+      {key:'manager_info', label:'담당자 정보', type:'text'},
     ]},
     { cat:'교육내용', icon:'📝', fields:[
       {key:'learning_objective', label:'교육목표', type:'textarea'},
@@ -130,7 +132,9 @@ const _FORM_FIELDS = {
     { cat:'기본정보', icon:'📋', fields:[
       {key:'edu_purpose',  label:'교육목적', type:'select'},
       {key:'edu_type',     label:'교육유형', type:'select'},
+      {key:'edu_category', label:'필수구분', type:'text'},
       {key:'course_name',  label:'교육명',   type:'text', locked:true},
+      {key:'manager_info', label:'담당자 정보', type:'text'},
     ]},
     { cat:'장소정보', icon:'🏛️', fields:[
       {key:'is_overseas',       label:'국내/해외',    type:'boolean'},
@@ -163,6 +167,8 @@ const _FORM_FIELDS = {
     { cat:'기본정보', icon:'📋', fields:[
       {key:'edu_purpose',  label:'교육목적', type:'select'},
       {key:'edu_type',     label:'교육유형', type:'select'},
+      {key:'edu_category', label:'필수구분', type:'text'},
+      {key:'manager_info', label:'담당자 정보', type:'text'},
     ]},
     { cat:'과정정보', icon:'📐', fields:[
       {key:'course_name',        label:'과정명',       type:'text'},
@@ -170,6 +176,8 @@ const _FORM_FIELDS = {
       {key:'course_description', label:'교육내용',     type:'textarea'},
       {key:'learning_objective', label:'교육목표',     type:'textarea'},
       {key:'apply_reason',       label:'신청사유',     type:'textarea'},
+      {key:'target_audience',    label:'교육대상',     type:'select', options:['임원','팀장','팀원','전 직원','신입사원','기타']},
+      {key:'planned_headcount',  label:'참가인원',     type:'number', unit:'명'},
       {key:'course_brochure',    label:'과정소개 자료',type:'file'},
       {key:'learning_content',   label:'학습내용',     type:'textarea'},
     ]},
@@ -192,6 +200,7 @@ const _FORM_FIELDS = {
       {key:'is_continuing',     label:'전년도 계속교육',type:'boolean'},
     ]},
     { cat:'비용항목', icon:'💰', budgetOnly:true, fields:[
+      {key:'requested_budget', label:'요청 예산 규모', type:'number', unit:'원'},
       {key:'calc_grounds',     label:'세부산출근거',    type:'calc_grounds'},
       {key:'ei_refund_amount', label:'고용보험 환급예상액', type:'number', unit:'원'},
     ]},
@@ -205,7 +214,9 @@ const _FORM_FIELDS = {
     { cat:'기본정보', icon:'📋', fields:[
       {key:'edu_purpose',  label:'교육목적', type:'select'},
       {key:'edu_type',     label:'교육유형', type:'select'},
+      {key:'edu_category', label:'필수구분', type:'text'},
       {key:'course_name',  label:'교육명',   type:'text', locked:true},
+      {key:'manager_info', label:'담당자 정보', type:'text'},
     ]},
     { cat:'수료정보', icon:'🎓', fields:[
       {key:'is_completed',    label:'수료여부',   type:'boolean'},
@@ -903,12 +914,15 @@ function _formPreviewFieldCard(f, icon) {
 
   switch (f.type) {
     case 'boolean':
+      const isEi = f.key === 'is_ei_eligible';
       return `<div style="margin-bottom:14px">${labelHtml}
         <div style="display:flex;align-items:center;gap:10px;padding:4px 0">
-          <div style="width:44px;height:24px;border-radius:12px;background:#3B82F6;position:relative;cursor:default">
-            <div style="width:20px;height:20px;border-radius:50%;background:white;position:absolute;top:2px;right:2px;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div>
+          <div ${isEi ? `onclick="const am=document.getElementById('preview_ei_amount'); if(am){ const isOn = am.style.display==='none'; am.style.display=isOn?'block':'none'; this.style.background=isOn?'#3B82F6':'#E2E8F0'; this.nextElementSibling.innerText=isOn?'ON':'OFF'; this.nextElementSibling.style.color=isOn?'#3B82F6':'#94A3B8'; }"` : ''} 
+               style="width:44px;height:24px;border-radius:12px;background:#3B82F6;position:relative;cursor:${isEi?'pointer':'default'};transition:all 0.2s">
+            <div style="width:20px;height:20px;border-radius:50%;background:white;position:absolute;top:2px;right:2px;box-shadow:0 1px 3px rgba(0,0,0,.2);pointer-events:none"></div>
           </div>
           <span style="font-size:12px;color:#3B82F6;font-weight:700">ON</span>
+          ${isEi ? '<span style="font-size:11px;color:#94A3B8;margin-left:4px">(클릭하여 환급액 창 토글 테스트)</span>' : ''}
         </div>
       </div>`;
     case 'textarea':
@@ -917,7 +931,7 @@ function _formPreviewFieldCard(f, icon) {
           style="${base};resize:none;font-family:inherit;min-height:70px"></textarea>
       </div>`;
     case 'number':
-      return `<div style="margin-bottom:14px">${labelHtml}
+      return `<div ${f.key === 'ei_refund_amount' ? 'id="preview_ei_amount"' : ''} style="margin-bottom:14px">${labelHtml}
         <div style="position:relative">
           <input type="number" disabled placeholder="0" style="${base};text-align:right;padding-right:${f.unit?'40px':'14px'}">
           ${f.unit?`<span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:12px;color:#94A3B8;font-weight:600">${f.unit}</span>`:''}

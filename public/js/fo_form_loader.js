@@ -1212,7 +1212,7 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
       </div>`;
   };
 
-  const managerInfoField = (inline.manager_info !== false) ? `
+  const managerInfoField = _shouldShow('manager_info') ? `
     <div>
       <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">👤 담당자 정보</label>
       <div class="flex gap-2">
@@ -1347,8 +1347,8 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
     _field('is_continuing', '전년도 계속 여부', 'boolean', ''),
     titleField,
     _field('learning_objective', '교육목표/내용/대상', 'textarea', '[교육목표]\\n\\n[교육내용]\\n\\n[교육대상]\\n\\n(내용을 작성해주세요)'),
-    hasFormConfig ? '' : _field('edu_category', '📑 필수구분 (법정/핵심 등)', 'text', '예: 법정의무교육'),
-    hasFormConfig ? '' : managerInfoField
+    _field('edu_category', '📑 필수구분 (법정/핵심 등)', 'text', '예: 법정의무교육'),
+    managerInfoField
   ];
 
   const scheduleFields = [
@@ -1521,7 +1521,7 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
       </div>`;
   };
 
-  const managerInfoField = (inline.manager_info !== false) ? `
+  const managerInfoField = _shouldShow('manager_info') ? `
     <div>
       <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">👤 담당자 정보</label>
       <div class="flex gap-2">
@@ -2082,6 +2082,8 @@ const _BO_TO_FO_KEY_MAP = {
   // 기본정보
   edu_purpose:        'edu_purpose',        // 교육목적 (select)
   edu_type:           'edu_type',           // 교육유형
+  edu_category:       'edu_category',       // 필수구분
+  manager_info:       'manager_info',       // 담당자 정보
   course_name:        'course_name',        // 교육과정명
   is_overseas:        'is_overseas',        // 국내/해외
   target_audience:    'target_audience',    // 교육대상

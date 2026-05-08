@@ -148,15 +148,6 @@ function _applySmartButtons() {
       ✏️ 교육 신청
     </button>`;
   }
-  if (hasResultOnlyPatterns) {
-    btns += `<button onclick="navigate('result')"
-      style="display:flex;align-items:center;gap:8px;padding:12px 22px;border-radius:12px;
-             background:#D97706;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer;
-             box-shadow:0 4px 16px rgba(217,119,6,.3);transition:all .15s"
-      onmouseover="this.style.background='#B45309'" onmouseout="this.style.background='#D97706'">
-      📝 교육결과 등록
-    </button>`;
-  }
   return btns;
 }
 

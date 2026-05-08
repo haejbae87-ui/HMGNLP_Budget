@@ -2158,7 +2158,7 @@ async function loadBudgetAccountFormConfig(accountCode, tenantId) {
   try {
     let q = sb.from('budget_accounts').select('form_config').eq('code', accountCode);
     if (tenantId) q = q.eq('tenant_id', tenantId);
-    const { data, error } = await q.limit(1);
+    const { data, error } = await q;
     if (error || !data || data.length === 0) {
       console.warn('[fo_form_loader] form_config 로드 실패:', error?.message);
       return null;

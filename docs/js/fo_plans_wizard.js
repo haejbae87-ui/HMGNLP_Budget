@@ -576,7 +576,7 @@ function renderPlanWizard() {
         }
         
         // BO 양식이 로드된 경우 (동적 양식 fields 배열)
-        if (s.formTemplate && s.formTemplate.fields && s.formTemplate.fields.length > 0) {
+        if (s.formTemplate && s.formTemplate.fields && s.formTemplate.fields.length > 0 && s.formTemplate._source !== 'form_config') {
           if (typeof renderDynamicFormFields === "function") {
             const dynamicHtml = renderDynamicFormFields(s.formTemplate.fields, s, "planState", curBudget);
             if (dynamicHtml) {

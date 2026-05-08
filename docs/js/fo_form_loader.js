@@ -2158,12 +2158,12 @@ async function loadBudgetAccountFormConfig(accountCode, tenantId) {
   try {
     let q = sb.from('budget_accounts').select('form_config').eq('code', accountCode);
     if (tenantId) q = q.eq('tenant_id', tenantId);
-    const { data, error } = await q.maybeSingle();
-    if (error || !data) {
+    const { data, error } = await q.limit(1);
+    if (error || !data || data.length === 0) {
       console.warn('[fo_form_loader] form_config 로드 실패:', error?.message);
       return null;
     }
-    const config = data.form_config || null;
+    const config = data[0].form_config || null;
     _FORM_CONFIG_CACHE[cacheKey] = { data: config, loadedAt: Date.now() };
     console.log(`[fo_form_loader] form_config 로드: ${accountCode} →`, config ? '설정 있음' : '설정 없음');
     return config;
@@ -2204,6 +2204,33 @@ function getFormConfigAsInlineFields(formConfig, eduType, stage) {
       if (formConfig[eduType][s]) {
         fieldStates = formConfig[eduType][s];
         break;
+      }
+    }
+  }
+
+  // 1.5순위: l_ 접두사 매칭 (BO learner 유형: l_elearning → FO: elearning)
+  if (!fieldStates) {
+    const prefixed = 'l_' + eduType;
+    if (formConfig[prefixed]) {
+      for (const s of targetStages) {
+        if (formConfig[prefixed][s]) {
+          fieldStates = formConfig[prefixed][s];
+          console.log(`[fo_form_loader] l_ 접두사 매칭: ${prefixed} (요청: ${eduType})`);
+          break;
+        }
+      }
+    }
+  }
+  // 1.5b순위: 역방향 strip (FO가 l_elearning으로 왔는데 DB는 elearning인 경우)
+  if (!fieldStates && eduType.startsWith('l_')) {
+    const stripped = eduType.slice(2);
+    if (formConfig[stripped]) {
+      for (const s of targetStages) {
+        if (formConfig[stripped][s]) {
+          fieldStates = formConfig[stripped][s];
+          console.log(`[fo_form_loader] l_ strip 매칭: ${stripped} (요청: ${eduType})`);
+          break;
+        }
       }
     }
   }

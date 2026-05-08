@@ -96,20 +96,30 @@ function planNext() {
 
       // 2) form_config 우선 시도 (BO 양식관리 연동)
       let tpl = null;
+      let formConfigExists = false; // form_config 존재 플래그
       if (accCode && typeof loadFormConfigTemplate === 'function') {
         const reqEduType = eduType || planState.eduType;
         tpl = await loadFormConfigTemplate(accCode, tenantId, reqEduType, 'plan');
         if (tpl) {
+          formConfigExists = true;
           console.log('[planNext] BO form_config 기반 양식 적용:', tpl.name, '| inlineFields:', tpl.inlineFields);
         } else {
-          console.warn('[planNext] loadFormConfigTemplate 반환 null → 폴백 진행');
+          // form_config 자체가 DB에 존재하는지 확인 (eduType 매칭만 실패한 경우)
+          const raw = typeof loadBudgetAccountFormConfig === 'function'
+            ? await loadBudgetAccountFormConfig(accCode, tenantId) : null;
+          if (raw && Object.keys(raw).length > 0) {
+            formConfigExists = true;
+            console.warn('[planNext] form_config 존재하나 eduType 미매칭 → 기본 양식');
+          } else {
+            console.warn('[planNext] loadFormConfigTemplate 반환 null → 폴백 진행');
+          }
         }
       } else {
         console.warn('[planNext] accCode가 null이거나 loadFormConfigTemplate 미정의 → form_config 스킵');
       }
 
-      // 3) form_config 없으면 기존 form_templates DB 방식으로 폴백
-      if (!tpl && matched && typeof getFoFormTemplate === 'function') {
+      // 3) form_config 없으면 기존 form_templates DB 방식으로 폴백 (form_config 미설정 계정만)
+      if (!tpl && !formConfigExists && matched && typeof getFoFormTemplate === 'function') {
         tpl = await getFoFormTemplate(matched, 'plan', eduType, accCode);
         if (tpl) {
           console.log('[planNext] form_templates DB 방식 폴백:', tpl.name || tpl.id);
@@ -790,9 +800,18 @@ async function resumePlanDraft(planId) {
     if (rAccCode && typeof loadFormConfigTemplate === 'function') {
       const reqEduType = rEduType || planState.eduType;
       tpl = await loadFormConfigTemplate(rAccCode, rTenantId, reqEduType, 'plan');
-      if (tpl) console.log('[planEdit] BO form_config 기반 양식 적용:', tpl.name);
+      if (tpl) {
+        console.log('[planEdit] BO form_config 기반 양식 적용:', tpl.name);
+      }
     }
-    if (!tpl && rMatched && typeof getFoFormTemplate === 'function') {
+    // form_config 미설정 계정만 레거시 폴백 허용
+    let fcExists = false;
+    if (!tpl && rAccCode) {
+      const raw = typeof loadBudgetAccountFormConfig === 'function'
+        ? await loadBudgetAccountFormConfig(rAccCode, rTenantId) : null;
+      if (raw && Object.keys(raw).length > 0) fcExists = true;
+    }
+    if (!tpl && !fcExists && rMatched && typeof getFoFormTemplate === 'function') {
       tpl = await getFoFormTemplate(rMatched, 'plan', rEduType, rAccCode);
       if (tpl) console.log('[planEdit] form_templates DB 방식 폴백:', tpl.name || tpl.id);
     }

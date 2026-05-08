@@ -1241,7 +1241,12 @@ async function _resultLoadFormTemplate(s) {
     const budgets = currentPersona?.budgets || [];
     const b = budgets.find((x) => x.id === s.budgetId);
     if (b?.accountCode || b?.account_code) return b.accountCode || b.account_code;
+    // 폴백: wizard state에 직접 저장된 계정 코드
+    if (s.accountCode) return s.accountCode;
     if (typeof _resultSelectedAccountCode !== 'undefined' && _resultSelectedAccountCode) return _resultSelectedAccountCode;
+    // 폴백: budgets 배열의 첫 번째 계정 코드
+    const bAny = budgets.find(x => x.account_code || x.accountCode);
+    if (bAny) return bAny.account_code || bAny.accountCode;
     return null;
   })();
 
@@ -1265,16 +1270,26 @@ async function _resultLoadFormTemplate(s) {
   console.log('[resultNext:Step4] accCode:', accCode, '| eduType:', eduType, '| tenantId:', tenantId);
 
   let tpl = null;
+  let formConfigExists = false; // form_config 존재 플래그
   // 1순위: form_config (BO 양식관리 연동)
   if (accCode && typeof loadFormConfigTemplate === 'function') {
     tpl = await loadFormConfigTemplate(accCode, tenantId, eduType, 'result');
     if (tpl) {
+      formConfigExists = true;
       console.log('[resultNext] BO form_config 기반 양식 적용:', tpl.name, '| inlineFields:', tpl.inlineFields);
+    } else {
+      // form_config 자체가 DB에 존재하는지 확인 (eduType 매칭만 실패한 경우)
+      const raw = typeof loadBudgetAccountFormConfig === 'function'
+        ? await loadBudgetAccountFormConfig(accCode, tenantId) : null;
+      if (raw && Object.keys(raw).length > 0) {
+        formConfigExists = true;
+        console.log('[resultNext] form_config 존재하나 eduType 미매칭 → 기본 양식');
+      }
     }
   }
 
-  // 2순위: form_templates DB 폴백
-  if (!tpl && matched && typeof getFoFormTemplate === 'function') {
+  // 2순위: form_templates DB 폴백 (form_config 미설정 계정만)
+  if (!tpl && !formConfigExists && matched && typeof getFoFormTemplate === 'function') {
     // eduType 영문 코드 직접 전달 (DB form_templates.edu_type 영문 표준화 완료)
     tpl = await getFoFormTemplate(matched, 'result', eduType, accCode);
     if (tpl) {

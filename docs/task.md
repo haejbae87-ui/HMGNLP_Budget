@@ -1,14 +1,11 @@
-# 기능 단위 파일 분리 체크리스트
+# 🚧 실시간 AI 작업 진행 상황
 
-- [ ] js/data.js – 데이터 레이어 (PERSONAS, MOCK_HISTORY, MOCK_PLANS, applyState)
-- [ ] css/styles.css – 전역 CSS 스타일
-- [ ] js/utils.js – 공통 유틸 함수 (fmt, statusBadge, navigate, switchPersona)
-- [ ] js/gnb.js – GNB(상단 네비게이션) + Floating Budget Widget
-- [ ] js/dashboard.js – 대시보드 렌더링
-- [ ] js/plans.js – 교육계획 렌더링 + 폼 핸들러
-- [ ] js/history.js – 교육신청 목록 렌더링
-- [ ] js/apply.js – 교육신청 4단계 스텝 렌더링 + 핸들러
-- [ ] js/budget.js – 예산 관리 렌더링
-- [ ] js/mypage.js – 마이페이지 렌더링
-- [ ] js/main.js – 앱 초기화 (DOMContentLoaded)
-- [ ] index.html – 슬림화 (script/style 태그 → 외부 파일 참조)
+## FO 양식 로딩 4단계 전면 수정 (form_config 결정론적 매핑)
+
+- [x] Step 0: pre_dev 체크 + progress signal 설정
+- [x] Step 1: `fo_form_loader.js` — l_ 접두사 정규화 + DB 쿼리 방어 ✅
+- [x] Step 2: `fo_apply_actions.js` — accCode 강화 + 레거시 폴백 차단 ✅
+- [x] Step 3: `fo_plans_actions.js` — planNext/planEdit 폴백 차단 ✅
+- [x] Step 4: `result.js` — accCode 강화 + 레거시 폴백 차단 ✅
+- [x] Step 5: 문법 검증 — 4개 파일 모두 통과 ✅
+- [ ] ⏳ Step 6: 배포 (verify-and-push) 🛠️

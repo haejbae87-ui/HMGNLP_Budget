@@ -75,8 +75,13 @@ function applyNext() {
       const budgets = currentPersona?.budgets || [];
       const b = budgets.find((x) => x.id === applyState.budgetId);
       if (b?.accountCode || b?.account_code) return b.accountCode || b.account_code;
+      // 폴백: applyState에 직접 저장된 계정 코드
+      if (applyState.accountCode) return applyState.accountCode;
       // 폴백: pre-wizard 선택 계정
       if (typeof _applySelectedAccountCode !== 'undefined' && _applySelectedAccountCode) return _applySelectedAccountCode;
+      // 폴백: budgets 배열의 첫 번째 계정 코드
+      const bAny = budgets.find(x => x.account_code || x.accountCode);
+      if (bAny) return bAny.account_code || bAny.accountCode;
       return null;
     })();
 
@@ -112,17 +117,27 @@ function applyNext() {
 
       // 1순위: form_config (BO 양식관리 연동)
       let tpl = null;
+      let formConfigExists = false; // form_config 존재 플래그
       if (accCode && typeof loadFormConfigTemplate === 'function') {
         // BO form_config는 세부 eduType(1_elearning 등) 기준으로 저장되므로 구체적인 eduType을 우선 전달
         const reqEduType = eduType || applyState.eduType;
         tpl = await loadFormConfigTemplate(accCode, tenantId, reqEduType, 'apply');
         if (tpl) {
+          formConfigExists = true;
           console.log('[applyNext] BO form_config 기반 양식 적용:', tpl.name, '| inlineFields:', tpl.inlineFields);
+        } else {
+          // form_config 자체가 DB에 존재하는지 확인 (eduType 매칭만 실패한 경우)
+          const raw = typeof loadBudgetAccountFormConfig === 'function'
+            ? await loadBudgetAccountFormConfig(accCode, tenantId) : null;
+          if (raw && Object.keys(raw).length > 0) {
+            formConfigExists = true;
+            console.log('[applyNext] form_config 존재하나 eduType 미매칭 → 기본 양식 사용');
+          }
         }
       }
 
-      // 2순위: form_templates DB 폴백
-      if (!tpl && matched && typeof getFoFormTemplate === 'function') {
+      // 2순위: form_templates DB 폴백 (form_config 미설정 계정만)
+      if (!tpl && !formConfigExists && matched && typeof getFoFormTemplate === 'function') {
         // accCode 파라미터를 추가하여 엉뚱한 양식 매칭(R&D 등) 방지
         tpl = await getFoFormTemplate(matched, 'apply', eduType, accCode);
         if (tpl) {

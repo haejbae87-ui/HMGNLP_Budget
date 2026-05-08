@@ -97,7 +97,7 @@ function planNext() {
       // 2) form_config 우선 시도 (BO 양식관리 연동)
       let tpl = null;
       if (accCode && typeof loadFormConfigTemplate === 'function') {
-        const reqEduType = planState.eduType || eduType;
+        const reqEduType = eduType || planState.eduType;
         tpl = await loadFormConfigTemplate(accCode, tenantId, reqEduType, 'plan');
         if (tpl) {
           console.log('[planNext] BO form_config 기반 양식 적용:', tpl.name, '| inlineFields:', tpl.inlineFields);
@@ -788,7 +788,7 @@ async function resumePlanDraft(planId) {
 
     // ★ 우선순위: BO form_config → form_templates DB 폴백
     if (rAccCode && typeof loadFormConfigTemplate === 'function') {
-      const reqEduType = planState.eduType || rEduType;
+      const reqEduType = rEduType || planState.eduType;
       tpl = await loadFormConfigTemplate(rAccCode, rTenantId, reqEduType, 'plan');
       if (tpl) console.log('[planEdit] BO form_config 기반 양식 적용:', tpl.name);
     }

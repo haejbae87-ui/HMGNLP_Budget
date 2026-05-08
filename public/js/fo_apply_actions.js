@@ -113,8 +113,8 @@ function applyNext() {
       // 1순위: form_config (BO 양식관리 연동)
       let tpl = null;
       if (accCode && typeof loadFormConfigTemplate === 'function') {
-        // BO form_config는 주로 상위 eduType(regular 등) 기준으로 저장되므로 applyState.eduType을 우선 전달
-        const reqEduType = applyState.eduType || eduType;
+        // BO form_config는 세부 eduType(1_elearning 등) 기준으로 저장되므로 구체적인 eduType을 우선 전달
+        const reqEduType = eduType || applyState.eduType;
         tpl = await loadFormConfigTemplate(accCode, tenantId, reqEduType, 'apply');
         if (tpl) {
           console.log('[applyNext] BO form_config 기반 양식 적용:', tpl.name, '| inlineFields:', tpl.inlineFields);

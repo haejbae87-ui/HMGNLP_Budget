@@ -603,7 +603,15 @@ async function _formSave() {
   const pattern = acc.process_pattern || 'A';
   const stages = _FORM_PATTERN_STAGES[pattern] || [];
 
-  eduTypes.forEach(et => {
+  // 1순위: 트리에서 전개된 실제 세부 교육유형(leaf nodes) 수집
+  const eduTree = _formGroupEduTypes(eduTypes);
+  const leafTypes = [];
+  eduTree.forEach(g => g.categories.forEach(c => c.types.forEach(t => leafTypes.push(t.id))));
+  
+  // 만약 트리에 매칭되는 항목이 없다면 원본 eduTypes 사용 (폴백)
+  const targetTypes = leafTypes.length > 0 ? leafTypes : eduTypes;
+
+  targetTypes.forEach(et => {
     stages.forEach(s => {
       const key = `${et}|${s}`;
       // _FORM_FIELDS[s] 카탈로그에서 전체 필드 목록 가져와 기본값(false) 초기화

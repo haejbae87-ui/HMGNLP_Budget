@@ -209,3 +209,5 @@
 - [x] FO 렌더링 파이프라인 단일화 (SSOT 구축) 및 fo_apply_actions.js 레거시 중복 코드 완전 제거
 - [x] fo_plans_actions.js 레거시 템플릿 폴백 로직 제거
 - [x] fo_apply_form.js, fo_plans_wizard.js 구형 renderDynamicFormFields 브랜치 완전 차단
+- [x] FO 렌더링 동기화 버그 해결 (form_config 변환기 블랙리스트 로직 수정, 화이트리스트 지원)
+- [x] FO 렌더링에 교육목적 및 교육유형 읽기전용 필드 추가 (BO 화면과 100% 동기화)

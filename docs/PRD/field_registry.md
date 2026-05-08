@@ -38,7 +38,7 @@
 | BO 키 | FO 키 | BO 라벨 | 단계 | BO 전용 | 휴리스틱 예외 | 비고 |
 |---|---|---|---|---|---|---|
 | `edu_purpose` | `edu_purpose` | 교육목적 | 전체 | ✗ | - | |
-| `edu_type` | *(null — Step2 선택)* | 교육유형 | 전체 | ✓ | - | FO Step2에서 이미 선택 |
+| `edu_type` | `edu_type` | 교육유형 | 전체 | ✗ | FO 렌더러에서 읽기전용으로 노출 | |
 | `course_name` | `course_name` | 교육과정명 | 전체 | ✗ | - | |
 | `is_overseas` | `is_overseas` | 국내/해외 | 전체 | ✗ | 이러닝: BO 설정 우선 | |
 | `education_region` | `is_overseas` | 교육지역 | 전체 | ✗ | is_overseas의 alias | |

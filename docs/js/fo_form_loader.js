@@ -1323,7 +1323,7 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
       ${typeof _renderApprovalRouteInfo === 'function' ? _renderApprovalRouteInfo(s, curBudget) : ''}
     </div>` : '';
 
-  const _readonly = (key, label, defaultText) => inline[key] === true ? `
+  const _readonly = (key, label, defaultText) => _shouldShow(key) ? `
     <div>
       <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">${label} <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
       <div class="w-full bg-blue-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-medium text-blue-800 whitespace-pre-wrap">
@@ -1342,6 +1342,8 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
     </div>` : '';
 
   const basicFields = [
+    _readonly('edu_purpose', '🎯 교육목적', s.eduPurpose || s.edu_purpose || '선택된 목적 없음'),
+    _readonly('edu_type', '📚 교육유형', s.eduType || s.edu_type || '선택된 유형 없음'),
     _field('is_continuing', '전년도 계속 여부', 'boolean', ''),
     titleField,
     _field('learning_objective', '교육목표/내용/대상', 'textarea', '[교육목표]\\n\\n[교육내용]\\n\\n[교육대상]\\n\\n(내용을 작성해주세요)'),
@@ -1611,7 +1613,7 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
       ${s.hardLimitViolated ? '<div class="mt-1.5 text-xs font-black text-red-600">🚫 Hard Limit 초과 항목이 있어 신청할 수 없습니다.</div>' : ''}
     </div>` : '';
 
-  const _readonly = (key, label, defaultText) => inline[key] === true ? `
+  const _readonly = (key, label, defaultText) => _shouldShow(key) ? `
     <div>
       <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">${label} <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
       <div class="w-full bg-blue-50 border-2 border-blue-100 rounded-xl px-5 py-3 font-medium text-blue-800 whitespace-pre-wrap">
@@ -1637,6 +1639,8 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
     </div>` : '';
 
   const basicFields = [
+    _readonly('edu_purpose', '🎯 교육목적', s.eduPurpose || s.edu_purpose || '선택된 목적 없음'),
+    _readonly('edu_type', '📚 교육유형', s.eduType || s.edu_type || '선택된 유형 없음'),
     _field('is_continuing', '전년도 계속 여부', 'boolean', ''),
     titleField,
     _field('learning_objective', '교육목표/내용/대상', 'textarea', '[교육목표]\\n\\n[교육내용]\\n\\n[교육대상]\\n\\n(내용을 작성해주세요)'),
@@ -2077,7 +2081,7 @@ window.foRenderStandardReadOnlyForm = function (data, context = 'FO', inlineFiel
 const _BO_TO_FO_KEY_MAP = {
   // 기본정보
   edu_purpose:        'edu_purpose',        // 교육목적 (select)
-  edu_type:           null,                 // 교육유형은 Step2에서 이미 선택 → FO에선 별도 표시 안 함
+  edu_type:           'edu_type',           // 교육유형
   course_name:        'course_name',        // 교육과정명
   is_overseas:        'is_overseas',        // 국내/해외
   target_audience:    'target_audience',    // 교육대상
@@ -2275,20 +2279,15 @@ function getFormConfigAsInlineFields(formConfig, eduType, stage) {
   let offCount = 0;
 
   for (const [boKey, isOn] of Object.entries(fieldStates)) {
-    // true(ON) 필드는 무시 — 기본 표시이므로 전달할 필요 없음
-    if (isOn !== false) continue;
-
     const foKey = _BO_TO_FO_KEY_MAP[boKey];
     if (foKey === null) continue; // BO 전용 필드 (admin_comment 등) — FO에서 안 쓰는 필드
 
     const mappedKey = (foKey === undefined) ? boKey : foKey;
-
-    // 이미 다른 BO 키에 의해 false로 설정되지 않았으면 숨김 처리
-    inlineFields[mappedKey] = false;
-    offCount++;
+    inlineFields[mappedKey] = isOn;
+    if (isOn === false) offCount++;
   }
 
-  console.log(`[fo_form_loader] form_config → inlineFields 변환 완료 (${eduType}|${stage}): 숨길 필드 ${offCount}개`, inlineFields);
+  console.log(`[fo_form_loader] form_config → inlineFields 변환 완료 (${eduType}|${stage}): 총 ${Object.keys(inlineFields).length}개 (숨김: ${offCount}개)`, inlineFields);
   // ★ 빈 객체라도 반환 — 'BO 설정 존재' 시그널 (null = 미설정과 구분)
   return inlineFields;
 }

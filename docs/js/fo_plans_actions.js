@@ -118,12 +118,15 @@ function planNext() {
         console.warn('[planNext] accCode가 null이거나 loadFormConfigTemplate 미정의 → form_config 스킵');
       }
 
-      // 3) form_config 없으면 기존 form_templates DB 방식으로 폴백 (form_config 미설정 계정만)
-      if (!tpl && !formConfigExists && matched && typeof getFoFormTemplate === 'function') {
-        tpl = await getFoFormTemplate(matched, 'plan', eduType, accCode);
-        if (tpl) {
-          console.log('[planNext] form_templates DB 방식 폴백:', tpl.name || tpl.id);
-        }
+      // 3) form_config 없으면 기존 form_templates DB 방식으로 폴백 (form_config 미설정 계정만) -> [수정] 폴백 완전히 제거, 빈 기본 양식 렌더링 강제 (SSOT)
+      if (!tpl) {
+        console.warn('[planNext] form_config 매칭 실패. 레거시 폴백 차단 및 기본 표준 양식(빈 inlineFields) 렌더링 강제');
+        tpl = { 
+          name: '기본 표준 양식 (전체 오픈)', 
+          isInline: true, 
+          inlineFields: {}, 
+          _source: 'form_config' 
+        };
       }
 
       await cgPromise; // calc_grounds 로드 완료 대기

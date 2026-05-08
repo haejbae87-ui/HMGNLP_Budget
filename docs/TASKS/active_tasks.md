@@ -205,3 +205,7 @@
 - [x] 예산계정 마스터 UI: 데이터 범위 조회 필터를 타이틀 영역 하단으로 이동
 - [x] bo_allocation.js: 예산 변경 이력(Audit Trail) 저장 실패 시 사용자에게 명시적인 에러 Alert 노출 처리 추가
 - [x] bo_budget_master.js 및 bo_allocation.js: 파일 비대화 및 리팩토링 진행 (미사용 데드코드 약 4,000줄 삭제로 파일 크기 최적화)
+
+- [x] FO 렌더링 파이프라인 단일화 (SSOT 구축) 및 fo_apply_actions.js 레거시 중복 코드 완전 제거
+- [x] fo_plans_actions.js 레거시 템플릿 폴백 로직 제거
+- [x] fo_apply_form.js, fo_plans_wizard.js 구형 renderDynamicFormFields 브랜치 완전 차단

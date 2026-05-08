@@ -6,8 +6,12 @@
 
 ## ✅ 완료된 작업 이력
 
-### 2026-05-08 — 교육결과 등록 UX 개선 + 교육신청 버튼 버그 수정
+### 2026-05-08 — 교육결과 등록 UX 개선 및 FO 양식 로딩(Fallback) 버그 수정
 
+- [x] **FO 교육 양식 로딩 (Fallback) 버그 수정**
+  - `bo_form_management.js` — `_formSave()`에서 상위 `eduTypes` 대신 `_formGroupEduTypes`로 수집된 실제 세부 유형(Leaf Nodes) 기준으로 폼 설정을 저장하도록 변경하여 세부 유형(이러닝 등) 양식 설정 누락 문제 해결
+  - `fo_apply_actions.js`, `fo_plans_actions.js` — `loadFormConfigTemplate` 호출 시 상위 `applyState.eduType` 대신 더 구체적인 세부 유형 `eduType` (예: `1_elearning`)를 우선 전달하도록 파라미터 매핑 개선
+  - 백오피스에서 '이러닝' 전용 양식 저장 시, 프론트 오피스에서도 올바른 DB `form_config` 기반 양식이 매칭되도록 동기화 로직 안정화
 - [x] **교육신청 화면 '교육결과 등록' 버튼 제거** — 간헐적 노출 버그 해결
   - `apply.js`, `fo_apply_list.js` — `_applySmartButtons()`에서 패턴 C/D 기반 결과등록 버튼 완전 제거
   - 결과 등록은 독립 메뉴(GNB '교육결과')로 진입하도록 일원화

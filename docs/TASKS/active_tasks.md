@@ -1,10 +1,20 @@
 # HMGNLP_Budget 전체 작업 현황 (active_tasks.md)
 
-> 최종 갱신: 2026-05-07
+> 최종 갱신: 2026-05-08
 
 ---
 
 ## ✅ 완료된 작업 이력
+
+### 2026-05-08 — 교육결과 등록 UX 개선 + 교육신청 버튼 버그 수정
+
+- [x] **교육신청 화면 '교육결과 등록' 버튼 제거** — 간헐적 노출 버그 해결
+  - `apply.js`, `fo_apply_list.js` — `_applySmartButtons()`에서 패턴 C/D 기반 결과등록 버튼 완전 제거
+  - 결과 등록은 독립 메뉴(GNB '교육결과')로 진입하도록 일원화
+- [x] **교육결과 등록 화면 Pre-Wizard(제도그룹/예산계정 사전 선택) 제거**
+  - `result.js` — `renderResult()`에서 VOrg/Account Pre-Wizard 분기 로직 제거
+  - `result.js` — 위저드 내부 `_resultSelectedAccountCode` 의존 코드 정리 (목적 필터, 예산 자동세팅, Step 라벨, 계정 배지)
+  - PRD(`edu_result.md`) 정의에 맞게 바로 목록→위저드 진입 플로우로 단순화
 
 ### 2026-05-07 — 교육 예산 관리 시스템 고도화 (Phase 16)
 

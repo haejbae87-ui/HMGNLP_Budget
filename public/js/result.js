@@ -53,20 +53,8 @@ function _resetResultWizardState() {
 
 // ─── 메인 렌더러 ──────────────────────────────────────────────────────────
 function renderResult() {
-  // ★ Phase 0: Pre-Wizard 라우팅 (사업계획과 동일한 제도그룹→예산계정→목록 흐름)
-  // 위저드 진입 상태가 아닐 때만 pre-wizard 체크
-  if (!_resultWizardState) {
-    if (!_resultSelectedAccountCode) {
-      if (!_resultSelectedVorgId) {
-        _renderResultVorgHub();
-        return;
-      }
-      _renderResultAccountHub();
-      return;
-    }
-  }
-
-  // Phase 1: 기존 위저드/목록 렌더링
+  // 교육결과 등록은 제도그룹/예산계정 사전 선택(Pre-Wizard) 없이
+  // 바로 목록 또는 위저드를 표시한다. (PRD edu_result.md 준수)
   if (_resultWizardState) {
     _renderResultWizard();
   } else {
@@ -285,41 +273,14 @@ function _renderResultWizard() {
   };
   const categorized = {};
 
-  // ★ Pre-Wizard 계정 기반 목적 필터: 선택된 계정의 정책에 연결된 목적만 표시
-  let filteredPurposes = allPurposes;
-  if (_resultSelectedAccountCode && typeof SERVICE_POLICIES !== 'undefined') {
-    const relevantPolicies = SERVICE_POLICIES.filter(p => {
-      if (p.status && p.status !== 'active') return false;
-      const codes = p.account_codes || p.accountCodes || [];
-      return codes.includes(_resultSelectedAccountCode);
-    });
-    if (relevantPolicies.length > 0) {
-      const allowedPurposeKeys = new Set();
-      relevantPolicies.forEach(p => { if (p.purpose) allowedPurposeKeys.add(p.purpose); });
-      const _FO_TO_BO_PURPOSE = typeof window._FO_TO_BO_PURPOSE !== 'undefined' ? window._FO_TO_BO_PURPOSE : {};
-      filteredPurposes = allPurposes.filter(p => {
-        const boPurposeKeys = _FO_TO_BO_PURPOSE[p.id] || [p.id];
-        return boPurposeKeys.some(bk => allowedPurposeKeys.has(bk));
-      });
-      if (filteredPurposes.length === 0) filteredPurposes = allPurposes;
-    }
-  }
+  // 전체 목적을 표시 (Pre-Wizard 없이 위저드 내부에서 필터링)
+  const filteredPurposes = allPurposes;
 
   filteredPurposes.forEach((p) => {
     const cat = p.category || "edu-operation";
     if (!categorized[cat]) categorized[cat] = [];
     categorized[cat].push(p);
   });
-
-  // ★ Pre-Wizard에서 계정이 이미 선택된 경우 예산 자동 세팅
-  if (_resultSelectedAccountCode && !s.budgetId) {
-    const allBudgets = currentPersona?.budgets || [];
-    const matched = allBudgets.find(b => b.accountCode === _resultSelectedAccountCode);
-    if (matched) {
-      s.budgetId = matched.id;
-      s.useBudget = true;
-    }
-  }
 
   // 예산 계정 정보
   const availBudgets = s.purpose
@@ -343,7 +304,7 @@ function _renderResultWizard() {
   const detectedPattern = _processInfo?.pattern || null;
 
   // Step 라벨
-  const stepLabels = ["목적 선택", _resultSelectedAccountCode ? "예산 확인" : "예산 선택", "교육유형 선택", "결과 등록"];
+  const stepLabels = ["목적 선택", "예산 선택", "교육유형 선택", "결과 등록"];
   const stepper = [1, 2, 3, 4]
     .map(
       (n) => `
@@ -362,14 +323,6 @@ function _renderResultWizard() {
   // ═══════════════════════════════════════════════════════════════════
   if (s.step === 1) {
     bodyHtml = `
-    ${_resultSelectedAccountCode ? `
-    <div style="margin-bottom:20px;padding:12px 16px;background:linear-gradient(135deg,#F0F9FF,#EFF6FF);border:1.5px solid #BAE6FD;border-radius:12px;display:flex;align-items:center;gap:12px">
-      <span style="font-size:18px">💳</span>
-      <div style="flex:1">
-        <div style="font-size:10px;font-weight:900;color:#0369A1;text-transform:uppercase;letter-spacing:0.5px">선택된 예산계정</div>
-        <div style="font-size:13px;font-weight:900;color:#111827;margin-top:2px">${_resultSelectedAccountName || _resultSelectedAccountCode}${_resultSelectedVorgName && _resultSelectedVorgName !== '기본 제도그룹' ? ` <span style="font-size:11px;padding:2px 6px;border-radius:4px;background:#E0E7FF;color:#4338CA;font-weight:800">${_resultSelectedVorgName}</span>` : ''}</div>
-      </div>
-    </div>` : ''}
     <h3 class="text-base font-black text-gray-800 mb-5">01. 교육 목적 선택</h3>
     <p class="text-sm text-gray-400 mb-5">결과를 등록할 교육의 목적을 선택하세요.</p>
     ${["self-learning", "edu-operation"]

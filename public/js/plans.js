@@ -54,12 +54,7 @@ async function _loadFoPolicies() {
           g.code === currentPersona.vorgId || g.id === currentPersona.vorgId,
       );
       if (ig) {
-        const { data: vorgRows } = await getSB()
-          .from("virtual_edu_orgs")
-          .select("id")
-          .eq("domain_id", ig.id)
-          .limit(1);
-        vorgId = vorgRows?.[0]?.id || null;
+        vorgId = ig.id;
       }
     } catch (e) {
       console.warn("[FO] VOrg 템플릿 조회 실패:", e.message);

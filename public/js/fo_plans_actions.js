@@ -264,6 +264,28 @@ async function savePlanSaved() {
       return;
     }
   }
+
+  // ★ 월별 예상집행금액 검증 (활성화 되어있을 때만)
+  if (planState.monthly_amount) {
+    let mTotal = 0;
+    for(let i=1; i<=12; i++) mTotal += Number(planState.monthly_amount[`m${i}`] || 0);
+    const amount = _calcGroundsTotal() || Number(planState.amount || 0);
+    if (mTotal !== amount) {
+      alert(`⚠️ 월별예상집행금액 합계(${mTotal.toLocaleString()}원)가 상단의 예산 계획액(${amount.toLocaleString()}원)과 일치하지 않습니다.\n\n정확히 일치하도록 수정 후 다시 저장해주세요.`);
+      return;
+    }
+  }
+
+  // ★ 증감사유 검증 (전년도 계획이 연결되어 있고 증감이 발생했을 때)
+  if (planState.prev_year_actual_amount !== undefined) {
+    const amount = _calcGroundsTotal() || Number(planState.amount || 0);
+    const diff = amount - Number(planState.prev_year_actual_amount);
+    if (diff !== 0 && (!planState.inc_dec_reason || planState.inc_dec_reason.trim() === '')) {
+      alert("⚠️ 전년비 예산 증감이 발생했습니다. 증감사유를 필수적으로 입력해주세요.");
+      return;
+    }
+  }
+
   if (planState.hardLimitViolated) {
     alert("🚫 Hard Limit 초과 항목이 있어 저장할 수 없습니다.");
     return;
@@ -561,6 +583,25 @@ async function confirmPlan() {
   if (planState.plan_type === "ongoing" && amount > 0) {
     const ok = await _foCheckBankBalanceWarning(amount);
     if (!ok) return;
+  }
+
+  // ★ 월별 예상집행금액 검증 (활성화 되어있을 때만)
+  if (planState.monthly_amount) {
+    let mTotal = 0;
+    for(let i=1; i<=12; i++) mTotal += Number(planState.monthly_amount[`m${i}`] || 0);
+    if (mTotal !== amount) {
+      alert(`⚠️ 월별예상집행금액 합계(${mTotal.toLocaleString()}원)가 상단의 예산 계획액(${amount.toLocaleString()}원)과 일치하지 않습니다.\n\n정확히 일치하도록 수정 후 다시 저장해주세요.`);
+      return;
+    }
+  }
+
+  // ★ 증감사유 검증 (전년도 계획이 연결되어 있고 증감이 발생했을 때)
+  if (planState.prev_year_actual_amount !== undefined) {
+    const diff = amount - Number(planState.prev_year_actual_amount);
+    if (diff !== 0 && (!planState.inc_dec_reason || planState.inc_dec_reason.trim() === '')) {
+      alert("⚠️ 전년비 예산 증감이 발생했습니다. 증감사유를 필수적으로 입력해주세요.");
+      return;
+    }
   }
 
   const sb = typeof getSB === "function" ? getSB() : null;

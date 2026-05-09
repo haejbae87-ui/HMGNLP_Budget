@@ -121,6 +121,10 @@ const _FORM_FIELDS = {
     { cat:'비용항목', icon:'💰', budgetOnly:true, fields:[
       {key:'requested_budget', label:'요청 예산 규모', type:'number', unit:'원'},
       {key:'calc_grounds',     label:'세부산출근거',   type:'calc_grounds'},
+      {key:'monthly_headcount',label:'월별교육인원',   type:'monthly_headcount'},
+      {key:'monthly_amount',   label:'월별예상집행금액', type:'monthly_amount'},
+      {key:'prev_year_plan_id',label:'전년도 계속교육(운영계획 연결)', type:'prev_year_plan_id'},
+      {key:'inc_dec_reason',   label:'증감사유',       type:'text'},
     ]},
     { cat:'관리자 필드', icon:'🔧', fields:[
       {key:'admin_comment',    label:'담당자 코멘트', type:'textarea'},
@@ -153,8 +157,12 @@ const _FORM_FIELDS = {
       {key:'is_ei_eligible',   label:'고용보험 해당', type:'boolean'},
     ]},
     { cat:'비용항목', icon:'💰', budgetOnly:true, fields:[
-      {key:'planned_amount',  label:'계획액',       type:'number', unit:'원'},
+      {key:'planned_amount',  label:'계획금액',       type:'number', unit:'원'},
       {key:'calc_grounds',    label:'세부산출근거', type:'calc_grounds'},
+      {key:'monthly_headcount',label:'월별교육인원',   type:'monthly_headcount'},
+      {key:'monthly_amount',   label:'월별예상집행금액', type:'monthly_amount'},
+      {key:'prev_year_plan_id',label:'전년도 계속교육(운영계획 연결)', type:'prev_year_plan_id'},
+      {key:'inc_dec_reason',   label:'증감사유',       type:'text'},
       {key:'expected_benefit',label:'기대효과',     type:'textarea'},
     ]},
     { cat:'관리자 필드', icon:'🔧', fields:[

@@ -1098,6 +1098,45 @@ window.foGetApplicableCalcGrounds = function(calcGroundsList, foContext) {
   });
 };
 
+window._updateMonthly = function(stateObjName, key, month, value) {
+  const stateObj = stateObjName === 'planState' ? (typeof planState !== 'undefined' ? planState : {}) : (typeof applyState !== 'undefined' ? applyState : {});
+  if (!stateObj[key]) stateObj[key] = {};
+  stateObj[key][`m${month}`] = Number(value) || 0;
+  
+  let total = 0;
+  for(let i=1; i<=12; i++) total += Number(stateObj[key][`m${i}`] || 0);
+  const totalEl = document.getElementById(`${stateObjName}_${key}_total`);
+  if (totalEl) {
+    totalEl.innerText = key === 'monthly_amount' ? total.toLocaleString() : total;
+  }
+};
+
+window._foSearchPrevYearPlan = function(stateObjName) {
+  const stateObj = stateObjName === 'planState' ? (typeof planState !== 'undefined' ? planState : {}) : (typeof applyState !== 'undefined' ? applyState : {});
+  
+  let targetPlans = [];
+  if (typeof _dbApprovedPlans !== 'undefined' && Array.isArray(_dbApprovedPlans)) {
+    targetPlans = _dbApprovedPlans;
+  } else {
+    targetPlans = [
+      { id: 'PLAN-2025-001', title: '[2025년] AI 기초 (Mock)', actual_amount: 12000000 },
+      { id: 'PLAN-2025-002', title: '[2025년] 리더십 (Mock)', actual_amount: 5000000 }
+    ];
+  }
+  
+  const listStr = targetPlans.slice(0, 5).map((p, i) => `${i+1}. ${p.title} (실집행: ${Number(p.actual_amount || 0).toLocaleString()}원)`).join('\n');
+  const sel = prompt(`전년도 운영계획을 선택하세요 (1~${Math.min(targetPlans.length, 5)} 번호 입력):\n${listStr}`);
+  
+  const idx = Number(sel) - 1;
+  if (!isNaN(idx) && targetPlans[idx]) {
+    stateObj.prev_year_plan_id = targetPlans[idx].id;
+    stateObj.prev_year_actual_amount = Number(targetPlans[idx].actual_amount || 0);
+    if (typeof renderPlanWizard === 'function') renderPlanWizard();
+    if (typeof renderApply === 'function') renderApply();
+  }
+};
+
+
 // FO에서 사용자 선택 변경 시 calc_grounds 섹션을 재렌더링하는 트리거 함수
 window.refreshCalcGroundsByContext = function(foContext, prefix) {
   // foContext 저장
@@ -1323,6 +1362,65 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
       ${typeof _renderApprovalRouteInfo === 'function' ? _renderApprovalRouteInfo(s, curBudget) : ''}
     </div>` : '';
 
+  const _renderMonthlyTable = (key, label, isCurrency, sObj, stateObjName) => {
+    let html = `<div class="mt-5">
+      <label class="block text-xs font-black text-gray-600 uppercase tracking-wider mb-2">${label}</label>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm text-center border-collapse">
+          <thead>
+            <tr class="bg-gray-50 border-y border-gray-200">
+              <th class="py-2 px-2 font-bold text-gray-600 whitespace-nowrap">년도</th>`;
+    for(let i=1; i<=12; i++) html += `<th class="py-2 px-2 font-bold text-gray-600 w-16">${i}월</th>`;
+    html += `<th class="py-2 px-2 font-bold text-blue-600 whitespace-nowrap">계</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b border-gray-200">
+              <td class="py-3 px-2 font-black text-gray-800">2026</td>`;
+    let total = 0;
+    const values = sObj[key] || {};
+    for(let i=1; i<=12; i++) {
+      let v = Number(values[`m${i}`] || 0);
+      total += v;
+      html += `<td class="py-2 px-1">
+        <input type="number" min="0" value="${v===0?'':v}" oninput="_updateMonthly('${stateObjName}', '${key}', ${i}, this.value)" 
+        class="w-full bg-white border border-gray-300 rounded px-1 py-1.5 text-center text-sm font-medium focus:border-brand focus:ring-1 focus:ring-brand" placeholder="0">
+      </td>`;
+    }
+    html += `<td class="py-2 px-2 font-black text-blue-600" id="${stateObjName}_${key}_total">${isCurrency ? total.toLocaleString() : total}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+    return html;
+  };
+
+  const monthlyHeadcountField = _shouldShow('monthly_headcount') ? _renderMonthlyTable('monthly_headcount', '👥 월별교육인원', false, s, 'planState') : '';
+  const monthlyAmountField = _shouldShow('monthly_amount') ? _renderMonthlyTable('monthly_amount', '💰 월별(예상)집행금액', true, s, 'planState') : '';
+
+  const prevYearPlanIdField = _shouldShow('prev_year_plan_id') ? `
+    <div class="mt-5 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+      <label class="block text-xs font-black text-blue-800 uppercase tracking-wider mb-2">🔄 전년도 운영계획 연동 (비교용)</label>
+      <div class="flex gap-2 items-center">
+        <input type="text" value="${s.prev_year_plan_id || ''}" readonly placeholder="선택된 전년도 운영계획 없음" class="flex-1 bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-700 outline-none cursor-not-allowed">
+        <button type="button" onclick="_foSearchPrevYearPlan('planState')" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition">선택</button>
+      </div>
+      ${s.prev_year_actual_amount !== undefined ? `
+      <div class="mt-3 flex flex-wrap gap-4 text-sm font-medium text-gray-700 bg-white p-3 rounded border border-gray-100 shadow-sm">
+        <div>전년도 총집행액: <span class="font-black text-gray-900">${Number(s.prev_year_actual_amount).toLocaleString()}원</span></div>
+        <div>전년비 증감액: <span class="font-black ${Number(s.amount || 0) - Number(s.prev_year_actual_amount) > 0 ? 'text-red-500' : 'text-blue-500'}">${(Number(s.amount || 0) - Number(s.prev_year_actual_amount)).toLocaleString()}원</span></div>
+        <div>증감률: <span class="font-black">${s.prev_year_actual_amount > 0 ? (((Number(s.amount || 0) - Number(s.prev_year_actual_amount)) / Number(s.prev_year_actual_amount)) * 100).toFixed(1) : 0}%</span></div>
+      </div>` : ''}
+    </div>` : '';
+
+  const incDecReasonField = _shouldShow('inc_dec_reason') ? `
+    <div class="mt-4">
+      <label class="block text-xs font-black text-gray-600 uppercase tracking-wider mb-2">📝 증감사유 <span class="text-xs font-medium text-gray-400 font-normal ml-1">(전년비 증감 발생 시 필수)</span></label>
+      <textarea oninput="planState.inc_dec_reason=this.value" rows="2" placeholder="전년비 증감이 발생한 사유를 구체적으로 입력하세요"
+        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-medium text-gray-800 focus:border-brand focus:bg-white transition resize-none">${s.inc_dec_reason || ''}</textarea>
+    </div>` : '';
+
   const _readonly = (key, label, defaultText) => _shouldShow(key) ? `
     <div>
       <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">${label} <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
@@ -1408,6 +1506,10 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
   const costFields = [
     amountField,
     calcSection,
+    monthlyHeadcountField,
+    monthlyAmountField,
+    prevYearPlanIdField,
+    incDecReasonField,
     eiRefundAmountField
   ];
 
@@ -1607,6 +1709,31 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
       ${s.hardLimitViolated ? '<div class="mt-1.5 text-xs font-black text-red-600">🚫 Hard Limit 초과 항목이 있어 신청할 수 없습니다.</div>' : ''}
     </div>` : '';
 
+  const monthlyHeadcountField = _shouldShow('monthly_headcount') ? _renderMonthlyTable('monthly_headcount', '👥 월별교육인원', false, s, 'applyState') : '';
+  const monthlyAmountField = _shouldShow('monthly_amount') ? _renderMonthlyTable('monthly_amount', '💰 월별(예상)집행금액', true, s, 'applyState') : '';
+
+  const prevYearPlanIdField = _shouldShow('prev_year_plan_id') ? `
+    <div class="mt-5 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+      <label class="block text-xs font-black text-blue-800 uppercase tracking-wider mb-2">🔄 전년도 운영계획 연동 (비교용)</label>
+      <div class="flex gap-2 items-center">
+        <input type="text" value="${s.prev_year_plan_id || ''}" readonly placeholder="선택된 전년도 운영계획 없음" class="flex-1 bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-700 outline-none cursor-not-allowed">
+        <button type="button" onclick="_foSearchPrevYearPlan('applyState')" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition">선택</button>
+      </div>
+      ${s.prev_year_actual_amount !== undefined ? `
+      <div class="mt-3 flex flex-wrap gap-4 text-sm font-medium text-gray-700 bg-white p-3 rounded border border-gray-100 shadow-sm">
+        <div>전년도 총집행액: <span class="font-black text-gray-900">${Number(s.prev_year_actual_amount).toLocaleString()}원</span></div>
+        <div>전년비 증감액: <span class="font-black ${Number(s.amount || 0) - Number(s.prev_year_actual_amount) > 0 ? 'text-red-500' : 'text-blue-500'}">${(Number(s.amount || 0) - Number(s.prev_year_actual_amount)).toLocaleString()}원</span></div>
+        <div>증감률: <span class="font-black">${s.prev_year_actual_amount > 0 ? (((Number(s.amount || 0) - Number(s.prev_year_actual_amount)) / Number(s.prev_year_actual_amount)) * 100).toFixed(1) : 0}%</span></div>
+      </div>` : ''}
+    </div>` : '';
+
+  const incDecReasonField = _shouldShow('inc_dec_reason') ? `
+    <div class="mt-4">
+      <label class="block text-xs font-black text-gray-600 uppercase tracking-wider mb-2">📝 증감사유 <span class="text-xs font-medium text-gray-400 font-normal ml-1">(전년비 증감 발생 시 필수)</span></label>
+      <textarea oninput="applyState.inc_dec_reason=this.value" rows="2" placeholder="전년비 증감이 발생한 사유를 구체적으로 입력하세요"
+        class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-medium text-gray-800 focus:border-brand focus:bg-white transition resize-none">${s.inc_dec_reason || ''}</textarea>
+    </div>` : '';
+
   const _readonly = (key, label, defaultText) => _shouldShow(key) ? `
     <div>
       <label class="block text-xs font-black text-blue-500 uppercase tracking-wider mb-2">${label} <span class="text-xs font-medium ml-2">(읽기전용)</span></label>
@@ -1693,6 +1820,10 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
   const costFields = [
     amountField,
     calcSection,
+    monthlyHeadcountField,
+    monthlyAmountField,
+    prevYearPlanIdField,
+    incDecReasonField,
     eiRefundAmountField
   ];
 

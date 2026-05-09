@@ -105,6 +105,10 @@
 | `requested_budget` | `requested_budget` | 요청예산규모 | forecast,plan,apply | ✗ | 무예산: 강제 숨김 | |
 | `planned_amount` | `requested_budget` | 계획금액 | forecast,plan | ✗ | 무예산: 강제 숨김 | requested_budget의 alias |
 | `calc_grounds` | `calc_grounds` | 세부산출근거 | 전체 | ✗ | 무예산: 강제 숨김 | |
+| `monthly_headcount`| `monthly_headcount`| 월별교육인원 | forecast,plan | ✗ | 무예산: 강제 숨김 | 1~12월 테이블 |
+| `monthly_amount` | `monthly_amount` | 월별예상집행금액 | forecast,plan | ✗ | 무예산: 강제 숨김 | 1~12월 테이블 |
+| `prev_year_plan_id`| `prev_year_plan_id`| 전년도 계속교육(사업계획 연결)| forecast,plan | ✗ | - | 전년도 실적 연동용 |
+| `inc_dec_reason` | `inc_dec_reason` | 증감사유 | forecast,plan | ✗ | - | 전년비 증감사유 |
 | `is_paid_education` | `is_paid_education` | 유료교육여부 | plan,apply | ✗ | hasFormConfig시 기본 숨김 | |
 | `is_ei_eligible` | `is_ei_eligible` | 고용보험 환급여부 | plan,apply | ✗ | - | |
 | `ei_refund_amount` | `ei_refund_amount` | 고용보험 환급예상액 | plan,apply | ✗ | is_ei_eligible=true 일 때만 | |

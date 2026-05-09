@@ -6,6 +6,17 @@
 
 ## ✅ 완료된 작업 이력
 
+### 2026-05-09 — 프론트오피스 폼 UI/UX 프리미엄 개선 및 데이터 호환성 강화
+
+- [x] **FO-BO 폼 레이아웃 완전 동기화 (Phase C)**
+  - `fo_form_loader.js`: `wrapSection` 디자인을 백오피스 Premium UI 스타일(그라디언트, 그림자, 여백 개선)로 고도화
+  - `fo_form_loader.js`: `_field` 인풋 박스(textarea, boolean, default)에 포커스 링 애니메이션 및 hover/active 효과 적용
+  - `fo_form_loader.js`: 읽기 전용 폼(ReadOnly)의 `wrapSection`을 프리미엄 테이블 스타일로 업그레이드
+- [x] **데이터 보존 안정화 및 마이그레이션 적용**
+  - `fo_apply_actions.js`: `resumeApplyDraft` 시 과거 `detail` JSON에 하드코딩된 레거시 필드명을 신규 필드명(`learning_objective`, `expected_benefit` 등)으로 자동 매핑하는 하위 호환성 폴백 로직 완비
+  - `fo_plans_actions.js`: `savePlanDraft`, `savePlanSaved`, `confirmPlan` 시 `applyState` 전체를 복제 보존하여 데이터 누락 원천 차단
+  - `fo_plans_actions.js`: `resumePlanDraft` 호출 시 레거시 필드명을 신규 필드명으로 하위 호환 매핑
+
 ### 2026-05-08 — 교육결과 등록 UX 개선 및 FO 양식 로딩(Fallback) 버그 수정
 
 - [x] **FO 교육 양식 로딩 (Fallback) 버그 수정**
@@ -195,7 +206,7 @@
 - [x] 예산 배정 현황 Mock 데이터(ACCOUNT_BUDGETS, TEAM_DIST) 완전 제거
 
 ### 중기
-- [ ] P10: applications 연동 실사용액 자동 집계
+- [x] P10: applications 연동 실사용액 자동 집계 (완료)
 - [ ] F-156: 운영담당자 전용 대시보드
 
 ### 장기

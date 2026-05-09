@@ -992,6 +992,44 @@ function _formPreviewFieldCard(f, icon) {
       </div>`;
     case 'calc_grounds':
       return _formPreviewField(f);
+    case 'monthly_headcount':
+    case 'monthly_amount':
+      let isCurrency = f.type === 'monthly_amount';
+      let html = `<div style="margin-bottom:14px">${labelHtml}
+        <div style="overflow-x:auto; border:1px solid #E2E8F0; border-radius:8px; background:white;">
+          <table style="width:100%; border-collapse:collapse; text-align:center; font-size:11px;">
+            <thead>
+              <tr style="background:#F8FAFC; border-bottom:1px solid #E2E8F0;">
+                <th style="padding:6px; color:#475569; font-weight:700; white-space:nowrap;">년도</th>`;
+      for(let i=1; i<=12; i++) html += `<th style="padding:6px; color:#475569; font-weight:700; white-space:nowrap;">${i}월</th>`;
+      html += `<th style="padding:6px; color:#3B82F6; font-weight:700; white-space:nowrap;">계</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding:6px; font-weight:700; color:#334155">2026</td>`;
+      for(let i=1; i<=12; i++) html += `<td style="padding:4px;"><input type="text" disabled placeholder="0" style="width:100%; min-width:30px; text-align:center; border:1px solid #E2E8F0; border-radius:4px; font-size:10px;"></td>`;
+      html += `<td style="padding:6px; font-weight:700; color:#3B82F6">0</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+      return html;
+
+    case 'prev_year_plan_id':
+      return `<div style="margin-bottom:14px">${labelHtml}
+        <div style="display:flex;gap:8px">
+          <input type="text" disabled placeholder="선택된 전년도 운영계획 없음" style="${base};flex:1">
+          <button disabled style="padding:8px 16px;border:1px solid #3B82F6;background:#3B82F6;color:white;border-radius:10px;font-size:12px;font-weight:700;cursor:default;white-space:nowrap">선택</button>
+        </div>
+        <div style="margin-top:8px; padding:10px; background:white; border:1px solid #E2E8F0; border-radius:8px; font-size:11px; color:#475569; display:flex; gap:16px;">
+          <div>전년도 총집행액: <span style="font-weight:700; color:#0F172A">0원</span></div>
+          <div>전년비 증감액: <span style="font-weight:700; color:#3B82F6">0원</span></div>
+          <div>증감률: <span style="font-weight:700; color:#0F172A">0%</span></div>
+        </div>
+      </div>`;
+
     default:
       return `<div style="margin-bottom:14px">${labelHtml}
         <input type="text" disabled placeholder="${f.label}을(를) 입력하세요" style="${base}">

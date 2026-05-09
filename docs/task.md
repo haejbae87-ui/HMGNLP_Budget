@@ -1,9 +1,14 @@
-# 🚧 실시간 AI 작업 진행 상황
+# 기능 단위 파일 분리 체크리스트
 
-- [x] Step 1: `pre_dev_check` 실행 및 작업 대상 파일 점검
-- [x] Step 1: `pre_dev_check` 실행 및 작업 대상 파일 점검
-- [x] Step 2: `field_registry.md`에 신규 4개 필드 추가 (사용자가 직접 추가 완료)
-- [x] Step 3: 백오피스(`bo_form_management.js`) 양식 관리 토글 UI 추가
-- [x] Step 4: 프론트오피스(`fo_form_loader.js`) 1~12월 테이블 및 전년도 운영계획 조회 UI 개발
-- [x] Step 5: `fo_plans_actions.js`에 데이터 보존(JSON detail) 및 합계 검증 로직 추가
-- [x] Step 6: 검증 (Validation) 및 최종 배포 완료
+- [ ] js/data.js – 데이터 레이어 (PERSONAS, MOCK_HISTORY, MOCK_PLANS, applyState)
+- [ ] css/styles.css – 전역 CSS 스타일
+- [ ] js/utils.js – 공통 유틸 함수 (fmt, statusBadge, navigate, switchPersona)
+- [ ] js/gnb.js – GNB(상단 네비게이션) + Floating Budget Widget
+- [ ] js/dashboard.js – 대시보드 렌더링
+- [ ] js/plans.js – 교육계획 렌더링 + 폼 핸들러
+- [ ] js/history.js – 교육신청 목록 렌더링
+- [ ] js/apply.js – 교육신청 4단계 스텝 렌더링 + 핸들러
+- [ ] js/budget.js – 예산 관리 렌더링
+- [ ] js/mypage.js – 마이페이지 렌더링
+- [ ] js/main.js – 앱 초기화 (DOMContentLoaded)
+- [ ] index.html – 슬림화 (script/style 태그 → 외부 파일 참조)

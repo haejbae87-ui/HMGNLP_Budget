@@ -1134,8 +1134,42 @@ window._foSearchPrevYearPlan = function(stateObjName) {
     if (typeof renderPlanWizard === 'function') renderPlanWizard();
     if (typeof renderApply === 'function') renderApply();
   }
+  }
 };
 
+window._renderMonthlyTable = function(key, label, isCurrency, sObj, stateObjName) {
+  let html = `<div class="mt-5">
+    <label class="block text-xs font-black text-gray-600 uppercase tracking-wider mb-2">${label}</label>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-center border-collapse">
+        <thead>
+          <tr class="bg-gray-50 border-y border-gray-200">
+            <th class="py-2 px-2 font-bold text-gray-600 whitespace-nowrap">년도</th>`;
+  for(let i=1; i<=12; i++) html += `<th class="py-2 px-2 font-bold text-gray-600 w-16">${i}월</th>`;
+  html += `<th class="py-2 px-2 font-bold text-blue-600 whitespace-nowrap">계</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="border-b border-gray-200">
+            <td class="py-3 px-2 font-black text-gray-800">2026</td>`;
+  let total = 0;
+  const values = sObj[key] || {};
+  for(let i=1; i<=12; i++) {
+    let v = Number(values[`m${i}`] || 0);
+    total += v;
+    html += `<td class="py-2 px-1">
+      <input type="number" min="0" value="${v===0?'':v}" oninput="window._updateMonthly('${stateObjName}', '${key}', ${i}, this.value)" 
+      class="w-full bg-white border border-gray-300 rounded px-1 py-1.5 text-center text-sm font-medium focus:border-brand focus:ring-1 focus:ring-brand" placeholder="0">
+    </td>`;
+  }
+  html += `<td class="py-2 px-2 font-black text-blue-600" id="${stateObjName}_${key}_total">${isCurrency ? total.toLocaleString() : total}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+  return html;
+};
 
 // FO에서 사용자 선택 변경 시 calc_grounds 섹션을 재렌더링하는 트리거 함수
 window.refreshCalcGroundsByContext = function(foContext, prefix) {
@@ -1362,42 +1396,8 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
       ${typeof _renderApprovalRouteInfo === 'function' ? _renderApprovalRouteInfo(s, curBudget) : ''}
     </div>` : '';
 
-  const _renderMonthlyTable = (key, label, isCurrency, sObj, stateObjName) => {
-    let html = `<div class="mt-5">
-      <label class="block text-xs font-black text-gray-600 uppercase tracking-wider mb-2">${label}</label>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm text-center border-collapse">
-          <thead>
-            <tr class="bg-gray-50 border-y border-gray-200">
-              <th class="py-2 px-2 font-bold text-gray-600 whitespace-nowrap">년도</th>`;
-    for(let i=1; i<=12; i++) html += `<th class="py-2 px-2 font-bold text-gray-600 w-16">${i}월</th>`;
-    html += `<th class="py-2 px-2 font-bold text-blue-600 whitespace-nowrap">계</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr class="border-b border-gray-200">
-              <td class="py-3 px-2 font-black text-gray-800">2026</td>`;
-    let total = 0;
-    const values = sObj[key] || {};
-    for(let i=1; i<=12; i++) {
-      let v = Number(values[`m${i}`] || 0);
-      total += v;
-      html += `<td class="py-2 px-1">
-        <input type="number" min="0" value="${v===0?'':v}" oninput="_updateMonthly('${stateObjName}', '${key}', ${i}, this.value)" 
-        class="w-full bg-white border border-gray-300 rounded px-1 py-1.5 text-center text-sm font-medium focus:border-brand focus:ring-1 focus:ring-brand" placeholder="0">
-      </td>`;
-    }
-    html += `<td class="py-2 px-2 font-black text-blue-600" id="${stateObjName}_${key}_total">${isCurrency ? total.toLocaleString() : total}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>`;
-    return html;
-  };
-
-  const monthlyHeadcountField = _shouldShow('monthly_headcount') ? _renderMonthlyTable('monthly_headcount', '👥 월별교육인원', false, s, 'planState') : '';
-  const monthlyAmountField = _shouldShow('monthly_amount') ? _renderMonthlyTable('monthly_amount', '💰 월별(예상)집행금액', true, s, 'planState') : '';
+  const monthlyHeadcountField = _shouldShow('monthly_headcount') ? window._renderMonthlyTable('monthly_headcount', '👥 월별교육인원', false, s, 'planState') : '';
+  const monthlyAmountField = _shouldShow('monthly_amount') ? window._renderMonthlyTable('monthly_amount', '💰 월별(예상)집행금액', true, s, 'planState') : '';
 
   const prevYearPlanIdField = _shouldShow('prev_year_plan_id') ? `
     <div class="mt-5 p-4 bg-blue-50 border border-blue-100 rounded-xl">
@@ -1709,8 +1709,8 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
       ${s.hardLimitViolated ? '<div class="mt-1.5 text-xs font-black text-red-600">🚫 Hard Limit 초과 항목이 있어 신청할 수 없습니다.</div>' : ''}
     </div>` : '';
 
-  const monthlyHeadcountField = _shouldShow('monthly_headcount') ? _renderMonthlyTable('monthly_headcount', '👥 월별교육인원', false, s, 'applyState') : '';
-  const monthlyAmountField = _shouldShow('monthly_amount') ? _renderMonthlyTable('monthly_amount', '💰 월별(예상)집행금액', true, s, 'applyState') : '';
+  const monthlyHeadcountField = _shouldShow('monthly_headcount') ? window._renderMonthlyTable('monthly_headcount', '👥 월별교육인원', false, s, 'applyState') : '';
+  const monthlyAmountField = _shouldShow('monthly_amount') ? window._renderMonthlyTable('monthly_amount', '💰 월별(예상)집행금액', true, s, 'applyState') : '';
 
   const prevYearPlanIdField = _shouldShow('prev_year_plan_id') ? `
     <div class="mt-5 p-4 bg-blue-50 border border-blue-100 rounded-xl">

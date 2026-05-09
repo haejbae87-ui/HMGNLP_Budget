@@ -203,6 +203,7 @@ async function savePlanDraft() {
       planned_rounds: planState.plannedRounds || planState.planned_rounds || 1,
       planned_days: planState.plannedDays || planState.planned_days || null,
       detail: {
+        ...planState,
         purpose: planState.purpose?.id || null,
         purpose_text: planState.purpose_text || "",
         expectedEffect: planState.expectedEffect || "",
@@ -310,6 +311,7 @@ async function savePlanSaved() {
       planned_rounds: planState.plannedRounds || planState.planned_rounds || 1,
       planned_days: planState.plannedDays || planState.planned_days || null,
       detail: {
+        ...planState,
         purpose: planState.purpose?.id || null,
         purpose_text: planState.purpose_text || "",
         expectedEffect: planState.expectedEffect || "",
@@ -592,6 +594,7 @@ async function confirmPlan() {
         planned_rounds: planState.plannedRounds || planState.planned_rounds || 1,
         planned_days: planState.plannedDays || planState.planned_days || null,
         detail: {
+          ...planState,
           purpose: planState.purpose?.id || null,
           purpose_text: planState.purpose_text || "",
           expectedEffect: planState.expectedEffect || "",
@@ -691,6 +694,16 @@ async function resumePlanDraft(planId) {
       return;
     }
     planState = resetPlanState();
+    Object.assign(planState, data.detail || {}); // Load all dynamic fields
+    
+    // Backward compatibility mapping for old records
+    if (!planState.learning_objective && planState.purpose_text) planState.learning_objective = planState.purpose_text;
+    if (!planState.expected_benefit && planState.expectedEffect) planState.expected_benefit = planState.expectedEffect;
+    if (!planState.course_description && planState.content) planState.course_description = planState.content;
+    if (!planState.planned_duration && planState.eduPeriod) planState.planned_duration = planState.eduPeriod;
+    if (!planState.edu_org && planState.institution) planState.edu_org = planState.institution;
+    if (!planState.start_end_date && planState.period) planState.start_end_date = planState.period;
+
     planState.editId = data.id;
     planState.title = data.edu_name || "";
     planState.eduType = data.edu_type || data.detail?.eduType || "";

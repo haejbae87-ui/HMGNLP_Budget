@@ -1163,11 +1163,11 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
     const content = fieldsArray.filter(Boolean).join('\n');
     if (!content.trim()) return '';
     return `
-      <div class="mb-6 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-        <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 font-bold text-gray-700 flex items-center gap-2">
-          <span>${icon}</span> ${title}
+      <div class="mb-6 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-md">
+        <div class="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 font-bold text-gray-800 flex items-center gap-3">
+          <span class="text-xl">${icon}</span> <span class="text-[15px]">${title}</span>
         </div>
-        <div class="p-5 grid gap-5">
+        <div class="p-6 grid gap-6">
           ${content}
         </div>
       </div>
@@ -1189,15 +1189,15 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
     if (type === 'textarea') {
       return `
         <div>
-          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}${reqMark}</label>
-          <textarea oninput="${stateObj}.${key}=this.value" rows="3" placeholder="${placeholder}"
-            class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-medium text-gray-700 focus:border-accent focus:bg-white transition resize-none">${s[key] || ''}</textarea>
+          <label class="block text-xs font-black text-gray-600 uppercase tracking-wider mb-2.5">${label}${reqMark}</label>
+          <textarea oninput="${stateObj}.${key}=this.value" rows="4" placeholder="${placeholder}"
+            class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-medium text-gray-800 focus:border-brand focus:ring-2 focus:ring-brand focus:ring-opacity-20 focus:bg-white transition resize-none">${s[key] || ''}</textarea>
         </div>`;
     }
     if (type === 'boolean') {
       return `
         <div>
-          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}${reqMark}</label>
+          <label class="block text-xs font-black text-gray-600 uppercase tracking-wider mb-2.5">${label}${reqMark}</label>
           <label class="flex items-center cursor-pointer gap-2">
             <input type="checkbox" onchange="${stateObj}.${key}=this.checked" ${s[key] ? 'checked' : ''} class="w-5 h-5 accent-accent">
             <span class="text-sm font-bold text-gray-700">선택 (Yes)</span>
@@ -1206,9 +1206,9 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
     }
     return `
       <div>
-        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}${reqMark}</label>
+        <label class="block text-xs font-black text-gray-600 uppercase tracking-wider mb-2.5">${label}${reqMark}</label>
         <input type="${type}" value="${s[key] || ''}" oninput="${stateObj}.${key}=this.value" placeholder="${placeholder}"
-          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
+          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-900 focus:border-brand focus:ring-2 focus:ring-brand focus:ring-opacity-20 focus:bg-white transition"/>
       </div>`;
   };
 
@@ -1465,11 +1465,11 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
     const content = fieldsArray.filter(Boolean).join('\n');
     if (!content.trim()) return '';
     return `
-      <div class="mb-6 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-        <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 font-bold text-gray-700 flex items-center gap-2">
-          <span>${icon}</span> ${title}
+      <div class="mb-6 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-md">
+        <div class="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 font-bold text-gray-800 flex items-center gap-3">
+          <span class="text-xl">${icon}</span> <span class="text-[15px]">${title}</span>
         </div>
-        <div class="p-5 grid gap-5">
+        <div class="p-6 grid gap-6">
           ${content}
         </div>
       </div>
@@ -1492,15 +1492,15 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
     if (type === 'textarea') {
       return `
         <div>
-          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}${reqMark}</label>
-          <textarea oninput="${stateObj}.${key}=this.value" rows="3" placeholder="${placeholder}"
-            class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-medium text-gray-700 focus:border-accent focus:bg-white transition resize-none">${s[key] || ''}</textarea>
+          <label class="block text-xs font-black text-gray-600 uppercase tracking-wider mb-2.5">${label}${reqMark}</label>
+          <textarea oninput="${stateObj}.${key}=this.value" rows="4" placeholder="${placeholder}"
+            class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-medium text-gray-800 focus:border-brand focus:ring-2 focus:ring-brand focus:ring-opacity-20 focus:bg-white transition resize-none">${s[key] || ''}</textarea>
         </div>`;
     }
     if (type === 'boolean') {
       return `
         <div>
-          <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}${reqMark}</label>
+          <label class="block text-xs font-black text-gray-600 uppercase tracking-wider mb-2.5">${label}${reqMark}</label>
           <label class="flex items-center cursor-pointer gap-2">
             <input type="checkbox" onchange="${stateObj}.${key}=this.checked" ${s[key] ? 'checked' : ''} class="w-5 h-5 accent-accent">
             <span class="text-sm font-bold text-gray-700">선택 (Yes)</span>
@@ -1509,9 +1509,9 @@ window.foRenderStandardApplyForm = function(s, curBudget, inlineFields) {
     }
     return `
       <div>
-        <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">${label}${reqMark}</label>
+        <label class="block text-xs font-black text-gray-600 uppercase tracking-wider mb-2.5">${label}${reqMark}</label>
         <input type="${type}" value="${s[key] || ''}" oninput="${stateObj}.${key}=this.value" placeholder="${placeholder}"
-          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-900 focus:border-accent focus:bg-white transition"/>
+          class="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-900 focus:border-brand focus:ring-2 focus:ring-brand focus:ring-opacity-20 focus:bg-white transition"/>
       </div>`;
   };
 
@@ -1903,13 +1903,13 @@ window.foRenderStandardReadOnlyForm = function (data, context = 'FO', inlineFiel
   const wrapSection = (title, icon, rows) => {
     if (!rows || rows.length === 0) return '';
     return `
-      <div style="background:white;border-radius:12px;border:1px solid #E5E7EB;margin-bottom:16px;overflow:hidden">
-        <div style="padding:12px 20px;background:#F9FAFB;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:8px">
-          <span style="font-size:16px">${icon}</span>
-          <h3 style="margin:0;font-size:14px;font-weight:800;color:#111827">${title}</h3>
+      <div style="background:white;border-radius:20px;border:1px solid #E5E7EB;margin-bottom:20px;overflow:hidden;box-shadow:0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);">
+        <div style="padding:16px 24px;background:linear-gradient(to right, #F9FAFB, #FFFFFF);border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:12px">
+          <span style="font-size:20px">${icon}</span>
+          <h3 style="margin:0;font-size:15px;font-weight:800;color:#1F2937">${title}</h3>
         </div>
-        <div style="padding:16px 20px">
-          <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <div style="padding:20px 24px">
+          <table style="width:100%;border-collapse:collapse;font-size:14px">
             <tbody>${rows.join('')}</tbody>
           </table>
         </div>

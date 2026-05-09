@@ -378,6 +378,7 @@ async function confirmApply() {
           is_overseas: applyState.isOverseas === true || applyState.is_overseas === true || false,
           overseas_country: applyState.overseasCountry || applyState.overseas_country || null,
           detail: {
+            ...applyState,
             purpose: applyState.purpose?.id || null,
             expenses: applyState.expenses,
             courseSessionLinks: applyState.courseSessionLinks || [],
@@ -491,6 +492,7 @@ async function saveApplyDraft() {
       form_template_id: applyState.formTemplate?.id || null,
       form_version: applyState.formTemplate?.version || null,
       detail: {
+        ...applyState,
         purpose: applyState.purpose?.id || null,
         purpose_text: applyState.purpose_text || "",
         expectedEffect: applyState.expectedEffect || "",
@@ -586,6 +588,14 @@ async function resumeApplyDraft(appId) {
       return;
     }
     applyState = resetApplyState();
+    Object.assign(applyState, data.detail || {}); // Load all dynamic fields
+    
+    // Backward compatibility mapping for old records
+    if (!applyState.learning_objective && applyState.purpose_text) applyState.learning_objective = applyState.purpose_text;
+    if (!applyState.expected_benefit && applyState.expectedEffect) applyState.expected_benefit = applyState.expectedEffect;
+    if (!applyState.course_description && applyState.content) applyState.course_description = applyState.content;
+    if (!applyState.planned_duration && applyState.eduPeriod) applyState.planned_duration = applyState.eduPeriod;
+
     applyState.editId = data.id;
     applyState.eduName = data.edu_name || "";
     applyState.title = data.edu_name || "";

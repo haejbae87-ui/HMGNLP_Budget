@@ -2198,7 +2198,7 @@ function _renderApplyConfirm() {
         </button>
         <button onclick="confirmApply()"
           style="padding:10px 28px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#002C5F;color:white;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">
-          ✅ 확정 제출
+          📤 상신하기
         </button>
       </div>
 

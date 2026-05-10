@@ -6,6 +6,13 @@
 
 ## ✅ 완료된 작업 이력
 
+### 2026-05-10 — FO 교육신청·교육결과 저장 후 프로세스 통합 (Post-Save Flow)
+
+- [x] **교육신청/결과등록 저장 직후 상세 뷰어 화면 진입 처리**
+  - `fo_apply_actions.js`: `saveApplyAsReady()` 로직 수정. 하드코딩된 `history` 목록으로 강제 튕기는 UX를 사업계획/운영계획처럼 `confirmMode` 기반의 요약 확인 화면으로 이동하도록 통일.
+  - `apply.js`, `fo_apply_actions.js`: 작성 완료 시 보여지는 모달 하단 버튼을 `✅ 확정 제출`에서 결재 행위를 암시하는 `📤 상신하기`로 일괄 변경 (상위 승인자 워크플로우 통일).
+  - `result.js`: 교육결과 저장 완료 시 `renderResult` 호출 전 `confirmMode = true`를 세팅하여 제출된 내용을 확인(`_renderResultConfirm`)할 수 있도록 설계 통합.
+
 ### 2026-05-09 — 프론트오피스 폼 UI/UX 프리미엄 개선 및 데이터 호환성 강화
 
 - [x] **FO-BO 폼 레이아웃 완전 동기화 (Phase C)**

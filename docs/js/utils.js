@@ -724,6 +724,8 @@ function navigate(page) {
     renderApply();
   }
   if (page === "result") {
+    // Phase1: 허브 상태 초기화
+    if (typeof _resetResultHubCache === 'function') _resetResultHubCache();
     if (typeof renderResult === "function") renderResult();
   }
   if (page === "mypage") renderMypage();

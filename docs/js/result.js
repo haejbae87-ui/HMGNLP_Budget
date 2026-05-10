@@ -13,6 +13,15 @@ let _resultYear = new Date().getFullYear();
 let _resultApprovedApps = [];
 let _resultApprovedAppsLoaded = false;
 
+// ── Phase1: 결과등록 허브 상태 (교육신청과 동일 패턴) ──────────────────────
+let _resultSelectedVorgId = null;
+let _resultSelectedVorgName = null;
+let _resultSelectedAccountCode = null;
+let _resultSelectedAccountName = null;
+let _resultUserVorgList = [];
+let _resultSelectedVorgOwnedAccounts = [];
+let _resultAccountListViewMode = 'both';
+
 function _resetResultWizardState() {
   return {
     step: 1,
@@ -53,11 +62,18 @@ function _resetResultWizardState() {
 
 // ─── 메인 렌더러 ──────────────────────────────────────────────────────────
 function renderResult() {
-  // 교육결과 등록은 제도그룹/예산계정 사전 선택(Pre-Wizard) 없이
-  // 바로 목록 또는 위저드를 표시한다. (PRD edu_result.md 준수)
   if (_resultWizardState) {
     _renderResultWizard();
   } else {
+    // ── Phase1: 허브 라우팅 (계정 미선택이면 허브 표시) ──
+    if (!_resultSelectedAccountCode) {
+      if (!_resultSelectedVorgId) {
+        _renderResultVorgHub();
+        return;
+      }
+      _renderResultAccountHub();
+      return;
+    }
     _renderResultList();
   }
 }
@@ -67,12 +83,14 @@ function _renderResultList() {
   const sb = typeof getSB === "function" ? getSB() : null;
   if (sb && !_resultDbLoaded) {
     _resultDbLoaded = true;
-    sb.from("applications")
+    let _rQuery = sb.from("applications")
       .select("*")
       .eq("applicant_id", currentPersona.id)
       .eq("tenant_id", currentPersona.tenantId)
-      .in("status", ["completed", "result_pending"])
-      .order("created_at", { ascending: false })
+      .in("status", ["completed", "result_pending"]);
+    // ★ Phase1: 선택된 계정으로 필터
+    if (_resultSelectedAccountCode) _rQuery = _rQuery.eq("account_code", _resultSelectedAccountCode);
+    _rQuery.order("created_at", { ascending: false })
       .then(({ data, error }) => {
         if (!error && data) {
           _resultDbRows = data.map((d) => ({
@@ -216,7 +234,10 @@ function _renderResultList() {
 <div class="max-w-5xl mx-auto space-y-4">
   <div style="display:flex;align-items:flex-end;justify-content:space-between">
     <div>
-      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Home › 교육결과</div>
+      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">
+        HOME › ${_resultUserVorgList.length > 1 ? `<span onclick="_resultSelectedVorgId=null;_resultSelectedAccountCode=null;_resultDbLoaded=false;renderResult()" style="cursor:pointer;text-decoration:underline;color:#6B7280">교육결과</span>` : `<span style="color:#002C5F">교육결과</span>`}
+        ${_resultSelectedAccountName ? ` › <span style="color:#002C5F">${_resultSelectedAccountName}</span>` : ''}
+      </div>
       <h1 class="text-3xl font-black text-brand tracking-tight">교육결과 등록</h1>
       <p class="text-gray-500 text-sm mt-1">${currentPersona.name} · ${currentPersona.dept}</p>
     </div>
@@ -303,15 +324,15 @@ function _renderResultWizard() {
       : null;
   const detectedPattern = _processInfo?.pattern || null;
 
-  // Step 라벨
-  const stepLabels = ["목적 선택", "예산 선택", "교육유형 선택", "결과 등록"];
-  const stepper = [1, 2, 3, 4]
+  // Step 라벨 (Phase1: 3단계)
+  const stepLabels = ["목적 선택", "교육유형 선택", "결과 등록"];
+  const stepper = [1, 2, 3]
     .map(
       (n) => `
   <div class="step-item flex items-center gap-2 ${s.step > n ? "done" : s.step === n ? "active" : ""}">
     <div class="step-circle w-8 h-8 rounded-full flex items-center justify-center text-sm font-black transition-all">${s.step > n ? "✓" : n}</div>
     <span class="text-xs font-bold ${s.step === n ? "text-brand" : "text-gray-400"} hidden sm:block">${stepLabels[n - 1]}</span>
-    ${n < 4 ? '<div class="h-px flex-1 bg-gray-200 mx-2 w-8"></div>' : ""}
+    ${n < 3 ? '<div class="h-px flex-1 bg-gray-200 mx-2 w-8"></div>' : ""}
   </div>`,
     )
     .join("");
@@ -357,9 +378,9 @@ function _renderResultWizard() {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // Step 2: 예산 계정 선택 (교육신청과 동일한 구조)
+  // Step 2 (Budget): 허브에서 사전 선택되므로 숨김
   // ═══════════════════════════════════════════════════════════════════
-  if (s.step === 2) {
+  if (false) { // Phase1: 예산 허브에서 사전 선택됨
     const isInd = s.purpose?.id === "external_personal";
 
     if (isInd) {
@@ -462,15 +483,15 @@ function _renderResultWizard() {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // Step 3: 교육유형 선택 (교육신청과 동일)
+  // Step 2: 교육유형 선택 (AS-IS Step 3)
   // ═══════════════════════════════════════════════════════════════════
-  if (s.step === 3) {
+  if (s.step === 2) {
     const eduTree =
       typeof getPolicyEduTree === "function" && s.purpose
         ? getPolicyEduTree(currentPersona, s.purpose.id, curBudget?.accountCode)
         : [];
     bodyHtml = `
-    <h3 class="text-base font-black text-gray-800 mb-2">03. 교육유형 선택</h3>
+    <h3 class="text-base font-black text-gray-800 mb-2">02. 교육유형 선택</h3>
     <p class="text-sm text-gray-400 mb-5">결과를 등록할 교육의 유형을 선택하세요.</p>
     ${
       eduTree.length > 0
@@ -510,9 +531,9 @@ function _renderResultWizard() {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // Step 4: 세부정보 + 결과 작성
+  // Step 3: 세부정보 + 결과 작성 (AS-IS Step 4)
   // ═══════════════════════════════════════════════════════════════════
-  if (s.step === 4) {
+  if (s.step === 3) {
     // ★ 양식 로딩 중
     if (s.formTemplateLoading) {
       bodyHtml = `<div style="padding:32px;text-align:center;color:#6B7280;font-size:14px;font-weight:600"><div style="font-size:28px;margin-bottom:8px">⌛</div>양식 로딩 중...</div>`;
@@ -544,14 +565,14 @@ function _renderResultWizard() {
     if (isAppBased) {
       // 패턴 A/B: 신청 기반 → Q-MP5 Line Items 결과 분리 등록 + 결과 작성
       bodyHtml = `
-      <h3 class="text-base font-black text-gray-800 mb-4">04. 교육 결과 작성</h3>
+      <h3 class="text-base font-black text-gray-800 mb-4">03. 교육 결과 작성</h3>
       ${tplBadge}${selectedInfo}
       ${_renderLineItemResultSection(s)}
       ${_renderStep4ResultForm(s, _shouldShow)}`;
     } else {
       // 패턴 C: 직접 입력 (사후 정산) → 교육정보 + 결과 작성
       bodyHtml = `
-      <h3 class="text-base font-black text-gray-800 mb-4">04. 교육 정보 및 결과 작성</h3>
+      <h3 class="text-base font-black text-gray-800 mb-4">03. 교육 정보 및 결과 작성</h3>
       ${tplBadge}${selectedInfo}
       ${_renderStep4DirectInfo(s, _shouldShow)}
       <div style="margin:24px 0;border-top:2px solid #E5E7EB"></div>
@@ -562,16 +583,10 @@ function _renderResultWizard() {
   }
 
   // 다음 버튼 활성 조건
+  // Phase1: 3단계 canNext
   const canNext = (() => {
     if (s.step === 1) return !!s.purpose;
-    if (s.step === 2) {
-      if (s.purpose?.id === "external_personal") {
-        return !!s.budgetChoice;
-      }
-      if (s.mode === "from_application") return !!s.selectedAppId;
-      return !!s.budgetId;
-    }
-    if (s.step === 3) return !!s.learningType;
+    if (s.step === 2) return !!s.learningType;
     return true;
   })();
 
@@ -598,13 +613,13 @@ function _renderResultWizard() {
     <div class="flex justify-between mt-6 pt-4 border-t border-gray-100">
       ${s.step > 1 ? `<button onclick="_resultPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>` : "<div></div>"}
       ${
-        s.step < 4
+        s.step < 3
           ? `<button onclick="_resultNext()" ${!canNext ? "disabled" : ""}
         class="px-8 py-3 rounded-xl font-black text-sm transition ${!canNext ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-brand text-white hover:bg-blue-900 shadow-lg"}">다음 →</button>`
           : ""
       }
       ${
-        s.step === 4
+        s.step === 3
           ? `<button onclick="_submitResultRegistration()"
         class="px-10 py-3 rounded-xl font-black text-sm bg-brand text-white hover:bg-blue-900 shadow-lg transition">📤 결과 제출</button>`
           : ""
@@ -1305,12 +1320,7 @@ async function _resultLoadFormTemplate(s) {
 
 function _resultPrev() {
   const s = _resultWizardState;
-  // Step 4에서 이전: 신청 기반이면 Step 2로
-  if (s.step === 4 && s.mode === "from_application") {
-    s.step = 2;
-  } else {
-    s.step = Math.max(s.step - 1, 1);
-  }
+  s.step = Math.max(s.step - 1, 1);
   renderResult();
 }
 
@@ -1426,4 +1436,157 @@ async function _submitResultRegistration() {
     alert("제출 실패: " + err.message);
     console.error("[_submitResultRegistration]", err.message);
   }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Phase 1 — 결과등록 VOrg 허브 (교육신청과 동일 패턴)
+// ══════════════════════════════════════════════════════════════════════
+async function _renderResultVorgHub() {
+  const container = document.getElementById('page-result');
+  if (!container) return;
+  let vorgIds = [];
+  if (Array.isArray(currentPersona?.vorgIds) && currentPersona.vorgIds.length > 0) vorgIds = currentPersona.vorgIds;
+  else if (currentPersona?.vorgId) vorgIds = [currentPersona.vorgId];
+  else if (currentPersona?.domainId) vorgIds = [currentPersona.domainId];
+
+  if (vorgIds.length === 0) {
+    _resultSelectedVorgId = 'default'; _resultSelectedVorgName = '기본 제도그룹'; _resultSelectedVorgOwnedAccounts = [];
+    renderResult(); return;
+  }
+  container.innerHTML = `<div style="padding:80px;text-align:center;color:#6B7280;font-weight:600;font-size:14px">⏳ 제도그룹 조회 중...</div>`;
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  let fetchedVorgs = [];
+  if (sb && vorgIds.length > 0) {
+    try {
+      const { data } = await sb.from('virtual_org_templates').select('id, name, isolation_group_id').in('id', vorgIds);
+      if (data && data.length > 0) {
+        const igIds = data.map(r => r.isolation_group_id).filter(Boolean);
+        let igMap = {};
+        if (igIds.length > 0) { try { const { data: igRows } = await sb.from('isolation_groups').select('id, owned_accounts').in('id', igIds); (igRows || []).forEach(ig => { igMap[ig.id] = ig.owned_accounts || []; }); } catch(e) {} }
+        fetchedVorgs = data.map(row => ({ id: row.id, name: row.name || row.id, ownedAccounts: igMap[row.isolation_group_id] || [] }));
+      }
+    } catch(e) { console.warn('[ResultVorgHub] DB fetch failed:', e.message); }
+  }
+  const templates = typeof VORG_TEMPLATES !== 'undefined' ? VORG_TEMPLATES : [];
+  const vorgItems = vorgIds.map(vid => {
+    const f = fetchedVorgs.find(x => x.id === vid); const t = templates.find(x => x.id === vid || x.code === vid) || {};
+    return { id: vid, name: f?.name || t.name || vid, ownedAccounts: f?.ownedAccounts || t.ownedAccounts || [] };
+  }).filter(v => v.id);
+
+  if (vorgItems.length <= 1) {
+    const v = vorgItems[0] || { id: vorgIds[0] || 'default', name: '기본 제도그룹', ownedAccounts: [] };
+    _resultSelectedVorgId = v.id; _resultSelectedVorgName = v.name; _resultSelectedVorgOwnedAccounts = v.ownedAccounts;
+    renderResult(); return;
+  }
+  _resultUserVorgList = vorgItems;
+  container.innerHTML = `
+<div class="max-w-5xl mx-auto space-y-6">
+  <div>
+    <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">HOME › 교육결과</div>
+    <h1 class="text-3xl font-black text-brand tracking-tight">🏛 제도그룹 선택</h1>
+    <p class="text-gray-500 text-sm mt-1">결과를 등록할 제도그룹을 선택해 주세요.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px">
+    ${vorgItems.map(v => `
+    <button onclick="_selectResultVorg('${v.id}','${v.name.replace(/'/g,'')}')"
+      style="text-align:left;padding:28px 24px;border-radius:20px;border:2px solid #E5E7EB;background:white;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.05);transition:all 0.18s"
+      onmouseover="this.style.borderColor='#002C5F';this.style.boxShadow='0 8px 28px rgba(0,44,95,0.12)';this.style.transform='translateY(-3px)'"
+      onmouseout="this.style.borderColor='#E5E7EB';this.style.boxShadow='0 4px 16px rgba(0,0,0,0.05)';this.style.transform='none'">
+      <div style="font-size:28px;margin-bottom:12px">🏛</div>
+      <div style="font-size:16px;font-weight:900;color:#111827;margin-bottom:4px">${v.name}</div>
+      <div style="margin-top:16px;font-size:12px;font-weight:800;color:#002C5F;display:flex;align-items:center;gap:4px">선택하기 <span>→</span></div>
+    </button>`).join('')}
+  </div>
+</div>`;
+}
+
+function _selectResultVorg(vorgId, vorgName) {
+  _resultSelectedVorgId = vorgId; _resultSelectedVorgName = vorgName;
+  const v = _resultUserVorgList.find(x => x.id === vorgId);
+  _resultSelectedVorgOwnedAccounts = v?.ownedAccounts || [];
+  _resultSelectedAccountCode = null; _resultSelectedAccountName = null;
+  renderResult();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Phase 1 — 결과등록 예산계정 허브
+// ══════════════════════════════════════════════════════════════════════
+async function _renderResultAccountHub() {
+  const container = document.getElementById('page-result');
+  if (!container) return;
+  container.innerHTML = `<div style="padding:80px;text-align:center;color:#6B7280;font-weight:600;font-size:14px">⏳ 예산계정 조회 중...</div>`;
+  const ownedAccounts = _resultSelectedVorgOwnedAccounts || [];
+  let accountItems = []; const budgets = currentPersona?.budgets || [];
+  if (ownedAccounts.length > 0) accountItems = budgets.filter(b => ownedAccounts.some(ac => ac === b.accountCode || ac === b.id));
+  else { const allowed = currentPersona?.allowedAccounts || []; accountItems = allowed.includes('*') ? budgets : budgets.filter(b => allowed.includes(b.accountCode)); }
+  const seen = new Set();
+  accountItems = accountItems.filter(b => { if (seen.has(b.accountCode)) return false; seen.add(b.accountCode); return true; });
+
+  if (accountItems.length === 0) {
+    const showBack = (_resultUserVorgList.length > 1);
+    container.innerHTML = `
+<div class="max-w-5xl mx-auto space-y-6">
+  <div><div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">HOME › ${showBack ? `<span onclick="_resultSelectedVorgId=null;renderResult()" style="cursor:pointer;text-decoration:underline">교육결과</span>` : '교육결과'} › 예산계정</div>
+    <h1 class="text-3xl font-black text-brand tracking-tight">💳 예산계정 선택</h1></div>
+  <div style="padding:60px 20px;text-align:center;border-radius:16px;background:#FFF9F9;border:1.5px dashed #FCA5A5">
+    <div style="font-size:36px;margin-bottom:12px">⚠️</div>
+    <div style="font-size:14px;font-weight:900;color:#DC2626">이 제도그룹에 배정된 예산계정이 없습니다.</div>
+    ${showBack ? `<button onclick="_resultSelectedVorgId=null;renderResult()" style="margin-top:20px;padding:10px 20px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:13px;font-weight:700;cursor:pointer">← 제도그룹 선택으로</button>` : ''}
+  </div>
+</div>`; return;
+  }
+  if (accountItems.length === 1) { const a = accountItems[0]; _selectResultAccount(a.accountCode, a.name || a.accountCode); return; }
+
+  const showBack = (_resultUserVorgList.length > 1);
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  let lvmMap = {};
+  if (sb) { try { const codes = accountItems.map(a => a.accountCode).filter(Boolean); if (codes.length > 0) { const { data } = await sb.from('budget_accounts').select('code, list_view_mode').in('code', codes).eq('tenant_id', currentPersona.tenantId); (data || []).forEach(r => { if (r.list_view_mode) lvmMap[r.code] = r.list_view_mode; }); } } catch(e) {} }
+
+  container.innerHTML = `
+<div class="max-w-5xl mx-auto space-y-6">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between">
+    <div>
+      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">HOME › ${showBack ? `<span onclick="_resultSelectedVorgId=null;renderResult()" style="cursor:pointer;text-decoration:underline">교육결과</span>` : '교육결과'} › 예산계정</div>
+      <h1 class="text-3xl font-black text-brand tracking-tight">💳 예산계정 선택</h1>
+      <p class="text-gray-500 text-sm mt-1">${_resultSelectedVorgName || '교육결과'} · 결과를 등록할 예산계정을 선택하세요.</p>
+    </div>
+    ${showBack ? `<button onclick="_resultSelectedVorgId=null;renderResult()" style="padding:8px 18px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;cursor:pointer;color:#6B7280">← 제도그룹</button>` : ''}
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px">
+    ${accountItems.map(b => {
+      const balance = (b.balance || 0), used = (b.used || 0), remaining = balance - used;
+      const pct = balance > 0 ? Math.round(remaining / balance * 100) : 0;
+      const barColor = pct < 20 ? '#EF4444' : pct < 50 ? '#F59E0B' : '#10B981';
+      const isNoBudget = b.uses_budget === false;
+      const lvm = lvmMap[b.accountCode] || 'both';
+      return `
+    <button onclick="_selectResultAccount('${b.accountCode}','${(b.name||b.accountCode).replace(/'/g,'')}','${lvm}')"
+      style="text-align:left;padding:24px 22px;border-radius:20px;border:2px solid #E5E7EB;background:white;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.05);transition:all 0.18s"
+      onmouseover="this.style.borderColor='#002C5F';this.style.boxShadow='0 8px 28px rgba(0,44,95,0.12)';this.style.transform='translateY(-3px)'"
+      onmouseout="this.style.borderColor='#E5E7EB';this.style.boxShadow='0 4px 16px rgba(0,0,0,0.05)';this.style.transform='none'">
+      <div style="font-size:12px;font-weight:900;color:#6B7280;margin-bottom:8px">${isNoBudget ? '📝' : '💳'} ${b.accountCode || ''}</div>
+      <div style="font-size:17px;font-weight:900;color:#111827;margin-bottom:14px">${b.name || b.accountCode}</div>
+      ${!isNoBudget && balance > 0 ? `<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:#6B7280;font-weight:700">가용예산</span><span style="font-size:11px;font-weight:900;color:${barColor}">${remaining.toLocaleString()}원 (${pct}%)</span></div><div style="height:6px;border-radius:3px;background:#F3F4F6;overflow:hidden"><div style="height:100%;width:${100-pct}%;background:${barColor};border-radius:3px"></div></div></div>` : isNoBudget ? `<div style="font-size:12px;color:#059669;margin-bottom:14px;font-weight:700">📋 이력만 등록</div>` : `<div style="font-size:12px;color:#9CA3AF;margin-bottom:14px">⏳ 예산 미배정</div>`}
+      <div style="margin-top:14px;font-size:12px;font-weight:800;color:#002C5F;display:flex;align-items:center;gap:4px">결과 목록 보기 <span>→</span></div>
+    </button>`;
+    }).join('')}
+  </div>
+</div>`;
+}
+
+function _selectResultAccount(accountCode, accountName, listViewMode) {
+  _resultSelectedAccountCode = accountCode; _resultSelectedAccountName = accountName;
+  _resultAccountListViewMode = listViewMode || 'both';
+  _resultDbLoaded = false; _resultDbRows = [];
+  _resultApprovedAppsLoaded = false; _resultApprovedApps = [];
+  renderResult();
+}
+
+function _resetResultHubCache() {
+  _resultSelectedVorgId = null; _resultSelectedVorgName = null;
+  _resultSelectedAccountCode = null; _resultSelectedAccountName = null;
+  _resultUserVorgList = []; _resultSelectedVorgOwnedAccounts = [];
+  _resultAccountListViewMode = 'both';
+  _resultDbLoaded = false; _resultDbRows = [];
+  _resultApprovedAppsLoaded = false; _resultApprovedApps = [];
 }

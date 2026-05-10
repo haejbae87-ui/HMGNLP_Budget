@@ -1,10 +1,14 @@
-# ✅ FO 프로세스 통합 리팩토링 완료
+# 기능 단위 파일 분리 체크리스트
 
-## 완료된 작업
-
-- [x] Step 1: `fo_apply_list.js` — VOrg/계정 허브 렌더링 + 라우팅 + DB 필터
-- [x] Step 2: `fo_apply_form.js` — 위저드 4단계→3단계 축소
-- [x] Step 3: `fo_apply_actions.js` — applyNext/applyPrev 스텝 조정
-- [x] Step 4: `bo_budget_account_mgmt.js` — list_view_mode 설정 UI
-- [x] Step 5: `utils.js` — navigate('apply') 허브 캐시 초기화
-- [x] 문법 검증 + GitHub Pages 배포 완료 (SHA: 5f126d7)
+- [ ] js/data.js – 데이터 레이어 (PERSONAS, MOCK_HISTORY, MOCK_PLANS, applyState)
+- [ ] css/styles.css – 전역 CSS 스타일
+- [ ] js/utils.js – 공통 유틸 함수 (fmt, statusBadge, navigate, switchPersona)
+- [ ] js/gnb.js – GNB(상단 네비게이션) + Floating Budget Widget
+- [ ] js/dashboard.js – 대시보드 렌더링
+- [ ] js/plans.js – 교육계획 렌더링 + 폼 핸들러
+- [ ] js/history.js – 교육신청 목록 렌더링
+- [ ] js/apply.js – 교육신청 4단계 스텝 렌더링 + 핸들러
+- [ ] js/budget.js – 예산 관리 렌더링
+- [ ] js/mypage.js – 마이페이지 렌더링
+- [ ] js/main.js – 앱 초기화 (DOMContentLoaded)
+- [ ] index.html – 슬림화 (script/style 태그 → 외부 파일 참조)

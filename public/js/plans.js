@@ -726,7 +726,7 @@ function _renderPlanCard(p) {
          </div>`
       : isPending
         ? `<div style="margin-top:8px">
-          <button onclick="cancelPlan('${safeId}')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#DC2626;border:1.5px solid #FECACA;cursor:pointer">취소 요청</button>
+          <button onclick="_aprRecallSubmit('${safeId}', 'plans')" style="padding:5px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#DC2626;border:1.5px solid #FECACA;cursor:pointer">회수/취소</button>
          </div>`
         : ((rawStatus === "승인" || rawStatus === "approved"))
           ? (() => {
@@ -2253,51 +2253,7 @@ function _friendlyStatusError(msg) {
   return `현재 '${labels[m[1]] || m[1]}' 상태에서 '${labels[m[2]] || m[2]}'(으)로 변경할 수 없습니다.`;
 }
 
-// ─── 교육계획 취소 ─────────────────────────────────────────────────────────
-async function cancelPlan(planId) {
-  const sb = typeof getSB === "function" ? getSB() : null;
-  if (sb) {
-    try {
-      const { data } = await sb
-        .from("plans")
-        .select("status")
-        .eq("id", planId)
-        .single();
-      if (data?.status === "approved") {
-        alert(
-          "⚠️ 이미 승인된 계획은 상위 승인자가 취소해야 합니다.\n\n결재라인 관리자에게 문의해주세요.",
-        );
-        return;
-      }
-      if (data?.status === "draft") {
-        alert("이미 임시저장 상태입니다.");
-        return;
-      }
-    } catch (e) {
-      /* pass */
-    }
-  }
-  if (!confirm("이 교육계획을 취소하고 임시저장 상태로 되돌리시겠습니까?"))
-    return;
-  if (sb) {
-    try {
-      const { error } = await sb
-        .from("plans")
-        .update({ status: "draft" })
-        .eq("id", planId);
-      if (error) throw error;
-      alert(
-        "교육계획이 임시저장 상태로 되돌려졌습니다.\n수정 후 다시 제출할 수 있습니다.",
-      );
-    } catch (err) {
-      alert("취소 실패: " + _friendlyStatusError(err.message));
-      return;
-    }
-  }
-  _plansDbLoaded = false;
-  _viewingPlanDetail = null;
-  renderPlans();
-}
+
 
 // ─── 교육계획 기반 교육신청 연동 ─────────────────────────────────────────────
 async function startApplyFromPlan(planId) {

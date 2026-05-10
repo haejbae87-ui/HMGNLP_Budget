@@ -6,6 +6,16 @@
 
 ## ✅ 완료된 작업 이력
 
+### 2026-05-10 — 문서 상태값(Status) 표준화 및 예산 계정 필터링 논리 오류 수정
+
+- [x] **Bug Fix: 예산 계정 필터링(제도권한) 강제 우회 및 누락 버그 수정**
+  - `fo_plans_wizard.js`: `contextAccountCode`로 접근 시 `availBudgets` 필터링을 우회하여 권한 없는 예산이 강제로 선택되던 버그를 `availBudgets.find()` 기반 폴백으로 수정.
+  - `fo_plans_wizard.js`: 패턴 A(계획 필수) 체크 로직에서 `account_codes`가 비어있는(모든 계정 대상) 정책의 경우 `acc.includes()` 검증에 실패하여 무조건 누락되던 버그 해결.
+  - `utils.js`: `getPersonaBudgets` 함수 내에서 `account_codes`가 빈 배열인(전체 허용) 정책이 매칭될 경우, 모든 예산 계정을 허용하도록 `hasAllAccountsPolicy` 폴백 로직 추가.
+- [x] **결재 문서 상태값(Status) 표준화 PRD 작성**
+  - `docs/PRD/status_standardization.md` 생성 완료.
+  - Domain Council 전문가 관점의 문서 결재 상태(State Machine) 5단계(`saved`, `submitted`, `approved`, `rejected`, `recalled`) 표준 규격 정의.
+
 ### 2026-05-10 — FO 교육신청·교육결과 저장 후 프로세스 통합 (Post-Save Flow)
 
   - [x] **Bug Fix: 제도그룹(VOrg) 선택 시 예산계정 노출 버그 수정**

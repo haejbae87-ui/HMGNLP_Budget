@@ -202,7 +202,7 @@ function renderPlanWizard() {
           const pt = pol.process_pattern || pol.processPattern || "";
           return (
             pt === "A" &&
-            acc.includes(s.contextAccountCode) &&
+            (acc.length === 0 || acc.includes(s.contextAccountCode)) &&
             boPurposeKeys.includes(pol.purpose)
           );
         });
@@ -310,7 +310,7 @@ function renderPlanWizard() {
     // ★ 폴백: contextAccountCode로 자동 주입된 budgetId가 availBudgets에 없을 때
     // (목적 선택 전 자동 주입 → 목적 기반 availBudgets에서 제외될 수 있음)
     || (s.contextAccountCode
-      ? (currentPersona.budgets || []).find(b =>
+      ? availBudgets.find(b =>
           b.accountCode === s.contextAccountCode || b.id === s.budgetId
         )
       : null)

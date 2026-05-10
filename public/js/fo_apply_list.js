@@ -689,7 +689,7 @@ function _renderApplyList() {
         actionBtns += `</div>`;
       } else if (isPending) {
         actionBtns += `<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">`;
-        actionBtns += btnDanger('취소 요청', `event.stopPropagation();cancelApply('${_aid}')`);
+        actionBtns += btnDanger('회수/취소', `event.stopPropagation();_aprRecallSubmit('${_aid}','applications')`);
         actionBtns += `</div>`;
       } else if (h.applyStatus === "승인완료" && !h.resultDone) {
         actionBtns += `<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">`;

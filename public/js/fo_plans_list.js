@@ -1506,7 +1506,7 @@ function _renderPlanCard(p) {
            </div>`
         : isPending
         ? `<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
-            ${btnDanger('취소 요청', `cancelPlan('${safeId}')`)}
+            ${btnDanger('회수/취소', `event.stopPropagation();_aprRecallSubmit('${safeId}','plans')`)}
             ${btnOutline('📋 복제', `event.stopPropagation();clonePlan('${safeId}')`, '#7C3AED', '#DDD6FE')}
            </div>`
         : (rawStatus === "approved")

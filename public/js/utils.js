@@ -282,6 +282,15 @@ function getPersonaBudgets(persona, purposeId) {
         ? policies.filter((p) => boPurposeKeys.includes(p.purpose))
         : policies;
       // 허용된 accountCodes로 persona.budgets 필터
+      const hasAllAccountsPolicy = filtered.some((p) => {
+        const acc = p.accountCodes || p.account_codes || [];
+        return acc.length === 0;
+      });
+      
+      if (hasAllAccountsPolicy) {
+        return persona.budgets || [];
+      }
+      
       const allCodes = [
         ...new Set(
           filtered.flatMap((p) => p.accountCodes || p.account_codes || []),

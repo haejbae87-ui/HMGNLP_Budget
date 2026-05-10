@@ -896,20 +896,29 @@ async function _renderApplyVorgHub() {
   if (sb && vorgIds.length > 0) {
     try {
       const { data } = await sb.from('virtual_org_templates')
-        .select('id, name, isolation_group_id').in('id', vorgIds);
+        .select('id, name').in('id', vorgIds);
       if (data && data.length > 0) {
-        const igIds = data.map(r => r.isolation_group_id).filter(Boolean);
-        let igMap = {};
-        if (igIds.length > 0) {
-          try {
-            const { data: igRows } = await sb.from('isolation_groups')
-              .select('id, owned_accounts').in('id', igIds);
-            (igRows || []).forEach(ig => { igMap[ig.id] = ig.owned_accounts || []; });
-          } catch(e) {}
-        }
+        let policyMap = {};
+        try {
+          const { data: policies } = await sb.from('budget_account_org_policy')
+            .select('vorg_template_id, budget_account_id')
+            .in('vorg_template_id', vorgIds);
+          if (policies && policies.length > 0) {
+            const acctIds = [...new Set(policies.map(p => p.budget_account_id))];
+            const { data: accts } = await sb.from('budget_accounts')
+              .select('id, code').in('id', acctIds);
+            const acctCodeMap = {};
+            (accts || []).forEach(a => { acctCodeMap[a.id] = a.code; });
+            policies.forEach(p => {
+              if (!policyMap[p.vorg_template_id]) policyMap[p.vorg_template_id] = [];
+              const code = acctCodeMap[p.budget_account_id];
+              if (code) policyMap[p.vorg_template_id].push(code);
+            });
+          }
+        } catch(e) { console.warn('[ApplyVorgHub] policy fetch failed:', e.message); }
         fetchedVorgs = data.map(row => ({
           id: row.id, name: row.name || row.id,
-          ownedAccounts: igMap[row.isolation_group_id] || [],
+          ownedAccounts: policyMap[row.id] || [],
         }));
       }
     } catch(e) { console.warn('[ApplyVorgHub] DB fetch failed:', e.message); }

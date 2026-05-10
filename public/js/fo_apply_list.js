@@ -1031,7 +1031,7 @@ async function _renderApplyAccountHub() {
   let lvmMap = {};
   if (sb) {
     try {
-      const codes = accountItems.map(a => a.accountCode).filter(Boolean);
+      const codes = accountItems.map(a => a.accountCode).filter(c => c && c.trim() !== '');
       if (codes.length > 0) {
         const { data } = await sb.from('budget_accounts')
           .select('code, list_view_mode')

@@ -1576,7 +1576,7 @@ async function _updateBudgetBadges(plans) {
   const sb = typeof getSB === 'function' ? getSB() : null;
   if (!sb) return;
   // 고유 계정코드 수집 (빈값 제외, 캐시 미적중것만)
-  const accounts = [...new Set(plans.map(p => p.account || p.account_code).filter(Boolean))]
+  const accounts = [...new Set((plans || []).map(p => p.accountCode || p.account_code).filter(c => c && c.trim() !== ''))]
     .filter(ac => !_budgetBadgeCache[ac]);
   if (accounts.length === 0) {
     // 캐시 히트: 바로 뱃지 업데이트

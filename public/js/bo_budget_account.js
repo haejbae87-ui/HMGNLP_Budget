@@ -1,4 +1,4 @@
-﻿// bo_budget_account.js
+// bo_budget_account.js
 // 예산계정 관리 독립 메뉴 화면 (기존 통합 화면의 4번 탭에서 분리)
 
 let _bamTemplates = []; // 로드된 교육지원 제도그룹 목록
@@ -514,7 +514,18 @@ async function _bamSaveAccount() {
       const pp = { budget_account_id: _bamEditId, vorg_template_id: window._baTplId,
         bankbook_mode: d.bankbook_mode || 'team', bankbook_level: (d.bankbook_mode === 'bulk' ? 'org' : d.bankbook_mode === 'individual' ? 'individual' : 'team'), updated_at: new Date().toISOString(),
         individual_limit: d.bankbook_mode === "individual" && d.individual_limit ? Number(d.individual_limit) : null };
-      await sb.from("budget_account_org_policy").upsert(pp, { onConflict: "budget_account_id,vorg_template_id" });
+      
+      const { data: existingPolicy } = await sb.from("budget_account_org_policy")
+        .select("id")
+        .eq("budget_account_id", _bamEditId)
+        .eq("vorg_template_id", window._baTplId)
+        .maybeSingle();
+      
+      if (existingPolicy && existingPolicy.id) {
+        await sb.from("budget_account_org_policy").update(pp).eq("id", existingPolicy.id);
+      } else {
+        await sb.from("budget_account_org_policy").insert(pp);
+      }
     } else {
       payload.id = "BA-" + Date.now();
       savedAccountId = payload.id;

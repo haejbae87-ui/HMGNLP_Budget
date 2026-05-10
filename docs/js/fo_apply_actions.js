@@ -453,7 +453,11 @@ async function confirmApply() {
   applyState = resetApplyState();
   applyViewMode = "list";
   _appsDbLoaded = false;
-  navigate("history");
+  if (typeof navigate === 'function') {
+    navigate("apply");
+  } else if (typeof _renderApplyList === 'function') {
+    _renderApplyList();
+  }
 }
 
 // ─── 신청 임시저장 ──────────────────────────────────────────────
@@ -1266,13 +1270,15 @@ async function saveApplyAsReady() {
     const { error } = await sb.from('applications').upsert(row, { onConflict: 'id' });
     if (error) throw error;
     applyState.editId = appId;
-    alert('📤 저장완료 상태로 저장되었습니다.\n\n결재함(내 결재)에서 상신할 수 있습니다.');
-    applyState = resetApplyState();
+    alert('📤 저장완료 상태로 저장되었습니다.\n\n수정 또는 상신이 가능합니다.');
     
-    // UI 전환
-    if (typeof navigate === 'function') {
+    // UI 전환: 방금 저장한 내역을 상세 조회 화면으로 띄움
+    if (typeof viewApplyDetail === 'function') {
+      viewApplyDetail(appId);
+    } else if (typeof navigate === 'function') {
       navigate('history');
     } else if (typeof applyViewMode !== 'undefined') {
+      applyState = resetApplyState();
       applyViewMode = 'list';
       if (typeof _appsDbLoaded !== 'undefined') _appsDbLoaded = false;
       if (typeof _renderApplyList === 'function') _renderApplyList();

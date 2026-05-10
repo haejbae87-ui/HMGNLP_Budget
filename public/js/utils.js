@@ -726,7 +726,6 @@ function navigate(page) {
   if (ni) ni.classList.add("active");
   if (page === "dashboard") renderDashboard();
   if (page === "plans") renderPlans();
-  if (page === "history") renderHistory();
   if (page === "budget") renderBudget();
   if (page === "apply") {
     applyViewMode = "list";

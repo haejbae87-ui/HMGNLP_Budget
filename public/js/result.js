@@ -1678,7 +1678,7 @@ async function _renderResultAccountHub() {
   const showBack = (_resultUserVorgList.length > 1);
   const sb = typeof getSB === 'function' ? getSB() : null;
   let lvmMap = {};
-  if (sb) { try { const codes = accountItems.map(a => a.accountCode).filter(c => c && c.trim() !== ''); if (codes.length > 0) { const { data } = await sb.from('budget_accounts').select('code, list_view_mode').in('code', codes).eq('tenant_id', currentPersona.tenantId); (data || []).forEach(r => { if (r.list_view_mode) lvmMap[r.code] = r.list_view_mode; }); } } catch(e) {} }
+  if (sb) { try { const codes = accountItems.map(a => a.accountCode).filter(c => c && c.trim() !== ''); if (codes.length > 0) { const { data } = await sb.from('budget_accounts').select('code').in('code', codes).eq('tenant_id', currentPersona.tenantId); (data || []).forEach(r => { if (r.list_view_mode) lvmMap[r.code] = r.list_view_mode; }); } } catch(e) {} }
 
   container.innerHTML = `
 <div class="max-w-5xl mx-auto space-y-6">

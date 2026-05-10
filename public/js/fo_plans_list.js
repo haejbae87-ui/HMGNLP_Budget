@@ -714,13 +714,13 @@ async function _renderAccountHub() {
   // persona 예산에서 이 VOrg의 계정만 필터
   let accountItems = [];
   const budgets = currentPersona?.budgets || [];
-  if (ownedAccounts.length > 0) {
-    // ownedAccounts 기반 필터 (VOrg에 속한 계정만)
+  if (_selectedVorgId !== 'default') {
+    // VOrg is explicitly selected. Use ONLY the owned accounts of that VOrg.
     accountItems = budgets.filter(b =>
       ownedAccounts.some(ac => ac === b.accountCode || ac === b.id)
     );
   } else {
-    // ownedAccounts 비어있으면 allowedAccounts 기반 (단일VOrg 자동스킵 or 정보 없는 경우)
+    // No VOrg isolation. Use all allowed accounts.
     const allowed = currentPersona?.allowedAccounts || [];
     if (allowed.includes('*')) {
       accountItems = budgets;

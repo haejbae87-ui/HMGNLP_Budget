@@ -980,7 +980,7 @@ async function _renderApplyAccountHub() {
   let accountItems = [];
   const budgets = currentPersona?.budgets || [];
 
-  if (ownedAccounts.length > 0) {
+  if (_applySelectedVorgId !== 'default') {
     accountItems = budgets.filter(b => ownedAccounts.some(ac => ac === b.accountCode || ac === b.id));
   } else {
     const allowed = currentPersona?.allowedAccounts || [];

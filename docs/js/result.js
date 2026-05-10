@@ -63,7 +63,11 @@ function _resetResultWizardState() {
 // ─── 메인 렌더러 ──────────────────────────────────────────────────────────
 function renderResult() {
   if (_resultWizardState) {
-    _renderResultWizard();
+    if (_resultWizardState.confirmMode) {
+      _renderResultConfirm();
+    } else {
+      _renderResultWizard();
+    }
   } else {
     // ── Phase1: 허브 라우팅 (계정 미선택이면 허브 표시) ──
     if (!_resultSelectedAccountCode) {
@@ -1426,7 +1430,7 @@ async function _submitResultRegistration() {
     }
 
     alert("✅ 교육결과가 등록되었습니다.\n\nBO 담당자 검토 후 최종 확정됩니다.");
-    _resultWizardState = null;
+    _resultWizardState.confirmMode = true;
     _resultDbLoaded = false;
     _resultDbRows = [];
     _resultApprovedAppsLoaded = false;
@@ -1438,6 +1442,36 @@ async function _submitResultRegistration() {
   }
 }
 
+// ─── 결과 작성확인(상세조회) 화면 ──────────────────────────────────────────
+function _renderResultConfirm() {
+  const s = _resultWizardState;
+  const totalCost = s.expenses.reduce(
+    (sum, e) => sum + (Number(e.price) || 0) * (Number(e.qty) || 1),
+    0
+  );
+
+  document.getElementById("page-result").innerHTML = `
+  <div class="max-w-3xl mx-auto">
+    <div style="background:white;border-radius:20px;border:1.5px solid #E5E7EB;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.08)">
+      <div style="padding:24px 28px;background:linear-gradient(135deg,#002C5F,#0369A1);color:white">
+        <div style="font-size:11px;font-weight:700;opacity:.7;margin-bottom:4px">✅ 등록 완료</div>
+        <h2 style="margin:0;font-size:20px;font-weight:900">교육결과 상세 내용</h2>
+        <p style="margin:6px 0 0;font-size:12px;opacity:.8">제출된 교육결과 내역입니다. BO 담당자 검토 후 최종 확정됩니다.</p>
+      </div>
+      
+      <div style="padding:24px 28px; background:#F9FAFB">
+        ${typeof window.foRenderStandardReadOnlyForm === 'function' ? window.foRenderStandardReadOnlyForm({...s, amount: totalCost, accountCode: s.budgetId}, 'FO', (s.formTemplate && s.formTemplate.inlineFields) || null) : '<p>상세 내역 렌더링 중...</p>'}
+      </div>
+      
+      <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6">
+        <button onclick="_resultWizardState=null;renderResult()"
+          style="padding:10px 28px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#002C5F;color:white;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">
+          ≡ 목록으로
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
 // ══════════════════════════════════════════════════════════════════════
 // Phase 1 — 결과등록 VOrg 허브 (교육신청과 동일 패턴)
 // ══════════════════════════════════════════════════════════════════════

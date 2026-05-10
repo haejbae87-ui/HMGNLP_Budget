@@ -719,6 +719,8 @@ function navigate(page) {
   if (page === "budget") renderBudget();
   if (page === "apply") {
     applyViewMode = "list";
+    // Phase1: 허브 상태 초기화 (매 진입 시 VOrg/계정 선택부터)
+    if (typeof _resetApplyHubCache === 'function') _resetApplyHubCache();
     renderApply();
   }
   if (page === "result") {

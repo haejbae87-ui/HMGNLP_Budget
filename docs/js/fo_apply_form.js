@@ -191,13 +191,13 @@ function _renderApplyForm() {
   <!--Stepper indicator-->
   <div class="card p-6">
     <div class="flex items-center gap-2">
-      ${[1, 2, 3, 4]
+      ${[1, 2, 3]
         .map(
           (n) => `
       <div class="step-item flex items-center gap-2 ${s.step > n ? "done" : s.step === n ? "active" : ""}">
         <div class="step-circle w-8 h-8 rounded-full flex items-center justify-center text-sm font-black transition-all">${s.step > n ? "✓" : n}</div>
-        <span class="text-xs font-bold ${s.step === n ? "text-brand" : "text-gray-400"} hidden sm:block">${["목적 선택", "예산 선택", "교육유형 선택", "세부 정보"][n - 1]}</span>
-        ${n < 4 ? '<div class="h-px flex-1 bg-gray-200 mx-2 w-8"></div>' : ""}
+        <span class="text-xs font-bold ${s.step === n ? "text-brand" : "text-gray-400"} hidden sm:block">${["목적 선택", "교육유형 선택", "세부 정보"][n - 1]}</span>
+        ${n < 3 ? '<div class="h-px flex-1 bg-gray-200 mx-2 w-8"></div>' : ""}
       </div>`,
         )
         .join("")}
@@ -251,10 +251,10 @@ function _renderApplyForm() {
     </div>
   </div>
 
-  <!--Step 2: Budget-->
-  <div class="card p-8 ${s.step === 2 ? "" : "hidden"}">
+  <!--Step 2 (Budget): 허브에서 사전 선택되므로 숨김 -->
+  <div class="card p-8 hidden">
     ${_applySelectionBanner(s, 2)}
-    <h2 class="text-lg font-black text-gray-800 mb-2">02. 예산 선택</h2>
+    <h2 class="text-lg font-black text-gray-800 mb-2">02. 예산 선택 (사전 선택됨)</h2>
 
     ${(() => {
       const isIndividual = s.purpose?.id === "external_personal";
@@ -537,10 +537,10 @@ ${
   </div>
 
 
-  <!--Step 3: 교육유형 선택-->
-  <div class="card p-8 ${s.step === 3 ? "" : "hidden"}">
-    ${_applySelectionBanner(s, 3)}
-    <h2 class="text-lg font-black text-gray-800 mb-6">03. 교육유형 선택</h2>
+  <!--Step 2: 교육유형 선택 (AS-IS Step 3)-->
+  <div class="card p-8 ${s.step === 2 ? "" : "hidden"}">
+    ${_applySelectionBanner(s, 2)}
+    <h2 class="text-lg font-black text-gray-800 mb-6">02. 교육유형 선택</h2>
     ${(() => {
       // 정책 기반 교육유형 트리 우선 사용
       // ★ curBudget이 null이어도 purpose만으로 시도 (budgetAccountType=null → accountCode 필터 스킵)
@@ -664,9 +664,9 @@ ${
     </div>
   </div>
 
-  <!--Step 4: Detail-->
-    <div class="card p-8 ${s.step === 4 ? "" : "hidden"}">
-      <h2 class="text-lg font-black text-gray-800 mb-4">04. 세부 정보 입력</h2>
+  <!--Step 3: Detail (AS-IS Step 4)-->
+    <div class="card p-8 ${s.step === 3 ? "" : "hidden"}">
+      <h2 class="text-lg font-black text-gray-800 mb-4">03. 세부 정보 입력</h2>
 
       <!-- ★ 패턴A 전용: 운영계획 연결 + 과정-차수 맵핑 -->
       ${(() => {

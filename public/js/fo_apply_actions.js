@@ -632,6 +632,60 @@ async function resumeApplyDraft(appId) {
   }
 }
 
+async function viewApplyDetail(appId) {
+  const sb = typeof getSB === "function" ? getSB() : null;
+  if (!sb) return;
+  try {
+    const { data, error } = await sb
+      .from("applications")
+      .select("*")
+      .eq("id", appId)
+      .single();
+    if (error || !data) {
+      alert("신청 내역을 불러올 수 없습니다.");
+      return;
+    }
+    applyState = resetApplyState();
+    Object.assign(applyState, data.detail || {}); 
+    
+    // Backward compatibility mapping
+    if (!applyState.learning_objective && applyState.purpose_text) applyState.learning_objective = applyState.purpose_text;
+    if (!applyState.expected_benefit && applyState.expectedEffect) applyState.expected_benefit = applyState.expectedEffect;
+    if (!applyState.course_description && applyState.content) applyState.course_description = applyState.content;
+    if (!applyState.planned_duration && applyState.eduPeriod) applyState.planned_duration = applyState.eduPeriod;
+
+    applyState.editId = data.id;
+    applyState.eduName = data.edu_name || "";
+    applyState.title = data.edu_name || "";
+    applyState.eduType = data.edu_type || "";
+    applyState.budgetId = data.detail?.budgetId || "";
+    applyState.purpose_text = data.detail?.purpose_text || "";
+    applyState.expectedEffect = data.detail?.expectedEffect || "";
+    applyState.eduPeriod = data.detail?.eduPeriod || "";
+    applyState.expenses = data.detail?.expenses || [
+      { id: 1, type: "교육비/등록비", price: 0, qty: 1 },
+    ];
+    applyState.policyId = data.policy_id || null;
+    if (data.detail?.purpose) applyState.purpose = { id: data.detail.purpose };
+    applyState.planIds = data.detail?.planIds || [];
+    applyState.planId = applyState.planIds[0] || data.plan_id || "";
+    applyState.linkedCourses = data.detail?.linkedCourses || [];
+    applyState.courseSessionLinks = data.detail?.courseSessionLinks || [];
+    applyState.budgetChoice = data.detail?.budgetChoice || "";
+    
+    applyState.confirmMode = true; // 강제 상세보기 모드
+    applyViewMode = "form";
+    renderApply();
+  } catch (err) {
+    alert("불러오기 실패: " + err.message);
+  }
+}
+
+function _appSingleSubmit(appId, appTitle) {
+  window._pendingAprSubmit = { id: appId, table: 'applications', title: appTitle || '교육신청 상신' };
+  if (typeof navigate === 'function') navigate('approval-member');
+}
+
 async function deleteApplyDraft(appId) {
   if (!confirm("임시저장된 신청을 삭제하시겠습니까?")) return;
   const sb = typeof getSB === "function" ? getSB() : null;

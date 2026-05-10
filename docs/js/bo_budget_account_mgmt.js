@@ -576,16 +576,25 @@ async function _baInlineSave(id) {
     if (error) throw error;
     // 통장 정책 upsert
     if (_baTplId) {
-      await sb.from("budget_account_org_policy").upsert(
-        {
-          budget_account_id: id,
-          vorg_template_id: _baTplId,
-          bankbook_mode: bbMode,
-          bankbook_level: "team",
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "budget_account_id,vorg_template_id" },
-      );
+      const pp = {
+        budget_account_id: id,
+        vorg_template_id: _baTplId,
+        bankbook_mode: bbMode,
+        bankbook_level: bbMode === 'bulk' ? 'org' : (bbMode === 'individual' ? 'individual' : 'team'),
+        updated_at: new Date().toISOString(),
+      };
+      
+      const { data: existingPolicy } = await sb.from("budget_account_org_policy")
+        .select("id")
+        .eq("budget_account_id", id)
+        .eq("vorg_template_id", _baTplId)
+        .maybeSingle();
+        
+      if (existingPolicy && existingPolicy.id) {
+        await sb.from("budget_account_org_policy").update(pp).eq("id", existingPolicy.id);
+      } else {
+        await sb.from("budget_account_org_policy").insert(pp);
+      }
     }
     await renderBudgetAccount();
   } catch (e) {

@@ -261,7 +261,7 @@ function _renderResultWizard() {
 
   const allPurposes =
     typeof getPersonaPurposes === "function"
-      ? getPersonaPurposes(currentPersona)
+      ? getPersonaPurposes(currentPersona, typeof _resultSelectedAccountCode !== "undefined" ? _resultSelectedAccountCode : null)
       : [];
   const _catMeta =
     typeof _CATEGORY_META !== "undefined"
@@ -1105,7 +1105,7 @@ function _renderStep4ResultForm(s, _shouldShow) {
 function _resultSelectPurpose(id) {
   const policyPurposes =
     typeof getPersonaPurposes === "function"
-      ? getPersonaPurposes(currentPersona)
+      ? getPersonaPurposes(currentPersona, typeof _resultSelectedAccountCode !== "undefined" ? _resultSelectedAccountCode : null)
       : [];
   _resultWizardState.purpose = policyPurposes.find((p) => p.id === id) || null;
   _resultWizardState.budgetId = "";

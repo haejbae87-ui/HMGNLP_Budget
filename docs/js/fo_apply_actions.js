@@ -219,47 +219,111 @@ async function submitApply() {
 // ─── 신청 작성확인 화면 ──────────────────────────────────────────
 function _renderApplyConfirm() {
   const s = applyState;
-  const totalExp = s.expenses.reduce(
-    (sum, e) => sum + Number(e.price) * Number(e.qty),
-    0,
-  );
-  const curBudget = s.budgetId
-    ? (currentPersona.budgets || []).find((b) => b.id === s.budgetId)
-    : null;
+  const totalExp = s.expenses.reduce((sum, e) => sum + Number(e.price) * Number(e.qty), 0);
+  const curBudget = s.budgetId ? (currentPersona.budgets || []).find((b) => b.id === s.budgetId) : null;
   const accountCode = curBudget?.accountCode || "";
-  const accountName = curBudget?.name || accountCode || "-";
-  const purposeLabel = s.purpose?.label || s.purpose?.id || "-";
+  
+  const applyLike = {
+    ...s,
+    id: s.editId || null,
+    amount: totalExp,
+    accountCode,
+    account_code: accountCode,
+    status: s.currentStatus || 'saved',
+    edu_name: s.title || s.eduName || '',
+    applicant_name: currentPersona.name,
+    dept: currentPersona.dept,
+    detail: s,
+  };
+  
+  document.getElementById("page-apply").innerHTML = foRenderApplyUnifiedView(applyLike, {
+    mode: s.justSaved ? 'confirm' : 'detail',
+    inlineFields: (s.formTemplate && s.formTemplate.inlineFields) || null,
+  });
+}
 
-  document.getElementById("page-apply").innerHTML = `
+/**
+ * ★ 단일 통합 뷰 렌더러 (교육신청 상세뷰/확인화면 공통 사용)
+ */
+function foRenderApplyUnifiedView(app, opts = {}) {
+  const { mode = 'detail', inlineFields = null } = opts;
+  const STATUS_LABEL = {
+    draft: "작성중", saved: "저장완료", pending: "신청중", submitted: "팀장 검토 대기",
+    team_approved: "운영자 검토 중", in_review: "총괄담당자 검토 중",
+    approved: "승인완료", rejected: "반려", cancelled: "취소", recalled: "회수됨",
+    승인완료: "승인완료", 진행중: "진행중", 반려: "반려", 결재진행중: "결재진행중",
+    신청중: "신청중", 작성중: "작성중", 저장완료: "저장완료", 취소: "취소",
+  };
+  const STATUS_COLOR = {
+    draft: "#0369A1", saved: "#059669", pending: "#D97706", submitted: "#D97706",
+    approved: "#059669", rejected: "#DC2626", cancelled: "#9CA3AF", recalled: "#6B7280",
+    승인완료: "#059669", 반려: "#DC2626", 결재진행중: "#D97706", 신청중: "#D97706",
+    작성중: "#0369A1", 저장완료: "#059669", 취소: "#9CA3AF",
+  };
+
+  const st = app.status || "saved";
+  const stLabel = STATUS_LABEL[st] || st;
+  const stColor = STATUS_COLOR[st] || "#6B7280";
+  const amount = Number(app.amount || 0);
+  const safeId = String(app.id || "").replace(/'/g, "\\'");
+
+  const isDraft = st === "draft" || st === "작성중";
+  const isSaved = st === "saved" || st === "저장완료";
+  const isPending = st === "pending" || st === "submitted" || st === "team_approved" || st === "in_review" || st === "신청중" || st === "결재진행중" || st === "결재대기";
+  
+  const safeTitle = String(app.title || app.edu_name || '').replace(/'/g, '');
+  const resolvedInlineFields = inlineFields || (app.formTemplate && app.formTemplate.inlineFields) || null;
+
+  let actionBtns = '';
+  if (mode === 'confirm') {
+    actionBtns = `
+      <button onclick="applyViewMode='list';applyState=resetApplyState();renderApply()" style="margin-right:auto;padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:#F9FAFB;color:#4B5563;cursor:pointer">≡ 목록으로</button>
+      <button onclick="applyState.confirmMode=false;renderApply()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">← 수정하기</button>
+      <button onclick="confirmApply()" style="padding:10px 28px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#002C5F;color:white;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">📤 상신 확정</button>`;
+  } else {
+    actionBtns = `
+      <button onclick="applyViewMode='list';applyState=resetApplyState();renderApply()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">← 목록으로</button>
+      ${(isDraft || isSaved) ? `<button onclick="applyState.confirmMode=false;renderApply()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #BFDBFE;background:white;color:#0369A1;cursor:pointer">✏️ 수정</button>` : ""}
+      ${isSaved ? `<button onclick="_appSingleSubmit('${safeId}','${safeTitle}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#059669;color:white;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">📤 상신하기</button>` : ""}
+      ${isPending ? `<button onclick="foRecallApplyFromDetail('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FECACA;background:white;color:#DC2626;cursor:pointer">회수하기</button>` : ""}`;
+  }
+
+  return `
   <div class="max-w-3xl mx-auto">
-    <div style="background:white;border-radius:20px;border:1.5px solid #E5E7EB;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.08)">
+    ${mode === 'detail' ? `<div style="margin-bottom:16px"><button onclick="applyViewMode='list';applyState=resetApplyState();renderApply()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">← 목록으로</button></div>` : ''}
+    <div style="border-radius:20px;overflow:hidden;border:1.5px solid #E5E7EB;background:white;box-shadow:0 8px 30px rgba(0,0,0,.08)">
       <div style="padding:24px 28px;background:linear-gradient(135deg,#002C5F,#0369A1);color:white">
-        <div style="font-size:11px;font-weight:700;opacity:.7;margin-bottom:4px">✅ 작성 확인</div>
-        <h2 style="margin:0;font-size:20px;font-weight:900">교육신청 제출 전 확인</h2>
-        <p style="margin:6px 0 0;font-size:12px;opacity:.8">아래 내용을 확인한 후 확정 제출하면 상신 문서가 자동 생성됩니다.</p>
-      </div>
-      <!-- 요약 (7단계 통합 뷰) -->
-      <div style="padding:24px 28px; background:#F9FAFB">
-        ${typeof window.foRenderStandardReadOnlyForm === 'function' ? window.foRenderStandardReadOnlyForm({...s, amount: totalExp, accountCode}, 'FO', (s.formTemplate && s.formTemplate.inlineFields) || null) : '<p>렌더러 로딩 중...</p>'}
-        
-        <div style="margin-top:20px;padding:12px 16px;background:#FEF3C7;border-radius:10px;border:1.5px solid #FDE68A;font-size:12px;color:#92400E">
-          ⚠️ <strong>확정 제출</strong> 시 상신 문서가 자동 생성되어 팀장 결재함으로 전달됩니다.<br>
-          결재 진행 중 취소가 필요하면 결재함 → <strong>상신 회수</strong> 버튼을 이용하세요.
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:${stColor}40;color:white">${stLabel}</span>
+          ${mode === 'confirm' ? '<span style="font-size:10px;font-weight:700;opacity:.7">✅ 제출 전 확인</span>' : ''}
         </div>
+        <h2 style="margin:0;font-size:20px;font-weight:900">${app.edu_name || app.title || '-'}</h2>
+        <p style="margin:6px 0 0;font-size:12px;opacity:.8">${app.applicant_name || currentPersona.name} · ${app.dept || currentPersona.dept}</p>
       </div>
+      <div style="padding:24px 28px;background:#F9FAFB">
+        ${typeof window.foRenderStandardReadOnlyForm === 'function'
+          ? window.foRenderStandardReadOnlyForm({ ...app, amount, accountCode: app.accountCode || app.account_code || '' }, 'FO', resolvedInlineFields)
+          : '<p>렌더러 로딩 중...</p>'}
+        ${mode === 'confirm' ? `<div style="margin-top:20px;padding:12px 16px;background:#FEF3C7;border-radius:10px;border:1.5px solid #FDE68A;font-size:12px;color:#92400E">⚠️ 확정 제출 시 상신 문서가 자동 생성되어 팀장 결재함으로 전달됩니다. 결재 진행 중 취소가 필요하면 결재함에서 회수하세요.</div>` : ''}
+      </div>
+      ${typeof renderApprovalStepper === 'function' ? renderApprovalStepper(st, 'application') : ''}
       <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6;flex-wrap:wrap">
-        <button onclick="applyState.confirmMode=false;renderApply()"
-          style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">
-          ← 수정하기
-        </button>
-        <button onclick="confirmApply()"
-          style="padding:10px 28px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#002C5F;color:white;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">
-          📤 상신하기
-        </button>
+        ${actionBtns}
       </div>
-
     </div>
   </div>`;
+}
+window.foRenderApplyUnifiedView = foRenderApplyUnifiedView;
+
+async function foRecallApplyFromDetail(appId) {
+  if (typeof _aprRecallSubmit === 'function') {
+    await _aprRecallSubmit(appId, 'applications');
+    applyViewMode = 'list';
+    applyState = resetApplyState();
+    renderApply();
+  } else {
+    alert("결재 모듈을 찾을 수 없습니다.");
+  }
 }
 
 // ─── 신청 확정 제출 (Edge Function 경유 — 예산 트랜잭션) ────────────────
@@ -428,7 +492,9 @@ async function confirmApply() {
         status: 'submitted',
         submitted_at: now,
       };
-      await sb2.from('submission_documents').insert(docRow).catch(e => console.warn('[confirmApply] submission_documents 생성 실패:', e.message));
+      const { error: sdErr1 } = await sb2.from('submission_documents').insert(docRow);
+      if (sdErr1) console.warn('[confirmApply] submission_documents 생성 실패:', sdErr1.message);
+      
       const itemRow = {
         submission_id: docId,
         item_type: 'application',
@@ -440,7 +506,10 @@ async function confirmApply() {
         item_status: 'pending',
         sort_order: 0,
       };
-      await sb2.from('submission_items').insert(itemRow).catch(e => console.warn('[confirmApply] submission_items 생성 실패:', e.message));
+      
+      const { error: sdErr2 } = await sb2.from('submission_items').insert(itemRow);
+      if (sdErr2) console.warn('[confirmApply] submission_items 생성 실패:', sdErr2.message);
+      
       console.log('[confirmApply] 상신 문서 자동 생성:', docId);
     }
   } catch (sdErr) {
@@ -677,7 +746,8 @@ async function viewApplyDetail(appId) {
     applyState.courseSessionLinks = data.detail?.courseSessionLinks || [];
     applyState.budgetChoice = data.detail?.budgetChoice || "";
     
-    applyState.confirmMode = true; // 강제 상세보기 모드
+    applyState.confirmMode = true; // 상세보기 모드로 진입
+    applyState.justSaved = false;  // 단순 조회 모드
     applyViewMode = "form";
     renderApply();
   } catch (err) {
@@ -1270,11 +1340,14 @@ async function saveApplyAsReady() {
     const { error } = await sb.from('applications').upsert(row, { onConflict: 'id' });
     if (error) throw error;
     applyState.editId = appId;
+    applyState.justSaved = true;
     alert('📤 저장완료 상태로 저장되었습니다.\n\n수정 또는 상신이 가능합니다.');
     
     // UI 전환: 방금 저장한 내역을 상세 조회 화면으로 띄움
     if (typeof viewApplyDetail === 'function') {
-      viewApplyDetail(appId);
+      await viewApplyDetail(appId);
+      applyState.justSaved = true; // viewApplyDetail에서 false로 덮어쓰는 것 방지
+      renderApply();
     } else if (typeof navigate === 'function') {
       navigate('history');
     } else if (typeof applyViewMode !== 'undefined') {

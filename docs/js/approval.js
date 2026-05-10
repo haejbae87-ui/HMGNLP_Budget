@@ -331,9 +331,14 @@ async function renderApprovalMember() {
           ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#DBEAFE;color:#1D4ED8;margin-left:4px">📋 교육계획</span>'
           : '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:5px;background:#FEF3C7;color:#B45309;margin-left:4px">📝 교육신청</span>';
 
+      const safeId = String(item.id).replace(/'/g, "\\'");
+      const isPlan = item._type === 'plan';
+      const onClickStr = isPlan 
+        ? `if(typeof navigate==='function')navigate('plans');setTimeout(()=>{if(typeof viewPlanDetail==='function')viewPlanDetail('${safeId}')},50)`
+        : `if(typeof navigate==='function')navigate('apply');setTimeout(()=>{if(typeof viewApplyDetail==='function')viewApplyDetail('${safeId}')},50)`;
+
       return `
-    <div style="border-radius:14px;border:1.5px solid ${fc.color}30;background:white;padding:18px 20px;margin-bottom:12px">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
+    <div onclick="${onClickStr}" style="cursor:pointer;border-radius:14px;border:1.5px solid ${fc.color}30;background:white;padding:18px 20px;margin-bottom:12px;transition:all 0.2s" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.06)'" onmouseout="this.style.transform='none';this.style.boxShadow='none'">
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
             <span style="font-size:14px;font-weight:900;color:#111827">${item.title}</span>
@@ -468,7 +473,7 @@ async function renderApprovalMember() {
           const _tid = String(item.id).replace(/'/g,"\\'");
           const _ttbl = item._table || (item._type === 'plan' ? 'plans' : 'applications');
           return `<div style="margin-top:10px;padding-top:10px;border-top:1px solid #F3F4F6;display:flex;align-items:center;gap:8px">
-              <button onclick="_aprRecallSubmit('${_tid}','${_ttbl}')"
+              <button onclick="event.stopPropagation(); _aprRecallSubmit('${_tid}','${_ttbl}')"
                 style="padding:6px 14px;border-radius:8px;border:1.5px solid #9CA3AF;background:white;color:#6B7280;font-size:11px;font-weight:800;cursor:pointer"
                 onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='white'">
                 ↩️ 회수

@@ -164,8 +164,8 @@ function _renderResultList() {
             const typeBadgeColor =
               r.resultType === "from_application" ? "#1D4ED8" : "#D97706";
             return `
-      <div style="display:flex;align-items:flex-start;gap:16px;padding:18px 20px;border-radius:14px;
-                  border:1.5px solid ${cfg.border};background:${cfg.bg};transition:all .15s;margin-bottom:12px"
+      <div onclick="viewResultDetail('${r.id}')" style="display:flex;align-items:flex-start;gap:16px;padding:18px 20px;border-radius:14px;
+                  border:1.5px solid ${cfg.border};background:${cfg.bg};transition:all .15s;margin-bottom:12px;cursor:pointer"
            onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.08)';this.style.transform='translateY(-1px)'"
            onmouseout="this.style.boxShadow='none';this.style.transform='none'">
         <div style="font-size:24px;flex-shrink:0;margin-top:2px">${cfg.icon}</div>
@@ -1431,6 +1431,8 @@ async function _submitResultRegistration() {
 
     alert("✅ 교육결과가 등록되었습니다.\n\nBO 담당자 검토 후 최종 확정됩니다.");
     _resultWizardState.confirmMode = true;
+    _resultWizardState.justSaved = true;
+    _resultWizardState.currentStatus = "result_pending";
     _resultDbLoaded = false;
     _resultDbRows = [];
     _resultApprovedAppsLoaded = false;
@@ -1442,35 +1444,137 @@ async function _submitResultRegistration() {
   }
 }
 
-// ─── 결과 작성확인(상세조회) 화면 ──────────────────────────────────────────
 function _renderResultConfirm() {
   const s = _resultWizardState;
-  const totalCost = s.expenses.reduce(
-    (sum, e) => sum + (Number(e.price) || 0) * (Number(e.qty) || 1),
-    0
-  );
+  const totalCost = (s.expenses || []).reduce((sum, e) => sum + (Number(e.price) || 0) * (Number(e.qty) || 1), 0);
+  
+  const resultLike = {
+    ...s,
+    id: s.editId || s.selectedAppId || null,
+    amount: totalCost,
+    account_code: s.budgetId,
+    accountCode: s.budgetId,
+    status: s.currentStatus || 'result_pending',
+    title: s.title || '',
+    applicant_name: currentPersona.name,
+    dept: currentPersona.dept,
+    detail: s,
+  };
+  
+  document.getElementById("page-result").innerHTML = foRenderResultUnifiedView(resultLike, {
+    mode: s.justSaved ? 'confirm' : 'detail',
+    inlineFields: (s.formTemplate && s.formTemplate.inlineFields) || null,
+  });
+}
 
-  document.getElementById("page-result").innerHTML = `
+function foRenderResultUnifiedView(res, opts = {}) {
+  const { mode = 'detail', inlineFields = null } = opts;
+  const stColor = res.status === 'completed' ? '#059669' : '#D97706';
+  const stLabel = res.status === 'completed' ? '등록완료' : '검토중';
+  const amount = Number(res.amount || 0);
+
+  let actionBtns = '';
+  if (mode === 'confirm') {
+    actionBtns = `
+      <button onclick="_resultWizardState=null;renderResult()" style="margin-right:auto;padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:#F9FAFB;color:#4B5563;cursor:pointer">≡ 목록으로</button>
+      <button onclick="_resultWizardState=null;renderResult()" style="padding:10px 28px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#002C5F;color:white;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">✅ 확인</button>`;
+  } else {
+    actionBtns = `
+      <button onclick="_resultWizardState=null;renderResult()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">← 목록으로</button>`;
+  }
+
+  // 원본 교육신청 정보 요약 (옵션 A)
+  let originalAppSummary = '';
+  if (res.mode === 'from_application' && res.selectedApp) {
+    const app = res.selectedApp;
+    originalAppSummary = `
+      <div style="margin-bottom:20px;padding:16px 20px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:16px">
+        <div style="font-size:11px;font-weight:900;color:#1D4ED8;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+          <span style="font-size:14px">📝</span> 원본 교육신청 정보
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:16px;font-size:12px">
+          <div style="flex:1;min-width:200px">
+            <span style="color:#6B7280;font-weight:800;display:inline-block;width:60px">신청명</span>
+            <span style="color:#111827;font-weight:900">${app.title || app.edu_name || '-'}</span>
+          </div>
+          <div style="flex:1;min-width:200px">
+            <span style="color:#6B7280;font-weight:800;display:inline-block;width:60px">신청금액</span>
+            <span style="color:#111827;font-weight:900">${Number(app.amount || 0).toLocaleString()}원</span>
+          </div>
+          <div style="flex:1;min-width:200px">
+            <span style="color:#6B7280;font-weight:800;display:inline-block;width:60px">학습기간</span>
+            <span style="color:#111827;font-weight:900">${app.detail?.startDate || '-'} ~ ${app.detail?.endDate || '-'}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
   <div class="max-w-3xl mx-auto">
-    <div style="background:white;border-radius:20px;border:1.5px solid #E5E7EB;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.08)">
+    ${mode === 'detail' ? `<div style="margin-bottom:16px"><button onclick="_resultWizardState=null;renderResult()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">← 목록으로</button></div>` : ''}
+    <div style="border-radius:20px;overflow:hidden;border:1.5px solid #E5E7EB;background:white;box-shadow:0 8px 30px rgba(0,0,0,.08)">
       <div style="padding:24px 28px;background:linear-gradient(135deg,#002C5F,#0369A1);color:white">
-        <div style="font-size:11px;font-weight:700;opacity:.7;margin-bottom:4px">✅ 등록 완료</div>
-        <h2 style="margin:0;font-size:20px;font-weight:900">교육결과 상세 내용</h2>
-        <p style="margin:6px 0 0;font-size:12px;opacity:.8">제출된 교육결과 내역입니다. BO 담당자 검토 후 최종 확정됩니다.</p>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:${stColor}40;color:white">${stLabel}</span>
+          ${mode === 'confirm' ? '<span style="font-size:10px;font-weight:700;opacity:.7">✅ 등록 완료</span>' : ''}
+        </div>
+        <h2 style="margin:0;font-size:20px;font-weight:900">${res.title || '-'}</h2>
+        <p style="margin:6px 0 0;font-size:12px;opacity:.8">${res.applicant_name || currentPersona.name} · ${res.dept || currentPersona.dept}</p>
       </div>
-      
-      <div style="padding:24px 28px; background:#F9FAFB">
-        ${typeof window.foRenderStandardReadOnlyForm === 'function' ? window.foRenderStandardReadOnlyForm({...s, amount: totalCost, accountCode: s.budgetId}, 'FO', (s.formTemplate && s.formTemplate.inlineFields) || null) : '<p>상세 내역 렌더링 중...</p>'}
+      <div style="padding:24px 28px;background:#F9FAFB">
+        ${originalAppSummary}
+        ${typeof window.foRenderStandardReadOnlyForm === 'function'
+          ? window.foRenderStandardReadOnlyForm({ ...res, amount, accountCode: res.accountCode || res.account_code || '' }, 'FO', inlineFields)
+          : '<p>렌더러 로딩 중...</p>'}
       </div>
-      
-      <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6">
-        <button onclick="_resultWizardState=null;renderResult()"
-          style="padding:10px 28px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#002C5F;color:white;cursor:pointer;box-shadow:0 4px 16px rgba(0,44,95,.3)">
-          ≡ 목록으로
-        </button>
+      ${typeof renderApprovalStepper === 'function' ? renderApprovalStepper(res.status, 'result') : ''}
+      <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6;flex-wrap:wrap">
+        ${actionBtns}
       </div>
     </div>
   </div>`;
+}
+
+async function viewResultDetail(resId) {
+  const sb = typeof getSB === "function" ? getSB() : null;
+  if (!sb) return;
+  try {
+    const { data, error } = await sb
+      .from("applications")
+      .select("*")
+      .eq("id", resId)
+      .single();
+    if (error || !data) {
+      alert("결과 내역을 불러올 수 없습니다.");
+      return;
+    }
+    
+    _resultWizardState = _resetResultWizardState();
+    Object.assign(_resultWizardState, data.detail || {}); 
+    _resultWizardState.editId = data.id;
+    _resultWizardState.title = data.edu_name || "";
+    _resultWizardState.learningType = data.edu_type || "";
+    _resultWizardState.budgetId = data.account_code || data.detail?.budgetId || "";
+    _resultWizardState.currentStatus = data.status;
+    _resultWizardState.expenses = data.detail?.expenses || [{ id: 1, type: "교육비/등록비", price: 0, qty: 1 }];
+    
+    _resultWizardState.confirmMode = true; 
+    _resultWizardState.justSaved = false;
+    
+    // 만약 신청 기반(from_application)인 경우, 원본 정보를 selectedApp에 세팅하여 요약본이 나오게 함
+    if (_resultWizardState.resultType === 'from_application' && !_resultWizardState.selectedApp) {
+      // data 자체가 원본 application 이므로 (result는 application 테이블의 detail.result로 저장됨)
+      _resultWizardState.mode = 'from_application';
+      _resultWizardState.selectedApp = data;
+    } else if (_resultWizardState.resultType === 'direct' || _resultWizardState.mode === 'direct') {
+      _resultWizardState.mode = 'direct';
+    }
+
+    renderResult();
+  } catch (err) {
+    alert("불러오기 실패: " + err.message);
+  }
 }
 // ══════════════════════════════════════════════════════════════════════
 // Phase 1 — 결과등록 VOrg 허브 (교육신청과 동일 패턴)
@@ -1551,7 +1655,7 @@ async function _renderResultAccountHub() {
   container.innerHTML = `<div style="padding:80px;text-align:center;color:#6B7280;font-weight:600;font-size:14px">⏳ 예산계정 조회 중...</div>`;
   const ownedAccounts = _resultSelectedVorgOwnedAccounts || [];
   let accountItems = []; const budgets = currentPersona?.budgets || [];
-  if (ownedAccounts.length > 0) accountItems = budgets.filter(b => ownedAccounts.some(ac => ac === b.accountCode || ac === b.id));
+  if (_resultSelectedVorgId !== 'default') accountItems = budgets.filter(b => ownedAccounts.some(ac => ac === b.accountCode || ac === b.id));
   else { const allowed = currentPersona?.allowedAccounts || []; accountItems = allowed.includes('*') ? budgets : budgets.filter(b => allowed.includes(b.accountCode)); }
   const seen = new Set();
   accountItems = accountItems.filter(b => { if (seen.has(b.accountCode)) return false; seen.add(b.accountCode); return true; });

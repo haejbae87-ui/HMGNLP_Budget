@@ -408,6 +408,18 @@ function _baRenderDetailPanel(a, canEdit) {
       </div>
     </div>
 
+    <!-- FO 목록 탭 표시 설정 (list_view_mode) -->
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;font-weight:700;color:#374151;display:flex;align-items:center;gap:4px;margin-bottom:6px">
+        FO 목록 탭 표시 <span style="font-size:10px;color:#9CA3AF;cursor:help" title="FO 신청 목록에서 개인/팀 탭 노출 제어">ⓘ</span>
+      </label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button id="ba-d-lvm-personal" onclick="_baDToggle('lvm','personal')" style="padding:6px 12px;border:1.5px solid ${(a.list_view_mode||'both') === 'personal' ? '#7C3AED' : '#E5E7EB'};border-radius:8px;font-size:11px;font-weight:700;background:${(a.list_view_mode||'both') === 'personal' ? '#F5F3FF' : 'white'};color:${(a.list_view_mode||'both') === 'personal' ? '#7C3AED' : '#9CA3AF'};cursor:pointer">👤 개인만</button>
+        <button id="ba-d-lvm-team" onclick="_baDToggle('lvm','team')" style="padding:6px 12px;border:1.5px solid ${(a.list_view_mode||'both') === 'team' ? '#D97706' : '#E5E7EB'};border-radius:8px;font-size:11px;font-weight:700;background:${(a.list_view_mode||'both') === 'team' ? '#FFFBEB' : 'white'};color:${(a.list_view_mode||'both') === 'team' ? '#D97706' : '#9CA3AF'};cursor:pointer">👥 팀만</button>
+        <button id="ba-d-lvm-both" onclick="_baDToggle('lvm','both')" style="padding:6px 12px;border:1.5px solid ${(a.list_view_mode||'both') === 'both' ? '#059669' : '#E5E7EB'};border-radius:8px;font-size:11px;font-weight:700;background:${(a.list_view_mode||'both') === 'both' ? '#F0FDF4' : 'white'};color:${(a.list_view_mode||'both') === 'both' ? '#059669' : '#9CA3AF'};cursor:pointer">👤👥 둘 다</button>
+      </div>
+    </div>
+
     <!-- 연동 방식 -->
     <div style="margin-bottom:14px">
       <label style="font-size:12px;font-weight:700;color:#374151;display:flex;align-items:center;gap:4px;margin-bottom:6px">
@@ -495,6 +507,17 @@ function _baDToggle(type, val) {
       sh.style.color = val === "shared" ? "#D97706" : "#9CA3AF";
     }
   }
+  if (type === "lvm") {
+    const p = document.getElementById("ba-d-lvm-personal");
+    const t = document.getElementById("ba-d-lvm-team");
+    const b = document.getElementById("ba-d-lvm-both");
+    [{el:p,v:'personal',c:'#7C3AED',bg:'#F5F3FF'},{el:t,v:'team',c:'#D97706',bg:'#FFFBEB'},{el:b,v:'both',c:'#059669',bg:'#F0FDF4'}].forEach(({el,v,c,bg}) => {
+      if (!el) return;
+      el.style.borderColor = val === v ? c : '#E5E7EB';
+      el.style.background = val === v ? bg : 'white';
+      el.style.color = val === v ? c : '#9CA3AF';
+    });
+  }
 }
 
 // ── 인라인 저장 ──────────────────────────────────────────────────────────────
@@ -523,12 +546,21 @@ async function _baInlineSave(id) {
     ? "shared"
     : "isolated";
 
+  // list_view_mode 판별
+  const lvmBoth = document.getElementById('ba-d-lvm-both');
+  const lvmTeam = document.getElementById('ba-d-lvm-team');
+  const lvmPersonal = document.getElementById('ba-d-lvm-personal');
+  let listViewMode = 'both';
+  if (lvmPersonal?.style.color?.includes('7C3AED')) listViewMode = 'personal';
+  else if (lvmTeam?.style.color?.includes('D97706')) listViewMode = 'team';
+
   const payload = {
     name,
     description: desc,
     integration_mode: intType === "standalone" ? "self" : intType,
     sap_code: sapCode,
     uses_budget: usesBudget,
+    list_view_mode: listViewMode,
     updated_at: new Date().toISOString(),
   };
   try {

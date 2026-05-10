@@ -33,6 +33,7 @@
 | 25 | BO-FO 양식 필드 레지스트리 | [field_registry.md](field_registry.md) | ✅ 활성 | v1.0 |
 | 26 | **🆕 예산 배정 화면 개편 (v3)** | [budget_allocation_redesign.md](budget_allocation_redesign.md) | 🟡 구현 중 (Phase 0-A) | v3.0 |
 | **27** | **🆕 예산계정 마스터 (기초/추가 배정)** | [budget_master.md](budget_master.md) | 🟡 구현 갭 있음 (데이터 동기화 단절) | v1.0 |
+| **28** | **🆕 FO 프로세스 통합 (교육신청 UX 일관성)** | [fo_process_unification.md](fo_process_unification.md) | 🔴 미구현 (기획 검토 중) | v1.0 |
 
 
 ---

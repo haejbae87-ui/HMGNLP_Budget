@@ -6,6 +6,15 @@ let _dbApprovedPlans = [];
 let _dbApprovedPlansLoaded = false;
 let _dbApprPlanPersonaId = null; // 캐시 무효화용
 
+// ── Phase1: 교육신청 허브 상태 (fo_plans_list.js 패턴 이식) ────────────────
+let _applySelectedVorgId = null;
+let _applySelectedVorgName = null;
+let _applySelectedAccountCode = null;
+let _applySelectedAccountName = null;
+let _applyUserVorgList = [];
+let _applySelectedVorgOwnedAccounts = [];
+let _applyAccountListViewMode = 'both'; // 'personal' | 'team' | 'both'
+
 async function _loadApprovedPlans() {
   const pid = currentPersona.id;
   if (_dbApprovedPlansLoaded && _dbApprPlanPersonaId === pid)
@@ -91,6 +100,11 @@ function renderApply() {
       applyState.planId = pl.plan_id;
       applyState.title = pl.title;
       applyState.eduName = pl.title;
+      // 계획에 account_code가 있으면 허브 자동 스킵
+      if (pl.account_code) {
+        _applySelectedAccountCode = pl.account_code;
+        _applySelectedAccountName = pl.account_name || pl.account_code;
+      }
       applyViewMode = "form";
       console.log("[Apply] Linked from plan:", pl.plan_id, pl.title);
     } catch(e) { sessionStorage.removeItem("_applyFromPlan"); }
@@ -100,8 +114,16 @@ function renderApply() {
     _renderApplyConfirm();
   } else if (applyViewMode === "form") {
     _renderApplyForm();
-    // resultForm 뷰모드는 result.js 독립 화면으로 이관됨
   } else {
+    // ── Phase1: 허브 라우팅 (계정 미선택이면 허브 표시) ──
+    if (!_applySelectedAccountCode) {
+      if (!_applySelectedVorgId) {
+        _renderApplyVorgHub();
+        return;
+      }
+      _renderApplyAccountHub();
+      return;
+    }
     _renderApplyList();
   }
 }
@@ -467,17 +489,27 @@ function _renderApplyList() {
     취소: { color: "#9CA3AF", bg: "#F9FAFB", border: "#E5E7EB", icon: "🚫" },
   };
 
-  const teamViewEnabled =
-    currentPersona.teamViewEnabled ?? currentPersona.team_view_enabled ?? false;
+  // Phase1: list_view_mode 기반 탭 제어
+  const _tabMode = _applyAccountListViewMode || 'both';
+  const _rawTeamView = currentPersona.teamViewEnabled ?? currentPersona.team_view_enabled ?? false;
+  const teamViewEnabled = (_tabMode === 'team' || _tabMode === 'both') && _rawTeamView;
+  const showPersonalTab = _tabMode === 'personal' || _tabMode === 'both';
+  const showTeamTab = teamViewEnabled;
+  // 탭 모드가 team-only이면 기본 탭을 team으로
+  if (_tabMode === 'team' && _applyListTab === 'mine' && showTeamTab) _applyListTab = 'team';
+  if (_tabMode === 'personal' && _applyListTab === 'team') _applyListTab = 'mine';
 
   // DB 실시간 조회
   const sb = typeof getSB === "function" ? getSB() : null;
   if (sb && !_appsDbLoaded) {
     _appsDbLoaded = true;
-    sb.from("applications")
+    let _appQuery = sb.from("applications")
       .select("*")
       .eq("applicant_id", currentPersona.id)
-      .eq("tenant_id", currentPersona.tenantId)
+      .eq("tenant_id", currentPersona.tenantId);
+    // ★ Phase1: 선택된 계정으로 필터 (계정별 데이터 격리)
+    if (_applySelectedAccountCode) _appQuery = _appQuery.eq("account_code", _applySelectedAccountCode);
+    _appQuery
       .order("created_at", { ascending: false })
       .then(({ data, error }) => {
         if (!error && data) {
@@ -564,8 +596,8 @@ function _renderApplyList() {
     pending: history.filter((h) => h.applyStatus === "승인대기").length,
   };
 
-  // Segmented tab (개선: 업라인 탭 + 자연스러운 상태 전환)
-  const tabBar = teamViewEnabled
+  // Segmented tab (Phase1: list_view_mode 기반 동적 제어)
+  const tabBar = (showPersonalTab && showTeamTab)
     ? `
   <div style="display:flex;gap:0;border-bottom:2px solid #E5E7EB;margin-bottom:24px">
     <button onclick="_applyListTab='mine';_renderApplyList()" style="
@@ -711,7 +743,8 @@ function _renderApplyList() {
     <div style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">
       <span style="color:#D1D5DB">HOME</span>
       <span style="color:#D1D5DB">›</span>
-      <span style="color:#002C5F">교육신청</span>
+      ${_applyUserVorgList.length > 1 ? `<span onclick="_applySelectedVorgId=null;_applySelectedAccountCode=null;_appsDbLoaded=false;renderApply()" style="cursor:pointer;text-decoration:underline;color:#6B7280">교육신청</span>` : `<span style="color:#002C5F">교육신청</span>`}
+      ${_applySelectedAccountName ? `<span style="color:#D1D5DB">›</span><span style="color:#002C5F">${_applySelectedAccountName}</span>` : ''}
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:nowrap">
       <div style="min-width:0;flex:1">
@@ -804,6 +837,261 @@ function _applySelectionBanner(s, currentStep) {
     <span style="color:#BAE6FD;font-size:12px">|</span>
     ${itemsHtml}
   </div > `;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Phase 1 — L1: 교육신청 제도그룹(VOrg) 허브
+// VOrg가 1개이면 자동 스킵, 2개 이상이면 카드 선택 화면 표시
+// ══════════════════════════════════════════════════════════════════════
+async function _renderApplyVorgHub() {
+  const container = document.getElementById('page-apply');
+  if (!container) return;
+
+  // VOrg ID 목록 수집
+  let vorgIds = [];
+  if (Array.isArray(currentPersona?.vorgIds) && currentPersona.vorgIds.length > 0) {
+    vorgIds = currentPersona.vorgIds;
+  } else if (currentPersona?.vorgId) {
+    vorgIds = [currentPersona.vorgId];
+  } else if (currentPersona?.domainId) {
+    vorgIds = [currentPersona.domainId];
+  }
+
+  if (vorgIds.length === 0) {
+    _applySelectedVorgId = 'default';
+    _applySelectedVorgName = '기본 제도그룹';
+    _applySelectedVorgOwnedAccounts = [];
+    renderApply();
+    return;
+  }
+
+  container.innerHTML = `<div style="padding:80px;text-align:center;color:#6B7280;font-weight:600;font-size:14px">⏳ 제도그룹 조회 중...</div>`;
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  let fetchedVorgs = [];
+  if (sb && vorgIds.length > 0) {
+    try {
+      const { data } = await sb.from('virtual_org_templates')
+        .select('id, name, isolation_group_id').in('id', vorgIds);
+      if (data && data.length > 0) {
+        const igIds = data.map(r => r.isolation_group_id).filter(Boolean);
+        let igMap = {};
+        if (igIds.length > 0) {
+          try {
+            const { data: igRows } = await sb.from('isolation_groups')
+              .select('id, owned_accounts').in('id', igIds);
+            (igRows || []).forEach(ig => { igMap[ig.id] = ig.owned_accounts || []; });
+          } catch(e) {}
+        }
+        fetchedVorgs = data.map(row => ({
+          id: row.id, name: row.name || row.id,
+          ownedAccounts: igMap[row.isolation_group_id] || [],
+        }));
+      }
+    } catch(e) { console.warn('[ApplyVorgHub] DB fetch failed:', e.message); }
+  }
+
+  const templates = typeof VORG_TEMPLATES !== 'undefined' ? VORG_TEMPLATES : [];
+  const vorgItems = vorgIds.map(vid => {
+    const fetched = fetchedVorgs.find(f => f.id === vid);
+    const tpl = templates.find(t => t.id === vid || t.code === vid) || {};
+    return { id: vid, name: fetched?.name || tpl.name || vid, ownedAccounts: fetched?.ownedAccounts || tpl.ownedAccounts || [] };
+  }).filter(v => v.id);
+
+  // 단일 VOrg → 자동 스킵
+  if (vorgItems.length <= 1) {
+    const v = vorgItems[0] || { id: vorgIds[0] || 'default', name: '기본 제도그룹', ownedAccounts: [] };
+    _applySelectedVorgId = v.id;
+    _applySelectedVorgName = v.name;
+    _applySelectedVorgOwnedAccounts = v.ownedAccounts;
+    renderApply();
+    return;
+  }
+
+  _applyUserVorgList = vorgItems;
+  container.innerHTML = `
+<div class="max-w-5xl mx-auto space-y-6">
+  <div>
+    <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">HOME › 교육신청</div>
+    <h1 class="text-3xl font-black text-brand tracking-tight">🏛 제도그룹 선택</h1>
+    <p class="text-gray-500 text-sm mt-1">교육신청을 진행할 제도그룹을 선택해 주세요.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px">
+    ${vorgItems.map(v => `
+    <button onclick="_selectApplyVorg('${v.id}','${v.name.replace(/'/g, '')}')"
+      style="text-align:left;padding:28px 24px;border-radius:20px;border:2px solid #E5E7EB;background:white;
+             cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.05);transition:all 0.18s"
+      onmouseover="this.style.borderColor='#002C5F';this.style.boxShadow='0 8px 28px rgba(0,44,95,0.12)';this.style.transform='translateY(-3px)'"
+      onmouseout="this.style.borderColor='#E5E7EB';this.style.boxShadow='0 4px 16px rgba(0,0,0,0.05)';this.style.transform='none'">
+      <div style="font-size:28px;margin-bottom:12px">🏛</div>
+      <div style="font-size:16px;font-weight:900;color:#111827;margin-bottom:4px">${v.name}</div>
+      <div style="margin-top:16px;font-size:12px;font-weight:800;color:#002C5F;display:flex;align-items:center;gap:4px">
+        선택하기 <span>→</span>
+      </div>
+    </button>`).join('')}
+  </div>
+</div>`;
+}
+
+function _selectApplyVorg(vorgId, vorgName) {
+  _applySelectedVorgId = vorgId;
+  _applySelectedVorgName = vorgName;
+  const vorgItem = _applyUserVorgList.find(v => v.id === vorgId);
+  _applySelectedVorgOwnedAccounts = vorgItem?.ownedAccounts || [];
+  _applySelectedAccountCode = null;
+  _applySelectedAccountName = null;
+  renderApply();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Phase 1 — L2: 교육신청 예산계정 허브
+// 계정이 1개이면 자동 스킵, 2개 이상이면 카드 선택 화면 표시
+// ══════════════════════════════════════════════════════════════════════
+async function _renderApplyAccountHub() {
+  const container = document.getElementById('page-apply');
+  if (!container) return;
+  container.innerHTML = `<div style="padding:80px;text-align:center;color:#6B7280;font-weight:600;font-size:14px">⏳ 예산계정 조회 중...</div>`;
+
+  const ownedAccounts = _applySelectedVorgOwnedAccounts || [];
+  let accountItems = [];
+  const budgets = currentPersona?.budgets || [];
+
+  if (ownedAccounts.length > 0) {
+    accountItems = budgets.filter(b => ownedAccounts.some(ac => ac === b.accountCode || ac === b.id));
+  } else {
+    const allowed = currentPersona?.allowedAccounts || [];
+    accountItems = allowed.includes('*') ? budgets : budgets.filter(b => allowed.includes(b.accountCode));
+  }
+
+  // 중복 제거
+  const seen = new Set();
+  accountItems = accountItems.filter(b => {
+    if (seen.has(b.accountCode)) return false;
+    seen.add(b.accountCode);
+    return true;
+  });
+
+  // 0개
+  if (accountItems.length === 0) {
+    const showBack = (_applyUserVorgList.length > 1);
+    container.innerHTML = `
+<div class="max-w-5xl mx-auto space-y-6">
+  <div>
+    <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">
+      HOME › ${showBack ? `<span onclick="_applySelectedVorgId=null;renderApply()" style="cursor:pointer;text-decoration:underline">교육신청</span>` : '교육신청'} › 예산계정
+    </div>
+    <h1 class="text-3xl font-black text-brand tracking-tight">💳 예산계정 선택</h1>
+  </div>
+  <div style="padding:60px 20px;text-align:center;border-radius:16px;background:#FFF9F9;border:1.5px dashed #FCA5A5">
+    <div style="font-size:36px;margin-bottom:12px">⚠️</div>
+    <div style="font-size:14px;font-weight:900;color:#DC2626">이 제도그룹에 배정된 예산계정이 없습니다.</div>
+    <div style="font-size:12px;color:#9CA3AF;margin-top:6px">관리자에게 예산 배정을 요청해 주세요.</div>
+    ${showBack ? `<button onclick="_applySelectedVorgId=null;renderApply()" style="margin-top:20px;padding:10px 20px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:13px;font-weight:700;cursor:pointer">← 제도그룹 선택으로</button>` : ''}
+  </div>
+</div>`;
+    return;
+  }
+
+  // 1개 → 자동 스킵
+  if (accountItems.length === 1) {
+    const a = accountItems[0];
+    _selectApplyAccount(a.accountCode, a.name || a.accountCode);
+    return;
+  }
+
+  // 복수 계정 → 카드 UI
+  const showBack = (_applyUserVorgList.length > 1);
+
+  // list_view_mode DB 조회 (각 계정별)
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  let lvmMap = {};
+  if (sb) {
+    try {
+      const codes = accountItems.map(a => a.accountCode).filter(Boolean);
+      if (codes.length > 0) {
+        const { data } = await sb.from('budget_accounts')
+          .select('code, list_view_mode')
+          .in('code', codes)
+          .eq('tenant_id', currentPersona.tenantId);
+        (data || []).forEach(r => { if (r.list_view_mode) lvmMap[r.code] = r.list_view_mode; });
+      }
+    } catch(e) {}
+  }
+
+  container.innerHTML = `
+<div class="max-w-5xl mx-auto space-y-6">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between">
+    <div>
+      <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">
+        HOME › ${showBack ? `<span onclick="_applySelectedVorgId=null;renderApply()" style="cursor:pointer;text-decoration:underline">교육신청</span>` : '교육신청'} › 예산계정
+      </div>
+      <h1 class="text-3xl font-black text-brand tracking-tight">💳 예산계정 선택</h1>
+      <p class="text-gray-500 text-sm mt-1">${_applySelectedVorgName || '교육신청'} · 신청할 예산계정을 선택하세요.</p>
+    </div>
+    ${showBack ? `<button onclick="_applySelectedVorgId=null;renderApply()" style="padding:8px 18px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;cursor:pointer;color:#6B7280">← 제도그룹</button>` : ''}
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px">
+    ${accountItems.map(b => {
+      const balance = (b.balance || 0);
+      const used = (b.used || 0);
+      const remaining = balance - used;
+      const pct = balance > 0 ? Math.round(remaining / balance * 100) : 0;
+      const barColor = pct < 20 ? '#EF4444' : pct < 50 ? '#F59E0B' : '#10B981';
+      const isNoBudget = b.uses_budget === false || b.accountCode === 'COMMON-FREE';
+      const icon = isNoBudget ? '📝' : '💳';
+      const subLabel = isNoBudget ? '예산 미사용 (이력만 등록)' : `가용: ${remaining.toLocaleString()}원`;
+      const lvm = lvmMap[b.accountCode] || 'both';
+      return `
+    <button onclick="_selectApplyAccount('${b.accountCode}','${(b.name||b.accountCode).replace(/'/g,'')}','${lvm}')"
+      style="text-align:left;padding:24px 22px;border-radius:20px;border:2px solid #E5E7EB;background:white;
+             cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.05);transition:all 0.18s"
+      onmouseover="this.style.borderColor='#002C5F';this.style.boxShadow='0 8px 28px rgba(0,44,95,0.12)';this.style.transform='translateY(-3px)'"
+      onmouseout="this.style.borderColor='#E5E7EB';this.style.boxShadow='0 4px 16px rgba(0,0,0,0.05)';this.style.transform='none'">
+      <div style="font-size:12px;font-weight:900;color:#6B7280;margin-bottom:8px">${icon} ${b.accountCode || ''}</div>
+      <div style="font-size:17px;font-weight:900;color:#111827;margin-bottom:14px">${b.name || b.accountCode}</div>
+      ${!isNoBudget && balance > 0 ? `
+      <div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:11px;color:#6B7280;font-weight:700">가용예산</span>
+          <span style="font-size:11px;font-weight:900;color:${barColor}">${remaining.toLocaleString()}원 (${pct}%)</span>
+        </div>
+        <div style="height:6px;border-radius:3px;background:#F3F4F6;overflow:hidden">
+          <div style="height:100%;width:${100-pct}%;background:${barColor};border-radius:3px;transition:width 0.3s"></div>
+        </div>
+        <div style="font-size:10px;color:#9CA3AF;margin-top:4px">배정 ${balance.toLocaleString()}원</div>
+      </div>` : isNoBudget ? `<div style="font-size:12px;color:#059669;margin-bottom:14px;font-weight:700">📋 이력만 등록</div>` : `<div style="font-size:12px;color:#9CA3AF;margin-bottom:14px">⏳ 예산 미배정</div>`}
+      <div style="margin-top:14px;font-size:12px;font-weight:800;color:#002C5F;display:flex;align-items:center;gap:4px">
+        신청 목록 보기 <span>→</span>
+      </div>
+    </button>`;
+    }).join('')}
+  </div>
+</div>`;
+}
+
+function _selectApplyAccount(accountCode, accountName, listViewMode) {
+  _applySelectedAccountCode = accountCode;
+  _applySelectedAccountName = accountName;
+  _applyAccountListViewMode = listViewMode || 'both';
+  _appsDbLoaded = false;
+  _dbMyApps = [];
+  _teamAppsLoaded = false;
+  _dbTeamApps = [];
+  renderApply();
+}
+
+function _resetApplyHubCache() {
+  _applySelectedVorgId = null;
+  _applySelectedVorgName = null;
+  _applySelectedAccountCode = null;
+  _applySelectedAccountName = null;
+  _applyUserVorgList = [];
+  _applySelectedVorgOwnedAccounts = [];
+  _applyAccountListViewMode = 'both';
+  _appsDbLoaded = false;
+  _dbMyApps = [];
+  _teamAppsLoaded = false;
+  _dbTeamApps = [];
 }
 
 // ─── 교육신청 폼 뷰 (기존 renderApply 로직) ──────────────────────────────────

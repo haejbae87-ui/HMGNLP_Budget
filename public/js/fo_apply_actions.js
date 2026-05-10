@@ -54,12 +54,21 @@ function toggleOperPlan(id) {
   renderApply();
 }
 function applyNext() {
-  const nextStep = Math.min(applyState.step + 1, 4);
+  // ★ Phase1: 허브에서 선택한 계정으로 budgetId 자동 세팅 (미설정시)
+  if (!applyState.budgetId && typeof _applySelectedAccountCode !== 'undefined' && _applySelectedAccountCode) {
+    const budgets = currentPersona?.budgets || [];
+    const matched = budgets.find(b => b.accountCode === _applySelectedAccountCode);
+    if (matched) {
+      applyState.budgetId = matched.id;
+      applyState.useBudget = matched.uses_budget !== false;
+      applyState.accountCode = matched.accountCode;
+    }
+  }
+  const nextStep = Math.min(applyState.step + 1, 3);
   applyState.step = nextStep;
 
-  // ★ Step 4 진입 시: BO 양식관리(form_config) → form_templates DB 순으로 양식 로드
-  // planNext() (fo_plans_actions.js)와 동일한 패턴
-  if (nextStep === 4) {
+  // ★ Step 3 진입 시: BO 양식관리(form_config) → form_templates DB 순으로 양식 로드
+  if (nextStep === 3) {
     applyState.formTemplateLoading = true;
     applyState.formTemplate = null; // 이전 캐시 무효화
     renderApply();
@@ -615,7 +624,7 @@ async function resumeApplyDraft(appId) {
     applyState.linkedCourses = data.detail?.linkedCourses || [];
     applyState.courseSessionLinks = data.detail?.courseSessionLinks || [];
     applyState.budgetChoice = data.detail?.budgetChoice || "";
-    applyState.step = 3;
+    applyState.step = 2;
     applyViewMode = "form";
     renderApply();
   } catch (err) {

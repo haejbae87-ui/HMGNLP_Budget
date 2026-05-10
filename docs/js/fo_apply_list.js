@@ -1034,7 +1034,7 @@ async function _renderApplyAccountHub() {
       const codes = accountItems.map(a => a.accountCode).filter(c => c && c.trim() !== '');
       if (codes.length > 0) {
         const { data } = await sb.from('budget_accounts')
-          .select('code, list_view_mode')
+          .select('code')
           .in('code', codes)
           .eq('tenant_id', currentPersona.tenantId);
         (data || []).forEach(r => { if (r.list_view_mode) lvmMap[r.code] = r.list_view_mode; });

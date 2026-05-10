@@ -560,7 +560,6 @@ async function _baInlineSave(id) {
     integration_mode: intType === "standalone" ? "self" : intType,
     sap_code: sapCode,
     uses_budget: usesBudget,
-    list_view_mode: listViewMode,
     updated_at: new Date().toISOString(),
   };
   try {

@@ -1134,7 +1134,6 @@ window._foSearchPrevYearPlan = function(stateObjName) {
     if (typeof renderPlanWizard === 'function') renderPlanWizard();
     if (typeof renderApply === 'function') renderApply();
   }
-  }
 };
 
 window._renderMonthlyTable = function(key, label, isCurrency, sObj, stateObjName) {

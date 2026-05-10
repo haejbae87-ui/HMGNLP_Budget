@@ -711,8 +711,8 @@ function _renderApplyList() {
         }
         ${
           (h.rawStatus === 'pending' || h.rawStatus === 'submitted' || h.applyStatus === '승인대기' || h.applyStatus === '결재진행중') && h.rawStatus !== 'saved'
-            ? `<button onclick="cancelApply('${h.id.replace(/'/g, "\\\"'\\\"")}')"
-               style="padding:8px 14px;border-radius:8px;background:white;color:#DC2626;font-size:11px;font-weight:800;border:1.5px solid #FECACA;cursor:pointer;white-space:nowrap">취소 요청</button>`
+            ? `<button onclick="event.stopPropagation();_aprRecallSubmit('${h.id.replace(/'/g, "\\\"'\\\"")}', 'applications')"
+               style="padding:8px 14px;border-radius:8px;background:white;color:#DC2626;font-size:11px;font-weight:800;border:1.5px solid #FECACA;cursor:pointer;white-space:nowrap">회수/취소</button>`
             : ''
         }
         ${
@@ -2486,71 +2486,7 @@ async function saveApplyDraft() {
   }
 }
 
-// ─── 신청 회수/취소 ────────────────────────────────────────────────────────
-async function cancelApply(appId) {
-  const sb = typeof getSB === "function" ? getSB() : null;
-  let curStatus = null;
-  if (sb) {
-    try {
-      const { data } = await sb
-        .from("applications")
-        .select("status")
-        .eq("id", appId)
-        .single();
-      curStatus = data?.status;
-      if (curStatus === "approved") {
-        alert("⚠️ 이미 승인된 신청은 상위 승인자가 취소해야 합니다.");
-        return;
-      }
-      if (curStatus === "draft") {
-        alert("이미 임시저장 상태입니다.");
-        return;
-      }
-      if (curStatus === "in_review") {
-        alert("⚠️ 결재가 이미 진행 중입니다.\n상위 결재자에게 반려를 요청하세요.");
-        return;
-      }
-    } catch (e) { /* pass */ }
-  }
 
-  // [A-1] saved → draft 복귀 (상신 전 취소)
-  if (curStatus === "saved") {
-    if (!confirm("저장완료 상태의 신청을 임시저장으로 되돌리시겠습니까?")) return;
-    if (sb) {
-      try {
-        const { error } = await sb.from("applications").update({ status: "draft" }).eq("id", appId);
-        if (error) throw error;
-        alert("임시저장 상태로 되돌렸습니다. 수정 후 다시 저장할 수 있습니다.");
-      } catch (err) {
-        alert("실패: " + _friendlyApplyError(err.message));
-        return;
-      }
-    }
-    _appsDbLoaded = false; _dbMyApps = [];
-    _renderApplyList();
-    return;
-  }
-
-  // [A-1] submitted → recalled → saved 복귀 (상신 후 회수)
-  if (!confirm("이 교육신청을 회수하시겠습니까?\n회수 후 저장완료 상태에서 수정하여 재상신 할 수 있습니다."))
-    return;
-  if (sb) {
-    try {
-      const { error } = await sb
-        .from("applications")
-        .update({ status: "saved" })  // [A-1] recalled 대신 saved 복귀로 즉시 재상신 가능
-        .eq("id", appId);
-      if (error) throw error;
-      alert("신청이 회수되었습니다.\n저장완료 상태로 보관됩니다. 수정 후 다시 상신할 수 있습니다.");
-    } catch (err) {
-      alert("회수 실패: " + _friendlyApplyError(err.message));
-      return;
-    }
-  }
-  _appsDbLoaded = false;
-  _dbMyApps = [];
-  _renderApplyList();
-}
 
 // ─── 상태 전이 에러 한국어 변환 ──────────────────────────────────────────
 function _friendlyApplyError(msg) {

@@ -580,7 +580,7 @@ async function _baInlineSave(id) {
         budget_account_id: id,
         vorg_template_id: _baTplId,
         bankbook_mode: bbMode,
-        bankbook_level: bbMode === 'bulk' ? 'org' : (bbMode === 'individual' ? 'individual' : 'team'),
+        bankbook_level: bbMode === 'shared' ? 'org' : (bbMode === 'individual' ? 'individual' : 'team'),
         updated_at: new Date().toISOString(),
       };
       
@@ -591,9 +591,17 @@ async function _baInlineSave(id) {
         .maybeSingle();
         
       if (existingPolicy && existingPolicy.id) {
-        await sb.from("budget_account_org_policy").update(pp).eq("id", existingPolicy.id);
+        const { error: updErr } = await sb.from("budget_account_org_policy").update(pp).eq("id", existingPolicy.id);
+        if (updErr) {
+          console.error("[budget_account_org_policy update error]", updErr);
+          throw new Error("통장 정책 갱신 실패: " + updErr.message);
+        }
       } else {
-        await sb.from("budget_account_org_policy").insert(pp);
+        const { error: insErr } = await sb.from("budget_account_org_policy").insert(pp);
+        if (insErr) {
+          console.error("[budget_account_org_policy insert error]", insErr);
+          throw new Error("통장 정책 생성 실패: " + insErr.message);
+        }
       }
     }
     await renderBudgetAccount();

@@ -820,9 +820,9 @@ ${
                     ${itemOpts}
                   </select>
                 </td>
-                <td class="px-4 py-3"><input type="number" value="${e.price}" oninput="applyState.expenses[${i}].price=this.value;renderApply()" class="w-full text-right bg-transparent font-black text-gray-900 outline-none text-base"/></td>
-                <td class="px-4 py-3"><input type="number" value="${e.qty}" oninput="applyState.expenses[${i}].qty=this.value;renderApply()" class="w-16 text-center bg-gray-50 border border-gray-200 rounded-lg py-1 font-black text-accent outline-none"/></td>
-                <td class="px-4 py-3 text-right font-black text-gray-900">${fmt(Number(e.price) * Number(e.qty))}</td>
+                <td class="px-4 py-3"><input type="number" value="${e.price}" oninput="applyState.expenses[${i}].price=this.value;_updateExpTotals()" class="w-full text-right bg-transparent font-black text-gray-900 outline-none text-base"/></td>
+                <td class="px-4 py-3"><input type="number" value="${e.qty}" oninput="applyState.expenses[${i}].qty=this.value;_updateExpTotals()" class="w-16 text-center bg-gray-50 border border-gray-200 rounded-lg py-1 font-black text-accent outline-none"/></td>
+                <td class="px-4 py-3 text-right font-black text-gray-900" id="exp-sub-${i}">${fmt(Number(e.price) * Number(e.qty))}</td>
                 <td class="px-4 py-3"><input type="text" value="${e.note || ""}" oninput="applyState.expenses[${i}].note=this.value" placeholder="비고" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-700 outline-none focus:border-accent transition min-w-[120px]"/></td>
                 <td class="px-4 py-3 text-center"><button onclick="removeExpRow(${i})" class="text-gray-300 hover:text-red-500 transition text-lg">✕</button></td>
               </tr>`;
@@ -831,7 +831,7 @@ ${
                 .join("")}
             </tbody>
             <tfoot class="bg-brand/5 border-t-2 border-brand">
-              <tr><td colspan="4" class="px-4 py-3 font-black text-gray-500 text-xs uppercase">합계</td><td class="px-4 py-3 text-right font-black text-2xl text-accent">${fmt(totalExp)}원</td><td></td></tr>
+              <tr><td colspan="4" class="px-4 py-3 font-black text-gray-500 text-xs uppercase">합계</td><td id="exp-total" class="px-4 py-3 text-right font-black text-2xl text-accent">${fmt(totalExp)}원</td><td></td></tr>
             </tfoot>
           </table>
         </div>`
@@ -842,11 +842,11 @@ ${
       <div class="mt-6 bg-gray-950 rounded-3xl p-8 text-white relative overflow-hidden">
         <div class="absolute top-0 right-0 text-8xl opacity-5 translate-x-6 -translate-y-3">🎓</div>
         <div class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">${s.region === "overseas" ? "🌏 해외" : "🗺 국내"} 최종 집행 금액</div>
-        <div class="text-5xl font-black tracking-tight mb-4">${fmt(totalAmt)}<span class="text-lg text-gray-500 ml-2 font-normal">원</span></div>
+        <div class="text-5xl font-black tracking-tight mb-4"><span id="apply-big-total">${fmt(totalAmt)}</span><span class="text-lg text-gray-500 ml-2 font-normal">원</span></div>
         ${
           curBudget
             ? `
-        <div class="flex items-center gap-3 ${over ? "text-red-400" : "text-green-400"}">
+        <div id="apply-budget-warn" class="flex items-center gap-3 ${over ? "text-red-400" : "text-green-400"}">
           <span class="text-lg">${over ? "⚠️" : "✅"}</span>
           <span class="text-sm font-black">${over ? "잔액 부족 – 집행 불가" : "잔액 내 집행 가능"}</span>
         </div>
@@ -862,7 +862,7 @@ ${
         <button onclick="applyPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
         <div class="flex gap-3">
           <button onclick="saveApplyDraft()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-blue-200 text-blue-700 hover:bg-blue-50 transition">💾 임시저장</button>
-          <button onclick="saveApplyAsReady()" ${over ? "disabled" : ""}
+          <button id="apply-submit-btn" onclick="saveApplyAsReady()" ${over ? "disabled" : ""}
             class="px-7 py-3 rounded-xl font-black text-sm transition ${over ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-md"}">
             ✅ 저장
           </button>
@@ -902,3 +902,49 @@ ${
 }
 
 // ─── APPLY FORM HELPERS ─────────────────────────────────────────────────────
+
+// 직접 DOM을 업데이트하여 렌더링 리플로우(포커스 잃음, 스크롤 점프) 방지
+window._updateExpTotals = function() {
+  const s = applyState;
+  const fmt = (n) => Number(n).toLocaleString();
+  let totalExp = 0;
+  s.expenses.forEach((e, i) => {
+    const sub = Number(e.price) * Number(e.qty);
+    totalExp += sub;
+    const subEl = document.getElementById('exp-sub-' + i);
+    if(subEl) subEl.innerText = fmt(sub);
+  });
+  
+  const totalEl = document.getElementById('exp-total');
+  if(totalEl) totalEl.innerText = fmt(totalExp) + '원';
+
+  const rndAmt = s.purpose?.id === "rnd_edu" ? Number(s.rndTotal || 0) : 0;
+  const totalAmt = totalExp + rndAmt;
+  
+  const bigTotalEl = document.getElementById('apply-big-total');
+  if(bigTotalEl) bigTotalEl.innerText = fmt(totalAmt);
+
+  const curBudget = s.budgetId
+    ? (currentPersona.budgets || []).find((b) => b.id === s.budgetId)
+    : null;
+    
+  if(curBudget) {
+    const over = totalAmt > (curBudget.balance - curBudget.used);
+    const warnEl = document.getElementById('apply-budget-warn');
+    if(warnEl) {
+      warnEl.className = `flex items-center gap-3 ${over ? "text-red-400" : "text-green-400"}`;
+      warnEl.innerHTML = `<span class="text-lg">${over ? "⚠️" : "✅"}</span>
+          <span class="text-sm font-black">${over ? "잔액 부족 – 집행 불가" : "잔액 내 집행 가능"}</span>`;
+    }
+    const btnSubmit = document.getElementById('apply-submit-btn');
+    if(btnSubmit) {
+      if(over) {
+        btnSubmit.disabled = true;
+        btnSubmit.className = "px-7 py-3 rounded-xl font-black text-sm transition bg-gray-200 text-gray-400 cursor-not-allowed";
+      } else {
+        btnSubmit.disabled = false;
+        btnSubmit.className = "px-7 py-3 rounded-xl font-black text-sm transition shadow-md bg-emerald-600 text-white hover:bg-emerald-700";
+      }
+    }
+  }
+};

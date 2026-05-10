@@ -32,7 +32,7 @@
 | 24 | 사업계획→운영계획 자동 전환 | [business_operation_plans.md](business_operation_plans.md) | 🟡 구현 중 | v1.0 |
 | 25 | BO-FO 양식 필드 레지스트리 | [field_registry.md](field_registry.md) | ✅ 활성 | v1.0 |
 | 26 | **🆕 예산 배정 화면 개편 (v3)** | [budget_allocation_redesign.md](budget_allocation_redesign.md) | 🟡 구현 중 (Phase 0-A) | v3.0 |
-| **27** | **🆕 예산계정 마스터 (기초/추가 배정)** | [budget_master.md](budget_master.md) | 🟡 구현 갭 있음 (데이터 동기화 단절) | v1.0 |
+| **27** | **🆕 예산계정 마스터 (정책 통합형)** | [budget_account_mgmt.md](budget_account_mgmt.md) | ✅ 역설계 및 연동 완료 | v1.1 |
 | **28** | **🆕 FO 프로세스 통합 (교육신청 UX 일관성)** | [fo_process_unification.md](fo_process_unification.md) | 🔴 미구현 (기획 검토 중) | v1.0 |
 
 

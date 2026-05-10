@@ -1923,9 +1923,9 @@ ${
                     ${itemOpts}
                   </select>
                 </td>
-                <td class="px-4 py-3"><input type="number" value="${e.price}" oninput="applyState.expenses[${i}].price=this.value;renderApply()" class="w-full text-right bg-transparent font-black text-gray-900 outline-none text-base"/></td>
-                <td class="px-4 py-3"><input type="number" value="${e.qty}" oninput="applyState.expenses[${i}].qty=this.value;renderApply()" class="w-16 text-center bg-gray-50 border border-gray-200 rounded-lg py-1 font-black text-accent outline-none"/></td>
-                <td class="px-4 py-3 text-right font-black text-gray-900">${fmt(Number(e.price) * Number(e.qty))}</td>
+                <td class="px-4 py-3"><input type="number" value="${e.price}" oninput="applyState.expenses[${i}].price=this.value;_updateExpTotals()" class="w-full text-right bg-transparent font-black text-gray-900 outline-none text-base"/></td>
+                <td class="px-4 py-3"><input type="number" value="${e.qty}" oninput="applyState.expenses[${i}].qty=this.value;_updateExpTotals()" class="w-16 text-center bg-gray-50 border border-gray-200 rounded-lg py-1 font-black text-accent outline-none"/></td>
+                <td class="px-4 py-3 text-right font-black text-gray-900" id="exp-sub-${i}">${fmt(Number(e.price) * Number(e.qty))}</td>
                 <td class="px-4 py-3"><input type="text" value="${e.note || ""}" oninput="applyState.expenses[${i}].note=this.value" placeholder="비고" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-700 outline-none focus:border-accent transition min-w-[120px]"/></td>
                 <td class="px-4 py-3 text-center"><button onclick="removeExpRow(${i})" class="text-gray-300 hover:text-red-500 transition text-lg">✕</button></td>
               </tr>`;
@@ -1934,7 +1934,7 @@ ${
                 .join("")}
             </tbody>
             <tfoot class="bg-brand/5 border-t-2 border-brand">
-              <tr><td colspan="4" class="px-4 py-3 font-black text-gray-500 text-xs uppercase">합계</td><td class="px-4 py-3 text-right font-black text-2xl text-accent">${fmt(totalExp)}원</td><td></td></tr>
+              <tr><td colspan="4" class="px-4 py-3 font-black text-gray-500 text-xs uppercase">합계</td><td id="exp-total" class="px-4 py-3 text-right font-black text-2xl text-accent">${fmt(totalExp)}원</td><td></td></tr>
             </tfoot>
           </table>
         </div>`
@@ -1945,11 +1945,11 @@ ${
       <div class="mt-6 bg-gray-950 rounded-3xl p-8 text-white relative overflow-hidden">
         <div class="absolute top-0 right-0 text-8xl opacity-5 translate-x-6 -translate-y-3">🎓</div>
         <div class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">${s.region === "overseas" ? "🌏 해외" : "🗺 국내"} 최종 집행 금액</div>
-        <div class="text-5xl font-black tracking-tight mb-4">${fmt(totalAmt)}<span class="text-lg text-gray-500 ml-2 font-normal">원</span></div>
+        <div class="text-5xl font-black tracking-tight mb-4"><span id="apply-big-total">${fmt(totalAmt)}</span><span class="text-lg text-gray-500 ml-2 font-normal">원</span></div>
         ${
           curBudget
             ? `
-        <div class="flex items-center gap-3 ${over ? "text-red-400" : "text-green-400"}">
+        <div id="apply-budget-warn" class="flex items-center gap-3 ${over ? "text-red-400" : "text-green-400"}">
           <span class="text-lg">${over ? "⚠️" : "✅"}</span>
           <span class="text-sm font-black">${over ? "가용예산 부족 – 집행 불가" : "가용예산 내 집행 가능"}</span>
         </div>
@@ -1965,7 +1965,7 @@ ${
         <button onclick="applyPrev()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">← 이전</button>
         <div class="flex gap-3">
           <button onclick="saveApplyDraft()" class="px-6 py-3 rounded-xl font-black text-sm border-2 border-blue-200 text-blue-700 hover:bg-blue-50 transition">💾 임시저장</button>
-          <button onclick="submitApply()" ${over ? "disabled" : ""}
+          <button id="apply-submit-btn" onclick="submitApply()" ${over ? "disabled" : ""}
             class="px-10 py-3 rounded-xl font-black text-sm transition shadow-lg ${over ? "bg-gray-300 text-gray-400 cursor-not-allowed" : "bg-brand text-white hover:bg-blue-900"}">
             신청서 제출 →
           </button>

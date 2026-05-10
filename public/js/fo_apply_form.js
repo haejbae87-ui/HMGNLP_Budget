@@ -32,7 +32,7 @@ function _renderApplyForm() {
       ? _getActivePolicies(currentPersona)
       : null;
   const matchedPolicies = policyResult ? policyResult.policies : [];
-  const allPurposes = getPersonaPurposes(currentPersona);
+  const allPurposes = getPersonaPurposes(currentPersona, typeof _applySelectedAccountCode !== "undefined" ? _applySelectedAccountCode : null);
   // 개선3: 행위 기반 카테고리 그룹핑
   const _catColors = {
     "self-learning": {

@@ -475,11 +475,15 @@ const _FO_EDU_TREE = [
 // 정책 기반 교육 목적 목록 반환
 // ★ 1순위: budget_accounts.edu_types → _FO_EDU_TREE 역매핑 (B방향: 개별 카드)
 // ★ 2순위: service_policies (레거시 호환)
-function getPersonaPurposes(persona) {
+function getPersonaPurposes(persona, targetAccountCode = null) {
   // ── 1순위: budget_accounts.edu_types → _FO_EDU_TREE 역매핑 ──
   const budgets = persona.budgets || [];
+  const filteredBudgets = targetAccountCode 
+    ? budgets.filter(b => b.accountCode === targetAccountCode)
+    : budgets;
+
   const allEduTypes = new Set();
-  budgets.forEach(b => (b.eduTypes || []).forEach(t => allEduTypes.add(t)));
+  filteredBudgets.forEach(b => (b.eduTypes || []).forEach(t => allEduTypes.add(t)));
   const hasEduTypes = allEduTypes.size > 0;
 
   if (hasEduTypes) {
@@ -513,13 +517,20 @@ function getPersonaPurposes(persona) {
   const result = _getActivePolicies(persona);
   if (result) {
     const { source, policies } = result;
+    const filteredPolicies = targetAccountCode
+      ? policies.filter(p => {
+          const acc = p.account_codes || p.accountCodes || [];
+          return acc.length === 0 || acc.includes(targetAccountCode);
+        })
+      : policies;
+
     if (source === "db") {
       console.log(
-        `[getPersonaPurposes] ${persona.name}: vorg 매칭 정책 ${policies.length}건 (legacy)`,
+        `[getPersonaPurposes] ${persona.name}: vorg 매칭 정책 ${filteredPolicies.length}건 (legacy)`,
       );
       const foPurposeIds = [
         ...new Set(
-          policies
+          filteredPolicies
             .map((p) => _BO_TO_FO_PURPOSE[p.purpose] || p.purpose)
             .filter(Boolean),
         ),
@@ -548,7 +559,7 @@ function getPersonaPurposes(persona) {
       });
       return purposes;
     }
-    const activePurposeIds = [...new Set(policies.map((p) => p.foPurpose))];
+    const activePurposeIds = [...new Set(filteredPolicies.map((p) => p.foPurpose))];
     return PURPOSES.filter((p) => activePurposeIds.includes(p.id)).map((p) => ({
       ...p,
       category: _PURPOSE_CATEGORY[p.id] || "edu-operation",

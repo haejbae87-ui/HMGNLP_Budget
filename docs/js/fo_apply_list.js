@@ -667,57 +667,81 @@ function _renderApplyList() {
       const authorBadge = h.author
         ? `<span style="font-size:10px;background:#F3F4F6;color:#6B7280;padding:2px 8px;border-radius:8px;margin-left:4px">👤 ${h.author}</span>`
         : "";
+      const _aid = String(h.id || "").replace(/[<>&]/g, "");
+      const _atitle = String(h.title || "").replace(/'/g, "");
+      const isDraft = h.rawStatus === "draft" || h.applyStatus === "작성중";
+      const isPending = (h.rawStatus === "pending" || h.rawStatus === "submitted" || h.applyStatus === "승인대기" || h.applyStatus === "결재진행중") && h.rawStatus !== "saved";
+      
+      let actionBtns = "";
+      const btnPrimary = (label, onclick) => `<button onclick="${onclick}" style="padding:6px 14px;border-radius:8px;font-size:11px;font-weight:800;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.25)">${label}</button>`;
+      const btnOutline = (label, onclick, color='#1D4ED8', borderColor='#BFDBFE') => `<button onclick="${onclick}" style="padding:6px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:${color};border:1.5px solid ${borderColor};cursor:pointer">${label}</button>`;
+      const btnDanger  = (label, onclick) => `<button onclick="${onclick}" style="padding:6px 14px;border-radius:8px;font-size:11px;font-weight:800;background:white;color:#DC2626;border:1.5px solid #FECACA;cursor:pointer">${label}</button>`;
+
+      if (h.rawStatus === "saved") {
+        actionBtns += `<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">`;
+        actionBtns += btnPrimary('📤 상신하기', `event.stopPropagation();_appSingleSubmit('${_aid}','${_atitle}')`);
+        actionBtns += btnOutline('✏️ 수정', `event.stopPropagation();resumeApplyDraft('${_aid}')`, '#1D4ED8', '#BFDBFE');
+        actionBtns += `</div>`;
+      } else if (isDraft) {
+        actionBtns += `<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">`;
+        actionBtns += btnOutline('✏️ 이어쓰기', `event.stopPropagation();resumeApplyDraft('${_aid}')`, '#1D4ED8', '#BFDBFE');
+        actionBtns += btnDanger('🗑 삭제', `event.stopPropagation();deleteApplyDraft('${_aid}')`);
+        actionBtns += `</div>`;
+      } else if (isPending) {
+        actionBtns += `<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">`;
+        actionBtns += btnDanger('취소 요청', `event.stopPropagation();cancelApply('${_aid}')`);
+        actionBtns += `</div>`;
+      } else if (h.applyStatus === "승인완료" && !h.resultDone) {
+        actionBtns += `<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">`;
+        actionBtns += `<button onclick="event.stopPropagation();_openResultForm('${_aid}','${_atitle}',${(h.amount||0)})" style="padding:6px 14px;border-radius:8px;background:linear-gradient(135deg,#002C5F,#1D4ED8);color:white;font-size:11px;font-weight:800;border:none;cursor:pointer">📝 결과 작성</button>`;
+        actionBtns += `</div>`;
+      } else if (h.applyStatus === "승인완료" && h.resultDone) {
+        actionBtns += `<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">`;
+        actionBtns += `<button disabled style="padding:6px 14px;border-radius:8px;background:#F3F4F6;color:#9CA3AF;font-size:11px;font-weight:800;border:none;cursor:default">✅ 결과 제출 완료</button>`;
+        actionBtns += `</div>`;
+      }
+
+      const isSelected = false;
+
       return `
-    <div style="display:flex;align-items:flex-start;gap:14px;padding:18px 20px;border-radius:16px;
-                border:1.5px solid ${cfg2.border};background:${cfg2.grad};
-                box-shadow:0 1px 4px rgba(0,0,0,.04);transition:all .15s;position:relative;overflow:hidden"
-         onmouseover="this.style.boxShadow='0 6px 24px rgba(0,0,0,.09)';this.style.transform='translateY(-2px)'"
-         onmouseout="this.style.boxShadow='0 1px 4px rgba(0,0,0,.04)';this.style.transform='none'">
-      <!-- 좌측 쾌러바 -->
+    <div onclick="viewApplyDetail('${_aid}')"
+      style="display:flex;align-items:flex-start;gap:14px;padding:18px 20px;border-radius:16px;
+             border:1.5px solid ${isSelected ? '#1D4ED8' : cfg2.border};
+             background:${isSelected ? '#EFF6FF' : 'white'};
+             box-shadow:${isSelected ? '0 0 0 3px rgba(29,78,216,.1)' : '0 1px 4px rgba(0,0,0,.04)'};
+             transition:all .15s;margin-bottom:10px;cursor:pointer;position:relative;overflow:hidden"
+      onmouseover="this.style.boxShadow='0 6px 24px rgba(0,0,0,.09)';this.style.transform='translateY(-2px)'"
+      onmouseout="this.style.boxShadow='${isSelected ? '0 0 0 3px rgba(29,78,216,.1)' : '0 1px 4px rgba(0,0,0,.04)'}';this.style.transform='none'">
+      
+      <!-- 좌측 상태 컬러 바 -->
       <div style="position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:16px 0 0 16px;background:${cfg2.color}"></div>
+      
       <!-- 상태 아이콘 -->
-      <div style="width:40px;height:40px;border-radius:12px;background:${cfg2.color}18;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;border:1px solid ${cfg2.border}">${cfg2.icon}</div>
+      <div style="width:40px;height:40px;border-radius:12px;background:${cfg2.grad || (cfg2.color+'18')};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;border:1px solid ${cfg2.border}">${cfg2.icon}</div>
+      
+      <!-- 콘텐츠 -->
       <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">
-          <span style="font-size:14px;font-weight:900;color:#111827">${h.title}</span>
-          <span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:100px;background:${cfg2.color}18;color:${cfg2.color};white-space:nowrap">${displayStatus}</span>
-          ${h.resultDone ? '<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:100px;background:#DBEAFE;color:#1D4ED8">📋 결과완료</span>' : ""}
-          ${authorBadge}
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="font-size:14px;font-weight:900;color:#111827;word-break:break-all">${h.title}</span>
+              <span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:100px;background:${cfg2.color}18;color:${cfg2.color};white-space:nowrap">${displayStatus}</span>
+              ${h.resultDone ? '<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:100px;background:#DBEAFE;color:#1D4ED8">📋 결과완료</span>' : ""}
+              ${authorBadge}
+            </div>
+          </div>
         </div>
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:11px;color:#6B7280;margin-bottom:8px">
-          <span>📅 ${h.date}${h.endDate && h.endDate !== h.date ? ' ~ ' + h.endDate : ''}</span>
-          <span>📚 ${h.type}</span>
-          <span style="font-weight:700;color:#374151">💰 ${(h.amount || 0).toLocaleString()}원</span>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:11px;color:#6B7280">
+          <span style="display:flex;align-items:center;gap:3px"><span style="font-size:10px">📅</span>${h.date}${h.endDate && h.endDate !== h.date ? ' ~ ' + h.endDate : ''}</span>
+          <span style="display:flex;align-items:center;gap:3px"><span style="font-size:10px">📚</span>${h.type}</span>
+          <span style="display:flex;align-items:center;gap:3px;font-weight:700;color:#374151"><span style="font-size:10px">💰</span>${(h.amount || 0).toLocaleString()}원</span>
           ${h.budget ? `<span style="background:#F3F4F6;padding:1px 6px;border-radius:4px">💳 ${h.budget}</span>` : ''}
         </div>
-        ${(() => {
-          if (h.rawStatus !== 'saved') return '';
-          const _sid = String(h.id || '').replace(/["'<>&]/g, '');
-          const _stitle = String(h.title || '').replace(/["'<>&]/g, '');
-          return `<div style="padding:8px 12px;border-radius:8px;background:#ECFDF5;border:1px solid #6EE7B7;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px"><span style="font-size:11px;font-weight:800;color:#065F46">📤 저장완료 — 상신 가능</span><button onclick="event.stopPropagation();_appSingleSubmit('${_sid}','${_stitle}')" style="padding:5px 14px;border-radius:8px;background:#059669;color:white;font-size:11px;font-weight:900;border:none;cursor:pointer;white-space:nowrap">📤 상신하기</button></div>`;
-        })()}
-        ${h.applyStatus === '반려' ? `<div style="padding:8px 12px;border-radius:8px;background:#FEE2E2;border:1px solid #FECACA;font-size:11px;color:#DC2626;font-weight:700;margin-bottom:6px">⚠️ 반려 사유: ${h.rejectReason || '예산 잔액 부족으로 반려되었습니다. 예산 계획 수립 후 재신청 바랍니다.'}</div>` : ''}
-        ${h.refundStatus === 'pending' ? `<div style="padding:8px 12px;border-radius:8px;background:#FEF3C7;border:1px solid #FCD34D;font-size:11px;color:#92400E;font-weight:700">⏳ 취소 요청 처리 중</div>` : ''}
-        <!-- 액션 버튼 -->
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-          ${(() => {
-            const _aid = String(h.id || "").replace(/[<>&]/g, "");
-            const _atitle = String(h.title || "").replace(/'/g, "");
-            const isDraft = h.rawStatus === "draft" || h.applyStatus === "작성중";
-            const isPending = (h.rawStatus === "pending" || h.rawStatus === "submitted" || h.applyStatus === "승인대기" || h.applyStatus === "결재진행중") && h.rawStatus !== "saved";
-            let a = "";
-            if (isDraft) {
-              a += `<button onclick="resumeApplyDraft('` + _aid + `')" style="padding:6px 14px;border-radius:8px;background:#1D4ED8;color:white;font-size:11px;font-weight:800;border:none;cursor:pointer">✏️ 이어쓰기</button>`;
-              a += `<button onclick="deleteApplyDraft('` + _aid + `')" style="padding:6px 14px;border-radius:8px;background:white;color:#DC2626;font-size:11px;font-weight:800;border:1.5px solid #FECACA;cursor:pointer">🗑 삭제</button>`;
-            }
-            if (isPending) a += `<button onclick="cancelApply('` + _aid + `')" style="padding:6px 14px;border-radius:8px;background:white;color:#DC2626;font-size:11px;font-weight:800;border:1.5px solid #FECACA;cursor:pointer">취소 요청</button>`;
-            if (h.applyStatus === "승인완료" && !h.resultDone) a += `<button onclick="_openResultForm('` + _aid + `','` + _atitle + `',` + (h.amount||0) + `)" style="padding:6px 14px;border-radius:8px;background:linear-gradient(135deg,#002C5F,#1D4ED8);color:white;font-size:11px;font-weight:800;border:none;cursor:pointer">📝 결과 작성</button>`;
-            if (h.applyStatus === "승인완료" && h.resultDone) a += `<button disabled style="padding:6px 14px;border-radius:8px;background:#F3F4F6;color:#9CA3AF;font-size:11px;font-weight:800;border:none;cursor:default">✅ 결과 제출 완료</button>`;
-            return a;
-          })()}
-        </div>
-        </div>
+        ${h.applyStatus === '반려' ? `<div style="padding:8px 12px;border-radius:8px;background:#FEE2E2;border:1px solid #FECACA;font-size:11px;color:#DC2626;font-weight:700;margin-top:8px">⚠️ 반려 사유: ${h.rejectReason || '예산 잔액 부족으로 반려되었습니다. 예산 계획 수립 후 재신청 바랍니다.'}</div>` : ''}
+        ${h.refundStatus === 'pending' ? `<div style="padding:8px 12px;border-radius:8px;background:#FEF3C7;border:1px solid #FCD34D;font-size:11px;color:#92400E;font-weight:700;margin-top:8px">⏳ 취소 요청 처리 중</div>` : ''}
+        ${actionBtns}
       </div>
+      <div style="flex-shrink:0;color:#D1D5DB;font-size:18px;margin-top:6px">›</div>
     </div>`;
     })
     .join('');

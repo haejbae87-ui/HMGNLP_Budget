@@ -8,6 +8,8 @@
 
 ### 2026-05-10 — 문서 상태값(Status) 표준화 및 예산 계정 필터링 논리 오류 수정
 
+- [x] **Bug Fix: 교육신청 회수/상신 시 `updated_at` 스키마 에러(400 Bad Request) 수정**
+  - `approval.js`: `applications` 테이블에는 `updated_at` 컬럼이 없음에도 불구하고 `_aprRecallSubmit`, `_aprSingleSubmit` 실행 시 해당 컬럼 업데이트를 시도하여 발생하던 오류 해결 (`table !== 'applications'` 조건부 처리 추가).
 - [x] **Bug Fix: 예산 계정 필터링(제도권한) 강제 우회 및 누락 버그 수정**
   - `fo_plans_wizard.js`: `contextAccountCode`로 접근 시 `availBudgets` 필터링을 우회하여 권한 없는 예산이 강제로 선택되던 버그를 `availBudgets.find()` 기반 폴백으로 수정.
   - `fo_plans_wizard.js`: 패턴 A(계획 필수) 체크 로직에서 `account_codes`가 비어있는(모든 계정 대상) 정책의 경우 `acc.includes()` 검증에 실패하여 무조건 누락되던 버그 해결.

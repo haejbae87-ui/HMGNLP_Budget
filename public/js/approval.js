@@ -1709,9 +1709,13 @@ async function _aprConfirmSubmit() {
     const errors = [];
     for (const sel of selectedArr) {
       try {
+        const updatePayload = { status: targetStatus };
+        if (sel.table !== 'applications') {
+          updatePayload.updated_at = now;
+        }
         const { error } = await sb
           .from(sel.table)
-          .update({ status: targetStatus, updated_at: now })
+          .update(updatePayload)
           .eq('id', sel.id)
           .in('status', ['saved', 'pending']); // pending 레거시도 허용
         if (error) errors.push(error.message);
@@ -1803,10 +1807,12 @@ async function _aprRecallSubmit(id, table) {
     }
 
     // [A-3] 2단계: 낙관적 잠금으로 saved로 업데이트
-    const { error: recallErr } = await sb.from(table).update({
-      status: 'saved',
-      updated_at: new Date().toISOString(),
-    }).eq('id', id).in('status', ['pending', 'submitted']);
+    const updatePayload = { status: 'saved' };
+    if (table !== 'applications') {
+      updatePayload.updated_at = new Date().toISOString();
+    }
+    const { error: recallErr } = await sb.from(table).update(updatePayload)
+      .eq('id', id).in('status', ['pending', 'submitted']);
     if (recallErr) throw recallErr;
 
     // [S-9] 연결된 submission_documents 찾아 예산 예약 해제

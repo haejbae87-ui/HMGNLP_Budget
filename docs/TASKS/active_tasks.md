@@ -8,6 +8,8 @@
 
 ### 2026-05-10 — 문서 상태값(Status) 표준화 및 예산 계정 필터링 논리 오류 수정
 
+- [x] **Bug Fix: 결재함 로드 시 `org_budget_bankbooks`의 `bb_status` 컬럼 불일치 버그 수정**
+  - `approval.js`: 기존 `status` 컬럼을 `bb_status`로 조회하도록 수정하여 400 Bad Request 에러 방지.
 - [x] **Bug Fix: 교육신청 회수/상신 시 `updated_at` 스키마 에러(400 Bad Request) 수정**
   - `approval.js`: `applications` 테이블에는 `updated_at` 컬럼이 없음에도 불구하고 `_aprRecallSubmit`, `_aprSingleSubmit` 실행 시 해당 컬럼 업데이트를 시도하여 발생하던 오류 해결 (`table !== 'applications'` 조건부 처리 추가).
 - [x] **Bug Fix: 예산 계정 필터링(제도권한) 강제 우회 및 누락 버그 수정**

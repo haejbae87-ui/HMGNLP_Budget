@@ -195,7 +195,7 @@ async function renderApprovalMember() {
           .select('id, account_code, current_balance')
           .eq('tenant_id', tid)
           .eq("org_id", currentPersona.orgId)
-          .eq('status', 'active');
+          .eq('bb_status', 'active');
         if (bbs && bbs.length > 0) {
           let totalAllocated = 0, totalUsed = 0, totalFrozen = 0;
           for (const bb of bbs) {

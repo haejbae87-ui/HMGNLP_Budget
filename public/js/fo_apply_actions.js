@@ -1212,7 +1212,7 @@ async function saveApplyAsReady() {
     const { error } = await sb.from('applications').upsert(row, { onConflict: 'id' });
     if (error) throw error;
     applyState.editId = appId;
-    alert('📤 저장완료 상태로 저장되었습니다.\\n\\n결재함(내 결재)에서 상신하거나,\\n팀장이 대표로 상신할 수 있습니다.');
+    alert('📤 저장완료 상태로 저장되었습니다.\n\n결재함(내 결재)에서 상신할 수 있습니다.');
     applyState = resetApplyState();
     
     // UI 전환

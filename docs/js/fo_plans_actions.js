@@ -1957,7 +1957,6 @@ async function _autoCreateOperationPlan(sb, forecastPlan) {
       fiscal_year: forecastPlan.fiscal_year,
       account_code: forecastPlan.account_code,
       amount: forecastPlan.amount,
-      frozen_amount: 0,             // ← 이중 점유 방지
       allocated_amount: 0,          // ← 최초배정액 초기화 (운영계획 결재 시 확정)
       applicant_id: forecastPlan.applicant_id,
       applicant_name: forecastPlan.applicant_name,

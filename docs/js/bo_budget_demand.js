@@ -1220,7 +1220,6 @@ async function _bdAutoCreateOperationPlan(sb, forecastPlan) {
       fiscal_year: forecastPlan.fiscal_year,
       account_code: forecastPlan.account_code,
       amount: forecastPlan.final_confirmed_amount || forecastPlan.op_confirmed_amount || forecastPlan.amount,
-      frozen_amount: 0,
       allocated_amount: 0,
       applicant_id: forecastPlan.applicant_id,
       applicant_name: forecastPlan.applicant_name,

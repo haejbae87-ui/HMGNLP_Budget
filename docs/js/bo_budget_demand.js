@@ -300,14 +300,7 @@ function _renderBdLevel1(el, isPlatform, tenants) {
         .join("")}
     </div>
 
-    
-        <span style="font-size:13px;font-weight:900;color:#0369A1;white-space:nowrap">${opPct}%</span>
-        <span style="font-size:11px;color:#9CA3AF">(${_bdFmt(opTotal)} / ${_bdFmt(demandTotal)})</span>
-        <span style="font-size:11px;color:#7C3AED;font-weight:800;margin-left:8px">최종승인 ${_bdFmt(finalTotal)}</span>
-      </div>
-    </div>
 
-    ${
       groupRows.length > 0
         ? `
     <div class="bo-card" style="overflow:hidden">
@@ -335,7 +328,7 @@ function _renderBdLevel1(el, isPlatform, tenants) {
             <td style="text-align:right;font-weight:800;color:#059669">${_bdFmt(g.confirmed)}</td>
             <td style="text-align:right;color:#D97706">${g.pending === 0 ? "0건" : _bdFmt(g.pending)}</td>
             <td style="text-align:right;color:#DC2626">${g.rejected === 0 ? "0건" : _bdFmt(g.rejected)}</td>
-            
+            <td style="text-align:center;font-weight:900;color:#0369A1">${g.demand > 0 ? Math.round((g.confirmed / g.demand) * 100) : 0}%</td>
           </tr>`,
             )
             .join("")}
@@ -347,7 +340,7 @@ function _renderBdLevel1(el, isPlatform, tenants) {
             <td style="text-align:right;color:#7C3AED">${_bdFmt(finalTotal)}</td>
             <td style="text-align:right;color:#D97706">${pendingTotal === 0 ? "0건" : _bdFmt(pendingTotal)}</td>
             <td style="text-align:right;color:#DC2626">${rejectedTotal === 0 ? "0건" : _bdFmt(rejectedTotal)}</td>
-            
+            <td style="text-align:center;font-weight:900;color:#0369A1">${demandTotal > 0 ? Math.round((opTotal / demandTotal) * 100) : 0}%</td>
           </tr>
         </tbody>
       </table>

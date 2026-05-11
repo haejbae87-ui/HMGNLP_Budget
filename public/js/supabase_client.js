@@ -84,37 +84,14 @@ async function sbLoadAccountMaster(tenantId = null) {
 }
 
 async function sbLoadVorgs(tenantId = null) {
-  try {
-    let url = `${SUPABASE_URL}/rest/v1/edu_support_domains?select=*&status=eq.active&order=id`;
-    if (tenantId) url += `&tenant_id=eq.${tenantId}`;
-    const res = await fetch(url, {
-      headers: {
-        apikey: SUPABASE_ANON,
-        Authorization: `Bearer ${SUPABASE_ANON}`,
-      },
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    return data.map((g) => ({
-      ...g,
-      tenantId: g.tenant_id,
-      desc: g.descr || "",
-      ownedAccounts: g.owned_accounts || [],
-      globalAdminKey: g.global_admin_key || "",
-      globalAdminKeys: g.global_admin_key ? [g.global_admin_key] : [],
-      opManagerKeys: g.op_manager_keys || [],
-      createdAt: (g.created_at || "").slice(0, 10),
-    }));
-  } catch (e) {
-    console.warn("[Supabase] VOrg fallback:", e.message);
-    const domains =
-      typeof VORG_TEMPLATES !== "undefined"
-        ? VORG_TEMPLATES
-        : typeof EDU_SUPPORT_DOMAINS !== "undefined"
-          ? EDU_SUPPORT_DOMAINS
-          : [];
-    return domains;
-  }
+  // edu_support_domains table is deprecated in Supabase. Use mock data directly.
+  const domains =
+    typeof VORG_TEMPLATES !== "undefined"
+      ? VORG_TEMPLATES
+      : typeof EDU_SUPPORT_DOMAINS !== "undefined"
+        ? EDU_SUPPORT_DOMAINS
+        : [];
+  return tenantId ? domains.filter(d => d.tenantId === tenantId || d.tenant_id === tenantId) : domains;
 }
 // 구버전 호환
 async function sbLoadIsolationGroups(tenantId) {
@@ -332,7 +309,7 @@ async function sbLoadPersonas() {
     const sb = getSB();
     if (!sb) {
       // Supabase SDK 없음 → fetch 방식
-      const [usersRes, rolesRes, orgsRes, igRes] = await Promise.all([
+      const [usersRes, rolesRes, orgsRes] = await Promise.all([
         fetch(`${SUPABASE_URL}/rest/v1/users?select=*&status=eq.active`, {
           headers: {
             apikey: SUPABASE_ANON,
@@ -351,38 +328,29 @@ async function sbLoadPersonas() {
             Authorization: `Bearer ${SUPABASE_ANON}`,
           },
         }),
-        fetch(
-          `${SUPABASE_URL}/rest/v1/edu_support_domains?select=id,code,name,owned_accounts`,
-          {
-            headers: {
-              apikey: SUPABASE_ANON,
-              Authorization: `Bearer ${SUPABASE_ANON}`,
-            },
-          },
-        ),
       ]);
       const users = await usersRes.json();
       const allRoles = await rolesRes.json();
       const orgs = await orgsRes.json();
-      const igs = await igRes.json();
+      const igs = typeof VORG_TEMPLATES !== "undefined" ? VORG_TEMPLATES : [];
       return _buildBoPersonas(users, allRoles, orgs, igs);
     }
 
     // Supabase SDK 방식 (더 안정적)
-    const [usersRes, rolesRes, orgsRes, igRes] = await Promise.all([
+    const [usersRes, rolesRes, orgsRes] = await Promise.all([
       sb.from("users").select("*").eq("status", "active"),
       sb.from("user_roles").select("*"),
       sb.from("organizations").select("id,name"),
-      sb.from("edu_support_domains").select("id,code,name,owned_accounts"),
     ]);
 
     if (usersRes.error) throw usersRes.error;
 
+    const igsData = typeof VORG_TEMPLATES !== "undefined" ? VORG_TEMPLATES : [];
     return _buildBoPersonas(
       usersRes.data || [],
       rolesRes.data || [],
       orgsRes.data || [],
-      igRes.data || [],
+      igsData,
     );
   } catch (e) {
     console.warn("[Supabase] BO_PERSONAS 로드 실패 → JS mock 유지:", e.message);

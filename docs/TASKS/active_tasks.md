@@ -8,6 +8,8 @@
 
 ### 2026-05-11 — 예산/사업계획 관리 및 데이터 필터링 오류 수정
 
+- [x] **Bug Fix: 프론트오피스 "팀 배정예산(가용 총액)" 동기화 오류 해결**
+  - `fo_plans_list.js`, `plans.js`: `_foRenderTeamOperationDashboard` 및 계획 카드의 예산 뱃지(`_updateBudgetBadges`) 렌더링 시, 전체 회사 계정 예산(`account_budgets`)을 잘못 조회하던 로직을 팀별 배정 예산(`currentPersona.budgets`)을 직접 참조하도록 수정하여 백오피스(1,000,000원)와 프론트오피스가 일치하도록 연동 완료.
 - [x] **운영계획 관리(Level 1, 2, 3) 화면 조회 필터 UI 및 비즈니스 로직 적용**
   - `bo_operation_plan.js`: 사업계획 관리와 동일한 UX의 `_opFilterBar` 렌더링 함수 구현 (회사, VOrg, 계정, 연도 필터링 지원).
   - 필터 상태(`_opTenant`, `_opTplId`, `_opAccountId`, `_opYear`) 변경 시 Supabase 쿼리를 재실행하여 선택된 데이터 조건에 맞게 운영계획 데이터를 동적으로 필터링하도록 비즈니스 로직 연동 완료.

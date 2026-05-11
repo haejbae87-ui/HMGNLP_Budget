@@ -781,34 +781,13 @@ function _renderPlanCard(p) {
 let _budgetBadgeCache = {}; // account_code → { balance, total }
 
 async function _updateBudgetBadges(plans) {
-  const sb = typeof getSB === 'function' ? getSB() : null;
-  if (!sb) return;
-  // 고유 계정코드 수집 (빈값 제외, 캐시 미적중것만)
-  const accounts = [...new Set(plans.map(p => p.account || p.account_code).filter(Boolean))]
-    .filter(ac => !_budgetBadgeCache[ac]);
-  if (accounts.length === 0) {
-    // 캐시 히트: 바로 뱃지 업데이트
-    _applyBudgetBadges(plans);
-    return;
-  }
-  try {
-    const fiscal = _planYear || new Date().getFullYear();
-    const { data, error } = await sb.from('account_budgets')
-      .select('account_code, total_budget, balance, used')
-      .in('account_code', accounts)
-      .eq('fiscal_year', fiscal)
-      .eq('tenant_id', currentPersona.tenantId);
-    if (!error && data) {
-      data.forEach(row => {
-        const balance = row.balance ?? (Number(row.total_budget||0) - Number(row.used||0));
-        _budgetBadgeCache[row.account_code] = {
-          total: Number(row.total_budget || 0),
-          balance: Math.max(0, balance),
-        };
-      });
-    }
-  } catch (e) {
-    console.warn('[B-1] budget badge query failed:', e.message);
+  if (typeof currentPersona !== 'undefined' && currentPersona.budgets) {
+    currentPersona.budgets.forEach(b => {
+      _budgetBadgeCache[b.accountCode] = {
+        total: b.balance,
+        balance: Math.max(0, b.balance - b.used - b.frozen)
+      };
+    });
   }
   _applyBudgetBadges(plans);
 }

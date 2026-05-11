@@ -14,6 +14,8 @@
   - `bo_budget_demand.js`: `_renderBdCombined` 함수 렌더링 결과에 상세 보기 모달(`<div id="bd-plan-detail-modal">`) 마크업이 누락되어 있어 `_bdShowPlanDetail` 함수가 모달 요소를 찾지 못하고 종료되던 문제 수정.
 - [x] **Bug Fix: 총괄 승인 시 운영계획 자동 복사 실패(Schema Error) 수정**
   - `bo_budget_demand.js`, `fo_plans_actions.js`: `_autoCreateOperationPlan` 함수에서 Supabase `plans` 테이블 스키마에 존재하지 않는 `dept` 컬럼을 직접 INSERT 하려다 발생한 `Could not find the 'dept' column` 에러 수정 (`dept` 필드를 최상위가 아닌 `detail` JSON 내부에만 저장하도록 변경).
+- [x] **Bug Fix: 상위 조직(HQ) 선택 시 하위 사업계획 목록 헤더에 특정 팀명이 표시되는 버그 수정**
+  - `bo_budget_demand.js`: `_renderBdCombined` 함수에서 하위 팀 필터가 적용되지 않았을 때(`_bdDrillOrg` = null), 단일 팀만 사업계획이 제출되어 있으면 해당 팀명으로 헤더가 강제 치환되던 로직을 제거하고 항상 선택된 HQ 명칭(예: `연구개발&AVP본부 전체 — 2027년`)이 표시되도록 수정.
 
 ### 2026-05-10 — 문서 상태값(Status) 표준화 및 예산 계정 필터링 논리 오류 수정
 

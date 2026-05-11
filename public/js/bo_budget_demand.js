@@ -559,7 +559,7 @@ function _renderBdCombined(el, isPlatform, tenants) {
         <div>
           <div style="font-size:11px;opacity:.7;margin-bottom:4px">📋 사업계획 목록</div>
           <h3 style="margin:0;font-size:16px;font-weight:900">
-            ${_bdDrillOrg ? `▶ ${_bdDrillOrg}` : (teamRows.filter(t => t.count > 0).length === 1 ? teamRows.filter(t => t.count > 0)[0].name : hq.name + ' 전체')} — ${_bdYear}년
+            ${_bdDrillOrg ? `▶ ${_bdDrillOrg}` : hq.name + ' 전체'} — ${_bdYear}년
           </h3>
           <div style="margin-top:4px;font-size:12px;opacity:.85">
             ${plans.length}건 &nbsp;|&nbsp; 계획금액 ${_bdFmt(demandSum)} &nbsp;|&nbsp; 1차조정 ${_bdFmt(opSum)} &nbsp;|&nbsp; 최종승인 ${_bdFmt(finalSum)}

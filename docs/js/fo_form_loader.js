@@ -1383,9 +1383,19 @@ window.foRenderStandardPlanForm = function(s, curBudget, inlineFields) {
 
   const locationSection = showVenue && typeof _renderLocationTagInput === 'function' ? _renderLocationTagInput(s) : '';
 
+  const _isBusiness = s.plan_type === 'forecast' || s.plan_type === 'business';
+
   const amountField = showAmount ? `
     <div>
-      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">💰 예산 계획액</label>
+      <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">💰 ${_isBusiness ? '사업계획금액' : '운영계획금액'}</label>
+      
+      ${!_isBusiness && Number(s.allocated_amount || 0) > 0 ? `
+      <div class="mb-3 inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
+        <span class="text-[10px] font-black text-blue-500">✅ 최종 배정액</span>
+        <span class="text-xs font-black text-blue-700">${Number(s.allocated_amount).toLocaleString()}원</span>
+      </div>
+      ` : ''}
+
       <div class="relative max-w-xs">
         <input type="number" value="${s.amount || 0}" oninput="planState.amount=this.value;_syncCalcToAmount()" placeholder="0"
           class="w-full bg-gray-50 border-2 ${s.hardLimitViolated ? 'border-red-400' : 'border-gray-100'} rounded-xl px-4 py-3 pr-12 font-black text-lg text-gray-900 focus:border-accent focus:bg-white transition"/>

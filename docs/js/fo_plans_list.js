@@ -1672,35 +1672,13 @@ window._foUpdateOperationAmount = _foUpdateOperationAmount;
 let _budgetBadgeCache = {}; // account_code → { balance, total }
 
 async function _updateBudgetBadges(plans) {
-  const sb = typeof getSB === 'function' ? getSB() : null;
-  if (!sb) return;
-  // 고유 계정코드 수집 (빈값 제외, 캐시 미적중것만)
-  const accounts = [...new Set((plans || []).map(p => p.accountCode || p.account_code).filter(c => c && c.trim() !== ''))]
-    .filter(ac => !_budgetBadgeCache[ac]);
-  if (accounts.length === 0) {
-    // 캐시 히트: 바로 뱃지 업데이트
-    _applyBudgetBadges(plans);
-    return;
-  }
-  try {
-    const fiscal = _planYear || new Date().getFullYear();
-    // ★ 실제 컬럼: id, account_code, fiscal_year, total_budget, deducted, holding, updated_at
-    const { data, error } = await sb.from('account_budgets')
-      .select('account_code, total_budget, deducted, holding')
-      .in('account_code', accounts)
-      .eq('fiscal_year', fiscal);
-    if (!error && data) {
-      data.forEach(row => {
-        const used = Number(row.deducted || 0) + Number(row.holding || 0);
-        const balance = Math.max(0, Number(row.total_budget || 0) - used);
-        _budgetBadgeCache[row.account_code] = {
-          total: Number(row.total_budget || 0),
-          balance,
-        };
-      });
-    }
-  } catch (e) {
-    console.warn('[B-1] budget badge query failed:', e.message);
+  if (typeof currentPersona !== 'undefined' && currentPersona.budgets) {
+    currentPersona.budgets.forEach(b => {
+      _budgetBadgeCache[b.accountCode] = {
+        total: b.balance,
+        balance: Math.max(0, b.balance - b.used - b.frozen)
+      };
+    });
   }
   _applyBudgetBadges(plans);
 }
@@ -2690,10 +2668,11 @@ function _foRenderTeamForecastBundleBar(teamPlansArr, myDbCache) {
 window._foRenderTeamForecastBundleBar = _foRenderTeamForecastBundleBar;
 
 function _foRenderTeamOperationDashboard(filteredPlans, accountCode) {
-  // 1. 통장의 배정예산 및 신청가능예산 (캐시 사용, 캐시 없으면 로드 중 표시)
-  const budgetInfo = _budgetBadgeCache[accountCode];
-  const allocatedBudget = budgetInfo ? budgetInfo.total : 0;
-  const availableBudget = budgetInfo ? budgetInfo.balance : 0;
+  // 1. 통장의 배정예산 및 신청가능예산 (currentPersona.budgets 참조)
+  const teamBudget = (typeof currentPersona !== 'undefined' && currentPersona.budgets) ? currentPersona.budgets.find(b => b.accountCode === accountCode) : null;
+  const allocatedBudget = teamBudget ? teamBudget.balance : 0;
+  const availableBudget = teamBudget ? Math.max(0, teamBudget.balance - teamBudget.used - teamBudget.frozen) : 0;
+  const budgetInfo = teamBudget ? { total: allocatedBudget, balance: availableBudget } : null;
   
   // 2. 운영계획금액 총액 (이 계정에 수립된 운영계획들의 amount 총합)
   // 팀 탭의 filteredPlans 중 현재 accountCode이고 plan_type이 operation이거나 없는 것들

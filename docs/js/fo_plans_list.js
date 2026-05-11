@@ -1346,6 +1346,11 @@ function renderPlans() {
     ? _foRenderTeamForecastBundleBar(_dbTeamPlans, _plansDbCache || [])
     : '';
 
+  // 운영계획 팀 대시보드 (신청가능예산 표시 등)
+  const teamOperationDashboard = (!isBusiness && _planViewTab === 'team' && _selectedAccountCode)
+    ? _foRenderTeamOperationDashboard(filteredPlans, _selectedAccountCode)
+    : '';
+
   // ★ 모드별 페이지 타이틀 & 빈 상태 분리
   const pageTitle = isBusiness ? '사업계획 (수요예측)' : '운영계획 관리 (실행)';
   const planTypeStr = isBusiness ? 'business' : 'operation';
@@ -1408,6 +1413,7 @@ function renderPlans() {
   ${filterBar}
   ${bundleBar}
   ${teamForecastBundleBar}
+  ${teamOperationDashboard}
   <div id="fo-realloc-area"></div>
   <div id="plan-list">${listHtml}</div>
 </div>
@@ -1563,9 +1569,37 @@ function _renderPlanCard(p) {
         </div>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:11px;color:#6B7280">
           <span style="display:flex;align-items:center;gap:3px"><span style="font-size:10px">💳</span>${_accountNameCache[p.account] || p.account || "-"}</span>
-          <span style="display:flex;align-items:center;gap:3px;font-weight:700;color:#374151"><span style="font-size:10px">💰</span>${(p.amount || 0).toLocaleString()}원</span>
-          ${(() => { const fca = p.final_confirmed_amount != null ? p.final_confirmed_amount : ((_plansDbCache||[]).find(d=>d.id===p.id)||{}).final_confirmed_amount; return fca != null && fca > 0 ? `<span style="font-weight:800;color:#1D4ED8;background:#EFF6FF;padding:2px 8px;border-radius:6px;border:1px solid #BFDBFE">🏷️ 확정 ${Number(fca).toLocaleString()}원</span>` : ''; })()}
-          ${Number(p.allocated_amount||0)>0 ? `<span style="font-weight:800;color:#059669;background:#F0FDF4;padding:2px 8px;border-radius:6px">✅ 배정 ${Number(p.allocated_amount).toLocaleString()}원</span>` : `<span style="color:#D1D5DB;font-size:10px">미배정</span>`}
+          ${(() => {
+             const rawPlan = (_plansDbCache || []).find(d => d.id === p.id) || p;
+             const isBusiness = (window.plansMode || 'operation') === 'forecast';
+             let amountHtml = '';
+             
+             if (isBusiness) {
+               const amount = Number(rawPlan.amount || 0);
+               const finalAlloc = Number(rawPlan.final_confirmed_amount || rawPlan.op_confirmed_amount || rawPlan.allocated_amount || 0);
+               amountHtml += `<span style="display:flex;align-items:center;gap:3px;font-weight:700;color:#374151"><span style="font-size:10px">💰</span>사업계획금액: ${amount.toLocaleString()}원</span>`;
+               if (finalAlloc > 0) {
+                 amountHtml += `<span style="font-weight:800;color:#059669;background:#F0FDF4;padding:2px 8px;border-radius:6px">✅ 배정액: ${finalAlloc.toLocaleString()}원</span>`;
+               } else {
+                 amountHtml += `<span style="color:#D1D5DB;font-size:10px">미배정</span>`;
+               }
+             } else {
+               const sourceAmt = Number(rawPlan.detail?.source_forecast_amount || 0);
+               const allocAmt = Number(rawPlan.allocated_amount || rawPlan.final_confirmed_amount || rawPlan.op_confirmed_amount || 0);
+               const opAmt = Number(rawPlan.amount || 0);
+               
+               if (sourceAmt > 0) {
+                 amountHtml += `<span style="display:flex;align-items:center;gap:3px;color:#9CA3AF;font-size:10px">사업계획: ${sourceAmt.toLocaleString()}원</span>`;
+               }
+               if (allocAmt > 0) {
+                 amountHtml += `<span style="font-weight:800;color:#1D4ED8;background:#EFF6FF;padding:2px 8px;border-radius:6px;border:1px solid #BFDBFE">🏷️ 배정액: ${allocAmt.toLocaleString()}원</span>`;
+               } else {
+                 amountHtml += `<span style="color:#D1D5DB;font-size:10px">미배정</span>`;
+               }
+               amountHtml += `<span style="display:flex;align-items:center;gap:3px;font-weight:900;color:#111827"><span style="font-size:10px">💰</span>운영계획금액: ${opAmt.toLocaleString()}원</span>`;
+             }
+             return amountHtml;
+          })()}
           <!-- B-1: 잔여예산 뱃지 (비동기 로드) -->
           ${p.account ? `<span id="budget-badge-${safeId}" style="font-size:10px;padding:2px 8px;border-radius:6px;background:#F3F4F6;color:#9CA3AF">가용예산 확인중...</span>` : ''}
         </div>
@@ -2597,6 +2631,67 @@ function _foRenderTeamForecastBundleBar(teamPlansArr, myDbCache) {
 </div>`;
 }
 window._foRenderTeamForecastBundleBar = _foRenderTeamForecastBundleBar;
+
+function _foRenderTeamOperationDashboard(filteredPlans, accountCode) {
+  // 1. 통장의 배정예산 및 신청가능예산 (캐시 사용, 캐시 없으면 로드 중 표시)
+  const budgetInfo = _budgetBadgeCache[accountCode];
+  const allocatedBudget = budgetInfo ? budgetInfo.total : 0;
+  const availableBudget = budgetInfo ? budgetInfo.balance : 0;
+  
+  // 2. 운영계획금액 총액 (이 계정에 수립된 운영계획들의 amount 총합)
+  // 팀 탭의 filteredPlans 중 현재 accountCode이고 plan_type이 operation이거나 없는 것들
+  const operationPlans = filteredPlans.filter(p => {
+    const planType = p.plan_type || 'operation';
+    const isOp = planType === 'operation' || planType === 'ongoing';
+    const isAcc = p.account === accountCode || p.account_code === accountCode;
+    return isOp && isAcc && (p.status !== 'cancelled' && p.status !== 'rejected');
+  });
+  
+  const totalOpAmount = operationPlans.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  
+  const isOverBudget = totalOpAmount > allocatedBudget;
+  const overAmt = Math.max(0, totalOpAmount - allocatedBudget);
+
+  return `
+  <div style="margin-bottom:24px;padding:24px;border-radius:20px;background:white;border:1.5px solid #E5E7EB;box-shadow:0 4px 20px rgba(0,0,0,0.03)">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#002C5F,#1D4ED8);display:flex;align-items:center;justify-content:center;font-size:18px;color:white;box-shadow:0 4px 12px rgba(29,78,216,.2)">📊</div>
+      <div>
+        <div style="font-size:16px;font-weight:900;color:#111827">팀 운영계획 현황 대시보드</div>
+        <div style="font-size:12px;color:#6B7280;margin-top:2px">예산 계정: <span style="font-weight:700;color:#374151">${_accountNameCache[accountCode] || accountCode}</span></div>
+      </div>
+      ${!budgetInfo ? '<div style="margin-left:auto;font-size:12px;color:#9CA3AF;font-weight:700;padding:4px 10px;background:#F3F4F6;border-radius:8px">⏳ 예산 정보 확인중...</div>' : ''}
+    </div>
+    
+    <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:16px">
+      <!-- 1. 배정예산 (통장 total_budget) -->
+      <div style="padding:16px;border-radius:14px;background:#F9FAFB;border:1px solid #E5E7EB;position:relative;overflow:hidden">
+        <div style="position:absolute;top:12px;right:16px;font-size:24px;opacity:0.2">💰</div>
+        <div style="font-size:11px;font-weight:800;color:#6B7280;margin-bottom:8px">팀 배정예산 (가용 총액)</div>
+        <div style="font-size:24px;font-weight:900;color:#111827">${budgetInfo ? allocatedBudget.toLocaleString() : '-'} <span style="font-size:14px;font-weight:700">원</span></div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:4px">총괄에서 통장에 승인·배정한 실제 총액</div>
+      </div>
+      
+      <!-- 2. 운영계획금액 총액 -->
+      <div style="padding:16px;border-radius:14px;background:${isOverBudget ? '#FEF2F2' : '#EFF6FF'};border:1px solid ${isOverBudget ? '#FECACA' : '#BFDBFE'};position:relative;overflow:hidden">
+        <div style="position:absolute;top:12px;right:16px;font-size:24px;opacity:0.2">${isOverBudget ? '⚠️' : '📋'}</div>
+        <div style="font-size:11px;font-weight:800;color:${isOverBudget ? '#DC2626' : '#1D4ED8'};margin-bottom:8px">운영계획금액 총액</div>
+        <div style="font-size:24px;font-weight:900;color:${isOverBudget ? '#DC2626' : '#1D4ED8'}">${totalOpAmount.toLocaleString()} <span style="font-size:14px;font-weight:700">원</span></div>
+        <div style="font-size:11px;color:${isOverBudget ? '#EF4444' : '#3B82F6'};margin-top:4px">${isOverBudget ? `<b>한도 초과</b>: 배정예산을 ${overAmt.toLocaleString()}원 초과했습니다` : '팀원들이 수립한 운영계획 금액의 합계'}</div>
+      </div>
+      
+      <!-- 3. 신청가능예산 (잔여예산) -->
+      <div style="padding:16px;border-radius:14px;background:#ECFDF5;border:1px solid #6EE7B7;position:relative;overflow:hidden">
+        <div style="position:absolute;top:12px;right:16px;font-size:24px;opacity:0.2">💳</div>
+        <div style="font-size:11px;font-weight:800;color:#059669;margin-bottom:8px">신청 가능 예산 (통장 잔액)</div>
+        <div style="font-size:24px;font-weight:900;color:#059669">${budgetInfo ? availableBudget.toLocaleString() : '-'} <span style="font-size:14px;font-weight:700">원</span></div>
+        <div style="font-size:11px;color:#10B981;margin-top:4px">현재 교육 신청/승인 가능한 통장 실제 잔액</div>
+      </div>
+    </div>
+  </div>`;
+}
+window._foRenderTeamOperationDashboard = _foRenderTeamOperationDashboard;
+
 
 /** 체크박스 토글 핸들러 */
 function _tfTogglePlan(groupKey, pid, accCode, dept, fiscalYear) {

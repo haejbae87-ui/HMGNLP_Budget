@@ -1201,9 +1201,12 @@ async function _bdAutoCreateOperationPlan(sb, forecastPlan) {
     const newDetail = {
       ...(forecastPlan.detail || {}),
       source_forecast_plan_id: String(forecastPlan.id),
+      source_forecast_amount: forecastPlan.amount, // 최초 사업계획 신청액 보존
       auto_copied_at: now,
       copy_trigger: 'forecast_approved',
     };
+
+    const finalAmount = forecastPlan.final_confirmed_amount || forecastPlan.op_confirmed_amount || forecastPlan.amount;
 
     const insertData = {
       id: newId,
@@ -1212,8 +1215,8 @@ async function _bdAutoCreateOperationPlan(sb, forecastPlan) {
       status: 'saved',
       fiscal_year: forecastPlan.fiscal_year,
       account_code: forecastPlan.account_code,
-      amount: forecastPlan.final_confirmed_amount || forecastPlan.op_confirmed_amount || forecastPlan.amount,
-      allocated_amount: 0,
+      amount: finalAmount, // 운영계획금액 초기값은 승인액과 동일
+      allocated_amount: finalAmount, // 배정액은 승인액으로 영구 고정
       applicant_id: forecastPlan.applicant_id,
       applicant_name: forecastPlan.applicant_name,
       applicant_org_id: forecastPlan.applicant_org_id || null,

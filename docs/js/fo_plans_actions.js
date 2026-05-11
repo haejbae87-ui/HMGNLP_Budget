@@ -155,6 +155,35 @@ function _resolvePlanType() {
   return mode === 'forecast' ? 'forecast' : 'operation';
 }
 
+// ─── 운영계획 증액 시 가용예산 초과 검증 ────────────────────────────────────
+async function _checkOperationBudgetLimit(amount, allocated, accountCode, fiscalYear) {
+  const diff = Math.max(0, amount - allocated);
+  if (diff <= 0) return true; // 증액이 아니면 통과
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb || !accountCode) return true;
+  
+  try {
+    const { data } = await sb.from('account_budgets')
+      .select('total_budget, deducted, holding')
+      .eq('account_code', accountCode)
+      .eq('fiscal_year', fiscalYear)
+      .single();
+      
+    if (data) {
+      const used = Number(data.deducted || 0) + Number(data.holding || 0);
+      const balance = Math.max(0, Number(data.total_budget || 0) - used);
+      if (diff > balance) {
+         alert(`🚫 예산 초과 오류\n\n증액하려는 금액(${diff.toLocaleString()}원)이 현재 팀 통장의 가용예산(${balance.toLocaleString()}원)을 초과합니다.\n\n운영계획 금액을 줄이거나 다른 계획의 예산을 재배분하여 가용예산을 확보해주세요.`);
+         return false;
+      }
+    }
+  } catch (e) {
+    console.warn("Budget limit check failed:", e.message);
+  }
+  return true;
+}
+
 // ─── 임시저장 ──────────────────────────────────────────────────────────────
 async function savePlanDraft() {
   const total = _calcGroundsTotal();
@@ -169,6 +198,15 @@ async function savePlanDraft() {
       : null;
   const accountCode =
     curBudget?.accountCode || _getPlanAccountCode(curBudget) || planState.contextAccountCode || planState.accountCode || "";
+  
+  // ★ 운영계획 증액 시 가용예산 검증 (Phase F)
+  if (_resolvePlanType() !== 'forecast' && accountCode) {
+    const allocated = Number(planState.allocated_amount || 0);
+    const fiscalYear = planState.fiscal_year || (typeof _planYear !== 'undefined' ? _planYear : new Date().getFullYear());
+    const isOk = await _checkOperationBudgetLimit(amount, allocated, accountCode, fiscalYear);
+    if (!isOk) return;
+  }
+
   const sb = typeof getSB === "function" ? getSB() : null;
   if (!sb) {
     alert("DB 연결 실패");
@@ -302,6 +340,15 @@ async function savePlanSaved() {
       : null;
   const accountCode =
     curBudget?.accountCode || _getPlanAccountCode(curBudget) || planState.contextAccountCode || planState.accountCode || "";
+  
+  // ★ 운영계획 증액 시 가용예산 검증 (Phase F)
+  if (_resolvePlanType() !== 'forecast' && accountCode) {
+    const allocated = Number(planState.allocated_amount || 0);
+    const fiscalYear = planState.fiscal_year || (typeof _planYear !== 'undefined' ? _planYear : new Date().getFullYear());
+    const isOk = await _checkOperationBudgetLimit(amount, allocated, accountCode, fiscalYear);
+    if (!isOk) return;
+  }
+
   const sb = typeof getSB === "function" ? getSB() : null;
   if (!sb) { alert("DB 연결 실패"); return; }
   try {
@@ -1945,9 +1992,12 @@ async function _autoCreateOperationPlan(sb, forecastPlan) {
     const newDetail = {
       ...(forecastPlan.detail || {}),
       source_forecast_plan_id: String(forecastPlan.id),
+      source_forecast_amount: forecastPlan.amount, // 최초 사업계획 신청액 보존
       auto_copied_at: now,
       copy_trigger: 'forecast_approved',
     };
+
+    const finalAmount = forecastPlan.final_confirmed_amount || forecastPlan.op_confirmed_amount || forecastPlan.amount;
 
     const insertData = {
       id: newId,
@@ -1956,8 +2006,8 @@ async function _autoCreateOperationPlan(sb, forecastPlan) {
       status: 'saved',              // ← 사용자가 보완 후 별도 상신
       fiscal_year: forecastPlan.fiscal_year,
       account_code: forecastPlan.account_code,
-      amount: forecastPlan.amount,
-      allocated_amount: 0,          // ← 최초배정액 초기화 (운영계획 결재 시 확정)
+      amount: finalAmount,          // ← 운영계획금액 초기값은 승인액과 동일
+      allocated_amount: finalAmount, // ← 배정액은 승인액으로 영구 고정
       applicant_id: forecastPlan.applicant_id,
       applicant_name: forecastPlan.applicant_name,
       applicant_org_id: forecastPlan.applicant_org_id || null,

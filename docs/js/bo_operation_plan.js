@@ -348,9 +348,13 @@ function _renderOpCombined(el, isPlatform, tenants) {
       <div style="overflow-x:auto">
       <table class="bo-table" style="font-size:12px;min-width:900px">
         <thead><tr>
-          <th>ID</th><th>계획명</th><th>신청자</th><th>계획 유형</th>
-          <th style="text-align:right">배정 예산</th><th style="text-align:right">집행액</th>
-          <th>상태</th><th>출처</th><th>일자</th>
+          <th>ID</th><th>계획명</th>
+          <th style="text-align:center">사업계획 유무</th>
+          <th style="text-align:right">최초배정액</th>
+          <th style="text-align:right">운영계획금액</th>
+          <th style="text-align:right">집행액(품의확정금액)</th>
+          <th style="text-align:right">품의가용예산</th>
+          <th style="text-align:center">상태</th>
         </tr></thead>
         <tbody>
           ${plans.map(p => {
@@ -362,19 +366,20 @@ function _renderOpCombined(el, isPlatform, tenants) {
             const hasForecastLink = !!(p.source_forecast_plan_id || p.detail?.source_forecast_plan_id);
             const fmt2 = v => v >= 10000 ? `${(v/10000).toFixed(0)}만원` : `${v.toLocaleString()}원`;
             const safeId = (p.id||"").replace(/'/g,"\\'");
+            const allocAmt = Number(p.allocated_amount || 0);
+            const opAmt = Number(p.amount || 0);
+            const availAmt = opAmt - exec;
+
             return `<tr>
               <td><code style="font-size:10px;background:#F3F4F6;padding:2px 6px;border-radius:4px">${(p.id||"").slice(-8)}</code></td>
               <td><span onclick="_boPlanDetailView=null;_boPlanMgmtData=null;_boPlanDetailView=${JSON.stringify(p).replace(/</g,"&lt;")}"
                 style="font-weight:700;color:#002C5F;cursor:pointer;text-decoration:underline">${p.edu_name||"-"}</span></td>
-              <td style="font-size:11px;color:#6B7280">${p.applicant_name||"-"}</td>
-              <td style="font-size:11px"><span style="padding:2px 8px;border-radius:6px;background:#DBEAFE;color:#1D4ED8;font-size:10px;font-weight:800">${p.plan_type||"operation"}</span></td>
-              <td style="text-align:right;font-weight:800">${fmt2(amt)}</td>
+              <td style="text-align:center;font-weight:900;color:${hasForecastLink?'#1D4ED8':'#9CA3AF'}">${hasForecastLink?'Y':'N'}</td>
+              <td style="text-align:right;font-weight:800">${fmt2(allocAmt)}</td>
+              <td style="text-align:right;font-weight:800;color:#059669">${fmt2(opAmt)}</td>
               <td style="text-align:right;font-weight:800;color:#7C3AED">${exec>0?fmt2(exec):"-"}</td>
-              <td><span style="font-size:10px;font-weight:900;padding:3px 10px;border-radius:6px;background:${stColor}18;color:${stColor}">${stLabel}</span></td>
-              <td style="text-align:center">${hasForecastLink
-                ? `<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A" title="사업계획 ID: ${p.source_forecast_plan_id || p.detail?.source_forecast_plan_id}">📋 사업계획 복사</span>`
-                : '<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;background:#D1FAE5;color:#065F46;border:1px solid #A7F3D0">✍️ 상시 입력</span>'}</td>
-              <td style="font-size:11px;color:#6B7280">${(p.created_at||"").slice(0,10)}</td>
+              <td style="text-align:right;font-weight:800;color:#2563EB">${fmt2(availAmt)}</td>
+              <td style="text-align:center"><span style="font-size:10px;font-weight:900;padding:3px 10px;border-radius:6px;background:${stColor}18;color:${stColor}">${stLabel}</span></td>
             </tr>`;
           }).join("")}
         </tbody>

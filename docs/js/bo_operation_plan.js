@@ -4,6 +4,7 @@
 
 let _opTenant = "";
 let _opTplId = null;
+let _opAccountId = null;
 let _opYear = new Date().getFullYear();
 let _opDrillHq = null;
 let _opDrillOrg = null;
@@ -22,23 +23,20 @@ async function renderBoOperationPlan() {
   }
   el.innerHTML = '<div class="bo-fade" style="padding:40px;text-align:center;color:#9CA3AF"><div style="font-size:32px;margin-bottom:8px">⏳</div>운영계획 로딩 중...</div>';
 
-  if (typeof _boAdvFilter === 'undefined') {
-    console.warn("bo_filter_utils.js가 로드되지 않았습니다.");
+  if (!_opTenant) {
+    _opTenant = boCurrentPersona?.tenantId || "HMC";
   }
-  
+
   const tenants = typeof TENANTS !== "undefined" ? TENANTS : [];
   const role = boCurrentPersona?.role;
   const isPlatform = role === "platform_admin" || role === "tenant_global_admin";
   const _isOpMgr = typeof boIsOpManager === "function" ? boIsOpManager() : false;
 
-  const tenantId = (typeof _boAdvFilter !== 'undefined' && _boAdvFilter.tenantId) ? _boAdvFilter.tenantId : (boCurrentPersona?.tenantId || "HMC");
-  const year = (typeof _boAdvFilter !== 'undefined' && _boAdvFilter.year) ? Number(_boAdvFilter.year) : new Date().getFullYear();
-
   // ── 1. 예산계정 로드 ──
   try {
     const { data } = await sb.from("budget_accounts")
       .select("id,name,code,virtual_org_template_id")
-      .eq("tenant_id", tenantId).eq("active", true).eq("uses_budget", true);
+      .eq("tenant_id", _opTenant).eq("active", true).eq("uses_budget", true);
     _opAcctList = data || [];
   } catch { _opAcctList = []; }
 
@@ -46,30 +44,32 @@ async function renderBoOperationPlan() {
   const tplIds = [...new Set(_opAcctList.map(a => a.virtual_org_template_id).filter(Boolean))];
   try {
     const { data } = await sb.from("virtual_org_templates")
-      .select("id,name,tree_data").eq("tenant_id", tenantId)
+      .select("id,name,tree_data").eq("tenant_id", _opTenant)
       .in("id", tplIds.length > 0 ? tplIds : ["__NONE__"]);
     _opTplList = data || [];
   } catch { _opTplList = []; }
 
-  const targetTplId = (typeof _boAdvFilter !== 'undefined' && _boAdvFilter.vorgId) ? _boAdvFilter.vorgId : null;
-  const selTpl = targetTplId ? _opTplList.find(t => t.id === targetTplId) : _opTplList[0];
+  const targetTplId = _opTplId || (_opTplList.length > 0 ? _opTplList[0].id : null);
+  const selTpl = _opTplList.find(t => t.id === targetTplId);
   const allHqs = selTpl?.tree_data?.hqs || [];
   _opGroups = (_isOpMgr && typeof boGetMyGroups === "function")
     ? boGetMyGroups(allHqs) : allHqs;
   
-  const targetAcctCode = (typeof _boAdvFilter !== 'undefined' && _boAdvFilter.accountCode) ? _boAdvFilter.accountCode : null;
-  const tplAcctCodes = targetAcctCode ? [targetAcctCode] : _opAcctList.filter(a => a.virtual_org_template_id === (selTpl ? selTpl.id : null)).map(a => a.code);
+  const targetAcctId = _opAccountId;
+  const targetAcct = targetAcctId ? _opAcctList.find(a => a.id === targetAcctId) : null;
+  const tplAcctCodes = targetAcct ? [targetAcct.code] : _opAcctList.filter(a => a.virtual_org_template_id === (selTpl ? selTpl.id : null)).map(a => a.code);
 
   // ── 3. 운영계획 로드 ──────────────────────────────────────────────────────
-  try {
-    let q = sb.from("plans").select("*")
-      .eq("tenant_id", tenantId)
-      .eq("fiscal_year", year)
-      .neq("status", "draft")
-      .order("created_at", { ascending: false });
-    // 계정 코드가 있으면 해당 계정만 조회, 없으면 전체 (계정 미등록 환경 허용)
-    if (tplAcctCodes.length > 0) q = q.in("account_code", tplAcctCodes);
-    const { data } = await q;
+  if (!_opPlans) {
+    try {
+      let q = sb.from("plans").select("*")
+        .eq("tenant_id", _opTenant)
+        .eq("fiscal_year", _opYear)
+        .neq("status", "draft")
+        .order("created_at", { ascending: false });
+      // 계정 코드가 있으면 해당 계정만 조회, 없으면 전체 (계정 미등록 환경 허용)
+      if (tplAcctCodes.length > 0) q = q.in("account_code", tplAcctCodes);
+      const { data } = await q;
 
     // 1단계: detail에서 source_forecast_plan_id 먼저 추출
     const rows = (data || []).map(p => {
@@ -81,22 +81,72 @@ async function renderBoOperationPlan() {
 
     // 2단계: 운영계획만 남기기
     // plan_type이 operation/ongoing이거나, 사업계획에서 자동 복사된 것
-    _opPlans = rows.filter(p =>
-      p.plan_type === "operation" || p.plan_type === "ongoing" ||
-      (p.source_forecast_plan_id && p.plan_type !== "forecast" && p.plan_type !== "business")
-    );
-  } catch (e) { console.error('[운영계획 로드 실패]', e.message); _opPlans = []; }
+      _opPlans = rows.filter(p =>
+        p.plan_type === "operation" || p.plan_type === "ongoing" ||
+        (p.source_forecast_plan_id && p.plan_type !== "forecast" && p.plan_type !== "business")
+      );
+    } catch (e) { console.error('[운영계획 로드 실패]', e.message); _opPlans = []; }
+  }
 
   // Op-Manager 단일 그룹 자동 진입
   if (_isOpMgr && _opGroups.length === 1 && !_opDrillHq)
     _opDrillHq = _opGroups[0].id;
 
-  if (_opDrillHq) { _renderOpCombined(el, isPlatform, tenants, year); return; }
-  _renderOpLevel1(el, isPlatform, tenants, year);
+  if (_opDrillHq) { _renderOpCombined(el, isPlatform, tenants); return; }
+  _renderOpLevel1(el, isPlatform, tenants);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 공통 필터 바 (회사 > VOrg 제도그룹 > 계정 > 연도)
+// ────────────────────────────────────────────────────────────────────────────
+function _opFilterBar(isPlatform, tenants) {
+  const selStyle =
+    "border:1.5px solid #E5E7EB;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;min-width:130px;cursor:pointer";
+
+  const tenantSel = isPlatform
+    ? `<select onchange="_opTenant=this.value;_opTplId=null;_opAccountId=null;_opDrillHq=null;_opDrillOrg=null;_opPlans=null;renderBoOperationPlan()" style="${selStyle}">
+      ${tenants
+        .filter((t) => t.id !== "SYSTEM")
+        .map((t) => `<option value="${t.id}" ${t.id === _opTenant ? "selected" : ""}>${t.name}</option>`)
+        .join("")}
+    </select>`
+    : `<span style="font-size:12px;font-weight:800;color:#374151;padding:6px 10px;background:#F3F4F6;border-radius:8px">${tenants.find((t) => t.id === _opTenant)?.name || _opTenant}</span>`;
+
+  const tplSel = _opTplList.length
+    ? `<select onchange="_opTplId=this.value;_opAccountId=null;_opDrillHq=null;_opDrillOrg=null;_opPlans=null;renderBoOperationPlan()" style="${selStyle}">
+      ${_opTplList.map((t) => `<option value="${t.id}" ${t.id === (_opTplId || _opTplList[0].id) ? "selected" : ""}>${t.name}</option>`).join("")}
+    </select>`
+    : '<span style="font-size:11px;color:#9CA3AF">제도그룹 없음</span>';
+
+  const acctSel = _opAcctList.length
+    ? `<select onchange="_opAccountId=this.value||null;_opDrillHq=null;_opDrillOrg=null;_opPlans=null;renderBoOperationPlan()" style="${selStyle}">
+      <option value="">전체 계정</option>
+      ${_opAcctList.map((a) => `<option value="${a.id}" ${a.id === _opAccountId ? "selected" : ""}>${a.name}</option>`).join("")}
+    </select>`
+    : "";
+
+  const currYear = new Date().getFullYear();
+  const yearSel = `<select onchange="_opYear=Number(this.value);_opDrillHq=null;_opDrillOrg=null;_opPlans=null;renderBoOperationPlan()" style="${selStyle}">
+    ${[currYear + 1, currYear, currYear - 1, currYear - 2]
+      .map((y) => `<option value="${y}" ${_opYear === y ? "selected" : ""}>${y}년</option>`)
+      .join("")}
+  </select>`;
+
+  return `
+  <div class="bo-card" style="padding:14px 18px;margin-bottom:16px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <span style="font-size:11px;font-weight:900;color:#374151;margin-right:4px">🔍 데이터 범위</span>
+      <label style="font-size:10px;font-weight:700;color:#6B7280">테넌트(회사)</label> ${tenantSel}
+      <label style="font-size:10px;font-weight:700;color:#6B7280">VOrg</label> ${tplSel}
+      <label style="font-size:10px;font-weight:700;color:#6B7280">계정</label> ${acctSel}
+      ${yearSel}
+      <button onclick="_opPlans=null;renderBoOperationPlan()" class="bo-btn-primary" style="margin-left:auto">🔄 새로고침</button>
+    </div>
+  </div>`;
 }
 
 // ── Level 1: 조직단위별 운영계획 요약 ────────────────────────────────────────
-function _renderOpLevel1(el, isPlatform, tenants, year) {
+function _renderOpLevel1(el, isPlatform, tenants) {
   const plans = _opPlans || [];
   const totalCount = plans.length;
   const totalApproved = plans.filter(p => p.status === "approved").length;
@@ -129,7 +179,7 @@ function _renderOpLevel1(el, isPlatform, tenants, year) {
       </div>
     </div>
     
-    <div id="bo-op-filter-container" style="margin-bottom:16px;"></div>
+    ${_opFilterBar(isPlatform, tenants)}
     
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
       ${[
@@ -146,7 +196,7 @@ function _renderOpLevel1(el, isPlatform, tenants, year) {
     <div class="bo-card" style="overflow:hidden">
       <div style="padding:14px 20px;background:linear-gradient(135deg,#002C5F08,#0369A108);border-bottom:1px solid #F3F4F6">
         <span style="font-size:14px;font-weight:900;color:#002C5F">🏢 교육조직별 운영계획 현황</span>
-        <span style="font-size:11px;color:#6B7280;margin-left:8px">${year}년</span>
+        <span style="font-size:11px;color:#6B7280;margin-left:8px">${_opYear}년</span>
       </div>
       <table class="bo-table" style="font-size:12px">
         <thead><tr>
@@ -180,14 +230,14 @@ function _renderOpLevel1(el, isPlatform, tenants, year) {
     </div>` : `
     <div class="bo-card" style="padding:60px;text-align:center">
       <div style="font-size:48px;margin-bottom:10px">📭</div>
-      <div style="font-weight:700;color:#6B7280">${year}년 운영계획 데이터가 없습니다</div>
+      <div style="font-weight:700;color:#6B7280">${_opYear}년 운영계획 데이터가 없습니다</div>
       <div style="font-size:12px;color:#9CA3AF;margin-top:6px">사업계획이 총괄담당자 승인 완료되면 운영계획이 자동 생성됩니다.</div>
     </div>`}
   </div>`;
 }
 
 // ── Level 2+3: 조직단위 상세 (팀 요약 + 계획 목록 통합) ──────────────────────
-function _renderOpCombined(el, isPlatform, tenants, year) {
+function _renderOpCombined(el, isPlatform, tenants) {
   const hq = _opGroups.find(g => g.id === _opDrillHq);
   if (!hq) { _opDrillHq = null; renderBoOperationPlan(); return; }
 
@@ -230,7 +280,7 @@ function _renderOpCombined(el, isPlatform, tenants, year) {
         style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1.5px solid #E5E7EB;background:white;font-size:12px;font-weight:700;color:#6B7280;cursor:pointer">← 전체 교육조직 보기</button>
     </div>
     
-    <div id="bo-op-filter-container" style="margin-bottom:16px;"></div>
+    ${_opFilterBar(isPlatform, tenants)}
 
     <!-- 팀별 요약 -->
     <div class="bo-card" style="overflow:hidden;margin-bottom:12px">

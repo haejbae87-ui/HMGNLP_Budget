@@ -1225,7 +1225,6 @@ async function _bdAutoCreateOperationPlan(sb, forecastPlan) {
       applicant_id: forecastPlan.applicant_id,
       applicant_name: forecastPlan.applicant_name,
       applicant_org_id: forecastPlan.applicant_org_id || null,
-      dept: forecastPlan.dept || null,
       tenant_id: forecastPlan.tenant_id,
       edu_type: forecastPlan.edu_type || null,
       detail: newDetail,

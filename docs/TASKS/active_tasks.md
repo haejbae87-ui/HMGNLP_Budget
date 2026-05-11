@@ -8,6 +8,10 @@
 
 ### 2026-05-11 — 예산/사업계획 관리 및 데이터 필터링 오류 수정
 
+- [x] **운영계획 관리(Level 1, 2, 3) 화면 조회 필터 UI 및 비즈니스 로직 적용**
+  - `bo_operation_plan.js`: 사업계획 관리와 동일한 UX의 `_opFilterBar` 렌더링 함수 구현 (회사, VOrg, 계정, 연도 필터링 지원).
+  - 필터 상태(`_opTenant`, `_opTplId`, `_opAccountId`, `_opYear`) 변경 시 Supabase 쿼리를 재실행하여 선택된 데이터 조건에 맞게 운영계획 데이터를 동적으로 필터링하도록 비즈니스 로직 연동 완료.
+  - 관련 PRD 문서화(`operation_plan.md`) 및 Domain Council 분석 검토 반영 완료.
 - [x] **Bug Fix: 사업계획 관리 메뉴(Level 2/3)에서 상위 조직(HQ) 클릭 시 하위 조직 필터링 누락 버그 수정**
   - `bo_budget_demand.js`: `_renderBdCombined` 및 `_renderBdLevel3`에서 `_bdDrillOrg`가 선택되지 않은 경우, 전체 회사 계획(`allPlans`)이 노출되는 현상을 수정하여 현재 선택된 `hq`에 소속된 팀들의 계획만 노출되도록 필터링 로직 강화.
 - [x] **Bug Fix: 사업계획 관리 화면에서 사업계획 명 클릭 시 모달이 뜨지 않는 문제 수정**

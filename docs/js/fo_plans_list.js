@@ -1414,11 +1414,9 @@ function renderPlans() {
   ${bundleBar}
   ${teamForecastBundleBar}
   ${teamOperationDashboard}
-  <div id="fo-realloc-area"></div>
   <div id="plan-list">${listHtml}</div>
 </div>
 ${floatingActionBar}`;
-  _foRenderReallocUI();
   // B-1: 카드 렌더링 후 잔여예산 뱃지 비동기 업데이트
   if (filteredPlans.length > 0) {
     setTimeout(() => _updateBudgetBadges(filteredPlans), 300);
@@ -1596,7 +1594,20 @@ function _renderPlanCard(p) {
                } else {
                  amountHtml += `<span style="color:#D1D5DB;font-size:10px">미배정</span>`;
                }
-               amountHtml += `<span style="display:flex;align-items:center;gap:3px;font-weight:900;color:#111827"><span style="font-size:10px">💰</span>운영계획금액: ${opAmt.toLocaleString()}원</span>`;
+               const isEditable = ['draft', '저장완료', 'rejected', '반려', 'approved', '승인완료'].includes(p.status);
+               if (isEditable) {
+                 amountHtml += `
+                   <span style="display:flex;align-items:center;gap:4px;font-weight:900;color:#111827">
+                     <span style="font-size:10px">💰</span>운영계획금액: 
+                     <input type="number" value="${opAmt}" data-plan-id="${rawPlan.id}" data-orig="${opAmt}"
+                       onchange="_foUpdateOperationAmount(this, this.dataset.planId, this.value)" 
+                       onclick="event.stopPropagation()"
+                       style="width:90px;padding:2px 6px;border:1.5px solid #D1D5DB;border-radius:6px;font-size:11px;font-weight:800;text-align:right;background:white">
+                     원
+                   </span>`;
+               } else {
+                 amountHtml += `<span style="display:flex;align-items:center;gap:3px;font-weight:900;color:#111827"><span style="font-size:10px">💰</span>운영계획금액: ${opAmt.toLocaleString()}원</span>`;
+               }
              }
              return amountHtml;
           })()}
@@ -1609,6 +1620,52 @@ function _renderPlanCard(p) {
     </div>`;
 }
 
+async function _foUpdateOperationAmount(inputEl, planId, newAmountStr) {
+  const numAmt = Number(newAmountStr || 0);
+  const origAmt = Number(inputEl.dataset.orig || 0);
+  if (numAmt === origAmt) return;
+
+  const plan = (_plansDbCache || []).find(p => p.id === planId);
+  if (!plan) return;
+
+  const diff = numAmt - origAmt;
+  const accountCode = plan.account || plan.account_code;
+  const fiscalYear = plan.fiscal_year || new Date().getFullYear();
+
+  // 초과 검증 (증액일 때만)
+  if (diff > 0 && typeof _checkOperationBudgetLimit === 'function') {
+    // _checkOperationBudgetLimit(amount, allocated, accountCode, fiscalYear)
+    // 여기서 allocated 파라미터는 비교 기준값(origAmt)으로 전달
+    const isOk = await _checkOperationBudgetLimit(numAmt, origAmt, accountCode, fiscalYear);
+    if (!isOk) {
+      inputEl.value = origAmt; // revert
+      return;
+    }
+  }
+
+  const sb = typeof getSB === 'function' ? getSB() : null;
+  if (!sb) return;
+
+  try {
+    const { error } = await sb.from('plans').update({
+      amount: numAmt,
+      updated_at: new Date().toISOString()
+    }).eq('id', planId);
+
+    if (error) throw error;
+
+    plan.amount = numAmt;
+    inputEl.dataset.orig = numAmt;
+    if (typeof showToast === 'function') showToast('운영계획금액이 수정되었습니다.', 'success');
+    
+    // 대시보드 갱신을 위해 리스트 다시 렌더링
+    if (typeof renderPlans === 'function') renderPlans();
+  } catch (err) {
+    alert('수정 실패: ' + err.message);
+    inputEl.value = origAmt;
+  }
+}
+window._foUpdateOperationAmount = _foUpdateOperationAmount;
 
 // ─── B-1: 계획 카드 잔여예산 비동기 업데이트 ─────────────────────────────────
 // 카드 렌더링 후 account_budgets를 조회하여 잔여예산 뱃지 업데이트

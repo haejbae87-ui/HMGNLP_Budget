@@ -176,7 +176,7 @@ function _renderDDLevel0() {
             <div style="width:36px;height:36px;background:${isRnd ? '#EDE9FE' : '#EFF6FF'};border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${isRnd ? '🔬' : '🏢'}</div>
             <div>
               <div style="font-size:13px;font-weight:800;color:#111">${vg.name}</div>
-              <div style="font-size:11px;color:#9CA3AF">${(vg.teams || []).length}개 팀 · ${vg.manager || '담당자 미지정'}</div>
+              <div style="font-size:11px;color:#9CA3AF">${(vg.teams || []).length}개 팀 · ${(vg.managers && vg.managers.length > 0) ? vg.managers.map(m => typeof m === 'object' ? m.name : m).join(', ') : '담당자 미지정'}</div>
             </div>
           </div>
         </td>
@@ -208,7 +208,7 @@ function _renderDDLevel0() {
           ${(() => {
             const pol = _getDDPolicy(ab);
             const mode = pol?.bankbook_mode || pol?.bankbook_level || 'team';
-            if (currentAlloc <= 0) return '<span style="font-size:11px;color:#D1D5DB;font-weight:600">미배분</span>';
+
             if (mode === 'bulk') {
               // bulk: 교육조직까지만 배분, 드릴다운 없음
               return `<span style="font-size:10px;padding:3px 8px;border-radius:6px;background:#FEF3C7;color:#92400E;font-weight:700">🏦 교육조직 통장</span>`;
@@ -264,22 +264,22 @@ function _renderDDLevel0() {
     </div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px">
       <div style="background:rgba(255,255,255,.07);border-radius:12px;padding:14px 16px">
-        <div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:700;margin-bottom:4px">계정 이명</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:700;margin-bottom:4px">계정 코드</div>
         <div style="font-size:15px;font-weight:900;color:white">${ab.accountCode}</div>
       </div>
       <div style="background:rgba(255,255,255,.07);border-radius:12px;padding:14px 16px">
-        <div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:700;margin-bottom:4px">총 배산</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:700;margin-bottom:4px">총 배정예산</div>
         <div style="font-size:15px;font-weight:900;color:#60A5FA">${boFmt(totalBudget)}원</div>
       </div>
       <div style="background:rgba(255,255,255,.07);border-radius:12px;padding:14px 16px">
-        <div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:700;margin-bottom:4px">가능할 수 비정</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:700;margin-bottom:4px">배분 가능 예산</div>
         <div style="font-size:15px;font-weight:900;color:${distributable > 0 ? '#34D399' : '#F87171'}">${boFmt(distributable)}원</div>
       </div>
     </div>
     <!-- 배분 현황 바 -->
     <div>
       <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:11px;color:rgba(255,255,255,.6)">
-        <span>특시 배정 비보: <b style="color:white">${boFmt(allDist)}원</b></span>
+        <span>이미 배분된 금액: <b style="color:white">${boFmt(allDist)}원</b></span>
         <span style="font-weight:800;color:${burnPct >= 90 ? '#F87171' : '#34D399'}">${burnPct.toFixed(0)}%</span>
       </div>
       <div style="height:10px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden">

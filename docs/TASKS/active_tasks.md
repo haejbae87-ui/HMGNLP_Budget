@@ -6,6 +6,11 @@
 
 ## ✅ 완료된 작업 이력
 
+### 2026-05-11 — 예산/사업계획 관리 및 데이터 필터링 오류 수정
+
+- [x] **Bug Fix: 사업계획 관리 메뉴(Level 2/3)에서 상위 조직(HQ) 클릭 시 하위 조직 필터링 누락 버그 수정**
+  - `bo_budget_demand.js`: `_renderBdCombined` 및 `_renderBdLevel3`에서 `_bdDrillOrg`가 선택되지 않은 경우, 전체 회사 계획(`allPlans`)이 노출되는 현상을 수정하여 현재 선택된 `hq`에 소속된 팀들의 계획만 노출되도록 필터링 로직 강화.
+
 ### 2026-05-10 — 문서 상태값(Status) 표준화 및 예산 계정 필터링 논리 오류 수정
 
 - [x] **Bug Fix: 결재함 로드 시 `org_budget_bankbooks`의 `bb_status` 컬럼 불일치 버그 수정**

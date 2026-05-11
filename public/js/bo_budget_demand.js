@@ -627,6 +627,16 @@ function _renderBdCombined(el, isPlatform, tenants) {
         ${_bdDrillOrg ? `${_bdDrillOrg}의 계획이 없습니다` : '계획 데이터가 없습니다'}
       </div>`}
     </div>
+  </div>
+
+  <!-- 계획 상세 모달 -->
+  <div id="bd-plan-detail-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center"
+    onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:white;border-radius:18px;padding:32px;max-width:640px;width:92%;max-height:82vh;overflow-y:auto;position:relative;box-shadow:0 24px 64px rgba(0,0,0,.35)">
+      <button onclick="document.getElementById('bd-plan-detail-modal').style.display='none'"
+        style="position:absolute;top:16px;right:16px;border:none;background:#F3F4F6;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;font-weight:900">✕</button>
+      <div id="bd-plan-detail-content" style="padding-top:4px">로딩 중...</div>
+    </div>
   </div>`;
 }
 

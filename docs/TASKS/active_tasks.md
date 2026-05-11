@@ -10,6 +10,8 @@
 
 - [x] **Bug Fix: 사업계획 관리 메뉴(Level 2/3)에서 상위 조직(HQ) 클릭 시 하위 조직 필터링 누락 버그 수정**
   - `bo_budget_demand.js`: `_renderBdCombined` 및 `_renderBdLevel3`에서 `_bdDrillOrg`가 선택되지 않은 경우, 전체 회사 계획(`allPlans`)이 노출되는 현상을 수정하여 현재 선택된 `hq`에 소속된 팀들의 계획만 노출되도록 필터링 로직 강화.
+- [x] **Bug Fix: 사업계획 관리 화면에서 사업계획 명 클릭 시 모달이 뜨지 않는 문제 수정**
+  - `bo_budget_demand.js`: `_renderBdCombined` 함수 렌더링 결과에 상세 보기 모달(`<div id="bd-plan-detail-modal">`) 마크업이 누락되어 있어 `_bdShowPlanDetail` 함수가 모달 요소를 찾지 못하고 종료되던 문제 수정.
 
 ### 2026-05-10 — 문서 상태값(Status) 표준화 및 예산 계정 필터링 논리 오류 수정
 

@@ -400,14 +400,17 @@ function _renderBdCombined(el, isPlatform, tenants) {
              pendingCnt, approvedCnt, excludedCnt, pct, isCurrent };
   });
 
-  // ── 계획 목록 (선택된 팀 or 전체)
+  // ── 계획 목록 (선택된 팀 or 전체 hq 소속 팀)
   const plans = _bdDrillOrg
     ? allPlans.filter(p => {
         const dept = p.detail?.dept || p.applicant_name || '';
         return p.applicant_name === _bdDrillOrg || dept === _bdDrillOrg
           || _bdFuzzy(dept, _bdDrillOrg) || _bdFuzzy(_bdDrillOrg, dept);
       })
-    : allPlans;
+    : allPlans.filter(p => {
+        const dept = p.detail?.dept || p.applicant_name || '';
+        return teams.some(t => dept === t.name || _bdFuzzy(dept, t.name) || _bdFuzzy(t.name, dept));
+      });
 
   // ── 통계
   const totalDemand    = teamRows.reduce((s,t) => s+t.demand, 0);
@@ -814,13 +817,20 @@ function _renderBdLevel3(el) {
   _bdL3FinalEdits = {};
   const plans = (_bdPlans || []).filter((p) => {
     const dept = p.detail?.dept || p.applicant_name || "";
-    const target = _bdDrillOrg || "";
-    return (
-      p.applicant_name === target ||
-      dept === target ||
-      _bdFuzzy(dept, target) ||
-      _bdFuzzy(target, dept)
-    );
+    if (_bdDrillOrg) {
+      const target = _bdDrillOrg;
+      return (
+        p.applicant_name === target ||
+        dept === target ||
+        _bdFuzzy(dept, target) ||
+        _bdFuzzy(target, dept)
+      );
+    } else {
+      // _bdDrillOrg가 없을 경우 _bdDrillHq에 속한 팀들의 계획만 필터링
+      const hq = _bdGroups.find(g => g.id === _bdDrillHq);
+      const teams = hq ? (hq.teams || []) : [];
+      return teams.some(t => dept === t.name || _bdFuzzy(dept, t.name) || _bdFuzzy(t.name, dept));
+    }
   });
 
   // ── Layout A: 현재 hq의 팀별 요약 사전 집계 ──────────────────────────────

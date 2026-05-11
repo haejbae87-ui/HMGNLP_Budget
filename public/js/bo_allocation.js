@@ -1897,21 +1897,14 @@ async function _syncBudgetAllocations(sb, ab, totalBudget, usedAmount, fiscalYea
   // 이 함수는 non-critical — account_budgets의 실저잡 콼럼에 의존하지 않도록 안전하게정리
   if (!sb || !ab) return;
   try {
-    // org_budget_bankbooks 연동 (콼럼 존재시만)
+    // org_budget_bankbooks 연동
     const { data: bankbooks } = await sb.from('org_budget_bankbooks')
-      .select('id, allocated_amount')
+      .select('id')
       .eq('account_id', ab.dbAccountId || '')
       .eq('tenant_id', ab.tenantId || '').limit(50);
+      
     if (bankbooks && bankbooks.length > 0) {
-      const balance = Math.max(0, totalBudget - (usedAmount || 0));
-      const totalAlloc = bankbooks.reduce((s, b) => s + Number(b.allocated_amount || 0), 0);
-      for (const bb of bankbooks) {
-        const ratio = totalAlloc > 0 ? Number(bb.allocated_amount || 0) / totalAlloc : 1 / bankbooks.length;
-        await sb.from('org_budget_bankbooks').update({
-          updated_at: new Date().toISOString(),
-        }).eq('id', bb.id);
-      }
-      console.log(`[_syncBudgetAllocations] ${bankbooks.length}개 bankbook 연동 완료`);
+      console.log(`[_syncBudgetAllocations] ${bankbooks.length}개 bankbook 매칭됨`);
     }
     console.log(`[_syncBudgetAllocations] ${ab.accountCode} FY${fiscalYear} total=${totalBudget}`);
   } catch (e) {

@@ -161,9 +161,21 @@ function _renderDDLevel0() {
   } else {
     vGroups.forEach(vg => {
       const inputId = `dd0-input-${inputIdx++}`;
-      // 중복 생성된 통장들을 모두 찾아서 합산 처리 (대시보드와 정합성 일치)
-      const existings = TEAM_DIST.filter(t => t.accountBudgetId === ab.id && t.teamName === vg.name);
-      const existing = existings.length > 0 ? existings[0] : null; // 가장 첫 번째 레코드를 기준(id 참조용)으로 유지
+      // VOrg 자신 및 산하 모든 팀의 이름을 수집하여 합산 (대시보드와 정합성 일치)
+      const validNames = [vg.name, vg.name + '_IND'];
+      if (vg.teams) {
+        vg.teams.forEach(t => {
+          const tName = typeof t === 'object' ? t.name : t;
+          validNames.push(tName);
+          validNames.push(tName + '_IND');
+        });
+      }
+      
+      const existings = TEAM_DIST.filter(t => t.accountBudgetId === ab.id && validNames.includes(t.teamName));
+      // 입력창과 연결되는 기존 직접 배분 데이터는 VOrg 직접 매칭분만 유지
+      const directExistings = TEAM_DIST.filter(t => t.accountBudgetId === ab.id && t.teamName === vg.name);
+      const existing = directExistings.length > 0 ? directExistings[0] : null; 
+      
       const currentAlloc = existings.reduce((s, t) => s + (t.allocAmount || 0), 0);
       const orgSpent = existings.reduce((s, t) => s + (t.spent || 0), 0);
       const orgReserved = existings.reduce((s, t) => s + (t.reserved || 0), 0);

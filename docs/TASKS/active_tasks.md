@@ -20,6 +20,11 @@
   - `bo_budget_demand.js`, `fo_plans_actions.js`: `_autoCreateOperationPlan` 함수에서 Supabase `plans` 테이블 스키마에 존재하지 않는 `dept` 및 `frozen_amount` 컬럼을 직접 INSERT 하려다 발생한 에러 수정 (해당 컬럼들은 `detail` JSON 내부에 저장되거나 `bankbooks` 테이블 소관이므로 `plans` 테이블 스키마에 맞춰 INSERT Payload에서 제거).
 - [x] **Bug Fix: 상위 조직(HQ) 선택 시 하위 사업계획 목록 헤더에 특정 팀명이 표시되는 버그 수정**
   - `bo_budget_demand.js`: `_renderBdCombined` 함수에서 하위 팀 필터가 적용되지 않았을 때(`_bdDrillOrg` = null), 단일 팀만 사업계획이 제출되어 있으면 해당 팀명으로 헤더가 강제 치환되던 로직을 제거하고 항상 선택된 HQ 명칭(예: `연구개발&AVP본부 전체 — 2027년`)이 표시되도록 수정.
+- [x] **FO 운영계획 금액 인라인 수정 (배정 재배분 UI 폐지)**
+  - `fo_plans_list.js`: 운영계획 카드의 '운영계획금액'을 `<input type="number">`로 교체하여 인라인 편집 기능 추가.
+  - `fo_plans_list.js`, `fo_plans_actions.js`: 인라인 수정 시 `_checkOperationBudgetLimit`를 통한 팀 통장 가용예산 초과 여부 실시간 검증 및 DB 자동 갱신 반영.
+  - `fo_plans_actions.js`, `plans.js`: 기존 불필요해진 모달 기반의 배정 재배분 UI 관련 코드(`_foToggleRealloc`, `_foRenderReallocUI` 등) 완전 폐기.
+  - 관련 PRD 문서화(`business_operation_plans.md`) 갱신 완료.
 
 ### 2026-05-10 — 문서 상태값(Status) 표준화 및 예산 계정 필터링 논리 오류 수정
 

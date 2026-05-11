@@ -10,6 +10,10 @@
 
 - [x] **Bug Fix: 프론트오피스 "팀 배정예산(가용 총액)" 동기화 오류 해결**
   - `fo_plans_list.js`, `plans.js`: `_foRenderTeamOperationDashboard` 및 계획 카드의 예산 뱃지(`_updateBudgetBadges`) 렌더링 시, 전체 회사 계정 예산(`account_budgets`)을 잘못 조회하던 로직을 팀별 배정 예산(`currentPersona.budgets`)을 직접 참조하도록 수정하여 백오피스(1,000,000원)와 프론트오피스가 일치하도록 연동 완료.
+- [x] **Bug Fix: 예산 배분 드릴다운 UI 렌더링 오류 및 용어 표시 버그 수정**
+  - `bo_alloc_drilldown.js`: 예산 배분 현황판(Level 0)에서 미배분 상태(`currentAlloc <= 0`)일 경우 하위 팀 드릴다운 버튼이 노출되지 않아 초기 배분을 진행할 수 없던 논리적 버그를 해결(조건문 제거).
+  - 조직별 운영담당자 목록 표시 시, 단일 문자열(`vg.manager`)을 참조하던 기존 코드를 배열 형태인 `vg.managers` 맵핑으로 수정하여 정상적으로 담당자 이름 목록이 표시되도록 패치.
+  - 마스터 통장 대시보드의 오타 및 깨진 라벨 수정 ("계정 이명" → "계정 코드", "총 배산" → "총 배정예산", "가능할 수 비정" → "배분 가능 예산", "특시 배정 비보" → "이미 배분된 금액").
 - [x] **운영계획 관리(Level 1, 2, 3) 화면 조회 필터 UI 및 비즈니스 로직 적용**
   - `bo_operation_plan.js`: 사업계획 관리와 동일한 UX의 `_opFilterBar` 렌더링 함수 구현 (회사, VOrg, 계정, 연도 필터링 지원).
   - 필터 상태(`_opTenant`, `_opTplId`, `_opAccountId`, `_opYear`) 변경 시 Supabase 쿼리를 재실행하여 선택된 데이터 조건에 맞게 운영계획 데이터를 동적으로 필터링하도록 비즈니스 로직 연동 완료.

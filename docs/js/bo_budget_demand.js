@@ -300,7 +300,7 @@ function _renderBdLevel1(el, isPlatform, tenants) {
         .join("")}
     </div>
 
-
+    ${
       groupRows.length > 0
         ? `
     <div class="bo-card" style="overflow:hidden">

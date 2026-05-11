@@ -350,6 +350,7 @@ function _renderOpCombined(el, isPlatform, tenants) {
         <thead><tr>
           <th>ID</th><th>계획명</th>
           <th style="text-align:center">사업계획 유무</th>
+          <th style="text-align:right">사업계획금액</th>
           <th style="text-align:right">최초배정액</th>
           <th style="text-align:right">운영계획금액</th>
           <th style="text-align:right">집행액(품의확정금액)</th>
@@ -375,6 +376,7 @@ function _renderOpCombined(el, isPlatform, tenants) {
               <td><span onclick="_boPlanDetailView=null;_boPlanMgmtData=null;_boPlanDetailView=${JSON.stringify(p).replace(/</g,"&lt;")}"
                 style="font-weight:700;color:#002C5F;cursor:pointer;text-decoration:underline">${p.edu_name||"-"}</span></td>
               <td style="text-align:center;font-weight:900;color:${hasForecastLink?'#1D4ED8':'#9CA3AF'}">${hasForecastLink?'Y':'N'}</td>
+              <td style="text-align:right;font-weight:800">${hasForecastLink ? fmt2(Number(p.source_forecast_amount || p.detail?.source_forecast_amount || 0)) : "-"}</td>
               <td style="text-align:right;font-weight:800">${fmt2(allocAmt)}</td>
               <td style="text-align:right;font-weight:800;color:#059669">${fmt2(opAmt)}</td>
               <td style="text-align:right;font-weight:800;color:#7C3AED">${exec>0?fmt2(exec):"-"}</td>

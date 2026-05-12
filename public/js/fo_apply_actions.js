@@ -269,7 +269,8 @@ function foRenderApplyUnifiedView(app, opts = {}) {
 
   const isDraft = st === "draft" || st === "작성중";
   const isSaved = st === "saved" || st === "저장완료";
-  const isPending = st === "pending" || st === "submitted" || st === "team_approved" || st === "in_review" || st === "신청중" || st === "결재진행중" || st === "결재대기";
+  const isRejected = st === "rejected" || st === "반려";
+  const isRecallable = st === "pending" || st === "submitted" || st === "신청중" || st === "결재대기";
   
   const safeTitle = String(app.title || app.edu_name || '').replace(/'/g, '');
   const resolvedInlineFields = inlineFields || (app.formTemplate && app.formTemplate.inlineFields) || null;
@@ -283,9 +284,9 @@ function foRenderApplyUnifiedView(app, opts = {}) {
   } else {
     actionBtns = `
       <button onclick="applyViewMode='list';applyState=resetApplyState();renderApply()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">← 목록으로</button>
-      ${(isDraft || isSaved) ? `<button onclick="applyState.confirmMode=false;renderApply()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #BFDBFE;background:white;color:#0369A1;cursor:pointer">✏️ 수정</button>` : ""}
-      ${isSaved ? `<button onclick="_appSingleSubmit('${safeId}','${safeTitle}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#059669;color:white;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">📤 상신하기</button>` : ""}
-      ${isPending ? `<button onclick="foRecallApplyFromDetail('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FECACA;background:white;color:#DC2626;cursor:pointer">회수하기</button>` : ""}`;
+      ${(isDraft || isSaved || isRejected) ? `<button onclick="applyState.confirmMode=false;renderApply()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #BFDBFE;background:white;color:#0369A1;cursor:pointer">✏️ 수정</button>` : ""}
+      ${(isSaved || isRejected) ? `<button onclick="_appSingleSubmit('${safeId}','${safeTitle}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#059669;color:white;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">📤 상신하기</button>` : ""}
+      ${isRecallable ? `<button onclick="foRecallApplyFromDetail('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FECACA;background:white;color:#DC2626;cursor:pointer">회수하기</button>` : ""}`;
   }
 
   return `
@@ -687,6 +688,7 @@ async function viewApplyDetail(appId) {
     if (!applyState.planned_duration && applyState.eduPeriod) applyState.planned_duration = applyState.eduPeriod;
 
     applyState.editId = data.id;
+    applyState.currentStatus = data.status;
     applyState.eduName = data.edu_name || "";
     applyState.title = data.edu_name || "";
     applyState.eduType = data.edu_type || "";

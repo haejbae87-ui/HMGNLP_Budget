@@ -80,11 +80,23 @@ function renderMyOperations() {
       if (_boAdvFilter.tenantId) {
         filteredDocs = filteredDocs.filter(d => d.tenant_id === _boAdvFilter.tenantId);
       }
+      if (_boAdvFilter.vorgId) {
+        const validAccounts = (_boAdvFilterState?.accountsCache || [])
+          .filter(a => a.virtual_org_template_id === _boAdvFilter.vorgId)
+          .map(a => a.code);
+        filteredDocs = filteredDocs.filter(d => validAccounts.includes(d.account_code));
+      }
       if (_boAdvFilter.accountCode) {
         filteredDocs = filteredDocs.filter(d => d.account_code === _boAdvFilter.accountCode);
       }
       if (_boAdvFilter.orgName) {
         filteredDocs = filteredDocs.filter(d => d.submitter_org_name && d.submitter_org_name.includes(_boAdvFilter.orgName));
+      }
+      if (_boAdvFilter.year) {
+        filteredDocs = filteredDocs.filter(d => {
+          const dateStr = d.submitted_at || d.created_at;
+          return dateStr && dateStr.startsWith(_boAdvFilter.year);
+        });
       }
     }
 

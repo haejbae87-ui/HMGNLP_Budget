@@ -66,6 +66,10 @@ async function renderResultMgmt() {
         pending = pending.filter(d => d.dept && d.dept.includes(_boAdvFilter.orgName));
         completed = completed.filter(d => d.dept && d.dept.includes(_boAdvFilter.orgName));
       }
+      if (_boAdvFilter.year) {
+        pending = pending.filter(d => d.created_at && d.created_at.startsWith(_boAdvFilter.year));
+        completed = completed.filter(d => d.created_at && d.created_at.startsWith(_boAdvFilter.year));
+      }
     }
 
     // ── 검토 대기 (result_pending) 테이블 ──────────────────────────────

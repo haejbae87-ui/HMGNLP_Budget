@@ -6,6 +6,13 @@
 
 ## ✅ 완료된 작업 이력
 
+### 2026-05-12 — 백오피스 결재 및 결과관리 검색/필터 버그 수정
+
+- [x] **백오피스 결재/결과관리 조회 조건 (vorgId, year) 필터 연동 수정**
+  - `bo_approval.js`: 결재함 `renderMyOperations()`의 프론트엔드 필터 로직에 누락되었던 `_boAdvFilter.vorgId`(교육제도그룹) 및 `_boAdvFilter.year`(년도) 조회 조건 처리 코드 추가.
+  - `bo_result_mgmt.js`: 교육결과관리 `renderResultMgmt()`의 프론트엔드 필터 로직에 누락되었던 `_boAdvFilter.year`(년도) 조회 조건 처리 코드 추가.
+  - VOrg(교육제도그룹) 선택 시 캐싱된 `accountsCache`를 순회하여 해당 그룹에 속한 유효 `account_code` 배열을 추출한 뒤, `submission_documents` 및 `applications`를 정확히 교차 필터링 하도록 개선.
+
 ### 2026-05-12 — 예산계정 단위 FO 노출 설정(개인/팀 목록) 추가 연동
 
 - [x] **백오피스 예산계정 관리 화면 FO 탭 노출 설정 UI 추가 및 DB 연동**

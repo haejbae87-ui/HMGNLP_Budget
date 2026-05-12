@@ -2892,16 +2892,27 @@ function _cgRefreshTotals() {
 function _startApplyFromPlan(planId) {
   const plan = _foDbPlans.find(p => String(p.id) === String(planId));
   if (!plan) { alert('교육계획을 찾을 수 없습니다.'); return; }
-  if (Number(plan.allocated_amount || 0) <= 0) {
+  
+  const isAutoApproveOp = (() => {
+    const planType = plan.plan_type || 'operation';
+    const isOperationPlan = planType === 'operation' || planType === 'ongoing' || (!planType);
+    if (!isOperationPlan) return false;
+    return typeof _isAutoApproveOperationPlan === 'function' && _isAutoApproveOperationPlan(plan.accountCode || plan.account_code || plan.account || '');
+  })();
+
+  if (Number(plan.allocated_amount || 0) <= 0 && !isAutoApproveOp) {
     alert('배정이 완료된 교육계획만 교육 신청이 가능합니다.');
     return;
   }
+  
+  const displayAllocatedAmount = isAutoApproveOp ? (plan.amount || 0) : plan.allocated_amount;
+
   // plan 정보를 sessionStorage에 저장 → apply.js에서 읽음
   sessionStorage.setItem('_applyFromPlan', JSON.stringify({
     plan_id: plan.id,
     title: plan.title,
     amount: plan.amount,
-    allocated_amount: plan.allocated_amount,
+    allocated_amount: displayAllocatedAmount,
     account: plan.account,
     edu_purpose: plan.edu_purpose,
     edu_type: plan.edu_type,

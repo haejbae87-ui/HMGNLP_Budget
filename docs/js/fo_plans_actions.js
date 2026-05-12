@@ -155,6 +155,26 @@ function _resolvePlanType() {
   return mode === 'forecast' ? 'forecast' : 'operation';
 }
 
+function _isAutoApproveOperationPlan(accountCode) {
+  if (!accountCode) return false;
+  let matchedPol = null;
+  if (typeof currentPersona !== 'undefined' && currentPersona.budgets) {
+    const budget = currentPersona.budgets.find(b => b.accountCode === accountCode);
+    if (budget && budget.approvalConfig && budget.approvalConfig.operation && 
+        budget.approvalConfig.operation.thresholds && budget.approvalConfig.operation.thresholds.length > 0) {
+      matchedPol = { approvalConfig: budget.approvalConfig };
+    }
+  }
+  if (!matchedPol && typeof SERVICE_POLICIES !== 'undefined') {
+    matchedPol = SERVICE_POLICIES.find(pol =>
+      (pol.accountCodes || []).some(c => accountCode.includes(c))
+    );
+  }
+  if (!matchedPol || !matchedPol.approvalConfig || !matchedPol.approvalConfig.operation) return false;
+  const cfg = matchedPol.approvalConfig.operation;
+  return cfg.reviewMode === 'none' && (!cfg.thresholds || cfg.thresholds.length === 0);
+}
+
 // ─── 운영계획 증액 시 가용예산 초과 검증 ────────────────────────────────────
 async function _checkOperationBudgetLimit(amount, allocated, accountCode, fiscalYear) {
   const diff = Math.max(0, amount - allocated);
@@ -525,8 +545,10 @@ function foRenderPlanUnifiedView(plan, opts = {}) {
     const end = (plan.detail || {}).endDate || plan.end_date || null;
     return end && new Date(end) < new Date();
   })();
-  // ★ 운영계획이고 승인이고 만료안된 경우만 교육신청 가능
-  const canApply = isApproved && isOperationPlan && !isExpired;
+  const isAutoApproveOp = isOperationPlan && typeof _isAutoApproveOperationPlan === 'function' && _isAutoApproveOperationPlan(plan.accountCode || plan.account_code || '');
+
+  // ★ 운영계획이고 (승인이거나 자동결재 저장상태) 만료안된 경우만 교육신청 가능
+  const canApply = (isApproved || (isSaved && isAutoApproveOp)) && isOperationPlan && !isExpired;
 
   // 연결된 교육신청
   const linkedApps = (typeof MOCK_HISTORY !== "undefined" ? MOCK_HISTORY : [])
@@ -553,7 +575,7 @@ function foRenderPlanUnifiedView(plan, opts = {}) {
     actionBtns = `
       <button onclick="_viewingPlanDetail=null;renderPlans()" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid #E5E7EB;background:white;color:#6B7280;cursor:pointer">← 목록으로</button>
       ${(isDraft || isSaved) ? `<button onclick="_viewingPlanDetail=null;resumePlanDraft('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #BFDBFE;background:white;color:#0369A1;cursor:pointer">✏️ 수정</button>` : ""}
-      ${isSaved ? `<button onclick="_viewingPlanDetail=null;_aprSingleSubmitFromPlan('${safeId}','${safeTitle}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:#059669;color:white;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">📤 상신하기</button>` : ""}
+      ${isSaved ? `<button onclick="${isAutoApproveOp ? "alert('결재선이 없는 계정이므로 상신 없이 저장완료 상태로 수립이 완료되었습니다.')" : `_viewingPlanDetail=null;_aprSingleSubmitFromPlan('${safeId}','${safeTitle}')`}" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:${isAutoApproveOp ? '#D1D5DB' : '#059669'};color:white;cursor:${isAutoApproveOp ? 'not-allowed' : 'pointer'};box-shadow:${isAutoApproveOp ? 'none' : '0 2px 8px rgba(5,150,105,.3)'}" title="${isAutoApproveOp ? '결재 프로세스가 없는 계정입니다. 저장완료 상태로 운영계획 수립이 완료되었습니다.' : ''}">📤 상신하기</button>` : ""}
       ${isPending ? `<button onclick="foRecallPlanFromDetail('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FECACA;background:white;color:#DC2626;cursor:pointer">회수하기</button>` : ""}
       ${canApply ? `<button onclick="_viewingPlanDetail=null;startApplyFromPlan('${safeId}')" style="padding:10px 24px;border-radius:12px;font-size:13px;font-weight:900;border:none;background:linear-gradient(135deg,#059669,#10B981);color:white;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3)">▶ 이 계획으로 교육신청</button>` : ""}
       ${isApproved && isOperationPlan ? `<button onclick="foOpenReduceAllocation('${safeId}')" style="padding:10px 20px;border-radius:12px;font-size:13px;font-weight:900;border:1.5px solid #FDE68A;background:#FFFBEB;color:#B45309;cursor:pointer">📉 최초배정액 축소</button>` : ""}
@@ -1763,16 +1785,28 @@ function _cgRefreshTotals() {
 function _startApplyFromPlan(planId) {
   const plan = _plansDbCache.find(p => String(p.id) === String(planId));
   if (!plan) { alert('교육계획을 찾을 수 없습니다.'); return; }
-  if (Number(plan.allocated_amount || 0) <= 0) {
+  
+  const isAutoApproveOp = (() => {
+    const planType = plan.plan_type || 'operation';
+    const isOperationPlan = planType === 'operation' || planType === 'ongoing' || (!planType);
+    if (!isOperationPlan) return false;
+    return typeof _isAutoApproveOperationPlan === 'function' && _isAutoApproveOperationPlan(plan.accountCode || plan.account_code || plan.account || '');
+  })();
+
+  if (Number(plan.allocated_amount || 0) <= 0 && !isAutoApproveOp) {
     alert('배정이 완료된 교육계획만 교육 신청이 가능합니다.');
     return;
   }
+  
+  // auto approve인 경우 amount를 allocated_amount 대신 사용할 수 있도록 보정
+  const displayAllocatedAmount = isAutoApproveOp ? (plan.amount || 0) : plan.allocated_amount;
+
   // plan 정보를 sessionStorage에 저장 → apply.js에서 읽음
   sessionStorage.setItem('_applyFromPlan', JSON.stringify({
     plan_id: plan.id,
     title: plan.title,
     amount: plan.amount,
-    allocated_amount: plan.allocated_amount,
+    allocated_amount: displayAllocatedAmount,
     account: plan.account,
     edu_purpose: plan.edu_purpose,
     edu_type: plan.edu_type,

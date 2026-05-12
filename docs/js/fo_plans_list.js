@@ -1478,6 +1478,12 @@ function _renderPlanCard(p) {
   const isMyPlan = !p.author || p.author === currentPersona.name;
   const canRecallBundle = isBundleSubmitted && isMyPlan;
 
+  const isAutoApproveOp = (() => {
+    const planType = p.plan_type || 'operation';
+    const isOperationPlan = planType === 'operation' || planType === 'ongoing' || (!planType);
+    if (!isOperationPlan) return false;
+    return typeof _isAutoApproveOperationPlan === 'function' && _isAutoApproveOperationPlan(p.accountCode || p.account_code || p.account || '');
+  })();
 
   // 버튼 스타일 공통 헬퍼
   const btnPrimary = (label, onclick) => `<button onclick="${onclick}" style="padding:6px 14px;border-radius:8px;font-size:11px;font-weight:800;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.25)">${label}</button>`;
@@ -1499,7 +1505,11 @@ function _renderPlanCard(p) {
        </div>`
     : isSaved
       ? `<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
-          ${btnPrimary('📤 상신하기', `event.stopPropagation();_aprSingleSubmitFromPlan('${safeId}','${safeTitle}')`)}
+          ${isAutoApproveOp 
+            ? `<button onclick="event.stopPropagation();alert('결재선이 없는 계정이므로 상신 없이 저장완료 상태로 수립이 완료되었습니다.')" style="padding:6px 14px;border-radius:8px;font-size:11px;font-weight:800;background:#D1D5DB;color:white;border:none;cursor:not-allowed" title="결재 프로세스가 없는 계정입니다. 저장완료 상태로 운영계획 수립이 완료되었습니다.">📤 상신하기</button>`
+            : btnPrimary('📤 상신하기', `event.stopPropagation();_aprSingleSubmitFromPlan('${safeId}','${safeTitle}')`)
+          }
+          ${isAutoApproveOp ? btnPrimary('📝 교육 신청', `event.stopPropagation();_startApplyFromPlan('${safeId}')`) : ''}
           ${btnOutline('✏️ 수정', `event.stopPropagation();resumePlanDraft('${safeId}')`, '#1D4ED8', '#BFDBFE')}
           ${btnOutline('📋 복제', `event.stopPropagation();clonePlan('${safeId}')`, '#7C3AED', '#DDD6FE')}
          </div>`

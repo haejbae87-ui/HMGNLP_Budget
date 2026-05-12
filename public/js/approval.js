@@ -1869,15 +1869,18 @@ async function _aprRecallSubmit(id, table) {
       .eq('id', id).in('status', ['pending', 'submitted']);
     if (recallErr) throw recallErr;
 
-    // [S-9] 연결된 submission_documents 찾아 예산 예약 해제
-    sb.from('submission_items').select('submission_id').eq('item_id', id)
-      .order('created_at', { ascending: false }).limit(1).single()
-      .then(({ data: si }) => {
-        if (!si?.submission_id) return;
-        _s9ReleaseBudget(sb, { submissionId: si.submission_id, reason: 'recalled' }).catch(() => {});
-        sb.from('submission_documents').update({ status: 'recalled', recalled_at: new Date().toISOString() })
-          .eq('id', si.submission_id).catch(() => {});
-      }).catch(() => {});
+    // [S-9] 연결된 submission_documents 찾아 예산 예약 해제 및 상태 변경
+    try {
+      const { data: si } = await sb.from('submission_items').select('submission_id').eq('item_id', id)
+        .order('created_at', { ascending: false }).limit(1).single();
+      if (si?.submission_id) {
+        await _s9ReleaseBudget(sb, { submissionId: si.submission_id, reason: 'recalled' }).catch(() => {});
+        await sb.from('submission_documents').update({ status: 'recalled', updated_at: new Date().toISOString() })
+          .eq('id', si.submission_id);
+      }
+    } catch (siErr) {
+      console.warn("회수 시 submission_documents 갱신 실패 (비치명적):", siErr.message);
+    }
 
     alert('✅ 상신이 회수되었습니다.\n\n저장완료 상태로 복귀됩니다. 수정 후 다시 상신할 수 있습니다.');
 

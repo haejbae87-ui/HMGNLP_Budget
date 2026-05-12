@@ -186,6 +186,13 @@ async function renderApprovalMember() {
         })),
       ];
 
+      // 상신일시(submitted_at) 기준으로 최신순 정렬 (없으면 date fallback)
+      _aprMemberData.sort((a, b) => {
+        const timeA = a.submissionDoc?.submitted_at || a.submissionDoc?.created_at || a.date;
+        const timeB = b.submissionDoc?.submitted_at || b.submissionDoc?.created_at || b.date;
+        return new Date(timeB) - new Date(timeA);
+      });
+
       // [A-1] saved 항목 제거: 상신대기(저장완료)는 이제 계획 목록(plans.js)에서 직접 상신하므로 결재함에서는 제거
       _aprSavedData = [];
 

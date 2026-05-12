@@ -1,8 +1,14 @@
-# 🚧 실시간 AI 작업 진행 상황
+# 기능 단위 파일 분리 체크리스트
 
-- [x] Step 1: Pre-dev check (`bo_budget_account_tabs.js`, `bo_budget_account.js` 분석)
-- [x] Step 2: BO 예산계정 관리 화면 '기본정보' 탭에 FO 노출설정(개인/팀) UI 추가
-- [x] Step 3: BO 예산계정 저장 시 DB(`list_view_mode`) 연동 및 Payload 수정
-- [x] Step 4: 문법 검증 및 `auto_deploy` / `verify-and-push` 실행 (GitHub 배포)
-
-🎉 **작업 및 배포가 완료되었습니다.**
+- [ ] js/data.js – 데이터 레이어 (PERSONAS, MOCK_HISTORY, MOCK_PLANS, applyState)
+- [ ] css/styles.css – 전역 CSS 스타일
+- [ ] js/utils.js – 공통 유틸 함수 (fmt, statusBadge, navigate, switchPersona)
+- [ ] js/gnb.js – GNB(상단 네비게이션) + Floating Budget Widget
+- [ ] js/dashboard.js – 대시보드 렌더링
+- [ ] js/plans.js – 교육계획 렌더링 + 폼 핸들러
+- [ ] js/history.js – 교육신청 목록 렌더링
+- [ ] js/apply.js – 교육신청 4단계 스텝 렌더링 + 핸들러
+- [ ] js/budget.js – 예산 관리 렌더링
+- [ ] js/mypage.js – 마이페이지 렌더링
+- [ ] js/main.js – 앱 초기화 (DOMContentLoaded)
+- [ ] index.html – 슬림화 (script/style 태그 → 외부 파일 참조)

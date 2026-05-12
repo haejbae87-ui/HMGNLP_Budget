@@ -565,6 +565,8 @@ async function _bamSaveAccount() {
           approval_type: forecastCfg.approvalType || 'platform',
           thresholds: forecastCfg.thresholds || [],
           review_mode: forecastCfg.reviewMode || 'none',
+          step: 1, // 스키마 NOT NULL 제약조건 통과용 더미 값
+          approver_key: 'system', // 스키마 NOT NULL 제약조건 통과용 더미 값
           active: true,
           updated_at: new Date().toISOString(),
         };

@@ -13,7 +13,8 @@ var _boAdvFilter = {
 
 var _boAdvFilterState = {
   accountsCache: null,
-  teamsCache: null
+  teamsCache: null,
+  vorgsCache: null
 };
 
 // 필터 변경 시 호출
@@ -60,6 +61,11 @@ async function _loadAdvFilterDependencies() {
     _boAdvFilterState.accountsCache = data || [];
   }
   
+  if (!_boAdvFilterState.vorgsCache) {
+    const { data } = await sb.from("virtual_org_templates").select("id, name, tenant_id, service_type");
+    _boAdvFilterState.vorgsCache = data || [];
+  }
+
   if (!_boAdvFilterState.teamsCache) {
     // 모든 팀(org) 목록 또는 DB 기반으로 조회 (현재는 dummy로 예시하거나, org_budget_bankbooks를 사용)
     const { data } = await sb.from("org_budget_bankbooks").select("org_name, tenant_id");
@@ -72,7 +78,7 @@ async function renderAdvancedEduFilterBar(containerId, onChangeCallback, options
   await _loadAdvFilterDependencies();
 
   const tenants = (typeof TENANTS !== "undefined" && Array.isArray(TENANTS)) ? TENANTS : [];
-  const vorgTemplates = (typeof VORG_TEMPLATES !== "undefined" && Array.isArray(VORG_TEMPLATES)) ? VORG_TEMPLATES : [];
+  const vorgTemplates = _boAdvFilterState.vorgsCache || ((typeof VORG_TEMPLATES !== "undefined" && Array.isArray(VORG_TEMPLATES)) ? VORG_TEMPLATES : []);
   
   if (!_boAdvFilter.tenantId && typeof boCurrentPersona !== 'undefined' && boCurrentPersona?.tenantId) {
     _boAdvFilter.tenantId = boCurrentPersona.tenantId;

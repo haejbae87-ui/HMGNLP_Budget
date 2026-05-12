@@ -51,6 +51,13 @@ async function renderResultMgmt() {
         pending = pending.filter(d => d.tenant_id === _boAdvFilter.tenantId);
         completed = completed.filter(d => d.tenant_id === _boAdvFilter.tenantId);
       }
+      if (_boAdvFilter.vorgId) {
+        const validAccounts = (_boAdvFilterState?.accountsCache || [])
+          .filter(a => a.virtual_org_template_id === _boAdvFilter.vorgId)
+          .map(a => a.code);
+        pending = pending.filter(d => validAccounts.includes(d.account_code));
+        completed = completed.filter(d => validAccounts.includes(d.account_code));
+      }
       if (_boAdvFilter.accountCode) {
         pending = pending.filter(d => d.account_code === _boAdvFilter.accountCode);
         completed = completed.filter(d => d.account_code === _boAdvFilter.accountCode);

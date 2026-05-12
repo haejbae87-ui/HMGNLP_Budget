@@ -492,6 +492,7 @@ async function _bamSaveAccount() {
     description: d.description || '',
     active: true,
     uses_budget: d.uses_budget !== false,
+    list_view_mode: d.list_view_mode || 'both',
     service_type: d.service_type || null,
     purpose: d.purpose || null,
     edu_types: d.edu_types || [],
@@ -744,6 +745,18 @@ function _bamRenderBasicTab(d) {
   <div>
     <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">용도 설명</label>
     <input type="text" value="${d.description}" placeholder="예) 사내 집합/이러닝 운영비" ${_r('description')} style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px">
+  </div>
+</div>
+
+<!-- 프론트오피스 탭 노출 설정 -->
+<div style="margin-top:16px">
+  <label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px">프론트오피스 탭 노출 설정</label>
+  <div style="font-size:10px;color:#9CA3AF;margin-bottom:8px">프론트오피스의 어느 탭에서 이 예산을 사용할 수 있는지 결정합니다.</div>
+  <div style="display:flex;gap:12px">
+    ${[{v:'personal',c:'#7C3AED',i:'👤',l:'개인 전용',s:'FO "내 신청" 탭에만 노출 (예: 참가계정)'},{v:'team',c:'#1D4ED8',i:'👥',l:'팀 전용',s:'FO "팀 신청" 탭에만 노출 (예: 운영/기타계정)'},{v:'both',c:'#059669',i:'🏢',l:'모두 노출',s:'개인/팀 탭 모두 노출'}]
+      .map(o=>`<label style="display:flex;align-items:center;gap:8px;padding:12px 16px;border:1.5px solid ${(d.list_view_mode||'both')===o.v?o.c:'#E5E7EB'};border-radius:10px;cursor:pointer;background:${(d.list_view_mode||'both')===o.v?o.c+'15':'#fff'};flex:1"
+        onclick="_bamDetailData.list_view_mode='${o.v}';_bamRenderTabs()"><input type="radio" name="bam-lvm" ${(d.list_view_mode||'both')===o.v?'checked':''} style="accent-color:${o.c}">
+        <div><div style="font-size:12px;font-weight:800;color:${(d.list_view_mode||'both')===o.v?o.c:'#374151'}">${o.i} ${o.l}</div><div style="font-size:10px;color:#6B7280">${o.s}</div></div></label>`).join('')}
   </div>
 </div>
 

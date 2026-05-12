@@ -6,6 +6,12 @@
 
 ## ✅ 완료된 작업 이력
 
+### 2026-05-12 — 예산계정 단위 FO 노출 설정(개인/팀 목록) 추가 연동
+
+- [x] **백오피스 예산계정 관리 화면 FO 탭 노출 설정 UI 추가 및 DB 연동**
+  - `bo_budget_account.js`: 기본정보 탭(`_bamRenderBasicTab`)에 프론트오피스 노출 설정(개인 전용, 팀 전용, 모두 노출) 선택 라디오 버튼 마크업 추가.
+  - `bo_budget_account.js`: `_bamSaveAccount` 실행 시 `budget_accounts` 테이블의 `list_view_mode` 필드에 설정값(personal, team, both)이 반영되도록 Payload 연동 로직 업데이트 완료. FO 목록에서 해당 값을 기반으로 '내 신청', '팀 신청' 탭을 제어함.
+
 ### 2026-05-12 — 예산 계정 단위 금액별 결재자 설정 및 FO 상신 연동 작업
 
 - [x] **계정 단위 금액별 결재자(Thresholds) 설정 UI 연동 및 DB 반영**

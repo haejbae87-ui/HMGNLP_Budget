@@ -1313,7 +1313,7 @@ ${_fieldRow("reimbursement", "환급/정산 처리", "🔁", false, _isNoBudget,
     // ── Step 2: 결재라인 ──────────────────────────────────────────────────────
   } else if (_policyWizardStep === 2) {
     const stages = _PATTERN_STAGES[d.processPattern] || ["apply"];
-    const stageLabel = { forecast: "📈 수요예측", ongoing: "📊 상시계획", apply: "📝 신청", result: "📄 결과" };
+    const stageLabel = { forecast: "📈 수요예측", ongoing: "📊 운영계획", apply: "📝 신청/승인", result: "📄 결과/정산" };
     const stageColor = { forecast: "#8B5CF6", ongoing: "#7C3AED", apply: "#1D4ED8", result: "#059669" };
     if (!d.approvalConfig) d.approvalConfig = {};
     const _LEVELS = [
@@ -1327,7 +1327,7 @@ ${_fieldRow("reimbursement", "환급/정산 처리", "🔁", false, _isNoBudget,
     stepContent = `
 <div style="display:grid;gap:16px">
   <div style="padding:12px 16px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;font-size:12px;color:#92400E">
-    💡 각 단계별 결재라인을 설정하세요. 금액 구간별 결재자를 지정하고, 통합결재 시 협조처를 추가할 수 있습니다.
+    💡 각 단계별 결재라인을 설정하세요. 통합결재 시 협조처를 추가할 수 있습니다.
   </div>
 
   ${stages
@@ -1371,6 +1371,7 @@ ${_fieldRow("reimbursement", "환급/정산 처리", "🔁", false, _isNoBudget,
           </label>
         </div>
       </div>
+      <!-- 금액별 결재자 주석 처리
       <div style="border-top:1px solid #F3F4F6;padding-top:16px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
           <label style="font-size:12px;font-weight:800;color:#374151">💰 금액별 결재자</label>
@@ -1422,6 +1423,7 @@ ${_fieldRow("reimbursement", "환급/정산 처리", "🔁", false, _isNoBudget,
               "</div>"
         }
       </div>
+      -->
       ${isHmg ? '<div style="border-top:1px solid #F3F4F6;padding-top:14px"><div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:10px"><span style="font-size:16px">🤝</span><div><div style="font-size:12px;font-weight:800;color:#1D4ED8">협조처는 가상 교육조직에서 관리됩니다</div><div style="font-size:10px;color:#6B7280;margin-top:2px">결재 시 신청자의 소속 조직에 매핑된 협조처(교육협조처/재경협조처)가 자동으로 적용됩니다.</div></div></div></div>' : ""}
       ${(() => {
         const reviewMode = c.reviewMode || "none";

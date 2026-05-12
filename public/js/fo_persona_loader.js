@@ -334,7 +334,7 @@ async function _initCurrentPersona(persona) {
     if (accountIds.length > 0) {
       const { data: accts } = await sb
         .from("budget_accounts")
-        .select("id, code, name, uses_budget, active, purpose_types, edu_types, process_pattern")
+        .select("id, code, name, uses_budget, active, purpose_types, edu_types, process_pattern, approval_config")
         .in("id", accountIds)
         .eq("active", true);
       (accts || []).forEach((a) => {
@@ -441,6 +441,7 @@ async function _initCurrentPersona(persona) {
         purposeTypes: acct.purpose_types || {},
         eduTypes: acct.edu_types || [],
         processPattern: acct.process_pattern || '',
+        approvalConfig: acct.approval_config || {},
       });
     }
 
@@ -485,6 +486,7 @@ async function _initCurrentPersona(persona) {
           frozen: 0,
           bankbookMode: "shared",
           parentOrgName: bb.org_name,
+          approvalConfig: acct.approval_config || {},
         });
       }
     }
@@ -589,6 +591,7 @@ async function _initCurrentPersona(persona) {
               bankbookMode: "individual",
               isPersonal: true,
               vorgName: vorgNameMap[pol.vorg_template_id] || "",
+              approvalConfig: acct.approval_config || {},
             });
             console.log(
               `[FO Loader] 개인 통장 자동 생성: ${persona.name} - ${acct.code} (한도: ${limitAmt})`,
@@ -623,7 +626,7 @@ async function _initCurrentPersona(persona) {
 async function _fetchAccount(sb, accountId) {
   const { data } = await sb
     .from("budget_accounts")
-    .select("id, code, name, uses_budget, active")
+    .select("id, code, name, uses_budget, active, approval_config")
     .eq("id", accountId)
     .single();
   return data;

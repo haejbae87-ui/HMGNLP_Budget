@@ -210,7 +210,7 @@ function _bamRenderApprovalTab(d) {
 
   const STAGES_MAP = { A:["forecast","ongoing","apply","result"], B:["apply","result"], C:["apply","result"] };
   const stages = STAGES_MAP[d.process_pattern] || ["apply"];
-  const sLabel = { forecast:"📋 사업계획(수요예측)", ongoing:"📊 상시계획", apply:"📝 신청", result:"📄 결과" };
+  const sLabel = { forecast:"📋 사업계획(수요예측)", ongoing:"📊 운영계획", apply:"📝 신청", result:"📄 결과" };
   const sColor = { forecast:"#8B5CF6", ongoing:"#7C3AED", apply:"#1D4ED8", result:"#059669" };
   const LEVELS = [{k:"team_leader",l:"팀장"},{k:"director",l:"실장"},{k:"division_head",l:"사업부장"},{k:"center_head",l:"센터장"},{k:"hq_head",l:"본부장"}];
 
@@ -263,7 +263,6 @@ function _bamRenderApprovalTab(d) {
         </div>
       </div>
 
-      <!-- 금액별 결재자 -->
       <div style="border-top:1px solid #F3F4F6;padding-top:12px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <label style="font-size:12px;font-weight:800;color:#374151">💰 금액별 결재자 <span style="font-size:10px;font-weight:500;color:#9CA3AF">(축1: 총액 → 승인자 레벨 상승)</span></label>

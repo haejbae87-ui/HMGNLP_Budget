@@ -1141,6 +1141,15 @@ async function _approvalActionDoc(docId, action) {
         const tab = si.item_type === "plan" ? "plans" : "applications";
         const upd = { status: newStatus, updated_at: now };
         if (action === "reject") upd.reject_reason = comment;
+        
+        // ★ 승인 시 운영계획의 경우 allocated_amount를 amount로 고정
+        if (action === "approve" && tab === "plans") {
+          const { data: planData } = await sb.from("plans").select("amount, plan_type").eq("id", si.item_id).single();
+          if (planData && (planData.plan_type === "operation" || !planData.plan_type)) {
+            upd.allocated_amount = Number(planData.amount || 0);
+          }
+        }
+        
         await sb.from(tab).update(upd).eq("id", si.item_id);
         await sb.from("submission_items").update({ item_status: action === "approve" ? "approved" : "rejected" }).eq("id", si.id);
       }
@@ -1195,7 +1204,7 @@ async function _approvalAction(id, table, action) {
     // 기존 detail 조회 후 approval_logs 배열에 추가
     const { data: existing } = await sb
       .from(table)
-      .select("detail")
+      .select("detail, amount, plan_type")
       .eq("id", id)
       .single();
     const prevDetail = existing?.detail || {};
@@ -1208,6 +1217,11 @@ async function _approvalAction(id, table, action) {
     };
     if (action === "reject") {
       updateData.reject_reason = comment;
+    } else if (action === "approve" && table === "plans") {
+      // ★ 승인 시 운영계획의 경우 allocated_amount를 amount로 고정
+      if (existing && (existing.plan_type === "operation" || !existing.plan_type)) {
+        updateData.allocated_amount = Number(existing.amount || 0);
+      }
     }
 
     const { error } = await sb.from(table).update(updateData).eq("id", id);
@@ -1401,7 +1415,18 @@ function _calculateApprovalLine(accountCode, totalAmount, stage = 'apply') {
 
   let matchedPol = null;
   
-  if (typeof SERVICE_POLICIES !== 'undefined' && accountCode) {
+  // 1. Prioritize account-based approval config from currentPersona.budgets
+  if (typeof currentPersona !== 'undefined' && currentPersona.budgets) {
+    const budget = currentPersona.budgets.find(b => b.accountCode === accountCode);
+    if (budget && budget.approvalConfig && budget.approvalConfig[stage] && 
+        budget.approvalConfig[stage].thresholds && budget.approvalConfig[stage].thresholds.length > 0) {
+      // Create a dummy matchedPol format to reuse the logic below
+      matchedPol = { approvalConfig: budget.approvalConfig };
+    }
+  }
+
+  // 2. Fallback to legacy SERVICE_POLICIES
+  if (!matchedPol && typeof SERVICE_POLICIES !== 'undefined' && accountCode) {
     matchedPol = SERVICE_POLICIES.find(pol => 
       (pol.accountCodes || []).some(c => accountCode.includes(c))
     );
@@ -1532,11 +1557,21 @@ function _aprOpenModal(items) {
 
   // [S-7] 통합결재 여부 감지 → 협조처/참조처 섹션 동적 삽입
   let isIntegrated = false;
-  if (accountCode && typeof SERVICE_POLICIES !== 'undefined' && SERVICE_POLICIES.length > 0) {
-    const matchedPol = SERVICE_POLICIES.find(pol =>
+  let matchedPolForIntg = null;
+  if (typeof currentPersona !== 'undefined' && currentPersona.budgets && accountCode) {
+    const budget = currentPersona.budgets.find(b => b.accountCode === accountCode);
+    if (budget && budget.approvalConfig && budget.approvalConfig[stage] && 
+        budget.approvalConfig[stage].thresholds && budget.approvalConfig[stage].thresholds.length > 0) {
+      matchedPolForIntg = { approvalConfig: budget.approvalConfig };
+    }
+  }
+  if (!matchedPolForIntg && accountCode && typeof SERVICE_POLICIES !== 'undefined' && SERVICE_POLICIES.length > 0) {
+    matchedPolForIntg = SERVICE_POLICIES.find(pol =>
       (pol.accountCodes || []).some(c => accountCode.includes(c))
     );
-    const cfg = matchedPol?.approvalConfig?.[stage];
+  }
+  if (matchedPolForIntg) {
+    const cfg = matchedPolForIntg.approvalConfig?.[stage];
     if (cfg && (cfg.approvalType === 'hmg' || cfg.approvalType === 'integrated')) {
       isIntegrated = true;
     }
@@ -1616,11 +1651,22 @@ async function _aprConfirmSubmit() {
       stage = firstItem.plan_type === 'business' ? 'business' : 'operation';
     }
     
-    if (acct && typeof SERVICE_POLICIES !== 'undefined') {
-      const matchedPol = SERVICE_POLICIES.find(pol =>
+    let matchedPol = null;
+    if (typeof currentPersona !== 'undefined' && currentPersona.budgets) {
+      const budget = currentPersona.budgets.find(b => b.accountCode === acct);
+      if (budget && budget.approvalConfig && budget.approvalConfig[stage] && 
+          budget.approvalConfig[stage].thresholds && budget.approvalConfig[stage].thresholds.length > 0) {
+        matchedPol = { approvalConfig: budget.approvalConfig };
+      }
+    }
+    if (!matchedPol && acct && typeof SERVICE_POLICIES !== 'undefined') {
+      matchedPol = SERVICE_POLICIES.find(pol =>
         (pol.accountCodes || []).some(c => acct.includes(c))
       );
-      const cfg = matchedPol?.approvalConfig?.[stage];
+    }
+
+    if (matchedPol) {
+      const cfg = matchedPol.approvalConfig?.[stage];
       if (cfg && (cfg.approvalType === 'hmg' || cfg.approvalType === 'integrated')) {
         approvalSystem = 'integrated';
         const coopInput = document.getElementById('apr-coop-input');

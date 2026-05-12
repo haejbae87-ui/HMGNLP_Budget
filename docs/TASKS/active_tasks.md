@@ -6,6 +6,15 @@
 
 ## ✅ 완료된 작업 이력
 
+### 2026-05-12 — 예산 계정 단위 금액별 결재자 설정 및 FO 상신 연동 작업
+
+- [x] **계정 단위 금액별 결재자(Thresholds) 설정 UI 연동 및 DB 반영**
+  - `bo_budget_account_tabs.js`: Tab 3 영역의 금액별 결재자 설정 폼(Thresholds) 마크업 주석 해제 및 UI 렌더링 활성화 완료.
+  - `bo_budget_account.js`: `_bamDetailData.approval_config` 데이터가 `account_budgets` 테이블의 `detail`이 아닌 자체 `approval_config` JSON 컬럼으로 올바르게 저장되도록 맵핑 및 저장 로직 확인 완료.
+- [x] **FO 결재 상신 시 예산 계정별 `approval_config` 우선 적용**
+  - `fo_persona_loader.js`: `_initCurrentPersona` 및 `_fetchAccount` 실행 시 `budget_accounts` 테이블에서 `approval_config` 데이터를 추가로 Select하여 `currentPersona.budgets` 배열에 매핑.
+  - `approval.js` 및 `fo_plans_actions.js`: FO 결재선 생성 로직(`_calculateApprovalLine`, `_aprConfirmSubmit`, `_aprOpenModal`, `_isAutoApproveOperationPlan`)에서 기존 `SERVICE_POLICIES`보다 `currentPersona.budgets`의 `approvalConfig`를 최우선으로 참조하도록 우선순위 로직 전면 리팩토링 및 폴백 지원.
+
 ### 2026-05-11 — 예산/사업계획 관리 및 데이터 필터링 오류 수정
 
 - [x] **Bug Fix: 프론트오피스 "팀 배정예산(가용 총액)" 동기화 오류 해결**

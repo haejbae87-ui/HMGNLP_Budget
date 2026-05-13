@@ -138,8 +138,8 @@ async function sbLoadPlans(filters = {}) {
     if (error) throw error;
     return data;
   } catch (e) {
-    console.warn("[Supabase] plans fallback:", e.message);
-    return MOCK_BO_PLANS;
+    console.warn("[Supabase] plans 로드 실패:", e.message);
+    return []; // Mock 폴백 제거 (2026-05-13) — DB 전용 모드
   }
 }
 
@@ -153,8 +153,8 @@ async function sbLoadApplications(filters = {}) {
     if (error) throw error;
     return data;
   } catch (e) {
-    console.warn("[Supabase] applications fallback:", e.message);
-    return MOCK_BO_APPLICATIONS;
+    console.warn("[Supabase] applications 로드 실패:", e.message);
+    return []; // Mock 폴백 제거 (2026-05-13) — DB 전용 모드
   }
 }
 
@@ -173,8 +173,8 @@ async function sbLoadVirtualOrgTemplates(filters = {}) {
       tree: t.tree_data,
     }));
   } catch (e) {
-    console.warn("[Supabase] virtual_org_templates fallback:", e.message);
-    return typeof VIRTUAL_EDU_ORGS !== "undefined" ? VIRTUAL_EDU_ORGS : [];
+    console.warn("[Supabase] virtual_org_templates 로드 실패:", e.message);
+    return []; // Mock 폴백 제거 (2026-05-13) — DB 전용 모드
   }
 }
 window.sbLoadVirtualOrgTemplates = sbLoadVirtualOrgTemplates;

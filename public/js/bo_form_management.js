@@ -288,9 +288,9 @@ async function renderFormManagement() {
       _formTplList = tplRes.data || [];
       _formAccountList = accRes.data || [];
     } else {
-      console.warn('[FormMgmt] Supabase 미연결, mock 사용');
-      _formTplList = (window.VORG_TEMPLATES||[]);
-      _formAccountList = (window.BUDGET_ACCOUNTS||[]);
+      console.warn('[FormMgmt] Supabase 미연결 — 빈 데이터로 진행');
+      _formTplList = [];
+      _formAccountList = [];
     }
 
     // 회사 목록 추출

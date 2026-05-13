@@ -2617,180 +2617,13 @@ function getPersonaManagedTeams(persona) {
   return vorg ? vorg.teams || [] : [];
 }
 
-// ─── 교육계획 목 데이터 ──────────────────────────────────────────────────────
+// Mock 폴백 제거 (2026-05-13) — DB 전용 모드
+// 교육계획 데이터는 plans 테이블에서 직접 조회 (bo_plan_mgmt.js)
+const MOCK_BO_PLANS = [];
 
-const MOCK_BO_PLANS = [
-  {
-    id: "BP26-101",
-    team: "역량OO팀",
-    hq: "HMGOOOO본부",
-    title: "리더십 리더과정 운영",
-    account: "운영",
-    group: "general",
-    amount: 8000000,
-    status: "pending_hq",
-    submittedAt: "2026-01-10",
-    submitter: "조O성",
-  },
-  {
-    id: "BP26-102",
-    team: "SDV기술팀",
-    hq: "SDVOOOO본부",
-    title: "SDV 전환 심화교육",
-    account: "운영",
-    group: "general",
-    amount: 15000000,
-    status: "pending_total",
-    submittedAt: "2026-01-12",
-    submitter: "OO책임",
-  },
-  {
-    id: "BP26-103",
-    team: "피플OO팀",
-    hq: "HMGOOOO본부",
-    title: "HRD 역량 워크숍",
-    account: "기타",
-    group: "general",
-    amount: 3500000,
-    status: "approved",
-    submittedAt: "2026-01-08",
-    submitter: "OO매니저",
-  },
-  {
-    id: "BP26-104",
-    team: "내구OO팀",
-    center: "모빌리티OOOO센터",
-    title: "NVH 해외 학회 참가",
-    account: "통합(R&D)",
-    group: "rnd",
-    amount: 12000000,
-    status: "pending_center",
-    submittedAt: "2026-01-15",
-    submitter: "이O봉",
-  },
-  {
-    id: "BP26-105",
-    team: "배터리OO팀",
-    center: "전동화OOOO센터",
-    title: "배터리 기술 세미나 운영",
-    account: "통합(R&D)",
-    group: "rnd",
-    amount: 9000000,
-    status: "approved",
-    submittedAt: "2026-01-11",
-    submitter: "OO책임",
-  },
-  {
-    id: "BP26-106",
-    team: "구동OO팀",
-    center: "모빌리티OOOO센터",
-    title: "전동화 국제 컨퍼런스",
-    account: "통합(R&D)",
-    group: "rnd",
-    amount: 18000000,
-    status: "rejected",
-    submittedAt: "2026-01-09",
-    submitter: "OO책임",
-    rejectReason: "예산 초과. 금액 조정 후 재상신 요청.",
-  },
-  {
-    id: "BP26-107",
-    team: "성과OO팀",
-    hq: "HMGOOOO본부",
-    title: "OKR 워크숍 운영",
-    account: "운영",
-    group: "general",
-    amount: 5000000,
-    status: "approved",
-    submittedAt: "2026-01-07",
-    submitter: "OO책임",
-  },
-];
-
-// ─── 교육 신청 목 데이터 (집행 결재) ─────────────────────────────────────────
-
-const MOCK_BO_APPLICATIONS = [
-  {
-    id: "APP26-001",
-    policyId: "POL-HMC-GEN-001",
-    planId: "BP26-103",
-    team: "피플OO팀",
-    hq: "HMGOOOO본부",
-    title: "2026 글로벌 AI 리더십 포럼",
-    account: "참가",
-    group: "general",
-    requestAmt: 2500000,
-    actualAmt: null,
-    status: "pending_hq",
-    submittedAt: "2026-02-05",
-    applicant: "OO매니저",
-    type: "신청",
-  },
-  {
-    id: "APP26-002",
-    policyId: "POL-HMC-RND-001",
-    planId: "BP26-105",
-    team: "배터리OO팀",
-    center: "전동화OOOO센터",
-    title: "배터리 기술 세미나 운영",
-    account: "통합(R&D)",
-    group: "rnd",
-    requestAmt: 9000000,
-    actualAmt: null,
-    status: "pending_total",
-    submittedAt: "2026-02-08",
-    applicant: "OO책임",
-    type: "신청",
-  },
-  {
-    id: "APP26-003",
-    policyId: "POL-HMC-GEN-001",
-    planId: "BP26-107",
-    team: "성과OO팀",
-    hq: "HMGOOOO본부",
-    title: "OKR 워크숍 운영",
-    account: "운영",
-    group: "general",
-    requestAmt: 5000000,
-    actualAmt: 4800000,
-    status: "settling",
-    submittedAt: "2026-02-01",
-    applicant: "OO책임",
-    type: "결과보고",
-  },
-  {
-    id: "APP26-004",
-    policyId: "POL-HMC-GEN-001",
-    planId: "BP26-103",
-    team: "피플OO팀",
-    hq: "HMGOOOO본부",
-    title: "HRD 역량 워크숍 결과보고",
-    account: "기타",
-    group: "general",
-    requestAmt: 3500000,
-    actualAmt: 3200000,
-    status: "pending_total",
-    submittedAt: "2026-02-10",
-    applicant: "OO매니저",
-    type: "결과보고",
-  },
-  {
-    id: "APP26-005",
-    policyId: "POL-HMC-RND-001",
-    planId: "BP26-105",
-    team: "내구OO팀",
-    center: "모빌리티OOOO센터",
-    title: "NVH 해외 학회 결과보고",
-    account: "통합(R&D)",
-    group: "rnd",
-    requestAmt: 12000000,
-    actualAmt: 11500000,
-    status: "pending_center",
-    submittedAt: "2026-02-12",
-    applicant: "이O봉",
-    type: "결과보고",
-  },
-];
+// Mock 폴백 제거 (2026-05-13) — DB 전용 모드
+// 교육신청 데이터는 applications 테이블에서 직접 조회
+const MOCK_BO_APPLICATIONS = [];
 
 // ─── 예산 원장(Ledger) 목 데이터 ────────────────────────────────────────────
 
@@ -3902,7 +3735,8 @@ function getPoliciesWhereApprover(persona) {
 function getPendingCountForPersona(persona) {
   const myPolicies = getPoliciesWhereApprover(persona);
   const myPolicyIds = myPolicies.map((p) => p.id);
-  return MOCK_BO_APPLICATIONS.filter(
+  // Mock 폴백 제거 (2026-05-13) — DB 기반으로 전환 예정
+  return (typeof MOCK_BO_APPLICATIONS !== 'undefined' ? MOCK_BO_APPLICATIONS : []).filter(
     (a) => myPolicyIds.includes(a.policyId) && a.status.startsWith("pending"),
   ).length;
 }

@@ -1123,63 +1123,8 @@ async function renderRoleMgmt() {
   const selTenantId = window._rmFilterTenant;
 
   // 해당 테넌트 역할만 조회
-  const allRoles = (await _sbGet("roles")) || [
-    // fallback mock
-    {
-      id: "platform_admin",
-      code: "platform_admin",
-      name: "플랫폼총괄관리자",
-      description: "전체 플랫폼 설정·권한 관리",
-      parent_role_id: null,
-      tenant_id: null,
-      is_system: true,
-    },
-    {
-      id: "hmc_tenant_admin",
-      code: "hmc_tenant_admin",
-      name: "HMC 테넌트총괄관리자",
-      description: "HMC 소속 회사 전체 관리",
-      parent_role_id: null,
-      tenant_id: "HMC",
-      is_system: false,
-    },
-    {
-      id: "hmc_budget_admin",
-      code: "hmc_budget_admin",
-      name: "HMC 예산총괄관리자(일반)",
-      description: "HMC 일반예산 총괄",
-      parent_role_id: "hmc_tenant_admin",
-      tenant_id: "HMC",
-      is_system: false,
-    },
-    {
-      id: "hmc_budget_rnd",
-      code: "hmc_budget_rnd",
-      name: "HMC 예산총괄관리자(R&D)",
-      description: "HMC R&D예산 총괄",
-      parent_role_id: "hmc_tenant_admin",
-      tenant_id: "HMC",
-      is_system: false,
-    },
-    {
-      id: "hmc_budget_ops1",
-      code: "hmc_budget_ops1",
-      name: "HMC 예산운영담당자(A팀)",
-      description: "일반예산 A팀 운영",
-      parent_role_id: "hmc_budget_admin",
-      tenant_id: "HMC",
-      is_system: false,
-    },
-    {
-      id: "hmc_budget_ops2",
-      code: "hmc_budget_ops2",
-      name: "HMC 예산운영담당자(B팀)",
-      description: "일반예산 B팀 운영",
-      parent_role_id: "hmc_budget_admin",
-      tenant_id: "HMC",
-      is_system: false,
-    },
-  ];
+  // Mock 폴백 제거 (2026-05-13) — DB 전용 모드
+  const allRoles = (await _sbGet("roles")) || [];
 
   const tenantRoles = allRoles.filter((r) => r.tenant_id === selTenantId);
   const allUserRoles = (await _sbGet("user_roles")) || [];
@@ -1369,10 +1314,7 @@ async function renderRoleMenuPerms() {
   } catch (e) {
     tenantRoles = [];
   }
-  // fallback mock
-  if (!tenantRoles.length && typeof TENANT_ROLES_MOCK !== "undefined") {
-    tenantRoles = TENANT_ROLES_MOCK.filter((r) => r.tenant_id === selTenantId);
-  }
+  // TENANT_ROLES_MOCK 폴백 제거 (2026-05-13) — DB 전용 모드
   // 계층 정렬 (level 오름차순, 없으면 부모→자식)
   tenantRoles.sort((a, b) => (a.level || 99) - (b.level || 99));
 

@@ -65,8 +65,8 @@ async function sbLoadTenants() {
       budgetMode: "full",
     }));
   } catch (e) {
-    console.warn("[Supabase] tenants fallback to mock:", e.message);
-    return typeof TENANTS !== "undefined" ? TENANTS : [];
+    console.warn("[Supabase] tenants 로드 실패:", e.message);
+    return []; // Mock 폴백 제거 (2026-05-13) — DB 전용 모드
   }
 }
 
@@ -78,8 +78,8 @@ async function sbLoadAccountMaster(tenantId = null) {
     if (error) throw error;
     return data;
   } catch (e) {
-    console.warn("[Supabase] account_master fallback:", e.message);
-    return ACCOUNT_MASTER;
+    console.warn("[Supabase] account_master 로드 실패:", e.message);
+    return []; // Mock 폴백 제거 (2026-05-13) — DB 전용 모드
   }
 }
 
@@ -109,8 +109,8 @@ async function sbLoadServicePolicies(filters = {}) {
     if (error) throw error;
     return data;
   } catch (e) {
-    console.warn("[Supabase] service_policies fallback:", e.message);
-    return SERVICE_POLICIES;
+    console.warn("[Supabase] service_policies 로드 실패:", e.message);
+    return []; // Mock 폴백 제거 (2026-05-13) — DB 전용 모드
   }
 }
 

@@ -1,4 +1,4 @@
-﻿// ─── 역할 관리: 테넌트별 독립 역할 계층 ─────────────────────────────────────
+// ─── 역할 관리: 테넌트별 독립 역할 계층 ─────────────────────────────────────
 // bo_roles.js — 테넌트별 독립 역할 계층(총괄 → 운영)을 관리합니다.
 
 // 제도유형 뱃지 렌더링 (역할 목록에서 사용)
@@ -414,10 +414,8 @@ async function renderRoleMgmt() {
   } catch (e) {
     tenantRoles = [];
   }
-  // DB에 데이터 없으면 목업 fallback
-  if (!tenantRoles.length) {
-    tenantRoles = TENANT_ROLES_MOCK.filter((r) => r.tenant_id === selTenantId);
-  }
+  // DB에 데이터 없으면 빈 배열 유지 (Mock 폴백 제거 — 2026-05-13)
+  // tenantRoles는 이미 빈 배열로 초기화됨
 
   // ── Bug Fix: role_code 기준으로 배정인원 카운트 ──────────────────────────
   let allUserRoles = [];
@@ -651,9 +649,7 @@ async function _rmRefreshPanel(roleCode, roleName, panel) {
       tenantUsers = data || [];
     }
   } catch (e) {}
-  if (!tenantUsers.length && typeof MOCK_BO_USERS !== "undefined") {
-    tenantUsers = (MOCK_BO_USERS || []).filter((u) => u.tenant_id === tenantId);
-  }
+  // MOCK_BO_USERS 폴백 제거 (2026-05-13) — DB 전용 모드
 
   // 전역 캐시 (검색 시 재사용)
   window._rmTenantUsers = tenantUsers;
@@ -875,12 +871,10 @@ window._openRoleModal = async function (parentCode, editRoleCode = null) {
   try {
     roles =
       (await _sbGet("roles", { tenant_id: window._rmFilterTenant })) || [];
-  } catch (e) {}
-  if (!roles.length && typeof TENANT_ROLES_MOCK !== "undefined") {
-    roles = TENANT_ROLES_MOCK.filter(
-      (r) => r.tenant_id === window._rmFilterTenant,
-    );
+  } catch (e) {
+    roles = [];
   }
+  // TENANT_ROLES_MOCK 폴백 제거 (2026-05-13) — DB 전용 모드
 
   let mode = "추가";
   let suggCode = window._rmFilterTenant + "_";
@@ -1062,8 +1056,9 @@ window._rmDropRole = async function (event, targetParentCode) {
         .eq("code", sourceCode);
       if (error) throw error;
     } else {
-      const role = TENANT_ROLES_MOCK.find((r) => r.code === sourceCode);
-      if (role) role.parent_role_id = targetParentCode;
+      // Supabase 미연결 (2026-05-13) — DB 전용 모드
+      alert('DB 연결이 필요합니다. 역할 그룹 변경을 수행할 수 없습니다.');
+      return;
     }
     renderRoleMgmt(); // 성공 시 리렌더링
   } catch (e) {

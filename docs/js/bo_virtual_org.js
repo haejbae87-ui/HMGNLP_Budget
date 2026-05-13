@@ -1,4 +1,4 @@
-﻿// ─── 교육조직 템플릿 관리 ──────────────────────────────────────────────────────
+// ─── 교육조직 템플릿 관리 ──────────────────────────────────────────────────────
 // 버그수정: myTemplates를 전역 _voMyTemplates로 이동 (로컬 변수 참조 오류 수정)
 // 기능추가: 플랫폼총괄·테넌트총괄 역할별 필터바 (테넌트/격리그룹 선택)
 
@@ -76,8 +76,8 @@ async function _voLoadRolesCheckboxes(selectedPurposes) {
         .select("code,name,service_type")
         .eq("tenant_id", _voTenantId);
       if (data) roles = data;
-    } else if (typeof TENANT_ROLES_MOCK !== "undefined") {
-      roles = TENANT_ROLES_MOCK.filter((r) => r.tenant_id === _voTenantId);
+    } else {
+      roles = []; // Mock 폴백 제거 (2026-05-13) — DB 전용 모드
     }
     const filtered = roles.filter((r) => {
       const st = r.service_type || "all";
@@ -864,8 +864,8 @@ async function _voLoadRolesOptions(selectedVal) {
         .select("code, name")
         .eq("tenant_id", _voTenantId);
       if (data) roles = data;
-    } else if (typeof TENANT_ROLES_MOCK !== "undefined") {
-      roles = TENANT_ROLES_MOCK.filter((r) => r.tenant_id === _voTenantId);
+    } else {
+      roles = []; // Mock 폴백 제거 (2026-05-13) — DB 전용 모드
     }
     roles.forEach((r) => {
       opts += `<option value="${r.code}" ${r.code === selectedVal ? "selected" : ""}>${r.name} (${r.code})</option>`;

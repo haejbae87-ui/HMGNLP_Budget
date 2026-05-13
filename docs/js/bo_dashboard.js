@@ -121,10 +121,11 @@ function renderTotalDashboard(p) {
   const deductedPct = ((grandDeducted / grandTotal) * 100).toFixed(1);
   const holdingPct = ((grandHolding / grandTotal) * 100).toFixed(1);
 
-  const pendingPlans = MOCK_BO_PLANS.filter(
+  // Mock 폴백 제거 (2026-05-13) — DB 기반 KPI로 전환 예정 (Phase 2)
+  const pendingPlans = (typeof MOCK_BO_PLANS !== 'undefined' ? MOCK_BO_PLANS : []).filter(
     (pl) => pl.status === "pending_total" && pl.group === p.budgetGroup,
   ).length;
-  const pendingApps = MOCK_BO_APPLICATIONS.filter(
+  const pendingApps = (typeof MOCK_BO_APPLICATIONS !== 'undefined' ? MOCK_BO_APPLICATIONS : []).filter(
     (a) => a.status === "pending_total" && a.group === p.budgetGroup,
   ).length;
 
@@ -286,7 +287,7 @@ function renderTotalDashboard(p) {
           },
           {
             label: "결과보고 승인 대기",
-            count: MOCK_BO_APPLICATIONS.filter(
+            count: (typeof MOCK_BO_APPLICATIONS !== 'undefined' ? MOCK_BO_APPLICATIONS : []).filter(
               (a) =>
                 a.type === "결과보고" &&
                 a.status.startsWith("pending") &&
@@ -484,7 +485,7 @@ function renderTeamDashboard(p) {
     <table class="bo-table">
       <thead><tr><th>과정명</th><th>계정</th><th style="text-align:right">신청액</th><th>유형</th><th>결재 상태</th></tr></thead>
       <tbody>
-        ${MOCK_BO_APPLICATIONS.slice(0, 3)
+        ${(typeof MOCK_BO_APPLICATIONS !== 'undefined' ? MOCK_BO_APPLICATIONS : []).slice(0, 3)
           .map(
             (a) => `
         <tr>

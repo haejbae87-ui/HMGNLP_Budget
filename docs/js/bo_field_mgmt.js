@@ -1,4 +1,4 @@
-﻿// ─── 교육지원 조직 관리 ───────────────────────────────────────────────────────
+// ─── 교육지원 조직 관리 ───────────────────────────────────────────────────────
 // 가상교육조직 중 service_type='edu_support'인 템플릿의 조직 리스트를 표시하고,
 // 각 조직별로 협조처와 담당자를 설정하는 화면
 
@@ -53,14 +53,8 @@ async function renderFieldMgmt() {
   } catch (e) {
     console.warn("[FieldMgmt] DB 로드 실패:", e.message);
   }
-  // 폴백: 목업
-  if (!_fmLoadedTpls.length && typeof VIRTUAL_EDU_ORGS !== "undefined") {
-    _fmLoadedTpls = VIRTUAL_EDU_ORGS.filter(
-      (t) =>
-        t.tenantId === _fmTenantId &&
-        (t.purpose === "edu_support" || t.purpose === "교육지원"),
-    );
-  }
+  // 목업 폴백 제거 (2026-05-13) — DB 전용 모드
+  // _fmLoadedTpls가 빈 배열이면 "교육지원 조직이 없습니다" 안내 표시
 
   // 템플릿 선택이 없거나 현재 테넌트에 없으면 첫 번째로 초기화
   if (!_fmTplId || !_fmLoadedTpls.find((t) => t.id === _fmTplId)) {

@@ -80,9 +80,9 @@ async function renderBoPlanMgmt() {
     }
   }
 
-  // DB 미연결 시 MOCK 폴백
+  // DB 미연결 시 빈 배열 (Mock 폴백 제거 — 2026-05-13)
   if (!_boPlanMgmtData) {
-    _boPlanMgmtData = typeof MOCK_BO_PLANS !== "undefined" ? MOCK_BO_PLANS : [];
+    _boPlanMgmtData = [];
   }
 
   // P2: 수요예측 번들 탭이면 별도 렌더러로 라우팅

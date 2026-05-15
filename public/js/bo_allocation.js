@@ -33,12 +33,11 @@ function renderBoAllocation() {
   // 운영담당자 = 정의된 역할이 budget_op_manager이거나 managedVorgId만 있고 ownedAccounts는 없는 사람
   const isOpOnly = isOp && !isGlobal;
 
-  // 탭 목록: 3탭 구조 (v2 드릴다운)
+  // 탭 목록: 3탭 구조 (최초 할당 → 예산계정 마스터로 이전 완료)
   const allTabs = [
     { label: "📊 배정 현황", fn: "renderAllocOverview", idx: 0 },
-    { label: "🏦 최초 예산 할당", fn: "renderInitialAlloc", idx: 1, globalOnly: true },
-    { label: "📤 예산 배분", fn: "renderBudgetDistribution", idx: 2 },
-    { label: "📜 변경 이력", fn: "renderAllocHistory", idx: 3 },
+    { label: "📤 예산 배분", fn: "renderBudgetDistribution", idx: 1 },
+    { label: "📜 변경 이력", fn: "renderAllocHistory", idx: 2 },
   ];
   const visibleTabs = isOpOnly ? allTabs.filter(t => !t.globalOnly) : allTabs;
 
@@ -62,7 +61,7 @@ function renderBoAllocation() {
     // ★ 초기 로드 완료 — 반드시 현재 탭을 재렌더
     const contentEl = document.getElementById("alloc-content");
     if (contentEl) {
-      const fns = [renderAllocOverview, renderInitialAlloc, renderBudgetDistribution, renderAllocHistory];
+      const fns = [renderAllocOverview, renderBudgetDistribution, renderAllocHistory];
       const fn = fns[_allocTab];
       if (fn) contentEl.innerHTML = fn();
     }
@@ -86,13 +85,11 @@ function renderBoAllocation() {
   <!-- 예산 흐름 안내 -->
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:20px;padding:10px 16px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;font-size:12px;color:#065F46;font-weight:600;flex-wrap:wrap">
     <span>📌 예산 흐름:</span>
-    <span style="background:#DBEAFE;color:#1E40AF;padding:2px 8px;border-radius:6px">ⓘ 기초 예산 등록</span>
+    <span style="background:#F3F4F6;color:#6B7280;padding:2px 8px;border-radius:6px" title="예산계정 마스터에서 관리">🏦 기초/추가 배정 (예산계정 마스터)</span>
     <span style="color:#9CA3AF">→</span>
-    <span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:6px">ⓙ 계정 추가 배정 (연중 증액)</span>
+    <span style="background:#D1FAE5;color:#065F46;padding:2px 8px;border-radius:6px">ⓐ 팀 배분 (배분가능 재원 → 팀)</span>
     <span style="color:#9CA3AF">→</span>
-    <span style="background:#D1FAE5;color:#065F46;padding:2px 8px;border-radius:6px">ⓚ 팀 배분 (배분가능 재원 → 팀)</span>
-    <span style="color:#9CA3AF">→</span>
-    <span style="background:#EDE9FE;color:#5B21B6;padding:2px 8px;border-radius:6px">ⓛ 팀별 집행 관리</span>
+    <span style="background:#EDE9FE;color:#5B21B6;padding:2px 8px;border-radius:6px">ⓑ 팀별 집행 관리</span>
   </div>
 
   ${isOpOnly ? `
@@ -129,31 +126,24 @@ function showAllocTab(idx) {
   showAllocTabByIdx(idx);
 }
 
-// v2: 탭 전환
+// v2: 탭 전환 (3탭 체계: 최초 할당 → 예산계정 마스터 이전 완료)
 function showAllocTabByIdx(idx) {
   const persona = typeof boCurrentPersona !== 'undefined' ? boCurrentPersona : null;
   const isGlobal = typeof boIsGlobalAdmin === 'function' ? boIsGlobalAdmin() : isGlobalAdmin(persona);
   const isOp = typeof boIsOpManager === 'function' ? boIsOpManager() : isOpManager(persona);
   const isOpOnly = isOp && !isGlobal;
 
-  // 운영담당자: 총괄 전용 탭 차단
-  if (isOpOnly && idx === 1) {
-    alert('총괄담당자만 사용할 수 있는 메뉴입니다.');
-    return;
-  }
-
   _allocTab = idx;
-  [0, 1, 2, 3].forEach(i => {
+  [0, 1, 2].forEach(i => {
     const t = document.getElementById(`alloc-tab-${i}`);
     if (!t) return;
     t.style.color = i === idx ? '#059669' : '#9CA3AF';
     t.style.borderBottom = i === idx ? '3px solid #059669' : '3px solid transparent';
   });
 
-  // 탭 2(배분) 진입 시 드릴다운 초기화
-  if (idx === 2) {
+  // 탭 1(배분) 진입 시 드릴다운 초기화
+  if (idx === 1) {
     _ddLevel = 0; _ddOrgId = null; _ddOrgName = null;
-    // _ddAbId: 현재 계정 유지, 없으면 첫 번째 계정으로 초기화
     const _myBudgets = typeof getPersonaAccountBudgets === 'function' ? getPersonaAccountBudgets(persona) : [];
     if (!_ddAbId || !_myBudgets.find(b => b.id === _ddAbId)) {
       _ddAbId = _myBudgets[0]?.id || null;
@@ -167,7 +157,6 @@ function showAllocTabByIdx(idx) {
 
   const fns = [
     renderAllocOverview,
-    renderInitialAlloc,
     renderBudgetDistribution,
     renderAllocHistory,
   ];
@@ -344,7 +333,7 @@ async function _allocRefresh() {
     // 4) 현재 탭 재렌더
     const contentEl = document.getElementById('alloc-content');
     if (contentEl) {
-      const fns = [renderAllocOverview, renderInitialAlloc, renderBudgetDistribution, renderAllocHistory];
+      const fns = [renderAllocOverview, renderBudgetDistribution, renderAllocHistory];
       const fn = fns[_allocTab];
       if (fn) contentEl.innerHTML = fn();
     }

@@ -33,13 +33,12 @@ function renderBoAllocation() {
   // 운영담당자 = 정의된 역할이 budget_op_manager이거나 managedVorgId만 있고 ownedAccounts는 없는 사람
   const isOpOnly = isOp && !isGlobal;
 
-  // 탭 목록: 3탭 구조 (최초 할당 → 예산계정 마스터로 이전 완료)
+  // 탭 목록: 2탭 구조 (배정 현황을 예산 배분에 통합 완료)
   const allTabs = [
-    { label: "📊 배정 현황", fn: "renderAllocOverview", idx: 0 },
-    { label: "📤 예산 배분", fn: "renderBudgetDistribution", idx: 1 },
-    { label: "📜 변경 이력", fn: "renderAllocHistory", idx: 2 },
+    { label: "📤 예산 배분", fn: "renderBudgetDistribution", idx: 0 },
+    { label: "📜 변경 이력", fn: "renderAllocHistory", idx: 1 },
   ];
-  const visibleTabs = isOpOnly ? allTabs.filter(t => !t.globalOnly) : allTabs;
+  const visibleTabs = allTabs;
 
   // 역할 라벨
   const roleLabel = typeof getRoleLabel === 'function' ? getRoleLabel(persona) : (isOpOnly ? '운영담당자' : '총괄담당자');
@@ -61,7 +60,7 @@ function renderBoAllocation() {
     // ★ 초기 로드 완료 — 반드시 현재 탭을 재렌더
     const contentEl = document.getElementById("alloc-content");
     if (contentEl) {
-      const fns = [renderAllocOverview, renderBudgetDistribution, renderAllocHistory];
+      const fns = [renderBudgetDistribution, renderAllocHistory];
       const fn = fns[_allocTab];
       if (fn) contentEl.innerHTML = fn();
     }
@@ -126,7 +125,7 @@ function showAllocTab(idx) {
   showAllocTabByIdx(idx);
 }
 
-// v2: 탭 전환 (3탭 체계: 최초 할당 → 예산계정 마스터 이전 완료)
+// v2: 탭 전환 (2탭 체계: 배정 현황을 예산 배분에 통합 완료)
 function showAllocTabByIdx(idx) {
   const persona = typeof boCurrentPersona !== 'undefined' ? boCurrentPersona : null;
   const isGlobal = typeof boIsGlobalAdmin === 'function' ? boIsGlobalAdmin() : isGlobalAdmin(persona);
@@ -134,15 +133,15 @@ function showAllocTabByIdx(idx) {
   const isOpOnly = isOp && !isGlobal;
 
   _allocTab = idx;
-  [0, 1, 2].forEach(i => {
+  [0, 1].forEach(i => {
     const t = document.getElementById(`alloc-tab-${i}`);
     if (!t) return;
     t.style.color = i === idx ? '#059669' : '#9CA3AF';
     t.style.borderBottom = i === idx ? '3px solid #059669' : '3px solid transparent';
   });
 
-  // 탭 1(배분) 진입 시 드릴다운 초기화
-  if (idx === 1) {
+  // 탭 0(예산 배분) 진입 시 드릴다운 초기화
+  if (idx === 0) {
     _ddLevel = 0; _ddOrgId = null; _ddOrgName = null;
     const _myBudgets = typeof getPersonaAccountBudgets === 'function' ? getPersonaAccountBudgets(persona) : [];
     if (!_ddAbId || !_myBudgets.find(b => b.id === _ddAbId)) {
@@ -156,7 +155,6 @@ function showAllocTabByIdx(idx) {
   }
 
   const fns = [
-    renderAllocOverview,
     renderBudgetDistribution,
     renderAllocHistory,
   ];
@@ -944,7 +942,7 @@ function renderAbDetail(ab) {
 
   const _distribRow =
     distributable > 0
-      ? '<div style="margin-top:8px;display:flex;gap:8px"><button onclick="showAllocTab(2)" style="font-size:11px;padding:4px 12px;background:#059669;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700">📋 팀 배분하기 →</button><span style="font-size:11px;color:#059669;font-weight:600;align-self:center">미배분 ' +
+      ? '<div style="margin-top:8px;display:flex;gap:8px"><button onclick="showAllocTab(0)" style="font-size:11px;padding:4px 12px;background:#059669;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700">📋 팀 배분하기 →</button><span style="font-size:11px;color:#059669;font-weight:600;align-self:center">미배분 ' +
         boFmt(distributable) +
         "원 배분 가능</span></div>"
       : "";

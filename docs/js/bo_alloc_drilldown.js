@@ -177,6 +177,12 @@ function _renderDDLevel0() {
         <td style="text-align:right;padding:14px 16px;font-size:13px;font-weight:700;color:${currentAlloc > 0 ? '#1D4ED8' : '#9CA3AF'}">
           ${currentAlloc > 0 ? boFmt(currentAlloc) + '원' : '—'}
         </td>
+        <td style="text-align:right;padding:14px 12px;font-size:12px;font-weight:700;color:${(orgSpent + orgReserved) > 0 ? '#EF4444' : '#9CA3AF'}">
+          ${(orgSpent + orgReserved) > 0 ? boFmt(orgSpent + orgReserved) + '원' : '—'}
+        </td>
+        <td style="text-align:right;padding:14px 12px;font-size:12px;font-weight:700;color:${(() => { const avail = currentAlloc - orgSpent - orgReserved; return avail > 0 ? '#059669' : avail < 0 ? '#EF4444' : '#9CA3AF'; })()}">
+          ${currentAlloc > 0 ? boFmt(currentAlloc - orgSpent - orgReserved) + '원' : '—'}
+        </td>
         <td style="padding:10px 12px">
           <div style="position:relative">
             <input type="number" id="${inputId}" placeholder="0" oninput="calcDDRemain()" min="0"
@@ -238,47 +244,49 @@ function _renderDDLevel0() {
   <!-- 계정 선택 탭 -->
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">${acctTabs}</div>
 
-  <!-- Master Bankbook Dashboard 카드 -->
-  <div style="background:linear-gradient(135deg,#1E3A5F 0%,#0F2744 60%,#0A1E36 100%);
-              border-radius:16px;padding:24px 28px;margin-bottom:20px;color:white;
-              box-shadow:0 8px 32px rgba(15,39,68,.35)">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
-      <span style="font-size:22px">🏛️</span>
-      <div>
-        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.1em;text-transform:uppercase">Master Bankbook Dashboard</div>
-        <div style="font-size:18px;font-weight:900;color:white">${acct?.name || ab.accountCode}</div>
+  <!-- 예산 요약 카드 (기초+추가=총예산−배분=잔액) -->
+  <div style="background:white;border-radius:16px;border:1.5px solid #E5E7EB;padding:20px 24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.04)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <span style="font-size:16px">🏦</span>
+      <span style="font-size:14px;font-weight:900;color:#111">${acct?.name || ab.accountCode}</span>
+      <code style="font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;
+        background:${isSAP ? '#DBEAFE' : '#FFEDD5'};color:${isSAP ? '#1E40AF' : '#9A3412'}">${ab.accountCode}</code>
+      <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:${isSAP ? '#EFF6FF' : '#FFF7ED'};color:${isSAP ? '#1D4ED8' : '#C2410C'}">${isSAP ? '🔗 SAP I/F' : '✏️ 자체관리'}</span>
+      <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:#F3F4F6;color:#6B7280">${_allocYear}년</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div style="text-align:center;background:#FFF7ED;padding:8px 14px;border-radius:10px">
+        <div style="font-size:10px;color:#92400E;font-weight:700">기초 배정</div>
+        <div style="font-weight:900;font-size:15px;color:#92400E">${boFmt(ab.baseAmount)}</div>
       </div>
-      <div style="margin-left:auto">
-        <span style="padding:4px 10px;border-radius:8px;font-size:10px;font-weight:800;
-          background:${isSAP ? 'rgba(59,130,246,.3)' : 'rgba(245,158,11,.3)'};
-          color:${isSAP ? '#93C5FD' : '#FCD34D'}">
-          ${isSAP ? '🔗 SAP I/F' : '✏️ 자체관리'}
-        </span>
+      <div style="color:#059669;font-weight:900;font-size:16px">+</div>
+      <div style="text-align:center;background:#F0FDF4;padding:8px 14px;border-radius:10px">
+        <div style="font-size:10px;color:#059669;font-weight:700">추가 배정</div>
+        <div style="font-weight:900;font-size:15px;color:#059669">+${boFmt(ab.totalAdded)}</div>
+      </div>
+      <div style="color:#374151;font-weight:900;font-size:16px">=</div>
+      <div style="text-align:center;background:#EFF6FF;padding:8px 14px;border-radius:10px;border:2px solid #BFDBFE">
+        <div style="font-size:10px;color:#1D4ED8;font-weight:700">총 예산</div>
+        <div style="font-weight:900;font-size:16px;color:#1D4ED8">${boFmt(totalBudget)}</div>
+      </div>
+      <div style="color:#374151;font-weight:900;font-size:16px">−</div>
+      <div style="text-align:center;padding:8px 14px">
+        <div style="font-size:10px;color:#6B7280;font-weight:700">배분 완료</div>
+        <div style="font-weight:900;font-size:15px;color:#374151">${boFmt(allDist)}</div>
+      </div>
+      <div style="color:#374151;font-weight:900;font-size:16px">=</div>
+      <div style="text-align:center;background:${distributable > 0 ? '#F0FDF4' : '#FEF2F2'};padding:8px 14px;border-radius:10px;border:2px solid ${distributable > 0 ? '#BBF7D0' : '#FECACA'}">
+        <div style="font-size:10px;color:${distributable > 0 ? '#059669' : '#EF4444'};font-weight:700">📦 미배분 잔액</div>
+        <div style="font-weight:900;font-size:16px;color:${distributable > 0 ? '#059669' : '#EF4444'}">${boFmt(distributable)}</div>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px">
-      <div style="background:rgba(255,255,255,.07);border-radius:12px;padding:14px 16px">
-        <div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:700;margin-bottom:4px">계정 코드</div>
-        <div style="font-size:15px;font-weight:900;color:white">${ab.accountCode}</div>
+    <div style="margin-top:14px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:11px;color:#6B7280">
+        <span>배분율: <b style="color:#374151">${burnPct.toFixed(0)}%</b></span>
+        <span>소진율: <b style="color:${(() => { const flatT = TEAM_DIST.filter(t => t.accountBudgetId === ab.id); const sp = flatT.reduce((s,t) => s+t.spent,0); const rs = flatT.reduce((s,t) => s+t.reserved,0); const p = totalBudget > 0 ? ((sp+rs)/totalBudget*100) : 0; return p >= 90 ? '#EF4444' : p >= 70 ? '#F59E0B' : '#059669'; })()}">${(() => { const flatT = TEAM_DIST.filter(t => t.accountBudgetId === ab.id); const sp = flatT.reduce((s,t) => s+t.spent,0); const rs = flatT.reduce((s,t) => s+t.reserved,0); return totalBudget > 0 ? ((sp+rs)/totalBudget*100).toFixed(0) : '0'; })()}%</b></span>
       </div>
-      <div style="background:rgba(255,255,255,.07);border-radius:12px;padding:14px 16px">
-        <div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:700;margin-bottom:4px">총 배정예산</div>
-        <div style="font-size:15px;font-weight:900;color:#60A5FA">${boFmt(totalBudget)}원</div>
-      </div>
-      <div style="background:rgba(255,255,255,.07);border-radius:12px;padding:14px 16px">
-        <div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:700;margin-bottom:4px">배분 가능 예산</div>
-        <div style="font-size:15px;font-weight:900;color:${distributable > 0 ? '#34D399' : '#F87171'}">${boFmt(distributable)}원</div>
-      </div>
-    </div>
-    <!-- 배분 현황 바 -->
-    <div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:11px;color:rgba(255,255,255,.6)">
-        <span>이미 배분된 금액: <b style="color:white">${boFmt(allDist)}원</b></span>
-        <span style="font-weight:800;color:${burnPct >= 90 ? '#F87171' : '#34D399'}">${burnPct.toFixed(0)}%</span>
-      </div>
-      <div style="height:10px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden">
-        <div style="height:100%;background:linear-gradient(90deg,#34D399,#059669);
-                    width:${burnPct.toFixed(0)}%;border-radius:99px;transition:width .5s ease"></div>
+      <div style="height:8px;background:#E5E7EB;border-radius:99px;overflow:hidden">
+        <div style="height:100%;background:linear-gradient(90deg,#059669,#34D399);width:${burnPct.toFixed(0)}%;border-radius:99px;transition:width .5s ease"></div>
       </div>
     </div>
   </div>
@@ -296,9 +304,10 @@ function _renderDDLevel0() {
       <thead>
         <tr style="background:#F9FAFB">
           <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.05em">교육조직</th>
-          <th style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase">현재 배정</th>
+          <th style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase">배정액</th>
+          <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase">소진(집행+가점유)</th>
+          <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase">가용잔액</th>
           <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase">추가 배분</th>
-          <th style="padding:10px 12px;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase">배분 후</th>
           <th style="padding:10px 16px;text-align:center;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase">소진율</th>
           <th style="padding:10px 16px;text-align:center;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase">드릴다운</th>
         </tr>

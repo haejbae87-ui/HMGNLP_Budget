@@ -86,33 +86,10 @@ function _renderDDLevel0() {
   }
   const ab = _ddAbId ? ACCOUNT_BUDGETS.find(x => x.id === _ddAbId) : null;
 
-  // 계정 선택 탭 (상단)
-  const acctTabs = myBudgets.map(b => {
-    const a = ACCOUNT_MASTER.find(x => x.code === b.accountCode);
-    const isSel = b.id === _ddAbId;
-    const distrib = getDistributable(b);
-    const isSAP = b.sourceType === 'sap_if';
-    return `<button onclick="ddSelectAccount('${b.id}')" style="
-      padding:10px 16px;border-radius:10px;cursor:pointer;text-align:left;
-      border:2px solid ${isSel ? '#059669' : '#E5E7EB'};
-      background:${isSel ? '#F0FDF4' : 'white'};
-      box-shadow:${isSel ? '0 0 0 3px #BBF7D0' : 'none'};min-width:140px">
-      <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
-        <code style="font-size:9px;font-weight:900;padding:1px 5px;border-radius:4px;
-          background:${isSAP ? '#DBEAFE' : '#FFEDD5'};color:${isSAP ? '#1E40AF' : '#9A3412'}">${b.accountCode}</code>
-        ${isSel ? '<span style="color:#059669;font-size:12px">✓</span>' : ''}
-      </div>
-      <div style="font-size:12px;font-weight:800;color:${isSel ? '#059669' : '#374151'}">${a?.name || b.accountCode}</div>
-      <div style="font-size:10px;color:${distrib > 0 ? '#059669' : '#9CA3AF'};margin-top:1px">
-        ${distrib > 0 ? '📦 ' + boFmt(distrib) + '원' : '완전 배분'}
-      </div>
-    </button>`;
-  }).join('');
-
+  // 계정 선택 탭 제거됨 — 상단 필터의 '계정' 드롭다운으로 통일
   if (!ab) return `<div>
     ${_ddBreadcrumb(null)}
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">${acctTabs}</div>
-    <div style="padding:60px;text-align:center;color:#9CA3AF;font-size:14px">계정을 선택하세요.</div>
+    <div style="padding:60px;text-align:center;color:#9CA3AF;font-size:14px">선택된 계정에 해당하는 예산 데이터가 없습니다.</div>
   </div>`;
 
   const acct = ACCOUNT_MASTER.find(a => a.code === ab.accountCode);
@@ -252,8 +229,7 @@ function _renderDDLevel0() {
 
   const html_l0 = `<div>
   ${_ddBreadcrumb(ab)}
-  <!-- 계정 선택 탭 -->
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">${acctTabs}</div>
+
 
   <!-- 예산 요약 카드 v3: 2-Section (총 예산 구성 | 예산 사용 현황) -->
   <div style="background:white;border-radius:16px;border:1.5px solid #E5E7EB;padding:20px 24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.04)">

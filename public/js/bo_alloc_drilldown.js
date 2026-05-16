@@ -396,6 +396,15 @@ function _renderDDLevel1() {
     return s + tds.reduce((ss, tt) => ss + (tt.allocAmount || 0), 0);
   }, 0);
   const teamDistributable = Math.max(0, orgAlloc - teamsAllocated);
+  // ── Level 1 적층 바용 집계 ──
+  const orgAvailable = Math.max(0, orgAlloc - orgSpent - orgReserved);
+  const l1PctSpent = orgAlloc > 0 ? (orgSpent / orgAlloc) * 100 : 0;
+  const l1PctReserved = orgAlloc > 0 ? (orgReserved / orgAlloc) * 100 : 0;
+  const teamAllocAvail = Math.max(0, teamsAllocated - orgSpent - orgReserved);
+  const l1PctTeamAvail = orgAlloc > 0 ? (teamAllocAvail / orgAlloc) * 100 : 0;
+  const l1PctUndist = orgAlloc > 0 ? (teamDistributable / orgAlloc) * 100 : 0;
+  const l1BurnRate = orgAlloc > 0 ? ((orgSpent + orgReserved) / orgAlloc) * 100 : 0;
+  const l1BurnRateColor = l1BurnRate >= 90 ? '#EF4444' : l1BurnRate >= 70 ? '#F59E0B' : '#059669';
 
   // 팀 행
   let tableRows = '';
@@ -465,29 +474,77 @@ function _renderDDLevel1() {
   const html_l1 = `<div>
   ${_ddBreadcrumb(ab, vg.name)}
 
-  <!-- Organization Bankbook 카드 -->
-  <div style="background:linear-gradient(135deg,#059669,#047857);border-radius:16px;padding:22px 24px;margin-bottom:20px;color:white;box-shadow:0 8px 24px rgba(5,150,105,.3)">
-    <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px">Organization Bankbook</div>
-    <div style="font-size:20px;font-weight:900;margin-bottom:16px">${vg.name}</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
-      <div style="background:rgba(255,255,255,.12);border-radius:10px;padding:12px">
-        <div style="font-size:10px;color:rgba(255,255,255,.6);margin-bottom:4px">배정 받은 예산</div>
-        <div style="font-size:16px;font-weight:900">${boFmt(orgAlloc)}원</div>
-      </div>
-      <div style="background:rgba(255,255,255,.12);border-radius:10px;padding:12px">
-        <div style="font-size:10px;color:rgba(255,255,255,.6);margin-bottom:4px">이미 배분</div>
-        <div style="font-size:16px;font-weight:900">${boFmt(teamsAllocated)}원</div>
-      </div>
-      <div style="background:rgba(255,255,255,.15);border-radius:10px;padding:12px;border:1.5px solid rgba(255,255,255,.3)">
-        <div style="font-size:10px;color:rgba(255,255,255,.7);margin-bottom:4px;font-weight:700">배분 가능</div>
-        <div style="font-size:16px;font-weight:900">${boFmt(teamDistributable)}원</div>
-      </div>
+  <!-- 교육조직 예산 요약 카드 v3: 2-Section (배정 구성 | 예산 사용 현황) -->
+  <div style="background:white;border-radius:16px;border:1.5px solid #E5E7EB;padding:20px 24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.04)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <span style="font-size:16px">🏢</span>
+      <span style="font-size:14px;font-weight:900;color:#111">${vg.name}</span>
+      <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:#F0FDF4;color:#059669">교육조직 통장</span>
+      <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:#F3F4F6;color:#6B7280">${(vg.teams || []).length}개 팀</span>
     </div>
-    <div>
-      <div style="height:8px;background:rgba(255,255,255,.15);border-radius:99px;overflow:hidden">
-        <div style="height:100%;background:rgba(255,255,255,.8);width:${orgBurnPct.toFixed(0)}%;border-radius:99px;transition:width .4s"></div>
+    <!-- 2-Section 레이아웃 -->
+    <div style="display:flex;gap:20px;align-items:stretch">
+      <!-- 왼쪽: 배정 구성 -->
+      <div style="flex:0 0 220px;min-width:180px">
+        <div style="font-size:10px;font-weight:700;color:#9CA3AF;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">배정 구성</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="background:#EFF6FF;padding:10px 12px;border-radius:8px;border:1.5px solid #BFDBFE;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11px;color:#1D4ED8;font-weight:700">교육조직 배정액</span>
+            <span style="font-weight:900;font-size:15px;color:#1D4ED8">${boFmt(orgAlloc)}</span>
+          </div>
+          <div style="background:#F0FDF4;padding:8px 12px;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11px;color:#059669;font-weight:700">팀 배분 완료</span>
+            <span style="font-weight:900;font-size:13px;color:#059669">${boFmt(teamsAllocated)}</span>
+          </div>
+          <div style="background:${teamDistributable > 0 ? '#FFF7ED' : '#F9FAFB'};padding:8px 12px;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11px;color:${teamDistributable > 0 ? '#92400E' : '#9CA3AF'};font-weight:700">배분 가능</span>
+            <span style="font-weight:900;font-size:13px;color:${teamDistributable > 0 ? '#92400E' : '#9CA3AF'}">${boFmt(teamDistributable)}</span>
+          </div>
+        </div>
       </div>
-      <div style="text-align:right;font-size:11px;color:rgba(255,255,255,.7);margin-top:4px;font-weight:700">${orgBurnPct.toFixed(0)}%</div>
+      <!-- 세로 구분선 -->
+      <div style="width:1px;background:#E5E7EB;margin:0 4px"></div>
+      <!-- 오른쪽: 예산 사용 현황 -->
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;font-weight:700;color:#9CA3AF;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">예산 사용 현황</div>
+        <!-- 적층 바 -->
+        <div style="height:32px;border-radius:10px;overflow:hidden;display:flex;background:#F3F4F6;margin-bottom:12px">
+          ${l1PctSpent > 0 ? '<div style="background:#DC2626;height:100%;width:'+l1PctSpent.toFixed(1)+'%;min-width:3px;display:flex;align-items:center;justify-content:center;transition:width .4s">'+(l1PctSpent > 6 ? '<span style="font-size:10px;font-weight:800;color:white;white-space:nowrap">'+boFmt(orgSpent)+'</span>' : '')+'</div>' : ''}
+          ${l1PctReserved > 0 ? '<div style="background:#F59E0B;height:100%;width:'+l1PctReserved.toFixed(1)+'%;min-width:3px;display:flex;align-items:center;justify-content:center;transition:width .4s">'+(l1PctReserved > 6 ? '<span style="font-size:10px;font-weight:800;color:white;white-space:nowrap">'+boFmt(orgReserved)+'</span>' : '')+'</div>' : ''}
+          ${l1PctTeamAvail > 0 ? '<div style="background:#059669;height:100%;width:'+l1PctTeamAvail.toFixed(1)+'%;display:flex;align-items:center;justify-content:center;transition:width .4s">'+(l1PctTeamAvail > 8 ? '<span style="font-size:10px;font-weight:800;color:white;white-space:nowrap">'+boFmt(teamAllocAvail)+'</span>' : '')+'</div>' : ''}
+          <div style="background:#E5E7EB;height:100%;flex:1;display:flex;align-items:center;justify-content:center">
+            ${l1PctUndist > 8 ? '<span style="font-size:10px;font-weight:800;color:#9CA3AF;white-space:nowrap">'+boFmt(teamDistributable)+'</span>' : ''}
+          </div>
+        </div>
+        <!-- 범례 -->
+        <div style="display:flex;flex-wrap:wrap;gap:10px 18px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;border-radius:3px;background:#DC2626;flex-shrink:0"></span>
+            <span style="font-size:11px;color:#6B7280;font-weight:600">집행 확정</span>
+            <span style="font-size:12px;font-weight:800;color:#DC2626">${boFmt(orgSpent)}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;border-radius:3px;background:#F59E0B;flex-shrink:0"></span>
+            <span style="font-size:11px;color:#6B7280;font-weight:600">약정(홀딩)</span>
+            <span style="font-size:12px;font-weight:800;color:#B45309">${boFmt(orgReserved)}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;border-radius:3px;background:#059669;flex-shrink:0"></span>
+            <span style="font-size:11px;color:#6B7280;font-weight:600">가용 예산</span>
+            <span style="font-size:12px;font-weight:800;color:#059669">${boFmt(teamAllocAvail)}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;border-radius:3px;background:#E5E7EB;border:1px solid #D1D5DB;flex-shrink:0"></span>
+            <span style="font-size:11px;color:#6B7280;font-weight:600">배분 가능</span>
+            <span style="font-size:12px;font-weight:800;color:#6B7280">${boFmt(teamDistributable)}</span>
+          </div>
+        </div>
+        <!-- 배분율/소진율 -->
+        <div style="display:flex;gap:16px;font-size:11px;color:#9CA3AF">
+          <span>팀 배분율: <b style="color:#374151">${orgAlloc > 0 ? ((teamsAllocated / orgAlloc) * 100).toFixed(0) : 0}%</b></span>
+          <span>소진율: <b style="color:${l1BurnRateColor}">${l1BurnRate.toFixed(0)}%</b></span>
+        </div>
+      </div>
     </div>
   </div>
 

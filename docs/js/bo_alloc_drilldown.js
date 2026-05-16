@@ -120,6 +120,17 @@ function _renderDDLevel0() {
   const allDist = TEAM_DIST.filter(t => t.accountBudgetId === ab.id).reduce((s, t) => s + t.allocAmount, 0);
   const distributable = getDistributable(ab);
   const burnPct = totalBudget > 0 ? Math.min((allDist / totalBudget) * 100, 100) : 0;
+  // ── 예산 사용 현황 집계 (적층 바용) ──
+  const _flatTD = TEAM_DIST.filter(t => t.accountBudgetId === ab.id);
+  const totalSpent = _flatTD.reduce((s, t) => s + (t.spent || 0), 0);
+  const totalReserved = _flatTD.reduce((s, t) => s + (t.reserved || 0), 0);
+  const totalAvailable = Math.max(0, allDist - totalSpent - totalReserved);
+  const pctSpent = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+  const pctReserved = totalBudget > 0 ? (totalReserved / totalBudget) * 100 : 0;
+  const pctAvailable = totalBudget > 0 ? (totalAvailable / totalBudget) * 100 : 0;
+  const pctUndist = totalBudget > 0 ? (distributable / totalBudget) * 100 : 0;
+  const burnRate = totalBudget > 0 ? ((totalSpent + totalReserved) / totalBudget) * 100 : 0;
+  const burnRateColor = burnRate >= 90 ? '#EF4444' : burnRate >= 70 ? '#F59E0B' : '#059669';
   const isSAP = ab.sourceType === 'sap_if';
   const isRnd = ab.accountCode.includes('RND');
   // 수정: (1) ab.templateId 우선, (2) 필터에서 선택된 _allocFilterTplId 보조 fallback (타이밍 문제 방어)
@@ -244,9 +255,9 @@ function _renderDDLevel0() {
   <!-- 계정 선택 탭 -->
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">${acctTabs}</div>
 
-  <!-- 예산 요약 카드 (기초+추가=총예산−배분=잔액) -->
+  <!-- 예산 요약 카드 v3: 2-Section (총 예산 구성 | 예산 사용 현황) -->
   <div style="background:white;border-radius:16px;border:1.5px solid #E5E7EB;padding:20px 24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.04)">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
       <span style="font-size:16px">🏦</span>
       <span style="font-size:14px;font-weight:900;color:#111">${acct?.name || ab.accountCode}</span>
       <code style="font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;
@@ -254,39 +265,68 @@ function _renderDDLevel0() {
       <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:${isSAP ? '#EFF6FF' : '#FFF7ED'};color:${isSAP ? '#1D4ED8' : '#C2410C'}">${isSAP ? '🔗 SAP I/F' : '✏️ 자체관리'}</span>
       <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:#F3F4F6;color:#6B7280">${_allocYear}년</span>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <div style="text-align:center;background:#FFF7ED;padding:8px 14px;border-radius:10px">
-        <div style="font-size:10px;color:#92400E;font-weight:700">기초 배정</div>
-        <div style="font-weight:900;font-size:15px;color:#92400E">${boFmt(ab.baseAmount)}</div>
+    <!-- 2-Section 레이아웃 -->
+    <div style="display:flex;gap:20px;align-items:stretch">
+      <!-- 왼쪽: 총 예산 구성 -->
+      <div style="flex:0 0 240px;min-width:200px">
+        <div style="font-size:10px;font-weight:700;color:#9CA3AF;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">총 예산 구성</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="background:#FFF7ED;padding:8px 12px;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11px;color:#92400E;font-weight:700">기초 배정</span>
+            <span style="font-weight:900;font-size:13px;color:#92400E">${boFmt(ab.baseAmount)}</span>
+          </div>
+          <div style="background:#F0FDF4;padding:8px 12px;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11px;color:#059669;font-weight:700">추가 배정</span>
+            <span style="font-weight:900;font-size:13px;color:#059669">+${boFmt(ab.totalAdded)}</span>
+          </div>
+          <div style="background:#EFF6FF;padding:10px 12px;border-radius:8px;border:1.5px solid #BFDBFE;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11px;color:#1D4ED8;font-weight:700">총 예산</span>
+            <span style="font-weight:900;font-size:15px;color:#1D4ED8">${boFmt(totalBudget)}</span>
+          </div>
+        </div>
       </div>
-      <div style="color:#059669;font-weight:900;font-size:16px">+</div>
-      <div style="text-align:center;background:#F0FDF4;padding:8px 14px;border-radius:10px">
-        <div style="font-size:10px;color:#059669;font-weight:700">추가 배정</div>
-        <div style="font-weight:900;font-size:15px;color:#059669">+${boFmt(ab.totalAdded)}</div>
-      </div>
-      <div style="color:#374151;font-weight:900;font-size:16px">=</div>
-      <div style="text-align:center;background:#EFF6FF;padding:8px 14px;border-radius:10px;border:2px solid #BFDBFE">
-        <div style="font-size:10px;color:#1D4ED8;font-weight:700">총 예산</div>
-        <div style="font-weight:900;font-size:16px;color:#1D4ED8">${boFmt(totalBudget)}</div>
-      </div>
-      <div style="color:#374151;font-weight:900;font-size:16px">−</div>
-      <div style="text-align:center;padding:8px 14px">
-        <div style="font-size:10px;color:#6B7280;font-weight:700">배분 완료</div>
-        <div style="font-weight:900;font-size:15px;color:#374151">${boFmt(allDist)}</div>
-      </div>
-      <div style="color:#374151;font-weight:900;font-size:16px">=</div>
-      <div style="text-align:center;background:${distributable > 0 ? '#F0FDF4' : '#FEF2F2'};padding:8px 14px;border-radius:10px;border:2px solid ${distributable > 0 ? '#BBF7D0' : '#FECACA'}">
-        <div style="font-size:10px;color:${distributable > 0 ? '#059669' : '#EF4444'};font-weight:700">📦 미배분 잔액</div>
-        <div style="font-weight:900;font-size:16px;color:${distributable > 0 ? '#059669' : '#EF4444'}">${boFmt(distributable)}</div>
-      </div>
-    </div>
-    <div style="margin-top:14px">
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:11px;color:#6B7280">
-        <span>배분율: <b style="color:#374151">${burnPct.toFixed(0)}%</b></span>
-        <span>소진율: <b style="color:${(() => { const flatT = TEAM_DIST.filter(t => t.accountBudgetId === ab.id); const sp = flatT.reduce((s,t) => s+t.spent,0); const rs = flatT.reduce((s,t) => s+t.reserved,0); const p = totalBudget > 0 ? ((sp+rs)/totalBudget*100) : 0; return p >= 90 ? '#EF4444' : p >= 70 ? '#F59E0B' : '#059669'; })()}">${(() => { const flatT = TEAM_DIST.filter(t => t.accountBudgetId === ab.id); const sp = flatT.reduce((s,t) => s+t.spent,0); const rs = flatT.reduce((s,t) => s+t.reserved,0); return totalBudget > 0 ? ((sp+rs)/totalBudget*100).toFixed(0) : '0'; })()}%</b></span>
-      </div>
-      <div style="height:8px;background:#E5E7EB;border-radius:99px;overflow:hidden">
-        <div style="height:100%;background:linear-gradient(90deg,#059669,#34D399);width:${burnPct.toFixed(0)}%;border-radius:99px;transition:width .5s ease"></div>
+      <!-- 세로 구분선 -->
+      <div style="width:1px;background:#E5E7EB;margin:0 4px"></div>
+      <!-- 오른쪽: 예산 사용 현황 -->
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;font-weight:700;color:#9CA3AF;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">예산 사용 현황</div>
+        <!-- 적층 바 (Stacked Bar) -->
+        <div style="height:32px;border-radius:10px;overflow:hidden;display:flex;background:#F3F4F6;margin-bottom:12px">
+          ${pctSpent > 0 ? '<div style="background:#DC2626;height:100%;width:'+pctSpent.toFixed(1)+'%;min-width:3px;display:flex;align-items:center;justify-content:center;transition:width .4s">'+(pctSpent > 6 ? '<span style="font-size:10px;font-weight:800;color:white;white-space:nowrap">'+boFmt(totalSpent)+'</span>' : '')+'</div>' : ''}
+          ${pctReserved > 0 ? '<div style="background:#F59E0B;height:100%;width:'+pctReserved.toFixed(1)+'%;min-width:3px;display:flex;align-items:center;justify-content:center;transition:width .4s">'+(pctReserved > 6 ? '<span style="font-size:10px;font-weight:800;color:white;white-space:nowrap">'+boFmt(totalReserved)+'</span>' : '')+'</div>' : ''}
+          ${pctAvailable > 0 ? '<div style="background:#059669;height:100%;width:'+pctAvailable.toFixed(1)+'%;display:flex;align-items:center;justify-content:center;transition:width .4s">'+(pctAvailable > 8 ? '<span style="font-size:10px;font-weight:800;color:white;white-space:nowrap">'+boFmt(totalAvailable)+'</span>' : '')+'</div>' : ''}
+          <div style="background:#E5E7EB;height:100%;flex:1;display:flex;align-items:center;justify-content:center">
+            ${pctUndist > 8 ? '<span style="font-size:10px;font-weight:800;color:#9CA3AF;white-space:nowrap">'+boFmt(distributable)+'</span>' : ''}
+          </div>
+        </div>
+        <!-- 범례 카드 -->
+        <div style="display:flex;flex-wrap:wrap;gap:10px 18px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;border-radius:3px;background:#DC2626;flex-shrink:0"></span>
+            <span style="font-size:11px;color:#6B7280;font-weight:600">집행 확정</span>
+            <span style="font-size:12px;font-weight:800;color:#DC2626">${boFmt(totalSpent)}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;border-radius:3px;background:#F59E0B;flex-shrink:0"></span>
+            <span style="font-size:11px;color:#6B7280;font-weight:600">약정(홀딩)</span>
+            <span style="font-size:12px;font-weight:800;color:#B45309">${boFmt(totalReserved)}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;border-radius:3px;background:#059669;flex-shrink:0"></span>
+            <span style="font-size:11px;color:#6B7280;font-weight:600">가용 예산</span>
+            <span style="font-size:12px;font-weight:800;color:#059669">${boFmt(totalAvailable)}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;border-radius:3px;background:#E5E7EB;border:1px solid #D1D5DB;flex-shrink:0"></span>
+            <span style="font-size:11px;color:#6B7280;font-weight:600">미배분</span>
+            <span style="font-size:12px;font-weight:800;color:#6B7280">${boFmt(distributable)}</span>
+          </div>
+        </div>
+        <!-- 배분율/소진율 -->
+        <div style="display:flex;gap:16px;font-size:11px;color:#9CA3AF">
+          <span>배분율: <b style="color:#374151">${burnPct.toFixed(0)}%</b></span>
+          <span>소진율: <b style="color:${burnRateColor}">${burnRate.toFixed(0)}%</b></span>
+        </div>
       </div>
     </div>
   </div>
